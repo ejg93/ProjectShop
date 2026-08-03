@@ -12,6 +12,7 @@
 | `backend/` | Spring Boot 서버. 권한 판정, 상품·주문 API, 모의 결제 |
 | `frontend/` | Next.js 앱. 로그인, 상품·주문 화면, 관리자 권한 편집 |
 | `docker-compose.yml` | PostgreSQL 컨테이너 정의 |
+| `doc/adr/` | 설계 결정 기록. 무엇을 정했고 무엇과 저울질했는지 |
 
 ## DB 띄우기
 
@@ -38,8 +39,18 @@ docker compose down
 데이터까지 지우려면 `docker compose down -v` 를 쓴다.
 스키마가 꼬였을 때 처음부터 다시 만드는 용도다.
 
+## 백엔드 띄우기
+
+DB가 뜬 뒤에 실행한다. 자세한 건 `backend/README.md`.
+
+```bash
+cd backend
+./gradlew bootRun
+curl localhost:8080/api/health
+```
+
 ## 요구 사항
 
 - Docker Desktop
-- JDK 21 (청크 2부터)
+- JDK 25. `JAVA_HOME` 이 JDK 17 미만이면 Gradle이 안 뜬다
 - Node.js 20 이상 (청크 13부터)

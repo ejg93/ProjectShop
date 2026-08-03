@@ -45,8 +45,13 @@
 |---|---|---|
 | DB 컨테이너 | `docker compose config --quiet` | 종료 코드 0 |
 | DB 컨테이너 | `docker compose up -d` 후 `docker compose ps` | `shop-db` 가 `healthy` |
+| backend | `cd backend && ./gradlew build` | `BUILD SUCCESSFUL` |
+| backend | `./gradlew bootRun` 후 `curl localhost:8080/api/health` | `appliedMigrations` 가 마이그레이션 파일 수와 같음 |
 
-`backend/`·`frontend/` 는 아직 비어 있어서 명령이 없다. 청크 2, 13에서 여기에 추가한다.
+`frontend/` 는 아직 비어 있어서 명령이 없다. 청크 13에서 여기에 추가한다.
+
+이 환경의 `JAVA_HOME` 은 JDK 11을 가리켜서 Gradle이 안 뜬다.
+`JAVA_HOME="C:/Program Files/Java/jdk-25"` 를 앞에 붙여서 돌린다.
 
 돌리지 못했으면 못 돌렸다고 밝힌다. 안 돌려보고 "동작한다"·"빌드 통과"라고 쓰지 않는다.
 
