@@ -4,7 +4,7 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: 청크 1 — 저장소 구조 + Docker Compose
+- **다음에 할 것**: 청크 2 — Spring Boot 기동 + DB 연결
 - **마지막 갱신**: 2026-08-03
 
 세션을 재개하면 이 블록만 보고 판단한다. 아래 이력은 필요할 때만 본다.
@@ -15,6 +15,7 @@
 |---|---|---|---|
 | 2026-08-03 | 0. 저장소 뼈대 | 완료 — `CLAUDE.md`·`PLAN.md`·`PROGRESS.md`·`.gitignore` 생성 | 57841db |
 | 2026-08-03 | 0-1. 대상 확정 | 완료 — 멀티 셀러 쇼핑몰로 확정, `PLAN.md` 재작성, 청크 16개 분할 | |
+| 2026-08-03 | 1. 저장소 구조 + Docker Compose | 완료 — `docker-compose.yml`·`.env.example`·`README.md`·`backend/`·`frontend/` 생성. Postgres 17 컨테이너 `healthy` 확인, `psql` 접속 성공 | |
 
 ## 기록 규칙
 
