@@ -4,7 +4,7 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: 청크 3b — 거부 규칙 스키마
+- **다음에 할 것**: 청크 D2 — 법·정책 요건표 (또는 3b·D1. 셋 다 의존이 풀려 있다)
 - **마지막 갱신**: 2026-08-04
 
 git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.noreply.github.com>` 로 잡았다.
@@ -23,6 +23,7 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-03 | 3. 권한 스키마 | 완료 — `V2__auth_schema.sql`(app_user·role·permission·user_role·role_permission), `V3__auth_seed.sql`(역할 3, 권한 14, 매핑 30행). 기동 시 v3까지 적용, `/api/health` 가 `appliedMigrations: 3` 반환. ADR 0003 기록 | 47e0ebf |
 | 2026-08-03 | 3-1. 계획 확장 | 완료 — 권한 축 4개 추가, 청크 9개(3a·3b·4a·4b·5a·11a·12a·16a·16b) 끼워 넣음. `doc/reference/permission-models.md` 에 Shopify·GitHub 모델 요약, ADR 0004 기록 | |
 | 2026-08-04 | 3a. 셀러 조직 스키마 | 완료 — `V4__seller_org.sql`(seller·seller_member, role.is_org_role, user_role 대리키+seller_id, 소속·역할종류 검증 트리거). 기동 후 `/api/health` 가 `appliedMigrations: 4` 반환. psql 로 트리거 5케이스(소속없음·셀러누락·전역역할에셀러·정상부여·중복) 확인 후 테스트 행 삭제 | 1576aed |
+| 2026-08-04 | 3a-1. 문서 축 추가 | 완료 — 문서·법 요건 청크 6개(D1·D2·2a·3c·10a·13a) 를 `PLAN.md` 에 끼워 넣고 청크 11 의존에 D2 추가. ADR 0005 기록. 문서 작성은 안 했다 | |
 
 ## 기록 규칙
 
