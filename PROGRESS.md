@@ -24,7 +24,7 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-03 | 3-1. 계획 확장 | 완료 — 권한 축 4개 추가, 청크 9개(3a·3b·4a·4b·5a·11a·12a·16a·16b) 끼워 넣음. `doc/reference/permission-models.md` 에 Shopify·GitHub 모델 요약, ADR 0004 기록 | |
 | 2026-08-04 | 3a. 셀러 조직 스키마 | 완료 — `V4__seller_org.sql`(seller·seller_member, role.is_org_role, user_role 대리키+seller_id, 소속·역할종류 검증 트리거). 기동 후 `/api/health` 가 `appliedMigrations: 4` 반환. psql 로 트리거 5케이스(소속없음·셀러누락·전역역할에셀러·정상부여·중복) 확인 후 테스트 행 삭제 | 1576aed |
 | 2026-08-04 | 3a-1. 문서 축 추가 | 완료 — 문서·법 요건 청크 6개(D1·D2·2a·3c·10a·13a) 를 `PLAN.md` 에 끼워 넣고 청크 11 의존에 D2 추가. ADR 0005 기록. 문서 작성은 안 했다 | |
-| 2026-08-04 | 3a-2. 보안·검증 축 추가 | 완료 — 청크 9개(4c·5b·5c·6b·7b·8a·10b·13b·2b) 를 `PLAN.md` 에 끼워 넣음. ADR 0006 기록. 코드 작성은 안 했다 | |
+| 2026-08-04 | 3a-2. 보안·검증 축 추가 | 완료 — 청크 10개(4c·5b·5c·6b·7b·8a·10b·13b·2b·2c) 를 `PLAN.md` 에 끼워 넣음. 7b 응답 형식을 RFC 9457 로 고정. ADR 0006 기록. 코드 작성은 안 했다 | |
 
 ## 기록 규칙
 

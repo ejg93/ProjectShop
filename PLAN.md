@@ -151,6 +151,7 @@ GitHub가 저장소별로 역할을 붙이는 방식과 같다. `scope=seller` �
 | D2 | 법·정책 요건표 | 전자상거래법·개인정보보호법 요건을 조문 단위로 적고, 각 요건이 이 프로젝트의 어느 스키마·화면에 걸리는지 매핑 | 0 |
 | 2 | Spring Boot 기동 + DB 연결 | 의존성, `application.yml`, 헬스체크 API 1개, 마이그레이션 도구 | 1 |
 | 2a | API 문서 자동화 | springdoc-openapi 로 코드에서 스펙을 뽑고 `/api/docs` 로 연다. 손으로 쓴 문서는 코드와 어긋난다 | 2 |
+| 2c | CI | GitHub Actions 가 커밋마다 Postgres 를 띄우고 `gradlew build` 를 돌린다. 손으로 돌리는 테스트는 바쁠 때 건너뛴다 | 2 |
 | 2b | 로그·요청 추적 규약 | 요청마다 추적 ID를 붙이고 로그 레벨과 형식을 한 군데서 정한다. 판정이 왜 그렇게 났는지 로그로 따라갈 수 있어야 한다 | 2 |
 | 3 | 권한 스키마 | `app_user`·`role`·`permission`·`user_role`·`role_permission` 테이블과 초기 데이터 | 2 |
 | 3a | 셀러 조직 스키마 | `seller`·`seller_member` 테이블, `user_role` 에 셀러 참조 추가. 역할 부여에 대상이 생긴다 | 3 |
