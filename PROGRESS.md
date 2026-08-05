@@ -43,6 +43,7 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-05 | D3. 비즈니스 모델 | 완료 — `doc/reference/business-model.md`. 수수료는 셀러 기본 + 상품 예외, 초기 일괄 10%(국내 오픈마켓 4~15% 의 가운데). 요율은 주문 시점 박제, 환불 시 수수료 반환, 정산 월 1회. 정산 후 환불의 음수 잔액 이월이 청크 17 요구사항이 됨. 청크 3c·10·17 에 반영 | |
 | 2026-08-05 | D5. API 설계 규약 | 완료 — `doc/reference/api-guidelines.md`. Zalando 를 따르되 벗어난 것 2개를 맨 위에 명시(오프셋 페이징, 전체 개수 제공 — 둘 다 SHOULD). JSON 은 snake_case(MUST, Jackson 설정 한 줄로 DB 컬럼명과 일치). 마스킹된 필드는 생략하고 `_visible_field_groups` 로 알린다. 403·404 를 자원별로 정함. 상태 변경은 `POST /orders/{id}/cancel` 형태로만. 프론트는 받자마자 camelCase 로 바꿔 쓴다 — 변환 래퍼는 청크 13 | |
 | 2026-08-05 | D8·D9. 금액·식별자 규약 | 완료 — `money-rules.md`(원 단위 정수 저장, 부가세 포함가, 수수료는 **항목별로 버림** — 부분 환불 때 다시 안 나누려고), `identifier-rules.md`(주문번호 = `20260805-4F2K91` 날짜+SecureRandom 난수 6자리, 혼동 문자 제외. 순번을 노출하면 독일 전차 문제로 거래량이 샌다). 청크 6·10 에 반영 | |
+| 2026-08-05 | D4·D13. 도메인 모델·데이터 수명 | 완료 — `domain-model.md`·`data-lifecycle.md`. **수명(`deleted_at`)과 업무 상태(`status`)를 한 컬럼에 섞지 않는다**. 섞으면 복구할 때 이전 상태를 잃고 "살아 있는 것" 조건이 흔들린다. `V8__lifecycle_column.sql` 로 `app_user.withdrawn`·`seller.closed` 를 수명 컬럼으로 옮김. 테스트 36개 통과 | |
 
 ## 기록 규칙
 
