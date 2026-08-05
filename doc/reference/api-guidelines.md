@@ -40,6 +40,33 @@ Java 필드    createdAt, passwordHash, isOrgRole
 
 이름이 바뀌는 자리가 Java 안쪽 하나뿐이라, 로그와 쿼리와 응답을 같은 말로 읽을 수 있다.
 
+```
+로그:   WARN 주문 조회 실패 order_id=4837
+쿼리:   select total_amount from orders where id = 4837
+응답:   { "total_amount": 15000 }
+```
+
+셋을 같은 단어로 찾을 수 있다. 장애를 볼 때 검색어가 하나다.
+
+### 프론트는 camelCase 를 쓴다
+
+API 경계까지가 `snake_case` 고, 프론트는 받자마자 바꿔서 JS 관례대로 쓴다.
+
+```
+백엔드 ──snake──> API ──snake──> 변환 레이어 ──camel──> 프론트 코드
+```
+
+**변환은 한 곳에서만 한다.** `fetch` 를 감싼 함수 하나를 두고, 그것을 거치지 않는 호출을 금지한다.
+두 곳에서 변환하면 어떤 응답은 바뀌고 어떤 것은 안 바뀌어서 추적이 안 된다.
+
+이 결정은 프론트 안쪽 일이라 **백엔드는 몰라도 된다.** 청크 13(프론트 골격)에서 래퍼를 만들 때 붙인다.
+
+대가가 하나 있다. 개발자 도구 네트워크 탭에는 `total_amount` 로 보이고 코드에는 `totalAmount` 로 있어서,
+프론트를 디버깅할 때 한 번 변환해서 읽어야 한다.
+
+타입을 손으로 두 벌 쓰면 어긋난다. 청크 2a 의 OpenAPI 스펙에서 타입을 생성하면 `snake_case` 로 나오므로,
+TypeScript 의 템플릿 리터럴 타입으로 변환해서 쓴다.
+
 ### URL
 
 - 자원은 **복수형 명사**. `/api/products`, `/api/orders`

@@ -41,7 +41,7 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-05 | D6-2. 참조 링크 확충 | 완료 — `external-references.md` 에 D1·D4·D8·D9·D11·D12·D14·D16·D17·D21 의 기준 자료를 링크 확인해 추가. 참조를 안 정한 6개(D7·D10·D13·D18·D19·D20)는 이유를 적음. 대안이 갈리던 셋을 확정: D14=OWASP Top 10(ASVS 는 무거워서 미룸), D16=Micrometer+traceparent 형식만(OpenTelemetry 는 62·63 에서), D12=보류 | |
 | 2026-08-05 | D7·D10 부분 결정 | 완료 — ADR 0009. 공휴일은 `holiday` 테이블에 두고 임시공휴일을 배포 없이 추가한다. 주문 전이표는 도메인 규칙이라 코드에 선언하고 11a 의 상태×동작표도 같이 코드에 둔다. D13·D18·D19·D20 은 해당 청크에서 정한다 | |
 | 2026-08-05 | D3. 비즈니스 모델 | 완료 — `doc/reference/business-model.md`. 수수료는 셀러 기본 + 상품 예외, 초기 일괄 10%(국내 오픈마켓 4~15% 의 가운데). 요율은 주문 시점 박제, 환불 시 수수료 반환, 정산 월 1회. 정산 후 환불의 음수 잔액 이월이 청크 17 요구사항이 됨. 청크 3c·10·17 에 반영 | |
-| 2026-08-05 | D5. API 설계 규약 | 완료 — `doc/reference/api-guidelines.md`. Zalando 를 따르되 벗어난 것 2개를 맨 위에 명시(오프셋 페이징, 전체 개수 제공 — 둘 다 SHOULD). JSON 은 snake_case(MUST, Jackson 설정 한 줄로 DB 컬럼명과 일치). 마스킹된 필드는 생략하고 `_visible_field_groups` 로 알린다. 403·404 를 자원별로 정함. 상태 변경은 `POST /orders/{id}/cancel` 형태로만 | |
+| 2026-08-05 | D5. API 설계 규약 | 완료 — `doc/reference/api-guidelines.md`. Zalando 를 따르되 벗어난 것 2개를 맨 위에 명시(오프셋 페이징, 전체 개수 제공 — 둘 다 SHOULD). JSON 은 snake_case(MUST, Jackson 설정 한 줄로 DB 컬럼명과 일치). 마스킹된 필드는 생략하고 `_visible_field_groups` 로 알린다. 403·404 를 자원별로 정함. 상태 변경은 `POST /orders/{id}/cancel` 형태로만. 프론트는 받자마자 camelCase 로 바꿔 쓴다 — 변환 래퍼는 청크 13 | |
 
 ## 기록 규칙
 
