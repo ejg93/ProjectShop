@@ -4,7 +4,7 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: 문서 D6(권한 모델 명세) → 청크 4c. 4c 가 D6 의 표를 그대로 쓴다.
+- **다음에 할 것**: 청크 4c — 권한 매트릭스 회귀 테스트. `doc/reference/permission-rules.md` 의 매트릭스를 그대로 고정한다.
   D15(테스트 전략)·4a·4b 도 잡을 수 있다
 
 `PermissionEvaluator.decide` 가 매번 쿼리 2개를 던지므로 4a 캐시가 붙을 자리는 `loadRules` 와
@@ -35,6 +35,7 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-04 | 4. 권한 판정 엔진 | 완료 — `PermissionEvaluator`(deny 우선 훑기, seller 스코프를 부여 방식으로 가름, 판정 근거 문자열), `PermissionEvaluatorTest` 13개. `gradlew test` 전부 통과. 감사자가 새 권한으로 뚫리는 구멍을 `KnownHole` 테스트로 고정 | f082e3d |
 | 2026-08-04 | 4d. 응답 필드 마스킹 | 완료 — `V6__field_visibility.sql`(permission_field_group·role_permission_field, 판매자·감사자의 order:read 에서 payment 제외), `Decision.visibleFieldGroups`, 허용 규칙을 전부 모으도록 판정 수정, `FieldVisibilityTest` 7개. 테스트 20개 전부 통과, `/api/health` 가 `appliedMigrations: 6` 반환 | 4ce52ec |
 | 2026-08-05 | 4d-1. 문서 기준선 | 완료 — 기준 문서 21개(D1~D21) 를 `PLAN.md` 에 세우고 확장 청크 60개(17~76) 를 정식 청크로 올림. `doc/reference/document-map.md` 에 청크별 필요 문서 매핑, ADR 0008 기록. 문서 본문은 안 썼다 | |
+| 2026-08-05 | D6. 권한 모델 명세 | 완료 — `doc/reference/permission-rules.md` 에 판정 순서·우선순위·스코프 해석·필드 그룹·역할×권한 매트릭스를 한 장으로. XACML 4결과와 대조해 Deny/NotApplicable 미구분과 Indeterminate 미정의를 7b 로 넘김. 알려진 구멍 4개 기록(감사자 뚫림, 액션 이름 의존, user 필드그룹 미연결, 목록 조회). D5 기준은 Zalando 로 확정 | |
 
 ## 기록 규칙
 
