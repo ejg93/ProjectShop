@@ -37,6 +37,7 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-05 | 4d-1. 문서 기준선 | 완료 — 기준 문서 21개(D1~D21) 를 `PLAN.md` 에 세우고 확장 청크 60개(17~76) 를 정식 청크로 올림. `doc/reference/document-map.md` 에 청크별 필요 문서 매핑, ADR 0008 기록. 문서 본문은 안 썼다 | |
 | 2026-08-05 | D6. 권한 모델 명세 | 완료 — `doc/reference/permission-rules.md` 에 판정 순서·우선순위·스코프 해석·필드 그룹·역할×권한 매트릭스를 한 장으로. XACML 4결과와 대조해 Deny/NotApplicable 미구분과 Indeterminate 미정의를 7b 로 넘김. 알려진 구멍 4개 기록(감사자 뚫림, 액션 이름 의존, user 필드그룹 미연결, 목록 조회). D5 기준은 Zalando 로 확정 | |
 | 2026-08-05 | D6-1. 바깥 참조 정리 | 완료 — `V7__user_field_groups.sql` 로 user 필드 그룹 미연결 수정(테스트 20개 통과, psql 확인). `doc/reference/external-references.md` 에 링크를 열어 확인하고 기록. 기준 자료 확정: D5=Zalando, D6=XACML 개념, D15=Test Pyramid+Spring Boot 4.1.0·Testcontainers 2.0.5, D3=Stripe Connect | d9f703f |
+| 2026-08-05 | 4c-0. 판정 계산 분리 | 완료 — `PermissionEvaluator.evaluate` 를 static 으로 떼어 DB 없이 부를 수 있게 함. `PermissionRuleEvaluationTest` 16개 추가(Spring·DB 안 띄움). 케이스당 0.0012초로 통합 테스트의 0.04초 대비 30배 빠르다. 4c 매트릭스가 이 방식을 쓴다 | 9ac7548 |
 
 ## 기록 규칙
 
