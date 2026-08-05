@@ -131,9 +131,20 @@ public class PermissionEvaluator {
         if (rules.isEmpty()) {
             return Decision.denyBecause("%s:%s 에 걸린 규칙이 하나도 없다".formatted(resource, action));
         }
+        return evaluate(rules, loadSellerMemberships(userId), userId, target);
+    }
 
-        Set<Long> memberOf = loadSellerMemberships(userId);
-
+    /**
+     * 규칙 목록으로 판정한다. DB 를 보지 않는 순수 계산이라 규칙을 직접 만들어 부를 수 있다.
+     *
+     * <p>{@link #decide} 에서 떼어 낸 이유는 검증 비용 때문이다.
+     * 붙어 있으면 판정 규칙 하나를 확인하는 데도 계정·셀러·소속·역할 부여를 DB 에 넣어야 하고,
+     * 청크 4c 의 매트릭스는 그 준비를 수백 번 반복하게 된다.
+     *
+     * <p>테스트 전용 구현이 아니라 {@link #decide} 가 실제로 거쳐 가는 경로다.
+     * 따로 만들면 운영과 다른 것을 검증하게 된다.
+     */
+    static Decision evaluate(List<Rule> rules, Set<Long> memberOf, long userId, Target target) {
         for (Rule rule : rules) {
             if (rule.isDeny() && covers(rule, userId, memberOf, target)) {
                 return Decision.denyBy(rule);
@@ -171,7 +182,7 @@ public class PermissionEvaluator {
      * 조직 역할로 받았으면 받은 그 셀러만 덮고, 전역으로 받았으면 사용자가 속한 모든 셀러를 덮는다.
      * 이걸 구분하지 않으면 A셀러의 CS 담당이 B셀러의 주문을 보게 된다.
      */
-    private boolean covers(Rule rule, long userId, Set<Long> memberOf, Target target) {
+    private static boolean covers(Rule rule, long userId, Set<Long> memberOf, Target target) {
         return switch (rule.scope()) {
             case "all" -> true;
             case "own" -> target.ownerUserId() != null && target.ownerUserId() == userId;
