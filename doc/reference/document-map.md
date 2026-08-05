@@ -156,14 +156,26 @@ D15 테스트 · D16 관측 · D21 성능 (독립)
 **D6 은 썼다.** 남은 것 중 급한 것은 D15 다. 테스트가 로컬 DB 에 묶여 있어서
 Docker Desktop 을 끄면 전부 실패한다.
 
-기준 자료는 넷을 정했다. 링크와 확인 내용은 `external-references.md` 에 있다.
+기준 자료는 `external-references.md` 에 있다. 링크를 실제로 열어서 확인했다.
 
 | 문서 | 기준 자료 |
 |---|---|
+| D3 비즈니스 모델 | Stripe Connect |
+| D4·D1 도메인 모델·용어집 | DDD Reference (Evans) |
 | D5 API 설계 규약 | Zalando RESTful API Guidelines |
-| D6 권한 모델 명세 | XACML 3.0 의 결합 알고리즘과 판정 결과 4종 (개념만) |
-| D15 테스트 전략 | Test Pyramid(개념) + Spring Boot·Testcontainers 공식 문서(도구) |
-| D3 비즈니스 모델 | Stripe Connect 문서 |
+| D6 권한 모델 명세 | XACML 3.0 (개념만) |
+| D8 금액·통화 | Money 패턴 (Fowler) |
+| D9 식별자 | RFC 9562 UUID |
+| D11 동시성·트랜잭션 | PostgreSQL 17 격리 수준 + Stripe 멱등 요청 |
+| D12 이벤트 카탈로그 | CloudEvents + Zalando Event 장 |
+| D14 보안 기준 | OWASP ASVS 5.0.0 + Spring Security 7.1.0 |
+| D15 테스트 전략 | Test Pyramid + Spring Boot 4.1.0 · Testcontainers 2.0.5 |
+| D16 관측 규약 | OpenTelemetry + W3C Trace Context |
+| D17 파일·미디어 | OWASP File Upload Cheat Sheet |
+| D21 성능 목표 | Google SRE Book — SLO 장 |
+
+D7·D10·D13·D18·D19·D20 은 참조를 안 정했다. 표준이 없거나 우리가 정하는 비중이 커서다.
+이유는 `external-references.md` 끝에 적혀 있다.
 
 스타일 가이드는 하나만 고른다. 둘을 섞으면 같은 문제에 서로 다른 답이 들어와 규약이 충돌한다.
 

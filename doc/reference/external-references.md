@@ -107,10 +107,158 @@ D15 는 이걸 어디까지 바꿀지 정하는 문서다.
 - Business Model Canvas — D3 첫 절에 한 페이지로 그리는 용도.
   본문은 **돈의 흐름과 확정 시점**이어야 해서 캔버스로는 해상도가 안 나온다
 
+## D14 보안 기준
+
+| 자료 | 링크 | 확인한 것 |
+|---|---|---|
+| OWASP ASVS | https://owasp.org/www-project-application-security-verification-standard/ | 현재 5.0.0 (2025-05-30). 요구사항마다 `장.절.번호` 식별자가 붙어 있어 우리 문서에서 항목을 지목할 수 있다 |
+| OWASP Cheat Sheet Series | https://cheatsheetseries.owasp.org/ | 주제별 실무 지침. 아래 파일 업로드 편을 D17 이 쓴다 |
+| Spring Security 레퍼런스 | https://docs.spring.io/spring-security/reference/index.html | **7.1.0**. CSRF 와 Session Management 절이 따로 있다 |
+
+Spring Security 문서에서 청크가 직접 쓰는 절
+
+- CSRF: https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html — 청크 5b
+- Session Management: https://docs.spring.io/spring-security/reference/servlet/authentication/session-management.html — 청크 5·5c
+- Method Security: 청크 74(판정 엔진 재구현)가 `AuthorizationManager` 를 볼 때
+
+ASVS 는 통째로 읽는 문서가 아니다. 청크 5·5b·5c 를 잡을 때 인증·세션 장만 훑고,
+우리가 안 하기로 한 항목은 **왜 안 하는지** 를 D14 에 적는다. 안 적으면 빠뜨린 것과 구분이 안 된다.
+
+## D9 식별자 규약
+
+| 자료 | 링크 | 확인한 것 |
+|---|---|---|
+| RFC 9562 UUID | https://www.rfc-editor.org/rfc/rfc9562.html | RFC 4122 를 대체. **UUIDv7 이 새로 들어왔다** |
+
+UUIDv7 이 우리에게 중요한 이유가 있다.
+UUIDv4 는 완전 난수라 정렬이 안 되고, 기본키로 쓰면 인덱스가 매번 랜덤한 자리에 삽입돼서 성능이 나빠진다.
+UUIDv7 은 앞부분이 밀리초 단위 시각이라 시간순으로 정렬되고 인덱스 지역성이 좋다.
+
+지금 우리 기본키는 `bigint generated always as identity` 다.
+D9 에서 정할 것은 **바깥에 노출하는 번호**다. 주문번호를 `1, 2, 3` 으로 내보내면
+남의 주문 수와 증가 속도가 드러난다. 내부 ID 와 노출 번호를 가를지, 가른다면 무엇을 쓸지가 D9 의 주제다.
+
+## D8 금액·통화 규약
+
+| 자료 | 링크 | 확인한 것 |
+|---|---|---|
+| Money 패턴 (Fowler) | https://martinfowler.com/eaaCatalog/money.html | 통화 혼동과 반올림 오차를 타입으로 막는 패턴 |
+
+Money 패턴이 지적하는 두 문제가 우리에게 그대로 온다.
+
+- **통화 혼동** — 지금은 원화뿐이라 안 겪는다. 다중 통화를 안 하기로 했으므로 D8 에 그렇게 적어 둔다
+- **반올림 오차** — 겪는다. 수수료가 `주문금액 × 요율` 이라 소수가 나오고,
+  주문 항목마다 반올림한 합과 주문 전체를 반올림한 값이 1원씩 어긋난다. 청크 18(수수료 계산)에서 터진다
+
+ISO 4217 이 통화 코드 표준(`KRW`, `USD`)이고 `java.util.Currency` 가 이걸 따른다.
+지금은 안 쓰지만 금액 컬럼에 통화를 안 붙이기로 한 결정은 D8 에 남긴다.
+
+## D11 동시성·트랜잭션 규약
+
+| 자료 | 링크 | 확인한 것 |
+|---|---|---|
+| PostgreSQL 17 격리 수준 | https://www.postgresql.org/docs/17/transaction-iso.html | 기본이 **Read Committed**. Repeatable Read 와 Serializable 을 쓰려면 명시해야 한다 |
+| Stripe 멱등 요청 | https://docs.stripe.com/api/idempotent_requests | 멱등키 설계의 실물 |
+
+Postgres 문서에서 확인한 것
+
+- 표준 4단계 중 Read Uncommitted 는 Read Committed 처럼 동작한다. 실제로는 3단계다
+- **기본값 Read Committed 에서는 팬텀 리드가 난다.** 재고 차감(청크 10)이 여기 걸린다
+- Repeatable Read 와 Serializable 은 직렬화 실패를 던지므로 **재시도 코드가 있어야 한다**
+
+Stripe 멱등키에서 확인한 것 — 우리 청크 12(모의 결제)가 그대로 따라할 만하다
+
+- 클라이언트가 키를 만든다. V4 UUID 를 권장한다
+- **첫 요청의 상태 코드와 본문을 저장**하고, 같은 키로 오면 그것을 그대로 돌려준다. 500 이어도 그렇다
+- 키는 24시간 뒤 지운다
+- 같은 키에 다른 파라미터가 오면 오류를 낸다. 실수로 재사용하는 것을 막는다
+- POST 만 받는다. GET·DELETE 는 정의상 멱등이라 키가 무의미하다
+
+## D12 이벤트 카탈로그
+
+| 자료 | 링크 | 확인한 것 |
+|---|---|---|
+| CloudEvents | https://cloudevents.io/ | CNCF **Graduated** 프로젝트(2024-01-25). 스펙 1.0.2 (2022-02-05) |
+| Zalando Event 장 | https://opensource.zalando.com/restful-api-guidelines/ | D5 기준 문서 안에 이벤트 설계 장이 따로 있다 |
+
+CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`type`·`specversion` 같은 공통 속성을 정한다.
+청크 29(웹훅)에서 셀러에게 내보내는 이벤트 모양이 **대외 계약**이 되므로,
+우리 마음대로 만든 형식보다 표준을 쓰면 받는 쪽이 기존 라이브러리를 쓸 수 있다.
+
+다만 도입 여부는 D12 에서 판단한다. 로컬 전용 프로젝트에 봉투 표준이 과할 수 있다.
+
+## D16 관측 규약
+
+| 자료 | 링크 | 확인한 것 |
+|---|---|---|
+| OpenTelemetry | https://opentelemetry.io/docs/ | 신호 3종 — 트레이스·메트릭·로그 |
+| W3C Trace Context | https://www.w3.org/TR/trace-context/ | **W3C Recommendation** (2021-11-23). `traceparent`·`tracestate` 헤더 |
+
+청크 2b 가 요청마다 추적 ID 를 붙이는데, 그 ID 를 헤더로 실을 때 `traceparent` 형식을 따르면
+나중에 관측 도구를 붙일 때(청크 62·63) 그대로 이어진다. 자체 헤더를 만들면 그때 바꿔야 한다.
+
+Spring Boot 는 Micrometer Tracing 으로 이걸 지원한다. OpenTelemetry 를 직접 붙일지는 D16 에서 정한다.
+
+## D17 파일·미디어 규약
+
+| 자료 | 링크 | 확인한 것 |
+|---|---|---|
+| OWASP File Upload Cheat Sheet | https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html | 검증과 저장의 권고 |
+
+확인한 권고 중 청크 26~28 에 그대로 걸리는 것
+
+- 확장자는 **허용 목록**으로 검사한다. 차단 목록은 우회된다
+- `Content-Type` 은 사용자가 보낸 값이라 믿을 수 없다. 파일 시그니처를 본다
+- 파일명은 UUID 같은 무작위 문자열로 새로 짓는다. 사용자가 준 이름을 그대로 쓰지 않는다
+- **저장 위치 우선순위**: 별도 호스트 > 웹루트 밖 > 웹루트 안(쓰기 전용 + 접근 제어)
+- 크기 제한과 인증·인가를 같이 건다
+
+청크 28(파일 접근 판정)이 다루는 "URL 만 알면 보인다" 문제가 저장 위치 결정과 묶여 있다.
+
+## D21 성능 목표
+
+| 자료 | 링크 | 확인한 것 |
+|---|---|---|
+| Google SRE Book — SLO 장 | https://sre.google/sre-book/service-level-objectives/ | SLI·SLO·SLA 의 구분 |
+
+- **SLI** — 측정값. 요청 지연, 오류율, 가용성
+- **SLO** — 그 측정값의 목표. "99% 가용", "지연 100ms 이하"
+- **SLA** — 목표를 못 지켰을 때의 **결과가 붙은 계약.** 결과가 없으면 SLO 다
+
+우리는 로컬 전용이라 SLA 는 없다. D21 은 SLI 와 SLO 만 정한다.
+목표가 없으면 청크 42(성능 튜닝)와 70(부하 테스트)이 끝을 못 정한다.
+
+## D4 도메인 모델 · D1 용어집
+
+| 자료 | 링크 | 무엇 |
+|---|---|---|
+| DDD Reference (Eric Evans) | https://www.domainlanguage.com/wp-content/uploads/2016/05/DDD_Reference_2015-03.pdf | 무료 공개 PDF. 유비쿼터스 언어·바운디드 컨텍스트·애그리거트의 정의 요약 |
+
+책 전체가 아니라 **정의 요약본**이라 짧다. D1 이 쓰는 것은 유비쿼터스 언어 하나다 —
+같은 것을 코드·문서·대화에서 같은 말로 부른다는 원칙.
+지금 `seller` 를 셀러·판매자·입점사로 섞어 쓰고 있어서 D1 이 이걸 고정한다.
+
+애그리거트 개념은 D4 가 쓴다. 무엇이 같이 태어나고 같이 죽는지를 정하면
+`on delete cascade` 를 어디에 걸지가 따라 나온다.
+
 ## D2 법·정책 (완료)
 
 - 국가법령정보센터: https://law.go.kr — 전자상거래법·개인정보법 원문
 - 상세는 `commerce-compliance.md`
+
+## 아직 참조를 안 정한 문서
+
+표준이나 널리 쓰이는 실물이 없거나, 우리가 정하는 비중이 커서 참조가 덜 필요한 것들이다.
+해당 청크를 잡을 때 필요하면 그때 찾는다.
+
+| 문서 | 왜 미뤘나 |
+|---|---|
+| D7 상태머신 카탈로그 | UML 상태기계 표기를 빌리는 정도다. 전이표는 우리 도메인이라 베낄 것이 없다 |
+| D10 시각·영업일 규약 | ISO 8601 과 IANA tz 데이터베이스가 전부다. 영업일 계산은 국내 공휴일이라 표준이 없다 |
+| D13 데이터 수명 정책 | D2 의 R6·R9 가 근거다. 새 참조가 필요 없다 |
+| D18 알림 정책 | D2 의 R14(정보통신망법)가 근거다 |
+| D19 배치·스케줄 카탈로그 | cron 표기와 Spring Scheduling 문서면 된다 |
+| D20 화면·문구 규약 | WCAG(접근성)는 범위 밖이다. 문구 규칙은 `CLAUDE.md` 에 이미 있다 |
 
 ## 이 문서를 고칠 때
 
