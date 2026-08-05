@@ -7,10 +7,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 
@@ -20,9 +19,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
  * <p>테스트마다 계정과 셀러를 새로 만들고 트랜잭션째 되돌린다.
  * 마이그레이션이 넣은 역할·권한은 그대로 쓴다. 판정이 실제 초기 데이터 위에서 도는지 봐야 해서다.
  */
-@SpringBootTest
-@Transactional
-class PermissionEvaluatorTest {
+class PermissionEvaluatorTest extends PostgresTestBase {
 
     @Autowired
     PermissionEvaluator evaluator;

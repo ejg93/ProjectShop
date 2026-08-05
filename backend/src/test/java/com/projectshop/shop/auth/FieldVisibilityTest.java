@@ -6,10 +6,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 
@@ -17,9 +16,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
  * 행에 접근할 수 있다는 것과 그 행을 통째로 볼 수 있다는 것이 다르다는 걸 검증한다.
  * 셀러에게 주문을 보여주는 건 제3자 제공이라 배송에 필요한 만큼까지다.
  */
-@SpringBootTest
-@Transactional
-class FieldVisibilityTest {
+class FieldVisibilityTest extends PostgresTestBase {
 
     @Autowired
     PermissionEvaluator evaluator;

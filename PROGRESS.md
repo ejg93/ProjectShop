@@ -4,8 +4,9 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: 청크 4c — 권한 매트릭스 회귀 테스트. `doc/reference/permission-rules.md` 의 매트릭스를 그대로 고정한다.
-  D15(테스트 전략)·4a·4b 도 잡을 수 있다
+- **다음에 할 것**: 청크 4c — 권한 매트릭스 회귀 테스트.
+  `permission-rules.md` 의 매트릭스를 `src/test/resources/snapshots/` 에 마크다운 표로 고정한다.
+  갱신은 `gradlew test -Dsnapshot.update=true` 로만 (D15)
 
 `PermissionEvaluator.decide` 가 매번 쿼리 2개를 던지므로 4a 캐시가 붙을 자리는 `loadRules` 와
 `loadSellerMemberships` 다. 4d 에서 멤버십 조회를 항상 부르게 바꿔서 쿼리가 2개로 고정됐다.
@@ -44,6 +45,7 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-05 | D5. API 설계 규약 | 완료 — `doc/reference/api-guidelines.md`. Zalando 를 따르되 벗어난 것 2개를 맨 위에 명시(오프셋 페이징, 전체 개수 제공 — 둘 다 SHOULD). JSON 은 snake_case(MUST, Jackson 설정 한 줄로 DB 컬럼명과 일치). 마스킹된 필드는 생략하고 `_visible_field_groups` 로 알린다. 403·404 를 자원별로 정함. 상태 변경은 `POST /orders/{id}/cancel` 형태로만. 프론트는 받자마자 camelCase 로 바꿔 쓴다 — 변환 래퍼는 청크 13 | |
 | 2026-08-05 | D8·D9. 금액·식별자 규약 | 완료 — `money-rules.md`(원 단위 정수 저장, 부가세 포함가, 수수료는 **항목별로 버림** — 부분 환불 때 다시 안 나누려고), `identifier-rules.md`(주문번호 = `20260805-4F2K91` 날짜+SecureRandom 난수 6자리, 혼동 문자 제외. 순번을 노출하면 독일 전차 문제로 거래량이 샌다). 청크 6·10 에 반영 | |
 | 2026-08-05 | D4·D13. 도메인 모델·데이터 수명 | 완료 — `domain-model.md`·`data-lifecycle.md`. **수명(`deleted_at`)과 업무 상태(`status`)를 한 컬럼에 섞지 않는다**. 섞으면 복구할 때 이전 상태를 잃고 "살아 있는 것" 조건이 흔들린다. `V8__lifecycle_column.sql` 로 `app_user.withdrawn`·`seller.closed` 를 수명 컬럼으로 옮김. 테스트 36개 통과 | |
+| 2026-08-05 | D15 + 청크 35. 테스트 전략·Testcontainers | 완료 — `testing-strategy.md`. 테스트가 Postgres 컨테이너를 직접 띄운다(`PostgresTestBase`). 로컬 DB 의존이 사라져 청크 35 를 앞당겨 끝냈다. JaCoCo 는 측정만 하고 목표를 안 둔다. 스냅샷은 마크다운 표, `src/test/resources/snapshots/`, `-Dsnapshot.update=true` 로만 갱신. **Testcontainers 1.21.4 미만은 Docker 29 에서 안 뜬다** — docker-java 가 API 1.32 를 잡는데 최소 지원이 1.44 다 | |
 
 ## 기록 규칙
 

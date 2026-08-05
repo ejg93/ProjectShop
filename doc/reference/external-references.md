@@ -59,7 +59,7 @@ XACML 자체를 도입하지 않는다. XML 정책 언어라 이 규모에 과�
 |---|---|
 | The Practical Test Pyramid | https://martinfowler.com/articles/practical-test-pyramid.html |
 | Spring Boot Testing (4.1.0) | https://docs.spring.io/spring-boot/reference/testing/index.html |
-| Testcontainers for Java (2.0.5) | https://java.testcontainers.org/ |
+| Testcontainers for Java | https://java.testcontainers.org/ |
 | Spring Boot × Testcontainers | https://docs.spring.io/spring-boot/reference/testing/testcontainers.html |
 
 확인한 것
@@ -70,7 +70,21 @@ XACML 자체를 도입하지 않는다. XML 정책 언어라 이 규모에 과�
   거친 테스트를 조금, 종단 테스트는 아주 적게"
 - Spring Boot 공식 문서가 **4.1.0** 을 다룬다. 우리가 쓰는 버전과 같다
 - Spring Boot 테스트 장에 **Testcontainers 절이 따로 있다.** 청크 35 가 이걸 쓴다
-- Testcontainers 현재 버전은 2.0.5. Postgres 모듈이 있다
+- Testcontainers 는 **1.21.4** 를 쓴다. Maven Central 기준 `org.testcontainers:postgresql` 의 최신이다.
+  문서 사이트에 보이는 숫자를 아티팩트 버전으로 읽으면 안 된다 — 한 번 틀렸다
+
+### Docker Engine 29 와의 비호환
+
+**1.21.4 미만은 Docker 29 에서 안 뜬다.** docker-java 가 API 버전을 1.32 로 잡는데
+Docker 29 의 최소 지원이 1.44 라서 `/info` 가 빈 응답과 400 을 준다.
+
+오류 메시지가 `Could not find a valid Docker environment` 라 원인이 안 드러난다.
+`DOCKER_HOST` 를 바꾸거나 `DOCKER_API_VERSION` 을 지정해도 안 고쳐지고, 버전을 올려야 풀린다.
+
+- https://github.com/testcontainers/testcontainers-java/issues/11212
+- https://github.com/testcontainers/testcontainers-java/issues/11235
+
+Boot 의 BOM 이 Testcontainers 를 관리하지 않으므로 `testcontainers-bom` 을 직접 넣는다.
 
 ### 지금 우리 상태와의 차이
 
