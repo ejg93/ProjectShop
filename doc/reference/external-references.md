@@ -109,10 +109,13 @@ D15 는 이걸 어디까지 바꿀지 정하는 문서다.
 
 ## D14 보안 기준
 
+**기준: OWASP Top 10.** ASVS 5.0.0 도 후보였지만 요구사항이 수백 개라 이 규모에 무겁다.
+통째로 대면 "안 지킨 항목" 목록만 길어지고, 그 목록이 길면 아무도 안 본다.
+
 | 자료 | 링크 | 확인한 것 |
 |---|---|---|
-| OWASP ASVS | https://owasp.org/www-project-application-security-verification-standard/ | 현재 5.0.0 (2025-05-30). 요구사항마다 `장.절.번호` 식별자가 붙어 있어 우리 문서에서 항목을 지목할 수 있다 |
-| OWASP Cheat Sheet Series | https://cheatsheetseries.owasp.org/ | 주제별 실무 지침. 아래 파일 업로드 편을 D17 이 쓴다 |
+| OWASP Top 10 | https://owasp.org/www-project-top-ten/ | 웹 애플리케이션의 위험 열 가지. 항목이 적어 전부 훑을 수 있다 |
+| OWASP Cheat Sheet Series | https://cheatsheetseries.owasp.org/ | 주제별 실무 지침. Top 10 이 "무엇이 위험한가" 라면 이쪽이 "어떻게 막나" 다 |
 | Spring Security 레퍼런스 | https://docs.spring.io/spring-security/reference/index.html | **7.1.0**. CSRF 와 Session Management 절이 따로 있다 |
 
 Spring Security 문서에서 청크가 직접 쓰는 절
@@ -121,8 +124,11 @@ Spring Security 문서에서 청크가 직접 쓰는 절
 - Session Management: https://docs.spring.io/spring-security/reference/servlet/authentication/session-management.html — 청크 5·5c
 - Method Security: 청크 74(판정 엔진 재구현)가 `AuthorizationManager` 를 볼 때
 
-ASVS 는 통째로 읽는 문서가 아니다. 청크 5·5b·5c 를 잡을 때 인증·세션 장만 훑고,
-우리가 안 하기로 한 항목은 **왜 안 하는지** 를 D14 에 적는다. 안 적으면 빠뜨린 것과 구분이 안 된다.
+D14 는 Top 10 열 항목을 훑고 **각각이 이 프로젝트의 어디에 걸리는지** 를 적는다.
+D2 법 요건표와 같은 구조다. 해당 없는 항목은 왜 해당 없는지를 적어야 빠뜨린 것과 구분된다.
+
+ASVS 는 버린 것이 아니라 미룬 것이다. 특정 주제를 깊게 봐야 할 때 그 장만 꺼내 본다.
+https://owasp.org/www-project-application-security-verification-standard/ (현재 5.0.0, 2025-05-30)
 
 ## D9 식별자 규약
 
@@ -185,19 +191,27 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 청크 29(웹훅)에서 셀러에게 내보내는 이벤트 모양이 **대외 계약**이 되므로,
 우리 마음대로 만든 형식보다 표준을 쓰면 받는 쪽이 기존 라이브러리를 쓸 수 있다.
 
-다만 도입 여부는 D12 에서 판단한다. 로컬 전용 프로젝트에 봉투 표준이 과할 수 있다.
+**도입 여부는 보류다.** 청크 29·32 를 잡을 때 실제 필요를 보고 정한다.
+지금 정하면 이벤트가 하나도 없는 상태에서 봉투 형식을 고르는 셈이라 판단 근거가 없다.
 
 ## D16 관측 규약
 
+**기준: Micrometer Tracing + W3C Trace Context 헤더 형식.** OpenTelemetry 는 지금 안 붙인다.
+
 | 자료 | 링크 | 확인한 것 |
 |---|---|---|
-| OpenTelemetry | https://opentelemetry.io/docs/ | 신호 3종 — 트레이스·메트릭·로그 |
 | W3C Trace Context | https://www.w3.org/TR/trace-context/ | **W3C Recommendation** (2021-11-23). `traceparent`·`tracestate` 헤더 |
+| Spring Boot 관측 | https://docs.spring.io/spring-boot/reference/actuator/tracing.html | Micrometer Tracing 연동 |
+| OpenTelemetry | https://opentelemetry.io/docs/ | 신호 3종 — 트레이스·메트릭·로그. 청크 62·63 에서 다시 본다 |
 
-청크 2b 가 요청마다 추적 ID 를 붙이는데, 그 ID 를 헤더로 실을 때 `traceparent` 형식을 따르면
-나중에 관측 도구를 붙일 때(청크 62·63) 그대로 이어진다. 자체 헤더를 만들면 그때 바꿔야 한다.
+청크 2b 는 요청마다 추적 ID 를 붙이고 모든 로그 줄에 찍는다.
+로그가 뒤엉켰을 때 요청 하나를 처음부터 끝까지 따라가려는 것이다.
 
-Spring Boot 는 Micrometer Tracing 으로 이걸 지원한다. OpenTelemetry 를 직접 붙일지는 D16 에서 정한다.
+**헤더 형식만 `traceparent` 를 따른다.** 자체 헤더를 만들면 청크 62·63 에서 관측 도구를 붙일 때 갈아엎어야 한다.
+지금 OpenTelemetry 를 붙이면 수집기·저장소·화면 컨테이너가 늘어나는데 볼 화면이 없다.
+
+감사 로그(4b)와 헷갈리지 말 것. 감사 로그는 "누가 무슨 권한으로 뭘 했나" 를 DB 에 남기고,
+이쪽은 "이 요청이 어디서 느려졌나" 를 로그로 남긴다. 목적도 보관 위치도 다르다.
 
 ## D17 파일·미디어 규약
 

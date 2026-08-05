@@ -167,10 +167,10 @@ Docker Desktop 을 끄면 전부 실패한다.
 | D8 금액·통화 | Money 패턴 (Fowler) |
 | D9 식별자 | RFC 9562 UUID |
 | D11 동시성·트랜잭션 | PostgreSQL 17 격리 수준 + Stripe 멱등 요청 |
-| D12 이벤트 카탈로그 | CloudEvents + Zalando Event 장 |
-| D14 보안 기준 | OWASP ASVS 5.0.0 + Spring Security 7.1.0 |
+| D12 이벤트 카탈로그 | Zalando Event 장. CloudEvents 는 **보류** — 청크 29·32 에서 정한다 |
+| D14 보안 기준 | OWASP Top 10 + Cheat Sheet Series + Spring Security 7.1.0 |
 | D15 테스트 전략 | Test Pyramid + Spring Boot 4.1.0 · Testcontainers 2.0.5 |
-| D16 관측 규약 | OpenTelemetry + W3C Trace Context |
+| D16 관측 규약 | Micrometer Tracing + W3C Trace Context 헤더 형식 |
 | D17 파일·미디어 | OWASP File Upload Cheat Sheet |
 | D21 성능 목표 | Google SRE Book — SLO 장 |
 
