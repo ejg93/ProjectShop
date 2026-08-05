@@ -4,7 +4,8 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: 청크 4c — 권한 매트릭스 회귀 테스트 (또는 4a·4b)
+- **다음에 할 것**: 문서 D6(권한 모델 명세) → 청크 4c. 4c 가 D6 의 표를 그대로 쓴다.
+  D15(테스트 전략)·4a·4b 도 잡을 수 있다
 
 `PermissionEvaluator.decide` 가 매번 쿼리 2개를 던지므로 4a 캐시가 붙을 자리는 `loadRules` 와
 `loadSellerMemberships` 다. 4d 에서 멤버십 조회를 항상 부르게 바꿔서 쿼리가 2개로 고정됐다.
@@ -33,6 +34,7 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-04 | 3b. 거부 규칙 스키마 | 완료 — `V5__deny_effect.sql`(role_permission.effect, PK 를 3열로 변경, 감사자 역할, 판매자 own 범위 deny). 기동 후 `/api/health` 가 `appliedMigrations: 5` 반환. psql 로 deny 10행 확인, seller 가 allow/seller + deny/own 동시 보유 확인, PK 중복·잘못된 effect 값 차단 확인 | 991866b |
 | 2026-08-04 | 4. 권한 판정 엔진 | 완료 — `PermissionEvaluator`(deny 우선 훑기, seller 스코프를 부여 방식으로 가름, 판정 근거 문자열), `PermissionEvaluatorTest` 13개. `gradlew test` 전부 통과. 감사자가 새 권한으로 뚫리는 구멍을 `KnownHole` 테스트로 고정 | f082e3d |
 | 2026-08-04 | 4d. 응답 필드 마스킹 | 완료 — `V6__field_visibility.sql`(permission_field_group·role_permission_field, 판매자·감사자의 order:read 에서 payment 제외), `Decision.visibleFieldGroups`, 허용 규칙을 전부 모으도록 판정 수정, `FieldVisibilityTest` 7개. 테스트 20개 전부 통과, `/api/health` 가 `appliedMigrations: 6` 반환 | 4ce52ec |
+| 2026-08-05 | 4d-1. 문서 기준선 | 완료 — 기준 문서 21개(D1~D21) 를 `PLAN.md` 에 세우고 확장 청크 60개(17~76) 를 정식 청크로 올림. `doc/reference/document-map.md` 에 청크별 필요 문서 매핑, ADR 0008 기록. 문서 본문은 안 썼다 | |
 
 ## 기록 규칙
 
