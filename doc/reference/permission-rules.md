@@ -144,6 +144,14 @@ allow 를 먼저 보면 넓은 allow 하나가 매치되는 순간 반환해서,
 | seller | `order:read` | basic, shipping |
 | auditor | `order:read` | basic, shipping |
 | admin | `order:read` | 연결 없음 → 제한 없음 |
+| customer | `user:read` | basic, contact |
+| seller | `user:read` | basic, contact |
+| auditor | `user:read` | basic |
+| admin | `user:read` | 연결 없음 → 제한 없음 |
+
+관리자를 연결하지 않은 것은 의도다. 관리자가 개인정보를 어디까지 봐야 하는지는
+청크 16b(임퍼소네이션)에서 감사 로그와 함께 정한다.
+지금 제한을 걸면 관리자 화면이 무엇을 못 보는지 모르는 채로 만들어진다.
 
 ### 역할의 성격
 
@@ -202,15 +210,7 @@ where p.action not in ('read')
 `product:list`, `order:search` 같은 것이 생기면 이름이 `read` 가 아니라서 감사자에게 deny 가 붙는다.
 감사자가 조회를 못 하게 된다. 1번과 뿌리가 같다.
 
-### 3. user 필드 그룹이 아무도 제한하지 않는다
-
-`V6` 이 `user:basic` 과 `user:contact` 를 정의했지만 **어느 규칙에도 연결하지 않았다.**
-그래서 `user:read` 는 전부 제한 없음이다. 그룹은 있는데 아무도 제한받지 않는 상태다.
-
-V6 주석이 경고한 상황이 그 마이그레이션 안에서 이미 벌어졌다.
-셀러가 고객 계정을 조회하는 경로가 생기면(문의·CS 청크) 여기가 바로 문제가 된다.
-
-### 4. 스코프가 목록 조회에 안 걸린다
+### 3. 스코프가 목록 조회에 안 걸린다
 
 이 문서의 판정은 **행 하나**에 대한 것이다.
 목록 조회에서 남의 데이터가 새는 것은 쿼리에 스코프를 섞어야 막히고, 그건 청크 8 이다.
