@@ -24,19 +24,21 @@ class FieldVisibilityTest extends PostgresTestBase {
     @Autowired
     JdbcClient jdbc;
 
+    AuthFixture fixture;
     long alpha;
     long buyer;
     long seller;
 
     @BeforeEach
     void setUp() {
-        alpha = insertSeller("alpha", "알파상회");
-        buyer = insertUser("buyer@test.local", "구매자");
-        seller = insertUser("seller@test.local", "알파 대표");
+        fixture = new AuthFixture(jdbc);
+        alpha = fixture.insertSeller("alpha", "알파상회");
+        buyer = fixture.insertUser("buyer@test.local", "구매자");
+        seller = fixture.insertUser("seller@test.local", "알파 대표");
 
-        grantGlobal(buyer, "customer");
-        joinSeller(alpha, seller);
-        grantOrg(seller, "seller_owner", alpha);
+        fixture.grantGlobal(buyer, "customer");
+        fixture.joinSeller(alpha, seller);
+        fixture.grantOrg(seller, "seller_owner", alpha);
     }
 
     @Test
@@ -80,8 +82,8 @@ class FieldVisibilityTest extends PostgresTestBase {
     @Test
     @DisplayName("역할이 둘이면 양쪽이 허용하는 필드를 합친다")
     void twoRolesUnionFields() {
-        joinSeller(alpha, buyer);
-        grantOrg(buyer, "seller_owner", alpha);
+        fixture.joinSeller(alpha, buyer);
+        fixture.grantOrg(buyer, "seller_owner", alpha);
 
         Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
 
@@ -93,9 +95,9 @@ class FieldVisibilityTest extends PostgresTestBase {
     @Test
     @DisplayName("제한 없는 규칙이 하나라도 걸리면 제한이 풀린다")
     void unrestrictedRuleWins() {
-        long admin = insertUser("admin@test.local", "관리자");
-        grantGlobal(admin, "admin");
-        grantGlobal(admin, "customer");
+        long admin = fixture.insertUser("admin@test.local", "관리자");
+        fixture.grantGlobal(admin, "admin");
+        fixture.grantGlobal(admin, "customer");
 
         Decision decision = evaluator.decide(admin, "order", "read", Target.of(buyer, alpha));
 
@@ -108,8 +110,8 @@ class FieldVisibilityTest extends PostgresTestBase {
     @Test
     @DisplayName("넓은 스코프의 허용이 판정 근거로 남는다")
     void widestScopeIsReported() {
-        joinSeller(alpha, buyer);
-        grantOrg(buyer, "seller_owner", alpha);
+        fixture.joinSeller(alpha, buyer);
+        fixture.grantOrg(buyer, "seller_owner", alpha);
 
         Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
 
@@ -118,48 +120,4 @@ class FieldVisibilityTest extends PostgresTestBase {
                 .contains("allow/seller");
     }
 
-    private long insertSeller(String code, String name) {
-        return jdbc.sql("insert into seller (code, name) values (:code, :name) returning id")
-                .param("code", code)
-                .param("name", name)
-                .query(Long.class)
-                .single();
-    }
-
-    private long insertUser(String email, String displayName) {
-        return jdbc.sql("""
-                        insert into app_user (email, password_hash, display_name)
-                        values (:email, 'not-a-real-hash', :displayName)
-                        returning id
-                        """)
-                .param("email", email)
-                .param("displayName", displayName)
-                .query(Long.class)
-                .single();
-    }
-
-    private void joinSeller(long sellerId, long userId) {
-        jdbc.sql("insert into seller_member (seller_id, user_id) values (:sellerId, :userId)")
-                .param("sellerId", sellerId)
-                .param("userId", userId)
-                .update();
-    }
-
-    private void grantGlobal(long userId, String roleCode) {
-        jdbc.sql("insert into user_role (user_id, role_id) select :userId, id from role where code = :roleCode")
-                .param("userId", userId)
-                .param("roleCode", roleCode)
-                .update();
-    }
-
-    private void grantOrg(long userId, String roleCode, long sellerId) {
-        jdbc.sql("""
-                        insert into user_role (user_id, role_id, seller_id)
-                        select :userId, id, :sellerId from role where code = :roleCode
-                        """)
-                .param("userId", userId)
-                .param("roleCode", roleCode)
-                .param("sellerId", sellerId)
-                .update();
-    }
 }

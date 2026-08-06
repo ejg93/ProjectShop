@@ -27,6 +27,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
     @Autowired
     JdbcClient jdbc;
 
+    AuthFixture fixture;
     long alpha;
     long beta;
     long customer;
@@ -35,17 +36,18 @@ class PermissionEvaluatorTest extends PostgresTestBase {
 
     @BeforeEach
     void setUp() {
-        alpha = insertSeller("alpha", "알파상회");
-        beta = insertSeller("beta", "베타상회");
-        customer = insertUser("customer@test.local", "고객");
-        alphaSeller = insertUser("alpha-seller@test.local", "알파 대표");
-        betaSeller = insertUser("beta-seller@test.local", "베타 대표");
+        fixture = new AuthFixture(jdbc);
+        alpha = fixture.insertSeller("alpha", "알파상회");
+        beta = fixture.insertSeller("beta", "베타상회");
+        customer = fixture.insertUser("customer@test.local", "고객");
+        alphaSeller = fixture.insertUser("alpha-seller@test.local", "알파 대표");
+        betaSeller = fixture.insertUser("beta-seller@test.local", "베타 대표");
 
-        grantGlobal(customer, "customer");
-        joinSeller(alpha, alphaSeller);
-        grantOrg(alphaSeller, "seller_owner", alpha);
-        joinSeller(beta, betaSeller);
-        grantOrg(betaSeller, "seller_owner", beta);
+        fixture.grantGlobal(customer, "customer");
+        fixture.joinSeller(alpha, alphaSeller);
+        fixture.grantOrg(alphaSeller, "seller_owner", alpha);
+        fixture.joinSeller(beta, betaSeller);
+        fixture.grantOrg(betaSeller, "seller_owner", beta);
     }
 
     @Nested
@@ -113,8 +115,8 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("셀러 두 곳에 속하면 양쪽 주문을 본다")
         void memberOfTwoSellers() {
-            joinSeller(beta, alphaSeller);
-            grantOrg(alphaSeller, "seller_owner", beta);
+            fixture.joinSeller(beta, alphaSeller);
+            fixture.grantOrg(alphaSeller, "seller_owner", beta);
 
             assertThat(evaluator.decide(alphaSeller, "order", "read", Target.of(customer, alpha)).allowed()).isTrue();
             assertThat(evaluator.decide(alphaSeller, "order", "read", Target.of(customer, beta)).allowed()).isTrue();
@@ -148,9 +150,9 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("좁은 deny 가 넓은 allow 를 이긴다")
         void denyBeatsWiderAllow() {
-            long auditor = insertUser("auditor@test.local", "감사자");
-            grantGlobal(auditor, "auditor");
-            grantGlobal(auditor, "admin");
+            long auditor = fixture.insertUser("auditor@test.local", "감사자");
+            fixture.grantGlobal(auditor, "auditor");
+            fixture.grantGlobal(auditor, "admin");
 
             Target anyProduct = Target.ofSeller(alpha);
 
@@ -164,8 +166,8 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("감사자 역할이 없으면 관리자는 그대로 쓴다")
         void adminAloneCanWrite() {
-            long admin = insertUser("admin@test.local", "관리자");
-            grantGlobal(admin, "admin");
+            long admin = fixture.insertUser("admin@test.local", "관리자");
+            fixture.grantGlobal(admin, "admin");
 
             assertThat(evaluator.decide(admin, "product", "update", Target.ofSeller(alpha)).allowed()).isTrue();
         }
@@ -195,9 +197,9 @@ class PermissionEvaluatorTest extends PostgresTestBase {
                             """)
                     .update();
 
-            long auditor = insertUser("auditor2@test.local", "감사자");
-            grantGlobal(auditor, "auditor");
-            grantGlobal(auditor, "admin");
+            long auditor = fixture.insertUser("auditor2@test.local", "감사자");
+            fixture.grantGlobal(auditor, "auditor");
+            fixture.grantGlobal(auditor, "admin");
 
             Decision decision = evaluator.decide(auditor, "product", "approve", Target.ofSeller(alpha));
 
@@ -207,51 +209,4 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         }
     }
 
-    private long insertSeller(String code, String name) {
-        return jdbc.sql("insert into seller (code, name) values (:code, :name) returning id")
-                .param("code", code)
-                .param("name", name)
-                .query(Long.class)
-                .single();
-    }
-
-    private long insertUser(String email, String displayName) {
-        return jdbc.sql("""
-                        insert into app_user (email, password_hash, display_name)
-                        values (:email, 'not-a-real-hash', :displayName)
-                        returning id
-                        """)
-                .param("email", email)
-                .param("displayName", displayName)
-                .query(Long.class)
-                .single();
-    }
-
-    private void joinSeller(long sellerId, long userId) {
-        jdbc.sql("insert into seller_member (seller_id, user_id) values (:sellerId, :userId)")
-                .param("sellerId", sellerId)
-                .param("userId", userId)
-                .update();
-    }
-
-    private void grantGlobal(long userId, String roleCode) {
-        jdbc.sql("""
-                        insert into user_role (user_id, role_id)
-                        select :userId, id from role where code = :roleCode
-                        """)
-                .param("userId", userId)
-                .param("roleCode", roleCode)
-                .update();
-    }
-
-    private void grantOrg(long userId, String roleCode, long sellerId) {
-        jdbc.sql("""
-                        insert into user_role (user_id, role_id, seller_id)
-                        select :userId, id, :sellerId from role where code = :roleCode
-                        """)
-                .param("userId", userId)
-                .param("roleCode", roleCode)
-                .param("sellerId", sellerId)
-                .update();
-    }
 }

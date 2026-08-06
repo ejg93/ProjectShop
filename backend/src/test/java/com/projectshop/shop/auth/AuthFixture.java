@@ -5,8 +5,11 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 /**
  * 권한 테스트가 쓰는 계정·셀러·역할 부여를 만든다.
  *
- * <p>같은 코드가 {@code PermissionEvaluatorTest} 와 {@code FieldVisibilityTest} 에 이미 두 벌 있다.
- * 세 번째를 만들면서 여기로 뺐다. 앞의 두 벌을 옮기는 것은 청크 4a-1 이다.
+ * <p>테스트 클래스마다 복제돼 있던 것을 모았다. 셋에 흩어져 있으면
+ * 스키마가 바뀔 때 한 벌만 고치고 나머지를 놓친다.
+ *
+ * <p>Spring 빈이 아니라 {@code new AuthFixture(jdbc)} 로 만든다.
+ * 테스트가 자기 {@code JdbcClient} 를 넘기므로 트랜잭션 경계가 테스트의 것과 같다.
  */
 class AuthFixture {
 
