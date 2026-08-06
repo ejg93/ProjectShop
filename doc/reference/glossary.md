@@ -27,8 +27,8 @@
 | 무엇 | 이름 | 상태 |
 |---|---|---|
 | 조직 | `seller` | 그대로 |
-| 조직 소유자 역할 | `seller_owner` | 지금 `seller` 를 여기로 바꾼다 (청크 3d) |
-| 조직 실무자 역할 | `seller_staff` | 아직 없다. 청크 5a 에서 생긴다 |
+| 조직 소유자 역할 | `seller_owner` | `V9__rename_seller_role.sql` 이 바꿨다 |
+| 조직 실무자 역할 | `seller_staff` | 아직 없다. 권한 범위가 청크 5a 에서 정해진다 |
 | 판정 범위 | `scope = 'seller'` | 그대로. 조직 범위라는 뜻이라 어긋나지 않는다 |
 
 ## 조직과 사람

@@ -71,7 +71,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("전역 부여의 seller 는 내가 속한 모든 셀러를 덮는다")
         void globalSellerScopeUsesMembership() {
-            List<Rule> rules = List.of(allow("seller", "seller"));
+            List<Rule> rules = List.of(allow("seller_owner", "seller"));
 
             assertThat(decide(rules, Target.ofSeller(ALPHA)).allowed()).isTrue();
             assertThat(decide(rules, Target.ofSeller(BETA)).allowed()).isFalse();
@@ -80,7 +80,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("조직 부여의 seller 는 받은 그 셀러만 덮는다")
         void orgSellerScopeUsesGrant() {
-            List<Rule> rules = List.of(orgAllow("seller", BETA, "seller"));
+            List<Rule> rules = List.of(orgAllow("seller_owner", BETA, "seller"));
 
             assertThat(decide(rules, Target.ofSeller(BETA)).allowed())
                     .as("소속이 아닌 셀러라도 그 셀러 역할을 받았으면 덮는다")
@@ -93,7 +93,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("셀러가 없는 대상은 seller 스코프가 못 덮는다")
         void sellerScopeNeedsSeller() {
-            assertThat(decide(List.of(allow("seller", "seller")), Target.ownedBy(ME)).allowed()).isFalse();
+            assertThat(decide(List.of(allow("seller_owner", "seller")), Target.ownedBy(ME)).allowed()).isFalse();
         }
     }
 
@@ -104,7 +104,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("좁은 deny 가 넓은 allow 를 이긴다")
         void denyBeatsWiderAllow() {
-            List<Rule> rules = List.of(allow("seller", "seller"), deny("seller", "own"));
+            List<Rule> rules = List.of(allow("seller_owner", "seller"), deny("seller_owner", "own"));
 
             Decision mine = decide(rules, Target.of(ME, ALPHA));
             assertThat(mine.allowed()).isFalse();
@@ -120,8 +120,8 @@ class PermissionRuleEvaluationTest {
         void orderDoesNotMatter() {
             Target mine = Target.of(ME, ALPHA);
 
-            Decision denyFirst = decide(List.of(deny("seller", "own"), allow("seller", "seller")), mine);
-            Decision allowFirst = decide(List.of(allow("seller", "seller"), deny("seller", "own")), mine);
+            Decision denyFirst = decide(List.of(deny("seller_owner", "own"), allow("seller_owner", "seller")), mine);
+            Decision allowFirst = decide(List.of(allow("seller_owner", "seller"), deny("seller_owner", "own")), mine);
 
             assertThat(denyFirst.allowed()).isEqualTo(allowFirst.allowed()).isFalse();
         }
@@ -150,7 +150,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("넓은 규칙이 대상을 못 덮으면 좁은 쪽이 근거가 된다")
         void narrowWinsWhenWideDoesNotCover() {
-            List<Rule> rules = List.of(allow("customer", "own"), allow("seller", "seller"));
+            List<Rule> rules = List.of(allow("customer", "own"), allow("seller_owner", "seller"));
 
             assertThat(decide(rules, Target.ownedBy(ME)).reason())
                     .as("셀러가 없는 대상이라 seller 스코프가 안 걸린다")
@@ -171,7 +171,7 @@ class PermissionRuleEvaluationTest {
         void unionOfGroups() {
             List<Rule> rules = List.of(
                     allowWith("customer", "own", "basic", "payment"),
-                    allowWith("seller", "seller", "basic", "shipping"));
+                    allowWith("seller_owner", "seller", "basic", "shipping"));
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.of(ME, ALPHA));
 
@@ -182,7 +182,7 @@ class PermissionRuleEvaluationTest {
         @DisplayName("제한 없는 규칙이 하나라도 걸리면 제한이 풀린다")
         void unrestrictedWins() {
             List<Rule> rules = List.of(
-                    allowWith("seller", "seller", "basic"),
+                    allowWith("seller_owner", "seller", "basic"),
                     allow("admin", "all"));
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.of(ME, ALPHA));
@@ -196,7 +196,7 @@ class PermissionRuleEvaluationTest {
         void uncoveredRuleContributesNothing() {
             List<Rule> rules = List.of(
                     allowWith("customer", "own", "basic"),
-                    allowWith("seller", "seller", "payment"));
+                    allowWith("seller_owner", "seller", "payment"));
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.ownedBy(ME));
 

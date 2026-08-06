@@ -38,14 +38,14 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         alpha = insertSeller("alpha", "알파상회");
         beta = insertSeller("beta", "베타상회");
         customer = insertUser("customer@test.local", "고객");
-        alphaSeller = insertUser("alpha-seller@test.local", "알파 판매자");
-        betaSeller = insertUser("beta-seller@test.local", "베타 판매자");
+        alphaSeller = insertUser("alpha-seller@test.local", "알파 대표");
+        betaSeller = insertUser("beta-seller@test.local", "베타 대표");
 
         grantGlobal(customer, "customer");
         joinSeller(alpha, alphaSeller);
-        grantOrg(alphaSeller, "seller", alpha);
+        grantOrg(alphaSeller, "seller_owner", alpha);
         joinSeller(beta, betaSeller);
-        grantOrg(betaSeller, "seller", beta);
+        grantOrg(betaSeller, "seller_owner", beta);
     }
 
     @Nested
@@ -85,7 +85,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
     class Organization {
 
         @Test
-        @DisplayName("판매자는 자기 셀러의 주문을 본다")
+        @DisplayName("셀러 대표는 자기 셀러의 주문을 본다")
         void ownSellerOrderIsVisible() {
             Decision decision = evaluator.decide(alphaSeller, "order", "read", Target.of(customer, alpha));
 
@@ -94,7 +94,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         }
 
         @Test
-        @DisplayName("판매자는 남의 셀러의 주문을 못 본다")
+        @DisplayName("셀러 대표는 남의 셀러의 주문을 못 본다")
         void otherSellerOrderIsHidden() {
             Decision decision = evaluator.decide(alphaSeller, "order", "read", Target.of(customer, beta));
 
@@ -114,7 +114,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @DisplayName("셀러 두 곳에 속하면 양쪽 주문을 본다")
         void memberOfTwoSellers() {
             joinSeller(beta, alphaSeller);
-            grantOrg(alphaSeller, "seller", beta);
+            grantOrg(alphaSeller, "seller_owner", beta);
 
             assertThat(evaluator.decide(alphaSeller, "order", "read", Target.of(customer, alpha)).allowed()).isTrue();
             assertThat(evaluator.decide(alphaSeller, "order", "read", Target.of(customer, beta)).allowed()).isTrue();
@@ -126,7 +126,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
     class Deny {
 
         @Test
-        @DisplayName("판매자는 자기 셀러 주문의 상태를 바꾼다")
+        @DisplayName("셀러 대표는 자기 셀러 주문의 상태를 바꾼다")
         void sellerAdvancesOrder() {
             Decision decision = evaluator.decide(alphaSeller, "order", "update_status", Target.of(customer, alpha));
 

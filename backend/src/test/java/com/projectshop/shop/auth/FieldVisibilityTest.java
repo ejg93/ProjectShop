@@ -32,11 +32,11 @@ class FieldVisibilityTest extends PostgresTestBase {
     void setUp() {
         alpha = insertSeller("alpha", "알파상회");
         buyer = insertUser("buyer@test.local", "구매자");
-        seller = insertUser("seller@test.local", "알파 판매자");
+        seller = insertUser("seller@test.local", "알파 대표");
 
         grantGlobal(buyer, "customer");
         joinSeller(alpha, seller);
-        grantOrg(seller, "seller", alpha);
+        grantOrg(seller, "seller_owner", alpha);
     }
 
     @Test
@@ -81,12 +81,12 @@ class FieldVisibilityTest extends PostgresTestBase {
     @DisplayName("역할이 둘이면 양쪽이 허용하는 필드를 합친다")
     void twoRolesUnionFields() {
         joinSeller(alpha, buyer);
-        grantOrg(buyer, "seller", alpha);
+        grantOrg(buyer, "seller_owner", alpha);
 
         Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
 
         assertThat(decision.visibleFieldGroups())
-                .as("고객 역할이 payment 를, 판매자 역할이 basic·shipping 을 준다")
+                .as("고객 역할이 payment 를, 셀러 대표 역할이 basic·shipping 을 준다")
                 .containsExactlyInAnyOrder("basic", "shipping", "payment");
     }
 
@@ -109,7 +109,7 @@ class FieldVisibilityTest extends PostgresTestBase {
     @DisplayName("넓은 스코프의 허용이 판정 근거로 남는다")
     void widestScopeIsReported() {
         joinSeller(alpha, buyer);
-        grantOrg(buyer, "seller", alpha);
+        grantOrg(buyer, "seller_owner", alpha);
 
         Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
 
