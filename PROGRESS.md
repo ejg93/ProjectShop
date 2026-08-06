@@ -4,7 +4,7 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: **기준 문서를 더 정한다.** 다음은 D11 동시성 규약이다.
+- **다음에 할 것**: **청크 4c (권한 매트릭스 회귀 테스트).** 코드 청크를 막던 문서가 다 끝났다.
   남은 것은 아래 「문서 진행 상태」를 본다. 문서가 끝나면 청크 4c 로 간다
 
 ### 문서 우선 방침
@@ -32,17 +32,19 @@
 | D10 시각·영업일 | **부분** — 공휴일은 테이블(ADR 0009). 영업일 계산 규칙·배치 기준 시각·기한 소급이 남음 | |
 | D1 문서 트리·용어집 | 완료 | `doc/README.md`, `glossary.md` |
 | D14 보안 기준 | 완료 | `security-baseline.md` |
-| **D11 동시성** | 미착수. 락 전략·격리 수준·멱등키·재시도 5개 | |
+| D11 동시성 | 완료 | `concurrency-rules.md` |
 | D12 이벤트 | 보류. 청크 29·32 에서 정한다 | |
 | D16 관측 | 기준만 정함(Micrometer + traceparent). 로그 레벨·개인정보 가림이 남음 | |
 | D17 파일 | 미착수. 청크 26 이 멀다 | |
 | D18 알림 | 미착수. 청크 54 가 멀다 | |
 | D19 배치 | 미착수. 청크 36 이 멀다 | |
-| D20 화면·문구 | 미착수. 청크 13 이 멀다 | |
+| **D20 화면·문구** | 미착수. **미룬 것 중 제일 가깝다** — 청크 13 의 선행이 5·D5 뿐이다 | |
 | D21 성능 목표 | 미착수. **측정값이 없어 지금 정하면 근거가 없다** | |
 
-다음 순서는 **D11** 이다.
-D16~D21 은 해당 청크가 멀어서 지금 정하면 무엇을 정하는지 모르는 채로 정하게 된다.
+**남은 것은 D7·D10 잔여와 D16 잔여다.** 나머지는 해당 청크가 멀어서 지금 정하면
+무엇을 정하는지 모르는 채로 정하게 된다. D20 은 청크 13 을 잡을 때 같이 한다.
+
+**문서가 여기서 끊겨도 코드로 갈 수 있다.** 다음 코드 청크는 4c 다.
 
 `PermissionEvaluator.decide` 가 매번 쿼리 2개를 던지므로 4a 캐시가 붙을 자리는 `loadRules` 와
 `loadSellerMemberships` 다. 4d 에서 멤버십 조회를 항상 부르게 바꿔서 쿼리가 2개로 고정됐다.
@@ -84,7 +86,8 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-05 | D15 + 청크 35. 테스트 전략·Testcontainers | 완료 — `testing-strategy.md`. 테스트가 Postgres 컨테이너를 직접 띄운다(`PostgresTestBase`). 로컬 DB 의존이 사라져 청크 35 를 앞당겨 끝냈다. JaCoCo 는 측정만 하고 목표를 안 둔다. 스냅샷은 마크다운 표, `src/test/resources/snapshots/`, `-Dsnapshot.update=true` 로만 갱신. **Testcontainers 1.21.4 미만은 Docker 29 에서 안 뜬다** — docker-java 가 API 1.32 를 잡는데 최소 지원이 1.44 다 |
 | 2026-08-06 | D1. 문서 트리·용어집 | 완료 — `doc/README.md`(기준 문서와 ADR 을 참조자 수로 가른다, ADR 은 안 고치고 새 ADR 로 뒤집는다), `doc/reference/glossary.md`. 영문이 정본이고 한글은 대역. **`seller` 는 조직에만 쓴다** — `role.code='seller'` 를 `seller_owner` 로 바꾸는 것을 청크 3d 로 세웠고 `seller_staff` 는 5a 에서 생긴다. 헷갈리는 짝 7개(취소/반품/청약철회, 환불/취소, 상품/SKU 등)와 금지어 5개를 못박음 | a7c5b36 |
 | 2026-08-06 | 3d. 역할 코드 rename | 완료 — `V9__rename_seller_role.sql` 로 `role.code` 를 `seller`→`seller_owner` 로. **main 코드는 안 고쳤다** — `PermissionEvaluator` 의 `seller` 는 전부 scope 값과 `sellerId` 라서 역할 코드 리터럴이 없었다. 테스트 3파일의 역할 코드 문자열과 금지어 '판매자' 표기만 바꿈. `gradlew test` 36개 통과. `seller_staff` 는 권한 범위가 안 정해져서 안 만들었다(5a) | 40bf67e |
-| 2026-08-06 | D14. 보안 기준 | 완료 — `doc/reference/security-baseline.md`. OWASP Top 10 2021 열 항목을 청크에 매핑(해당 없는 A08 은 이유를 적음). 정한 것 넷: **bcrypt**(`{bcrypt}` 접두사가 있어 argon2 로 갈아탈 때 일괄 재해시가 없다), **비밀번호는 길이만 8~64 + ASCII 만**(NIST SP 800-63B. ASCII 제한이 bcrypt 72바이트 절단 구간을 없앤다 — 한글은 24자에서 닿는다), **서버 메모리 세션**(강제 로그아웃이 필요해지면 `SessionRegistry` → 재기동·다중서버가 필요해지면 JDBC 순), **(계정, IP) 5회/15분 차단**(계정만 잠그면 남 계정 잠그는 공격이 된다). 쿠키는 HttpOnly + SameSite=Lax, `Secure` 는 로컬 http 라 끈다. 분산 IP 방어는 청크 71 | | |
+| 2026-08-06 | D14. 보안 기준 | 완료 — `doc/reference/security-baseline.md`. OWASP Top 10 2021 열 항목을 청크에 매핑(해당 없는 A08 은 이유를 적음). 정한 것 넷: **bcrypt**(`{bcrypt}` 접두사가 있어 argon2 로 갈아탈 때 일괄 재해시가 없다), **비밀번호는 길이만 8~64 + ASCII 만**(NIST SP 800-63B. ASCII 제한이 bcrypt 72바이트 절단 구간을 없앤다 — 한글은 24자에서 닿는다), **서버 메모리 세션**(강제 로그아웃이 필요해지면 `SessionRegistry` → 재기동·다중서버가 필요해지면 JDBC 순), **(계정, IP) 5회/15분 차단**(계정만 잠그면 남 계정 잠그는 공격이 된다). 쿠키는 HttpOnly + SameSite=Lax, `Secure` 는 로컬 http 라 끈다. 분산 IP 방어는 청크 71 | 473036e |
+| 2026-08-06 | D11. 동시성 규약 | 완료 — `doc/reference/concurrency-rules.md`. 격리 수준은 **Read Committed 그대로** — 올리면 모든 트랜잭션에 재시도 코드가 붙는다. 재고는 **조건부 UPDATE** 한 문장(`where stock >= :qty`). Postgres 가 잠금이 풀린 뒤 행을 다시 읽고 `where` 를 다시 평가해서 낡은 값으로 판단하는 경로가 없다. 대가는 0행의 이유를 따로 조회해야 하는 것. 여러 `sku` 는 **id 오름차순**으로 잠가 데드락을 막는다. 멱등키는 클라이언트가 만든 UUIDv4 를 `Idempotency-Key` 헤더로, 실패 응답도 저장하고 24시간 보관. 재시도는 `40001`·`40P01` 만 3회 | | |
 
 ## 기록 규칙
 
