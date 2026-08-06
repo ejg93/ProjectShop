@@ -90,7 +90,19 @@ allow 를 먼저 보면 넓은 allow 하나가 매치되는 순간 반환해서,
 | 전역 역할 (`user_role.seller_id` 없음) | 사용자가 속한 모든 셀러 (`seller_member` 기준) |
 
 구분하지 않으면 A셀러의 CS 담당이 B셀러의 주문을 본다.
-지금 `seller` 역할은 `is_org_role = true` 라 항상 앞쪽이다. 뒤쪽은 규칙만 있고 쓰는 데이터가 없다.
+
+지금 `seller_owner` 는 `is_org_role = true` 라 항상 앞쪽이다.
+**뒤쪽은 규칙만 있고 쓰는 데이터가 없는 정도가 아니라, 만들 수도 없다.**
+`V4` 의 트리거가 조직 역할을 전역으로 부여하는 것을 막는다.
+
+```
+insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
+  → ERROR: 조직 역할은 셀러를 지정해야 한다
+```
+
+전역 부여로 `seller` 스코프를 쓰려면 `is_org_role = false` 이면서 `seller` 스코프 권한을 가진 역할이
+있어야 하는데 지금 없다. 그런 역할이 생기면(플랫폼 CS 담당 같은 것) 그때 뒤쪽 분기가 살아난다.
+`PermissionRuleEvaluationTest` 가 그 분기를 규칙을 직접 만들어 검증한다.
 
 ## 필드 그룹
 

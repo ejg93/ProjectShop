@@ -20,6 +20,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | Gradle | 9.5.1 | `gradle/wrapper/gradle-wrapper.properties` |
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Testcontainers | 1.21.4 | `build.gradle.kts` 의 BOM |
+| Caffeine | 3.2.4 | 안 적는다. **Boot BOM 이 관리한다** |
 | Spring Security | 7.1.0 | 아직 의존성에 없다. 청크 5 에서 들어온다 |
 
 **버전을 물으면 이 표가 아니라 위 파일들을 본다.** 표가 낡을 수 있다.
@@ -56,6 +57,14 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 여기 없는 스타터가 필요하면 공식 문서에서 확인한다.
 
 여기 적은 셋 말고 무엇이 더 바뀌었는지는 확인하지 않았다.
+
+### `@Cacheable` 은 private 메서드와 자기 호출에 안 먹는다
+
+프록시가 메서드 호출을 가로채는 방식이라 **같은 객체 안에서 부른 것은 프록시를 안 거친다.**
+붙여 놓고 안 걸리는 것을 눈치 못 채는 게 이 함정의 성질이다.
+
+청크 4a 에서 조회를 `PermissionRuleLoader` 로 뺀 이유가 이것이다.
+캐시를 새로 붙일 때 **부르는 쪽과 캐시된 메서드가 다른 빈에 있는지** 먼저 본다.
 
 ### Testcontainers 는 Boot BOM 이 관리하지 않는다
 

@@ -4,7 +4,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,10 +24,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class PermissionEvaluator {
 
-    private final JdbcClient jdbcClient;
+    private final PermissionRuleLoader loader;
 
-    PermissionEvaluator(JdbcClient jdbcClient) {
-        this.jdbcClient = jdbcClient;
+    PermissionEvaluator(PermissionRuleLoader loader) {
+        this.loader = loader;
     }
 
     /**
@@ -127,11 +126,11 @@ public class PermissionEvaluator {
      * 역할을 둘 이상 가진 사용자는 양쪽이 허용하는 만큼을 다 봐야 한다.
      */
     public Decision decide(long userId, String resource, String action, Target target) {
-        List<Rule> rules = loadRules(userId, resource, action);
+        List<Rule> rules = loader.loadRules(userId, resource, action);
         if (rules.isEmpty()) {
             return Decision.denyBecause("%s:%s 에 걸린 규칙이 하나도 없다".formatted(resource, action));
         }
-        return evaluate(rules, loadSellerMemberships(userId), userId, target);
+        return evaluate(rules, loader.loadSellerMemberships(userId), userId, target);
     }
 
     /**
@@ -199,47 +198,4 @@ public class PermissionEvaluator {
         };
     }
 
-    private List<Rule> loadRules(long userId, String resource, String action) {
-        return jdbcClient.sql("""
-                        select r.code as role_code, ur.seller_id as grant_seller_id, rp.scope, rp.effect,
-                               coalesce(string_agg(g.code, ',' order by g.code), '') as field_groups
-                        from user_role ur
-                        join role r on r.id = ur.role_id
-                        join role_permission rp on rp.role_id = ur.role_id
-                        join permission p on p.id = rp.permission_id
-                        left join role_permission_field rpf
-                               on rpf.role_id = rp.role_id
-                              and rpf.permission_id = rp.permission_id
-                              and rpf.effect = rp.effect
-                        left join permission_field_group g on g.id = rpf.field_group_id
-                        where ur.user_id = :userId
-                          and p.resource = :resource
-                          and p.action = :action
-                        group by r.code, ur.seller_id, rp.scope, rp.effect
-                        """)
-                .param("userId", userId)
-                .param("resource", resource)
-                .param("action", action)
-                .query((rs, rowNum) -> new Rule(
-                        rs.getString("role_code"),
-                        rs.getObject("grant_seller_id", Long.class),
-                        rs.getString("scope"),
-                        rs.getString("effect"),
-                        splitGroups(rs.getString("field_groups"))))
-                .list();
-    }
-
-    private static Set<String> splitGroups(String joined) {
-        if (joined == null || joined.isEmpty()) {
-            return Set.of();
-        }
-        return Set.of(joined.split(","));
-    }
-
-    private Set<Long> loadSellerMemberships(long userId) {
-        return Set.copyOf(jdbcClient.sql("select seller_id from seller_member where user_id = :userId")
-                .param("userId", userId)
-                .query(Long.class)
-                .list());
-    }
 }
