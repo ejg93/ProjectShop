@@ -1,10 +1,14 @@
 package com.projectshop.shop.auth;
 
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
+
+import com.projectshop.shop.audit.AuditLog;
 
 /**
  * 한 사용자가 특정 자원에 특정 동작을 할 수 있는지를 한 군데서 판정한다.
@@ -25,9 +29,11 @@ import org.springframework.stereotype.Component;
 public class PermissionEvaluator {
 
     private final PermissionRuleLoader loader;
+    private final AuditLog auditLog;
 
-    PermissionEvaluator(PermissionRuleLoader loader) {
+    PermissionEvaluator(PermissionRuleLoader loader, AuditLog auditLog) {
         this.loader = loader;
+        this.auditLog = auditLog;
     }
 
     /**
@@ -127,10 +133,32 @@ public class PermissionEvaluator {
      */
     public Decision decide(long userId, String resource, String action, Target target) {
         List<Rule> rules = loader.loadRules(userId, resource, action);
-        if (rules.isEmpty()) {
-            return Decision.denyBecause("%s:%s 에 걸린 규칙이 하나도 없다".formatted(resource, action));
+        Decision decision = rules.isEmpty()
+                ? Decision.denyBecause("%s:%s 에 걸린 규칙이 하나도 없다".formatted(resource, action))
+                : evaluate(rules, loader.loadSellerMemberships(userId), userId, target);
+
+        if (!decision.allowed()) {
+            recordDenial(userId, resource, action, target, decision);
         }
-        return evaluate(rules, loader.loadSellerMemberships(userId), userId, target);
+        return decision;
+    }
+
+    /**
+     * 거부를 감사 로그에 남긴다. 호출자가 부르는 게 아니라 여기서 남기는 이유는 <b>빠뜨릴 수 없게</b> 하려는 것이다.
+     * 새 API 를 만들면서 기록을 잊으면 그 경로만 감사에서 통째로 사라지는데, 그건 나중에 알 방법이 없다.
+     *
+     * <p>화면이 권한에 따라 버튼을 가리기 전(청크 13b)까지는 정상적인 거부도 여기 쌓인다.
+     * 공격 시도를 가려내는 것은 쌓인 뒤에 세고 묶어서 할 일이다.
+     */
+    private void recordDenial(long userId, String resource, String action, Target target, Decision decision) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("resource", resource);
+        detail.put("action", action);
+        detail.put("reason", decision.reason());
+        detail.put("owner_user_id", target.ownerUserId());
+        detail.put("seller_id", target.sellerId());
+
+        auditLog.record("permission.denied", userId, AuditLog.Target.ofType(resource), detail);
     }
 
     /**

@@ -4,7 +4,8 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: **청크 4b (감사 로그).**
+- **다음에 할 것**: 권한 축(청크 4 계열)이 끝났다. **청크 5 (회원가입·로그인)** 로 넘어간다.
+  `D14` 가 bcrypt·서버 메모리 세션·(계정,IP) 차단을 이미 정해 뒀다.
   남은 것은 아래 「문서 진행 상태」를 본다. 문서가 끝나면 청크 4c 로 간다
 
 ### 문서 우선 방침
@@ -103,7 +104,9 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-06 | 4c. 권한 매트릭스 회귀 테스트 | 완료 — `PermissionMatrixTest`, `src/test/resources/snapshots/permission-matrix.md`. 표 3개(규칙 하나 12행, 규칙 여럿 8행, 판정 근거 36행)를 떠서 고정. **순서 바꾼 짝을 넣어서 deny 먼저 훑기가 실제로 동작하는 것을 고정**했다. 스냅샷이 진짜 잡는지 확인하려고 deny 훑기를 일부러 죽여 보고 실패하는 것을 봤다(원복 확인). 테스트 37개 통과. **목록 조회 스코프 누출은 못 했다** — 목록 쿼리가 없다. PLAN 에서 청크 8 로 옮김 | 214cddc |
 | 2026-08-06 | 4a. 판정 캐시와 무효화 | 완료 — Caffeine(TTL 60초, 상한 1만), `PermissionCacheConfig`·`PermissionRuleLoader` 신설, `AuthFixture`·`PermissionCacheTest` 추가. **캐시하는 건 규칙·소속 조회 둘뿐이고 `Decision` 은 안 한다** — 키에 대상 행이 들어가면 행마다 키가 생기고 11a 의 상태 축이 붙으면 조용히 틀린다. **`@Cacheable` 이 private·자기호출에 안 먹어서** 조회를 별도 빈으로 뺐다(SQL 은 그대로 이동). 규칙 캐시 무효화는 Caffeine 에 키 패턴 삭제가 없어 통째로 비운다. 캐시를 꺼 보고 테스트 2개가 실패하는 것을 확인했다. 테스트 44개 통과 | |
 | 2026-08-06 | 4a 중 드러난 것 | **`seller_owner` 는 전역 부여가 스키마에서 막힌다** — V4 트리거가 조직 역할에 셀러를 요구한다. `permission-rules.md` 의 "전역 부여 seller 스코프" 분기는 데이터가 없는 게 아니라 만들 수가 없다. 문서에 반영. **테스트 헬퍼가 두 벌 복제돼 있어서** 세 번째를 만드는 대신 `AuthFixture` 로 뺐고, 앞의 두 벌 이관은 청크 4a-1 로 세움 | 346dcdd |
-| 2026-08-06 | 4a-1. 테스트 fixture 통합 | 완료 — `PermissionEvaluatorTest`·`FieldVisibilityTest` 의 복제 헬퍼를 `AuthFixture` 로 옮김. 테스트 코드 **126줄 삭제, 39줄 추가**. 테스트 44개 그대로 통과 — 동작이 안 바뀐 리팩터링이라 개수가 같은 것이 맞다 | | |
+| 2026-08-06 | 4a-1. 테스트 fixture 통합 | 완료 — `PermissionEvaluatorTest`·`FieldVisibilityTest` 의 복제 헬퍼를 `AuthFixture` 로 옮김. 테스트 코드 **126줄 삭제, 39줄 추가**. 테스트 44개 그대로 통과 — 동작이 안 바뀐 리팩터링이라 개수가 같은 것이 맞다 | ac98f67 |
+| 2026-08-06 | 4b. 감사 로그 | 완료 — `V10__audit_log.sql`, `AuditLog`, `AuditLogTest`. **거부는 `decide()` 안에서 자동 기록** — 호출자가 부르면 새 API 에서 빠뜨려도 알 방법이 없다. 역할 변경 같은 사건은 호출자가 명시적으로 부른다. **업무 트랜잭션에 얹혀 간다**(롤백되면 같이 사라짐 — 안 일어난 일이 기록에 안 남게). **보존 3년** — `D13` 이 여기로 미뤄둔 결정. 주문 5년보다 짧은 건 `actor_user_id` 가 개인정보 파기의 예외라 예외 기간 자체가 비용이라서다. `actor_user_id` 에 **외래키를 안 건다** — 걸면 파기 배치가 이 행을 끌고 가거나 파기가 막힌다. 테스트 51개 통과, 기동 후 `appliedMigrations: 10` 확인, `\d audit_log` 로 인덱스 3개 확인 | |
+| 2026-08-06 | 4b 중 드러난 것 | **Boot 4 는 Jackson 3 이다** — 패키지가 `com.fasterxml.jackson` → `tools.jackson` 으로 통째로 바뀌었고 `JacksonException` 이 unchecked 다. 컴파일 에러로 발견해서 `stack.md` 에 적었다. 애너테이션(`jackson-annotations`)만 아직 2.x 라 트리에 두 이름이 같이 보인다 | | |
 
 ## 기록 규칙
 

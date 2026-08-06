@@ -21,6 +21,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Testcontainers | 1.21.4 | `build.gradle.kts` 의 BOM |
 | Caffeine | 3.2.4 | 안 적는다. **Boot BOM 이 관리한다** |
+| Jackson | 3.1.4 | 안 적는다. `starter-webmvc` 가 딸려 온다 |
 | Spring Security | 7.1.0 | 아직 의존성에 없다. 청크 5 에서 들어온다 |
 
 **버전을 물으면 이 표가 아니라 위 파일들을 본다.** 표가 낡을 수 있다.
@@ -57,6 +58,21 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 여기 없는 스타터가 필요하면 공식 문서에서 확인한다.
 
 여기 적은 셋 말고 무엇이 더 바뀌었는지는 확인하지 않았다.
+
+### Jackson 3 이라 패키지가 `tools.jackson` 이다
+
+Boot 4 는 Jackson 3 을 쓴다. **네임스페이스가 통째로 바뀌었다.**
+
+| Boot 4 (Jackson 3) | 3.x (Jackson 2) |
+|---|---|
+| `tools.jackson.databind.ObjectMapper` | `com.fasterxml.jackson.databind.ObjectMapper` |
+| `tools.jackson.core.JacksonException` | `com.fasterxml.jackson.core.JsonProcessingException` |
+
+`com.fasterxml.jackson.core:jackson-annotations` 는 아직 2.x 로 남아 있어서
+**의존성 트리에 두 이름이 같이 보인다.** 애너테이션만 옛 이름이다.
+
+`JacksonException` 은 `RuntimeException` 이라 `throws` 선언이 필요 없다.
+Jackson 2 습관으로 checked 예외를 잡으려 하면 컴파일이 안 된다.
 
 ### `@Cacheable` 은 private 메서드와 자기 호출에 안 먹는다
 

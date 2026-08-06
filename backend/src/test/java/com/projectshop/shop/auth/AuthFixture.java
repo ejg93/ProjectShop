@@ -11,15 +11,15 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  * <p>Spring 빈이 아니라 {@code new AuthFixture(jdbc)} 로 만든다.
  * 테스트가 자기 {@code JdbcClient} 를 넘기므로 트랜잭션 경계가 테스트의 것과 같다.
  */
-class AuthFixture {
+public class AuthFixture {
 
     private final JdbcClient jdbc;
 
-    AuthFixture(JdbcClient jdbc) {
+    public AuthFixture(JdbcClient jdbc) {
         this.jdbc = jdbc;
     }
 
-    long insertSeller(String code, String name) {
+    public long insertSeller(String code, String name) {
         return jdbc.sql("insert into seller (code, name) values (:code, :name) returning id")
                 .param("code", code)
                 .param("name", name)
@@ -27,7 +27,7 @@ class AuthFixture {
                 .single();
     }
 
-    long insertUser(String email, String displayName) {
+    public long insertUser(String email, String displayName) {
         return jdbc.sql("""
                         insert into app_user (email, password_hash, display_name)
                         values (:email, 'not-a-real-hash', :displayName)
@@ -39,21 +39,21 @@ class AuthFixture {
                 .single();
     }
 
-    void joinSeller(long sellerId, long userId) {
+    public void joinSeller(long sellerId, long userId) {
         jdbc.sql("insert into seller_member (seller_id, user_id) values (:sellerId, :userId)")
                 .param("sellerId", sellerId)
                 .param("userId", userId)
                 .update();
     }
 
-    void leaveSeller(long sellerId, long userId) {
+    public void leaveSeller(long sellerId, long userId) {
         jdbc.sql("delete from seller_member where seller_id = :sellerId and user_id = :userId")
                 .param("sellerId", sellerId)
                 .param("userId", userId)
                 .update();
     }
 
-    void grantGlobal(long userId, String roleCode) {
+    public void grantGlobal(long userId, String roleCode) {
         jdbc.sql("""
                         insert into user_role (user_id, role_id)
                         select :userId, id from role where code = :roleCode
@@ -63,7 +63,7 @@ class AuthFixture {
                 .update();
     }
 
-    void grantOrg(long userId, String roleCode, long sellerId) {
+    public void grantOrg(long userId, String roleCode, long sellerId) {
         jdbc.sql("""
                         insert into user_role (user_id, role_id, seller_id)
                         select :userId, id, :sellerId from role where code = :roleCode
@@ -74,7 +74,7 @@ class AuthFixture {
                 .update();
     }
 
-    void revokeAllRoles(long userId) {
+    public void revokeAllRoles(long userId) {
         jdbc.sql("delete from user_role where user_id = :userId")
                 .param("userId", userId)
                 .update();
