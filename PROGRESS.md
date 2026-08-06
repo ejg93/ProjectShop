@@ -4,7 +4,7 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: **기준 문서를 더 정한다.** 다음은 D14 보안 기준이다.
+- **다음에 할 것**: **기준 문서를 더 정한다.** 다음은 D11 동시성 규약이다.
   남은 것은 아래 「문서 진행 상태」를 본다. 문서가 끝나면 청크 4c 로 간다
 
 ### 문서 우선 방침
@@ -31,7 +31,7 @@
 | D7 상태머신 | **부분** — 전이표는 코드에 둔다(ADR 0009). 상태 목록·전이 주체·자동 전이가 남음 | |
 | D10 시각·영업일 | **부분** — 공휴일은 테이블(ADR 0009). 영업일 계산 규칙·배치 기준 시각·기한 소급이 남음 | |
 | D1 문서 트리·용어집 | 완료 | `doc/README.md`, `glossary.md` |
-| **D14 보안 기준** | 미착수. 기준은 OWASP Top 10. 해시·비밀번호 정책·세션 만료·실패 제한 6개 | |
+| D14 보안 기준 | 완료 | `security-baseline.md` |
 | **D11 동시성** | 미착수. 락 전략·격리 수준·멱등키·재시도 5개 | |
 | D12 이벤트 | 보류. 청크 29·32 에서 정한다 | |
 | D16 관측 | 기준만 정함(Micrometer + traceparent). 로그 레벨·개인정보 가림이 남음 | |
@@ -41,7 +41,7 @@
 | D20 화면·문구 | 미착수. 청크 13 이 멀다 | |
 | D21 성능 목표 | 미착수. **측정값이 없어 지금 정하면 근거가 없다** | |
 
-다음 순서는 **D14 → D11** 이다. 앞의 것일수록 가깝고 짧다.
+다음 순서는 **D11** 이다.
 D16~D21 은 해당 청크가 멀어서 지금 정하면 무엇을 정하는지 모르는 채로 정하게 된다.
 
 `PermissionEvaluator.decide` 가 매번 쿼리 2개를 던지므로 4a 캐시가 붙을 자리는 `loadRules` 와
@@ -83,7 +83,8 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-05 | D4·D13. 도메인 모델·데이터 수명 | 완료 — `domain-model.md`·`data-lifecycle.md`. **수명(`deleted_at`)과 업무 상태(`status`)를 한 컬럼에 섞지 않는다**. 섞으면 복구할 때 이전 상태를 잃고 "살아 있는 것" 조건이 흔들린다. `V8__lifecycle_column.sql` 로 `app_user.withdrawn`·`seller.closed` 를 수명 컬럼으로 옮김. 테스트 36개 통과 | |
 | 2026-08-05 | D15 + 청크 35. 테스트 전략·Testcontainers | 완료 — `testing-strategy.md`. 테스트가 Postgres 컨테이너를 직접 띄운다(`PostgresTestBase`). 로컬 DB 의존이 사라져 청크 35 를 앞당겨 끝냈다. JaCoCo 는 측정만 하고 목표를 안 둔다. 스냅샷은 마크다운 표, `src/test/resources/snapshots/`, `-Dsnapshot.update=true` 로만 갱신. **Testcontainers 1.21.4 미만은 Docker 29 에서 안 뜬다** — docker-java 가 API 1.32 를 잡는데 최소 지원이 1.44 다 |
 | 2026-08-06 | D1. 문서 트리·용어집 | 완료 — `doc/README.md`(기준 문서와 ADR 을 참조자 수로 가른다, ADR 은 안 고치고 새 ADR 로 뒤집는다), `doc/reference/glossary.md`. 영문이 정본이고 한글은 대역. **`seller` 는 조직에만 쓴다** — `role.code='seller'` 를 `seller_owner` 로 바꾸는 것을 청크 3d 로 세웠고 `seller_staff` 는 5a 에서 생긴다. 헷갈리는 짝 7개(취소/반품/청약철회, 환불/취소, 상품/SKU 등)와 금지어 5개를 못박음 | a7c5b36 |
-| 2026-08-06 | 3d. 역할 코드 rename | 완료 — `V9__rename_seller_role.sql` 로 `role.code` 를 `seller`→`seller_owner` 로. **main 코드는 안 고쳤다** — `PermissionEvaluator` 의 `seller` 는 전부 scope 값과 `sellerId` 라서 역할 코드 리터럴이 없었다. 테스트 3파일의 역할 코드 문자열과 금지어 '판매자' 표기만 바꿈. `gradlew test` 36개 통과. `seller_staff` 는 권한 범위가 안 정해져서 안 만들었다(5a) | | |
+| 2026-08-06 | 3d. 역할 코드 rename | 완료 — `V9__rename_seller_role.sql` 로 `role.code` 를 `seller`→`seller_owner` 로. **main 코드는 안 고쳤다** — `PermissionEvaluator` 의 `seller` 는 전부 scope 값과 `sellerId` 라서 역할 코드 리터럴이 없었다. 테스트 3파일의 역할 코드 문자열과 금지어 '판매자' 표기만 바꿈. `gradlew test` 36개 통과. `seller_staff` 는 권한 범위가 안 정해져서 안 만들었다(5a) | 40bf67e |
+| 2026-08-06 | D14. 보안 기준 | 완료 — `doc/reference/security-baseline.md`. OWASP Top 10 2021 열 항목을 청크에 매핑(해당 없는 A08 은 이유를 적음). 정한 것 넷: **bcrypt**(`{bcrypt}` 접두사가 있어 argon2 로 갈아탈 때 일괄 재해시가 없다), **비밀번호는 길이만 8~64 + ASCII 만**(NIST SP 800-63B. ASCII 제한이 bcrypt 72바이트 절단 구간을 없앤다 — 한글은 24자에서 닿는다), **서버 메모리 세션**(강제 로그아웃이 필요해지면 `SessionRegistry` → 재기동·다중서버가 필요해지면 JDBC 순), **(계정, IP) 5회/15분 차단**(계정만 잠그면 남 계정 잠그는 공격이 된다). 쿠키는 HttpOnly + SameSite=Lax, `Secure` 는 로컬 http 라 끈다. 분산 IP 방어는 청크 71 | | |
 
 ## 기록 규칙
 
