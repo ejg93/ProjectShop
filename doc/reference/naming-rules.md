@@ -127,8 +127,15 @@ JSON    created_at      password_hash    is_required
 | 판정·조회 서비스 | 명사 | `PermissionEvaluator`, `AuditLogQuery` |
 | 요청·응답 record | `<동작>Request` / `<동작>Response` | `SignupRequest`, `LoginResponse` |
 | 서비스 입력 record | `Command` (서비스 안에 중첩) | `SignupService.Command` |
+| 조회 조건 | `Criteria` | `AuditLogQuery.Criteria` |
+| 목록 응답 | `Page` (항목·페이지·크기·전체) | `AuditLogQuery.Page` |
+| DB 행을 그대로 담은 것 | `Row` (private) | `AccountService.Row` |
+| 도메인 값 | 그 값의 이름 그대로 | `Decision`, `Target`, `Rule`, `Account` |
 | 테스트 | `<대상>Test` | `PermissionEvaluatorTest` |
 | 테스트 바탕 | `<무엇>TestBase` | `PostgresTestBase`, `HttpTestBase` |
+
+**`Request`·`Response` 는 HTTP 경계에서만 쓴다.** 서비스 안쪽까지 그 이름이 들어가면
+서비스가 웹을 아는 모양이 된다(`coding-rules.md` 의 「예외」와 같은 이유다).
 
 ### 축약하지 않는다
 

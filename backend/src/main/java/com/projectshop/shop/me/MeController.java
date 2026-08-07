@@ -16,9 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import com.projectshop.shop.auth.Password;
 import com.projectshop.shop.auth.PermissionCatalog;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 
@@ -122,14 +122,15 @@ public class MeController {
     public record UpdateRequest(@NotBlank @Size(max = 50) String displayName) {
     }
 
-    /** 새 비밀번호 규칙은 가입과 같다(`D14`). 두 곳이 갈리면 가입은 되는데 변경이 막힌다. */
+    /**
+     * 새 비밀번호는 가입과 <b>같은 애너테이션</b>을 탄다(`D14`).
+     *
+     * <p>현재 비밀번호에는 규칙을 안 건다. 규칙이 바뀌기 전에 만든 비밀번호가 막히면
+     * 그 사람은 비밀번호를 바꿀 수도 없게 된다.
+     */
     public record PasswordRequest(
             @NotBlank String currentPassword,
-
-            @NotBlank
-            @Size(min = 8, max = 64)
-            @Pattern(regexp = "^[\\x20-\\x7E]+$", message = "ASCII 출력 가능 문자만 쓸 수 있다")
-            String newPassword) {
+            @NotBlank @Password String newPassword) {
     }
 
     /**

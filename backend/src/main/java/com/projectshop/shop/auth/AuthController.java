@@ -26,7 +26,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -123,19 +122,14 @@ public class AuthController {
     }
 
     /**
-     * 비밀번호는 길이와 문자 집합만 본다(D14). 조합을 강제하면 예측 가능한 변형이 나온다.
+     * 비밀번호 규칙은 {@link Password} 하나가 들고 있다(`D14`).
      *
      * @param consents 항목 코드 → 동의 여부. 필수 항목은 전부 true 여야 한다.
      */
     public record SignupRequest(
             @NotBlank @Email @Size(max = 254) String email,
 
-            // ASCII 출력 가능 문자만 받는다. 이 제한이 bcrypt 의 72바이트 절단 구간을 없앤다 —
-            // 한글은 글자당 3바이트라 24자에서 닿지만, ASCII 는 64자가 64바이트다.
-            @NotBlank
-            @Size(min = 8, max = 64)
-            @Pattern(regexp = "^[\\x20-\\x7E]+$", message = "ASCII 출력 가능 문자만 쓸 수 있다")
-            String password,
+            @NotBlank @Password String password,
 
             @NotBlank @Size(max = 50) String displayName,
 
