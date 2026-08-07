@@ -130,10 +130,11 @@ MockMvc 는 테스트들이 스레드를 나눠 쓰기 때문에 다음 클래�
 `@DirtiesContext(BEFORE_CLASS)` 를 붙이면 통과하므로 **공유 Spring 컨텍스트의 어떤 상태**까지는
 좁혔지만 그게 무엇인지는 못 밝혔다.
 
-**기동한 서버에서는 안 난다.** curl 로 토큰을 받아 가입까지 되는 것을 매번 확인했다.
-프로덕션 결함이 아니라 MockMvc 층의 한계로 보고 격리해 뒀다.
+**기동한 서버에서는 안 난다.** 그래서 그 테스트를 HTTP 층(`HttpFlowTest`)으로 옮기고
+MockMvc 판은 지웠다. 옮긴 뒤로는 `@DirtiesContext` 없이 돈다 — 원인이 MockMvc 층에 있었다는
+간접 증거다. **정확히 무엇인지는 여전히 모른다.**
 
-이런 것을 제대로 잡으려면 진짜 HTTP 를 태워야 한다 — 청크 `35a` 가 그 자리다.
+로그인을 부르는 테스트 옆에서 쿠키·세션을 검증할 일이 또 생기면 MockMvc 에 두지 말고 HTTP 층에 둔다.
 
 ### 베이스 클래스의 `@AfterEach` 는 `protected` 여야 한다
 
@@ -150,8 +151,8 @@ protected void clearSecurityContext() { ... }
 토큰 없는 POST 를 열린 경로에 보내면 **MockMvc 는 403, 기동한 서버는 401** 이다.
 같은 필터 설정에서 갈린다. 이유는 안 밝혔다.
 
-상태 코드를 못박는 테스트는 둘 중 한쪽에서만 통과한다.
-`is4xxClientError()` 로 두고, 통과하는 쪽(`with(csrf())`)을 짝으로 둬서 신호를 만든다.
+**실제 답은 401 이다.** `HttpFlowTest` 가 진짜 HTTP 로 확정했다.
+MockMvc 쪽 테스트는 상태 코드를 못박지 말고 `is4xxClientError()` 로 둔다.
 
 ### `@Cacheable` 은 private 메서드와 자기 호출에 안 먹는다
 
