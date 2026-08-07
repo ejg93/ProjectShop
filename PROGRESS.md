@@ -4,25 +4,25 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: **2차 점검**, 그다음 **계정 관리 축(5h·5e·5f·5g)**, 그다음 **6·7 상품 축**.
+- **다음에 할 것**: **`5f` 동의 철회 → `5g` 탈퇴 → 2차 점검 → 6·7 상품 축**.
 
-  **세로 관통이 끝났고 그것을 지키는 테스트도 생겼다.** 가입 → 로그인 → 권한 목록 → 감사 조회가
-  실서버에서 요청으로 이어지고, `HttpFlowTest` 가 그 경로를 통째로 고정한다.
-  1차 점검의 최대 리스크(호출자 없는 엔진)가 해소됐다.
+  **관통 경로가 완성됐고 테스트가 지킨다.** 가입 → 로그인 → 권한 목록 → 감사 조회 → 계정 조회가
+  실서버에서 이어지고 `HttpFlowTest` 가 그 경로를 고정한다. 판정 엔진·감사 로그·캐시·필드 마스킹이
+  전부 호출자를 얻었다 — 1차 점검의 최대 리스크가 해소됐다.
 
-  **새 API 를 만들 때**: 관통 흐름이 바뀌면 `HttpFlowTest` 를 같이 고친다.
-  쿠키·세션·실제 상태 코드가 걸린 검증은 MockMvc 에 두지 말고 HTTP 층에 둔다(`D15`).
+### 다음 청크가 알아야 할 것
 
-  **`5g` 탈퇴를 짤 때**: `deleted_at` 을 채운 뒤 **`PermissionRuleLoader.evict(userId)` 를 부른다.**
-  안 부르면 캐시 TTL 60초 동안 죽은 계정이 그대로 통한다 — `AccountLivenessTest.staleWithoutEvict`
-  가 그 구멍을 일부러 고정해 뒀다. 세션 만료(`SessionRegistry`)도 같이 부른다(`ADR 0010` 바깥 겹).
-
-  **아직 필드 마스킹(4d)이 실제 응답에 걸린 적이 없다.** `audit` 에는 필드 그룹이 없어서
-  `4b-1` 에서도 안 걸렸다. 그룹이 정의된 것은 `order`·`user` 뿐이라 청크 `5e`나 상품·주문 축이 그 자리다.
-  **새 경로는 `SecurityConfig.PUBLIC_PATHS` 에 넣어야 열린다** — 안 넣으면 401 이다. 가입·로그인이 거기 들어간다.
-  **CSRF 가 켜져 있다** — POST 테스트는 `with(csrf())` 를 붙인다. 안 붙이면 4xx 가 나오는데 원인이 CSRF 로 안 보인다.
-  로그인은 `InMemoryUserDetailsManager`(빈 저장소)를 DB 조회로 갈아 끼우는 자리다.
-  가입 흐름이 지킬 것 둘: 필수 항목(`is_required`) 미동의는 거부, 야간 수신은 `depends_on_id` 가 가리키는 항목에 동의해야 받는다
+- **새 경로는 `SecurityConfig.PUBLIC_PATHS` 에 넣어야 열린다.** 안 넣으면 401 이다
+- **CSRF 가 켜져 있다.** MockMvc 의 POST 테스트에는 `with(csrf())` 를 붙인다.
+  단 **같은 컨텍스트에서 CSRF 쿠키 발급을 검증하면 안 된다** — 그건 HTTP 층에서 한다(`stack.md`)
+- **관통 흐름이 바뀌면 `HttpFlowTest` 를 같이 고친다.**
+  쿠키·세션·실제 상태 코드가 걸린 검증은 MockMvc 가 아니라 HTTP 층이다(`D15`)
+- **시각 컬럼은 RowMapper 로 읽는다.** `singleRow()` 는 `timestamptz` 를 `java.sql.Timestamp` 로 준다
+- **`5g` 탈퇴**: `deleted_at` 을 채운 뒤 **`PermissionRuleLoader.evict(userId)`** 와
+  **`SessionRegistry` 세션 만료**를 둘 다 부른다(`ADR 0010` 두 겹).
+  `evict` 를 빠뜨리면 TTL 60초 동안 죽은 계정이 통한다 — `AccountLivenessTest.staleWithoutEvict` 가 그 구멍을 고정해 뒀다
+- **`13-0` 디자인 취향 스킬**은 프론트(13) 선행이다. **화면을 만들기 전에 깐다** —
+  다 만들고 깔면 이미 나온 스타일을 되돌리는 일이 된다
 
 ### 문서 우선 방침
 
