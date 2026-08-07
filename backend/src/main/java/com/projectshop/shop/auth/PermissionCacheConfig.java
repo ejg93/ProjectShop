@@ -32,6 +32,14 @@ class PermissionCacheConfig {
     static final String MEMBERSHIPS = "sellerMemberships";
 
     /**
+     * 계정이 살아 있나. 키는 사용자.
+     *
+     * <p>요청마다 보는 값이라 캐시가 없으면 모든 요청에 조회가 하나 붙는다.
+     * 대가는 TTL 동안 탈퇴가 안 먹는 것인데, 역할 회수와 같은 성질이라 해법도 같다 — 지우면 된다.
+     */
+    static final String LIVENESS = "accountLiveness";
+
+    /**
      * 무효화를 빼먹어도 결국 맞아지게 하는 안전망이다.
      *
      * <p>역할을 부여·회수하는 화면은 청크 16 에 가서야 생긴다. 그때 무효화 호출을 빠뜨리면
@@ -44,7 +52,7 @@ class PermissionCacheConfig {
 
     @Bean
     CacheManager permissionCacheManager() {
-        CaffeineCacheManager manager = new CaffeineCacheManager(RULES, MEMBERSHIPS);
+        CaffeineCacheManager manager = new CaffeineCacheManager(RULES, MEMBERSHIPS, LIVENESS);
         manager.setCaffeine(Caffeine.newBuilder()
                 .expireAfterWrite(TTL)
                 .maximumSize(MAX_SIZE));
@@ -56,6 +64,6 @@ class PermissionCacheConfig {
      * 캐시를 새로 추가하고 여기 안 넣으면 무효화가 그 캐시를 안 지운다.
      */
     static List<String> cacheNames() {
-        return List.of(RULES, MEMBERSHIPS);
+        return List.of(RULES, MEMBERSHIPS, LIVENESS);
     }
 }

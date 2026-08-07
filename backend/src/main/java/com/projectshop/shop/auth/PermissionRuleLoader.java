@@ -125,7 +125,27 @@ class PermissionRuleLoader {
     }
 
     /**
+     * 이 계정이 살아 있나. 요청마다 인증 필터가 본다(`ADR 0010`).
+     *
+     * <p>업무 상태(`status`)가 아니라 수명(`deleted_at`)만 본다. 둘은 축이 다르다 —
+     * 정지는 풀리고 탈퇴는 안 풀린다. 정지 계정을 막는 것은 로그인이 할 일이고,
+     * 여기는 <b>이미 로그인한 세션</b>이 살아 있어도 되는지를 답한다.
+     */
+    @Cacheable(PermissionCacheConfig.LIVENESS)
+    boolean isAlive(long userId) {
+        return Boolean.TRUE.equals(jdbcClient.sql("""
+                        select exists(
+                            select 1 from app_user where id = :userId and deleted_at is null
+                        )
+                        """)
+                .param("userId", userId)
+                .query(Boolean.class)
+                .single());
+    }
+
+    /**
      * 이 사용자의 캐시를 버린다. 역할을 주거나 회수하거나 소속이 바뀌면 부른다.
+     * <b>탈퇴도 부른다</b> — 안 부르면 TTL 동안 죽은 계정이 살아 있는 것으로 보인다.
      *
      * <p><b>규칙 캐시는 그 사용자 것만 못 지우고 통째로 비운다.</b>
      * 키가 (사용자, 자원, 동작)이라 한 사용자의 항목이 권한 수만큼 흩어져 있는데,
@@ -139,7 +159,8 @@ class PermissionRuleLoader {
      */
     @Caching(evict = {
             @CacheEvict(value = PermissionCacheConfig.RULES, allEntries = true),
-            @CacheEvict(value = PermissionCacheConfig.MEMBERSHIPS, key = "#userId")
+            @CacheEvict(value = PermissionCacheConfig.MEMBERSHIPS, key = "#userId"),
+            @CacheEvict(value = PermissionCacheConfig.LIVENESS, key = "#userId")
     })
     void evict(long userId) {
         // 애너테이션이 일한다. 부르는 쪽에 무엇을 지우는지 이름으로 드러내려고 메서드를 둔다.

@@ -24,6 +24,7 @@ import org.springframework.security.web.authentication.session.RegisterSessionAu
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
@@ -63,7 +64,8 @@ public class SecurityConfig {
             "/api/auth/login");
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader)
+            throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
@@ -99,7 +101,10 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(csrfTokenRequestHandler()))
-                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
+                // 인가 직전에 둔다. 인증이 확정된 뒤여야 principal 을 볼 수 있고,
+                // 인가 전이어야 죽은 계정이 아무것도 통과하지 못한다.
+                .addFilterBefore(new AccountLivenessFilter(ruleLoader), AuthorizationFilter.class);
 
         return http.build();
     }
