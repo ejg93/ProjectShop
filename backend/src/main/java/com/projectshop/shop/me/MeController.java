@@ -6,12 +6,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -31,10 +33,40 @@ public class MeController {
 
     private final PermissionCatalog permissionCatalog;
     private final AccountService accountService;
+    private final ConsentService consentService;
 
-    public MeController(PermissionCatalog permissionCatalog, AccountService accountService) {
+    public MeController(PermissionCatalog permissionCatalog, AccountService accountService,
+            ConsentService consentService) {
+
         this.permissionCatalog = permissionCatalog;
         this.accountService = accountService;
+        this.consentService = consentService;
+    }
+
+    /** 무엇에 동의했고 무엇을 더 켤 수 있나. <b>건드린 적 없는 항목도 나온다.</b> */
+    @GetMapping("/consents")
+    public List<ConsentService.ConsentView> consents(@AuthenticationPrincipal ShopUser user) {
+        return consentService.list(user.id());
+    }
+
+    /**
+     * 경로에 동사를 쓴다(`D5`). 상태를 바꾸는 요청은 자원에 `PATCH` 를 쏘는 대신
+     * 무슨 일이 일어나는지를 경로에 적는다.
+     */
+    @PostMapping("/consents/{code}/revoke")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeConsent(@AuthenticationPrincipal ShopUser user,
+            @PathVariable String code, HttpServletRequest http) {
+
+        consentService.revoke(user.id(), code, http.getRemoteAddr());
+    }
+
+    @PostMapping("/consents/{code}/grant")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void grantConsent(@AuthenticationPrincipal ShopUser user,
+            @PathVariable String code, HttpServletRequest http) {
+
+        consentService.grant(user.id(), code, http.getRemoteAddr());
     }
 
     /**
