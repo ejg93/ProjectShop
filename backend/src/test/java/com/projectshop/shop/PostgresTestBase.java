@@ -3,6 +3,7 @@ package com.projectshop.shop;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.test.context.TestSecurityContextHolder;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -40,10 +41,15 @@ public abstract class PostgresTestBase {
      *
      * <p>{@code protected} 여야 한다. 하위 테스트가 다른 패키지에 있어서
      * package-private 이면 상속되지 않고, <b>JUnit 이 조용히 안 부른다.</b>
+     *
+     * <p>둘을 다 비운다. {@code SecurityContextHolder} 는 로그인 컨트롤러가 심은 것을,
+     * {@code TestSecurityContextHolder} 는 {@code with(user(...))} 가 심은 것을 들고 있다.
+     * 한쪽만 비우면 다른 쪽이 남아 같은 증상이 난다.
      */
     @AfterEach
     protected void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+        TestSecurityContextHolder.clearContext();
     }
 
     @TestConfiguration(proxyBeanMethods = false)

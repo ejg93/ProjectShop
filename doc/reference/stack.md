@@ -118,6 +118,11 @@ MockMvc 는 테스트들이 스레드를 나눠 쓰기 때문에 다음 클래�
 `PostgresTestBase` 가 걷어낸다. 테스트마다 손으로 붙이지 않는 이유는 빠뜨렸을 때
 깨지는 것이 **빠뜨린 그 클래스가 아니라 남의 클래스**라서다. 원인을 찾을 실마리가 없다.
 
+**비울 곳이 둘이다.** `SecurityContextHolder` 는 로그인 컨트롤러가 심은 것을,
+`TestSecurityContextHolder` 는 `with(user(...))` 가 심은 것을 들고 있다.
+한쪽만 비우면 같은 증상이 그대로 난다 — 실제로 앞엣것만 비운 채로 `with(user(...))` 를
+쓰는 테스트를 추가했더니 `CsrfTokenTest` 가 다시 6개 깨졌다.
+
 ### 베이스 클래스의 `@AfterEach` 는 `protected` 여야 한다
 
 package-private 이면 **다른 패키지의 하위 클래스에 상속되지 않고, JUnit 이 조용히 안 부른다.**

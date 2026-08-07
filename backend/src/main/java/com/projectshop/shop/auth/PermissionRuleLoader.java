@@ -1,7 +1,10 @@
 package com.projectshop.shop.auth;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -63,6 +66,53 @@ class PermissionRuleLoader {
                         rs.getString("effect"),
                         splitGroups(rs.getString("field_groups"))))
                 .list();
+    }
+
+    /**
+     * 이 사용자가 가진 규칙 전부를 자원·동작으로 묶어서.
+     *
+     * <p>{@link #loadRules} 를 권한 수만큼 부르지 않으려고 따로 둔다.
+     * 목록은 무엇이 있는지 모르는 채로 시작하므로 하나씩 물어볼 대상이 없다.
+     *
+     * <p><b>캐시를 안 붙였다.</b> 붙이면 키가 사용자 하나뿐이라 지우기는 쉽지만,
+     * 같은 규칙이 두 캐시에 형태만 달리해서 들어간다. 한쪽만 비는 날이 생긴다.
+     * 이 조회는 화면 진입마다 한 번이라 그 위험을 살 이유가 없다.
+     */
+    Map<ResourceAction, List<Rule>> loadAllRules(long userId) {
+        return jdbcClient.sql("""
+                        select p.resource, p.action,
+                               r.code as role_code, ur.seller_id as grant_seller_id, rp.scope, rp.effect,
+                               coalesce(string_agg(g.code, ',' order by g.code), '') as field_groups
+                        from user_role ur
+                        join role r on r.id = ur.role_id
+                        join role_permission rp on rp.role_id = ur.role_id
+                        join permission p on p.id = rp.permission_id
+                        left join role_permission_field rpf
+                               on rpf.role_id = rp.role_id
+                              and rpf.permission_id = rp.permission_id
+                              and rpf.effect = rp.effect
+                        left join permission_field_group g on g.id = rpf.field_group_id
+                        where ur.user_id = :userId
+                        group by p.resource, p.action, r.code, ur.seller_id, rp.scope, rp.effect
+                        order by p.resource, p.action
+                        """)
+                .param("userId", userId)
+                .query((rs, rowNum) -> Map.entry(
+                        new ResourceAction(rs.getString("resource"), rs.getString("action")),
+                        new Rule(
+                                rs.getString("role_code"),
+                                rs.getObject("grant_seller_id", Long.class),
+                                rs.getString("scope"),
+                                rs.getString("effect"),
+                                splitGroups(rs.getString("field_groups")))))
+                .list()
+                .stream()
+                .collect(Collectors.groupingBy(Map.Entry::getKey, LinkedHashMap::new,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+    }
+
+    /** 권한 하나를 가리키는 키 */
+    record ResourceAction(String resource, String action) {
     }
 
     /** 이 사용자가 속한 셀러. 전역으로 받은 {@code seller} 스코프가 어디까지 미치는지를 정한다 */
