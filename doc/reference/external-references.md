@@ -309,6 +309,19 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | D19 배치·스케줄 카탈로그 | cron 표기와 Spring Scheduling 문서면 된다 |
 | D20 화면·문구 규약 | WCAG(접근성)는 범위 밖이다. 문구 규칙은 `CLAUDE.md` 에 이미 있다 |
 
+## D22 명명 규칙
+
+| 자료 | 링크 | 무엇을 가져오나 |
+|---|---|---|
+| SQL Style Guide (Simon Holywell) | https://www.sqlstyle.guide/ | 컬럼·테이블 명명, 표준 접미사. CC BY-SA 4.0 |
+| Google Java Style Guide | https://google.github.io/styleguide/javaguide.html | Java 식별자 대소문자 규칙 |
+
+**SQL 가이드는 `id` 를 기본키 이름으로 쓰지 말라고 명시한다.** 우리는 그 권고를 새 테이블부터 따르고,
+기존 13개는 안 바꾼다 — 이유는 `naming-rules.md` 맨 위에 있다.
+
+`SQL Antipatterns`(Bill Karwin)도 같은 방향(`bug_id`)을 말한다. 책이라 링크로 대조할 수 없어서
+기준으로 안 잡았지만, 두 자료가 같은 결론이라는 점은 이 결정의 근거가 된다.
+
 ## 이 문서를 고칠 때
 
 링크가 죽거나 문서 구조가 바뀌면 여기를 고친다.
