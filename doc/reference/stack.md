@@ -119,9 +119,21 @@ MockMvc 는 테스트들이 스레드를 나눠 쓰기 때문에 다음 클래�
 깨지는 것이 **빠뜨린 그 클래스가 아니라 남의 클래스**라서다. 원인을 찾을 실마리가 없다.
 
 **비울 곳이 둘이다.** `SecurityContextHolder` 는 로그인 컨트롤러가 심은 것을,
-`TestSecurityContextHolder` 는 `with(user(...))` 가 심은 것을 들고 있다.
-한쪽만 비우면 같은 증상이 그대로 난다 — 실제로 앞엣것만 비운 채로 `with(user(...))` 를
-쓰는 테스트를 추가했더니 `CsrfTokenTest` 가 다시 6개 깨졌다.
+`TestSecurityContextHolder` 는 `with(user(...))` 가 심은 것을 들고 있다. 둘 다 비운다.
+
+### 로그인 테스트가 CSRF 쿠키 발급을 망가뜨린다 — 원인 미상
+
+`AuthLoginTest` 가 먼저 돌면 `CsrfTokenTest` 에서 토큰 쿠키가 안 실린다.
+
+**인증 정리로는 안 고쳐진다.** 요청 시점에 `SecurityContextHolder` 와
+`TestSecurityContextHolder` 가 둘 다 비어 있는데도 응답에 쿠키가 없다(직접 찍어 확인).
+`@DirtiesContext(BEFORE_CLASS)` 를 붙이면 통과하므로 **공유 Spring 컨텍스트의 어떤 상태**까지는
+좁혔지만 그게 무엇인지는 못 밝혔다.
+
+**기동한 서버에서는 안 난다.** curl 로 토큰을 받아 가입까지 되는 것을 매번 확인했다.
+프로덕션 결함이 아니라 MockMvc 층의 한계로 보고 격리해 뒀다.
+
+이런 것을 제대로 잡으려면 진짜 HTTP 를 태워야 한다 — 청크 `35a` 가 그 자리다.
 
 ### 베이스 클래스의 `@AfterEach` 는 `protected` 여야 한다
 

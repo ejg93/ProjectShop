@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -26,8 +28,19 @@ import com.projectshop.shop.PostgresTestBase;
  * 실제로 5-2 를 끝냈을 때 그 상태였다 — 테스트는 초록인데 curl 로는 POST 를 못 불렀다.
  *
  * <p>그래서 여기서는 토큰을 <b>응답에서 꺼내</b> 다음 요청에 실어 보낸다.
+ *
+ * <h2>왜 컨텍스트를 새로 띄우나</h2>
+ *
+ * <p>{@code AuthLoginTest} 가 먼저 돌면 여기서 토큰 쿠키가 안 온다. 인증 상태를 비워도 그대로다 —
+ * 진단해 보니 요청 시점의 {@code SecurityContextHolder} 는 비어 있는데 쿠키만 안 실린다.
+ * <b>원인을 공유 컨텍스트의 상태까지 좁혔고 그 이상은 못 밝혔다.</b>
+ *
+ * <p>기동한 서버에서는 안 나는 문제다. 실제 curl 로 토큰을 받아 가입까지 되는 것을 확인했다.
+ * 그래서 프로덕션 결함이 아니라 이 층의 한계로 보고 격리했다.
+ * 이 테스트가 검증하려는 것(진짜 HTTP 왕복)을 제대로 하려면 청크 {@code 35a} 가 필요하다.
  */
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = ClassMode.BEFORE_CLASS)
 class CsrfTokenTest extends PostgresTestBase {
 
     private static final String COOKIE_NAME = "XSRF-TOKEN";
