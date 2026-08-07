@@ -121,20 +121,33 @@ MockMvc 는 테스트들이 스레드를 나눠 쓰기 때문에 다음 클래�
 **비울 곳이 둘이다.** `SecurityContextHolder` 는 로그인 컨트롤러가 심은 것을,
 `TestSecurityContextHolder` 는 `with(user(...))` 가 심은 것을 들고 있다. 둘 다 비운다.
 
-### 로그인 테스트가 CSRF 쿠키 발급을 망가뜨린다 — 원인 미상
+### `with(csrf())` 를 한 번 쓰면 그 컨텍스트에서 CSRF 쿠키가 영영 안 나온다
 
-`AuthLoginTest` 가 먼저 돌면 `CsrfTokenTest` 에서 토큰 쿠키가 안 실린다.
+**MockMvc 로는 쿠키 기반 CSRF 발급을 검증할 수 없다.** 프레임워크가 저장소를 갈아치운다.
 
-**인증 정리로는 안 고쳐진다.** 요청 시점에 `SecurityContextHolder` 와
-`TestSecurityContextHolder` 가 둘 다 비어 있는데도 응답에 쿠키가 없다(직접 찍어 확인).
-`@DirtiesContext(BEFORE_CLASS)` 를 붙이면 통과하므로 **공유 Spring 컨텍스트의 어떤 상태**까지는
-좁혔지만 그게 무엇인지는 못 밝혔다.
+`SecurityMockMvcRequestPostProcessors.csrf()` 는 설정된 `CsrfTokenRepository` 를
+`TestCsrfTokenRepository` 로 감싸는데, **그 안은 언제나 `HttpSessionCsrfTokenRepository` 다.**
+`CookieCsrfTokenRepository` 로 설정해 뒀어도 그렇다. 그리고 그 교체가 **공유 Spring 컨텍스트에 남아서**,
+같은 컨텍스트를 쓰는 뒤 테스트들은 토큰을 세션에 저장하고 `Set-Cookie` 를 안 보낸다.
 
-**기동한 서버에서는 안 난다.** 그래서 그 테스트를 HTTP 층(`HttpFlowTest`)으로 옮기고
-MockMvc 판은 지웠다. 옮긴 뒤로는 `@DirtiesContext` 없이 돈다 — 원인이 MockMvc 층에 있었다는
-간접 증거다. **정확히 무엇인지는 여전히 모른다.**
+순서를 고정해 확인한 결과다.
 
-로그인을 부르는 테스트 옆에서 쿠키·세션을 검증할 일이 또 생기면 MockMvc 에 두지 말고 HTTP 층에 둔다.
+```
+before-any-csrf  cookies=1
+used with(csrf())
+after-with-csrf  cookies=0     ← 여기서 죽는다
+```
+
+**로그인과는 무관하다.** 인증 상태를 비워도 안 고쳐지고, `@DirtiesContext(BEFORE_CLASS)` 로는
+고쳐진다 — 컨텍스트에 남은 상태이기 때문이다.
+
+Spring Security 는 이 리포트를 `status: invalid` 로 닫았다. 테스트 인프라의 의도된 동작이다.
+
+**대응은 층을 옮기는 것뿐이다.** 쿠키·세션이 실제로 오가는지 보려면 `HttpTestBase` 를 쓴다.
+`with(csrf())` 자체는 POST 를 태우는 정상적인 방법이라 계속 쓴다 — 같은 컨텍스트에서
+쿠키 발급까지 검증하려 들지만 않으면 된다.
+
+기동한 서버는 언제나 정상이었다. 프로덕션 결함이 아니다.
 
 ### 베이스 클래스의 `@AfterEach` 는 `protected` 여야 한다
 

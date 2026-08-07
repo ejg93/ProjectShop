@@ -151,6 +151,13 @@ Spring Security 문서에서 청크가 직접 쓰는 절
 - CSRF: https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html — 청크 5b
 - Session Management: https://docs.spring.io/spring-security/reference/servlet/authentication/session-management.html — 청크 5·5c
 - Method Security: 청크 74(판정 엔진 재구현)가 `AuthorizationManager` 를 볼 때
+- MockMvc 설정: https://docs.spring.io/spring-security/reference/servlet/test/mockmvc/setup.html — 청크 35a
+
+이슈 하나를 근거로 쓴다.
+
+- spring-security#12813 — https://github.com/spring-projects/spring-security/issues/12813
+  `with(csrf())` 가 `CsrfTokenRepository` 를 세션 기반으로 갈아치워 쿠키 발급 검증이 불가능해진다.
+  `status: invalid` 로 닫혔다 — 의도된 동작이라 우회가 아니라 층을 옮겨야 한다(`stack.md`)
 
 D14 는 Top 10 열 항목을 훑고 **각각이 이 프로젝트의 어디에 걸리는지** 를 적는다.
 D2 법 요건표와 같은 구조다. 해당 없는 항목은 왜 해당 없는지를 적어야 빠뜨린 것과 구분된다.
