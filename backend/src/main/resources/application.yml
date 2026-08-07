@@ -23,3 +23,14 @@ management:
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      # 무활동 만료. 절대 만료 12시간은 서블릿에 설정 자리가 없어서 코드로 넣는다(청크 5c).
+      timeout: 30m
+      cookie:
+        name: SHOPSESSION
+        http-only: true
+        same-site: lax
+        # 로컬이 http 라 끈다. 켜면 쿠키가 아예 안 실려서 로그인이 안 된다.
+        # 배포가 생기면 이 줄이 먼저 바뀐다 — 안 바꾸면 세션 쿠키가 평문으로 흐른다.
+        secure: false

@@ -74,6 +74,31 @@ Boot 4 는 Jackson 3 을 쓴다. **네임스페이스가 통째로 바뀌었다.
 `JacksonException` 은 `RuntimeException` 이라 `throws` 선언이 필요 없다.
 Jackson 2 습관으로 checked 예외를 잡으려 하면 컴파일이 안 된다.
 
+### Boot 4 는 자동설정 클래스도 모듈별로 옮겼다
+
+스타터 이름만 갈린 게 아니다. **클래스가 앉은 패키지가 같이 움직였다.**
+IDE 자동 완성이 옛 이름을 안 찾아 주고, 오류는 `package ... does not exist` 로만 나온다.
+
+| Boot 4 | 3.x |
+|---|---|
+| `org.springframework.boot.web.server.autoconfigure.ServerProperties` | `org.springframework.boot.autoconfigure.web.ServerProperties` |
+| `org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc` | `org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc` |
+
+규칙이 있다. **기술 이름이 앞으로 나오고 `autoconfigure` 가 뒤로 간다.**
+못 찾겠으면 클래스 이름으로 jar 안을 뒤지는 편이 빠르다.
+
+```
+unzip -l <jar> | grep ServerProperties.class
+```
+
+### CSRF 거부가 MockMvc 와 기동한 서버에서 다르게 나온다
+
+토큰 없는 POST 를 열린 경로에 보내면 **MockMvc 는 403, 기동한 서버는 401** 이다.
+같은 필터 설정에서 갈린다. 이유는 안 밝혔다.
+
+상태 코드를 못박는 테스트는 둘 중 한쪽에서만 통과한다.
+`is4xxClientError()` 로 두고, 통과하는 쪽(`with(csrf())`)을 짝으로 둬서 신호를 만든다.
+
 ### `@Cacheable` 은 private 메서드와 자기 호출에 안 먹는다
 
 프록시가 메서드 호출을 가로채는 방식이라 **같은 객체 안에서 부른 것은 프록시를 안 거친다.**
