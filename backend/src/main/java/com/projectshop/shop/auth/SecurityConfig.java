@@ -9,11 +9,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.HttpBasicConfigurer;
 import org.springframework.security.config.annotation.web.configurers.FormLoginConfigurer;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.RegisterSessionAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -49,8 +58,9 @@ public class SecurityConfig {
             "/api/health",
             "/actuator/health",
             "/actuator/health/**",
-            // 가입은 계정이 없는 사람이 부른다. 잠그면 아무도 가입할 수 없다.
-            "/api/auth/signup");
+            // 가입과 로그인은 계정이 없거나 아직 인증되지 않은 사람이 부른다.
+            "/api/auth/signup",
+            "/api/auth/login");
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -159,13 +169,49 @@ public class SecurityConfig {
     }
 
     /**
-     * 사용자가 없는 빈 저장소. DB 기반 조회는 로그인 청크가 넣는다.
+     * 아이디와 비밀번호를 실제로 대조하는 곳.
      *
-     * <p>이 빈이 없으면 Boot 가 자동으로 {@code user} 계정을 만들고 무작위 비밀번호를
-     * 기동 로그에 찍는다. 쓸 데도 없는 계정이 뜨고, 비밀번호가 로그에 남는다.
+     * <p>{@code formLogin} 을 껐으므로 이것을 부르는 곳이 없다. 컨트롤러가 직접 부른다.
      */
     @Bean
-    UserDetailsService userDetailsService() {
-        return new InMemoryUserDetailsManager();
+    AuthenticationManager authenticationManager(
+            UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return new ProviderManager(provider);
+    }
+
+    /**
+     * 로그인이 성공한 뒤에 세션에 해야 할 일들.
+     *
+     * <p>{@code formLogin} 이 하던 일이다. 껐으므로 <b>아무도 안 부른다</b> —
+     * 컨트롤러가 부르지 않으면 세션 고정 방어(`D14`)도 세션 등록도 조용히 빠진다.
+     *
+     * <p>둘을 묶어 두는 이유는 하나만 부르는 실수를 없애려는 것이다.
+     */
+    @Bean
+    SessionAuthenticationStrategy sessionAuthenticationStrategy(SessionRegistry sessionRegistry) {
+        return new CompositeSessionAuthenticationStrategy(List.of(
+                // 세션 ID 를 갈아 공격자가 미리 심어 둔 ID 를 죽인다(D14).
+                new ChangeSessionIdAuthenticationStrategy(),
+                // 탈퇴(5g)가 이 등록을 보고 세션을 만료시킨다(ADR 0010).
+                new RegisterSessionAuthenticationStrategy(sessionRegistry)));
+    }
+
+    /** 누가 어떤 세션을 들고 있는지. 탈퇴·정지가 이걸 보고 세션을 끊는다(`ADR 0010`). */
+    @Bean
+    SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    /**
+     * 세션이 죽었다는 것을 {@link SessionRegistry} 에 알린다.
+     *
+     * <p>안 걸면 레지스트리에 죽은 세션이 쌓이고, 만료 대상이 실제와 어긋난다.
+     */
+    @Bean
+    HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
     }
 }

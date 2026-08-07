@@ -9,7 +9,7 @@
 
 | 겹 | 무엇 | 어느 청크 |
 |---|---|---|
-| 요청마다 계정 생존 확인 | 인증 필터가 `deleted_at is null` 을 본다 | 5 |
+| 요청마다 계정 생존 확인 | 인증 필터가 `deleted_at is null` 을 본다 | 5h |
 | 세션 만료 | 탈퇴 시 `SessionRegistry` 로 그 사람의 세션을 전부 만료 | 5g |
 
 `D14` 가 세워 둔 「지금 → `SessionRegistry` → Spring Session JDBC」 계단에서 한 칸 올라간다.

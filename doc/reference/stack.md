@@ -107,6 +107,23 @@ unzip -l <jar> | grep ServerProperties.class
 `SecurityConfig.csrfTokenRequestHandler()` 가 내보낼 때만 XOR 를 쓰고,
 헤더로 돌아온 값은 평문으로 비교한다. 폼 파라미터 경로는 그대로 XOR 로 푼다.
 
+### MockMvc 로 실제 로그인을 하면 다음 테스트 클래스가 인증된 채로 시작한다
+
+컨트롤러가 `SecurityContextHolder.setContext()` 를 부르면 그 값이 **스레드에 남는다.**
+MockMvc 는 테스트들이 스레드를 나눠 쓰기 때문에 다음 클래스가 그 인증을 물려받는다.
+
+증상이 엉뚱한 데서 난다. `AuthLoginTest` 를 추가했더니 손대지 않은 `CsrfTokenTest` 6개가
+토큰 쿠키를 못 받아 깨졌다. **기동한 서버에서는 안 난다** — 요청마다 스레드가 갈린다.
+
+실제 로그인을 부르는 테스트는 `@AfterEach` 에서 걷어낸다.
+
+```java
+@AfterEach
+void clearAuthentication() {
+    SecurityContextHolder.clearContext();
+}
+```
+
 ### CSRF 거부가 MockMvc 와 기동한 서버에서 다르게 나온다
 
 토큰 없는 POST 를 열린 경로에 보내면 **MockMvc 는 403, 기동한 서버는 401** 이다.
