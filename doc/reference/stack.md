@@ -91,6 +91,22 @@ IDE 자동 완성이 옛 이름을 안 찾아 주고, 오류는 `package ... doe
 unzip -l <jar> | grep ServerProperties.class
 ```
 
+### SPA 에 CSRF 쿠키를 내주려면 두 군데를 더 손봐야 한다
+
+`CookieCsrfTokenRepository.withHttpOnlyFalse()` 만 걸면 **쿠키가 안 나간다.**
+설정은 맞아 보이는데 응답에 아무것도 안 실리고, 오류도 안 난다.
+
+| 걸리는 것 | 증상 | 손볼 곳 |
+|---|---|---|
+| 토큰이 지연 생성된다 | 아무도 안 읽으면 쿠키가 안 나간다 | 토큰을 한 번 읽는 필터를 `CsrfFilter` 뒤에 넣는다 |
+| `XorCsrfTokenRequestAttributeHandler` | 쿠키에서 읽은 값을 헤더에 그대로 실으면 거부된다 | 헤더로 온 값만 평문 비교한다 |
+
+두 번째가 특히 안 보인다. 저장소는 쿠키에 **평문**을 넣는데 XOR 핸들러는 돌아온 값을
+인코딩된 것으로 보고 디코딩을 시도한다. 클라이언트는 받은 값을 그대로 보냈는데 403 이 난다.
+
+`SecurityConfig.csrfTokenRequestHandler()` 가 내보낼 때만 XOR 를 쓰고,
+헤더로 돌아온 값은 평문으로 비교한다. 폼 파라미터 경로는 그대로 XOR 로 푼다.
+
 ### CSRF 거부가 MockMvc 와 기동한 서버에서 다르게 나온다
 
 토큰 없는 POST 를 열린 경로에 보내면 **MockMvc 는 403, 기동한 서버는 401** 이다.

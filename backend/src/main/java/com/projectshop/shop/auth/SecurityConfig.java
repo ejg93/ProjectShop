@@ -1,5 +1,6 @@
 package com.projectshop.shop.auth;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -15,6 +16,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * 인증의 바탕. 무엇이 열려 있고 인증이 어떤 형태로 실패하는지를 한 군데서 정한다.
@@ -64,13 +78,73 @@ public class SecurityConfig {
                         // 기본값에 기대면 이 요구사항이 코드 어디에도 안 보인다.
                         .sessionFixation(config -> config.changeSessionId()));
 
-        // CSRF 는 켜 둔 채로 둔다.
+        // CSRF 토큰을 쿠키로 내려준다.
         //
-        // 청크 5b 가 "CSRF 를 켠다" 로 잡혀 있지만 껐다가 되살리는 순서로 가지 않는다.
-        // 끄면 그 사이에 생기는 POST 엔드포인트들이 토큰 없이 동작하는 것을 전제로 짜이고,
-        // 나중에 켜는 순간 전부 403 이 된다. 5b 에 남는 것은 프론트가 토큰을 실어 보내는 쪽이다.
+        // 기본 저장소는 세션이라 클라이언트가 토큰을 얻을 방법이 아예 없다.
+        // 5-2 를 끝내고 curl 로 가입을 걸어 보니 401 이었다 — 테스트는 with(csrf()) 로
+        // 우회하기 때문에 이 벽이 안 드러났다.
+        //
+        // 쿠키는 HttpOnly 가 아니어야 한다. 스크립트가 읽어서 헤더에 실어야 하기 때문이다.
+        // 세션 쿠키와 목적이 다르다 — 이쪽은 읽히는 것이 목적이고, 훔쳐도 남의 세션이 되지 않는다.
+        http.csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(csrfTokenRequestHandler()))
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * 토큰을 한 번 읽어서 쿠키가 나가게 만든다.
+     *
+     * <p>저장소는 <b>토큰을 읽을 때</b> 쿠키를 심는다. 아무도 안 읽으면 아무것도 안 나간다.
+     * 위의 지연 끄기만으로는 부족했다 — 토큰이 만들어져도 읽히지 않으면 응답에 안 실린다.
+     * 실제로 이 필터 없이 돌려 보고 쿠키가 안 나오는 것을 봤다.
+     */
+    private static final class CsrfCookieFilter extends OncePerRequestFilter {
+
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                FilterChain chain) throws ServletException, IOException {
+
+            CsrfToken token = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+            if (token != null) {
+                token.getToken();
+            }
+            chain.doFilter(request, response);
+        }
+    }
+
+    /**
+     * 내보낼 때는 XOR 로 가리고, <b>헤더로 돌아온 값은 평문으로 비교</b>한다.
+     *
+     * <p>둘을 갈라야 하는 이유가 있다. 저장소는 쿠키에 평문 토큰을 넣는데,
+     * XOR 핸들러는 돌아온 값을 인코딩된 것으로 보고 디코딩을 시도한다.
+     * 클라이언트가 쿠키에서 읽은 값을 그대로 헤더에 실으면 그 자리에서 깨진다.
+     * 실제로 XOR 핸들러만 두고 돌려 보고 이 실패를 봤다.
+     *
+     * <p>내보낼 때 XOR 를 유지하는 것은 응답 본문에 같은 토큰이 반복해서 실리지 않게 하려는 것이다.
+     * 폼 파라미터로 오는 경로는 그대로 XOR 로 푼다 — 그쪽은 서버가 심어 준 값이 돌아온다.
+     */
+    private static CsrfTokenRequestHandler csrfTokenRequestHandler() {
+        return new CsrfTokenRequestAttributeHandler() {
+
+            private final XorCsrfTokenRequestAttributeHandler xor =
+                    new XorCsrfTokenRequestAttributeHandler();
+
+            @Override
+            public void handle(HttpServletRequest request, HttpServletResponse response,
+                    java.util.function.Supplier<CsrfToken> csrfToken) {
+                xor.handle(request, response, csrfToken);
+            }
+
+            @Override
+            public String resolveCsrfTokenValue(HttpServletRequest request, CsrfToken csrfToken) {
+                return StringUtils.hasText(request.getHeader(csrfToken.getHeaderName()))
+                        ? super.resolveCsrfTokenValue(request, csrfToken)
+                        : xor.resolveCsrfTokenValue(request, csrfToken);
+            }
+        };
     }
 
     /**
