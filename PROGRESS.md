@@ -4,9 +4,10 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: 권한 축(청크 4 계열)이 끝났다. **청크 5 (회원가입·로그인)** 로 넘어간다.
-  `D14` 가 bcrypt·서버 메모리 세션·(계정,IP) 차단을 이미 정해 뒀다.
-  남은 것은 아래 「문서 진행 상태」를 본다. 문서가 끝나면 청크 4c 로 간다
+- **다음에 할 것**: **청크 5 (회원가입·로그인)**. 동의 스키마(5-0)가 깔렸으니 남은 것은 앱 층이다.
+  `D14` 가 bcrypt·서버 메모리 세션을 정해 뒀고, **Spring Security 스타터가 아직 `build.gradle.kts` 에 없다** — 5 에서 추가한다.
+  스타터를 넣는 순간 모든 엔드포인트가 기본 잠기므로 `SecurityFilterChain` 을 같이 넣어야 `/api/health` 가 산다.
+  가입 흐름이 지킬 것 둘: 필수 항목(`is_required`) 미동의는 거부, 야간 수신은 `depends_on_id` 가 가리키는 항목에 동의해야 받는다
 
 ### 문서 우선 방침
 
@@ -55,7 +56,7 @@ D20 은 청크 13 을 잡을 때 같이 한다.
 **청크 16 을 할 때 반드시 볼 것** — 역할을 주거나 회수하는 모든 경로에서 `PermissionRuleLoader.evict(userId)`
 를 부른다. 안 부르면 TTL 60초 동안 회수가 안 먹는다. 그걸 고정한 테스트가
 `PermissionCacheTest.staleDecisionSurvivesWithoutEvict` 다.
-- **마지막 갱신**: 2026-08-06
+- **마지막 갱신**: 2026-08-07
 
 git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.noreply.github.com>` 로 잡았다.
 청크 3a 이전 커밋 4개는 플레이스홀더 이메일이라 GitHub 계정에 안 붙는다. 올릴 때 rebase 로 고칠지 정한다.
@@ -106,8 +107,8 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-06 | 4a 중 드러난 것 | **`seller_owner` 는 전역 부여가 스키마에서 막힌다** — V4 트리거가 조직 역할에 셀러를 요구한다. `permission-rules.md` 의 "전역 부여 seller 스코프" 분기는 데이터가 없는 게 아니라 만들 수가 없다. 문서에 반영. **테스트 헬퍼가 두 벌 복제돼 있어서** 세 번째를 만드는 대신 `AuthFixture` 로 뺐고, 앞의 두 벌 이관은 청크 4a-1 로 세움 | 346dcdd |
 | 2026-08-06 | 4a-1. 테스트 fixture 통합 | 완료 — `PermissionEvaluatorTest`·`FieldVisibilityTest` 의 복제 헬퍼를 `AuthFixture` 로 옮김. 테스트 코드 **126줄 삭제, 39줄 추가**. 테스트 44개 그대로 통과 — 동작이 안 바뀐 리팩터링이라 개수가 같은 것이 맞다 | ac98f67 |
 | 2026-08-06 | 4b. 감사 로그 | 완료 — `V10__audit_log.sql`, `AuditLog`, `AuditLogTest`. **거부는 `decide()` 안에서 자동 기록** — 호출자가 부르면 새 API 에서 빠뜨려도 알 방법이 없다. 역할 변경 같은 사건은 호출자가 명시적으로 부른다. **업무 트랜잭션에 얹혀 간다**(롤백되면 같이 사라짐 — 안 일어난 일이 기록에 안 남게). **보존 3년** — `D13` 이 여기로 미뤄둔 결정. 주문 5년보다 짧은 건 `actor_user_id` 가 개인정보 파기의 예외라 예외 기간 자체가 비용이라서다. `actor_user_id` 에 **외래키를 안 건다** — 걸면 파기 배치가 이 행을 끌고 가거나 파기가 막힌다. 테스트 51개 통과, 기동 후 `appliedMigrations: 10` 확인, `\d audit_log` 로 인덱스 3개 확인 | |
-| 2026-08-06 | 4b 중 드러난 것 | **Boot 4 는 Jackson 3 이다** — 패키지가 `com.fasterxml.jackson` → `tools.jackson` 으로 통째로 바뀌었고 `JacksonException` 이 unchecked 다. 컴파일 에러로 발견해서 `stack.md` 에 적었다. 애너테이션(`jackson-annotations`)만 아직 2.x 라 트리에 두 이름이 같이 보인다 | | |
-
+| 2026-08-06 | 4b 중 드러난 것 | **Boot 4 는 Jackson 3 이다** — 패키지가 `com.fasterxml.jackson` → `tools.jackson` 으로 통째로 바뀌었고 `JacksonException` 이 unchecked 다. 컴파일 에러로 발견해서 `stack.md` 에 적었다. 애너테이션(`jackson-annotations`)만 아직 2.x 라 트리에 두 이름이 같이 보인다 | |
+| 2026-08-07 | 5-0. 동의 이력 스키마 | 완료 — `V11__consent.sql`(`consent_item`·`user_consent`·`current_consent` 뷰), `ConsentSchemaTest` 11개. **상태가 아니라 사건을 적는다** — 철회를 update 로 갈면 철회 시점은 남고 동의 시점을 잃는데 R7 은 둘 다 요구한다. 항목은 `(code, version)` 이 한 행이라 개정해도 옛 판이 남는다(무엇에 동의했는지 입증). 마케팅은 채널별(이메일·문자)로 쪼갰다 — 하나로 두면 기존 동의가 어느 채널 것이었는지 몰라서 나중에 못 쪼갠다. 야간 수신은 `depends_on_id` 로 이메일에 걸었다. **`user_consent` 는 계정에 cascade** — `audit_log` 와 반대다. 감사는 계정이 없어져도 남아야 하지만 동의 이력은 개인정보 그 자체고 계약이 끝나면 입증할 상대가 없다(R9). 뷰 정렬에 `uc.id desc` 를 넣었다 — 한 트랜잭션 안에서는 `now()` 가 같은 값이라 `acted_at` 만으로 순서가 안 난다. 이 키를 `asc` 로 뒤집어 보고 해당 테스트 1개만 실패하는 것을 확인(원복). 테스트 62개 통과, 기동 후 `appliedMigrations: 11` 확인 | |
 ## 기록 규칙
 
 청크를 끝내거나 중간에 멈출 때마다 위 두 곳을 같이 고친다.
