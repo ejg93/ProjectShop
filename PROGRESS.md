@@ -4,7 +4,7 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: **`5g` 탈퇴 → 2차 점검 → 6·7 상품 축**.
+- **다음에 할 것**: **2차 점검 → 6·7 상품 축**. 계정 관리 축(5h·5e·5f·5g)이 끝났다.
 
   **관통 경로가 완성됐고 테스트가 지킨다.** 가입 → 로그인 → 권한 목록 → 감사 조회 → 계정 조회가
   실서버에서 이어지고 `HttpFlowTest` 가 그 경로를 고정한다. 판정 엔진·감사 로그·캐시·필드 마스킹이
@@ -18,8 +18,9 @@
 - **관통 흐름이 바뀌면 `HttpFlowTest` 를 같이 고친다.**
   쿠키·세션·실제 상태 코드가 걸린 검증은 MockMvc 가 아니라 HTTP 층이다(`D15`)
 - **시각 컬럼은 RowMapper 로 읽는다.** `singleRow()` 는 `timestamptz` 를 `java.sql.Timestamp` 로 준다
-- **`5g` 탈퇴**: `deleted_at` 을 채운 뒤 **`PermissionRuleLoader.evict(userId)`** 와
-  **`SessionRegistry` 세션 만료**를 둘 다 부른다(`ADR 0010` 두 겹).
+- **계정을 죽이는 새 경로**(관리자 정지 16, 임퍼소네이션 종료 16b)를 만들면
+  **`PermissionRuleLoader.evict(userId)`** 와 **`SessionRegistry` 세션 만료**를 둘 다 부른다(`ADR 0010`).
+  `WithdrawalService` 가 그 순서를 그대로 쓰고 있으니 베껴 쓴다.
   `evict` 를 빠뜨리면 TTL 60초 동안 죽은 계정이 통한다 — `AccountLivenessTest.staleWithoutEvict` 가 그 구멍을 고정해 뒀다
 - **`13-0` 디자인 취향 스킬**은 프론트(13) 선행이다. **화면을 만들기 전에 깐다** —
   다 만들고 깔면 이미 나온 스타일을 되돌리는 일이 된다
@@ -146,7 +147,9 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-07 | 5h. 계정 생존 확인 | 완료 — `AccountLivenessFilter`, `PermissionRuleLoader.isAlive`, 캐시 `accountLiveness`, `AccountLivenessTest` 6개. `ADR 0010` 의 **안쪽 겹**이다 — 로그인 때만 계정을 보면 이미 로그인한 다른 기기가 안 막히고, 탈퇴해도 `user_role` 이 남아 판정이 통과한다. 필터를 `AuthorizationFilter` **앞**에 뒀다(인증 확정 뒤·인가 전). **업무 상태가 아니라 수명만 본다** — 정지는 풀리고 탈퇴는 안 풀려서 축이 다르다. 죽은 계정은 401 + 세션 무효화 — 401 만 주면 다음 요청마다 같은 조회가 다시 돈다. 필터를 `@Component` 로 안 뒀다(Boot 가 서블릿 필터로 중복 등록한다). **`PermissionCacheTest` 가 제 역할을 했다** — "캐시는 둘뿐" 을 고정해 둔 단언이 깨져서 세 번째 캐시를 의식적으로 승인하게 만들었다. 테스트 140개 통과. **실서버 확인**: 로그인 후 200 → DB 에서 `deleted_at` 을 채워도 캐시가 살아 있는 동안 200 → TTL 이 지나자 401. 캐시가 만드는 창이 실제로 존재하고 실제로 닫히는 것을 둘 다 봤다 | ad22aea |
 | 2026-08-07 | 5e. 내 계정 조회·수정 | 완료 — `AccountService`, `MeController` 확장(`GET/PATCH /api/me`, `POST /api/me/password`), `MeAccountTest` 11개. **필드 마스킹(4d)이 실제 응답에 처음 걸렸다** — 지금까지 판정은 허용 여부만 쓰였다. 못 보는 필드는 null 이 아니라 **키 자체가 빠진다**(`D5`) — null 로 내리면 "값이 없다" 와 "볼 수 없다" 가 같아 보인다. `_visible_field_groups` 가 그걸 가른다. 비밀번호 변경은 **현재 비밀번호를 다시 받는다** — 세션을 훔친 사람이 비밀번호까지 바꾸면 주인이 계정을 영영 잃는다. `PATCH` 에 안 섞은 이유는 이름만 바꾸는 요청에 비밀번호 필드가 딸려 다니게 되기 때문이다. **`Location` 문제는 안 풀렸다** — `/api/me` 는 id 로 가리키는 경로가 아니라 201 이 지목할 자원이 못 된다. 청크 16 의 `GET /api/users/{id}` 로 넘겼다. 테스트 151개 통과. **실서버 확인**: 고객은 `email` 이 보이고, 역할을 감사자로 바꾸자 **응답에서 `email` 키가 사라지고 `_visible_field_groups` 가 `["basic"]` 이 됐다** | |
 | 2026-08-07 | 5e 중 드러난 것 | **`JdbcClient.query().singleRow()` 는 `timestamptz` 를 `java.sql.Timestamp` 로 준다.** `OffsetDateTime` 으로 캐스팅하면 `ClassCastException` 이고, 컴파일은 통과해서 실행할 때만 드러난다. `AuditLogQuery` 는 RowMapper 를 써서 안 걸렸던 자리다. 시각 컬럼을 읽을 때는 `Map` 이 아니라 RowMapper 로 받는다 | ce8d8ec |
-| 2026-08-07 | 5f. 동의 조회·철회 | 완료 — `ConsentService`, `MeController` 확장(`GET /api/me/consents`, `POST .../{code}/revoke`·`/grant`), `MeConsentTest` 11개. **`5-0` 의 append-only 설계가 처음 쓰였다** — 스키마가 표현할 수 있는 것을 앱이 못 하면 그 설계는 쓰인 적이 없는 것이다(R7). 철회는 기존 행을 고치지 않고 `granted=false` 한 줄을 더한다. **필수 항목은 철회를 막는다** — 허용하면 동의 없이 살아 있는 계정이 생기고 가입이 막던 상태가 뒷문으로 들어온다. 탈퇴(5g)로 안내한다. **채널을 거두면 야간 수신도 같이 거둔다**(R14) — 안 그러면 보낼 수 없는 동의가 남고 나중에 채널만 켜질 때 야간까지 열린다. **상태가 안 바뀌면 행을 안 쓴다** — append-only 라고 같은 값을 쌓으면 이력이 의미를 잃는다. 남길 것은 바뀐 순간이지 요청 횟수가 아니다. 목록에 **건드린 적 없는 항목도 넣는다**(무엇을 더 켤 수 있는지 알 방법이 없어진다). 재동의(`grant`)도 만들었다 — PLAN 은 철회만 적었지만 선택 항목을 껐다 켜는 것은 흔한 요구다. 테스트 162개 통과. **실서버 확인**: 이메일 철회 204 → 야간까지 false, 필수 철회 422, DB 에 `signup`/`mypage` 두 시점이 나란히 남았다 | |
+| 2026-08-07 | 5f. 동의 조회·철회 | 완료 — `ConsentService`, `MeController` 확장(`GET /api/me/consents`, `POST .../{code}/revoke`·`/grant`), `MeConsentTest` 11개. **`5-0` 의 append-only 설계가 처음 쓰였다** — 스키마가 표현할 수 있는 것을 앱이 못 하면 그 설계는 쓰인 적이 없는 것이다(R7). 철회는 기존 행을 고치지 않고 `granted=false` 한 줄을 더한다. **필수 항목은 철회를 막는다** — 허용하면 동의 없이 살아 있는 계정이 생기고 가입이 막던 상태가 뒷문으로 들어온다. 탈퇴(5g)로 안내한다. **채널을 거두면 야간 수신도 같이 거둔다**(R14) — 안 그러면 보낼 수 없는 동의가 남고 나중에 채널만 켜질 때 야간까지 열린다. **상태가 안 바뀌면 행을 안 쓴다** — append-only 라고 같은 값을 쌓으면 이력이 의미를 잃는다. 남길 것은 바뀐 순간이지 요청 횟수가 아니다. 목록에 **건드린 적 없는 항목도 넣는다**(무엇을 더 켤 수 있는지 알 방법이 없어진다). 재동의(`grant`)도 만들었다 — PLAN 은 철회만 적었지만 선택 항목을 껐다 켜는 것은 흔한 요구다. 테스트 162개 통과. **실서버 확인**: 이메일 철회 204 → 야간까지 false, 필수 철회 422, DB 에 `signup`/`mypage` 두 시점이 나란히 남았다 | 1e31831 |
+| 2026-08-07 | 5g. 탈퇴 | 완료 — `WithdrawalService`, `POST /api/me/withdraw`, `SecurityConfig` 에 `ConcurrentSessionFilter`, `MeWithdrawTest` 9개. **`V8` 이 만든 `deleted_at` 을 채우는 첫 코드**다. 탈퇴가 곧 삭제가 아니라 행은 남는다(`D13`) — 주문 기록 5년 보존 때문이다. **되돌릴 수 없어서 비밀번호를 다시 받는다.** 남아 있던 동의를 전부 거두되 `source='withdraw'` 로 적어 마이페이지 철회와 갈랐다 — **필수 항목도 여기서 거둔다**(`5f` 가 막던 경로가 이것이다). `evict`·세션 만료를 트랜잭션 안에서 부른다 — 롤백되면 캐시만 빈 상태가 되는데 그쪽은 한 번 더 조회할 뿐 틀리지 않는다. **`PermissionRuleLoader` 를 public 으로 열었다** — `evict` 만 public 이고 조회는 package-private 그대로다(판정이 두 벌이 되는 것을 막는다). 테스트 171개 통과. **실서버 확인**: 기기 두 대로 로그인 → A 에서 탈퇴 → **B 도 401**. DB 에 `deleted_at` 은 채워지고 `status` 는 `active` 그대로 — 수명과 업무 상태를 안 섞은 `V8` 의 결정이 여기서 값을 했다 | |
+| 2026-08-07 | 5g 중 드러난 것 | **`SessionInformation.expireNow()` 는 표시만 남긴다.** 그 표시를 보고 실제로 세션을 끊는 것은 `ConcurrentSessionFilter` 고, 없으면 탈퇴가 세션을 끊었다고 믿는데 아무 일도 안 일어난다. `ADR 0010` 의 「대가」 절에 추가했다 — 결정을 뒤집은 것이 아니라 그 결정을 실현하는 데 필요한 전제가 빠져 있던 것이다. **부른 줄 알았는데 안 먹는 쪽이 안 부른 것보다 나쁘다** | |
 ## 기록 규칙
 
 청크를 끝내거나 중간에 멈출 때마다 위 두 곳을 같이 고친다.

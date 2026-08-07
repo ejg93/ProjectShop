@@ -176,7 +176,7 @@ GitHub가 저장소별로 역할을 붙이는 방식과 같다. `scope=seller` �
 | 5h | ~~계정 생존 확인~~ | **완료.** `AccountLivenessFilter`, `PermissionRuleLoader.isAlive`, 캐시 `accountLiveness` | 완료 |
 | 5e | ~~내 계정 조회·수정~~ | **완료.** `AccountService`·`MeController`. **`Location` 문제는 안 풀렸다** — `/api/me` 는 id 로 가리키는 경로가 아니라 201 이 지목할 자원이 못 된다. 관리자용 계정 조회(16)가 그 자리다 | 완료 |
 | 5f | ~~동의 조회·철회~~ | **완료.** `ConsentService`. 철회·재동의 둘 다 있고 채널 철회가 야간까지 거둔다 | 완료 |
-| 5g | 탈퇴 | `DELETE /api/me`. `app_user.deleted_at` 을 채운다. **`V8` 이 이 컬럼을 만들었는데 채우는 코드가 어디에도 없었다.** 탈퇴가 곧 삭제가 아니다(`D13`) — 주문 기록은 5년 남고 개인정보 파기는 `10a` 가 한다. 동의 이력은 계정에 cascade 로 걸려 있어 파기 시점에 같이 사라진다. **탈퇴 처리에서 `SessionRegistry` 로 그 사람의 세션을 전부 만료하고 `PermissionRuleLoader.evict` 를 부른다**(`ADR 0010`) — 자기 세션도 레지스트리가 들고 있어서 따로 `invalidate()` 를 안 부른다 | 5, D13 |
+| 5g | ~~탈퇴~~ | **완료.** `WithdrawalService`, `POST /api/me/withdraw`. `ConcurrentSessionFilter` 를 같이 걸어야 세션 만료가 실제로 먹는다(`ADR 0010`) | 완료 |
 | 5a | 조직 초대·멤버십 | 셀러에 계정을 붙이고 그 셀러 안에서만 먹는 역할을 준다. 멤버 구성을 못 바꾸는 `seller_staff` 역할이 여기서 생긴다(`D1`) | 3a, 5, D1 |
 | 6 | 상품 스키마 | `product`·`product_option`·`sku` 테이블. 상품 주인은 사람이 아니라 셀러. 청약철회 제한 여부와 사유를 상품 속성으로 둔다(`D2` R4). 가격은 부가세 포함 정수(`D8`), 상품 예외 수수료율 컬럼(`D3`) | 3a, D2, D3, D8 |
 | 6b | 데모 시드 데이터 | 셀러 2곳, 계정 6개, 역할을 겹쳐 넣은 데이터. 권한은 데이터가 겹쳐야 판정할 것이 생긴다 | 3a, 3c, 6 |

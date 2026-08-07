@@ -34,13 +34,32 @@ public class MeController {
     private final PermissionCatalog permissionCatalog;
     private final AccountService accountService;
     private final ConsentService consentService;
+    private final WithdrawalService withdrawalService;
 
     public MeController(PermissionCatalog permissionCatalog, AccountService accountService,
-            ConsentService consentService) {
+            ConsentService consentService, WithdrawalService withdrawalService) {
 
         this.permissionCatalog = permissionCatalog;
         this.accountService = accountService;
         this.consentService = consentService;
+        this.withdrawalService = withdrawalService;
+    }
+
+    /**
+     * 탈퇴. <b>되돌릴 수 없어서 비밀번호를 다시 받는다.</b>
+     *
+     * <p>{@code DELETE} 를 안 쓴다. 본문을 실어야 하는데 {@code DELETE} 의 본문은 지원이 갈리고,
+     * 상태를 바꾸는 요청은 무슨 일이 일어나는지를 경로에 적기로 했다(`D5`).
+     */
+    @PostMapping("/withdraw")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void withdraw(@AuthenticationPrincipal ShopUser user,
+            @Valid @RequestBody WithdrawRequest request, HttpServletRequest http) {
+
+        withdrawalService.withdraw(user.id(), request.password(), http.getRemoteAddr());
+    }
+
+    public record WithdrawRequest(@NotBlank String password) {
     }
 
     /** 무엇에 동의했고 무엇을 더 켤 수 있나. <b>건드린 적 없는 항목도 나온다.</b> */

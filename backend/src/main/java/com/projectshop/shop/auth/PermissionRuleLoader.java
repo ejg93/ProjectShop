@@ -22,9 +22,13 @@ import com.projectshop.shop.auth.PermissionEvaluator.Rule;
  * 조회를 별도 빈으로 빼야 캐시가 실제로 걸린다.
  *
  * <p>가르고 나니 책임도 갈렸다. 이쪽은 규칙을 읽고, 판정기는 규칙으로 답을 낸다.
+ *
+ * <p>클래스는 public 이지만 <b>밖에서 부를 것은 {@link #evict} 하나뿐이다.</b>
+ * 조회 메서드는 package-private 으로 남겨서 판정 밖에서 규칙을 직접 읽지 못하게 한다 —
+ * 그러기 시작하면 판정이 두 벌이 된다.
  */
 @Component
-class PermissionRuleLoader {
+public class PermissionRuleLoader {
 
     private final JdbcClient jdbcClient;
 
@@ -162,7 +166,7 @@ class PermissionRuleLoader {
             @CacheEvict(value = PermissionCacheConfig.MEMBERSHIPS, key = "#userId"),
             @CacheEvict(value = PermissionCacheConfig.LIVENESS, key = "#userId")
     })
-    void evict(long userId) {
+    public void evict(long userId) {
         // 애너테이션이 일한다. 부르는 쪽에 무엇을 지우는지 이름으로 드러내려고 메서드를 둔다.
     }
 

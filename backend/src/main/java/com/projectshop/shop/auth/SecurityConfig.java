@@ -25,6 +25,8 @@ import org.springframework.security.web.authentication.session.SessionAuthentica
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
+import org.springframework.security.web.session.ConcurrentSessionFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
@@ -64,8 +66,8 @@ public class SecurityConfig {
             "/api/auth/login");
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader)
-            throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,
+            SessionRegistry sessionRegistry) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
@@ -105,6 +107,17 @@ public class SecurityConfig {
                 // 인가 직전에 둔다. 인증이 확정된 뒤여야 principal 을 볼 수 있고,
                 // 인가 전이어야 죽은 계정이 아무것도 통과하지 못한다.
                 .addFilterBefore(new AccountLivenessFilter(ruleLoader), AuthorizationFilter.class);
+
+        // 만료 표시된 세션을 실제로 끊는다.
+        //
+        // SessionRegistry 의 expireNow() 는 표시만 남긴다. 이 필터가 없으면 탈퇴(5g)가
+        // 세션을 끊었다고 믿는데 아무 일도 안 일어난다 — 부른 줄 알았는데 안 먹는 쪽이 제일 나쁘다.
+        //
+        // 기본 전략은 본문에 안내 문구를 쓴다. 우리는 JSON API 라 401 만 준다.
+        http.addFilterAfter(
+                new ConcurrentSessionFilter(sessionRegistry,
+                        event -> event.getResponse().setStatus(HttpStatus.UNAUTHORIZED.value())),
+                SecurityContextHolderFilter.class);
 
         return http.build();
     }
