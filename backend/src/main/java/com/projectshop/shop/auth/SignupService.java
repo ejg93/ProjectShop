@@ -72,9 +72,9 @@ public class SignupService {
     private List<ConsentItem> currentConsentItems() {
         return jdbc.sql("""
                         select distinct on (c.code)
-                               c.id, c.code, c.is_required, p.code as depends_on_code
+                               c.consent_item_id, c.code, c.is_required, p.code as depends_on_code
                           from consent_item c
-                          left join consent_item p on p.id = c.depends_on_id
+                          left join consent_item p on p.consent_item_id = c.depends_on_id
                          where c.effective_at <= now()
                          order by c.code, c.effective_at desc, c.version desc
                         """)
@@ -115,7 +115,7 @@ public class SignupService {
             return jdbc.sql("""
                             insert into app_user (email, password_hash, display_name)
                             values (:email, :passwordHash, :displayName)
-                            returning id
+                            returning user_id
                             """)
                     .param("email", command.email())
                     .param("passwordHash", passwordEncoder.encode(command.password()))
@@ -130,7 +130,7 @@ public class SignupService {
     private void grantDefaultRole(long userId) {
         jdbc.sql("""
                         insert into user_role (user_id, role_id)
-                        select :userId, id from role where code = :code
+                        select :userId, role_id from role where code = :code
                         """)
                 .param("userId", userId)
                 .param("code", DEFAULT_ROLE)
@@ -139,10 +139,10 @@ public class SignupService {
 
     private void recordConsents(long userId, Command command, List<ConsentItem> items) {
         Map<String, Long> idByCode = new LinkedHashMap<>();
-        items.forEach(item -> idByCode.put(item.code(), item.id()));
+        items.forEach(item -> idByCode.put(item.code(), item.consentItemId()));
 
         command.consents().forEach((code, granted) -> jdbc.sql("""
-                        insert into user_consent (user_id, item_id, granted, source, acted_ip)
+                        insert into user_consent (user_id, consent_item_id, granted, source, acted_ip)
                         values (:userId, :itemId, :granted, 'signup', cast(:actorIp as inet))
                         """)
                 .param("userId", userId)
@@ -158,6 +158,6 @@ public class SignupService {
     }
 
     /** @param dependsOnCode 먼저 동의해야 하는 항목의 코드. 걸린 것이 없으면 null. */
-    public record ConsentItem(long id, String code, boolean isRequired, String dependsOnCode) {
+    public record ConsentItem(long consentItemId, String code, boolean isRequired, String dependsOnCode) {
     }
 }

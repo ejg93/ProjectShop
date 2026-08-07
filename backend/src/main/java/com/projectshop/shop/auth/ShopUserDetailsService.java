@@ -32,14 +32,14 @@ public class ShopUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) {
         Optional<ShopUser> found = jdbc.sql("""
-                        select id, email, password_hash, status
+                        select user_id, email, password_hash, status
                           from app_user
                          where lower(email) = lower(:email)
                            and deleted_at is null
                         """)
                 .param("email", email)
                 .query((rs, rowNum) -> new ShopUser(
-                        rs.getLong("id"),
+                        rs.getLong("user_id"),
                         rs.getString("email"),
                         rs.getString("password_hash"),
                         "active".equals(rs.getString("status"))))

@@ -91,9 +91,9 @@ class MeConsentTest extends PostgresTestBase {
 
             List<Boolean> history = jdbc.sql("""
                             select uc.granted from user_consent uc
-                              join consent_item ci on ci.id = uc.item_id
+                              join consent_item ci on ci.consent_item_id = uc.consent_item_id
                              where uc.user_id = :id and ci.code = 'marketing_email'
-                             order by uc.id
+                             order by uc.user_consent_id
                             """)
                     .param("id", userId)
                     .query(Boolean.class)
@@ -212,7 +212,7 @@ class MeConsentTest extends PostgresTestBase {
     private long rowCount(String code) {
         return jdbc.sql("""
                         select count(*) from user_consent uc
-                          join consent_item ci on ci.id = uc.item_id
+                          join consent_item ci on ci.consent_item_id = uc.consent_item_id
                          where uc.user_id = :id and ci.code = :code
                         """)
                 .param("id", userId)
@@ -223,8 +223,8 @@ class MeConsentTest extends PostgresTestBase {
 
     private void grantAtSignup(String code) {
         jdbc.sql("""
-                        insert into user_consent (user_id, item_id, granted, source)
-                        select :id, id, true, 'signup' from consent_item
+                        insert into user_consent (user_id, consent_item_id, granted, source)
+                        select :id, consent_item_id, true, 'signup' from consent_item
                          where code = :code order by version desc limit 1
                         """)
                 .param("id", userId)

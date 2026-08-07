@@ -151,7 +151,7 @@ class MeAccountTest extends PostgresTestBase {
             mvc.perform(passwordRequest(PASSWORD, "brand-new-secret-1"))
                     .andExpect(status().isNoContent());
 
-            String stored = jdbc.sql("select password_hash from app_user where id = :id")
+            String stored = jdbc.sql("select password_hash from app_user where user_id = :id")
                     .param("id", customer)
                     .query(String.class)
                     .single();
@@ -165,7 +165,7 @@ class MeAccountTest extends PostgresTestBase {
             mvc.perform(passwordRequest("wrong-but-long-enough", "brand-new-secret-1"))
                     .andExpect(status().isUnprocessableEntity());
 
-            String stored = jdbc.sql("select password_hash from app_user where id = :id")
+            String stored = jdbc.sql("select password_hash from app_user where user_id = :id")
                     .param("id", customer)
                     .query(String.class)
                     .single();
@@ -218,7 +218,7 @@ class MeAccountTest extends PostgresTestBase {
         return jdbc.sql("""
                         insert into app_user (email, password_hash, display_name)
                         values (:email, :hash, :name)
-                        returning id
+                        returning user_id
                         """)
                 .param("email", email)
                 .param("hash", passwordEncoder.encode(PASSWORD))

@@ -8,7 +8,7 @@
 -- 예외 기간이 길수록 그 자체가 비용이다.
 
 create table audit_log (
-    id            bigint generated always as identity primary key,
+    audit_log_id  bigint generated always as identity primary key,
 
     -- 무슨 일이 있었나. 'permission.denied', 'role.granted' 같은 점 표기다.
     -- 종류별로 테이블을 나누지 않은 이유는 조회가 대부분 "이 사람이 무엇을 했나" 라서다.

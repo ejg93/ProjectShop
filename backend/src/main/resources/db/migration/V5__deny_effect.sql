@@ -30,7 +30,7 @@ insert into role (code, name, description, is_system, is_org_role) values
     ('auditor', '감사자', '모든 자원을 조회하고 어떤 자원도 변경하지 않는다', true, false);
 
 insert into role_permission (role_id, permission_id, scope, effect)
-select r.id, p.id, 'all', 'allow'
+select r.role_id, p.permission_id, 'all', 'allow'
 from (values
     ('product', 'read'),
     ('order',   'read'),
@@ -45,7 +45,7 @@ join role r on r.code = 'auditor';
 -- 뒤 청크에서 권한이 늘어도 그것이 쓰기면 감사자는 자동으로 막혀야 한다.
 -- 다만 이 insert 는 지금 있는 권한만 훑으므로, 새 권한을 넣는 마이그레이션이 감사자 deny 도 같이 넣어야 한다.
 insert into role_permission (role_id, permission_id, scope, effect)
-select r.id, p.id, 'all', 'deny'
+select r.role_id, p.permission_id, 'all', 'deny'
 from permission p
 join role r on r.code = 'auditor'
 where p.action not in ('read');
@@ -56,7 +56,7 @@ where p.action not in ('read');
 -- own 범위만 거부하면 남의 주문에 대한 권한은 그대로 남는다. 스코프가 넓은 쪽이 이기는 규칙과
 -- 효과가 좁은 쪽이 이기는 규칙이 한 행에서 만나는 자리다.
 insert into role_permission (role_id, permission_id, scope, effect)
-select r.id, p.id, 'own', 'deny'
+select r.role_id, p.permission_id, 'own', 'deny'
 from permission p
 join role r on r.code = 'seller'
 where p.resource = 'order' and p.action = 'update_status';

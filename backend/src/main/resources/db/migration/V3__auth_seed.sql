@@ -24,7 +24,7 @@ insert into permission (resource, action, description) values
 
 -- 고객. 상품은 남의 것도 다 보지만 주문과 계정은 자기 것만 본다.
 insert into role_permission (role_id, permission_id, scope)
-select r.id, p.id, v.scope
+select r.role_id, p.permission_id, v.scope
 from (values
     ('product', 'read',   'all'),
     ('order',   'create', 'own'),
@@ -39,7 +39,7 @@ join role r on r.code = 'customer';
 -- 판매자. 상품은 자기 것만 건드리고, 주문은 자기 상품이 들어간 것만 본다.
 -- product:read 가 all 인 건 판매자도 남의 상품을 보는 구매자이기 때문이다.
 insert into role_permission (role_id, permission_id, scope)
-select r.id, p.id, v.scope
+select r.role_id, p.permission_id, v.scope
 from (values
     ('product', 'create',        'own'),
     ('product', 'read',          'all'),
@@ -58,6 +58,6 @@ join role r on r.code = 'seller';
 -- 관리자. 권한을 나열하지 않고 permission 전체를 all 스코프로 준다.
 -- 뒤 청크에서 권한이 늘어도 이 파일은 그대로 두고, 새로 추가된 권한만 그 청크의 마이그레이션이 붙인다.
 insert into role_permission (role_id, permission_id, scope)
-select r.id, p.id, 'all'
+select r.role_id, p.permission_id, 'all'
 from permission p
 join role r on r.code = 'admin';

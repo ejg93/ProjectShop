@@ -31,5 +31,5 @@ alter table seller add constraint seller_status_check
     check (status in ('active', 'suspended'));
 
 -- 살아 있는 행만 고르는 조회가 대부분이라 부분 인덱스를 깔아 둔다.
-create index app_user_alive_idx on app_user (id) where deleted_at is null;
-create index seller_alive_idx   on seller (id)   where deleted_at is null;
+create index app_user_alive_idx on app_user (user_id) where deleted_at is null;
+create index seller_alive_idx   on seller (seller_id)   where deleted_at is null;

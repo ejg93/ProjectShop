@@ -12,7 +12,7 @@ insert into permission (resource, action, description) values
 -- 주면 audit_log 가 들고 있는 개인정보(actor_user_id, detail)의 노출면이 넓어진다.
 -- 이 테이블은 보존 3년이라 그 면적이 오래 남는다(V10).
 insert into role_permission (role_id, permission_id, scope, effect)
-select r.id, p.id, 'all', 'allow'
+select r.role_id, p.permission_id, 'all', 'allow'
   from role r
   cross join permission p
  where r.code in ('admin', 'auditor')
@@ -29,8 +29,8 @@ declare denied int;
 begin
     select count(*) into denied
       from role_permission rp
-      join role r on r.id = rp.role_id
-      join permission p on p.id = rp.permission_id
+      join role r on r.role_id = rp.role_id
+      join permission p on p.permission_id = rp.permission_id
      where r.code = 'auditor' and p.resource = 'audit' and rp.effect = 'deny';
 
     if denied > 0 then

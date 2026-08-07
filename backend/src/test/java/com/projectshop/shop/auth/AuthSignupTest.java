@@ -56,7 +56,7 @@ class AuthSignupTest extends PostgresTestBase {
             long userId = signUpOk("a@test.local", required(true));
 
             Map<String, Object> user = jdbc.sql(
-                            "select email, display_name, status from app_user where id = :id")
+                            "select email, display_name, status from app_user where user_id = :id")
                     .param("id", userId)
                     .query()
                     .singleRow();
@@ -80,7 +80,7 @@ class AuthSignupTest extends PostgresTestBase {
         void storesOnlyTheHash() throws Exception {
             long userId = signUpOk("b@test.local", required(true));
 
-            String stored = jdbc.sql("select password_hash from app_user where id = :id")
+            String stored = jdbc.sql("select password_hash from app_user where user_id = :id")
                     .param("id", userId)
                     .query(String.class)
                     .single();
@@ -97,7 +97,7 @@ class AuthSignupTest extends PostgresTestBase {
 
             List<String> roles = jdbc.sql("""
                             select r.code from user_role ur
-                              join role r on r.id = ur.role_id
+                              join role r on r.role_id = ur.role_id
                              where ur.user_id = :id
                             """)
                     .param("id", userId)

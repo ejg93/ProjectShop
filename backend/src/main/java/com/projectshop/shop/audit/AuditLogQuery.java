@@ -81,17 +81,17 @@ public class AuditLogQuery {
                 """;
 
         List<Row> items = bind(jdbc.sql("""
-                        select id, event_type, actor_user_id, target_type, target_id,
+                        select audit_log_id, event_type, actor_user_id, target_type, target_id,
                                detail::text as detail, created_at
                           from audit_log
                         """ + where + """
-                         order by created_at desc, id desc
+                         order by created_at desc, audit_log_id desc
                          limit :size offset :offset
                         """), criteria)
                 .param("size", size)
                 .param("offset", (long) page * size)
                 .query((rs, rowNum) -> new Row(
-                        rs.getLong("id"),
+                        rs.getLong("audit_log_id"),
                         rs.getString("event_type"),
                         rs.getObject("actor_user_id", Long.class),
                         rs.getString("target_type"),

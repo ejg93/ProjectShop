@@ -263,7 +263,7 @@ class HttpFlowTest extends HttpTestBase {
                     "{\"password\": \"%s\"}".formatted(PASSWORD)).is(204)).isTrue();
 
             long userId = userIdOf("bye");
-            assertThat(count("select count(*) from app_user where id = " + userId))
+            assertThat(count("select count(*) from app_user where user_id = " + userId))
                     .as("주문 기록이 5년 남아야 해서 행은 지우지 않는다(D13)")
                     .isEqualTo(1);
             assertThat(count("""
@@ -349,13 +349,13 @@ class HttpFlowTest extends HttpTestBase {
     private void grantAuditor(String name) {
         jdbc.sql("""
                 insert into user_role (user_id, role_id)
-                select u.id, r.id from app_user u, role r
+                select u.user_id, r.role_id from app_user u, role r
                  where u.email = :email and r.code = 'auditor'
                 """).param("email", email(name)).update();
     }
 
     private long userIdOf(String name) {
-        return jdbc.sql("select id from app_user where email = :email")
+        return jdbc.sql("select user_id from app_user where email = :email")
                 .param("email", email(name))
                 .query(Long.class)
                 .single();

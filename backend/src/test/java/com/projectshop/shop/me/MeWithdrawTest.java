@@ -53,7 +53,7 @@ class MeWithdrawTest extends PostgresTestBase {
         userId = jdbc.sql("""
                         insert into app_user (email, password_hash, display_name)
                         values ('bye@test.local', :hash, '떠남')
-                        returning id
+                        returning user_id
                         """)
                 .param("hash", passwordEncoder.encode(PASSWORD))
                 .query(Long.class)
@@ -73,9 +73,9 @@ class MeWithdrawTest extends PostgresTestBase {
         void marksLifetimeNotDeletion() throws Exception {
             withdraw(PASSWORD).andExpect(status().isNoContent());
 
-            assertThat(jdbc.sql("select deleted_at is not null from app_user where id = :id")
+            assertThat(jdbc.sql("select deleted_at is not null from app_user where user_id = :id")
                     .param("id", userId).query(Boolean.class).single()).isTrue();
-            assertThat(jdbc.sql("select count(*) from app_user where id = :id")
+            assertThat(jdbc.sql("select count(*) from app_user where user_id = :id")
                     .param("id", userId).query(Long.class).single())
                     .as("주문 기록이 5년 남아야 해서 행을 지우지 않는다(D13)")
                     .isEqualTo(1);
@@ -151,7 +151,7 @@ class MeWithdrawTest extends PostgresTestBase {
         void wrongPasswordKeepsAccount() throws Exception {
             withdraw("wrong-but-long-enough").andExpect(status().isUnprocessableEntity());
 
-            assertThat(jdbc.sql("select deleted_at is null from app_user where id = :id")
+            assertThat(jdbc.sql("select deleted_at is null from app_user where user_id = :id")
                     .param("id", userId).query(Boolean.class).single())
                     .as("되돌릴 수 없는 조작이라 세션만으로는 부족하다")
                     .isTrue();
@@ -197,8 +197,8 @@ class MeWithdrawTest extends PostgresTestBase {
 
     private void consent(String code) {
         jdbc.sql("""
-                        insert into user_consent (user_id, item_id, granted, source)
-                        select :id, id, true, 'signup' from consent_item
+                        insert into user_consent (user_id, consent_item_id, granted, source)
+                        select :id, consent_item_id, true, 'signup' from consent_item
                          where code = :code order by version desc limit 1
                         """)
                 .param("id", userId)

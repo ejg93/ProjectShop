@@ -71,7 +71,7 @@ class ConsentSchemaTest extends PostgresTestBase {
             String parent = jdbc.sql("""
                             select p.code
                               from consent_item c
-                              join consent_item p on p.id = c.depends_on_id
+                              join consent_item p on p.consent_item_id = c.depends_on_id
                              where c.code = 'marketing_night'
                             """)
                     .query(String.class)
@@ -101,9 +101,9 @@ class ConsentSchemaTest extends PostgresTestBase {
             List<Map<String, Object>> rows = jdbc.sql("""
                             select uc.granted, uc.source
                               from user_consent uc
-                              join consent_item ci on ci.id = uc.item_id
+                              join consent_item ci on ci.consent_item_id = uc.consent_item_id
                              where uc.user_id = :user and ci.code = 'marketing_email'
-                             order by uc.id
+                             order by uc.user_consent_id
                             """)
                     .param("user", user)
                     .query()
@@ -149,7 +149,7 @@ class ConsentSchemaTest extends PostgresTestBase {
             List<Object> at = jdbc.sql("""
                             select distinct uc.acted_at
                               from user_consent uc
-                              join consent_item ci on ci.id = uc.item_id
+                              join consent_item ci on ci.consent_item_id = uc.consent_item_id
                              where uc.user_id = :user and ci.code = 'marketing_sms'
                             """)
                     .param("user", user)
@@ -191,7 +191,7 @@ class ConsentSchemaTest extends PostgresTestBase {
         void deletingUserDropsConsentHistory() {
             grant("terms_of_service", true, "signup");
 
-            jdbc.sql("delete from app_user where id = :user").param("user", user).update();
+            jdbc.sql("delete from app_user where user_id = :user").param("user", user).update();
 
             Long left = jdbc.sql("select count(*) from user_consent where user_id = :user")
                     .param("user", user)
@@ -217,7 +217,7 @@ class ConsentSchemaTest extends PostgresTestBase {
         return jdbc.sql("""
                         insert into consent_item (code, version, title)
                         values (:code, :version, :title)
-                        returning id
+                        returning consent_item_id
                         """)
                 .param("code", code)
                 .param("version", version)
@@ -228,8 +228,8 @@ class ConsentSchemaTest extends PostgresTestBase {
 
     private void grant(String code, boolean granted, String source) {
         jdbc.sql("""
-                        insert into user_consent (user_id, item_id, granted, source)
-                        select :user, id, :granted, :source
+                        insert into user_consent (user_id, consent_item_id, granted, source)
+                        select :user, consent_item_id, :granted, :source
                           from consent_item
                          where code = :code
                          order by version desc

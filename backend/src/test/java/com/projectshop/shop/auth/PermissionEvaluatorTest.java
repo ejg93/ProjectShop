@@ -191,7 +191,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
                     .update();
             jdbc.sql("""
                             insert into role_permission (role_id, permission_id, scope, effect)
-                            select r.id, p.id, 'all', 'allow'
+                            select r.role_id, p.permission_id, 'all', 'allow'
                             from permission p join role r on r.code = 'admin'
                             where p.resource = 'product' and p.action = 'approve'
                             """)

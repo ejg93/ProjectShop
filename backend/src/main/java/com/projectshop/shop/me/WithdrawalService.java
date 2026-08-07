@@ -55,7 +55,7 @@ public class WithdrawalService {
     @Transactional
     public void withdraw(long userId, String password, String actorIp) {
         String stored = jdbc.sql(
-                        "select password_hash from app_user where id = :id and deleted_at is null")
+                        "select password_hash from app_user where user_id = :id and deleted_at is null")
                 .param("id", userId)
                 .query(String.class)
                 .optional()
@@ -69,7 +69,7 @@ public class WithdrawalService {
 
         revokeAllConsents(userId, actorIp);
 
-        jdbc.sql("update app_user set deleted_at = now() where id = :id")
+        jdbc.sql("update app_user set deleted_at = now() where user_id = :id")
                 .param("id", userId)
                 .update();
 
@@ -89,8 +89,8 @@ public class WithdrawalService {
      */
     private void revokeAllConsents(long userId, String actorIp) {
         jdbc.sql("""
-                        insert into user_consent (user_id, item_id, granted, source, acted_ip)
-                        select :userId, cc.item_id, false, 'withdraw', cast(:actorIp as inet)
+                        insert into user_consent (user_id, consent_item_id, granted, source, acted_ip)
+                        select :userId, cc.consent_item_id, false, 'withdraw', cast(:actorIp as inet)
                           from current_consent cc
                          where cc.user_id = :userId and cc.granted
                         """)

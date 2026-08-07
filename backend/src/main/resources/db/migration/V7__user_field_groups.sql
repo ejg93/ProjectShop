@@ -6,21 +6,21 @@
 -- 셀러가 고객 계정을 조회하는 경로가 생기면(문의·CS) 그때는 연락처가 그대로 나간다.
 
 -- 자기 계정은 전부 본다. 그룹을 명시해서 "제한이 없어서 다 보이는 것" 과 구분한다.
-insert into role_permission_field (role_id, permission_id, effect, field_group_id)
-select rp.role_id, rp.permission_id, rp.effect, g.id
+insert into role_permission_field (role_id, permission_id, effect, permission_field_group_id)
+select rp.role_id, rp.permission_id, rp.effect, g.permission_field_group_id
 from role_permission rp
-join role r on r.id = rp.role_id and r.code in ('customer', 'seller')
-join permission p on p.id = rp.permission_id and p.resource = 'user' and p.action = 'read'
+join role r on r.role_id = rp.role_id and r.code in ('customer', 'seller')
+join permission p on p.permission_id = rp.permission_id and p.resource = 'user' and p.action = 'read'
 join permission_field_group g on g.resource = 'user'
 where rp.effect = 'allow';
 
 -- 감사자는 계정을 전체 범위로 조회하지만 연락처를 볼 이유는 없다.
 -- order:read 에서 payment 를 뺀 것과 같은 판단이다.
-insert into role_permission_field (role_id, permission_id, effect, field_group_id)
-select rp.role_id, rp.permission_id, rp.effect, g.id
+insert into role_permission_field (role_id, permission_id, effect, permission_field_group_id)
+select rp.role_id, rp.permission_id, rp.effect, g.permission_field_group_id
 from role_permission rp
-join role r on r.id = rp.role_id and r.code = 'auditor'
-join permission p on p.id = rp.permission_id and p.resource = 'user' and p.action = 'read'
+join role r on r.role_id = rp.role_id and r.code = 'auditor'
+join permission p on p.permission_id = rp.permission_id and p.resource = 'user' and p.action = 'read'
 join permission_field_group g on g.resource = 'user' and g.code = 'basic'
 where rp.effect = 'allow';
 

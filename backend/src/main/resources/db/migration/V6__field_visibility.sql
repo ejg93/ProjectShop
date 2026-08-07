@@ -6,7 +6,7 @@
 -- 필드를 하나씩 관리하면 컬럼이 늘 때마다 데이터가 늘고 빠뜨린 컬럼이 조용히 새어 나간다.
 -- 민감도가 같은 것끼리 묶어서 그룹 단위로 다룬다.
 create table permission_field_group (
-    id          bigint      generated always as identity primary key,
+    permission_field_group_id bigint generated always as identity primary key,
     resource    text        not null,
     code        text        not null,
     description text        not null default '',
@@ -28,13 +28,13 @@ create table role_permission_field (
     role_id        bigint not null,
     permission_id  bigint not null,
     effect         text   not null,
-    field_group_id bigint not null references permission_field_group (id) on delete cascade,
-    primary key (role_id, permission_id, effect, field_group_id),
+    permission_field_group_id bigint not null references permission_field_group (permission_field_group_id) on delete cascade,
+    primary key (role_id, permission_id, effect, permission_field_group_id),
     foreign key (role_id, permission_id, effect)
         references role_permission (role_id, permission_id, effect) on delete cascade
 );
 
-create index role_permission_field_group_idx on role_permission_field (field_group_id);
+create index role_permission_field_group_idx on role_permission_field (permission_field_group_id);
 
 -- 연결이 하나도 없는 규칙은 제한이 없는 것으로 본다.
 -- 반대로 두면 필드 그룹을 정의하지 않은 자원까지 전부 연결을 달아야 하고, 빠뜨리면 화면이 빈다.
@@ -42,29 +42,29 @@ create index role_permission_field_group_idx on role_permission_field (field_gro
 -- 안 그러면 그룹은 있는데 아무도 제한받지 않는 상태가 된다.
 
 -- 고객은 자기 주문이라 전부 본다. 그룹을 명시해서 "제한이 없어서 다 보이는 것" 과 구분한다.
-insert into role_permission_field (role_id, permission_id, effect, field_group_id)
-select rp.role_id, rp.permission_id, rp.effect, g.id
+insert into role_permission_field (role_id, permission_id, effect, permission_field_group_id)
+select rp.role_id, rp.permission_id, rp.effect, g.permission_field_group_id
 from role_permission rp
-join role r on r.id = rp.role_id and r.code = 'customer'
-join permission p on p.id = rp.permission_id and p.resource = 'order' and p.action = 'read'
+join role r on r.role_id = rp.role_id and r.code = 'customer'
+join permission p on p.permission_id = rp.permission_id and p.resource = 'order' and p.action = 'read'
 join permission_field_group g on g.resource = 'order'
 where rp.effect = 'allow';
 
 -- 판매자는 배송에 필요한 것까지만 본다. payment 그룹을 안 붙이는 것이 이 마이그레이션의 핵심이다.
-insert into role_permission_field (role_id, permission_id, effect, field_group_id)
-select rp.role_id, rp.permission_id, rp.effect, g.id
+insert into role_permission_field (role_id, permission_id, effect, permission_field_group_id)
+select rp.role_id, rp.permission_id, rp.effect, g.permission_field_group_id
 from role_permission rp
-join role r on r.id = rp.role_id and r.code = 'seller'
-join permission p on p.id = rp.permission_id and p.resource = 'order' and p.action = 'read'
+join role r on r.role_id = rp.role_id and r.code = 'seller'
+join permission p on p.permission_id = rp.permission_id and p.resource = 'order' and p.action = 'read'
 join permission_field_group g on g.resource = 'order' and g.code in ('basic', 'shipping')
 where rp.effect = 'allow';
 
 -- 감사자는 조회 범위가 전체지만 결제 수단까지 볼 이유는 없다.
 -- 조회 권한을 준 것과 모든 필드를 준 것이 같지 않다는 사례다.
-insert into role_permission_field (role_id, permission_id, effect, field_group_id)
-select rp.role_id, rp.permission_id, rp.effect, g.id
+insert into role_permission_field (role_id, permission_id, effect, permission_field_group_id)
+select rp.role_id, rp.permission_id, rp.effect, g.permission_field_group_id
 from role_permission rp
-join role r on r.id = rp.role_id and r.code = 'auditor'
-join permission p on p.id = rp.permission_id and p.resource = 'order' and p.action = 'read'
+join role r on r.role_id = rp.role_id and r.code = 'auditor'
+join permission p on p.permission_id = rp.permission_id and p.resource = 'order' and p.action = 'read'
 join permission_field_group g on g.resource = 'order' and g.code in ('basic', 'shipping')
 where rp.effect = 'allow';

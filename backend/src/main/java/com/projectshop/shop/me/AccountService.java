@@ -77,7 +77,7 @@ public class AccountService {
         Row row = jdbc.sql("""
                         select display_name, email, created_at
                           from app_user
-                         where id = :id and deleted_at is null
+                         where user_id = :id and deleted_at is null
                         """)
                 .param("id", userId)
                 .query((rs, rowNum) -> new Row(
@@ -99,7 +99,7 @@ public class AccountService {
     public Account changeDisplayName(long userId, String displayName) {
         requireUpdatePermission(userId);
 
-        jdbc.sql("update app_user set display_name = :name where id = :id and deleted_at is null")
+        jdbc.sql("update app_user set display_name = :name where user_id = :id and deleted_at is null")
                 .param("name", displayName)
                 .param("id", userId)
                 .update();
@@ -121,7 +121,7 @@ public class AccountService {
         requireUpdatePermission(userId);
 
         String stored = jdbc.sql(
-                        "select password_hash from app_user where id = :id and deleted_at is null")
+                        "select password_hash from app_user where user_id = :id and deleted_at is null")
                 .param("id", userId)
                 .query(String.class)
                 .single();
@@ -133,7 +133,7 @@ public class AccountService {
                     "현재 비밀번호가 맞지 않는다");
         }
 
-        jdbc.sql("update app_user set password_hash = :hash where id = :id")
+        jdbc.sql("update app_user set password_hash = :hash where user_id = :id")
                 .param("hash", passwordEncoder.encode(newPassword))
                 .param("id", userId)
                 .update();

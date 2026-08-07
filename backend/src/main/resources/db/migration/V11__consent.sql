@@ -8,7 +8,7 @@
 
 -- 동의받을 항목. 코드가 아니라 데이터로 둔다. 약관 항목이 늘 때 배포하지 않는다.
 create table consent_item (
-    id            bigint generated always as identity primary key,
+    consent_item_id bigint generated always as identity primary key,
 
     -- 코드에서 참조하는 안정된 키. 개정돼도 안 바뀐다.
     code          text        not null,
@@ -24,7 +24,7 @@ create table consent_item (
 
     -- 이 항목에 동의하려면 먼저 동의해야 하는 항목. 야간 수신이 마케팅 수신에 걸린다(R14).
     -- 앱이 이 열을 보고 막는다. 종속을 코드에 적으면 항목을 데이터로 둔 의미가 없어진다.
-    depends_on_id bigint      references consent_item (id) on delete restrict,
+    depends_on_id bigint      references consent_item (consent_item_id) on delete restrict,
 
     -- 이 판이 효력을 갖는 시각. 개정판을 미리 넣어 두고 시점에 갈아 끼운다.
     effective_at  timestamptz not null default now(),
@@ -48,15 +48,15 @@ create index consent_item_code_idx on consent_item (code, effective_at desc);
 -- update 로 갈면 이력이 그 자리에서 사라진다. 철회를 update 로 적는 설계는
 -- 철회 시점은 남지만 동의 시점을 잃는다. 둘 다 필요하다(R7).
 create table user_consent (
-    id         bigint generated always as identity primary key,
+    user_consent_id bigint generated always as identity primary key,
 
     -- 탈퇴하면 같이 지운다. audit_log 와 반대다.
     -- 감사 로그는 "누가 무엇을 했나" 라 계정이 없어져도 남아야 하지만,
     -- 동의 이력은 그 사람의 개인정보 그 자체고 계약이 끝나면 입증할 상대가 없다(R9).
-    user_id    bigint      not null references app_user (id) on delete cascade,
+    user_id    bigint      not null references app_user (user_id) on delete cascade,
 
     -- 어느 판에 동의했나. 판까지 가리켜야 개정 후 재동의가 필요한지 판단할 수 있다.
-    item_id    bigint      not null references consent_item (id) on delete restrict,
+    consent_item_id    bigint      not null references consent_item (consent_item_id) on delete restrict,
 
     -- true = 동의, false = 철회. 거부도 false 로 적는다.
     -- 선택 항목을 안 건드린 것과 거부한 것이 갈린다 — 안 건드리면 행이 아예 없다.
@@ -79,7 +79,7 @@ comment on column user_consent.granted is
     'true=동의, false=철회·거부. 안 건드린 항목은 행이 없다';
 
 -- "이 사람의 이 항목 최근 행" 이 현재 상태 조회의 전부다.
-create index user_consent_current_idx on user_consent (user_id, item_id, acted_at desc);
+create index user_consent_current_idx on user_consent (user_id, consent_item_id, acted_at desc);
 
 -- 현재 동의 상태. 항목 코드별로 마지막 사건 하나를 고른다.
 --
@@ -93,12 +93,12 @@ select distinct on (uc.user_id, ci.code)
        uc.user_id,
        ci.code    as item_code,
        ci.version as item_version,
-       uc.item_id,
+       uc.consent_item_id,
        uc.granted,
        uc.acted_at
   from user_consent uc
-  join consent_item ci on ci.id = uc.item_id
- order by uc.user_id, ci.code, uc.acted_at desc, uc.id desc;
+  join consent_item ci on ci.consent_item_id = uc.consent_item_id
+ order by uc.user_id, ci.code, uc.acted_at desc, uc.user_consent_id desc;
 
 comment on view current_consent is
     '항목 코드별 마지막 사건. 코드로 묶어서 개정 전 판에 한 동의도 여기 잡힌다';
@@ -120,6 +120,6 @@ insert into consent_item (code, title, is_required) values
 -- 채널 동의와 따로 받아야 하므로 항목이 따로 있고, 채널을 거부한 사람에게는 물어볼 이유가 없어서
 -- 이메일 수신 동의에 걸어 둔다.
 insert into consent_item (code, title, is_required, depends_on_id)
-select 'marketing_night', '야간 광고성 정보 수신 (21시~08시)', false, id
+select 'marketing_night', '야간 광고성 정보 수신 (21시~08시)', false, consent_item_id
   from consent_item
  where code = 'marketing_email' and version = 1;

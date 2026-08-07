@@ -57,7 +57,7 @@ class AuthLoginTest extends PostgresTestBase {
         userId = jdbc.sql("""
                         insert into app_user (email, password_hash, display_name)
                         values ('login@test.local', :hash, '로그인')
-                        returning id
+                        returning user_id
                         """)
                 .param("hash", passwordEncoder.encode(PASSWORD))
                 .query(Long.class)
@@ -144,7 +144,7 @@ class AuthLoginTest extends PostgresTestBase {
         @Test
         @DisplayName("정지된 계정도 같은 문구를 받는다")
         void suspendedLooksTheSame() throws Exception {
-            jdbc.sql("update app_user set status = 'suspended' where id = :id")
+            jdbc.sql("update app_user set status = 'suspended' where user_id = :id")
                     .param("id", userId)
                     .update();
 
@@ -155,7 +155,7 @@ class AuthLoginTest extends PostgresTestBase {
         @Test
         @DisplayName("탈퇴한 계정은 로그인되지 않는다")
         void deletedAccountCannotLogIn() throws Exception {
-            jdbc.sql("update app_user set deleted_at = now() where id = :id")
+            jdbc.sql("update app_user set deleted_at = now() where user_id = :id")
                     .param("id", userId)
                     .update();
 

@@ -56,7 +56,7 @@ public abstract class HttpTestBase {
     protected void cleanUp() {
         jdbc.sql("""
                 delete from audit_log
-                 where actor_user_id in (select id from app_user where email like :prefix)
+                 where actor_user_id in (select user_id from app_user where email like :prefix)
                 """).param("prefix", EMAIL_PREFIX + "%").update();
 
         jdbc.sql("delete from app_user where email like :prefix")

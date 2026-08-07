@@ -20,7 +20,7 @@ public class AuthFixture {
     }
 
     public long insertSeller(String code, String name) {
-        return jdbc.sql("insert into seller (code, name) values (:code, :name) returning id")
+        return jdbc.sql("insert into seller (code, name) values (:code, :name) returning seller_id")
                 .param("code", code)
                 .param("name", name)
                 .query(Long.class)
@@ -31,7 +31,7 @@ public class AuthFixture {
         return jdbc.sql("""
                         insert into app_user (email, password_hash, display_name)
                         values (:email, 'not-a-real-hash', :displayName)
-                        returning id
+                        returning user_id
                         """)
                 .param("email", email)
                 .param("displayName", displayName)
@@ -56,7 +56,7 @@ public class AuthFixture {
     public void grantGlobal(long userId, String roleCode) {
         jdbc.sql("""
                         insert into user_role (user_id, role_id)
-                        select :userId, id from role where code = :roleCode
+                        select :userId, role_id from role where code = :roleCode
                         """)
                 .param("userId", userId)
                 .param("roleCode", roleCode)
@@ -66,7 +66,7 @@ public class AuthFixture {
     public void grantOrg(long userId, String roleCode, long sellerId) {
         jdbc.sql("""
                         insert into user_role (user_id, role_id, seller_id)
-                        select :userId, id, :sellerId from role where code = :roleCode
+                        select :userId, role_id, :sellerId from role where code = :roleCode
                         """)
                 .param("userId", userId)
                 .param("roleCode", roleCode)

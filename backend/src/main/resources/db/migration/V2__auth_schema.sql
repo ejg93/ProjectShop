@@ -14,7 +14,7 @@ $$ language plpgsql;
 
 -- user 는 SQL 예약어라서 app_user 로 쓴다.
 create table app_user (
-    id            bigint generated always as identity primary key,
+    user_id       bigint generated always as identity primary key,
     email         text        not null,
     password_hash text        not null,
     display_name  text        not null,
@@ -33,7 +33,7 @@ create trigger app_user_set_updated_at
 
 -- 역할. code 는 코드에서 참조하는 안정된 키고, name 은 화면에 보이는 이름이다.
 create table role (
-    id          bigint generated always as identity primary key,
+    role_id     bigint generated always as identity primary key,
     code        text        not null unique,
     name        text        not null,
     description text        not null default '',
@@ -49,7 +49,7 @@ create trigger role_set_updated_at
 
 -- 권한. 무엇(resource)에 어떤 조작(action)을 하느냐로 쪼갠다.
 create table permission (
-    id          bigint      generated always as identity primary key,
+    permission_id bigint    generated always as identity primary key,
     resource    text        not null,
     action      text        not null,
     description text        not null default '',
@@ -58,8 +58,8 @@ create table permission (
 );
 
 create table user_role (
-    user_id    bigint      not null references app_user (id) on delete cascade,
-    role_id    bigint      not null references role (id) on delete restrict,
+    user_id    bigint      not null references app_user (user_id) on delete cascade,
+    role_id    bigint      not null references role (role_id) on delete restrict,
     granted_at timestamptz not null default now(),
     primary key (user_id, role_id)
 );
@@ -67,8 +67,8 @@ create table user_role (
 -- 역할이 지워질 때 이 행이 남으면 권한이 유령으로 뜬다. 그래서 cascade 로 같이 지운다.
 -- 반대로 user_role.role_id 는 restrict 다. 사용자가 달린 역할은 지우기 전에 회수부터 하게 만든다.
 create table role_permission (
-    role_id       bigint not null references role (id) on delete cascade,
-    permission_id bigint not null references permission (id) on delete cascade,
+    role_id       bigint not null references role (role_id) on delete cascade,
+    permission_id bigint not null references permission (permission_id) on delete cascade,
     -- 행 단위 조건. own=자기 것, seller=자기 상품이 걸린 것, all=전체.
     -- 한 역할이 같은 권한을 두 스코프로 갖는 건 판정을 모호하게 만들어서 pk 로 막는다.
     scope         text   not null,

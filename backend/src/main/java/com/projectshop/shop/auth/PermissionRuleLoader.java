@@ -47,14 +47,14 @@ public class PermissionRuleLoader {
                         select r.code as role_code, ur.seller_id as grant_seller_id, rp.scope, rp.effect,
                                coalesce(string_agg(g.code, ',' order by g.code), '') as field_groups
                         from user_role ur
-                        join role r on r.id = ur.role_id
+                        join role r on r.role_id = ur.role_id
                         join role_permission rp on rp.role_id = ur.role_id
-                        join permission p on p.id = rp.permission_id
+                        join permission p on p.permission_id = rp.permission_id
                         left join role_permission_field rpf
                                on rpf.role_id = rp.role_id
                               and rpf.permission_id = rp.permission_id
                               and rpf.effect = rp.effect
-                        left join permission_field_group g on g.id = rpf.field_group_id
+                        left join permission_field_group g on g.permission_field_group_id = rpf.permission_field_group_id
                         where ur.user_id = :userId
                           and p.resource = :resource
                           and p.action = :action
@@ -88,14 +88,14 @@ public class PermissionRuleLoader {
                                r.code as role_code, ur.seller_id as grant_seller_id, rp.scope, rp.effect,
                                coalesce(string_agg(g.code, ',' order by g.code), '') as field_groups
                         from user_role ur
-                        join role r on r.id = ur.role_id
+                        join role r on r.role_id = ur.role_id
                         join role_permission rp on rp.role_id = ur.role_id
-                        join permission p on p.id = rp.permission_id
+                        join permission p on p.permission_id = rp.permission_id
                         left join role_permission_field rpf
                                on rpf.role_id = rp.role_id
                               and rpf.permission_id = rp.permission_id
                               and rpf.effect = rp.effect
-                        left join permission_field_group g on g.id = rpf.field_group_id
+                        left join permission_field_group g on g.permission_field_group_id = rpf.permission_field_group_id
                         where ur.user_id = :userId
                         group by p.resource, p.action, r.code, ur.seller_id, rp.scope, rp.effect
                         order by p.resource, p.action
@@ -139,7 +139,7 @@ public class PermissionRuleLoader {
     boolean isAlive(long userId) {
         return Boolean.TRUE.equals(jdbcClient.sql("""
                         select exists(
-                            select 1 from app_user where id = :userId and deleted_at is null
+                            select 1 from app_user where user_id = :userId and deleted_at is null
                         )
                         """)
                 .param("userId", userId)

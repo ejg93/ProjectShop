@@ -146,7 +146,7 @@ class AuditLogTest extends PostgresTestBase {
 
     private Map<String, Object> latest() {
         List<Map<String, Object>> rows = jdbc
-                .sql("select * from audit_log order by id desc limit 1")
+                .sql("select * from audit_log order by audit_log_id desc limit 1")
                 .query()
                 .listOfRows();
         assertThat(rows).as("감사 기록이 하나도 없다").isNotEmpty();

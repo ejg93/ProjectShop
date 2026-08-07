@@ -82,7 +82,7 @@ class AccountLivenessTest extends PostgresTestBase {
         @DisplayName("업무 상태가 아니라 수명을 본다")
         void suspensionIsNotWithdrawal() throws Exception {
             // 정지는 풀리고 탈퇴는 안 풀린다. 축이 달라서 여기서 안 섞는다.
-            jdbc.sql("update app_user set status = 'suspended' where id = :id")
+            jdbc.sql("update app_user set status = 'suspended' where user_id = :id")
                     .param("id", userId)
                     .update();
             loader.evict(userId);
@@ -104,7 +104,7 @@ class AccountLivenessTest extends PostgresTestBase {
             mvc.perform(get("/api/me/permissions").with(user(principal())))
                     .andExpect(status().isOk());
 
-            jdbc.sql("update app_user set deleted_at = now() where id = :id")
+            jdbc.sql("update app_user set deleted_at = now() where user_id = :id")
                     .param("id", userId)
                     .update();
 
@@ -128,7 +128,7 @@ class AccountLivenessTest extends PostgresTestBase {
 
     /** 탈퇴가 할 일. 수명을 끊고 캐시를 지운다 — 청크 5g 가 이 순서를 그대로 쓴다. */
     private void withdraw() {
-        jdbc.sql("update app_user set deleted_at = now() where id = :id")
+        jdbc.sql("update app_user set deleted_at = now() where user_id = :id")
                 .param("id", userId)
                 .update();
         loader.evict(userId);
