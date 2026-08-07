@@ -1,6 +1,8 @@
 package com.projectshop.shop;
 
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -24,6 +26,25 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @Transactional
 @Import(PostgresTestBase.Containers.class)
 public abstract class PostgresTestBase {
+
+    /**
+     * 인증을 스레드에서 걷어낸다.
+     *
+     * <p>{@code @Transactional} 은 데이터만 되돌린다. 로그인 컨트롤러가
+     * {@code SecurityContextHolder} 에 심은 값은 스레드에 남고, MockMvc 테스트들이
+     * 스레드를 나눠 쓰기 때문에 <b>다음 테스트 클래스가 인증된 상태로 시작한다.</b>
+     *
+     * <p>테스트마다 손으로 붙이지 않고 여기 둔 이유는, 빠뜨렸을 때 깨지는 것이
+     * <b>빠뜨린 그 클래스가 아니라 남의 클래스</b>라서다. 원인을 찾을 실마리가 없다.
+     * 실제로 {@code AuthLoginTest} 를 추가했을 때 {@code CsrfTokenTest} 가 6개 깨졌다.
+     *
+     * <p>{@code protected} 여야 한다. 하위 테스트가 다른 패키지에 있어서
+     * package-private 이면 상속되지 않고, <b>JUnit 이 조용히 안 부른다.</b>
+     */
+    @AfterEach
+    protected void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class Containers {

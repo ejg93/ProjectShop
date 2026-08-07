@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import jakarta.servlet.http.HttpSession;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,7 +18,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -53,18 +51,6 @@ class AuthLoginTest extends PostgresTestBase {
     SessionRegistry sessionRegistry;
 
     long userId;
-
-    /**
-     * 로그인 컨트롤러가 심은 인증을 걷어낸다.
-     *
-     * <p>이걸 안 하면 <b>다음 테스트 클래스가 인증된 상태로 시작한다.</b>
-     * 실제로 그 상태에서 {@code CsrfTokenTest} 가 토큰 쿠키를 못 받아 6개가 깨졌다.
-     * 기동한 서버에서는 안 나는 문제다 — 요청마다 스레드가 갈리기 때문이다.
-     */
-    @AfterEach
-    void clearAuthentication() {
-        SecurityContextHolder.clearContext();
-    }
 
     @BeforeEach
     void setUp() {

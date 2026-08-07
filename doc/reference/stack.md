@@ -115,13 +115,17 @@ MockMvc 는 테스트들이 스레드를 나눠 쓰기 때문에 다음 클래�
 증상이 엉뚱한 데서 난다. `AuthLoginTest` 를 추가했더니 손대지 않은 `CsrfTokenTest` 6개가
 토큰 쿠키를 못 받아 깨졌다. **기동한 서버에서는 안 난다** — 요청마다 스레드가 갈린다.
 
-실제 로그인을 부르는 테스트는 `@AfterEach` 에서 걷어낸다.
+`PostgresTestBase` 가 걷어낸다. 테스트마다 손으로 붙이지 않는 이유는 빠뜨렸을 때
+깨지는 것이 **빠뜨린 그 클래스가 아니라 남의 클래스**라서다. 원인을 찾을 실마리가 없다.
+
+### 베이스 클래스의 `@AfterEach` 는 `protected` 여야 한다
+
+package-private 이면 **다른 패키지의 하위 클래스에 상속되지 않고, JUnit 이 조용히 안 부른다.**
+오류도 경고도 없다. 정리 코드를 베이스로 올렸는데 아무것도 안 바뀌면 이걸 먼저 본다.
 
 ```java
 @AfterEach
-void clearAuthentication() {
-    SecurityContextHolder.clearContext();
-}
+protected void clearSecurityContext() { ... }
 ```
 
 ### CSRF 거부가 MockMvc 와 기동한 서버에서 다르게 나온다
