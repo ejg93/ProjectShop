@@ -49,7 +49,7 @@
 | DB 컨테이너 | `docker compose up -d` 후 `docker compose ps` | `shop-db` 가 `healthy` |
 | backend | `cd backend && ./gradlew build` | `BUILD SUCCESSFUL` |
 | backend | `./gradlew test` | 실패 0. 테스트가 Postgres 컨테이너를 스스로 띄운다 |
-| backend | `./gradlew bootRun` 후 `curl localhost:8080/api/health` | `appliedMigrations` 가 마이그레이션 파일 수와 같음 |
+| backend | `./gradlew bootRun` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 마이그레이션 파일 수와 같음 |
 
 `frontend/` 는 아직 비어 있어서 명령이 없다. 청크 13에서 여기에 추가한다.
 

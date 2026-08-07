@@ -11,6 +11,14 @@ spring:
       ddl-auto: validate
   flyway:
     locations: classpath:db/migration
+  # JSON 속성을 snake_case 로 내린다(D5). Java 필드는 camelCase 로 두고 직렬화할 때만 바뀐다.
+  # DB 컬럼명과 JSON 필드명이 같아져서 로그·쿼리·응답을 같은 단어로 검색할 수 있다.
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  mvc:
+    # 오류 본문을 RFC 9457 Problem Details 로 내린다(D5). 규약의 세부는 청크 7b 가 정한다.
+    problemdetails:
+      enabled: true
 
 management:
   endpoints:

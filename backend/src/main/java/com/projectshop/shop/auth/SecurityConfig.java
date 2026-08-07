@@ -34,7 +34,9 @@ public class SecurityConfig {
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/health",
             "/actuator/health",
-            "/actuator/health/**");
+            "/actuator/health/**",
+            // 가입은 계정이 없는 사람이 부른다. 잠그면 아무도 가입할 수 없다.
+            "/api/auth/signup");
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
