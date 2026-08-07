@@ -2,10 +2,20 @@ package com.projectshop.shop.me;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.PermissionCatalog;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
@@ -20,9 +30,55 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 public class MeController {
 
     private final PermissionCatalog permissionCatalog;
+    private final AccountService accountService;
 
-    public MeController(PermissionCatalog permissionCatalog) {
+    public MeController(PermissionCatalog permissionCatalog, AccountService accountService) {
         this.permissionCatalog = permissionCatalog;
+        this.accountService = accountService;
+    }
+
+    /**
+     * 내 계정. <b>볼 수 없는 필드는 응답에서 빠진다</b> — 무엇이 보이는지는
+     * {@code _visible_field_groups} 가 알린다(`D5`).
+     */
+    @GetMapping
+    public AccountService.Account me(@AuthenticationPrincipal ShopUser user) {
+        return accountService.read(user.id());
+    }
+
+    @PatchMapping
+    public AccountService.Account update(
+            @AuthenticationPrincipal ShopUser user, @Valid @RequestBody UpdateRequest request) {
+
+        return accountService.changeDisplayName(user.id(), request.displayName());
+    }
+
+    /**
+     * 비밀번호 변경을 {@code PATCH} 에 안 섞는다.
+     *
+     * <p>현재 비밀번호를 같이 받아야 하고 응답도 계정이 아니다. 한 곳에 두면
+     * 표시 이름만 바꾸는 요청에도 비밀번호 필드가 딸려 다닌다.
+     */
+    @PostMapping("/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(
+            @AuthenticationPrincipal ShopUser user, @Valid @RequestBody PasswordRequest request) {
+
+        accountService.changePassword(
+                user.id(), request.currentPassword(), request.newPassword());
+    }
+
+    public record UpdateRequest(@NotBlank @Size(max = 50) String displayName) {
+    }
+
+    /** 새 비밀번호 규칙은 가입과 같다(`D14`). 두 곳이 갈리면 가입은 되는데 변경이 막힌다. */
+    public record PasswordRequest(
+            @NotBlank String currentPassword,
+
+            @NotBlank
+            @Size(min = 8, max = 64)
+            @Pattern(regexp = "^[\\x20-\\x7E]+$", message = "ASCII 출력 가능 문자만 쓸 수 있다")
+            String newPassword) {
     }
 
     /**

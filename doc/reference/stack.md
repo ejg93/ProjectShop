@@ -167,6 +167,18 @@ protected void clearSecurityContext() { ... }
 **실제 답은 401 이다.** `HttpFlowTest` 가 진짜 HTTP 로 확정했다.
 MockMvc 쪽 테스트는 상태 코드를 못박지 말고 `is4xxClientError()` 로 둔다.
 
+### `singleRow()` 는 `timestamptz` 를 `java.sql.Timestamp` 로 준다
+
+`JdbcClient` 의 `query().singleRow()` 는 `Map<String, Object>` 를 돌려주는데, 그 안의 시각 값은
+`OffsetDateTime` 이 아니라 `java.sql.Timestamp` 다. 캐스팅하면 `ClassCastException` 이고
+**컴파일은 통과해서 실행할 때만 드러난다.**
+
+시각 컬럼을 읽을 때는 RowMapper 로 받는다.
+
+```java
+.query((rs, rowNum) -> new Row(rs.getObject("created_at", OffsetDateTime.class)))
+```
+
 ### `@Cacheable` 은 private 메서드와 자기 호출에 안 먹는다
 
 프록시가 메서드 호출을 가로채는 방식이라 **같은 객체 안에서 부른 것은 프록시를 안 거친다.**
