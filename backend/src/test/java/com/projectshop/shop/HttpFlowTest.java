@@ -185,6 +185,108 @@ class HttpFlowTest extends HttpTestBase {
     }
 
     @Nested
+    @DisplayName("계정 관리")
+    class AccountManagement {
+
+        @Test
+        @DisplayName("자기 계정을 보면 볼 수 있는 그룹이 같이 온다")
+        void readsOwnAccount() {
+            Session session = loggedIn("account");
+
+            Response response = session.get("/api/me");
+
+            assertThat(response.is(200)).isTrue();
+            assertThat(response.body())
+                    .contains("\"email\"")
+                    .contains("\"_visible_field_groups\"");
+        }
+
+        @Test
+        @DisplayName("채널을 거두면 야간 수신도 같이 거둬진다")
+        void revokingChannelCascades() {
+            Session session = loggedIn("consent");
+            assertThat(session.post("/api/me/consents/marketing_email/grant", null).is(204)).isTrue();
+            assertThat(session.post("/api/me/consents/marketing_night/grant", null).is(204)).isTrue();
+
+            assertThat(session.post("/api/me/consents/marketing_email/revoke", null).is(204))
+                    .isTrue();
+
+            assertThat(session.get("/api/me/consents").body())
+                    .as("채널 없는 야간 동의가 남으면 나중에 채널만 켜질 때 야간까지 열린다")
+                    .contains("\"code\":\"marketing_night\",\"title\":\"야간 광고성 정보 수신 (21시~08시)\","
+                            + "\"required\":false,\"granted\":false");
+        }
+
+        @Test
+        @DisplayName("필수 동의는 거둘 수 없다")
+        void requiredConsentCannotBeRevoked() {
+            Session session = loggedIn("required");
+
+            Response response = session.post("/api/me/consents/terms_of_service/revoke", null);
+
+            assertThat(response.is(422)).isTrue();
+            assertThat(response.body()).contains("\"status\":422");
+        }
+
+        /**
+         * `ADR 0010` 의 핵심이다. 로그인 시점 검사만으로는 <b>이미 열린 다른 기기</b>가 안 막힌다.
+         *
+         * <p>이 시나리오는 손 {@code curl} 로만 확인돼 있었다. 2차 점검이 그걸 부채로 잡았다.
+         */
+        @Test
+        @DisplayName("한 기기에서 탈퇴하면 다른 기기 세션도 끊긴다")
+        void withdrawalKillsOtherDevices() {
+            Session deviceA = loggedIn("twodev");
+
+            Session deviceB = newSession();
+            deviceB.get("/api/health");
+            assertThat(logIn(deviceB, "twodev").is(200)).isTrue();
+
+            assertThat(deviceA.get("/api/me").is(200)).isTrue();
+            assertThat(deviceB.get("/api/me").is(200)).isTrue();
+
+            assertThat(deviceA.post("/api/me/withdraw",
+                    "{\"password\": \"%s\"}".formatted(PASSWORD)).is(204)).isTrue();
+
+            assertThat(deviceA.get("/api/me").is(401)).isTrue();
+            assertThat(deviceB.get("/api/me").is(401))
+                    .as("다른 기기가 살아 있으면 탈퇴가 반쪽이다")
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("탈퇴하면 수명만 끊기고 동의는 거둬진다")
+        void withdrawalEndsLifetimeAndConsents() {
+            Session session = loggedIn("bye");
+
+            assertThat(session.post("/api/me/withdraw",
+                    "{\"password\": \"%s\"}".formatted(PASSWORD)).is(204)).isTrue();
+
+            long userId = userIdOf("bye");
+            assertThat(count("select count(*) from app_user where id = " + userId))
+                    .as("주문 기록이 5년 남아야 해서 행은 지우지 않는다(D13)")
+                    .isEqualTo(1);
+            assertThat(count("""
+                    select count(*) from current_consent where user_id = %d and granted
+                    """.formatted(userId)))
+                    .as("계약이 끝났는데 동의가 유효한 채로 남으면 안 된다")
+                    .isZero();
+        }
+
+        @Test
+        @DisplayName("비밀번호가 틀리면 탈퇴가 안 된다")
+        void withdrawalNeedsThePassword() {
+            Session session = loggedIn("guard");
+
+            assertThat(session.post("/api/me/withdraw",
+                    "{\"password\": \"wrong-but-long-enough\"}").is(422)).isTrue();
+            assertThat(session.get("/api/me").is(200))
+                    .as("되돌릴 수 없는 조작이라 세션만으로는 부족하다")
+                    .isTrue();
+        }
+    }
+
+    @Nested
     @DisplayName("인증 실패")
     class Failures {
 
@@ -212,6 +314,15 @@ class HttpFlowTest extends HttpTestBase {
 
             assertThat(logIn(session, "gone").is(401)).isTrue();
         }
+    }
+
+    /** 토큰을 받고 가입해서 로그인까지 마친 세션. 계정 관리 테스트가 매번 밟는 준비 단계다. */
+    private Session loggedIn(String name) {
+        Session session = newSession();
+        session.get("/api/health");
+        signUp(session, name);
+        logIn(session, name);
+        return session;
     }
 
     private Response signUp(Session session, String name) {
