@@ -89,6 +89,73 @@ class ConsentSchemaTest extends PostgresTestBase {
     }
 
     @Nested
+    @DisplayName("고지 내용")
+    class Notice {
+
+        @Test
+        @DisplayName("개인정보 항목은 넷을 다 갖는다")
+        void privacyItemHasAllFour() {
+            Map<String, Object> row = jdbc.sql("""
+                            select purpose, collected_items, retention_period, refusal_disadvantage
+                              from consent_item where code = 'privacy_collect'
+                            """)
+                    .query()
+                    .singleRow();
+
+            assertThat(row.values())
+                    .as("하나라도 빠지면 알리지 않고 받은 동의가 된다(개인정보법 제15조제2항)")
+                    .doesNotContainNull();
+        }
+
+        @Test
+        @DisplayName("수집 항목에 접속 IP 가 적혀 있다")
+        void discloseActedIp() {
+            String items = jdbc.sql(
+                            "select collected_items from consent_item where code = 'privacy_collect'")
+                    .query(String.class)
+                    .single();
+
+            assertThat(items)
+                    .as("user_consent.acted_ip 를 실제로 받고 있다. 스키마에 있는데 고지에 없으면 근거 없이 받는 것이다")
+                    .contains("IP");
+        }
+
+        @Test
+        @DisplayName("이용약관은 본문을 갖는다")
+        void termsHaveBody() {
+            String body = jdbc.sql(
+                            "select body from consent_item where code = 'terms_of_service'")
+                    .query(String.class)
+                    .single();
+
+            assertThat(body)
+                    .as("고객이 요구하면 사본을 내줘야 한다. 보여줄 원문이 없으면 못 준다(약관규제법 제3조제2항)")
+                    .isNotBlank();
+        }
+
+        @Test
+        @DisplayName("고지할 것이 하나도 없는 항목은 못 만든다")
+        void rejectsItemWithoutContent() {
+            assertThatThrownBy(() -> jdbc.sql("""
+                            insert into consent_item (code, title) values ('empty_notice', '빈 항목')
+                            """).update())
+                    .as("무엇에 대한 동의인지 모르는 행이 생기면 그 동의는 입증에 못 쓴다")
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
+
+        @Test
+        @DisplayName("정형 넷 중 일부만 채우면 못 만든다")
+        void rejectsPartialNotice() {
+            assertThatThrownBy(() -> jdbc.sql("""
+                            insert into consent_item (code, title, purpose, collected_items)
+                            values ('partial_notice', '반쪽 항목', '목적', '항목')
+                            """).update())
+                    .as("셋만 채우면 법이 요구한 하나가 빠진 채로 동의를 받게 된다")
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
+    }
+
+    @Nested
     @DisplayName("사건이 쌓인다")
     class History {
 
@@ -213,10 +280,14 @@ class ConsentSchemaTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 본문을 같이 넣는다. 고지할 내용이 없는 항목은 스키마가 막는다 —
+     * 무엇에 대한 동의인지 모르는 행이 생기면 그 동의는 입증에 못 쓴다(`D2` R7·R16).
+     */
     private long insertItem(String code, int version, String title) {
         return jdbc.sql("""
-                        insert into consent_item (code, version, title)
-                        values (:code, :version, :title)
+                        insert into consent_item (code, version, title, body)
+                        values (:code, :version, :title, '테스트용 본문')
                         returning consent_item_id
                         """)
                 .param("code", code)
