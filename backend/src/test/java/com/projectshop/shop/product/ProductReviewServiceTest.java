@@ -182,6 +182,113 @@ class ProductReviewServiceTest extends PostgresTestBase {
     }
 
     @Nested
+    @DisplayName("판매 중지")
+    class Suspension {
+
+        @Test
+        @DisplayName("셀러가 쉬었다가 스스로 다시 판다")
+        void sellerSuspendsAndResumes() {
+            putOnSale();
+
+            reviewService.suspend(owner, productId);
+            assertThat(statusOf(productId)).isEqualTo("suspended");
+
+            reviewService.resume(owner, productId);
+            assertThat(statusOf(productId))
+                    .as("품절·단종은 자기 사정이라 자기가 되돌릴 수 있어야 한다")
+                    .isEqualTo("on_sale");
+        }
+
+        @Test
+        @DisplayName("관리자가 막으면 사유가 남는다")
+        void adminBlocksWithReason() {
+            putOnSale();
+
+            reviewService.block(admin, productId, "위조품 신고가 접수됐다");
+
+            assertThat(statusOf(productId)).isEqualTo("blocked");
+            assertThat(reasonOf(productId))
+                    .as("왜 막혔는지 모르면 셀러가 고칠 수가 없다")
+                    .isEqualTo("위조품 신고가 접수됐다");
+        }
+
+        @Test
+        @DisplayName("셀러는 제재를 못 푼다 — 이것이 상태를 가른 이유다")
+        void sellerCannotUnblock() {
+            putOnSale();
+            reviewService.block(admin, productId, "위조품 신고");
+
+            assertThatThrownBy(() -> reviewService.resume(owner, productId))
+                    .as("셀러가 풀 수 있으면 제재가 무의미해진다")
+                    .isInstanceOf(ShopException.class);
+
+            assertThatThrownBy(() -> reviewService.unblock(owner, productId, true))
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.PRODUCT_FORBIDDEN));
+        }
+
+        @Test
+        @DisplayName("셀러가 쉬는 중에도 관리자가 막을 수 있다")
+        void adminBlocksSuspendedProduct() {
+            putOnSale();
+            reviewService.suspend(owner, productId);
+
+            reviewService.block(admin, productId, "리콜 대상이다");
+
+            assertThat(statusOf(productId))
+                    .as("쉬는 중에 못 막으면 셀러가 먼저 내려서 제재를 피한다")
+                    .isEqualTo("blocked");
+        }
+
+        @Test
+        @DisplayName("오인이면 바로 판매로 돌린다")
+        void unblockBackToSale() {
+            putOnSale();
+            reviewService.block(admin, productId, "오인 신고");
+
+            reviewService.unblock(admin, productId, true);
+
+            assertThat(statusOf(productId)).isEqualTo("on_sale");
+            assertThat(reasonOf(productId))
+                    .as("풀었는데 사유가 남으면 지난 제재가 현재 상태처럼 보인다")
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("실제로 문제였으면 draft 로 보내 다시 검수받게 한다")
+        void unblockToDraft() {
+            putOnSale();
+            reviewService.block(admin, productId, "표시 위반");
+
+            reviewService.unblock(admin, productId, false);
+
+            assertThat(statusOf(productId)).isEqualTo("draft");
+        }
+
+        @Test
+        @DisplayName("draft 를 바로 막을 수 없다 — 표에 없는 전이다")
+        void cannotBlockDraft() {
+            assertThatThrownBy(() -> reviewService.block(admin, productId, "아무거나"))
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.PRODUCT_TRANSITION_NOT_ALLOWED));
+        }
+
+        @Test
+        @DisplayName("막힌 상품은 공개 목록에서 빠진다")
+        void blockedIsHiddenFromPublicList() {
+            putOnSale();
+            reviewService.block(admin, productId, "위조품 신고");
+
+            assertThat(jdbc.sql("""
+                            select count(*) from product
+                             where product_id = :id and status = 'on_sale'
+                            """).param("id", productId).query(Long.class).single())
+                    .as("공개 목록은 on_sale 만 본다. 막으면 그 조건에서 빠진다")
+                    .isZero();
+        }
+    }
+
+    @Nested
     @DisplayName("권한")
     class Permissions {
 
@@ -209,6 +316,21 @@ class ProductReviewServiceTest extends PostgresTestBase {
 
     private void verifySeller() {
         fixture.verifySeller(sellerId);
+    }
+
+    /** 검수를 통과시켜 파는 상태로 만든다. 중지 테스트는 전부 여기서 시작한다 */
+    private void putOnSale() {
+        verifySeller();
+        reviewService.submit(owner, productId);
+        reviewService.approve(admin, productId);
+    }
+
+    private String reasonOf(long productId) {
+        return jdbc.sql("select block_reason from product where product_id = :id")
+                .param("id", productId)
+                .query(String.class)
+                .optional()
+                .orElse(null);
     }
 
     private String statusOf(long productId) {

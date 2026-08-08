@@ -165,21 +165,42 @@ ADR 0007 이 정한 이력 테이블에 전이가 쌓인다.
 | `sold_out` | 재고가 없다 |
 | `suspended` | 판매가 중지됐다 |
 
+### 중지가 둘이다
+
+`suspended` 는 **셀러가 쉬는 것**이고 `blocked` 는 **관리자가 막은 것**이다.
+
+하나로 두면 관리자가 내린 상품을 셀러가 다시 올릴 수 있어서 **제재가 무의미해진다.**
+상태로 가른 덕에 전이표가 그대로 규칙이 된다 — 셀러는 `product:review` 가 없어서 `blocked` 를 못 푼다.
+
+제재 종류가 늘면 상태를 더 만들지 않고 `block_reason` 으로 쪼갠다.
+
 ### 전이
 
-| 전이 | 주체 | 조건 |
-|---|---|---|
-| `draft` → `pending_review` | 셀러 | 검수 신청 |
-| `pending_review` → `on_sale` | 관리자 | **셀러가 `active` 여야 한다**(아래) |
-| `pending_review` → `draft` | 관리자 | 반려. **사유를 같이 적는다** |
-| `on_sale` → `suspended` | 관리자·셀러 | 판매 중지 |
-| `suspended` → `on_sale` | 관리자·셀러 | 다시 판다. 셀러 상태 조건은 같다 |
+**표에 없는 전이는 막는다**(`ADR 0009`). 권한까지 표에 실어서 "누가 할 수 있나" 가 코드 분기로 안 흩어진다.
 
-`sold_out` 은 사람이 옮기지 않는다. 재고에서 파생되는 값이라 주문(10)이 재고를 깎을 때 바뀐다.
+| from | to | 권한 | 뜻 |
+|---|---|---|---|
+| `draft` | `pending_review` | `product:update` | 셀러가 검수 신청 |
+| `pending_review` | `on_sale` | `product:review` | 승인 |
+| `pending_review` | `draft` | `product:review` | 반려. **사유를 적는다** |
+| `on_sale` | `suspended` | `product:update` | 셀러가 쉰다 |
+| `suspended` | `on_sale` | `product:update` | 셀러가 다시 판다 |
+| `on_sale` | `blocked` | `product:review` | 관리자가 막는다. **사유를 적는다** |
+| `suspended` | `blocked` | `product:review` | 쉬는 중에도 막는다 |
+| `blocked` | `on_sale` | `product:review` | 오인이었다 |
+| `blocked` | `draft` | `product:review` | 고쳐서 다시 받아라 |
 
-**되돌아가는 전이가 하나뿐이다.** `pending_review` → `draft`(반려)고, 나머지는 앞으로만 간다.
-`on_sale` 에서 `draft` 로 못 간다 — 팔던 것을 준비 중으로 되돌리면 그 사이 주문이 무엇을 가리키는지 애매해진다.
-내리려면 `suspended` 다.
+`sold_out` 은 표에 없다. 사람이 옮기는 상태가 아니라 재고에서 파생된다 — 주문(10)이 깎을 때 바뀐다.
+
+**`on_sale` → `draft` 가 없다.** 팔던 것을 준비 중으로 되돌리면 그 사이 주문이 무엇을 가리키는지 애매해진다.
+고쳐야 하면 `blocked` 를 거친다.
+
+### 승인이 끝이 아니다
+
+`blocked` 가 있는 이유다. 위법 표시·위조품 신고·리콜은 **팔기 시작한 뒤에 드러난다.**
+중개자가 알고도 방치하면 제20조의2 의 연대책임을 진다 — 사전 검수만으로는 그걸 못 면한다.
+
+**쉬는 중에도 막을 수 있어야 한다.** 안 그러면 셀러가 먼저 내려서 제재를 피한다.
 
 ### 판매 개시에는 셀러 상태가 걸린다
 

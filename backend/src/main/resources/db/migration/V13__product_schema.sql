@@ -66,6 +66,13 @@ create table product (
     -- 사유를 볼 방법이 없으면 셀러가 같은 것을 다시 올리고 검수가 반복된다.
     review_note text,
 
+    -- 관리자가 왜 막았나(청크 7d). 승인 전 반려(review_note)와 자리를 가른다 —
+    -- 하나로 두면 "검수에서 반려된 것" 과 "팔다가 제재된 것" 이 안 갈린다.
+    --
+    -- 셀러가 자기 상품 조회에서 본다. 왜 막혔는지 모르면 고칠 수가 없고,
+    -- 감사 로그는 셀러가 못 읽는다(audit:read 를 주면 남의 기록까지 보인다).
+    block_reason text,
+
     created_at  timestamptz not null default now(),
     updated_at  timestamptz not null default now(),
 
@@ -73,7 +80,8 @@ create table product (
     deleted_at  timestamptz,
 
     constraint product_status_check
-        check (status in ('draft', 'pending_review', 'on_sale', 'sold_out', 'suspended')),
+        check (status in ('draft', 'pending_review', 'on_sale', 'sold_out',
+                          'suspended', 'blocked')),
 
     constraint product_commission_bp_check
         check (commission_bp is null or commission_bp between 0 and 10000),

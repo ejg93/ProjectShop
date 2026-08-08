@@ -124,8 +124,60 @@ public class ProductController {
         reviewService.reject(user.id(), productId, request.note());
     }
 
+    /**
+     * 셀러가 스스로 내린다. 품절·단종처럼 자기 사정이라 자기가 다시 올릴 수 있다.
+     *
+     * <p>관리자가 막는 것은 {@code /block} 이고 <b>그건 셀러가 못 푼다</b> —
+     * 상태를 갈라 둔 이유가 그것이다.
+     */
+    @PostMapping("/{productId}/suspend")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void suspend(@AuthenticationPrincipal ShopUser user, @PathVariable long productId) {
+        reviewService.suspend(user.id(), productId);
+    }
+
+    @PostMapping("/{productId}/resume")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resume(@AuthenticationPrincipal ShopUser user, @PathVariable long productId) {
+        reviewService.resume(user.id(), productId);
+    }
+
+    /**
+     * 관리자가 판매를 막는다. <b>승인이 끝이 아니다</b> —
+     * 위법 표시·위조품 신고·리콜은 팔기 시작한 뒤에 드러나고, 알고도 방치하면 연대책임을 진다.
+     */
+    @PostMapping("/{productId}/block")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void block(@AuthenticationPrincipal ShopUser user, @PathVariable long productId,
+            @Valid @RequestBody BlockRequest request) {
+
+        reviewService.block(user.id(), productId, request.reason());
+    }
+
+    /**
+     * 제재를 푼다.
+     *
+     * @param request {@code back_to_sale} 이 참이면 오인이었다는 뜻이라 바로 판매로,
+     *                거짓이면 고쳐서 다시 검수받으라는 뜻이라 {@code draft} 로 간다
+     */
+    @PostMapping("/{productId}/unblock")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unblock(@AuthenticationPrincipal ShopUser user, @PathVariable long productId,
+            @Valid @RequestBody UnblockRequest request) {
+
+        reviewService.unblock(user.id(), productId, Boolean.TRUE.equals(request.backToSale()));
+    }
+
     /** @param note 셀러가 무엇을 고쳐야 하는지. 비우면 같은 것을 다시 올린다 */
     public record RejectRequest(@NotBlank @Size(max = 500) String note) {
+    }
+
+    /** @param reason 셀러가 왜 막혔는지 본다. 안 알려주면 고칠 수가 없다 */
+    public record BlockRequest(@NotBlank @Size(max = 500) String reason) {
+    }
+
+    /** @param backToSale 비우면 거짓으로 본다 — 되돌리는 쪽이 아니라 다시 검수받는 쪽이 기본이다 */
+    public record UnblockRequest(Boolean backToSale) {
     }
 
     /**
