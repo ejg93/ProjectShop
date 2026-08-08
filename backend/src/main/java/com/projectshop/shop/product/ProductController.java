@@ -1,0 +1,124 @@
+package com.projectshop.shop.product;
+
+import java.net.URI;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+
+import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+
+/**
+ * 상품을 등록하고 고치는 입구.
+ *
+ * <p>조회는 여기 없다. 공개 조회는 청크 8 이 만들고 <b>스코프를 목록 쿼리에 섞는 일</b>이 거기 있다.
+ */
+@RestController
+@RequestMapping("/api/products")
+public class ProductController {
+
+    private final ProductService productService;
+
+    ProductController(ProductService productService) {
+        this.productService = productService;
+    }
+
+    /**
+     * 상품·옵션·SKU 를 한 번에 받는다(`D4` — 상품은 한 덩어리로 산다).
+     *
+     * <p>{@code Location} 을 붙인다. 조회 경로가 청크 8 에서 생기지만 <b>경로 규칙은 지금 정해져 있고</b>,
+     * 가입(`5-2`)이 헤더를 못 붙인 것은 그때 id 로 가리킬 경로 자체가 없어서였다.
+     */
+    @PostMapping
+    public ResponseEntity<ProductService.Created> create(
+            @AuthenticationPrincipal ShopUser user, @Valid @RequestBody ProductRequest request) {
+
+        ProductService.Created created = productService.create(user.id(), request.toCommand());
+
+        return ResponseEntity.created(URI.create("/api/products/" + created.productId()))
+                .body(created);
+    }
+
+    /**
+     * 통째로 바꾼다. <b>{@code PATCH} 가 아니라 {@code PUT} 인 이유</b>가 있다 —
+     * 옵션과 SKU 가 전체 교체라 요청 본문이 곧 새 상태다. 부분 갱신의 뜻이 없다.
+     */
+    @PutMapping("/{productId}")
+    public ProductService.Created replace(
+            @AuthenticationPrincipal ShopUser user,
+            @PathVariable long productId,
+            @Valid @RequestBody ProductRequest request) {
+
+        return productService.replace(user.id(), productId, request.toCommand());
+    }
+
+    @DeleteMapping("/{productId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@AuthenticationPrincipal ShopUser user, @PathVariable long productId) {
+        productService.delete(user.id(), productId);
+    }
+
+    /**
+     * <b>기본형(`boolean`·`long`)을 안 쓴다.</b> Jackson 3 은 빠진 필드를 기본형에 넣을 때
+     * 요청 전체를 깨뜨린다({@code FAIL_ON_NULL_FOR_PRIMITIVES} 가 기본으로 켜져 있다).
+     * 그러면 "이 필드가 없다" 가 <b>"요청 형식이 맞지 않는다" 로 뭉개져서</b> 어느 칸인지 안 드러난다.
+     *
+     * <p>래퍼로 받고 {@code @NotNull} 을 걸면 Bean Validation 이 필드 이름을 짚어 준다.
+     * 전역으로 그 기능을 끄는 방법도 있지만 그건 {@code null} 이 조용히 0·false 가 되는 길이다.
+     *
+     * @param commissionBp 비우면 셀러 기본 요율을 쓴다(`D3`)
+     * @param withdrawalRestricted 비우면 제한 없음으로 본다. 대부분의 상품이 그렇다
+     * @param options      옵션이 없는 상품은 빈 배열이고 SKU 가 하나다
+     */
+    public record ProductRequest(
+            @NotNull Long sellerId,
+            @NotBlank @Size(max = 200) String name,
+            String description,
+            Integer commissionBp,
+            Boolean withdrawalRestricted,
+            String withdrawalRestrictionReason,
+            @NotNull List<@Valid OptionRequest> options,
+            @NotEmpty List<@Valid SkuRequest> skus) {
+
+        ProductService.Command toCommand() {
+            return new ProductService.Command(
+                    sellerId, name, description, commissionBp,
+                    Boolean.TRUE.equals(withdrawalRestricted), withdrawalRestrictionReason,
+                    options.stream()
+                            .map(o -> new ProductService.OptionCommand(o.name(), o.values()))
+                            .toList(),
+                    skus.stream()
+                            .map(s -> new ProductService.SkuCommand(
+                                    s.optionValues(), s.price(), s.stockCount()))
+                            .toList());
+        }
+    }
+
+    public record OptionRequest(
+            @NotBlank @Size(max = 50) String name,
+            @NotEmpty List<@NotBlank String> values) {
+    }
+
+    /** @param price 부가세를 포함한 판매가다(`D8`). 원 단위 정수라 소수가 없다 */
+    public record SkuRequest(
+            @NotNull List<@NotBlank String> optionValues,
+            @NotNull @PositiveOrZero Long price,
+            @NotNull @PositiveOrZero Integer stockCount) {
+    }
+}

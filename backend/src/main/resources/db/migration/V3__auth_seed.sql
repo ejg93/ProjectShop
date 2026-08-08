@@ -36,15 +36,21 @@ from (values
 join permission p on p.resource = v.resource and p.action = v.action
 join role r on r.code = 'customer';
 
--- 판매자. 상품은 자기 것만 건드리고, 주문은 자기 상품이 들어간 것만 본다.
+-- 판매자(대표). 상품은 자기 셀러 것 전부를 건드리고, 주문은 자기 상품이 들어간 것만 본다.
 -- product:read 가 all 인 건 판매자도 남의 상품을 보는 구매자이기 때문이다.
+--
+-- 상품이 own 이 아니라 seller 인 이유는 상품의 주인이 사람이 아니라 셀러라서다(ADR 0004).
+-- own 으로 두면 대상에 주인 계정이 없어서 판정이 아무것도 안 덮는다 — 상품을 하나도 못 만든다.
+--
+-- own 은 담당자 축에서 쓴다. product.created_by_user_id 를 가리키고,
+-- "내가 등록한 상품만" 이 필요한 seller_staff 가 청크 5a 에서 그걸 받는다.
 insert into role_permission (role_id, permission_id, scope)
 select r.role_id, p.permission_id, v.scope
 from (values
-    ('product', 'create',        'own'),
+    ('product', 'create',        'seller'),
     ('product', 'read',          'all'),
-    ('product', 'update',        'own'),
-    ('product', 'delete',        'own'),
+    ('product', 'update',        'seller'),
+    ('product', 'delete',        'seller'),
     ('order',   'create',        'own'),
     ('order',   'read',          'seller'),
     ('order',   'update_status', 'seller'),

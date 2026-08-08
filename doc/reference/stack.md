@@ -196,6 +196,32 @@ MockMvc 쪽 테스트는 상태 코드를 못박지 말고 `is4xxClientError()` 
 
 이 환경의 문제다. `CLAUDE.md` 의 검증 절에 명령이 있다.
 
+### Jackson 3 은 빠진 필드를 기본형에 못 넣는다
+
+요청 본문에 없는 필드가 `boolean`·`long`·`int` 로 가면 **요청 전체가 깨진다.**
+
+```
+MismatchedInputException: Cannot map `null` into type `boolean`
+(set `DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES` to 'false')
+```
+
+Jackson 2 는 이 기능이 꺼져 있어서 `false`·`0` 이 들어갔다. **Jackson 3 은 켜져 있다.**
+Boot 3 예제를 그대로 옮기면 여기서 걸린다.
+
+증상이 나쁘다. "이 필드가 없다" 가 **"요청 형식이 맞지 않는다" 로 뭉개져서** 어느 칸인지 안 드러나고,
+Spring 은 이 예외를 `DEBUG` 로 찍어서 로그에도 안 남는다.
+
+**요청 record 에는 래퍼 타입을 쓴다.** 필수면 `@NotNull` 을 걸어 Bean Validation 이 필드를 짚게 한다.
+전역으로 그 기능을 끄면 `null` 이 조용히 `0`·`false` 가 돼서 진짜 실수가 안 드러난다.
+
+```java
+// 안 한다
+@PositiveOrZero long price
+
+// 한다
+@NotNull @PositiveOrZero Long price
+```
+
 ### `@RestControllerAdvice` 만으로는 프레임워크 예외를 못 잡는다
 
 `spring.mvc.problemdetails.enabled=true` 를 켜면 Spring 이 **자기 핸들러를 먼저 등록한다.**

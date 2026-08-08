@@ -24,6 +24,16 @@ create table product (
     -- 애그리거트를 넘는 참조라 cascade 를 안 쓴다(domain-model.md).
     seller_id   bigint not null references seller (seller_id) on delete restrict,
 
+    -- 등록한 사람. 소유자가 아니라 담당자다.
+    --
+    -- 상품의 주인은 셀러고(ADR 0004) 그건 seller_id 가 답한다. 이 컬럼은 다른 축이다 —
+    -- "내가 등록한 상품만 내가 고친다" 를 표현하려면 그 사람을 가리킬 자리가 있어야 한다.
+    -- scope=own 이 이 컬럼을 본다. 쓰는 것은 청크 5a 의 seller_staff 다.
+    --
+    -- restrict 인 이유는 파기 배치(5i)가 계정 행을 안 지우기 때문이다. 실제로 걸릴 일은 없고,
+    -- 걸린다면 그건 지우면 안 되는 것을 지우려는 순간이다.
+    created_by_user_id bigint not null references app_user (user_id) on delete restrict,
+
     name        text   not null,
     description text,
 
@@ -77,6 +87,9 @@ create trigger product_set_updated_at
 
 -- 목록은 언제나 셀러로 좁힌 뒤 산 것만 본다. 두 조건이 늘 같이 오므로 같이 건다.
 create index product_seller_id_idx on product (seller_id) where deleted_at is null;
+
+-- "내가 등록한 것" 을 고르는 조회. scope=own 이 이 인덱스를 탄다(청크 5a).
+create index product_created_by_idx on product (created_by_user_id) where deleted_at is null;
 
 -- 옵션 축. "색상" 처럼 무엇으로 갈리는지를 적는다.
 -- 옵션이 없는 상품은 이 표에 행이 없고, sku 가 하나만 있다.

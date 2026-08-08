@@ -46,6 +46,16 @@ public enum ErrorCode {
     CONSENT_FORBIDDEN(HttpStatus.FORBIDDEN, "consent-forbidden", "동의 내역을 다룰 권한이 없다"),
     AUDIT_FORBIDDEN(HttpStatus.FORBIDDEN, "audit-forbidden", "감사 로그를 볼 권한이 없다"),
 
+    // 상품
+    //
+    // 403 이다. 상품은 공개 목록에 있어서 존재를 숨길 이유가 없다(`D5` 의 자원별 표).
+    PRODUCT_FORBIDDEN(HttpStatus.FORBIDDEN, "product-forbidden", "상품을 다룰 권한이 없다"),
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "product-not-found", "그런 상품이 없다"),
+    PRODUCT_WITHOUT_SKU(HttpStatus.UNPROCESSABLE_ENTITY, "product-without-sku",
+            "팔 조합이 하나도 없다"),
+    SKU_OPTION_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "sku-option-mismatch",
+            "조합이 선언한 옵션과 맞지 않는다"),
+
     // 입력
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "validation-failed", "요청 형식이 맞지 않는다"),
 
