@@ -15,11 +15,7 @@
 -- 요율을 소수로 두면 금액을 곱한 결과가 소수가 되고, 어디서 자를지를 사람이 관리해야 한다.
 -- 정수 만분율이면 amount * bp / 10000 의 정수 나눗셈이 곧 버림이라, D8 의 절사 규칙이 연산에 들어간다.
 --
--- 셀러에 기본 요율을 두고 상품에서 덮어쓴다(D3). 초기값은 전 상품 일괄 10% 다.
-alter table seller add column commission_bp int not null default 1000;
-
-alter table seller add constraint seller_commission_bp_check
-    check (commission_bp between 0 and 10000);
+-- 셀러 기본 요율은 V4 에 있다. 상품은 그것을 덮어쓰는 예외만 든다(D3).
 
 create table product (
     product_id  bigint not null generated always as identity primary key,

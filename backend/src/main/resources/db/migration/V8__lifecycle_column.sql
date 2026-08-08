@@ -26,9 +26,10 @@ alter table app_user drop constraint app_user_status_check;
 alter table app_user add constraint app_user_status_check
     check (status in ('active', 'suspended'));
 
+-- pending 은 남는다. 그건 종료가 아니라 "아직 확인 전" 이라 수명이 아니라 업무 상태다.
 alter table seller drop constraint seller_status_check;
 alter table seller add constraint seller_status_check
-    check (status in ('active', 'suspended'));
+    check (status in ('pending', 'active', 'suspended'));
 
 -- 살아 있는 행만 고르는 조회가 대부분이라 부분 인덱스를 깔아 둔다.
 create index app_user_alive_idx on app_user (user_id) where deleted_at is null;
