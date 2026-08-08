@@ -106,6 +106,19 @@ class HttpFlowTest extends HttpTestBase {
         }
 
         @Test
+        @DisplayName("가입 전에 약관 본문을 읽을 수 있다")
+        void readsTermsBeforeSignUp() {
+            Session session = newSession();
+
+            Response response = session.get("/api/consent-items/terms_of_service");
+
+            assertThat(response.is(200))
+                    .as("동의하려면 먼저 읽어야 하는데 그 시점은 로그인 전이다(약관규제법 제3조)")
+                    .isTrue();
+            assertThat(response.body()).contains("통신판매중개자");
+        }
+
+        @Test
         @DisplayName("프록시를 거쳐도 동의 이력에 진짜 클라이언트 IP 가 남는다")
         void recordsForwardedClientIp() {
             Session session = newSession();

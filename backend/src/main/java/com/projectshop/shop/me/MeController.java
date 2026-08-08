@@ -69,6 +69,21 @@ public class MeController {
     }
 
     /**
+     * 내가 동의한 판의 사본. <b>지금 효력 있는 판이 아니다</b> — 개정됐으면 둘이 다르다.
+     *
+     * <p>약관규제법 제3조제2항이 고객 요구 시 사본을 내주라고 하는데,
+     * 그 사본은 내가 계약한 그 약관이다. 최신판을 내주면 그 사이 고친 것을 들이미는 꼴이 된다.
+     *
+     * <p>지금 판을 보려면 {@code /api/consent-items/{code}} 다. 그쪽은 로그인이 필요 없다.
+     */
+    @GetMapping("/consents/{code}")
+    public ConsentService.MyNotice myConsent(
+            @AuthenticationPrincipal ShopUser user, @PathVariable String code) {
+
+        return consentService.readMine(user.id(), code);
+    }
+
+    /**
      * 경로에 동사를 쓴다(`D5`). 상태를 바꾸는 요청은 자원에 `PATCH` 를 쏘는 대신
      * 무슨 일이 일어나는지를 경로에 적는다.
      */

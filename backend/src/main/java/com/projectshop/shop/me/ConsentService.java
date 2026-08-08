@@ -54,6 +54,90 @@ public class ConsentService {
     }
 
     /**
+     * 동의받을 때 알린 내용. <b>본문은 여기에만 실린다</b> — 목록에 넣으면 약관 전문이
+     * 항목 수만큼 딸려 나와서 동의 화면이 무거워진다.
+     *
+     * @param version 이 고지가 몇 판인가. 내용이 바뀌면 새 판이다(개인정보법 제15조제2항 후단)
+     * @param body    약관 본문. 마크다운이고, 개인정보 항목에는 없다
+     */
+    public record Notice(String code, String title, int version,
+            @JsonProperty("is_required") boolean required,
+            String purpose, String collectedItems, String retentionPeriod,
+            String refusalDisadvantage, String body, String dependsOn,
+            OffsetDateTime effectiveAt) {
+    }
+
+    /**
+     * 내가 동의한 그 고지와 그때의 상태.
+     *
+     * @param notice <b>지금 효력 있는 판이 아니라 내가 동의한 판</b>이다. 개정됐으면 둘이 다르다
+     */
+    public record MyNotice(Notice notice, boolean granted, OffsetDateTime actedAt) {
+    }
+
+    /**
+     * 지금 효력이 있는 판의 고지 내용. <b>로그인 없이 부른다.</b>
+     *
+     * <p>가입 화면이 이걸 쓴다. 동의하려면 먼저 읽어야 하는데 그 시점은 로그인 전이다 —
+     * 약관규제법 제3조제2항·제3항이 "계약을 체결할 때" 밝히고 설명하라고 한 자리가 여기다.
+     */
+    public Notice readCurrent(String code) {
+        return jdbc.sql("""
+                        select ci.code, ci.title, ci.version, ci.is_required,
+                               ci.purpose, ci.collected_items, ci.retention_period,
+                               ci.refusal_disadvantage, ci.body, ci.effective_at,
+                               p.code as depends_on
+                          from consent_item ci
+                          left join consent_item p on p.consent_item_id = ci.depends_on_id
+                         where ci.code = :code and ci.effective_at <= now()
+                         order by ci.effective_at desc, ci.version desc
+                         limit 1
+                        """)
+                .param("code", code)
+                .query(ConsentService::mapNotice)
+                .optional()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "그런 동의 항목이 없다: " + code));
+    }
+
+    /**
+     * 내가 동의한 판의 사본.
+     *
+     * <p>약관규제법 제3조제2항이 고객 요구 시 사본을 내주라고 한다. 그 사본은
+     * <b>내가 계약한 그 약관</b>이지 지금 걸려 있는 최신판이 아니다 —
+     * 최신판을 내주면 그 사이 우리가 고친 것을 들이미는 꼴이 된다.
+     *
+     * <p>건드린 적 없는 항목은 사본이 없어서 404 다. 무엇을 더 켤 수 있는지는 목록이 답한다.
+     */
+    public MyNotice readMine(long userId, String code) {
+        requirePermission(userId, "read", "동의 내역을 볼 권한이 없다");
+
+        return jdbc.sql("""
+                        select ci.code, ci.title, ci.version, ci.is_required,
+                               ci.purpose, ci.collected_items, ci.retention_period,
+                               ci.refusal_disadvantage, ci.body, ci.effective_at,
+                               p.code as depends_on,
+                               uc.granted, uc.acted_at
+                          from user_consent uc
+                          join consent_item ci on ci.consent_item_id = uc.consent_item_id
+                          left join consent_item p on p.consent_item_id = ci.depends_on_id
+                         where uc.user_id = :userId and ci.code = :code
+                         -- 한 트랜잭션에서 여러 행이 같은 acted_at 을 갖는다. id 가 순서를 정한다(5-0)
+                         order by uc.acted_at desc, uc.user_consent_id desc
+                         limit 1
+                        """)
+                .param("userId", userId)
+                .param("code", code)
+                .query((rs, rowNum) -> new MyNotice(
+                        mapNotice(rs, rowNum),
+                        rs.getBoolean("granted"),
+                        rs.getObject("acted_at", OffsetDateTime.class)))
+                .optional()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "동의한 적이 없는 항목이다: " + code));
+    }
+
+    /**
      * 지금 효력이 있는 항목을 전부 보여준다. <b>건드린 적 없는 항목도 나온다.</b>
      *
      * <p>동의한 것만 보여주면 무엇을 더 켤 수 있는지 알 방법이 없다.
@@ -209,5 +293,21 @@ public class ConsentService {
     }
 
     private record Item(long consentItemId, String code, boolean required, String dependsOnCode) {
+    }
+
+    /** 두 조회가 같은 열을 읽는다. 매핑이 두 벌이면 열을 하나 더할 때 한쪽만 고친다. */
+    private static Notice mapNotice(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+        return new Notice(
+                rs.getString("code"),
+                rs.getString("title"),
+                rs.getInt("version"),
+                rs.getBoolean("is_required"),
+                rs.getString("purpose"),
+                rs.getString("collected_items"),
+                rs.getString("retention_period"),
+                rs.getString("refusal_disadvantage"),
+                rs.getString("body"),
+                rs.getString("depends_on"),
+                rs.getObject("effective_at", OffsetDateTime.class));
     }
 }

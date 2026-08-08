@@ -53,6 +53,72 @@ class MeConsentTest extends PostgresTestBase {
     }
 
     @Nested
+    @DisplayName("고지 조회")
+    class NoticeLookup {
+
+        @Test
+        @DisplayName("로그인 없이 지금 판을 읽는다")
+        void readsCurrentWithoutLogin() throws Exception {
+            mvc.perform(get("/api/consent-items/terms_of_service"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.version").value(1))
+                    .andExpect(jsonPath("$.body").isNotEmpty());
+        }
+
+        @Test
+        @DisplayName("개인정보 항목은 고지 넷이 다 온다")
+        void returnsAllFourNotices() throws Exception {
+            mvc.perform(get("/api/consent-items/privacy_collect"))
+                    .andExpect(jsonPath("$.purpose").isNotEmpty())
+                    .andExpect(jsonPath("$.collected_items").isNotEmpty())
+                    .andExpect(jsonPath("$.retention_period").isNotEmpty())
+                    .andExpect(jsonPath("$.refusal_disadvantage").isNotEmpty());
+        }
+
+        @Test
+        @DisplayName("모르는 코드는 404 다")
+        void unknownCodeIsNotFound() throws Exception {
+            mvc.perform(get("/api/consent-items/no-such-item"))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("개정돼도 내 사본은 내가 동의한 판이다")
+        void myCopyStaysOnTheVersionIAgreedTo() throws Exception {
+            // 2판을 내놓는다. 지금 효력 있는 판이 바뀐다.
+            jdbc.sql("""
+                            insert into consent_item (code, version, title, body)
+                            values ('terms_of_service', 2, '이용약관 2판', '## 2판 본문')
+                            """).update();
+
+            // 공개 조회는 지금 판을 준다.
+            mvc.perform(get("/api/consent-items/terms_of_service"))
+                    .andExpect(jsonPath("$.version").value(2));
+
+            mvc.perform(get("/api/me/consents/terms_of_service").with(user(principal())))
+                    // 최신판을 내주면 그 사이 우리가 고친 것을 들이미는 꼴이 된다.
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.notice.version").value(1))
+                    .andExpect(jsonPath("$.granted").value(true))
+                    .andExpect(jsonPath("$.acted_at").isNotEmpty());
+        }
+
+        @Test
+        @DisplayName("동의한 적 없는 항목은 사본이 없다")
+        void noCopyForUntouchedItem() throws Exception {
+            mvc.perform(get("/api/me/consents/marketing_sms").with(user(principal())))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("내 사본은 로그인이 필요하다")
+        void myCopyNeedsLogin() throws Exception {
+            mvc.perform(get("/api/me/consents/terms_of_service"))
+                    .andExpect(status().is4xxClientError());
+        }
+    }
+
+    @Nested
     @DisplayName("목록")
     class Listing {
 
