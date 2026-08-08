@@ -40,8 +40,16 @@ create table product (
     commission_bp int,
 
     -- 청약철회를 제한하는 상품인가(R4, 전자상거래법 제17조제2항).
-    -- 제한 사유 다섯 중 앞의 셋은 받은 물건의 상태 판단이라 시스템이 못 정한다.
-    -- 뒤의 둘만 상품 속성이라 여기 들어온다. 제한 상품은 주문 화면에서 미리 알려야 한다.
+    --
+    -- 조문의 사유 중 1~3호는 받은 물건의 상태 판단이라 시스템이 못 정한다.
+    -- 데이터로 표현되는 것은 셋이다 — 4호(복제 가능 재화), 5호(용역·디지털콘텐츠),
+    -- 6호 위임(주문 제작).
+    --
+    -- 5호는 성격이 다르다. 4호·6호는 상품이기만 하면 성립하지만 5호는 "제공이 개시된" 사건이 있어야 한다.
+    -- 여기 담는 것은 "이 상품이 디지털콘텐츠다" 까지고, 개시 여부는 주문 상태다(청크 11a).
+    --
+    -- 제한 상품은 주문 화면에서 미리 알려야 한다. 알리는 것이 선택이 아니라 제한의 성립 요건이다 —
+    -- 필요한 조치를 안 하면 제한 자체가 적용되지 않는다(제17조제2항 단서).
     is_withdrawal_restricted boolean not null default false,
     withdrawal_restriction_reason text,
 
@@ -61,7 +69,8 @@ create table product (
     -- 반대로 제한하지 않는데 사유만 남으면 화면이 무엇을 보여줄지 갈린다. 둘 다 막는다.
     constraint product_withdrawal_reason_check
         check (
-            (is_withdrawal_restricted and withdrawal_restriction_reason in ('copyable_media', 'made_to_order'))
+            (is_withdrawal_restricted and withdrawal_restriction_reason
+                 in ('copyable_media', 'digital_content', 'made_to_order'))
             or (not is_withdrawal_restricted and withdrawal_restriction_reason is null)
         )
 );
