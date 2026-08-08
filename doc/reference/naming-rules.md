@@ -147,6 +147,16 @@ JSON    created_at      password_hash    is_required
 **`Request`·`Response` 는 HTTP 경계에서만 쓴다.** 서비스 안쪽까지 그 이름이 들어가면
 서비스가 웹을 아는 모양이 된다(`coding-rules.md` 의 「예외」와 같은 이유다).
 
+### 식별자 필드는 어디까지 컬럼명을 따르나
+
+**DB 행을 담은 것만 컬럼명을 그대로 쓴다.** `AuditLogQuery.Row` 의 기본키는 `auditLogId` 다 —
+`id` 로 두면 JSON 도 `id` 로 나가서 컬럼명(`audit_log_id`)과 갈린다(`D5`).
+
+**도메인 객체는 타입 이름이 대상을 말하므로 `id` 로 둔다.** `ShopUserDetailsService.ShopUser.id()` 가 그것이다.
+DB 에서 읽어 만들지만 응답으로 안 나가고, 타입에 `User` 가 이미 들어 있어서 `userId` 는 같은 말을 두 번 한다.
+
+가르는 기준은 **응답으로 나가느냐**다. 나가면 컬럼명, 안 나가면 타입 이름에 기댄다.
+
 ### 축약하지 않는다
 
 `cnt`, `usr`, `perm` 을 안 쓴다. 길이를 아껴서 얻는 것보다 읽을 때 잃는 것이 크다.

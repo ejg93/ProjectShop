@@ -14,6 +14,8 @@ import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * 자기 동의를 보고 바꾼다.
  *
@@ -38,11 +40,16 @@ public class ConsentService {
     }
 
     /**
+     * <p>{@code required} 는 JSON 으로 나갈 때 {@code is_required} 가 된다(`D22`).
+     * 불리언의 {@code is_} 접두사는 Java 에서만 뗀다 — 게터가 {@code isRequired()} 라 두 번 붙는다.
+     * DB 컬럼과 JSON 필드명은 같아야 로그·쿼리·응답을 같은 단어로 검색할 수 있다(`D5`).
+     *
      * @param granted 동의 상태. 한 번도 건드리지 않았으면 false 고 {@code actedAt} 이 null 이다
      * @param actedAt 마지막으로 동의하거나 철회한 시각. null 이면 건드린 적이 없다
      * @param dependsOn 이 항목을 켜려면 먼저 켜야 하는 항목. 없으면 null
      */
-    public record ConsentView(String code, String title, boolean required, boolean granted,
+    public record ConsentView(String code, String title,
+            @JsonProperty("is_required") boolean required, boolean granted,
             OffsetDateTime actedAt, String dependsOn) {
     }
 

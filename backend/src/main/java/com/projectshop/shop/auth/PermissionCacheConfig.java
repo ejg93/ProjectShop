@@ -60,8 +60,12 @@ class PermissionCacheConfig {
     }
 
     /**
-     * 캐시 이름 목록. 무효화 쪽이 이 목록을 쓴다.
-     * 캐시를 새로 추가하고 여기 안 넣으면 무효화가 그 캐시를 안 지운다.
+     * 캐시 이름 목록. <b>무효화는 이 목록을 안 쓴다</b> — {@link PermissionRuleLoader#evict} 가
+     * 캐시마다 {@code @CacheEvict} 를 하나씩 직접 적는다. 지우는 방식이 캐시마다 달라서
+     * (규칙은 통째로, 나머지는 키 하나) 목록으로 돌 수가 없다.
+     *
+     * <p>쓰는 곳은 <b>테스트뿐</b>이다. "캐시가 지금 몇 개인가" 를 고정해 둬서,
+     * 캐시를 새로 추가하면 그 단언이 깨져 무효화를 같이 봤는지 묻게 만든다.
      */
     static List<String> cacheNames() {
         return List.of(RULES, MEMBERSHIPS, LIVENESS);

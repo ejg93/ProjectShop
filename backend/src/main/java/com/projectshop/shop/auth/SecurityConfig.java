@@ -22,6 +22,8 @@ import org.springframework.security.web.authentication.session.ChangeSessionIdAu
 import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.RegisterSessionAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
@@ -215,6 +217,18 @@ public class SecurityConfig {
                 new ChangeSessionIdAuthenticationStrategy(),
                 // 탈퇴(5g)가 이 등록을 보고 세션을 만료시킨다(ADR 0010).
                 new RegisterSessionAuthenticationStrategy(sessionRegistry)));
+    }
+
+    /**
+     * 인증을 어디에 저장하나. <b>컨트롤러가 이걸 주입받는다.</b>
+     *
+     * <p>{@code formLogin} 을 껐으므로 로그인 성공 뒤 저장을 컨트롤러가 직접 부른다.
+     * 컨트롤러가 {@code new HttpSessionSecurityContextRepository()} 를 자기 안에서 만들면
+     * 여기서 저장 방식을 바꿔도 컨트롤러만 옛 방식으로 남는다 — 같은 규칙이 두 군데가 된다.
+     */
+    @Bean
+    SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
     }
 
     /** 누가 어떤 세션을 들고 있는지. 탈퇴·정지가 이걸 보고 세션을 끊는다(`ADR 0010`). */

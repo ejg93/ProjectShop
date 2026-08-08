@@ -72,7 +72,8 @@ public class SignupService {
     private List<ConsentItem> currentConsentItems() {
         return jdbc.sql("""
                         select distinct on (c.code)
-                               c.consent_item_id, c.code, c.is_required, p.code as depends_on_code
+                               c.consent_item_id, c.code, c.is_required as required,
+                               p.code as depends_on_code
                           from consent_item c
                           left join consent_item p on p.consent_item_id = c.depends_on_id
                          where c.effective_at <= now()
@@ -93,7 +94,7 @@ public class SignupService {
         }
 
         for (ConsentItem item : items) {
-            if (item.isRequired() && !Boolean.TRUE.equals(given.get(item.code()))) {
+            if (item.required() && !Boolean.TRUE.equals(given.get(item.code()))) {
                 throw unprocessable("필수 동의 항목이다: " + item.code());
             }
 
@@ -157,7 +158,14 @@ public class SignupService {
         return new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, detail);
     }
 
-    /** @param dependsOnCode 먼저 동의해야 하는 항목의 코드. 걸린 것이 없으면 null. */
-    public record ConsentItem(long consentItemId, String code, boolean isRequired, String dependsOnCode) {
+    /**
+     * 불리언의 {@code is_} 는 Java 에서 뗀다(`D22`). 게터가 {@code isRequired()} 라 두 번 붙는다.
+     *
+     * <p>그래서 조회 SQL 이 {@code is_required as required} 로 별칭을 준다 —
+     * {@code query(ConsentItem.class)} 가 컬럼명으로 생성자 인자를 맞추기 때문이다.
+     *
+     * @param dependsOnCode 먼저 동의해야 하는 항목의 코드. 걸린 것이 없으면 null.
+     */
+    public record ConsentItem(long consentItemId, String code, boolean required, String dependsOnCode) {
     }
 }

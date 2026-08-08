@@ -53,7 +53,13 @@ public class AuditLogQuery {
             OffsetDateTime from, OffsetDateTime to, int page, int size) {
     }
 
-    public record Row(long id, String eventType, Long actorUserId, String targetType,
+    /**
+     * DB 행 그대로. <b>이름이 컬럼명을 따른다</b>(`D22`) — {@code id} 가 아니라 {@code auditLogId} 다.
+     *
+     * <p>`3e` 가 DB 에서 맨 {@code id} 를 없앴는데 이 응답에만 남아 있었다.
+     * 컬럼명과 JSON 필드명이 갈리면 로그·쿼리·응답을 같은 단어로 못 찾는다(`D5`).
+     */
+    public record Row(long auditLogId, String eventType, Long actorUserId, String targetType,
             Long targetId, Map<String, Object> detail, OffsetDateTime createdAt) {
     }
 

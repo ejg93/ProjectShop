@@ -226,6 +226,42 @@ v3 는 점수제라 사용자에게 퍼즐을 보여주지 않는다. 화면 흐
 
 파일 업로드 검증은 `D17` 이 정한다. 청크 26 이 멀어서 지금 정하면 무엇을 정하는지 모른다.
 
+## 노출면
+
+기능이 아니라 **설정으로 새는 것**을 여기 모은다. OWASP A05(보안 설정 오류)에 걸린다.
+
+| 자리 | 규칙 | 왜 |
+|---|---|---|
+| `/actuator/health` | 상세는 인증된 요청에만(`show-details: when-authorized`) | 공개 경로라서 `always` 면 아무나 DB·디스크·컴포넌트 목록을 본다. 살아 있나만 보는 데는 상세가 필요 없다 |
+| 액추에이터 노출 목록 | `health` 하나 | 늘릴 때마다 그것이 무엇을 흘리는지 본다 |
+| 세션 속 principal | 비밀번호 해시를 안 들고 있는다 | 아래 |
+
+### principal 에서 인증정보를 지운다
+
+로그인이 끝나면 `UserDetails` 가 세션에 principal 로 앉는다. 그대로 두면
+**세션이 사는 내내 bcrypt 해시가 메모리에 남는다.** 인증이 끝난 뒤로는 쓸 데가 없는 값이다.
+
+Spring 은 그러라고 `CredentialsContainer` 를 두고 `ProviderManager` 가 인증 직후
+`eraseCredentials()` 를 부른다. **`record` 로 만들면 그 요청에 응답할 수 없다** — 불변이라 지울 방법이 없다.
+`ShopUser` 를 클래스로 둔 이유가 이것이다(`D23` 의 "상태를 들고 도는 것만 class").
+
+`equals` 는 **id 로만** 본다. 해시까지 비교하면 지워진 뒤에 `SessionRegistry` 에서
+같은 사람을 못 찾아서 **탈퇴가 세션을 못 끊는다**(`ADR 0010`).
+
+### 프록시 뒤의 클라이언트 IP
+
+`server.forward-headers-strategy: native` 다. Tomcat `RemoteIpValve` 를 쓴다.
+
+`framework`(`ForwardedHeaderFilter`)는 **`X-Forwarded-For` 를 보낸 것이 누구든 믿는다.**
+프록시가 없으면 아무나 헤더 한 줄로 자기 IP 를 속일 수 있다.
+`native` 는 바로 앞 상대가 신뢰 대역(사설·루프백)일 때만 헤더를 본다.
+
+안 켜면 `getRemoteAddr()` 이 프록시 IP 를 준다. `user_consent.acted_ip` 는 동의 입증용이라
+그 값이 프록시 IP 면 **틀린 개인정보를 쌓는 것**이고(개인정보법 제3조③ 정확성) 입증에도 못 쓴다.
+
+**신뢰 대역을 프록시 주소로 좁히는 것은 청크 13 이다.** 그전까지는 로컬만 도는 상태라
+기본값(사설·루프백)이 그대로 안전하다.
+
 ## 비밀 관리
 
 `.env` 는 커밋하지 않는다. `.env.example` 에 키 이름만 둔다.

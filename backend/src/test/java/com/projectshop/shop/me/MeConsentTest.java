@@ -73,7 +73,7 @@ class MeConsentTest extends PostgresTestBase {
         @DisplayName("필수 항목이 먼저 나오고 종속이 표시된다")
         void showsRequiredFirstAndDependency() throws Exception {
             mvc.perform(get("/api/me/consents").with(user(principal())))
-                    .andExpect(jsonPath("$[0].required").value(true))
+                    .andExpect(jsonPath("$[0].is_required").value(true))
                     .andExpect(jsonPath("$[?(@.code == 'marketing_night')].depends_on")
                             .value("marketing_email"));
         }

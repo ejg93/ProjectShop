@@ -27,10 +27,28 @@ management:
         include: health
   endpoint:
     health:
-      show-details: always
+      # 인증된 요청에만 상세를 준다.
+      #
+      # always 로 두면 /actuator/health 가 공개 경로라서 아무나 DB 연결 상태·디스크·컴포넌트
+      # 목록을 본다. 무엇이 붙어 있는지가 그대로 드러나서 공격 표면을 알려 준다(OWASP A05).
+      #
+      # 살아 있나만 보는 것은 상세 없이도 된다. 컨테이너 헬스체크가 보는 것은 UP/DOWN 뿐이다.
+      # 자세히 봐야 할 때는 /api/health 가 있고 그쪽은 우리가 무엇을 내릴지 정한다.
+      show-details: when-authorized
 
 server:
   port: ${SERVER_PORT:8080}
+  # 프록시 뒤에서 진짜 클라이언트 IP 를 읽는다.
+  #
+  # 안 켜면 getRemoteAddr() 이 프록시 IP 를 준다. user_consent.acted_ip 는 동의 입증용이라
+  # 그 값이 프록시 IP 면 틀린 개인정보를 쌓는 것이고(개인정보법 제3조③ 정확성), 입증에도 못 쓴다.
+  #
+  # native 다. framework(ForwardedHeaderFilter)는 X-Forwarded-For 를 보낸 것이 누구든 믿어서,
+  # 아무나 헤더 한 줄로 IP 를 속일 수 있다. native 는 Tomcat RemoteIpValve 를 쓰는데
+  # 바로 앞 상대가 신뢰 대역(사설·루프백)일 때만 헤더를 본다.
+  #
+  # 프론트 프록시가 생기는 청크 13 에서 그 대역을 프록시 주소로 좁힌다.
+  forward-headers-strategy: native
   servlet:
     session:
       # 무활동 만료. 절대 만료 12시간은 서블릿에 설정 자리가 없어서 코드로 넣는다(청크 5c).

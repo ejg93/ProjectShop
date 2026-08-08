@@ -12,7 +12,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,16 +37,19 @@ public class AuthController {
     private final SignupService signupService;
     private final AuthenticationManager authenticationManager;
     private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
-    private final SecurityContextRepository securityContextRepository =
-            new HttpSessionSecurityContextRepository();
+
+    /** 직접 만들지 않고 받는다. 저장 방식을 정하는 곳은 {@code SecurityConfig} 하나여야 한다. */
+    private final SecurityContextRepository securityContextRepository;
 
     public AuthController(SignupService signupService,
             AuthenticationManager authenticationManager,
-            SessionAuthenticationStrategy sessionAuthenticationStrategy) {
+            SessionAuthenticationStrategy sessionAuthenticationStrategy,
+            SecurityContextRepository securityContextRepository) {
 
         this.signupService = signupService;
         this.authenticationManager = authenticationManager;
         this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
+        this.securityContextRepository = securityContextRepository;
     }
 
     @PostMapping("/signup")

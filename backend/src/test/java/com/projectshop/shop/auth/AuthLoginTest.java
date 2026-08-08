@@ -18,13 +18,16 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.projectshop.shop.PostgresTestBase;
+import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 
 /**
  * 로그인이 <b>세션에 남는지</b>와 <b>실패가 정보를 안 흘리는지</b>를 본다.
@@ -75,6 +78,22 @@ class AuthLoginTest extends PostgresTestBase {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.user_id").value(userId))
                     .andExpect(jsonPath("$.email").value("login@test.local"));
+        }
+
+        @Test
+        @DisplayName("세션에 앉는 principal 에서 비밀번호 해시가 지워진다")
+        void erasesPasswordHashFromPrincipal() throws Exception {
+            HttpSession session = logIn(PASSWORD).andReturn().getRequest().getSession(false);
+
+            // 세션에서 직접 꺼낸다. SecurityContextHolder 는 요청이 끝나면 비워져서
+            // "세션에 무엇이 남았나" 를 못 본다 — 그게 이 테스트가 묻는 것이다.
+            SecurityContext context = (SecurityContext) session.getAttribute(
+                    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+            ShopUser principal = (ShopUser) context.getAuthentication().getPrincipal();
+
+            assertThat(principal.getPassword())
+                    .as("세션이 사는 내내 비밀번호 해시가 메모리에 남으면 안 된다")
+                    .isNull();
         }
 
         @Test

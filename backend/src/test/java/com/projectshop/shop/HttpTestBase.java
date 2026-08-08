@@ -110,6 +110,24 @@ public abstract class HttpTestBase {
             return exchange(json == null ? spec : spec.body(json));
         }
 
+        /**
+         * 프록시를 거쳐 온 것처럼 보낸다.
+         *
+         * <p>{@code server.forward-headers-strategy} 를 검증하는 유일한 층이다.
+         * Tomcat 밸브가 하는 일이라 MockMvc 에서는 이 헤더가 아무 일도 안 한다.
+         */
+        public Response postForwardedFrom(String path, String json, String clientIp) {
+            RestClient.RequestBodySpec spec = client.post().uri(path)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("X-Forwarded-For", clientIp);
+
+            String token = cookies.get(CSRF_COOKIE);
+            if (token != null) {
+                spec = spec.header(CSRF_HEADER, token);
+            }
+            return exchange(json == null ? spec : spec.body(json));
+        }
+
         public Response postWithoutToken(String path, String json) {
             RestClient.RequestBodySpec spec = client.post().uri(path)
                     .contentType(MediaType.APPLICATION_JSON);

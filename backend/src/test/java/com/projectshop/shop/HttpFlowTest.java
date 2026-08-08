@@ -106,6 +106,35 @@ class HttpFlowTest extends HttpTestBase {
         }
 
         @Test
+        @DisplayName("프록시를 거쳐도 동의 이력에 진짜 클라이언트 IP 가 남는다")
+        void recordsForwardedClientIp() {
+            Session session = newSession();
+            session.get("/api/health");
+
+            session.postForwardedFrom("/api/auth/signup", """
+                    {
+                      "email": "%s",
+                      "password": "%s",
+                      "display_name": "http",
+                      "consents": {"terms_of_service": true, "privacy_collect": true}
+                    }
+                    """.formatted(email("forwarded"), PASSWORD), "203.0.113.9");
+
+            // host() 를 쓴다. cast(inet as text) 는 마스크를 붙여서 203.0.113.9/32 로 나온다.
+            String ip = jdbc.sql("""
+                            select host(acted_ip) from user_consent
+                             where user_id = :id limit 1
+                            """)
+                    .param("id", userIdOf("forwarded"))
+                    .query(String.class)
+                    .single();
+
+            assertThat(ip)
+                    .as("프록시 IP 를 동의자의 IP 로 적으면 틀린 개인정보고 입증에도 못 쓴다")
+                    .isEqualTo("203.0.113.9");
+        }
+
+        @Test
         @DisplayName("로그인하면 세션이 생기고 권한 목록이 열린다")
         void loginOpensPermissions() {
             Session session = newSession();
@@ -214,7 +243,7 @@ class HttpFlowTest extends HttpTestBase {
             assertThat(session.get("/api/me/consents").body())
                     .as("채널 없는 야간 동의가 남으면 나중에 채널만 켜질 때 야간까지 열린다")
                     .contains("\"code\":\"marketing_night\",\"title\":\"야간 광고성 정보 수신 (21시~08시)\","
-                            + "\"required\":false,\"granted\":false");
+                            + "\"is_required\":false,\"granted\":false");
         }
 
         @Test

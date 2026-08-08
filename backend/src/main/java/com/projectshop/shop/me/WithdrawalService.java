@@ -102,8 +102,8 @@ public class WithdrawalService {
     /**
      * 이 사람의 세션을 전부 만료시킨다.
      *
-     * <p>principal 객체로 찾지 않고 id 로 훑는다. {@code ShopUser} 는 record 라
-     * 비밀번호 해시까지 같아야 {@code equals} 가 성립하는데, 비밀번호를 바꾼 뒤라면 어긋난다.
+     * <p>principal 객체를 통째로 비교하지 않고 id 로 훑는다. {@code ShopUser.equals} 가
+     * id 만 보게 돼 있어서 지금은 어느 쪽이든 같지만, 찾는 기준을 코드에 드러내 둔다.
      *
      * <p>만료 표시가 실제 로그아웃이 되는 것은 {@code ConcurrentSessionFilter} 가 있어서다.
      * 그 필터가 없으면 <b>이 호출은 아무 일도 안 한다</b> — 부른 줄 알았는데 안 먹는 쪽이 제일 나쁘다.
