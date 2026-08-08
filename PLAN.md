@@ -178,7 +178,7 @@ GitHub가 저장소별로 역할을 붙이는 방식과 같다. `scope=seller` �
 | 5e | ~~내 계정 조회·수정~~ | **완료.** `AccountService`·`MeController`. **`Location` 문제는 안 풀렸다** — `/api/me` 는 id 로 가리키는 경로가 아니라 201 이 지목할 자원이 못 된다. 관리자용 계정 조회(16)가 그 자리다 | 완료 |
 | 5f | ~~동의 조회·철회~~ | **완료.** `ConsentService`. 철회·재동의 둘 다 있고 채널 철회가 야간까지 거둔다 | 완료 |
 | 5g | ~~탈퇴~~ | **완료.** `WithdrawalService`, `POST /api/me/withdraw`. `ConcurrentSessionFilter` 를 같이 걸어야 세션 만료가 실제로 먹는다(`ADR 0010`) | 완료 |
-| 5i | 탈퇴 계정 파기 | 유예가 지난 탈퇴 계정의 이메일·이름·비밀번호 해시와 `user_consent.acted_ip` 를 비운다(`D2` R9). **`10a` 에서 떼어 왔다** — 거기는 선행이 주문(`10`)이라 한참 뒤인데 **파기 대상은 `5g` 가 이미 만들고 있다**. 이메일은 `null` + 부분 유니크 인덱스(`ADR 0007`). 탈퇴는 `update` 라 `user_consent` 의 cascade 가 안 걸린다 — 여기서 직접 지운다. 유예 기간과 `user_consent` 보존기간을 `D13` 에 먼저 적는다 | 5g, D13, D10 |
+| 5i | ~~탈퇴 계정 파기~~ | **완료.** `AccountPurgeService`, `V2`·`V8` 수정. 유예가 지난 탈퇴 계정의 이메일·이름·비밀번호 해시와 `user_consent.acted_ip` 를 비운다(`D2` R9). **`10a` 에서 떼어 왔다** — 거기는 선행이 주문(`10`)이라 한참 뒤인데 **파기 대상은 `5g` 가 이미 만들고 있다**. 이메일은 `null` + 부분 유니크 인덱스(`ADR 0007`). 탈퇴는 `update` 라 `user_consent` 의 cascade 가 안 걸린다 — 여기서 직접 지운다. `D13` 에 동의 이력 3년·IP 30일을 적었다 | 완료 |
 | 5j | 동의 고지 항목 | `consent_item` 에 수집·이용 목적, 수집 항목, 보유·이용 기간, 거부 시 불이익을 담는다(개인정보법 제15조제2항). **지금은 `title` 뿐이라 "3판에 동의했다" 의 3판 내용이 시스템에 없다** — 개정판을 남기는 설계가 입증에 못 쓰인다. 정형 컬럼으로 나눌지 본문 한 덩어리로 둘지는 이 청크에서 정한다. `acted_ip` 수집도 항목에 적는다 | 5-0, D2 |
 | 5a | 조직 초대·멤버십 | 셀러에 계정을 붙이고 그 셀러 안에서만 먹는 역할을 준다. 멤버 구성을 못 바꾸는 `seller_staff` 역할이 여기서 생긴다(`D1`) | 3a, 5, D1 |
 | 6 | ~~상품 스키마~~ | **완료.** `V13__product_schema.sql`. 테이블 5개(`product`·`product_option`·`product_option_value`·`sku`·`sku_option_value`)와 `seller.commission_bp`. 요율은 만분율 정수, R4 는 `check` 제약, 가격·재고는 `sku` 에 | 완료 |

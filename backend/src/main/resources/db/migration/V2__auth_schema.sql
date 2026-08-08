@@ -13,11 +13,19 @@ end;
 $$ language plpgsql;
 
 -- user 는 SQL 예약어라서 app_user 로 쓴다.
+--
+-- 이메일·이름·비밀번호 해시가 not null 이 아닌 이유는 파기 때문이다(R9).
+-- 탈퇴 유예 30일이 지나면 이 셋을 null 로 비운다(D13, 청크 5i).
+-- 행 자체는 안 지운다 — 주문이 user_id 로 계정을 가리키고 주문은 5년 남는다.
+--
+-- 그렇다고 보장을 버리지 않는다. 원래 지키려던 것은 "모든 계정에 이메일이 있다" 가 아니라
+-- "살아 있는 계정에 이메일이 있다" 였다. 컬럼 제약으로는 그것을 못 적어서 not null 로 근사했던 것이고,
+-- 행 조건은 check 로 정확히 적힌다. 제약을 뺀 것이 아니라 맞는 제약으로 바꾼 것이다.
 create table app_user (
     user_id       bigint generated always as identity primary key,
-    email         text        not null,
-    password_hash text        not null,
-    display_name  text        not null,
+    email         text,
+    password_hash text,
+    display_name  text,
     status        text        not null default 'active',
     created_at    timestamptz not null default now(),
     updated_at    timestamptz not null default now(),
@@ -25,7 +33,11 @@ create table app_user (
 );
 
 -- 대소문자만 다른 이메일로 두 번 가입하는 걸 막는다.
-create unique index app_user_email_key on app_user (lower(email));
+--
+-- null 을 빼는 부분 인덱스다. 안 그러면 파기된 계정끼리 null 로 충돌한다(ADR 0007).
+-- 가짜 값으로 덮는 방법(user_2831@deleted.invalid)도 저울질했는데 그것도 데이터라
+-- 파기했다고 말하기 애매하다.
+create unique index app_user_email_key on app_user (lower(email)) where email is not null;
 
 create trigger app_user_set_updated_at
     before update on app_user
