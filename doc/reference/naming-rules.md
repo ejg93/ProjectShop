@@ -102,6 +102,8 @@ select * from product p join sku s using (product_id)
 | `_code` | 코드에서 참조하는 안정된 키 |
 | `_count` | 개수 |
 | `_total` | 합계 |
+| `_bp` | 만분율 정수 (1000 = 10.00%) |
+| `_reason` | 고정된 사유 값 |
 
 `_num` 은 안 쓴다. 개수인지 번호인지 안 갈린다 — 개수는 `_count`, 번호는 `_no` 를 쓴다.
 

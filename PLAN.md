@@ -179,7 +179,7 @@ GitHub가 저장소별로 역할을 붙이는 방식과 같다. `scope=seller` �
 | 5f | ~~동의 조회·철회~~ | **완료.** `ConsentService`. 철회·재동의 둘 다 있고 채널 철회가 야간까지 거둔다 | 완료 |
 | 5g | ~~탈퇴~~ | **완료.** `WithdrawalService`, `POST /api/me/withdraw`. `ConcurrentSessionFilter` 를 같이 걸어야 세션 만료가 실제로 먹는다(`ADR 0010`) | 완료 |
 | 5a | 조직 초대·멤버십 | 셀러에 계정을 붙이고 그 셀러 안에서만 먹는 역할을 준다. 멤버 구성을 못 바꾸는 `seller_staff` 역할이 여기서 생긴다(`D1`) | 3a, 5, D1 |
-| 6 | 상품 스키마 | `product`·`product_option`·`sku` 테이블. 상품 주인은 사람이 아니라 셀러. 청약철회 제한 여부와 사유를 상품 속성으로 둔다(`D2` R4). 가격은 부가세 포함 정수(`D8`), 상품 예외 수수료율 컬럼(`D3`) | 3a, D2, D3, D8 |
+| 6 | ~~상품 스키마~~ | **완료.** `V13__product_schema.sql`. 테이블 5개(`product`·`product_option`·`product_option_value`·`sku`·`sku_option_value`)와 `seller.commission_bp`. 요율은 만분율 정수, R4 는 `check` 제약, 가격·재고는 `sku` 에 | 완료 |
 | 6b | 데모 시드 데이터 | 셀러 2곳, 계정 6개, 역할을 겹쳐 넣은 데이터. 권한은 데이터가 겹쳐야 판정할 것이 생긴다 | 3a, 3c, 6 |
 | 7 | 상품 등록·수정 API | 판매자 권한 + `scope=own`·`seller` 실제 적용 | 4, 6 |
 | 7b | 인증·권한 실패 응답 규약 | `D5` 가 정한 자원별 403·404 와 Problem Details 를 실제 코드에 붙인다. 판정 실패는 거부로 떨어뜨리고 500 을 준다. 오류 본문에 `trace_id` 를 넣는다(`D16`). **401 도 여기서 본다** — `5-1` 의 `HttpStatusEntryPoint` 는 본문 없이 상태만 준다. **도메인 예외와 `@RestControllerAdvice` 번역기를 여기서 만들고, 서비스 6곳의 `ResponseStatusException` 을 옮긴다**(`D23`) — 서비스가 HTTP 를 알면 배치나 다른 입구에서 재사용할 때 어색해지고 상태 코드가 흩어져 `D5` 와 대조할 수 없다 | 4, 7, 2a, D5, D16, D23 |
