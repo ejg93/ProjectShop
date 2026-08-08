@@ -50,9 +50,12 @@ create index consent_item_code_idx on consent_item (code, effective_at desc);
 create table user_consent (
     user_consent_id bigint generated always as identity primary key,
 
-    -- 탈퇴하면 같이 지운다. audit_log 와 반대다.
+    -- 계정을 물리 삭제하면 같이 지운다. audit_log 와 반대다.
     -- 감사 로그는 "누가 무엇을 했나" 라 계정이 없어져도 남아야 하지만,
     -- 동의 이력은 그 사람의 개인정보 그 자체고 계약이 끝나면 입증할 상대가 없다(R9).
+    --
+    -- 탈퇴로는 안 지워진다. 탈퇴는 deleted_at 을 채우는 update 고 cascade 는 delete 에만 걸린다.
+    -- 지우는 것은 파기 배치(10a)다. 그때까지 acted_ip 가 남아 있다.
     user_id    bigint      not null references app_user (user_id) on delete cascade,
 
     -- 어느 판에 동의했나. 판까지 가리켜야 개정 후 재동의가 필요한지 판단할 수 있다.
