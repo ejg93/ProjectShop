@@ -196,6 +196,21 @@ MockMvc 쪽 테스트는 상태 코드를 못박지 말고 `is4xxClientError()` 
 
 이 환경의 문제다. `CLAUDE.md` 의 검증 절에 명령이 있다.
 
+### `set_updated_at` 트리거 때문에 시각을 되돌릴 수 없다
+
+파기·만료를 테스트하려면 "오래된 행" 을 만들어야 하는데, `update` 로 `updated_at` 을 과거로 넣으면
+**그 트리거가 다시 `now()` 로 덮어쓴다.**
+
+```java
+// 안 된다. 트리거가 now() 로 되돌린다
+insert ...; update cart set updated_at = :old ...
+
+// 한다. 트리거가 before update 에만 걸려 있다
+insert into cart (cart_token, updated_at) values (:t, :old)
+```
+
+`created_at` 은 트리거가 없어서 `update` 로도 된다. **`updated_at` 만 이 문제가 있다.**
+
 ### 텍스트 블록은 줄 끝 공백을 지운다
 
 SQL 을 텍스트 블록으로 쓰다가 변수를 이으면 단어가 붙는다.

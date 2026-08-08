@@ -152,6 +152,53 @@ class AccountPurgeServiceTest extends PostgresTestBase {
     }
 
     @Nested
+    @DisplayName("비로그인 장바구니")
+    class GuestCarts {
+
+        @Test
+        @DisplayName("30일 방치되면 지워진다")
+        void deletesStaleGuestCart() {
+            long cartId = insertGuestCart("stale-token", NOW.minusDays(31));
+
+            purgeService.purge(NOW);
+
+            assertThat(cartExists(cartId))
+                    .as("계약이 안 오는 채로 오래 두면 제15조①4호 근거가 약해진다")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("아직 30일이 안 됐으면 남는다")
+        void keepsRecentGuestCart() {
+            long cartId = insertGuestCart("fresh-token", NOW.minusDays(29));
+
+            purgeService.purge(NOW);
+
+            assertThat(cartExists(cartId)).isTrue();
+        }
+
+        @Test
+        @DisplayName("계정 장바구니는 안 건드린다")
+        void keepsAccountCart() {
+            long userId = insertUser("cart-owner@example.com");
+            long cartId = jdbc.sql("""
+                            insert into cart (user_id, updated_at) values (:id, :at)
+                            returning cart_id
+                            """)
+                    .param("id", userId)
+                    .param("at", NOW.minusDays(365))
+                    .query(Long.class)
+                    .single();
+
+            purgeService.purge(NOW);
+
+            assertThat(cartExists(cartId))
+                    .as("계정 장바구니는 계정의 수명을 따라간다. 방치 기간과 축이 다르다")
+                    .isTrue();
+        }
+    }
+
+    @Nested
     @DisplayName("두 번 돌아도")
     class Idempotent {
 
@@ -168,6 +215,30 @@ class AccountPurgeServiceTest extends PostgresTestBase {
                     .as("재실행과 수동 실행이 겹친다. 두 번째가 뭔가 더 지우면 안 된다")
                     .isZero();
         }
+    }
+
+    /**
+     * <b>{@code insert} 에서 시각을 넣는다.</b> {@code set_updated_at} 트리거가
+     * {@code before update} 에 걸려 있어서, 넣은 뒤 {@code update} 로 되돌리면
+     * 그 트리거가 다시 {@code now()} 로 덮어쓴다 — 방치된 상태를 못 만든다.
+     */
+    private long insertGuestCart(String token, OffsetDateTime lastTouched) {
+        return jdbc.sql("""
+                        insert into cart (cart_token, updated_at) values (:t, :at)
+                        returning cart_id
+                        """)
+                .param("t", token)
+                .param("at", lastTouched)
+                .query(Long.class)
+                .single();
+    }
+
+    private boolean cartExists(long cartId) {
+        return Boolean.TRUE.equals(
+                jdbc.sql("select exists(select 1 from cart where cart_id = :id)")
+                        .param("id", cartId)
+                        .query(Boolean.class)
+                        .single());
     }
 
     private long insertUser(String email) {
