@@ -61,6 +61,13 @@ public enum ErrorCode {
     SELLER_NOT_VERIFIED(HttpStatus.UNPROCESSABLE_ENTITY, "seller-not-verified",
             "셀러 신원정보가 확인되지 않았다"),
 
+    // 장바구니
+    //
+    // 담긴 것을 못 찾는 것은 404 다. 장바구니는 주인만 만지고 주인은 요청이 가리키므로
+    // 남의 것을 가리킬 방법이 없다 — 감출 존재가 없어서 403/404 를 저울질할 일도 없다.
+    CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "cart-item-not-found", "장바구니에 없는 것이다"),
+    SKU_NOT_BUYABLE(HttpStatus.UNPROCESSABLE_ENTITY, "sku-not-buyable", "지금 살 수 없는 것이다"),
+
     // 입력
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "validation-failed", "요청 형식이 맞지 않는다"),
     SORT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "sort-not-allowed", "정렬할 수 없는 필드다"),

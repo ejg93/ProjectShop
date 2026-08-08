@@ -106,6 +106,19 @@ class HttpFlowTest extends HttpTestBase {
         }
 
         @Test
+        @DisplayName("로그인 없이 장바구니를 연다")
+        void opensCartWithoutLogin() {
+            // 병합은 CartServiceTest 가 덮는다. 여기서 보는 것은 경로가 실제로 열려 있느냐다 —
+            // PUBLIC_PATHS 는 MockMvc 로 못 잡는 자리다.
+            Response response = newSession().get("/api/cart");
+
+            assertThat(response.is(200))
+                    .as("사는 사람은 로그인 전에 담는다. 막으면 담을 방법이 없다")
+                    .isTrue();
+            assertThat(response.body()).contains("\"items\"");
+        }
+
+        @Test
         @DisplayName("로그인 없이 상품 목록을 본다")
         void readsPublicProductsWithoutLogin() {
             Session session = newSession();

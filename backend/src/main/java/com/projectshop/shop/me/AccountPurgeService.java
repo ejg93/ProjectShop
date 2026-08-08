@@ -53,13 +53,23 @@ public class AccountPurgeService {
     }
 
     /**
+     * 방치된 비로그인 장바구니를 지우기까지(`D13`).
+     *
+     * <p>로그인하면 그 자리에서 계정으로 옮기고 지우므로, 이 기간은 <b>끝내 로그인 안 한 것</b>에만 걸린다.
+     * 동의 없이 갖고 있는 근거가 "계약 체결 과정"(개인정보법 제15조①4호)이라
+     * 계약이 안 오는 채로 오래 두면 그 근거가 약해진다.
+     */
+    private static final int GUEST_CART_DAYS = 30;
+
+    /**
      * 파기한 것의 수. 배치가 무엇을 했는지 로그와 테스트가 같은 값으로 본다.
      *
      * @param accounts    이메일·이름·비밀번호 해시를 비운 계정 수
      * @param consentIps  동의 이력에서 IP 를 비운 행 수
      * @param consentRows 보존 기간이 지나 지운 동의 이력 행 수
+     * @param guestCarts  방치돼서 지운 비로그인 장바구니 수
      */
-    public record Purged(int accounts, int consentIps, int consentRows) {}
+    public record Purged(int accounts, int consentIps, int consentRows, int guestCarts) {}
 
     /**
      * 오늘 기준으로 파기한다. 스케줄러(청크 36)가 생기기 전까지는 손으로 부른다.
@@ -94,7 +104,23 @@ public class AccountPurgeService {
                 "user.purged", null, AuditLog.Target.of("user", userId),
                 Map.of("grace_days", GRACE_DAYS)));
 
-        return new Purged(purgedIds.size(), consentIps, consentRows);
+        int guestCarts = deleteStaleGuestCarts(baseline.minusDays(GUEST_CART_DAYS));
+
+        return new Purged(purgedIds.size(), consentIps, consentRows, guestCarts);
+    }
+
+    /**
+     * 방치된 비로그인 장바구니를 지운다. {@code cart_item} 은 cascade 로 같이 사라진다.
+     *
+     * <p>계정 장바구니는 안 건드린다 — 그건 계정의 수명을 따라간다.
+     */
+    private int deleteStaleGuestCarts(OffsetDateTime staleBefore) {
+        return jdbc.sql("""
+                        delete from cart
+                         where user_id is null and updated_at < :staleBefore
+                        """)
+                .param("staleBefore", staleBefore)
+                .update();
     }
 
     /**

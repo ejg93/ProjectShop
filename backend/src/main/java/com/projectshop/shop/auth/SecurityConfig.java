@@ -72,7 +72,11 @@ public class SecurityConfig {
             "/api/consent-items/**",
             // 상품 공개 목록. 비로그인도 본다 — 사는 사람은 로그인 전에 물건을 고른다.
             // 이 경로는 판정이 없다. on_sale 만 나가므로 감출 것이 없다(청크 8).
-            "/api/products");
+            "/api/products",
+            // 장바구니는 비로그인도 쓴다. 담는 것이 계약 체결 과정의 요청이라
+            // 동의 없이 되고(개인정보법 제15조①4호), 주인은 쿠키가 가리킨다(청크 9).
+            "/api/cart",
+            "/api/cart/**");
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,

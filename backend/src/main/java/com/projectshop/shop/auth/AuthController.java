@@ -3,6 +3,7 @@ package com.projectshop.shop.auth;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.projectshop.shop.cart.CartController;
+import com.projectshop.shop.cart.CartService;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 
@@ -39,6 +42,7 @@ public class AuthController {
     private final SignupService signupService;
     private final AuthenticationManager authenticationManager;
     private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
+    private final CartService cartService;
 
     /** 직접 만들지 않고 받는다. 저장 방식을 정하는 곳은 {@code SecurityConfig} 하나여야 한다. */
     private final SecurityContextRepository securityContextRepository;
@@ -46,9 +50,10 @@ public class AuthController {
     public AuthController(SignupService signupService,
             AuthenticationManager authenticationManager,
             SessionAuthenticationStrategy sessionAuthenticationStrategy,
-            SecurityContextRepository securityContextRepository) {
+            SecurityContextRepository securityContextRepository, CartService cartService) {
 
         this.signupService = signupService;
+        this.cartService = cartService;
         this.authenticationManager = authenticationManager;
         this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
         this.securityContextRepository = securityContextRepository;
@@ -103,6 +108,15 @@ public class AuthController {
 
         ShopUserDetailsService.ShopUser user =
                 (ShopUserDetailsService.ShopUser) authentication.getPrincipal();
+
+        // 비로그인으로 담아 둔 것을 계정으로 옮긴다. 옮긴 뒤 그 장바구니는 사라진다 —
+        // 남겨 두면 같은 물건이 두 군데 있고 다음 로그인에 또 병합된다.
+        //
+        // 여기서 부르는 이유는 이 시점이 두 주인이 동시에 보이는 유일한 자리라서다.
+        // 이벤트로 미루면 D12 가 필요한데 그건 아직 없다.
+        cartService.mergeIntoAccount(user.id(), CartController.tokenOf(http));
+        expireCartCookie(response);
+
         return new LoginResponse(user.id(), user.email());
     }
 
@@ -116,6 +130,20 @@ public class AuthController {
         new SecurityContextLogoutHandler()
                 .logout(http, response, SecurityContextHolder.getContext().getAuthentication());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 병합이 끝났으니 쿠키를 거둔다.
+     *
+     * <p>안 거두면 로그아웃한 뒤 그 토큰으로 다시 빈 장바구니가 만들어지고,
+     * 사용자는 방금 옮긴 것이 사라진 것처럼 본다.
+     */
+    private static void expireCartCookie(HttpServletResponse response) {
+        response.addHeader("Set-Cookie", ResponseCookie.from(CartController.CART_COOKIE, "")
+                .path("/")
+                .maxAge(0)
+                .build()
+                .toString());
     }
 
     public record LoginRequest(@NotBlank String email, @NotBlank String password) {
