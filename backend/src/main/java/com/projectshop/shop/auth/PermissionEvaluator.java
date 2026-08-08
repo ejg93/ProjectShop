@@ -92,31 +92,32 @@ public class PermissionEvaluator {
      * 판정 결과. 허용 여부만이 아니라 어느 규칙이 이겼는지와 어디까지 보이는지를 같이 담는다.
      * 왜 막혔는지 모르면 권한 문제는 재현이 안 된다.
      *
-     * @param visibleFieldGroups 볼 수 있는 필드 그룹. <b>빈 집합은 제한이 없다는 뜻이다.</b>
-     *                           아무것도 못 본다면 애초에 {@code allowed} 가 false 다
+     * @param visibleFieldGroups 볼 수 있는 필드 그룹. {@link Allowed} 라 <b>"전부" 와 "이 목록만" 이
+     *                           타입으로 갈린다</b> — 빈 집합의 뜻을 물어볼 일이 없다
      */
-    public record Decision(boolean allowed, String reason, Set<String> visibleFieldGroups) {
+    public record Decision(boolean allowed, String reason, Allowed<String> visibleFieldGroups) {
 
         /** 이 자원에 필드 제한이 걸려 있나 */
         public boolean fieldRestricted() {
-            return !visibleFieldGroups.isEmpty();
+            return visibleFieldGroups.restricted();
         }
 
         /** 이 필드 그룹을 볼 수 있나. 제한이 없으면 무엇이든 볼 수 있다 */
         public boolean canSee(String fieldGroup) {
-            return allowed && (visibleFieldGroups.isEmpty() || visibleFieldGroups.contains(fieldGroup));
+            return allowed && visibleFieldGroups.covers(fieldGroup);
         }
 
-        static Decision allow(Rule rule, Set<String> fieldGroups) {
+        static Decision allow(Rule rule, Allowed<String> fieldGroups) {
             return new Decision(true, "허용 — " + rule, fieldGroups);
         }
 
         static Decision denyBy(Rule rule) {
-            return new Decision(false, "거부 — " + rule, Set.of());
+            // 거부는 볼 것이 없다. Everything 이 아니라 빈 Only 다 — 그 구분이 여기서 값을 한다.
+            return new Decision(false, "거부 — " + rule, Allowed.only(Set.of()));
         }
 
         static Decision denyBecause(String reason) {
-            return new Decision(false, "거부 — " + reason, Set.of());
+            return new Decision(false, "거부 — " + reason, Allowed.only(Set.of()));
         }
     }
 
@@ -199,7 +200,8 @@ public class PermissionEvaluator {
         if (widest == null) {
             return Decision.denyBecause("허용 규칙은 있으나 대상이 그 범위 밖이다");
         }
-        return Decision.allow(widest, unrestricted ? Set.of() : Set.copyOf(fieldGroups));
+        return Decision.allow(widest,
+                unrestricted ? Allowed.everything() : Allowed.only(fieldGroups));
     }
 
     /**

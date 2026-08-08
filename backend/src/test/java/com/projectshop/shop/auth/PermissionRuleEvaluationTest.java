@@ -175,7 +175,7 @@ class PermissionRuleEvaluationTest {
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.of(ME, ALPHA));
 
-            assertThat(decision.visibleFieldGroups()).containsExactlyInAnyOrder("basic", "payment", "shipping");
+            assertThat(decision.visibleFieldGroups().values()).containsExactlyInAnyOrder("basic", "payment", "shipping");
         }
 
         @Test
@@ -200,7 +200,7 @@ class PermissionRuleEvaluationTest {
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.ownedBy(ME));
 
-            assertThat(decision.visibleFieldGroups())
+            assertThat(decision.visibleFieldGroups().values())
                     .as("셀러가 없는 대상이라 seller 규칙이 안 걸린다")
                     .containsExactly("basic");
         }

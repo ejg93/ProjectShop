@@ -204,7 +204,7 @@ class PermissionMatrixTest {
 
     private Decision decide(List<Rule> rules, Target target) {
         if (rules.isEmpty()) {
-            return new Decision(false, "거부 — 걸린 규칙이 하나도 없다", Set.of());
+            return new Decision(false, "거부 — 걸린 규칙이 하나도 없다", Allowed.only(Set.of()));
         }
         return evaluate(rules, MEMBER_OF, ME, target);
     }

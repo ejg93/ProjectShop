@@ -47,7 +47,7 @@ class FieldVisibilityTest extends PostgresTestBase {
         Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
 
         assertThat(decision.allowed()).isTrue();
-        assertThat(decision.visibleFieldGroups()).containsExactlyInAnyOrder("basic", "shipping", "payment");
+        assertThat(decision.visibleFieldGroups().values()).containsExactlyInAnyOrder("basic", "shipping", "payment");
     }
 
     @Test
@@ -87,7 +87,7 @@ class FieldVisibilityTest extends PostgresTestBase {
 
         Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
 
-        assertThat(decision.visibleFieldGroups())
+        assertThat(decision.visibleFieldGroups().values())
                 .as("고객 역할이 payment 를, 셀러 대표 역할이 basic·shipping 을 준다")
                 .containsExactlyInAnyOrder("basic", "shipping", "payment");
     }

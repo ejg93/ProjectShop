@@ -8,6 +8,7 @@ import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
+import com.projectshop.shop.auth.Allowed;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
@@ -135,8 +136,12 @@ public class ProductQuery {
      * {@code all} 이 열리면 전체, {@code seller} 면 소속 셀러, 둘 다 아니면 거부다.
      */
     public SellerPage findForSeller(long viewerId, Long sellerId, String sort, int page, int size) {
-        Set<Long> visibleSellers = visibleSellersFor(viewerId);
-        boolean seesEverything = visibleSellers.isEmpty();
+        Allowed<Long> visible = visibleSellersFor(viewerId);
+
+        // 조건을 만드는 자리는 여기 하나다. switch 가 두 경우를 다 다루게 강제한다 —
+        // "전부" 를 빈 목록으로 넘기면 아무것도 안 나오는데, 그 실수를 컴파일러가 막는다.
+        boolean seesEverything = !visible.restricted();
+        Long[] sellers = visible.values().toArray(Long[]::new);
 
         Paging paging = Paging.of(page, size);
         String orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
@@ -157,7 +162,7 @@ public class ProductQuery {
                 + " order by " + orderBy + ", p.product_id desc"
                 + " limit :size offset :offset")
                 .param("seesEverything", seesEverything)
-                .param("sellers", visibleSellers.toArray(Long[]::new))
+                .param("sellers", sellers)
                 .param("sellerId", sellerId)
                 .param("size", paging.size())
                 .param("offset", paging.offset())
@@ -180,7 +185,7 @@ public class ProductQuery {
                                 or p.seller_id = cast(:sellerId as bigint))
                         """)
                 .param("seesEverything", seesEverything)
-                .param("sellers", visibleSellers.toArray(Long[]::new))
+                .param("sellers", sellers)
                 .param("sellerId", sellerId)
                 .query(Long.class)
                 .single();
@@ -191,17 +196,16 @@ public class ProductQuery {
     /**
      * 이 사람이 목록에서 볼 수 있는 셀러들.
      *
-     * <p><b>빈 집합은 "아무것도 못 본다" 가 아니라 "전부 본다" 는 뜻이다.</b>
-     * 관리자는 셀러 소속이 없어서 목록이 비는데, 그걸 그대로 조건에 넣으면 아무것도 안 나온다.
-     * 그래서 호출자가 {@code seesEverything} 으로 갈라 쓴다.
+     * <p>{@link Allowed} 로 돌려준다. <b>"전부" 를 빈 집합으로 표현하면 호출자가 그걸
+     * 그대로 조건에 넣어서 아무것도 안 나온다</b> — 관리자는 셀러 소속이 없어서 실제로 빈다.
      *
-     * <p>여기서 {@code evaluate} 를 다시 구현하지 않는다. 대표 대상 둘로 실제 판정을 돌려서
+     * <p>여기서 {@code evaluate} 를 다시 구현하지 않는다. 대표 대상으로 실제 판정을 돌려서
      * <b>어느 범위가 열리는지를 답에서 읽는다</b> — `8a` 의 권한 목록이 쓰는 방법과 같다.
      */
-    private Set<Long> visibleSellersFor(long viewerId) {
+    private Allowed<Long> visibleSellersFor(long viewerId) {
         // 남의 셀러 하나. all 스코프에서만 덮인다.
         if (evaluator.decide(viewerId, "product", "update", Target.of(-1L, -1L)).allowed()) {
-            return Set.of();
+            return Allowed.everything();
         }
 
         Set<Long> memberOf = jdbc.sql("select seller_id from seller_member where user_id = :id")
@@ -219,6 +223,6 @@ public class ProductQuery {
             // 0건과 못 봄이 갈려야 개수로 정보가 새지 않는다(`4b-1` 과 같은 이유).
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
-        return visible;
+        return Allowed.only(visible);
     }
 }

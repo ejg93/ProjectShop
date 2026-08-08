@@ -80,10 +80,10 @@ public class PermissionCatalog {
                 continue;
             }
             scopes.add(probe.getKey());
-            if (decision.visibleFieldGroups().isEmpty()) {
+            if (!decision.visibleFieldGroups().restricted()) {
                 unrestricted = true;
             }
-            fieldGroups.addAll(decision.visibleFieldGroups());
+            fieldGroups.addAll(decision.visibleFieldGroups().values());
         }
 
         if (scopes.isEmpty()) {
