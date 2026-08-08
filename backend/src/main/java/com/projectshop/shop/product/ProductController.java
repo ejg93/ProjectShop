@@ -37,10 +37,14 @@ public class ProductController {
 
     private final ProductService productService;
     private final ProductQuery productQuery;
+    private final ProductReviewService reviewService;
 
-    ProductController(ProductService productService, ProductQuery productQuery) {
+    ProductController(ProductService productService, ProductQuery productQuery,
+            ProductReviewService reviewService) {
+
         this.productService = productService;
         this.productQuery = productQuery;
+        this.reviewService = reviewService;
     }
 
     /**
@@ -92,6 +96,36 @@ public class ProductController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal ShopUser user, @PathVariable long productId) {
         productService.delete(user.id(), productId);
+    }
+
+    /**
+     * 검수 신청·승인·반려.
+     *
+     * <p>상태를 바꾸는 요청은 자원에 {@code PATCH} 를 쏘는 대신 <b>무슨 일이 일어나는지를
+     * 경로에 적는다</b>(`D5`). {@code status: "on_sale"} 을 받으면 클라이언트가 전이표를 알아야 한다.
+     */
+    @PostMapping("/{productId}/submit-review")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void submitReview(@AuthenticationPrincipal ShopUser user, @PathVariable long productId) {
+        reviewService.submit(user.id(), productId);
+    }
+
+    @PostMapping("/{productId}/approve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void approve(@AuthenticationPrincipal ShopUser user, @PathVariable long productId) {
+        reviewService.approve(user.id(), productId);
+    }
+
+    @PostMapping("/{productId}/reject")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reject(@AuthenticationPrincipal ShopUser user, @PathVariable long productId,
+            @Valid @RequestBody RejectRequest request) {
+
+        reviewService.reject(user.id(), productId, request.note());
+    }
+
+    /** @param note 셀러가 무엇을 고쳐야 하는지. 비우면 같은 것을 다시 올린다 */
+    public record RejectRequest(@NotBlank @Size(max = 500) String note) {
     }
 
     /**

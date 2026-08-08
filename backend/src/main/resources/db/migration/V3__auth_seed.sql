@@ -11,6 +11,7 @@ insert into permission (resource, action, description) values
     ('product', 'read',          '상품을 조회한다'),
     ('product', 'update',        '상품의 정보와 가격을 수정한다'),
     ('product', 'delete',        '상품을 내린다'),
+    ('product', 'review',        '상품을 승인하거나 반려한다'),
     ('order',   'create',        '장바구니의 내용으로 주문을 만든다'),
     ('order',   'read',          '주문의 내역과 상태를 조회한다'),
     ('order',   'update_status', '주문의 상태를 다음 단계로 옮긴다'),

@@ -59,6 +59,13 @@ create table product (
     is_withdrawal_restricted boolean not null default false,
     withdrawal_restriction_reason text,
 
+    -- 반려 사유. 승인하면 비운다 — 남겨 두면 지난 반려가 현재 상태처럼 보인다.
+    --
+    -- 감사 로그에도 같은 문구를 적지만 이 컬럼이 따로 필요하다.
+    -- 셀러가 audit_log 를 읽으려면 audit:read 가 있어야 하는데 그걸 주면 남의 기록까지 보인다.
+    -- 사유를 볼 방법이 없으면 셀러가 같은 것을 다시 올리고 검수가 반복된다.
+    review_note text,
+
     created_at  timestamptz not null default now(),
     updated_at  timestamptz not null default now(),
 
@@ -90,6 +97,32 @@ create index product_seller_id_idx on product (seller_id) where deleted_at is nu
 
 -- "내가 등록한 것" 을 고르는 조회. scope=own 이 이 인덱스를 탄다(청크 5a).
 create index product_created_by_idx on product (created_by_user_id) where deleted_at is null;
+
+-- 판매를 시작하려면 셀러 신원정보가 확인돼 있어야 한다(R1, 전자상거래법 제20조②).
+-- on_sale 이 청약이 가능해지는 지점이고, 확인 없이 중개하면 제20조의2 의 연대책임이 붙는다.
+--
+-- check 제약으로는 못 막는다. check 는 자기 행만 볼 수 있어서 seller 테이블에 못 닿는다.
+--
+-- 앱도 같은 것을 본다. 층이 다른 방어라 중복이 아니다(D14) —
+-- 앱은 왜 막혔는지를 422 로 알려주고, 트리거는 다른 입구(psql·배치·미래의 API)를 막는다.
+-- 트리거만 두면 이유가 500 으로 뭉개지고, 앱만 두면 새 입구에서 빠뜨린다.
+create or replace function check_product_sale_allowed() returns trigger as $$
+begin
+    -- 이미 팔던 것을 고치는 경우는 안 본다. 막을 것은 파는 상태로 넘어가는 순간이다.
+    if new.status = 'on_sale' and (tg_op = 'INSERT' or old.status <> 'on_sale') then
+        if not exists (select 1 from seller
+                        where seller_id = new.seller_id and status = 'active') then
+            raise exception '신원정보가 확인되지 않은 셀러다 (seller_id=%)', new.seller_id;
+        end if;
+    end if;
+
+    return new;
+end;
+$$ language plpgsql;
+
+create trigger product_check_sale_allowed
+    before insert or update on product
+    for each row execute function check_product_sale_allowed();
 
 -- 옵션 축. "색상" 처럼 무엇으로 갈리는지를 적는다.
 -- 옵션이 없는 상품은 이 표에 행이 없고, sku 가 하나만 있다.

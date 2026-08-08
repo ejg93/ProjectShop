@@ -27,6 +27,28 @@ public class AuthFixture {
                 .single();
     }
 
+    /**
+     * 셀러를 판매 가능 상태로 올린다.
+     *
+     * <p>신원정보를 같이 채운다 — `3c` 의 {@code seller_verified_fields_check} 가 빈 칸을 막고,
+     * `7c` 의 트리거가 {@code active} 아닌 셀러의 상품을 {@code on_sale} 로 못 가게 한다.
+     * <b>상품을 파는 상태로 만드는 테스트는 전부 이걸 먼저 부른다.</b>
+     */
+    public void verifySeller(long sellerId) {
+        jdbc.sql("""
+                        update seller
+                           set business_name = '주식회사 테스트', representative_name = '홍길동',
+                               business_reg_no = '1234567891',
+                               address = '서울시 강남구', phone = '02-0000-0000',
+                               email = 'seller@test.local',
+                               mail_order_exempt_reason = 'simplified_taxpayer',
+                               status = 'active'
+                         where seller_id = :id
+                        """)
+                .param("id", sellerId)
+                .update();
+    }
+
     public long insertUser(String email, String displayName) {
         return jdbc.sql("""
                         insert into app_user (email, password_hash, display_name)

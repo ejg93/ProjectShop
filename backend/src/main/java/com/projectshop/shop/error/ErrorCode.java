@@ -55,6 +55,11 @@ public enum ErrorCode {
             "팔 조합이 하나도 없다"),
     SKU_OPTION_MISMATCH(HttpStatus.UNPROCESSABLE_ENTITY, "sku-option-mismatch",
             "조합이 선언한 옵션과 맞지 않는다"),
+    PRODUCT_TRANSITION_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_ENTITY, "product-transition-not-allowed",
+            "지금 상태에서 할 수 없는 것이다"),
+    // 트리거도 같은 것을 막는다. 여기서 먼저 걸러야 이유가 500 이 아니라 422 로 나간다.
+    SELLER_NOT_VERIFIED(HttpStatus.UNPROCESSABLE_ENTITY, "seller-not-verified",
+            "셀러 신원정보가 확인되지 않았다"),
 
     // 입력
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "validation-failed", "요청 형식이 맞지 않는다"),

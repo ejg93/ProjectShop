@@ -50,6 +50,10 @@ class ProductQueryTest extends PostgresTestBase {
         sellerA = fixture.insertSeller("q-a", "A셀러");
         sellerB = fixture.insertSeller("q-b", "B셀러");
 
+        // 상품을 파는 상태로 만들려면 셀러가 확인돼 있어야 한다(`7c` 트리거).
+        fixture.verifySeller(sellerA);
+        fixture.verifySeller(sellerB);
+
         ownerA = fixture.insertUser("q-owner-a@test.local", "A사장");
         fixture.joinSeller(sellerA, ownerA);
         fixture.grantOrg(ownerA, "seller_owner", sellerA);
