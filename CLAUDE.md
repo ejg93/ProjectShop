@@ -102,6 +102,7 @@
 | backend | `cd backend && ./gradlew build` | `BUILD SUCCESSFUL` |
 | backend | `./gradlew test` | 실패 0. 테스트가 Postgres 컨테이너를 스스로 띄운다. `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
 | backend | `./gradlew bootRun` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 마이그레이션 파일 수와 같음 |
+| backend (데모 데이터) | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. 계정 6·셀러 2, 비밀번호는 전부 `demo-password-1234`. **`local` 없이 뜨면 시드가 안 들어간다** |
 
 `frontend/` 는 아직 비어 있어서 명령이 없다. 청크 13에서 여기에 추가한다.
 
