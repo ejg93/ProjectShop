@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -27,9 +28,6 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Service
 public class AuditLogQuery {
-
-    /** 목록 하나로 전체를 긁어 가지 못하게 막는다(`D5`). */
-    private static final int MAX_SIZE = 100;
 
     private static final TypeReference<Map<String, Object>> DETAIL_TYPE = new TypeReference<>() {
     };
@@ -67,36 +65,44 @@ public class AuditLogQuery {
     public record Page(List<Row> items, int page, int size, long total) {
     }
 
+    /**
+     * 조건이 값에 따라 켜지고 꺼진다. <b>조건마다 SQL 을 잇지 않고 한 문장에 둔다</b> —
+     * 어떤 조합이 와도 실행되는 쿼리가 하나로 유지된다.
+     *
+     * <p>파라미터마다 {@code cast} 가 붙은 이유가 있다. null 을 {@code is null} 비교에만 쓰면
+     * Postgres 가 그 자리의 타입을 못 정하고 {@code could not determine data type} 으로 죽는다.
+     * 값이 들어오는 경우에는 멀쩡히 돌아서 <b>필터를 안 건 요청에서만</b> 터진다.
+     *
+     * <p>상수라 인젝션은 아니지만 <b>문자열로 조립하지 않는다</b>(`D23`). 조건 조합이 늘어나는
+     * 모양이라, 지금 상수인 것이 나중에 값을 이어 붙이는 자리가 된다.
+     */
+    private static final String WHERE = """
+             where (cast(:actorUserId as bigint) is null or actor_user_id = cast(:actorUserId as bigint))
+               and (cast(:targetType  as text)   is null or target_type   = cast(:targetType as text))
+               and (cast(:targetId    as bigint) is null or target_id     = cast(:targetId as bigint))
+               and (cast(:from as timestamptz) is null or created_at >= cast(:from as timestamptz))
+               and (cast(:to   as timestamptz) is null or created_at <  cast(:to   as timestamptz))
+            """;
+
+    private static final String SELECT_ITEMS = """
+            select audit_log_id, event_type, actor_user_id, target_type, target_id,
+                   detail::text as detail, created_at
+              from audit_log
+            """ + WHERE + """
+             order by created_at desc, audit_log_id desc
+             limit :size offset :offset
+            """;
+
+    private static final String SELECT_TOTAL = "select count(*) from audit_log" + WHERE;
+
     public Page find(long viewerId, Criteria criteria) {
         authorize(viewerId, criteria);
 
-        int size = Math.min(Math.max(criteria.size(), 1), MAX_SIZE);
-        int page = Math.max(criteria.page(), 0);
+        Paging paging = Paging.of(criteria.page(), criteria.size());
 
-        // 조건이 값에 따라 켜지고 꺼진다. 조건마다 SQL 을 잇지 않고 한 문장에 두어서
-        // 어떤 조합이 와도 실행되는 쿼리가 하나로 유지되게 한다.
-        //
-        // 파라미터마다 cast 가 붙은 이유가 있다. null 을 `is null` 비교에만 쓰면
-        // Postgres 가 그 자리의 타입을 못 정하고 `could not determine data type` 으로 죽는다.
-        // 값이 들어오는 경우에는 멀쩡히 돌아서, 필터를 안 건 요청에서만 터진다.
-        String where = """
-                 where (cast(:actorUserId as bigint) is null or actor_user_id = cast(:actorUserId as bigint))
-                   and (cast(:targetType  as text)   is null or target_type   = cast(:targetType as text))
-                   and (cast(:targetId    as bigint) is null or target_id     = cast(:targetId as bigint))
-                   and (cast(:from as timestamptz) is null or created_at >= cast(:from as timestamptz))
-                   and (cast(:to   as timestamptz) is null or created_at <  cast(:to   as timestamptz))
-                """;
-
-        List<Row> items = bind(jdbc.sql("""
-                        select audit_log_id, event_type, actor_user_id, target_type, target_id,
-                               detail::text as detail, created_at
-                          from audit_log
-                        """ + where + """
-                         order by created_at desc, audit_log_id desc
-                         limit :size offset :offset
-                        """), criteria)
-                .param("size", size)
-                .param("offset", (long) page * size)
+        List<Row> items = bind(jdbc.sql(SELECT_ITEMS), criteria)
+                .param("size", paging.size())
+                .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Row(
                         rs.getLong("audit_log_id"),
                         rs.getString("event_type"),
@@ -107,11 +113,11 @@ public class AuditLogQuery {
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .list();
 
-        Long total = bind(jdbc.sql("select count(*) from audit_log" + where), criteria)
+        Long total = bind(jdbc.sql(SELECT_TOTAL), criteria)
                 .query(Long.class)
                 .single();
 
-        return new Page(items, page, size, total);
+        return new Page(items, paging.page(), paging.size(), total);
     }
 
     /**

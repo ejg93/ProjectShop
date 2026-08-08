@@ -106,6 +106,27 @@ class HttpFlowTest extends HttpTestBase {
         }
 
         @Test
+        @DisplayName("로그인 없이 상품 목록을 본다")
+        void readsPublicProductsWithoutLogin() {
+            Session session = newSession();
+
+            Response response = session.get("/api/products");
+
+            assertThat(response.is(200))
+                    .as("사는 사람은 로그인 전에 물건을 고른다. 막으면 아무도 안 산다")
+                    .isTrue();
+            assertThat(response.body()).contains("\"items\"").contains("\"total\"");
+        }
+
+        @Test
+        @DisplayName("셀러 목록은 로그인이 필요하다")
+        void sellerListNeedsLogin() {
+            assertThat(newSession().get("/api/seller/products").is(401))
+                    .as("여기는 보는 사람에 따라 답이 달라지는 경로다")
+                    .isTrue();
+        }
+
+        @Test
         @DisplayName("가입 전에 약관 본문을 읽을 수 있다")
         void readsTermsBeforeSignUp() {
             Session session = newSession();

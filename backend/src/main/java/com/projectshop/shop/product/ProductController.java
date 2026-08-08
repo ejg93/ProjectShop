@@ -7,11 +7,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,9 +36,27 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductQuery productQuery;
 
-    ProductController(ProductService productService) {
+    ProductController(ProductService productService, ProductQuery productQuery) {
         this.productService = productService;
+        this.productQuery = productQuery;
+    }
+
+    /**
+     * 공개 목록. <b>로그인 없이 부르고 판정이 없다.</b>
+     *
+     * <p>파는 중인 상품만 나온다. 셀러가 자기 {@code draft} 를 보는 것은
+     * {@code /api/seller/products} 다 — 조건의 성격이 달라서 경로를 갈랐다.
+     */
+    @GetMapping
+    public ProductQuery.PublicPage list(
+            @RequestParam(name = "seller_id", required = false) Long sellerId,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        return productQuery.findPublic(sellerId, sort, page, size);
     }
 
     /**

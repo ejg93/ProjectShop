@@ -1,0 +1,267 @@
+package com.projectshop.shop.product;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
+
+import com.projectshop.shop.PostgresTestBase;
+import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
+
+/**
+ * 상품 조회(`8`). <b>「알려진 구멍 3」(목록 스코프 누출)을 밟는 자리다.</b>
+ *
+ * <p>행 하나 판정과 다르다. 목록은 대상이 없어서 {@code decide} 를 못 부르고
+ * <b>어느 행이 대상인지를 조건이 정한다</b> — 조건이 곧 판정이라 틀리면 남의 것이 섞인다.
+ * `4c` 매트릭스도 `7` 도 이 축을 안 봤다.
+ */
+@DisplayName("상품 조회")
+class ProductQueryTest extends PostgresTestBase {
+
+    @Autowired
+    private ProductQuery productQuery;
+
+    @Autowired
+    private ProductService productService;
+
+    @Autowired
+    private JdbcClient jdbc;
+
+    private long sellerA;
+    private long sellerB;
+    private long ownerA;
+    private long ownerB;
+    private long admin;
+    private long customer;
+
+    @BeforeEach
+    void setUp() {
+        AuthFixture fixture = new AuthFixture(jdbc);
+
+        sellerA = fixture.insertSeller("q-a", "A셀러");
+        sellerB = fixture.insertSeller("q-b", "B셀러");
+
+        ownerA = fixture.insertUser("q-owner-a@test.local", "A사장");
+        fixture.joinSeller(sellerA, ownerA);
+        fixture.grantOrg(ownerA, "seller_owner", sellerA);
+
+        ownerB = fixture.insertUser("q-owner-b@test.local", "B사장");
+        fixture.joinSeller(sellerB, ownerB);
+        fixture.grantOrg(ownerB, "seller_owner", sellerB);
+
+        admin = fixture.insertUser("q-admin@test.local", "관리자");
+        fixture.grantGlobal(admin, "admin");
+
+        customer = fixture.insertUser("q-customer@test.local", "고객");
+        fixture.grantGlobal(customer, "customer");
+    }
+
+    @Nested
+    @DisplayName("공개 목록")
+    class PublicList {
+
+        @Test
+        @DisplayName("파는 중인 것만 나온다 — draft 는 안 샌다")
+        void showsOnlyOnSale() {
+            long onSale = createAndPutOnSale(ownerA, sellerA, "파는 티셔츠");
+            long draft = create(ownerA, sellerA, "준비 중인 티셔츠");
+
+            List<Long> ids = productQuery.findPublic(null, null, 0, 20).items().stream()
+                    .map(ProductQuery.PublicItem::productId)
+                    .toList();
+
+            assertThat(ids).contains(onSale);
+            assertThat(ids)
+                    .as("공개 목록에 draft 가 섞이면 팔지도 않는 것이 노출된다")
+                    .doesNotContain(draft);
+        }
+
+        @Test
+        @DisplayName("내린 상품은 안 나온다")
+        void hidesDeleted() {
+            long productId = createAndPutOnSale(ownerA, sellerA, "곧 내릴 티셔츠");
+            productService.delete(ownerA, productId);
+
+            assertThat(publicIds()).doesNotContain(productId);
+        }
+
+        @Test
+        @DisplayName("최저가가 같이 온다")
+        void includesMinPrice() {
+            long productId = createAndPutOnSale(ownerA, sellerA, "가격 여럿");
+
+            ProductQuery.PublicItem item = productQuery.findPublic(sellerA, null, 0, 20).items()
+                    .stream()
+                    .filter(i -> i.productId() == productId)
+                    .findFirst()
+                    .orElseThrow();
+
+            assertThat(item.minPrice())
+                    .as("가격은 sku 에 있어서 상품당 여럿이다. 목록은 하나를 골라 보여줘야 한다")
+                    .isEqualTo(15000);
+        }
+
+        @Test
+        @DisplayName("셀러로 좁힌다")
+        void filtersBySeller() {
+            createAndPutOnSale(ownerA, sellerA, "A 상품");
+            createAndPutOnSale(ownerB, sellerB, "B 상품");
+
+            assertThat(productQuery.findPublic(sellerA, null, 0, 20).items())
+                    .allSatisfy(item -> assertThat(item.sellerId()).isEqualTo(sellerA));
+        }
+    }
+
+    @Nested
+    @DisplayName("셀러 목록")
+    class SellerList {
+
+        @Test
+        @DisplayName("자기 셀러의 draft 는 보인다")
+        void ownerSeesOwnDraft() {
+            long draft = create(ownerA, sellerA, "A 준비 중");
+
+            assertThat(sellerIds(ownerA))
+                    .as("팔기 전 상태를 못 보면 셀러가 자기 상품을 관리할 방법이 없다")
+                    .contains(draft);
+        }
+
+        @Test
+        @DisplayName("남의 셀러 상품은 안 보인다 — 목록 스코프 누출")
+        void ownerDoesNotSeeOthers() {
+            create(ownerA, sellerA, "A 상품");
+            long bProduct = create(ownerB, sellerB, "B 상품");
+
+            assertThat(sellerIds(ownerA))
+                    .as("조건이 곧 판정이다. 틀리면 남의 상품이 목록에 섞인다")
+                    .doesNotContain(bProduct);
+        }
+
+        @Test
+        @DisplayName("관리자는 전부 본다")
+        void adminSeesEverything() {
+            long a = create(ownerA, sellerA, "A 상품");
+            long b = create(ownerB, sellerB, "B 상품");
+
+            assertThat(sellerIds(admin))
+                    .as("관리자는 셀러 소속이 없다. 소속 목록을 그대로 조건에 넣으면 아무것도 안 나온다")
+                    .contains(a, b);
+        }
+
+        @Test
+        @DisplayName("고객은 거부된다 — 0건이 아니다")
+        void customerIsForbidden() {
+            create(ownerA, sellerA, "A 상품");
+
+            assertThatThrownBy(() -> productQuery.findForSeller(customer, null, null, 0, 20))
+                    .as("0건과 못 봄이 갈려야 개수로 정보가 새지 않는다")
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.PRODUCT_FORBIDDEN));
+        }
+
+        @Test
+        @DisplayName("재고와 수수료율이 같이 온다 — 공개 목록에는 없는 것")
+        void includesSellerOnlyFields() {
+            long productId = create(ownerA, sellerA, "A 상품");
+
+            ProductQuery.SellerItem item = productQuery.findForSeller(ownerA, sellerA, null, 0, 20)
+                    .items().stream()
+                    .filter(i -> i.productId() == productId)
+                    .findFirst()
+                    .orElseThrow();
+
+            assertThat(item.totalStock()).isEqualTo(17);
+            assertThat(item.status()).isEqualTo("draft");
+        }
+    }
+
+    @Nested
+    @DisplayName("정렬")
+    class Sorting {
+
+        @Test
+        @DisplayName("허용 목록에 없는 필드는 거부된다")
+        void rejectsUnknownSortField() {
+            assertThatThrownBy(() -> productQuery.findPublic(null, "price,asc", 0, 20))
+                    .as("컬럼명은 바인딩이 안 되는 자리라 우리가 값을 정해야 한다(`D14`)")
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.SORT_NOT_ALLOWED));
+        }
+
+        @Test
+        @DisplayName("SQL 을 섞어 보내도 거부된다")
+        void rejectsInjectionAttempt() {
+            assertThatThrownBy(() ->
+                    productQuery.findPublic(null, "created_at; drop table product--,asc", 0, 20))
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("이름순으로 고를 수 있다")
+        void sortsByName() {
+            createAndPutOnSale(ownerA, sellerA, "가나다");
+            createAndPutOnSale(ownerA, sellerA, "하하하");
+
+            List<String> names = productQuery.findPublic(sellerA, "name,asc", 0, 20).items().stream()
+                    .map(ProductQuery.PublicItem::name)
+                    .toList();
+
+            assertThat(names).isSorted();
+        }
+    }
+
+    @Nested
+    @DisplayName("페이징")
+    class Paging {
+
+        @Test
+        @DisplayName("크기를 100 으로 막는다")
+        void capsSize() {
+            assertThat(productQuery.findPublic(null, null, 0, 5000).size()).isEqualTo(100);
+        }
+
+        @Test
+        @DisplayName("음수 페이지는 0 으로 본다")
+        void negativePageIsFirst() {
+            assertThat(productQuery.findPublic(null, null, -3, 20).page()).isZero();
+        }
+    }
+
+    private long create(long actorUserId, long sellerId, String name) {
+        return productService.create(actorUserId, new ProductService.Command(
+                sellerId, name, null, null, false, null,
+                List.of(new ProductService.OptionCommand("색상", List.of("검정", "흰색"))),
+                List.of(new ProductService.SkuCommand(List.of("검정"), 15000, 10),
+                        new ProductService.SkuCommand(List.of("흰색"), 18000, 7)))).productId();
+    }
+
+    /** 검수(7c)가 아직 없어서 상태를 직접 올린다. 그 전이는 그 청크가 규칙을 정한다 */
+    private long createAndPutOnSale(long actorUserId, long sellerId, String name) {
+        long productId = create(actorUserId, sellerId, name);
+        jdbc.sql("update product set status = 'on_sale' where product_id = :id")
+                .param("id", productId)
+                .update();
+        return productId;
+    }
+
+    private List<Long> publicIds() {
+        return productQuery.findPublic(null, null, 0, 100).items().stream()
+                .map(ProductQuery.PublicItem::productId)
+                .toList();
+    }
+
+    private List<Long> sellerIds(long viewerId) {
+        return productQuery.findForSeller(viewerId, null, null, 0, 100).items().stream()
+                .map(ProductQuery.SellerItem::productId)
+                .toList();
+    }
+}

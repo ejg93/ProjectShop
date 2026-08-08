@@ -69,7 +69,10 @@ public class SecurityConfig {
             "/api/auth/login",
             // 약관·개인정보 고지는 동의하기 전에 읽는 것이다. 그 시점은 로그인 전이다.
             // 막아 두면 가입 화면이 무엇에 동의하는지 못 보여준다(약관규제법 제3조).
-            "/api/consent-items/**");
+            "/api/consent-items/**",
+            // 상품 공개 목록. 비로그인도 본다 — 사는 사람은 로그인 전에 물건을 고른다.
+            // 이 경로는 판정이 없다. on_sale 만 나가므로 감출 것이 없다(청크 8).
+            "/api/products");
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,

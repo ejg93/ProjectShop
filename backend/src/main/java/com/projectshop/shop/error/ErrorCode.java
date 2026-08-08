@@ -58,6 +58,7 @@ public enum ErrorCode {
 
     // 입력
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "validation-failed", "요청 형식이 맞지 않는다"),
+    SORT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "sort-not-allowed", "정렬할 수 없는 필드다"),
 
     // 그 밖
     //

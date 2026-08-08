@@ -196,6 +196,25 @@ MockMvc 쪽 테스트는 상태 코드를 못박지 말고 `is4xxClientError()` 
 
 이 환경의 문제다. `CLAUDE.md` 의 검증 절에 명령이 있다.
 
+### 텍스트 블록은 줄 끝 공백을 지운다
+
+SQL 을 텍스트 블록으로 쓰다가 변수를 이으면 단어가 붙는다.
+
+```java
+// 안 된다. "order by" 뒤 공백이 사라져서 order byp.created_at 이 된다
+"""
+ order by """ + orderBy
+
+// 한다. 공백을 문자열에 직접 넣는다
+"""
+ group by p.product_id
+"""
++ " order by " + orderBy
+```
+
+Java 가 들여쓰기를 계산할 때 각 줄의 **후행 공백을 제거**한다(`\s` 이스케이프로 지킬 수는 있다).
+증상이 `syntax error at or near` 라 원인이 안 드러난다 — 소스에는 공백이 보인다.
+
 ### Jackson 3 은 빠진 필드를 기본형에 못 넣는다
 
 요청 본문에 없는 필드가 `boolean`·`long`·`int` 로 가면 **요청 전체가 깨진다.**
