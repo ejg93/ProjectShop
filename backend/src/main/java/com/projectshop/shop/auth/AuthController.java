@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
+
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -88,8 +90,7 @@ public class AuthController {
         } catch (AuthenticationException e) {
             // 없는 계정도, 틀린 비밀번호도, 정지된 계정도 같은 문구로 나간다(D14).
             // 문구가 갈리면 가입 여부를 물어보는 도구가 된다.
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 맞지 않는다");
+            throw new ShopException(ErrorCode.LOGIN_FAILED);
         }
 
         // 세션 ID 재발급과 레지스트리 등록. 이 줄이 빠지면 세션 고정 방어가 사라진다.

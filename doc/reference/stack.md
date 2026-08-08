@@ -196,6 +196,45 @@ MockMvc 쪽 테스트는 상태 코드를 못박지 말고 `is4xxClientError()` 
 
 이 환경의 문제다. `CLAUDE.md` 의 검증 절에 명령이 있다.
 
+### `@RestControllerAdvice` 만으로는 프레임워크 예외를 못 잡는다
+
+`spring.mvc.problemdetails.enabled=true` 를 켜면 Spring 이 **자기 핸들러를 먼저 등록한다.**
+검증 실패(`MethodArgumentNotValidException`), 깨진 JSON, 지원 안 하는 메서드·미디어 타입이
+전부 그쪽으로 간다.
+
+그래서 `@ExceptionHandler(MethodArgumentNotValidException.class)` 를 적어 둬도 **안 불린다.**
+증상이 조용하다 — 응답은 나가는데 우리가 넣은 `type` 과 `trace_id` 만 없다.
+
+**`ResponseEntityExceptionHandler` 를 상속하고 메서드를 재정의해야** 우리 형식이 걸린다.
+
+```java
+@RestControllerAdvice
+public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(...) { }
+}
+```
+
+`WebRequest` 에서 `HttpServletRequest` 를 꺼내려면 `((ServletWebRequest) request).getRequest()` 다.
+
+### 보안 필터의 401 은 예외 처리기가 못 잡는다
+
+인증 실패는 `AuthenticationEntryPoint` 가 MVC 에 닿기 전에 응답을 끝낸다.
+`@RestControllerAdvice` 는 컨트롤러까지 온 요청에만 걸려서 **401 만 본문 없이 나간다.**
+
+본문을 그 자리에서 직접 써야 한다. 우리는 `ProblemEntryPoint` 가 하고,
+본문을 만드는 것은 `ProblemFactory` 하나로 모았다 — 두 자리가 각자 만들면 형태가 갈린다.
+
+### `MockMvc` 의 `Content-Type` 은 charset 이 붙는다
+
+`application/problem+json` 을 기대하면 `application/problem+json;charset=UTF-8` 이 와서 어긋난다.
+`content().contentTypeCompatibleWith(...)` 로 타입만 본다.
+
+### `ResultActions` 에 `.as()` 가 없다
+
+AssertJ 문법이다. MockMvc 체인에 붙이면 컴파일이 깨진다. 이유는 주석으로 적는다.
+
 ## 넣었지만 안 쓰는 것
 
 **`spring-boot-starter-data-jpa` 가 의존성에 있는데 코드는 `JdbcClient` 만 쓴다.**

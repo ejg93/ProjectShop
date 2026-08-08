@@ -7,9 +7,10 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.projectshop.shop.auth.PermissionEvaluator;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 
@@ -129,7 +130,7 @@ public class AuditLogQuery {
         if (!decision.allowed()) {
             // 자원의 존재를 감추지 않는다. 감사 로그가 있다는 사실 자체는 비밀이 아니고,
             // 404 로 감추면 권한을 받은 뒤에도 같은 응답이라 원인을 못 가린다(D5).
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "감사 로그를 볼 권한이 없다");
+            throw new ShopException(ErrorCode.AUDIT_FORBIDDEN);
         }
     }
 

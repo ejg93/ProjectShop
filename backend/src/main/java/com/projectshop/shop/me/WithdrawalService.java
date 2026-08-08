@@ -9,9 +9,10 @@ import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionRuleLoader;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 
@@ -59,12 +60,10 @@ public class WithdrawalService {
                 .param("id", userId)
                 .query(String.class)
                 .optional()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "이미 탈퇴한 계정이다"));
+                .orElseThrow(() -> new ShopException(ErrorCode.ALREADY_WITHDRAWN));
 
         if (!passwordEncoder.matches(password, stored)) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "비밀번호가 맞지 않는다");
+            throw new ShopException(ErrorCode.PASSWORD_MISMATCH);
         }
 
         revokeAllConsents(userId, actorIp);

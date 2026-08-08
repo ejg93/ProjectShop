@@ -4,13 +4,13 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 
@@ -96,8 +96,7 @@ public class ConsentService {
                 .param("code", code)
                 .query(ConsentService::mapNotice)
                 .optional()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "그런 동의 항목이 없다: " + code));
+                .orElseThrow(() -> new ShopException(ErrorCode.CONSENT_ITEM_NOT_FOUND, "그런 동의 항목이 없다: " + code));
     }
 
     /**
@@ -133,8 +132,7 @@ public class ConsentService {
                         rs.getBoolean("granted"),
                         rs.getObject("acted_at", OffsetDateTime.class)))
                 .optional()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "동의한 적이 없는 항목이다: " + code));
+                .orElseThrow(() -> new ShopException(ErrorCode.CONSENT_NOT_FOUND, "동의한 적이 없는 항목이다: " + code));
     }
 
     /**
@@ -182,7 +180,7 @@ public class ConsentService {
 
         Item item = findItem(code);
         if (item.required()) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+            throw new ShopException(ErrorCode.REQUIRED_CONSENT_REVOKE,
                     "필수 동의 항목이라 철회할 수 없다. 탈퇴로 처리한다");
         }
 
@@ -206,7 +204,7 @@ public class ConsentService {
 
         Item item = findItem(code);
         if (item.dependsOnCode() != null && !isGranted(userId, item.dependsOnCode())) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+            throw new ShopException(ErrorCode.CONSENT_DEPENDENCY,
                     item.code() + " 는 " + item.dependsOnCode() + " 에 동의해야 받을 수 있다");
         }
 
@@ -267,8 +265,7 @@ public class ConsentService {
                         rs.getBoolean("is_required"),
                         rs.getString("depends_on")))
                 .optional()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "그런 동의 항목이 없다: " + code));
+                .orElseThrow(() -> new ShopException(ErrorCode.CONSENT_ITEM_NOT_FOUND, "그런 동의 항목이 없다: " + code));
     }
 
     private List<Item> findDependents(long itemId) {
@@ -288,7 +285,7 @@ public class ConsentService {
 
     private void requirePermission(long userId, String action, String message) {
         if (!evaluator.decide(userId, "user", action, Target.ownedBy(userId)).allowed()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, message);
+            throw new ShopException(ErrorCode.CONSENT_FORBIDDEN, message);
         }
     }
 

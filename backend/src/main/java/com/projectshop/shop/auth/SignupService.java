@@ -9,9 +9,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
 
 /**
  * 계정을 만들고 그 자리에서 동의 사건을 남긴다.
@@ -89,13 +90,13 @@ public class SignupService {
 
         for (String code : given.keySet()) {
             if (!byCode.containsKey(code)) {
-                throw unprocessable("모르는 동의 항목이다: " + code);
+                throw unprocessable(ErrorCode.UNKNOWN_CONSENT_ITEM, "모르는 동의 항목이다: " + code);
             }
         }
 
         for (ConsentItem item : items) {
             if (item.required() && !Boolean.TRUE.equals(given.get(item.code()))) {
-                throw unprocessable("필수 동의 항목이다: " + item.code());
+                throw unprocessable(ErrorCode.REQUIRED_CONSENT_MISSING, "필수 동의 항목이다: " + item.code());
             }
 
             // 야간 수신은 채널 수신에 걸린다(R14). 채널을 거부한 사람에게 야간만 켜 주면
@@ -103,7 +104,7 @@ public class SignupService {
             boolean wants = Boolean.TRUE.equals(given.get(item.code()));
             if (wants && item.dependsOnCode() != null
                     && !Boolean.TRUE.equals(given.get(item.dependsOnCode()))) {
-                throw unprocessable(
+                throw unprocessable(ErrorCode.CONSENT_DEPENDENCY,
                         item.code() + " 는 " + item.dependsOnCode() + " 에 동의해야 받을 수 있다");
             }
         }
@@ -124,7 +125,7 @@ public class SignupService {
                     .query(Long.class)
                     .single();
         } catch (org.springframework.dao.DuplicateKeyException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 이메일이다");
+            throw new ShopException(ErrorCode.EMAIL_TAKEN);
         }
     }
 
@@ -153,9 +154,9 @@ public class SignupService {
                 .update());
     }
 
-    private ResponseStatusException unprocessable(String detail) {
+    private ShopException unprocessable(ErrorCode code, String detail) {
         // 형식은 맞는데 값이 규칙에 안 맞는 자리라 422 다(D5).
-        return new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, detail);
+        return new ShopException(code, detail);
     }
 
     /**

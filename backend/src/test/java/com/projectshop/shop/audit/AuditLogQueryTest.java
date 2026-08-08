@@ -12,7 +12,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+
+import com.projectshop.shop.error.ShopException;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.audit.AuditLogQuery.Criteria;
@@ -69,9 +71,11 @@ class AuditLogQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("고객은 못 본다 — 403 이고 404 가 아니다")
         void customerIsForbidden() {
+            // 상태 코드를 문자열로 훑지 않고 오류 코드에서 직접 읽는다.
+            // 감사 로그가 있다는 사실 자체는 비밀이 아니라서 존재를 감추지 않는다(`D5`).
             assertThatThrownBy(() -> find(customer, all()))
-                    .isInstanceOf(ResponseStatusException.class)
-                    .hasMessageContaining("403");
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code().status()).isEqualTo(HttpStatus.FORBIDDEN));
         }
 
         @Test
@@ -79,7 +83,7 @@ class AuditLogQueryTest extends PostgresTestBase {
         void narrowingDoesNotGrantAccess() {
             assertThatThrownBy(() -> find(customer, criteria(customer, null)))
                     .as("own 스코프를 안 줬으므로 좁히는 것만으로 열리면 안 된다")
-                    .isInstanceOf(ResponseStatusException.class);
+                    .isInstanceOf(ShopException.class);
         }
 
         @Test
@@ -87,7 +91,7 @@ class AuditLogQueryTest extends PostgresTestBase {
         void deniesBeforeReading() {
             // 0건과 못 봄이 갈려야 한다. 행을 읽고 거르면 개수로 정보가 샌다.
             assertThatThrownBy(() -> find(customer, criteria(-999L, null)))
-                    .isInstanceOf(ResponseStatusException.class);
+                    .isInstanceOf(ShopException.class);
         }
     }
 

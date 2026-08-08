@@ -26,10 +26,11 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.SecurityFilterChain;
+
+import com.projectshop.shop.error.ProblemEntryPoint;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.session.ConcurrentSessionFilter;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -72,7 +73,7 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,
-            SessionRegistry sessionRegistry) throws Exception {
+            SessionRegistry sessionRegistry, ProblemEntryPoint entryPoint) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
@@ -86,9 +87,12 @@ public class SecurityConfig {
                 .formLogin(FormLoginConfigurer::disable)
                 .httpBasic(HttpBasicConfigurer::disable)
 
-                // 인증이 없으면 401 만 준다. 본문 형식(RFC 9457)은 청크 7b 가 정한다.
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                // 인증 실패도 다른 오류와 같은 본문으로 내보낸다(RFC 9457).
+                //
+                // 이 자리는 MVC 에 닿기 전이라 @RestControllerAdvice 가 못 잡는다.
+                // 그래서 본문을 여기서 직접 쓰는데, 만드는 것은 ProblemFactory 하나다 —
+                // 두 자리가 각자 만들면 같은 오류가 형태만 다르게 두 벌 나간다.
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint))
 
                 .sessionManagement(session -> session
                         // 세션은 필요할 때만 만든다. 열린 경로를 훑는 것만으로 세션이 쌓이지 않게 한다.

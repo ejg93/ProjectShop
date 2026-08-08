@@ -10,9 +10,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -69,7 +70,7 @@ public class AccountService {
     public Account read(long userId) {
         Decision decision = evaluator.decide(userId, "user", "read", Target.ownedBy(userId));
         if (!decision.allowed()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "계정을 볼 권한이 없다");
+            throw new ShopException(ErrorCode.ACCOUNT_FORBIDDEN, "계정을 볼 권한이 없다");
         }
 
         // RowMapper 로 읽는다. Map 으로 받으면 timestamptz 가 java.sql.Timestamp 로 와서
@@ -129,8 +130,7 @@ public class AccountService {
         if (!passwordEncoder.matches(currentPassword, stored)) {
             // 로그인 실패와 같은 문구를 쓸 이유가 없다. 여기는 이미 본인이 로그인해 있는 자리라
             // 계정 존재 여부가 새지 않는다(D14).
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "현재 비밀번호가 맞지 않는다");
+            throw new ShopException(ErrorCode.PASSWORD_MISMATCH, "현재 비밀번호가 맞지 않는다");
         }
 
         jdbc.sql("update app_user set password_hash = :hash where user_id = :id")
@@ -149,7 +149,7 @@ public class AccountService {
     private void requireUpdatePermission(long userId) {
         Decision decision = evaluator.decide(userId, "user", "update", Target.ownedBy(userId));
         if (!decision.allowed()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "계정을 고칠 권한이 없다");
+            throw new ShopException(ErrorCode.ACCOUNT_FORBIDDEN, "계정을 고칠 권한이 없다");
         }
     }
 }

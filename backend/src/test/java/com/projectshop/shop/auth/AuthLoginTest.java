@@ -146,12 +146,9 @@ class AuthLoginTest extends PostgresTestBase {
         @Test
         @DisplayName("틀린 비밀번호와 없는 계정이 같은 문구를 받는다")
         void tellsNothingApart() throws Exception {
-            String wrongPassword = bodyOf(logIn("wrong-but-long-enough"));
-            String noSuchAccount = bodyOf(logIn("nobody@test.local", PASSWORD));
-
-            assertThat(wrongPassword)
+            assertThat(identityOf(logIn("wrong-but-long-enough")))
                     .as("문구가 갈리면 가입 여부를 물어보는 도구가 된다")
-                    .isEqualTo(noSuchAccount);
+                    .isEqualTo(identityOf(logIn("nobody@test.local", PASSWORD)));
         }
 
         @Test
@@ -167,8 +164,26 @@ class AuthLoginTest extends PostgresTestBase {
                     .param("id", userId)
                     .update();
 
-            assertThat(bodyOf(logIn(PASSWORD)))
-                    .isEqualTo(bodyOf(logIn("wrong-but-long-enough")));
+            assertThat(identityOf(logIn(PASSWORD)))
+                    .isEqualTo(identityOf(logIn("wrong-but-long-enough")));
+        }
+
+        /**
+         * 응답에서 <b>실패 원인을 드러내는 부분</b>만 뽑는다.
+         *
+         * <p>본문을 통째로 비교하던 것을 바꿨다. 오류 본문에 {@code trace_id} 가 들어가면서
+         * <b>같은 실패도 요청마다 본문이 달라진다</b> — 통째 비교는 언제나 실패하는 단언이 된다.
+         *
+         * <p>여기서 봐야 하는 것은 "두 실패를 구분할 수 있는가" 다.
+         * {@code type} 과 {@code detail} 이 같으면 클라이언트가 둘을 가를 방법이 없다.
+         */
+        private String identityOf(ResultActions actions) throws Exception {
+            String body = bodyOf(actions);
+            return jsonValue(body, "type") + "|" + jsonValue(body, "detail");
+        }
+
+        private String jsonValue(String body, String field) {
+            return com.jayway.jsonpath.JsonPath.read(body, "$." + field);
         }
 
         @Test
