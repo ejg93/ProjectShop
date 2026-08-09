@@ -295,6 +295,23 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
 AssertJ 문법이다. MockMvc 체인에 붙이면 컴파일이 깨진다. 이유는 주석으로 적는다.
 
+### 지연 트리거는 `@Transactional` 테스트에서 한 번도 안 돈다
+
+`deferrable initially deferred` 로 건 제약은 **커밋 시점에** 검사한다.
+테스트는 `@Transactional` 이라 롤백하므로 그 시점이 오지 않고, **검사가 한 번도 실행되지 않은 채 전부 초록이 된다.**
+트리거를 아무리 틀리게 짜도 테스트가 안 잡는다.
+
+```java
+jdbc.sql("set constraints all immediate").update();
+```
+
+이 문장이 밀려 있던 검사를 그 자리에서 돌린다. `OrderSchemaTest.flush()` 가 그것이다.
+지연 제약을 새로 걸면 **테스트에 이 호출이 있는지부터 본다** — 없으면 검사한 적이 없는 것이다.
+
+트리거가 `raise exception` 으로 떨어뜨리면 SQLSTATE 가 `P0001` 이라
+Spring 이 `UncategorizedSQLException` 으로 준다. `DataIntegrityViolationException` 이 아니다 —
+둘을 같이 받으려면 `DataAccessException` 으로 잡는다.
+
 ## 넣었지만 안 쓰는 것
 
 **`spring-boot-starter-data-jpa` 가 의존성에 있는데 코드는 `JdbcClient` 만 쓴다.**

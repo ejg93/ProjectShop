@@ -23,6 +23,11 @@
 | `order_item.unit_price >= 0` | `check` |
 | `order_item.commission_bp between 0 and 10000` | `check` |
 | `seller_order.shipping_fee >= 0` | `check` |
+| `shop_order.payable_amount = shop_order.total_amount + shop_order.shipping_fee_total` | `check` |
+
+**결제 금액이 여기 있는 것은 배송비 합을 컬럼으로 뒀기 때문이다.** 처음에는 셋 다 트리거로 잡았는데,
+합을 컬럼에 두면 등식이 한 행 안에서 끝나서 한 칸 아래로 내려간다(`coding-rules.md` 「가장 낮은 층에 건다」).
+남은 트리거는 그 컬럼이 셀러 주문의 배송비 합과 맞는지만 본다.
 
 수수료 등식이 `check` 로 서는 것은 **금액을 원 단위 정수로 저장하기 때문**이다(`money-rules.md`).
 정수 나눗셈이 곧 버림이라 절사 규칙이 등식 안에 들어간다. 나눗셈을 따로 표현할 필요가 없다.
@@ -35,12 +40,17 @@
 
 | 등식 | 강제 |
 |---|---|
-| `order.total_amount = sum(order_item.line_amount)` | 지연 트리거 |
-| `order.commission_total = sum(order_item.commission_amount)` | 지연 트리거 |
-| `order.payable_amount = order.total_amount + sum(seller_order.shipping_fee)` | 지연 트리거 |
+| `shop_order.total_amount = sum(order_item.line_amount)` | 지연 트리거 |
+| `shop_order.commission_total = sum(order_item.commission_amount)` | 지연 트리거 |
+| `shop_order.shipping_fee_total = sum(seller_order.shipping_fee)` | 지연 트리거 |
+| 주문에 셀러 주문이 하나 이상 있다 | 지연 트리거 |
+| 셀러 주문에 항목이 하나 이상 있다 | 지연 트리거 |
 
 배송비가 따로 더해지는 것은 **수수료를 안 매기기 때문**이다(`business-model.md`).
 상품 금액에 합쳐 두면 수수료 계산에서 다시 빼야 하고, 빼는 자리가 하나라도 새면 셀러가 손해를 본다.
+
+뒤 둘은 등식이 아니라 존재 조건이다. **빈 주문은 합이 0 으로 맞아떨어져서 금액 등식에 안 걸린다** —
+같은 트리거가 보지 않으면 아무것도 안 산 주문이 남는다.
 
 ## 합계를 저장하기로 했다
 
