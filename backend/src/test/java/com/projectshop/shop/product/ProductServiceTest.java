@@ -232,6 +232,109 @@ class ProductServiceTest extends PostgresTestBase {
     }
 
     @Nested
+    @DisplayName("주문에 쓰인 상품은")
+    class OrderedProduct {
+
+        @Test
+        @DisplayName("그 SKU 가 지워지지 않고 판매중지로 내려간다")
+        void retiresOrderedSkuInsteadOfDeleting() {
+            long productId = productService.create(ownerA, tshirt(sellerA)).productId();
+            long orderedSkuId = anySkuOf(productId);
+            placeOrderOn(orderedSkuId);
+
+            productService.replace(ownerA, productId, tshirt(sellerA));
+
+            assertThat(jdbc.sql("""
+                            select status from sku where sku_id = :id and deleted_at is not null
+                            """).param("id", orderedSkuId).query(String.class).optional())
+                    .as("`order_item.sku_id` 가 restrict 라 지우려 들면 상품 수정이 통째로 막힌다")
+                    .contains("suspended");
+        }
+
+        @Test
+        @DisplayName("가격과 재고는 그대로 바꿀 수 있다")
+        void allowsPriceAndStockChange() {
+            long productId = productService.create(ownerA, tshirt(sellerA)).productId();
+            placeOrderOn(anySkuOf(productId));
+
+            ProductService.Command repriced = new ProductService.Command(
+                    sellerA, "티셔츠", null, null, false, null,
+                    List.of(new ProductService.OptionCommand("색상", List.of("검정", "흰색"))),
+                    List.of(new ProductService.SkuCommand(List.of("검정"), 19000, 3),
+                            new ProductService.SkuCommand(List.of("흰색"), 19000, 3)));
+
+            productService.replace(ownerA, productId, repriced);
+
+            assertThat(jdbc.sql("""
+                            select count(*) from sku
+                             where product_id = :id and deleted_at is null and price = 19000
+                            """).param("id", productId).query(Long.class).single())
+                    .as("막는 것은 옵션 축이지 값이 아니다")
+                    .isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("옵션 축을 바꾸면 422 다")
+        void locksOptionAxis() {
+            long productId = productService.create(ownerA, tshirt(sellerA)).productId();
+            placeOrderOn(anySkuOf(productId));
+
+            ProductService.Command differentAxis = new ProductService.Command(
+                    sellerA, "티셔츠", null, null, false, null,
+                    List.of(new ProductService.OptionCommand("사이즈", List.of("M", "L"))),
+                    List.of(new ProductService.SkuCommand(List.of("M"), 15000, 5),
+                            new ProductService.SkuCommand(List.of("L"), 15000, 5)));
+
+            assertThatThrownBy(() -> productService.replace(ownerA, productId, differentAxis))
+                    .as("바꾸면 지나간 주문의 옵션 라벨이 가리키던 것이 사라진다")
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.PRODUCT_OPTIONS_LOCKED));
+        }
+
+        private long anySkuOf(long productId) {
+            return jdbc.sql("select sku_id from sku where product_id = :id order by sku_id limit 1")
+                    .param("id", productId)
+                    .query(Long.class)
+                    .single();
+        }
+
+        /** 이 SKU 를 가리키는 주문을 하나 만든다. 금액 등식을 맞춰야 커밋이 통과한다 */
+        private void placeOrderOn(long skuId) {
+            long buyerId = new AuthFixture(jdbc).insertUser("ordered-buyer@test.local", "구매자");
+
+            long orderId = jdbc.sql("""
+                            insert into shop_order (order_number, user_id, total_amount,
+                                                    commission_total, shipping_fee_total, payable_amount)
+                            values ('20260809-7QX4M7', :userId, 15000, 1500, 0, 15000)
+                            returning order_id
+                            """)
+                    .param("userId", buyerId)
+                    .query(Long.class)
+                    .single();
+
+            long sellerOrderId = jdbc.sql("""
+                            insert into seller_order (order_id, seller_id, shipping_fee)
+                            values (:orderId, :sellerId, 0)
+                            returning seller_order_id
+                            """)
+                    .param("orderId", orderId)
+                    .param("sellerId", sellerA)
+                    .query(Long.class)
+                    .single();
+
+            jdbc.sql("""
+                            insert into order_item (seller_order_id, sku_id, product_name,
+                                                    unit_price, quantity, line_amount,
+                                                    commission_bp, commission_amount)
+                            values (:sellerOrderId, :skuId, '티셔츠', 15000, 1, 15000, 1000, 1500)
+                            """)
+                    .param("sellerOrderId", sellerOrderId)
+                    .param("skuId", skuId)
+                    .update();
+        }
+    }
+
+    @Nested
     @DisplayName("내리면")
     class Deleting {
 

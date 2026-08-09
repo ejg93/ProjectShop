@@ -68,6 +68,17 @@ public enum ErrorCode {
     CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "cart-item-not-found", "장바구니에 없는 것이다"),
     SKU_NOT_BUYABLE(HttpStatus.UNPROCESSABLE_ENTITY, "sku-not-buyable", "지금 살 수 없는 것이다"),
 
+    // 주문
+    //
+    // 재고 부족은 422 다. 요청 형식은 맞는데 지금 상태가 못 받아들이는 것이라 400 이 아니다.
+    ORDER_EMPTY(HttpStatus.UNPROCESSABLE_ENTITY, "order-empty", "주문할 것이 없다"),
+    OUT_OF_STOCK(HttpStatus.UNPROCESSABLE_ENTITY, "out-of-stock", "재고가 모자란다"),
+
+    // 주문에 쓰인 SKU 가 있으면 옵션 축을 못 바꾼다. 바꾸면 지나간 주문의 옵션 라벨이
+    // 가리키던 것이 사라진다 — 영수증이 뜻을 잃는다.
+    PRODUCT_OPTIONS_LOCKED(HttpStatus.UNPROCESSABLE_ENTITY, "product-options-locked",
+            "주문에 쓰인 상품이라 옵션 구성을 바꿀 수 없다"),
+
     // 멱등키
     //
     // 409 는 "진행중" 이 아니라 "앞 요청을 기다렸는데 너무 길다" 다. 처리와 기록이 한 트랜잭션이라

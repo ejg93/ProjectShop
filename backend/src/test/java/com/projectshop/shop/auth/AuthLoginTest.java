@@ -104,8 +104,16 @@ class AuthLoginTest extends PostgresTestBase {
             assertThat(session).isNotNull();
 
             // 잠긴 경로가 지나가면 세션에 인증이 실제로 저장된 것이다.
-            mvc.perform(get("/api/orders").session((MockHttpSession) session))
-                    .andExpect(status().isNotFound());
+            //
+            // 실제로 있는 경로를 쓴다. 없는 경로의 404 로 확인하면 그 자리에 API 가 생기는 순간
+            // 뜻이 바뀐다 — 청크 10-2 가 `/api/orders` 를 만들면서 404 가 405 로 변해 이 테스트가 깨졌다.
+            //
+            // 401 이 아니라는 것이 곧 "인증이 남았다" 다. 그 뒤의 권한 판정은 다른 축이라
+            // 200 을 기대하면 이 계정에 역할을 주는 준비가 붙고, 그건 이 테스트가 볼 것이 아니다.
+            mvc.perform(get("/api/me").session((MockHttpSession) session))
+                    .andExpect(result -> assertThat(result.getResponse().getStatus())
+                            .as("세션에 인증이 저장됐으면 인증 필터를 지나간다")
+                            .isNotEqualTo(401));
         }
 
         @Test

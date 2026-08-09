@@ -40,6 +40,12 @@ create table seller (
     -- 기본 수수료율. 상품에서 덮어쓸 수 있다(D3). 1000 = 10.00%(D8).
     commission_bp int not null default 1000,
 
+    -- 기본 배송비. 배송을 셀러가 하므로 배송비도 셀러 몫이고 셀러마다 다르다(D3).
+    -- 수수료를 안 매기는 값이라 상품 금액과 따로 둔다.
+    --
+    -- 무료 기준액·지역 할증은 여기 없다. 그건 배송 정책이라 축이 다르고, 필요해질 때 따로 온다.
+    default_shipping_fee bigint not null default 3000,
+
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
 
@@ -48,6 +54,9 @@ create table seller (
 
     constraint seller_commission_bp_check
         check (commission_bp between 0 and 10000),
+
+    constraint seller_default_shipping_fee_check
+        check (default_shipping_fee >= 0),
 
     constraint seller_business_reg_no_check
         check (business_reg_no is null or business_reg_no ~ '^[0-9]{10}$'),

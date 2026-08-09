@@ -1,9 +1,11 @@
 package com.projectshop.shop.product;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -124,9 +126,19 @@ public class ProductService {
                 .param("id", productId)
                 .update();
 
-        deleteUnusedStructure(productId);
+        boolean ordered = hasOrderedSku(productId);
+        if (ordered) {
+            requireSameOptions(productId, command.options());
+        }
 
-        Map<String, Long> valueIds = insertOptions(productId, command.options());
+        retireOrderedSkus(productId);
+        deleteUnusedStructure(productId, ordered);
+
+        // 주문이 걸린 상품은 옵션을 지우지 못했으므로 있는 것을 그대로 쓴다.
+        // 구조가 같다는 것은 바로 위에서 확인했다.
+        Map<String, Long> valueIds = ordered
+                ? readOptionValueIds(productId)
+                : insertOptions(productId, command.options());
         List<Long> skuIds = insertSkus(productId, command.skus(), valueIds);
 
         auditLog.record("product.updated", actorUserId,
@@ -223,6 +235,90 @@ public class ProductService {
                 .single();
     }
 
+    /** 주문에 한 번이라도 쓰인 SKU 가 있나. 있으면 이 상품의 구조를 마음대로 못 바꾼다 */
+    private boolean hasOrderedSku(long productId) {
+        return Boolean.TRUE.equals(jdbc.sql("""
+                        select exists(
+                            select 1 from order_item oi
+                              join sku s on s.sku_id = oi.sku_id
+                             where s.product_id = :productId)
+                        """)
+                .param("productId", productId)
+                .query(Boolean.class)
+                .single());
+    }
+
+    /**
+     * 옵션 축이 그대로인지 본다.
+     *
+     * <p>주문이 걸린 상품에서 옵션을 바꾸면 <b>지나간 주문의 옵션 라벨이 가리키던 것이 사라진다</b> —
+     * "검정 / M" 이라고 찍힌 영수증이 뜻을 잃는다. 가격·재고 변경과 새 조합 추가는 그대로 된다.
+     *
+     * <p>순서는 안 본다. 화면에 보이는 차례가 바뀌는 것은 구조 변경이 아니다.
+     */
+    private void requireSameOptions(long productId, List<OptionCommand> options) {
+        Map<String, Set<String>> current = new LinkedHashMap<>();
+        jdbc.sql("""
+                        select po.name as option_name, pov.value
+                          from product_option po
+                          join product_option_value pov
+                            on pov.product_option_id = po.product_option_id
+                         where po.product_id = :productId
+                        """)
+                .param("productId", productId)
+                .query((rs, rowNum) -> Map.entry(rs.getString("option_name"), rs.getString("value")))
+                .list()
+                .forEach(entry -> current
+                        .computeIfAbsent(entry.getKey(), k -> new HashSet<>())
+                        .add(entry.getValue()));
+
+        Map<String, Set<String>> requested = new LinkedHashMap<>();
+        options.forEach(option -> requested.put(option.name(), new HashSet<>(option.values())));
+
+        if (!current.equals(requested)) {
+            throw new ShopException(ErrorCode.PRODUCT_OPTIONS_LOCKED);
+        }
+    }
+
+    /**
+     * 주문에 쓰인 SKU 를 판매중지로 내린다.
+     *
+     * <p>지울 수가 없다 — {@code order_item.sku_id} 가 {@code restrict} 라 지우려 들면
+     * 상품 수정 자체가 통째로 막힌다. 그 제약은 <b>어떤 SKU 였나를 끝까지 따라가려고</b> 건 것이다.
+     *
+     * <p>{@code deleted_at} 을 같이 채워서 조회에서 빠지게 한다. 고객에게는 사라진 것과 같고
+     * 과거 주문에서는 그대로 보인다.
+     */
+    private void retireOrderedSkus(long productId) {
+        jdbc.sql("""
+                        update sku
+                           set status = 'suspended', deleted_at = now()
+                         where product_id = :productId and deleted_at is null
+                           and exists (select 1 from order_item oi where oi.sku_id = sku.sku_id)
+                        """)
+                .param("productId", productId)
+                .update();
+    }
+
+    /** @return 선택지 이름 → 그 행의 id. 옵션을 다시 만들지 않을 때 쓴다 */
+    private Map<String, Long> readOptionValueIds(long productId) {
+        Map<String, Long> valueIds = new LinkedHashMap<>();
+        jdbc.sql("""
+                        select pov.value, pov.product_option_value_id
+                          from product_option po
+                          join product_option_value pov
+                            on pov.product_option_id = po.product_option_id
+                         where po.product_id = :productId
+                        """)
+                .param("productId", productId)
+                .query((rs, rowNum) ->
+                        Map.entry(rs.getString("value"), rs.getLong("product_option_value_id")))
+                .list()
+                .forEach(entry -> valueIds.put(entry.getKey(), entry.getValue()));
+
+        return valueIds;
+    }
+
     /** @return 선택지 이름 → 그 행의 id. SKU 를 붙일 때 쓴다 */
     private Map<String, Long> insertOptions(long productId, List<OptionCommand> options) {
         Map<String, Long> valueIds = new LinkedHashMap<>();
@@ -294,13 +390,20 @@ public class ProductService {
      * <p>순서가 있다 — {@code sku_option_value} 가 양쪽을 가리키므로 그것부터 사라져야 한다.
      * {@code sku} 는 cascade 로 딸려 가고, 옵션은 따로 지운다.
      */
-    private void deleteUnusedStructure(long productId) {
+    private void deleteUnusedStructure(long productId, boolean keepOptions) {
+        // 주문에 쓰인 것은 바로 앞에서 deleted_at 이 채워져 여기 안 걸린다.
         jdbc.sql("""
                         delete from sku
                          where product_id = :productId and deleted_at is null
                         """)
                 .param("productId", productId)
                 .update();
+
+        // 살아남은 SKU 가 옵션 값을 가리키고 있으면 지울 수 없다({@code sku_option_value} 가 restrict).
+        // 구조가 같다는 것을 확인했으므로 그대로 두고 재사용한다.
+        if (keepOptions) {
+            return;
+        }
 
         jdbc.sql("delete from product_option where product_id = :productId")
                 .param("productId", productId)
