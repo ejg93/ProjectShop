@@ -18,5 +18,30 @@ services:
       timeout: 3s
       retries: 10
 
+  # 캐시와 짧은 수명의 상태를 담는다. Postgres 와 한 컨테이너에 넣지 않는다 —
+  # 컨테이너 하나에 프로세스가 둘이면 하나가 죽어도 컨테이너는 살아 있어서 헬스체크가 무의미해지고,
+  # 재시작·로그·버전 올리기가 전부 묶인다.
+  #
+  # 여기 담을 것과 안 담을 것의 기준은 "날아가면 사고인가" 다.
+  # 판정 캐시(청크 39)와 로그인 실패 카운터(5c)는 날아가도 다시 만들면 되고,
+  # 멱등키는 유실이 곧 중복 주문이라 Postgres 에 둔다(청크 10-0).
+  redis:
+    image: redis:7-alpine
+    container_name: shop-redis
+    restart: unless-stopped
+    # appendonly 를 켠다. 유실돼도 치명적이지 않은 것만 담지만, 로컬은 재시작이 잦아서
+    # 껐다 켤 때마다 로그인 차단이 풀리면 그 기능을 확인하기가 번거롭다.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   db-data:
+  redis-data:

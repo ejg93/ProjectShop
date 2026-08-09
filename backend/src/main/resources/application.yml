@@ -11,6 +11,14 @@ spring:
       ddl-auto: validate
   flyway:
     locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # 붙는 데 오래 걸리면 요청이 그만큼 붙잡힌다. Redis 는 날아가도 되는 것만 담으므로
+      # 오래 기다리느니 빨리 실패하고 원본(DB)으로 가는 편이 낫다.
+      timeout: 2s
+      connect-timeout: 2s
   # JSON 속성을 snake_case 로 내린다(D5). Java 필드는 camelCase 로 두고 직렬화할 때만 바뀐다.
   # DB 컬럼명과 JSON 필드명이 같아져서 로그·쿼리·응답을 같은 단어로 검색할 수 있다.
   jackson:

@@ -19,6 +19,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | Java | 25 | 같은 파일의 toolchain |
 | Gradle | 9.5.1 | `gradle/wrapper/gradle-wrapper.properties` |
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
+| Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
 | Testcontainers | 1.21.4 | `build.gradle.kts` 의 BOM |
 | Caffeine | 3.2.4 | 안 적는다. **Boot BOM 이 관리한다** |
 | Jackson | 3.1.4 | 안 적는다. `starter-webmvc` 가 딸려 온다 |
@@ -311,6 +312,17 @@ jdbc.sql("set constraints all immediate").update();
 트리거가 `raise exception` 으로 떨어뜨리면 SQLSTATE 가 `P0001` 이라
 Spring 이 `UncategorizedSQLException` 으로 준다. `DataIntegrityViolationException` 이 아니다 —
 둘을 같이 받으려면 `DataAccessException` 으로 잡는다.
+
+### Redis 의존성을 넣어도 캐시가 자동으로 안 넘어간다
+
+`spring-boot-starter-data-redis` 를 넣으면 Spring Boot 가 `RedisCacheManager` 를 자동설정할 수 있다.
+그러면 **판정 캐시(청크 4a)가 아무도 모르게 Redis 로 옮겨 간다** — 이관은 청크 39 의 일이다.
+
+여기서는 안 넘어간다. `PermissionCacheConfig` 가 `CacheManager` 빈을 **명시적으로** 선언했고
+자동설정이 `@ConditionalOnMissingBean` 이라 뜨지 않기 때문이다.
+
+**이건 우연히 성립한 안전장치라 테스트로 고정해 뒀다**(`RedisConnectionTest`).
+누가 그 빈을 지우면 캐시 구현이 조용히 바뀌는데, 그건 코드 어디에도 안 보인다.
 
 ## 넣었지만 안 쓰는 것
 

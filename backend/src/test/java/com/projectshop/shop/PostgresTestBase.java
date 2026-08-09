@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
@@ -63,6 +64,25 @@ public abstract class PostgresTestBase {
         @SuppressWarnings("resource")
         PostgreSQLContainer<?> postgres() {
             return new PostgreSQLContainer<>("postgres:17-alpine")
+                    .withReuse(true);
+        }
+
+        /**
+         * `docker-compose.yml` 과 같은 이미지를 쓴다.
+         *
+         * <p><b>Redis 를 안 쓰는 테스트에도 뜬다.</b> 컨테이너가 JVM 당 한 번이고 Spring 컨텍스트가
+         * 캐싱되므로 비용은 전체 실행에 한 번이다. 쓰는 테스트만 따로 바탕을 만들면
+         * <b>바탕이 둘이 되고, 새 테스트가 어느 쪽을 상속해야 하는지 매번 판단하게 된다.</b>
+         *
+         * <p>{@code @ServiceConnection} 에 이름을 준 것은 {@code GenericContainer} 라
+         * 무엇에 붙일 연결인지 Spring 이 이미지만 보고 못 정하기 때문이다.
+         */
+        @Bean
+        @ServiceConnection(name = "redis")
+        @SuppressWarnings("resource")
+        GenericContainer<?> redis() {
+            return new GenericContainer<>("redis:7-alpine")
+                    .withExposedPorts(6379)
                     .withReuse(true);
         }
     }
