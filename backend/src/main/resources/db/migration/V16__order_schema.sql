@@ -131,6 +131,12 @@ create table seller_order (
     withdrawal_expire_at timestamptz,
     auto_confirm_at      timestamptz,
 
+    -- 거래가 끝난 시각. 구매확정·취소·반품완료가 여기를 채운다(11).
+    --
+    -- 보존 기간의 기산점이 "거래 종료일" 이라(D13) 이 값이 없으면 무엇을 언제 파기할지 못 정한다.
+    -- updated_at 으로 대신하지 않는다 — 전이가 아닌 수정에도 밀려서 파기가 무한정 미뤄진다.
+    closed_at timestamptz,
+
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
 
