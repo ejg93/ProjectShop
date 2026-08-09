@@ -135,6 +135,12 @@ public class SecurityConfig {
                         event -> event.getResponse().setStatus(HttpStatus.UNAUTHORIZED.value())),
                 SecurityContextHolderFilter.class);
 
+        // 세션을 만든 지 12시간이 지나면 끊는다(D14, 청크 5c).
+        //
+        // 컨텍스트를 읽은 직후에 둔다. 앞에 두면 아직 SecurityContextHolder 가 안 채워져서
+        // 지울 것이 없고, 뒤에 두면 인가가 이미 끝난 뒤라 늙은 세션이 한 요청을 더 통과한다.
+        http.addFilterAfter(new AbsoluteSessionTimeoutFilter(), SecurityContextHolderFilter.class);
+
         return http.build();
     }
 

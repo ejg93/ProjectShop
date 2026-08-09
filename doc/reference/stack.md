@@ -313,6 +313,16 @@ jdbc.sql("set constraints all immediate").update();
 Spring 이 `UncategorizedSQLException` 으로 준다. `DataIntegrityViolationException` 이 아니다 —
 둘을 같이 받으려면 `DataAccessException` 으로 잡는다.
 
+### Redis 는 테스트 롤백이 안 되돌린다
+
+`PostgresTestBase` 가 `@Transactional` 이라 DB 는 테스트마다 깨끗하게 시작하는데,
+**Redis 에 쓴 것은 그대로 남는다.** 같은 키를 쓰는 테스트가 여럿이면 앞 테스트의 값이 뒤에 새어 간다.
+
+`AuthLoginTest` 가 그 자리다 — 일부러 로그인을 실패시키는 테스트가 많고 전부 같은 (계정, IP) 라,
+안 지우면 **앞 테스트가 쌓아 둔 실패 때문에 뒤 테스트가 차단된 채 시작한다.**
+
+Redis 를 쓰는 테스트는 `@BeforeEach` 에서 자기 키를 지운다.
+
 ### Redis 의존성을 넣어도 캐시가 자동으로 안 넘어간다
 
 `spring-boot-starter-data-redis` 를 넣으면 Spring Boot 가 `RedisCacheManager` 를 자동설정할 수 있다.

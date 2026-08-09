@@ -43,6 +43,7 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
     private final CartService cartService;
+    private final LoginAttemptService loginAttemptService;
 
     /** 직접 만들지 않고 받는다. 저장 방식을 정하는 곳은 {@code SecurityConfig} 하나여야 한다. */
     private final SecurityContextRepository securityContextRepository;
@@ -50,10 +51,12 @@ public class AuthController {
     public AuthController(SignupService signupService,
             AuthenticationManager authenticationManager,
             SessionAuthenticationStrategy sessionAuthenticationStrategy,
-            SecurityContextRepository securityContextRepository, CartService cartService) {
+            SecurityContextRepository securityContextRepository, CartService cartService,
+            LoginAttemptService loginAttemptService) {
 
         this.signupService = signupService;
         this.cartService = cartService;
+        this.loginAttemptService = loginAttemptService;
         this.authenticationManager = authenticationManager;
         this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
         this.securityContextRepository = securityContextRepository;
@@ -87,16 +90,31 @@ public class AuthController {
     public LoginResponse logIn(@Valid @RequestBody LoginRequest request,
             HttpServletRequest http, HttpServletResponse response) {
 
+        String ip = http.getRemoteAddr();
+
+        // 차단 중에도 같은 문구다(D14). 문구가 갈리면 "이 계정은 잠겼다" 가 새어 나가고,
+        // 그건 곧 그 계정이 존재한다는 뜻이다.
+        //
+        // 비밀번호를 대조하기 전에 본다. 뒤에 두면 차단된 상태에서도 해시 계산이 돌아서
+        // 응답 시간이 갈리고, 그 차이가 계정 존재 여부를 흘린다.
+        if (loginAttemptService.isBlocked(request.email(), ip)) {
+            throw new ShopException(ErrorCode.LOGIN_FAILED);
+        }
+
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(
                             request.email(), request.password()));
         } catch (AuthenticationException e) {
+            loginAttemptService.recordFailure(request.email(), ip);
+
             // 없는 계정도, 틀린 비밀번호도, 정지된 계정도 같은 문구로 나간다(D14).
             // 문구가 갈리면 가입 여부를 물어보는 도구가 된다.
             throw new ShopException(ErrorCode.LOGIN_FAILED);
         }
+
+        loginAttemptService.reset(request.email(), ip);
 
         // 세션 ID 재발급과 레지스트리 등록. 이 줄이 빠지면 세션 고정 방어가 사라진다.
         sessionAuthenticationStrategy.onAuthentication(authentication, http, response);
