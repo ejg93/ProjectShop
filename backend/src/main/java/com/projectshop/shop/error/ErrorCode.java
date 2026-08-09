@@ -68,6 +68,16 @@ public enum ErrorCode {
     CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "cart-item-not-found", "장바구니에 없는 것이다"),
     SKU_NOT_BUYABLE(HttpStatus.UNPROCESSABLE_ENTITY, "sku-not-buyable", "지금 살 수 없는 것이다"),
 
+    // 멱등키
+    //
+    // 409 는 "진행중" 이 아니라 "앞 요청을 기다렸는데 너무 길다" 다. 처리와 기록이 한 트랜잭션이라
+    // 진행중인 행은 남에게 안 보이고, 뒤 요청은 앞이 끝날 때까지 대기하다 알아서 재생을 읽는다.
+    // 그 대기가 lock_timeout 을 넘겼을 때만 여기로 온다(`D11`).
+    IDEMPOTENCY_IN_PROGRESS(HttpStatus.CONFLICT, "idempotency-in-progress",
+            "같은 요청이 아직 처리 중이다"),
+    IDEMPOTENCY_KEY_REUSED(HttpStatus.UNPROCESSABLE_ENTITY, "idempotency-key-reused",
+            "같은 키로 다른 요청을 보냈다"),
+
     // 입력
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "validation-failed", "요청 형식이 맞지 않는다"),
     SORT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "sort-not-allowed", "정렬할 수 없는 필드다"),

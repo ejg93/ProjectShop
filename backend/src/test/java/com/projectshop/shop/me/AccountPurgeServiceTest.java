@@ -199,6 +199,58 @@ class AccountPurgeServiceTest extends PostgresTestBase {
     }
 
     @Nested
+    @DisplayName("멱등키")
+    class IdempotencyKeys {
+
+        @Test
+        @DisplayName("24시간이 지나면 지워진다")
+        void deletesExpiredKey() {
+            long userId = insertUser("idem-old@example.com");
+            insertIdempotencyKey(userId, "old-key", NOW.minusHours(25));
+
+            purgeService.purge(NOW);
+
+            assertThat(keyExists("old-key"))
+                    .as("안 지우면 요청 하나당 한 행이 영구히 쌓인다")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("아직 24시간이 안 됐으면 남는다")
+        void keepsRecentKey() {
+            long userId = insertUser("idem-fresh@example.com");
+            insertIdempotencyKey(userId, "fresh-key", NOW.minusHours(23));
+
+            purgeService.purge(NOW);
+
+            assertThat(keyExists("fresh-key"))
+                    .as("이 구간의 재전송은 저장된 응답을 받아야 한다")
+                    .isTrue();
+        }
+
+        private void insertIdempotencyKey(long userId, String key, java.time.OffsetDateTime createdAt) {
+            // created_at 을 직접 넣는다. 이 테이블엔 set_updated_at 트리거가 없어서 insert 로 과거를 만든다.
+            jdbc.sql("""
+                            insert into idempotency_key
+                                (user_id, key_value, request_hash, response_body, created_at)
+                            values (:userId, :key, repeat('a', 64), '{}'::jsonb, :createdAt)
+                            """)
+                    .param("userId", userId)
+                    .param("key", key)
+                    .param("createdAt", createdAt)
+                    .update();
+        }
+
+        private boolean keyExists(String key) {
+            return Boolean.TRUE.equals(jdbc.sql(
+                            "select exists(select 1 from idempotency_key where key_value = :key)")
+                    .param("key", key)
+                    .query(Boolean.class)
+                    .single());
+        }
+    }
+
+    @Nested
     @DisplayName("두 번 돌아도")
     class Idempotent {
 

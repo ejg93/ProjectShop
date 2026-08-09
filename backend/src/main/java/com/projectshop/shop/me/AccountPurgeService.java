@@ -62,14 +62,24 @@ public class AccountPurgeService {
     private static final int GUEST_CART_DAYS = 30;
 
     /**
+     * 멱등키를 보관하는 기간(`D11`).
+     *
+     * <p>재전송은 네트워크가 끊긴 직후 몇 초에서 몇 분 안에 온다. 24시간은 넉넉히 잡은 것이고
+     * 지나면 아무도 조회하지 않는 행이다.
+     */
+    private static final int IDEMPOTENCY_KEY_HOURS = 24;
+
+    /**
      * 파기한 것의 수. 배치가 무엇을 했는지 로그와 테스트가 같은 값으로 본다.
      *
      * @param accounts    이메일·이름·비밀번호 해시를 비운 계정 수
      * @param consentIps  동의 이력에서 IP 를 비운 행 수
      * @param consentRows 보존 기간이 지나 지운 동의 이력 행 수
      * @param guestCarts  방치돼서 지운 비로그인 장바구니 수
+     * @param idempotencyKeys 보관 기간이 지나 지운 멱등키 수
      */
-    public record Purged(int accounts, int consentIps, int consentRows, int guestCarts) {}
+    public record Purged(int accounts, int consentIps, int consentRows, int guestCarts,
+            int idempotencyKeys) {}
 
     /**
      * 오늘 기준으로 파기한다. 스케줄러(청크 36)가 생기기 전까지는 손으로 부른다.
@@ -105,8 +115,22 @@ public class AccountPurgeService {
                 Map.of("grace_days", GRACE_DAYS)));
 
         int guestCarts = deleteStaleGuestCarts(baseline.minusDays(GUEST_CART_DAYS));
+        int idempotencyKeys = deleteExpiredIdempotencyKeys(baseline.minusHours(IDEMPOTENCY_KEY_HOURS));
 
-        return new Purged(purgedIds.size(), consentIps, consentRows, guestCarts);
+        return new Purged(purgedIds.size(), consentIps, consentRows, guestCarts, idempotencyKeys);
+    }
+
+    /**
+     * 지난 멱등키를 지운다.
+     *
+     * <p>개인정보가 아니라(`D9` 가 키에 개인정보를 넣지 말라고 정했다) 법이 걸리는 파기가 아니다.
+     * 여기 얹은 이유는 <b>수명이 끝난 행을 치운다는 일이 같아서</b>다 —
+     * 안 지우면 요청 하나당 한 행이 영구히 쌓인다.
+     */
+    private int deleteExpiredIdempotencyKeys(OffsetDateTime expiredBefore) {
+        return jdbc.sql("delete from idempotency_key where created_at < :expiredBefore")
+                .param("expiredBefore", expiredBefore)
+                .update();
     }
 
     /**
