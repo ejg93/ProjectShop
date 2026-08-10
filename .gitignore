@@ -9,3 +9,6 @@ target/
 .env.local
 .DS_Store
 Thumbs.db
+
+# 관측 로그. 지워도 되는 것이라 저장소에 안 넣는다(D16)
+logs/

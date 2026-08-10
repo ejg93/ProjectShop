@@ -152,7 +152,7 @@ GitHub가 저장소별로 역할을 붙이는 방식과 같다. `scope=seller` �
 | 2 | Spring Boot 기동 + DB 연결 | 의존성, `application.yml`, 헬스체크 API 1개, 마이그레이션 도구 | 완료 |
 | 2a | API 문서 자동화 | springdoc-openapi 로 코드에서 스펙을 뽑고 `/api/docs` 로 연다. 손으로 쓴 문서는 코드와 어긋난다 | 2, D5 |
 | 2c | CI | GitHub Actions 가 커밋마다 Postgres 를 띄우고 `gradlew build` 를 돌린다. 손으로 돌리는 테스트는 바쁠 때 건너뛴다 | 2 |
-| 2b | 로그·요청 추적 규약 | `traceparent` 를 받아 MDC 에 넣고 모든 로그 줄에 찍는다. 레벨 기준과 텍스트 형식을 logback 설정 한 군데에 둔다. 개인정보는 식별자만 찍는다(`D16`). **형식이 서면 미뤄 둔 `WARN` 두 개를 여기서 붙인다** — 캡차 검증 실패(`5d`)와 Redis 장애 강등(`5c-2`). 둘 다 조용히 넘어가는 자리라 로그가 없으면 장애를 못 본다 | 2, D16 |
+| 2b | ~~로그·요청 추적 규약~~ | **완료.** `logback-spring.xml`·`RequestLogFilter`(신설), `build.gradle.kts`·`application.yml`, `ProblemFactory` 수정, `RequestTraceTest` 6개, `D16` 갱신. Micrometer Tracing + Brave 로 W3C `traceparent` 를 이어받고 MDC 로 모든 줄에 찍는다(사용자 선택 — 널리 쓰이는 표준). **Boot 4 는 자동설정이 모듈로 쪼개져서 브리지와 자동설정 모듈을 둘 다 넣어야 한다** — 하나만 넣으면 빈은 뜨는데 `Tracer.NOOP` 이라 조용히 안 찍힌다. **`D16` 의 "앞 6자리" 를 "뒤 6자리" 로 고쳤다** — Brave 128비트 ID 는 앞 8자리가 생성 시각이라 같은 시간대 요청이 전부 같아 보였다. **필터 자리는 보안 필터 바깥·추적 필터 안쪽** — 안쪽이면 401·403 이 한 줄도 안 남는다. **`ProblemFactory` 가 헤더를 직접 파싱하던 것을 걷어냈다** — 같은 사실을 두 곳에서 정하면 사용자가 불러 준 ID 로 로그를 못 찾는다. **미뤄 둔 `WARN` 둘(`5d` 캡차·`5c-2` Redis 강등)은 그 청크에서 붙인다** — 형식이 섰으니 막힌 것이 없다 | 완료 |
 | 3 | 권한 스키마 | `app_user`·`role`·`permission`·`user_role`·`role_permission` 테이블과 초기 데이터 | 완료 |
 | 3a | 셀러 조직 스키마 | `seller`·`seller_member` 테이블, `user_role` 에 셀러 참조 추가. 역할 부여에 대상이 생긴다 | 완료 |
 | 3b | 거부 규칙 스키마 | `role_permission` 에 `effect`(allow/deny) 추가, 거부가 필요한 초기 데이터 | 완료 |

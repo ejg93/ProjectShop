@@ -1,11 +1,11 @@
 package com.projectshop.shop.error;
 
 import java.net.URI;
-import java.util.UUID;
 
 import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Component;
 
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
@@ -18,8 +18,11 @@ import jakarta.servlet.http.HttpServletRequest;
 @Component
 public class ProblemFactory {
 
-    /** W3C Trace Context 헤더. 프론트나 프록시가 실어 보낸다 */
-    private static final String TRACEPARENT = "traceparent";
+    private final Tracer tracer;
+
+    ProblemFactory(Tracer tracer) {
+        this.tracer = tracer;
+    }
 
     /**
      * @param detail 이 자리에서만 쓰는 설명. null 이면 {@link ErrorCode} 의 기본 문구를 쓴다
@@ -34,29 +37,24 @@ public class ProblemFactory {
 
         // 오류 본문에만 넣는다(`D16`). 성공 응답에 넣으면 모든 응답이 커지는데
         // 되짚어 볼 일이 있는 것은 실패한 요청이다.
-        problem.setProperty("trace_id", traceIdOf(request));
+        problem.setProperty("trace_id", traceIdOf());
 
         return problem;
     }
 
     /**
-     * 추적 ID 를 정한다.
+     * 지금 요청의 추적 ID.
      *
-     * <p>{@code traceparent} 가 오면 그 안의 trace-id 를 쓰고, 없으면 만든다.
-     * 헤더 형식은 {@code 00-<32자리 trace-id>-<16자리 span-id>-<flags>} 다.
+     * <p><b>{@code traceparent} 를 직접 파싱하지 않는다.</b> 추적기가 이미 그 헤더를 읽어
+     * MDC 와 로그에 넣고 있으므로, 여기서 또 읽으면 같은 사실을 두 군데서 정하게 된다.
+     * 헤더가 유효하지 않을 때 어느 쪽이 이기는지도 갈린다 — 그러면
+     * <b>사용자가 불러 준 ID 로 로그를 찾았는데 안 나오는</b> 일이 생긴다.
      *
-     * <p><b>아직 로그와 안 묶여 있다.</b> 이 값으로 로그를 찾으려면 MDC 에 넣어야 하는데
-     * 그건 청크 2b 다 — 지금은 애플리케이션 로그가 0건이라 찾을 대상 자체가 없다.
-     * 그래도 지금 넣는 이유는 <b>응답 형식이 나중에 바뀌면 그게 계약 변경</b>이라서다.
+     * <p>추적 문맥이 없는 자리에서 오류가 나면 비운다. 요청 밖(기동·배치)이라
+     * 지어내 봐야 어느 로그와도 안 이어진다.
      */
-    private static String traceIdOf(HttpServletRequest request) {
-        String traceparent = request.getHeader(TRACEPARENT);
-        if (traceparent != null) {
-            String[] parts = traceparent.split("-");
-            if (parts.length >= 3 && parts[1].length() == 32) {
-                return parts[1];
-            }
-        }
-        return UUID.randomUUID().toString().replace("-", "");
+    private String traceIdOf() {
+        var span = tracer.currentSpan();
+        return span == null ? null : span.context().traceId();
     }
 }
