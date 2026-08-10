@@ -174,7 +174,14 @@ D20 은 청크 13 을 잡을 때 같이 한다.
 - **마지막 갱신**: 2026-08-07
 
 git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.noreply.github.com>` 로 잡았다.
-청크 3a 이전 커밋 4개는 플레이스홀더 이메일이라 GitHub 계정에 안 붙는다. 올릴 때 rebase 로 고칠지 정한다.
+
+**2026-08-10 에 GitHub 에 올렸다** — `https://github.com/ejg93/ProjectShop.git` 의 `main`.
+올리기 전에 **초기 커밋 6개의 플레이스홀더 이메일을 `filter-branch` 로 통일했다**(사용자 선택).
+아직 안 올린 상태라 이력을 고쳐도 남에게 영향이 없었고, 올린 뒤였으면 강제 푸시가 필요했다.
+파일 내용은 재작성 전후가 같다(`git diff` 비어 있음). 원본은 로컬 `refs/original/refs/heads/main` 에 남아 있다.
+
+원격에 있던 것은 GitHub 이 만든 `Initial commit`(README.md 하나)뿐이라 **강제로 덮었다**(사용자 선택).
+이후로는 그냥 `git push` 다. `.env` 는 안 올라갔고 추적되는 것은 `.env.example`(로컬 기본값)뿐이다.
 
 세션을 재개하면 이 블록만 보고 판단한다. 아래 이력은 필요할 때만 본다.
 
