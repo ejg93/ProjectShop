@@ -313,6 +313,26 @@ jdbc.sql("set constraints all immediate").update();
 Spring 이 `UncategorizedSQLException` 으로 준다. `DataIntegrityViolationException` 이 아니다 —
 둘을 같이 받으려면 `DataAccessException` 으로 잡는다.
 
+### Postgres 의 데드락은 `DeadlockLoserDataAccessException` 이 아니다
+
+`40P01` 을 그 이름의 예외로 받을 것 같지만 **`PessimisticLockingFailureException`** 으로 온다.
+Spring 이 오류 코드표(`sql-error-codes.xml`)로 번역할 때만 세분화하고,
+Postgres 는 SQLSTATE 앞 두 자리(`40` = 트랜잭션 롤백)로 번역돼서 상위 타입에 멈춘다.
+
+**재시도를 붙일 때 예외 이름으로 잡으면 데드락을 놓친다**(`D11` 「재시도」는 `40001`·`40P01` 둘 다 잡으라고 정했다).
+SQLSTATE 를 직접 보는 쪽이 확실하다 — `OrderConcurrencyTest` 가 그렇게 확인한다.
+
+### 롤백을 끈 테스트는 정리도 한 트랜잭션이어야 한다
+
+`@Transactional(propagation = NOT_SUPPORTED)` 로 롤백을 끄면 정리 SQL 도 **문장마다 커밋된다.**
+그러면 지연 트리거가 중간 상태를 본다 — `order_item` 만 지운 순간
+`항목이 없는 셀러 주문` 으로 정리가 통째로 실패한다.
+
+정리를 `TransactionTemplate` 하나로 묶어서 다 지운 뒤에 검사가 돌게 한다.
+
+**시작할 때도 한 번 지운다.** 컨테이너가 `withReuse(true)` 라 앞선 실행이 죽으면 그 데이터가
+다음 실행까지 살아 있고, 이메일 유니크에 걸려 **테스트가 시작도 못 한다.**
+
 ### Redis 는 테스트 롤백이 안 되돌린다
 
 `PostgresTestBase` 가 `@Transactional` 이라 DB 는 테스트마다 깨끗하게 시작하는데,
