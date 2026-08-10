@@ -163,7 +163,7 @@ class MeAccountTest extends PostgresTestBase {
         @DisplayName("현재 비밀번호가 틀리면 안 바뀐다")
         void rejectsWrongCurrentPassword() throws Exception {
             mvc.perform(passwordRequest("wrong-but-long-enough", "brand-new-secret-1"))
-                    .andExpect(status().isUnprocessableEntity());
+                    .andExpect(status().isUnprocessableContent());
 
             String stored = jdbc.sql("select password_hash from app_user where user_id = :id")
                     .param("id", customer)

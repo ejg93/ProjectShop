@@ -142,7 +142,7 @@ class AuthSignupTest extends PostgresTestBase {
             Map<String, Boolean> consents = required(true);
             consents.put("privacy_collect", false);
 
-            signUp("f@test.local", consents).andExpect(status().isUnprocessableEntity());
+            signUp("f@test.local", consents).andExpect(status().isUnprocessableContent());
         }
 
         @Test
@@ -151,7 +151,7 @@ class AuthSignupTest extends PostgresTestBase {
             Map<String, Boolean> consents = new LinkedHashMap<>();
             consents.put("terms_of_service", true);
 
-            signUp("g@test.local", consents).andExpect(status().isUnprocessableEntity());
+            signUp("g@test.local", consents).andExpect(status().isUnprocessableContent());
         }
 
         @Test
@@ -160,7 +160,7 @@ class AuthSignupTest extends PostgresTestBase {
             Map<String, Boolean> consents = required(true);
             consents.put("marketing_night", true);
 
-            signUp("h@test.local", consents).andExpect(status().isUnprocessableEntity());
+            signUp("h@test.local", consents).andExpect(status().isUnprocessableContent());
         }
 
         @Test
@@ -218,7 +218,7 @@ class AuthSignupTest extends PostgresTestBase {
             Map<String, Boolean> consents = required(true);
             consents.put("sell_my_soul", true);
 
-            signUp("l@test.local", consents).andExpect(status().isUnprocessableEntity());
+            signUp("l@test.local", consents).andExpect(status().isUnprocessableContent());
         }
     }
 
@@ -259,7 +259,7 @@ class AuthSignupTest extends PostgresTestBase {
             Map<String, Boolean> consents = required(true);
             consents.put("marketing_night", true);
 
-            signUp("rollback@test.local", consents).andExpect(status().isUnprocessableEntity());
+            signUp("rollback@test.local", consents).andExpect(status().isUnprocessableContent());
 
             assertThat(jdbc.sql("select count(*) from app_user where email = :email")
                     .param("email", "rollback@test.local")

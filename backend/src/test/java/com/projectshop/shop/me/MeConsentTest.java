@@ -174,7 +174,7 @@ class MeConsentTest extends PostgresTestBase {
         @DisplayName("필수 항목은 거둘 수 없다")
         void requiredCannotBeRevoked() throws Exception {
             // 허용하면 동의 없이 살아 있는 계정이 생긴다. 그건 탈퇴지 철회가 아니다.
-            revoke("terms_of_service").andExpect(status().isUnprocessableEntity());
+            revoke("terms_of_service").andExpect(status().isUnprocessableContent());
         }
 
         @Test
@@ -229,7 +229,7 @@ class MeConsentTest extends PostgresTestBase {
         @Test
         @DisplayName("채널 없이 야간만 켤 수 없다")
         void nightNeedsItsChannel() throws Exception {
-            grant("marketing_night").andExpect(status().isUnprocessableEntity());
+            grant("marketing_night").andExpect(status().isUnprocessableContent());
         }
 
         @Test

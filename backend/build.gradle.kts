@@ -66,6 +66,15 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// 무엇이 경고인지 이름을 대게 한다. 기본 설정은 "deprecated API 를 쓴다" 까지만 말하고
+// 어느 줄인지 안 알려줘서, 경고가 떠 있어도 고칠 대상을 못 짚는다.
+//
+// 경고를 오류로 올리지는 않았다(-Werror). 라이브러리를 올릴 때 남의 코드에서 오는 경고로
+// 빌드가 통째로 막히면, 급할 때 옵션을 통째로 끄게 된다.
+tasks.withType<JavaCompile> {
+	options.compilerArgs.addAll(listOf("-Xlint:deprecation", "-Xlint:unchecked"))
+}
+
 tasks.withType<Test> {
 	useJUnitPlatform()
 

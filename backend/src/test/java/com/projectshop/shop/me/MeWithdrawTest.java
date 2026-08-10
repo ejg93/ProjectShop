@@ -149,7 +149,7 @@ class MeWithdrawTest extends PostgresTestBase {
         @Test
         @DisplayName("비밀번호가 틀리면 탈퇴가 안 된다")
         void wrongPasswordKeepsAccount() throws Exception {
-            withdraw("wrong-but-long-enough").andExpect(status().isUnprocessableEntity());
+            withdraw("wrong-but-long-enough").andExpect(status().isUnprocessableContent());
 
             assertThat(jdbc.sql("select deleted_at is null from app_user where user_id = :id")
                     .param("id", userId).query(Boolean.class).single())
@@ -160,7 +160,7 @@ class MeWithdrawTest extends PostgresTestBase {
         @Test
         @DisplayName("실패하면 동의도 그대로다")
         void failureRollsBackConsents() throws Exception {
-            withdraw("wrong-but-long-enough").andExpect(status().isUnprocessableEntity());
+            withdraw("wrong-but-long-enough").andExpect(status().isUnprocessableContent());
 
             assertThat(jdbc.sql("""
                             select count(*) from current_consent

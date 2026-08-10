@@ -313,6 +313,20 @@ jdbc.sql("set constraints all immediate").update();
 Spring 이 `UncategorizedSQLException` 으로 준다. `DataIntegrityViolationException` 이 아니다 —
 둘을 같이 받으려면 `DataAccessException` 으로 잡는다.
 
+### 422 와 `asText()` 는 이름이 바뀌었다
+
+빌드 경고 16개의 정체다. 둘 다 <b>기능이 없어진 것이 아니라 이름만 바뀐 것</b>이라
+경고를 켜기 전에는 무엇이 문제인지 안 드러났다.
+
+| 옛 이름 | 지금 | 왜 |
+|---|---|---|
+| `HttpStatus.UNPROCESSABLE_ENTITY` | `UNPROCESSABLE_CONTENT` | RFC 9110 이 422 를 "Unprocessable Content" 로 고쳤다 |
+| `status().isUnprocessableEntity()` | `isUnprocessableContent()` | 같은 이유 |
+| `JsonNode.asText()` | `asString()` | Jackson 3 |
+
+`-Xlint:deprecation` 을 켜 두는 이유가 이것이다(`build.gradle.kts`).
+켜기 전에는 "deprecated API 를 쓴다" 까지만 나오고 **어느 줄인지 안 나온다.**
+
 ### Postgres 의 데드락은 `DeadlockLoserDataAccessException` 이 아니다
 
 `40P01` 을 그 이름의 예외로 받을 것 같지만 **`PessimisticLockingFailureException`** 으로 온다.

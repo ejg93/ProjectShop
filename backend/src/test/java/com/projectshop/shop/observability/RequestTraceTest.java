@@ -117,7 +117,7 @@ class RequestTraceTest extends PostgresTestBase {
 
             JsonNode body = json.readTree(result.getResponse().getContentAsString());
 
-            assertThat(body.get("trace_id").asText())
+            assertThat(body.get("trace_id").asString())
                     .as("사용자가 불러 준 ID 로 로그를 못 찾으면 ID 를 내려 준 뜻이 없다")
                     .isIn(traceIdsInLog());
         }
