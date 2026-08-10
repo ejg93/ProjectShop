@@ -83,6 +83,10 @@ select * from product p join sku s using (product_id)
 **연결 테이블에서 특히 값을 한다.** `user_role` 은 지금 `user_id, role_id, id, seller_id` 인데
 그 `id` 가 무엇의 id 인지 이름만으로 안 드러난다. 새 규칙이면 `user_role_id` 다.
 
+**값 자체가 식별자인 표는 그 값을 기본키로 둔다.** `holiday` 의 기본키는 `holiday_date` 다.
+대리키를 얹으면 아무도 안 쓰는 번호가 생기고, "같은 날이 두 번 들어가면 안 된다" 를
+기본키가 아니라 유니크 제약으로 따로 적게 된다. 달력·코드표가 이 꼴이다.
+
 ### 외래키
 
 **참조하는 테이블의 기본키 이름을 그대로 쓴다.** `sku.product_id` 는 `product.product_id` 를 가리킨다.

@@ -74,6 +74,14 @@ public enum ErrorCode {
     ORDER_EMPTY(HttpStatus.UNPROCESSABLE_ENTITY, "order-empty", "주문할 것이 없다"),
     OUT_OF_STOCK(HttpStatus.UNPROCESSABLE_ENTITY, "out-of-stock", "재고가 모자란다"),
 
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "order-not-found", "그런 주문이 없다"),
+    SELLER_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-order-not-found", "그런 셀러 주문이 없다"),
+
+    // 전이표에 없는 이동이다(`D7`). 422 인 이유는 요청 형식이 아니라 지금 상태가 못 받아서다 —
+    // 같은 요청이 상태가 달랐으면 통과한다.
+    ORDER_TRANSITION_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_ENTITY, "order-transition-not-allowed",
+            "지금 상태에서 할 수 없는 처리다"),
+
     // 주문에 쓰인 SKU 가 있으면 옵션 축을 못 바꾼다. 바꾸면 지나간 주문의 옵션 라벨이
     // 가리키던 것이 사라진다 — 영수증이 뜻을 잃는다.
     PRODUCT_OPTIONS_LOCKED(HttpStatus.UNPROCESSABLE_ENTITY, "product-options-locked",

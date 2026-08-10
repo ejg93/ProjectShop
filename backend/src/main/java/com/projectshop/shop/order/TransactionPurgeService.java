@@ -114,6 +114,17 @@ public class TransactionPurgeService {
                 .param("ids", orderIds)
                 .update();
 
+        // 상태 이력도 5년이다. 계약·청약철회 기록이라 주문과 같은 기간이고(`D2` R6),
+        // 주문을 restrict 로 잡고 있어서 안 지우면 아래 delete 가 통째로 실패한다.
+        jdbc.sql("""
+                        delete from order_status_history
+                         where order_id in (:ids)
+                            or seller_order_id in (
+                                select seller_order_id from seller_order where order_id in (:ids))
+                        """)
+                .param("ids", orderIds)
+                .update();
+
         jdbc.sql("delete from seller_order where order_id in (:ids)")
                 .param("ids", orderIds)
                 .update();

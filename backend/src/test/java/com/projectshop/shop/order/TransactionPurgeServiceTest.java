@@ -115,6 +115,20 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
         }
 
         @Test
+        @DisplayName("상태 이력도 같이 사라진다")
+        void takesItsHistoryWithIt() {
+            long orderId = orderClosedAt(NOW.minusYears(6));
+            insertHistory(orderId);
+
+            purgeService.purge(NOW);
+
+            assertThat(countOf("select count(*) from order_status_history"))
+                    .as("이력이 주문을 restrict 로 잡는다. 안 지우면 5년 파기가 통째로 실패한다(`V18`)")
+                    .isZero();
+            assertThat(orderExists(orderId)).isFalse();
+        }
+
+        @Test
         @DisplayName("아직 5년이 안 됐으면 남는다")
         void survivesWithinFiveYears() {
             long orderId = orderClosedAt(NOW.minusYears(4));
@@ -226,6 +240,24 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
                         """)
                 .param("sellerOrderId", sellerOrderId)
                 .param("skuId", skuId)
+                .update();
+    }
+
+    /** 두 층 모두 이력을 남긴다. 파기는 둘 다 걷어야 한다 */
+    private void insertHistory(long orderId) {
+        jdbc.sql("""
+                        insert into order_status_history (order_id, from_status, to_status, actor_type)
+                        values (:orderId, 'payment_pending', 'paid', 'system')
+                        """)
+                .param("orderId", orderId)
+                .update();
+
+        jdbc.sql("""
+                        insert into order_status_history (seller_order_id, from_status, to_status, actor_type)
+                        select seller_order_id, 'shipping', 'delivered', 'system'
+                          from seller_order where order_id = :orderId
+                        """)
+                .param("orderId", orderId)
                 .update();
     }
 
