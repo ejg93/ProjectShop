@@ -7,7 +7,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import com.projectshop.shop.PostgresTestBase;
 
@@ -122,9 +125,113 @@ class LoginAttemptTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * Redis 가 죽어도 로그인은 받고, 세는 자리만 프로세스 로컬로 옮긴다(`D14`).
+     *
+     * <p>여기서 보는 것은 <b>강등이지 통과가 아니라는 것</b>이다. 예외를 잡고 그냥 넘기면
+     * 장애 동안 남는 방어가 비밀번호 해시뿐이고 인증 실패 횟수 제한이 사라진다.
+     */
+    @Nested
+    @DisplayName("Redis 가 죽으면")
+    class RedisDown {
+
+        private FlakyRedisTemplate flakyRedis;
+        private LoginAttemptService degraded;
+
+        @BeforeEach
+        void breakRedis() {
+            flakyRedis = new FlakyRedisTemplate(redis.getRequiredConnectionFactory());
+            flakyRedis.afterPropertiesSet();
+            flakyRedis.setDown(true);
+
+            degraded = new LoginAttemptService(flakyRedis);
+        }
+
+        @Test
+        @DisplayName("차단 검사가 예외를 안 던진다")
+        void keepsAnswering() {
+            assertThat(degraded.isBlocked(EMAIL, IP))
+                    .as("예외가 새면 카운터를 못 읽는 것이 로그인 실패로 번진다 — Redis 장애가 로그인 정지가 된다")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("로컬 카운터가 대신 세서 다섯 번째에 잠긴다")
+        void stillBlocks() {
+            failWhileDown(5);
+
+            assertThat(degraded.isBlocked(EMAIL, IP))
+                    .as("그냥 통과시키면 장애 동안 무차별 대입을 아무도 안 막는다")
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("성공하면 로컬 카운터도 지워진다")
+        void resetClearsLocalCounter() {
+            failWhileDown(4);
+            degraded.reset(EMAIL, IP);
+            failWhileDown(4);
+
+            assertThat(degraded.isBlocked(EMAIL, IP)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Redis 가 돌아오면 장애 중에 센 것을 안 본다")
+        void ignoresLocalCounterAfterRecovery() {
+            failWhileDown(5);
+            flakyRedis.setDown(false);
+
+            assertThat(degraded.isBlocked(EMAIL, IP))
+                    .as("둘을 합치면 복구 뒤에 정상 사용자가 옛 실패로 잠긴다. 로컬 값은 15분이면 스스로 만료된다")
+                    .isFalse();
+        }
+
+        private void failWhileDown(int times) {
+            for (int i = 0; i < times; i++) {
+                degraded.recordFailure(EMAIL, IP);
+            }
+        }
+    }
+
     private void fail(int times) {
         for (int i = 0; i < times; i++) {
             attempts.recordFailure(EMAIL, IP);
+        }
+    }
+
+    /**
+     * 껐다 켤 수 있는 Redis.
+     *
+     * <p>컨테이너를 진짜로 내리면 뒤따르는 테스트가 같이 죽는다. 대신 이 템플릿만
+     * {@link RedisConnectionFailureException} 을 던진다 — 연결이 끊겼을 때 Spring Data Redis 가
+     * 실제로 던지는 것이고, 서비스는 그 상위인 {@code DataAccessException} 으로 잡는다.
+     */
+    private static final class FlakyRedisTemplate extends StringRedisTemplate {
+
+        private boolean down;
+
+        FlakyRedisTemplate(RedisConnectionFactory connectionFactory) {
+            super(connectionFactory);
+        }
+
+        void setDown(boolean down) {
+            this.down = down;
+        }
+
+        @Override
+        public ValueOperations<String, String> opsForValue() {
+            if (down) {
+                throw new RedisConnectionFailureException("테스트가 내린 Redis");
+            }
+            return super.opsForValue();
+        }
+
+        @Override
+        public Boolean delete(String key) {
+            if (down) {
+                throw new RedisConnectionFailureException("테스트가 내린 Redis");
+            }
+            return super.delete(key);
         }
     }
 }
