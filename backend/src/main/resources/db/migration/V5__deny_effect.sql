@@ -1,23 +1,7 @@
--- 허용만 쌓이는 구조에서는 우선순위 문제가 안 생긴다.
--- 역할을 여럿 가진 사용자에게 "이 역할이 허용해도 저 역할이 막는다" 를 표현하려고 효과를 둔다.
+-- deny 가 실제로 필요한 역할과 규칙을 넣는다.
+-- 효과 컬럼 자체는 role_permission 을 만드는 V2 에 있다 — 테이블 모양은 한 파일에 둔다.
 
-alter table role_permission add column effect text not null default 'allow';
-alter table role_permission add constraint role_permission_effect_check
-    check (effect in ('allow', 'deny'));
-
--- 기본키에 효과를 넣는다. 넣지 않으면 같은 역할·권한에 allow 와 deny 를 같이 못 달아서
--- "전체는 허용하되 일부는 막는다" 가 표현되지 않는다.
--- 효과당 스코프는 하나로 유지한다. 같은 효과가 두 스코프로 잡히면 어느 쪽이 이기는지 규칙이 하나 더 필요해진다.
-alter table role_permission drop constraint role_permission_pkey;
-alter table role_permission add primary key (role_id, permission_id, effect);
-
-comment on column role_permission.effect is
-    'allow=허용, deny=거부. 판정에서 deny 가 allow 를 이긴다';
-
-comment on column role_permission.scope is
-    'allow 면 허용 범위, deny 면 거부 범위. own=자기 것, seller=자기 상품이 걸린 것, all=전체';
-
--- 읽기전용 감사자. deny 가 실제로 필요한 역할이다.
+-- 읽기전용 감사자.
 --
 -- 권한을 안 주는 것과 deny 로 막는 것은 다르다.
 -- 안 주면 다른 역할이 그 권한을 허용할 때 통과한다. 사용자는 역할을 여럿 가질 수 있어서
@@ -58,5 +42,5 @@ where p.action not in ('read');
 insert into role_permission (role_id, permission_id, scope, effect)
 select r.role_id, p.permission_id, 'own', 'deny'
 from permission p
-join role r on r.code = 'seller'
+join role r on r.code = 'seller_owner'
 where p.resource = 'order' and p.action = 'update_status';

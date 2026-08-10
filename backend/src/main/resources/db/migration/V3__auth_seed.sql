@@ -1,10 +1,16 @@
 -- 역할과 권한의 초기 데이터.
 -- 사용자 계정은 넣지 않는다. 비밀번호 해시가 청크 5에서 정해지고, 여기서 만든 해시는 그때 못 쓴다.
 
-insert into role (code, name, description, is_system) values
-    ('customer', '고객',   '상품을 보고 주문한다',                  true),
-    ('seller',   '판매자', '자기 상품을 등록하고 그 상품의 주문을 처리한다', true),
-    ('admin',    '관리자', '모든 자원을 보고 역할과 권한을 편집한다',     true);
+-- 역할 코드에 'seller' 를 안 쓴다. 그 이름은 조직(seller 테이블)이 갖는다 —
+-- 둘이 같은 이름이면 "seller 를 지운다" 가 폐업인지 역할 회수인지 안 갈린다(D1).
+-- 판정 범위(role_permission.scope)의 'seller' 는 조직 범위라는 뜻이라 그대로 둔다.
+--
+-- 실무자 역할 seller_staff 는 여기 없다. 권한을 어디까지 줄지가 청크 5a 에서 정해지고,
+-- 권한 없는 역할을 미리 넣으면 판정 테스트가 빈 역할을 물고 돈다.
+insert into role (code, name, description, is_system, is_org_role) values
+    ('customer',     '고객',      '상품을 보고 주문한다',                       true, false),
+    ('seller_owner', '셀러 대표', '셀러의 상품을 등록하고 그 셀러의 주문을 처리한다', true, true),
+    ('admin',        '관리자',    '모든 자원을 보고 역할과 권한을 편집한다',        true, false);
 
 insert into permission (resource, action, description) values
     ('product', 'create',        '상품을 등록한다'),
@@ -60,7 +66,7 @@ from (values
     ('user',    'update',        'own')
 ) as v (resource, action, scope)
 join permission p on p.resource = v.resource and p.action = v.action
-join role r on r.code = 'seller';
+join role r on r.code = 'seller_owner';
 
 -- 관리자. 권한을 나열하지 않고 permission 전체를 all 스코프로 준다.
 -- 뒤 청크에서 권한이 늘어도 이 파일은 그대로 두고, 새로 추가된 권한만 그 청크의 마이그레이션이 붙인다.

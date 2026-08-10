@@ -54,7 +54,7 @@ where rp.effect = 'allow';
 insert into role_permission_field (role_id, permission_id, effect, permission_field_group_id)
 select rp.role_id, rp.permission_id, rp.effect, g.permission_field_group_id
 from role_permission rp
-join role r on r.role_id = rp.role_id and r.code = 'seller'
+join role r on r.role_id = rp.role_id and r.code = 'seller_owner'
 join permission p on p.permission_id = rp.permission_id and p.resource = 'order' and p.action = 'read'
 join permission_field_group g on g.resource = 'order' and g.code in ('basic', 'shipping')
 where rp.effect = 'allow';

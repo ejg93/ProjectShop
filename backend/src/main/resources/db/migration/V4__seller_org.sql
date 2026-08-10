@@ -17,6 +17,10 @@ create table seller (
     -- pending 으로 시작한다. 정보가 안 찬 셀러가 파는 일이 없게 하려는 것이다.
     status     text        not null default 'pending',
 
+    -- 수명. null 이면 존재한다. 폐업은 여기고 status 에 두지 않는다 —
+    -- 섞으면 복구할 때 이전 업무 상태를 잃는다(D4·D13).
+    deleted_at timestamptz,
+
     -- 법정 상호. name 은 화면에 쓰는 이름이라 상호와 다를 수 있다.
     business_name       text,
     representative_name text,
@@ -49,8 +53,9 @@ create table seller (
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
 
+    -- pending 은 남는다. 종료가 아니라 "아직 확인 전" 이라 수명이 아니라 업무 상태다.
     constraint seller_status_check
-        check (status in ('pending', 'active', 'suspended', 'closed')),
+        check (status in ('pending', 'active', 'suspended')),
 
     constraint seller_commission_bp_check
         check (commission_bp between 0 and 10000),
@@ -83,6 +88,10 @@ create table seller (
     )
 );
 
+comment on column seller.deleted_at is '수명. null 이면 존재한다. 업무 상태(status)와 축이 다르다';
+
+create index seller_alive_idx on seller (seller_id) where deleted_at is null;
+
 create trigger seller_set_updated_at
     before update on seller
     for each row execute function set_updated_at();
@@ -98,17 +107,24 @@ create table seller_member (
 
 create index seller_member_user_id_idx on seller_member (user_id);
 
--- 역할을 전역용과 조직용으로 가른다.
--- 전역 역할(관리자, 고객)은 대상이 없고, 조직 역할(판매자 쪽)은 반드시 셀러 하나를 가리킨다.
-alter table role add column is_org_role boolean not null default false;
+-- 역할 부여. 여기서 만드는 이유는 부여가 셀러를 가리킬 수 있어서다 —
+-- 셀러 테이블이 이 파일에서 서므로 그 뒤라야 외래키가 걸린다.
+--
+-- seller_id 가 null 이면 전역 부여다. 널을 포함한 컬럼은 기본키에 못 들어가서
+-- 대리키를 쓰고 중복은 아래 유니크 인덱스로 막는다.
+--
+-- role_id 가 restrict 인 것은 사용자가 달린 역할을 지우기 전에 회수부터 하게 만들려는 것이다.
+create table user_role (
+    user_role_id bigint      generated always as identity primary key,
+    user_id      bigint      not null references app_user (user_id) on delete cascade,
+    role_id      bigint      not null references role (role_id)     on delete restrict,
+    seller_id    bigint      references seller (seller_id)          on delete cascade,
+    granted_at   timestamptz not null default now()
+);
 
-update role set is_org_role = true where code = 'seller';
-
--- user_role 에 대상을 붙인다. null 이면 전역 부여다.
--- 널을 포함한 컬럼은 기본키에 못 들어가서 대리키로 바꾸고, 중복은 유니크 인덱스로 막는다.
-alter table user_role drop constraint user_role_pkey;
-alter table user_role add column user_role_id bigint generated always as identity primary key;
-alter table user_role add column seller_id bigint references seller (seller_id) on delete cascade;
+-- 판정 쿼리는 user_id 로 들어간다. 반대 방향("이 역할을 가진 사용자 목록")은 관리자 화면이 쓴다.
+create index user_role_user_id_idx on user_role (user_id);
+create index user_role_role_id_idx on user_role (role_id);
 
 create unique index user_role_unique_grant
     on user_role (user_id, role_id, coalesce(seller_id, 0));

@@ -36,8 +36,11 @@ where deleted_at is null     -- 업무 상태가 몇 개로 늘든 안 바뀐다
 
 ### 이미 섞여 있던 것을 고쳤다
 
-`V8__lifecycle_column.sql` 이 `app_user.status` 의 `withdrawn` 과 `seller.status` 의 `closed` 를
-`deleted_at` 으로 옮겼다. `suspended`(정지)는 복구되는 업무 상태라 `status` 에 남는다.
+`app_user.status` 의 `withdrawn` 과 `seller.status` 의 `closed` 를 `deleted_at` 으로 옮겼다.
+`suspended`(정지)는 복구되는 업무 상태라 `status` 에 남는다.
+
+**두 컬럼은 각 테이블의 `create` 문에 있다**(`V2`·`V4`). 처음에는 별도 마이그레이션이
+`alter` 로 붙였는데, 테이블 모양이 두 파일로 갈려서 `create` 로 합치고 그 파일을 지웠다(`D23`).
 
 ### 수명 컬럼을 안 두는 자원
 

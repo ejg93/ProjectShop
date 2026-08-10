@@ -73,7 +73,7 @@ class OrderConcurrencyTest extends PostgresTestBase {
     void setUp() {
         fixture = new AuthFixture(jdbc);
 
-        // 앞선 실행이 중간에 죽었으면 그 데이터가 컨테이너에 남아 있다(`withReuse`).
+        // 앞 테스트의 정리가 실패하면 그 데이터가 컨테이너에 남는다.
         // 이메일이 겹쳐서 시작도 못 하므로 만들기 전에 한 번 걷어낸다.
         cleanUp();
 
