@@ -313,6 +313,18 @@ jdbc.sql("set constraints all immediate").update();
 Spring 이 `UncategorizedSQLException` 으로 준다. `DataIntegrityViolationException` 이 아니다 —
 둘을 같이 받으려면 `DataAccessException` 으로 잡는다.
 
+### 시드를 한 번 넣은 DB 에는 새 마이그레이션이 안 들어간다
+
+데모 시드가 `V900` 이라 **적용 이력의 최고 버전이 900** 이 된다.
+그 뒤에 `V19` 같은 낮은 번호를 추가하면 Flyway 가 순서를 어긴 것으로 보고 기동을 막는다.
+
+```
+Detected resolved migration not applied to database: 19.
+```
+
+`local` 프로필로 한 번 띄운 로컬 DB 에서만 난다. **`docker compose down -v` 로 다시 만든다** —
+`out-of-order=true` 를 켜는 쪽은 안 골랐다. 그걸 켜면 진짜 순서 사고도 같이 통과한다.
+
 ### 422 와 `asText()` 는 이름이 바뀌었다
 
 빌드 경고 16개의 정체다. 둘 다 <b>기능이 없어진 것이 아니라 이름만 바뀐 것</b>이라
