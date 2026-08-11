@@ -65,7 +65,7 @@ class PermissionRuleEvaluationTest {
 
             assertThat(decide(rules, Target.ownedBy(OTHER)).allowed()).isTrue();
             assertThat(decide(rules, Target.ofSeller(BETA)).allowed()).isTrue();
-            assertThat(decide(rules, new Target(null, null)).allowed()).isTrue();
+            assertThat(decide(rules, new Target(null, null, null)).allowed()).isTrue();
         }
 
         @Test

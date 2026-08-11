@@ -130,10 +130,25 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("셀러 대표는 자기 셀러 주문의 상태를 바꾼다")
         void sellerAdvancesOrder() {
-            Decision decision = evaluator.decide(alphaSeller, "order", "update_status", Target.of(customer, alpha));
+            Decision decision = evaluator.decide(alphaSeller, "order", "update_status",
+                    Target.of(customer, alpha).inStatus("preparing"));
 
             assertThat(decision.allowed()).isTrue();
             assertThat(decision.reason()).contains("allow/seller");
+        }
+
+        /**
+         * 상태 축이 {@code decide} 를 지나면서 실제로 걸리는지 본다(11a).
+         * 표 자체는 {@code OrderStatusPolicyTest} 가 보고, 여기서는 <b>정책이 판정에 꽂혀 있는지</b>가 관심사다.
+         */
+        @Test
+        @DisplayName("배송완료를 지난 주문은 셀러 대표도 못 바꾼다")
+        void sellerCannotAdvanceDeliveredOrder() {
+            Decision decision = evaluator.decide(alphaSeller, "order", "update_status",
+                    Target.of(customer, alpha).inStatus("delivered"));
+
+            assertThat(decision.allowed()).isFalse();
+            assertThat(decision.reason()).contains("delivered");
         }
 
         @Test

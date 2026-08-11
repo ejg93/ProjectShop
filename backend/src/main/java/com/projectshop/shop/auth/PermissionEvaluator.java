@@ -14,15 +14,16 @@ import com.projectshop.shop.audit.AuditLog;
  * 한 사용자가 특정 자원에 특정 동작을 할 수 있는지를 한 군데서 판정한다.
  * 서비스 코드에 {@code if (order.sellerId != me.id)} 가 흩어지는 것을 막으려고 만든다.
  *
- * <p>판정에 쓰이는 축이 넷이다.
+ * <p>판정에 쓰이는 축이 다섯이다.
  * <ul>
  *   <li>권한 — {@code resource:action} 이 역할에 달려 있나</li>
  *   <li>스코프 — 그 권한이 어느 범위의 행에 미치나 (own, seller, all)</li>
  *   <li>조직 — 역할이 특정 셀러에 묶여 부여됐나</li>
  *   <li>효과 — allow 인가 deny 인가</li>
+ *   <li>상태 — 대상이 지금 그 동작을 열어 두는 상태인가 ({@link StatusPolicy})</li>
  * </ul>
  *
- * <p>자원의 상태가 권한을 깎는 축(청크 11a)과 응답 필드를 깎는 축(청크 4d)은 여기 없다.
+ * <p>응답 필드를 깎는 축(청크 4d)은 여기 없다.
  * 목록 조회에 스코프를 섞는 일(청크 8)도 여기가 아니다. 이 클래스는 행 하나에 대한 판정만 답한다.
  */
 @Component
@@ -30,10 +31,13 @@ public class PermissionEvaluator {
 
     private final PermissionRuleLoader loader;
     private final AuditLog auditLog;
+    private final List<StatusPolicy> statusPolicies;
 
-    PermissionEvaluator(PermissionRuleLoader loader, AuditLog auditLog) {
+    PermissionEvaluator(PermissionRuleLoader loader, AuditLog auditLog,
+            List<StatusPolicy> statusPolicies) {
         this.loader = loader;
         this.auditLog = auditLog;
+        this.statusPolicies = List.copyOf(statusPolicies);
     }
 
     /**
@@ -41,22 +45,29 @@ public class PermissionEvaluator {
      *
      * @param ownerUserId 이 행의 주인 계정. 주문이면 주문자, 계정이면 본인. 주인이 없으면 null
      * @param sellerId    이 행이 속한 셀러. 상품이면 파는 셀러, 주문이면 상품의 셀러. 셀러와 무관하면 null
+     * @param status      이 행이 지금 어느 상태인가. 주문이면 배송 상태다(`D7`). <b>안 실어 보내면
+     *                    상태 축이 걸린 동작에서 거부된다</b> — 빠뜨린 것이 조용히 허용으로 안 떨어진다
      */
-    public record Target(Long ownerUserId, Long sellerId) {
+    public record Target(Long ownerUserId, Long sellerId, String status) {
 
         /** 셀러와 무관하고 주인만 있는 행. 계정 정보 같은 것 */
         public static Target ownedBy(long userId) {
-            return new Target(userId, null);
+            return new Target(userId, null, null);
         }
 
         /** 주인 없이 셀러에만 속한 행. 상품 같은 것 */
         public static Target ofSeller(long sellerId) {
-            return new Target(null, sellerId);
+            return new Target(null, sellerId, null);
         }
 
         /** 주인과 셀러가 둘 다 있는 행. 주문이 여기 해당한다 */
         public static Target of(long ownerUserId, long sellerId) {
-            return new Target(ownerUserId, sellerId);
+            return new Target(ownerUserId, sellerId, null);
+        }
+
+        /** 같은 대상에 상태를 실는다. 상태 축이 걸린 동작을 판정하려면 이걸 거쳐야 한다 */
+        public Target inStatus(String status) {
+            return new Target(ownerUserId, sellerId, status);
         }
     }
 
@@ -136,7 +147,8 @@ public class PermissionEvaluator {
         List<Rule> rules = loader.loadRules(userId, resource, action);
         Decision decision = rules.isEmpty()
                 ? Decision.denyBecause("%s:%s 에 걸린 규칙이 하나도 없다".formatted(resource, action))
-                : evaluate(rules, loader.loadSellerMemberships(userId), userId, target);
+                : evaluate(rules, loader.loadSellerMemberships(userId), userId, target,
+                        allowedStatuses(resource, action));
 
         if (!decision.allowed()) {
             recordDenial(userId, resource, action, target, decision);
@@ -158,8 +170,25 @@ public class PermissionEvaluator {
         detail.put("reason", decision.reason());
         detail.put("owner_user_id", target.ownerUserId());
         detail.put("seller_id", target.sellerId());
+        detail.put("status", target.status());
 
         auditLog.record("permission.denied", userId, AuditLog.Target.ofType(resource), detail);
+    }
+
+    /**
+     * 이 동작에 상태 축이 걸려 있나. 걸려 있으면 어느 상태에서 열리나.
+     *
+     * <p>한 자원은 정책 하나가 맡는다. 둘이 같은 {@code resource:action} 에 답하면
+     * 먼저 등록된 것이 이기는데, <b>그 상황은 표가 두 벌이라는 뜻이라 애초에 만들지 않는다.</b>
+     */
+    private Allowed<String> allowedStatuses(String resource, String action) {
+        for (StatusPolicy policy : statusPolicies) {
+            Allowed<String> statuses = policy.allowedStatuses(resource, action);
+            if (statuses.restricted()) {
+                return statuses;
+            }
+        }
+        return Allowed.everything();
     }
 
     /**
@@ -173,6 +202,40 @@ public class PermissionEvaluator {
      * 따로 만들면 운영과 다른 것을 검증하게 된다.
      */
     static Decision evaluate(List<Rule> rules, Set<Long> memberOf, long userId, Target target) {
+        return evaluate(rules, memberOf, userId, target, Allowed.everything());
+    }
+
+    /**
+     * 상태 축까지 보고 판정한다.
+     *
+     * <p><b>상태를 규칙 뒤에 본다.</b> 먼저 보면 권한이 아예 없는 사용자도 "상태 때문에 막혔다" 는
+     * 이유를 받고, 그 이유로는 무엇이 문제인지 못 찾는다.
+     *
+     * <p><b>이 검사가 판정 밖으로 나가면 안 된다.</b> 서비스에 두면 "권한은 있는데 상태가 막는다" 가
+     * 판정 밖에서 결정돼서 거부가 감사에 안 남고, 새 경로를 만들 때 빠뜨려도 아무도 모른다.
+     *
+     * <p>상태를 안 보는 {@link #evaluate(List, Set, long, Target)} 는 <b>능력 목록(8a)이 쓴다</b> —
+     * "이 사람이 이 동작을 할 수 있는 역할인가" 는 특정 행의 상태와 무관한 질문이다.
+     * 상태별로 지금 무엇이 되는지는 그 주문을 조회할 때 답한다(청크 11c).
+     */
+    static Decision evaluate(List<Rule> rules, Set<Long> memberOf, long userId, Target target,
+            Allowed<String> allowedStatuses) {
+
+        Decision decision = evaluateRules(rules, memberOf, userId, target);
+        if (!decision.allowed() || !allowedStatuses.restricted()) {
+            return decision;
+        }
+        if (target.status() == null) {
+            return Decision.denyBecause("상태에 걸린 동작인데 대상의 상태가 안 실려 왔다");
+        }
+        if (!allowedStatuses.covers(target.status())) {
+            return Decision.denyBecause("상태가 %s 라 이 동작이 닫혀 있다".formatted(target.status()));
+        }
+        return decision;
+    }
+
+    private static Decision evaluateRules(List<Rule> rules, Set<Long> memberOf, long userId,
+            Target target) {
         for (Rule rule : rules) {
             if (rule.isDeny() && covers(rule, userId, memberOf, target)) {
                 return Decision.denyBy(rule);
