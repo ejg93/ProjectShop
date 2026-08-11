@@ -35,7 +35,9 @@ class OrderStatusPolicyTest {
     @Test
     @DisplayName("배송완료부터는 닫힌다")
     void updateStatusClosedAfterDelivery() {
-        assertThat(updateStatus().covers("delivered")).isFalse();
+        assertThat(updateStatus().covers("delivered"))
+                .as("셀러가 배송완료를 밀 수 있으면 청약철회 기산점이 옮겨진다")
+                .isFalse();
         assertThat(updateStatus().covers("confirmed")).isFalse();
         assertThat(updateStatus().covers("cancelled")).isFalse();
         assertThat(updateStatus().covers("returned")).isFalse();

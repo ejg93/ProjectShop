@@ -69,7 +69,9 @@ class StatusAxisTest {
     void missingStatusDenies() {
         Decision decision = decide(Target.ofSeller(ALPHA), ONLY_PREPARING);
 
-        assertThat(decision.allowed()).isFalse();
+        assertThat(decision.allowed())
+                .as("상태를 빠뜨린 경로가 축 없이 열리면 축을 만든 뜻이 없다")
+                .isFalse();
         assertThat(decision.reason()).contains("안 실려 왔다");
     }
 
@@ -82,8 +84,10 @@ class StatusAxisTest {
     void ruleDenialWinsOverStatus() {
         Decision decision = decide(Target.ofSeller(999L).inStatus("delivered"), ONLY_PREPARING);
 
+        assertThat(decision.reason())
+                .as("권한이 없어서 막힌 것을 상태 탓으로 답하면 권한 설정을 못 고친다")
+                .contains("범위 밖");
         assertThat(decision.allowed()).isFalse();
-        assertThat(decision.reason()).contains("범위 밖");
     }
 
     /**
@@ -95,6 +99,8 @@ class StatusAxisTest {
     void capabilityPathSkipsStatus() {
         Decision decision = evaluate(SELLER_CAN, Set.of(ALPHA), ME, Target.ofSeller(ALPHA));
 
-        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.allowed())
+                .as("여기서 상태가 걸리면 능력 목록에서 권한이 통째로 사라져 화면이 버튼을 안 그린다")
+                .isTrue();
     }
 }

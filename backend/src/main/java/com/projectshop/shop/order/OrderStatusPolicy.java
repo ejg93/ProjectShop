@@ -35,11 +35,11 @@ class OrderStatusPolicy implements StatusPolicy {
      * 권한도 같이 닫는다. 그래야 시도가 감사 로그에 남는다 — 도메인 예외로만 막으면
      * 누가 종착 주문을 계속 두드리는지 세는 자리가 없다.
      */
-    private static final Map<String, Set<String>> BY_ACTION = Map.of(
-            "update_status", Set.of(
+    private static final Map<String, Allowed<String>> BY_ACTION = Map.of(
+            "update_status", Allowed.only(Set.of(
                     Shipment.PREPARING.code(),
                     Shipment.SHIPPING.code(),
-                    Shipment.RETURN_REQUESTED.code()));
+                    Shipment.RETURN_REQUESTED.code())));
 
     /**
      * <b>관리자도 같이 걸린다.</b> 축은 규칙 위에 있어서 스코프로 비켜 갈 수 없다.
@@ -51,7 +51,6 @@ class OrderStatusPolicy implements StatusPolicy {
         if (!"order".equals(resource)) {
             return Allowed.everything();
         }
-        Set<String> statuses = BY_ACTION.get(action);
-        return statuses == null ? Allowed.everything() : Allowed.only(statuses);
+        return BY_ACTION.getOrDefault(action, Allowed.everything());
     }
 }

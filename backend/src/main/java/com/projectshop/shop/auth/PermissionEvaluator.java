@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.audit.AuditLog;
@@ -33,11 +34,15 @@ public class PermissionEvaluator {
     private final AuditLog auditLog;
     private final List<StatusPolicy> statusPolicies;
 
+    /**
+     * 상태 정책을 {@link ObjectProvider} 로 받는다. {@code List} 로 받으면 <b>구현이 하나도 없을 때
+     * 컨텍스트가 안 뜬다</b> — 축을 통째로 떼어 낼 수 있어야 "안 걸린 상태로 되돌린다" 가 성립한다.
+     */
     PermissionEvaluator(PermissionRuleLoader loader, AuditLog auditLog,
-            List<StatusPolicy> statusPolicies) {
+            ObjectProvider<StatusPolicy> statusPolicies) {
         this.loader = loader;
         this.auditLog = auditLog;
-        this.statusPolicies = List.copyOf(statusPolicies);
+        this.statusPolicies = statusPolicies.stream().toList();
     }
 
     /**
@@ -200,6 +205,10 @@ public class PermissionEvaluator {
      *
      * <p>테스트 전용 구현이 아니라 {@link #decide} 가 실제로 거쳐 가는 경로다.
      * 따로 만들면 운영과 다른 것을 검증하게 된다.
+     *
+     * <p><b>상태 축은 안 건다. 알고 남긴 구멍이다.</b> 능력 목록(8a)이 이 경로를 쓰는데,
+     * 거기에 상태를 걸면 배송완료 주문 하나 때문에 셀러의 「상태 변경」 권한이 목록에서 통째로 사라진다.
+     * <b>실제 접근을 허용하는 자리에서는 이걸 부르지 않는다</b> — 그쪽은 {@link #decide} 다.
      */
     static Decision evaluate(List<Rule> rules, Set<Long> memberOf, long userId, Target target) {
         return evaluate(rules, memberOf, userId, target, Allowed.everything());

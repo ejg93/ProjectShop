@@ -7,7 +7,8 @@ package com.projectshop.shop.auth;
  * 주문의 표는 {@code order} 가 들고 있다 — 반대로 하면 {@code auth → order} 의존이 생겨서
  * {@code auth ↔ audit} 에 이어 순환이 둘이 되고, 모듈을 쪼갤 때 막히는 자리가 는다(`D23`).
  *
- * <p>구현이 하나도 없으면 상태 축이 아무 동작에도 안 걸린다. 그것이 이 축을 넣기 전의 상태다.
+ * <p>구현이 하나도 없으면 상태 축이 아무 동작에도 안 걸린다 — 축을 넣기 전으로 되돌아간다.
+ * 그래서 판정이 이걸 {@code ObjectProvider} 로 받는다.
  */
 public interface StatusPolicy {
 

@@ -139,6 +139,7 @@ JSON    created_at      password_hash    is_required
 | 대상 | 규칙 | 예 |
 |---|---|---|
 | 판정·조회 서비스 | 명사 | `PermissionEvaluator`, `AuditLogQuery` |
+| 판정이 참고하는 표 | `<무엇>Policy` | `StatusPolicy`, `OrderStatusPolicy` |
 | 요청·응답 record | `<동작>Request` / `<동작>Response` | `SignupRequest`, `LoginResponse` |
 | 서비스 입력 record | `Command` (서비스 안에 중첩) | `SignupService.Command` |
 | 조회 조건 | `Criteria` | `AuditLogQuery.Criteria` |
