@@ -77,6 +77,11 @@ public enum ErrorCode {
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "order-not-found", "그런 주문이 없다"),
     SELLER_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-order-not-found", "그런 셀러 주문이 없다"),
 
+    // 주문 하나를 못 볼 때는 404 다(`D5`). 이건 목록에 쓴다 —
+    // 목록에는 가리키는 자원이 없어서 403 이 존재를 흘리지 않고,
+    // 0건과 못 봄이 갈려야 개수로 정보가 새지 않는다.
+    ORDER_FORBIDDEN(HttpStatus.FORBIDDEN, "order-forbidden", "주문을 볼 권한이 없다"),
+
     // 전이표에 없는 이동이다(`D7`). 422 인 이유는 요청 형식이 아니라 지금 상태가 못 받아서다 —
     // 같은 요청이 상태가 달랐으면 통과한다.
     ORDER_TRANSITION_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_CONTENT, "order-transition-not-allowed",
