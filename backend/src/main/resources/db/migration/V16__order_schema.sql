@@ -116,6 +116,14 @@ comment on table order_shipping is '배송지. 파기 대상이라 주문에서 
 create table seller_order (
     seller_order_id bigint not null generated always as identity primary key,
 
+    -- 바깥에 내보내는 번호(D9). 이 단위를 부르는 곳이 넷이다 —
+    -- 부분 취소·환불(12), 정산 명세의 한 줄(17~21), 반품 접수(43·44), 나중의 송장.
+    -- 주문번호+셀러코드로 가리키면 그 넷에 컬럼 둘로 나가고, 셀러 코드는 사람이 정하는 값이라
+    -- 이관·정정으로 바뀐다. 노출 번호는 한 번 내보내면 못 바꾸는 값이다(D9).
+    --
+    -- 앞에 S- 가 붙는다. 형식이 주문번호와 같으면 CS 가 눈으로 구분을 못 한다.
+    seller_order_number text not null,
+
     order_id  bigint not null references shop_order (order_id) on delete restrict,
     seller_id bigint not null references seller (seller_id)    on delete restrict,
 
@@ -143,6 +151,12 @@ create table seller_order (
     -- 한 주문에 같은 셀러가 두 줄로 들어가면 배송비가 두 번 붙는다.
     constraint seller_order_unique unique (order_id, seller_id),
 
+    constraint seller_order_number_unique unique (seller_order_number),
+
+    -- S-20260811-K3M9P7. 난수 집합은 주문번호와 같다 — 0·O·1·I 를 뺀 32자(D9).
+    constraint seller_order_number_format_check
+        check (seller_order_number ~ '^S-[0-9]{8}-[2-9A-HJ-NP-Z]{6}$'),
+
     constraint seller_order_status_check
         check (status in ('preparing', 'shipping', 'delivered', 'confirmed',
                           'cancelled', 'return_requested', 'returned')),
@@ -157,6 +171,40 @@ create table seller_order (
 
 create index seller_order_seller_idx on seller_order (seller_id, created_at desc);
 create index seller_order_order_idx  on seller_order (order_id);
+
+
+-- 셀러에게 보이는 셀러 주문.
+--
+-- 결제가 끝난 것만 든다. 셀러가 할 일이 생기는 시점이 결제 완료고, 만료·실패는 거래가 안 선 것이라
+-- 셀러의 목록에 있을 이유가 없다. 결제 대기 건이 보이면 셀러가 아직 안 팔린 것을 준비한다.
+--
+-- 조회 쿼리마다 조건을 적지 않고 뷰로 둔 이유는 이 조건이 늘기 때문이다 —
+-- 청크 12 가 가상계좌 입금 대기와 부분 환불을 들고 온다. 쿼리에 흩어 두면 새 조회에서 빠뜨리고,
+-- 빠뜨리면 미결제 건이 셀러에게 새면서 오류는 안 난다.
+--
+-- 청크 12 가 shop_order.paid_at 을 만들면 이 조건을 그쪽으로 옮긴다.
+-- 상태 목록이 몇 개로 늘든 "결제가 성립했나" 는 한 컬럼으로 답한다.
+--
+-- 조회 전용이다. 전이는 실테이블을 update 한다 — 뷰를 거치면 무엇이 갱신 가능한지가 흐려진다.
+create view seller_order_visible as
+select so.seller_order_id,
+       so.seller_order_number,
+       so.order_id,
+       so.seller_id,
+       so.status,
+       so.shipping_fee,
+       so.delivered_at,
+       so.withdrawal_expire_at,
+       so.auto_confirm_at,
+       so.closed_at,
+       so.created_at,
+       so.updated_at
+  from seller_order so
+  join shop_order o on o.order_id = so.order_id
+ where o.status = 'paid';
+
+comment on view seller_order_visible is
+    '셀러에게 보이는 셀러 주문. 결제가 끝난 것만 든다(11c-2)';
 
 create trigger seller_order_set_updated_at
     before update on seller_order

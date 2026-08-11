@@ -313,10 +313,12 @@ class ProductServiceTest extends PostgresTestBase {
                     .single();
 
             long sellerOrderId = jdbc.sql("""
-                            insert into seller_order (order_id, seller_id, shipping_fee)
-                            values (:orderId, :sellerId, 0)
+                            insert into seller_order (seller_order_number, order_id, seller_id,
+                                                      shipping_fee)
+                            values (:number, :orderId, :sellerId, 0)
                             returning seller_order_id
                             """)
+                    .param("number", com.projectshop.shop.order.OrderFixture.sellerOrderNumber())
                     .param("orderId", orderId)
                     .param("sellerId", sellerA)
                     .query(Long.class)

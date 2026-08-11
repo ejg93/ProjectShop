@@ -338,10 +338,11 @@ class OrderSchemaTest extends PostgresTestBase {
 
     private long insertSellerOrder(long orderId, long seller, long shippingFee) {
         return jdbc.sql("""
-                        insert into seller_order (order_id, seller_id, shipping_fee)
-                        values (:orderId, :sellerId, :fee)
+                        insert into seller_order (seller_order_number, order_id, seller_id, shipping_fee)
+                        values (:number, :orderId, :sellerId, :fee)
                         returning seller_order_id
                         """)
+                .param("number", OrderFixture.sellerOrderNumber())
                 .param("orderId", orderId)
                 .param("sellerId", seller)
                 .param("fee", shippingFee)

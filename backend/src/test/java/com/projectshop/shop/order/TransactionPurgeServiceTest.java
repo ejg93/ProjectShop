@@ -222,10 +222,12 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
 
     private void insertSellerOrder(long orderId, OffsetDateTime closedAt, long seller) {
         long sellerOrderId = jdbc.sql("""
-                        insert into seller_order (order_id, seller_id, shipping_fee, closed_at)
-                        values (:orderId, :sellerId, 0, :closedAt)
+                        insert into seller_order (seller_order_number, order_id, seller_id,
+                                                  shipping_fee, closed_at)
+                        values (:number, :orderId, :sellerId, 0, :closedAt)
                         returning seller_order_id
                         """)
+                .param("number", OrderFixture.sellerOrderNumber())
                 .param("orderId", orderId)
                 .param("sellerId", seller)
                 .param("closedAt", closedAt)

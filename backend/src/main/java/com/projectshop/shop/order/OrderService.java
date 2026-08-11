@@ -236,16 +236,7 @@ public class OrderService {
         }
 
         bySeller.forEach((sellerId, sellerLines) -> {
-            long sellerOrderId = jdbc.sql("""
-                            insert into seller_order (order_id, seller_id, shipping_fee)
-                            values (:orderId, :sellerId, :fee)
-                            returning seller_order_id
-                            """)
-                    .param("orderId", orderId)
-                    .param("sellerId", sellerId)
-                    .param("fee", shippingFees.get(sellerId))
-                    .query(Long.class)
-                    .single();
+            long sellerOrderId = insertSellerOrder(orderId, sellerId, shippingFees.get(sellerId));
 
             for (Line line : sellerLines) {
                 jdbc.sql("""
@@ -267,6 +258,36 @@ public class OrderService {
                         .update();
             }
         });
+    }
+
+    /**
+     * 셀러 묶음 하나를 넣는다. <b>노출 번호를 여기서 뽑는다</b>(`D9`).
+     *
+     * <p>주문번호와 같은 방식으로 부딪히면 다시 뽑는다. 재시도 수도 같은 상수를 쓴다 —
+     * 두 번호가 같은 난수 집합에서 나오므로 충돌 확률도 같고, 따로 두면 한쪽만 고치는 날이 온다.
+     */
+    private long insertSellerOrder(long orderId, long sellerId, long shippingFee) {
+        for (int attempt = 1; attempt <= NUMBER_RETRIES; attempt++) {
+            try {
+                return jdbc.sql("""
+                                insert into seller_order (seller_order_number, order_id,
+                                                          seller_id, shipping_fee)
+                                values (:number, :orderId, :sellerId, :fee)
+                                returning seller_order_id
+                                """)
+                        .param("number", nextSellerOrderNumber())
+                        .param("orderId", orderId)
+                        .param("sellerId", sellerId)
+                        .param("fee", shippingFee)
+                        .query(Long.class)
+                        .single();
+            } catch (DuplicateKeyException e) {
+                if (attempt == NUMBER_RETRIES) {
+                    throw new ShopException(ErrorCode.INTERNAL, "셀러 주문번호를 못 뽑았다");
+                }
+            }
+        }
+        throw new IllegalStateException("여기 올 수 없다");
     }
 
     /** 셀러마다 한 번씩 붙는다. 한 셀러 것을 여럿 사도 배송비는 하나다 */
@@ -332,10 +353,24 @@ public class OrderService {
 
     /** {@code 20260809-7QX4M2}. 날짜는 CS 용이고 뒤는 순번을 가린다(`D9`) */
     private static String nextOrderNumber() {
+        return LocalDate.now(KST).format(ORDER_DATE) + "-" + randomPart();
+    }
+
+    /**
+     * 셀러 묶음의 노출 번호. <b>{@code S-} 로 시작한다</b>(`D9`).
+     *
+     * <p>주문번호와 형식이 같으면 전화로 번호를 받는 자리에서 어느 쪽인지 못 가른다.
+     * 접두어 하나가 그것을 가른다.
+     */
+    private static String nextSellerOrderNumber() {
+        return "S-" + LocalDate.now(KST).format(ORDER_DATE) + "-" + randomPart();
+    }
+
+    private static String randomPart() {
         StringBuilder random = new StringBuilder(NUMBER_RANDOM_LENGTH);
         for (int i = 0; i < NUMBER_RANDOM_LENGTH; i++) {
             random.append(NUMBER_ALPHABET[RANDOM.nextInt(NUMBER_ALPHABET.length)]);
         }
-        return LocalDate.now(KST).format(ORDER_DATE) + "-" + random;
+        return random.toString();
     }
 }
