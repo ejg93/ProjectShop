@@ -4,9 +4,9 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: **`11c` 축이 전부 끝났다.** `PLAN.md` 분할표에서 선행이 `완료` 인 다음 청크를 잡는다.
-  가까운 후보는 **`35c` HTTP 층 상품 픽스처**(`12` 결제 앞이 마지노선),
-  **`10c` 충돌 재시도**(`D11` 이 정해 뒀고 거는 곳이 `OrderStatusBatch` 에 있다),
+- **다음에 할 것**: **`4b-2` 거부 기록이 롤백에 안 쓸리게.** 이번 세션에서 실서버 확인 중에 나왔고,
+  **감사 로그로 시도를 세는 것이 지금 성립 안 한다**(경로마다 남는 것과 안 남는 것이 갈려 있다).
+  그다음 후보는 **`10c` 충돌 재시도**(거는 곳이 `OrderStatusBatch` 에 있다),
   **`13-0` 디자인 취향 스킬 설치**(화면 축을 열기 전에 깐다).
 
   **주문 축이 관통했다.** 생성 → 결제 → 발송 → 배송완료 → 확정·반품이 HTTP 로 이어지고,
@@ -26,11 +26,16 @@
   **`5c-1`(비밀번호 재설정 토큰)은 전달 수단이 없어서 미뤘다** — 메일 발송이 청크 54 고
   `A09` 가 로그에 토큰을 남기지 말라고 해서 로그로도 못 흘린다.
 
-- **환경 상태**: **`V17`·`V20` 을 건드렸으므로 로컬 DB 는 `docker compose down -v` 로 다시 만들어야 한다.**
-  `11c-3a` 는 테스트로만 확인했다(`./gradlew build` 통과, 테스트가 컨테이너를 스스로 띄운다) —
-  **실서버로는 안 띄워 봤다.** 그 전 상태는 `V16` 을 고쳐서 다시 만든 DB 고
-  `applied_migrations` 17(마이그레이션 16 + 시드), `shop-db`·`shop-redis` 가 `healthy` 였다.
-  **앱은 꺼 둔 상태다.**
+- **환경 상태**: `docker compose down -v` 로 DB 를 다시 만들고 `local` 프로필로 띄워 **실서버로 확인했다.**
+  `applied_migrations` **18**(마이그레이션 17 + 시드), `shop-db`·`shop-redis` 가 `healthy`.
+  **앱은 확인 뒤 꺼 뒀다. 컨테이너는 떠 있다.**
+
+  **실서버에서 본 것** — 로그인 → 담기(204) → **주문 생성 201**(고치기 전엔 언제나 500) →
+  같은 키 재전송이 같은 응답을 주고 주문은 1건 → 상세에 `seller_order_number`·`allowed_actions` →
+  **구매자의 발송 시도 404**, 구매자의 취소 204 → 재고 복구·`closed_at`·이력 한 줄.
+  요청마다 추적 ID 가 다른 것도 확인했다(`D16`).
+
+  **확인하다 결함 하나 더 나왔다** — 거부가 감사에 안 남는다. 아래 「열린 것」의 `4b-2`.
   `/api/orders`·`/api/seller/orders` 가 실서버에서 401 로 응답하는 것까지 봤다(경로가 실제로 섰다는 뜻). 데모 데이터가 필요하면 `./gradlew bootRun --args='--spring.profiles.active=local'`.
   **시드를 한 번 넣은 DB 에는 새 마이그레이션이 안 들어간다** — `V900` 때문에 순서를 어긴 것으로 보고
   기동이 막힌다. 마이그레이션을 추가하면 `docker compose down -v` 부터 한다(`stack.md`).
@@ -95,6 +100,7 @@
 | 충돌 재시도(`40001`·`40P01`) | `10c`. **거는 곳이 하나 생겼다** — `OrderStatusBatch` 의 건 루프(`D19` 1층) | 안 급함 |
 | 반품 시 재고 복구 여부 | `43`·`44`. 검수 결과라 상태만으로 못 정한다 | 그 청크에서 |
 | ~~HTTP 층 상품 픽스처~~ | **완료** — `givenSellableProduct`. **버그 둘을 잡았다**(아래 이력) | |
+| **거부가 감사에 안 남는다** | `4b-2`. `AuditLog.record` 가 `REQUIRED` 라 **`@Transactional` 서비스 안의 거부는 예외와 함께 롤백된다.** 실서버에서 확인했다 — 남의 발송 경로를 두드렸는데 `audit_log` 0줄 | **급하다** — 감사로 시도를 세는 것이 지금 성립 안 한다 |
 | 캡차·Redis 강등 `WARN` | `5d`·`5c-2`. `2b` 가 끝나서 막힌 것 없음 | 그 청크에서 |
 | 2026 공휴일 음력·대체공휴일 | 미검증. 운영에서 관공서 공고와 대조 | 실서비스면 급함 |
 
@@ -111,6 +117,9 @@
   실제로 도는 자리라, **지연 제약을 새로 걸면 이 층에 관통 하나를 같이 둔다**
 - **HTTP 층 정리는 한 트랜잭션이어야 한다.** 나눠 지우면 `order_item` 만 지운 커밋에서
   금액 등식이 깨진다. `HttpTestBase.cleanUp` 이 `TransactionTemplate` 으로 묶는다
+- **`@Transactional` 서비스 안에서 거부하면 감사 기록이 같이 롤백된다**(`4b-2`).
+  `AuditLog.record` 가 `REQUIRED` 라서다. **새 거부 경로를 만들 때 그 기록이 실제로 남는지 본다** —
+  `@Transactional` 이 없는 조회 서비스는 남고 있는 서비스는 안 남는다
 - **트리거의 `raise exception` 은 `DataIntegrityViolationException` 이 아니다.**
   SQLSTATE 가 `P0001` 이라 `UncategorizedSQLException` 으로 온다. `DataAccessException` 으로 잡는다
 - **테스트에서 "아직 없는 경로" 의 404 에 기대지 않는다.** `AuthLoginTest` 가 `/api/orders` 의
@@ -399,6 +408,8 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-12 | 7e. 상품 상태를 enum 으로 | 완료 — `ProductStatus`·`SkuStatus` 신설, `ProductTransitions`·`ProductReviewService`·`ProductQuery`·`ProductService` 수정, `ProductStatusTest` 신설 4개, `ProductTransitionsTest` 수정, `D23` 갱신. `D23-1` 이 세운 규칙에 상품 축을 맞췄다 — 리터럴 13곳이 타입이 됐고 전이표도 enum 을 든다. **enum 을 둘로 만들었다** — `product.status` 와 `sku.status` 가 둘 다 `on_sale` 을 쓰는데 목록이 다르다(조합은 검수도 제재도 없다). 하나로 두면 `sku` 자리에 `draft` 를 넣어도 컴파일이 통과하고, 문자열이면 검색으로도 안 갈린다. **대조 테스트를 뒀다** — `pg_get_constraintdef` 로 제약 정의를 읽어 값을 뽑고 enum 과 맞춘다. **목록을 테스트에 손으로 또 적지 않았다** — 그러면 세 번째 사본이 생기고, 그게 이 테스트가 막으려는 것이다. 어긋나는 방향마다 증상이 달라서 둘 다 늦게 드러난다: DB 에만 있으면 읽는 순간 `of()` 가 터지고(조회가 통째로 500), 코드에만 있으면 `update` 가 `check` 에 걸려 **절대 성공하지 않는 전이**가 표에 남는다. **응답 변환도 enum 을 지나게 했다** — `toUpperCase` 만 하면 DB 의 모르는 값이 그대로 화면에 나간다. **SQL 텍스트 안의 리터럴은 안 바꿨다**(처분: `D23` 에 근거 기록) — `where p.status = 'on_sale'` 은 자바 식별자가 아니라 그 쿼리의 조건 자체고, `:status` 로 빼면 쿼리만 봐서 무엇을 거르는지 안 보인다. 대신 **읽기 쪽 오타가 0건을 조용히 준다**는 것을 밝히고, 쓰기 쪽은 `check` 가 잡는다는 것도 같이 적었다. 세 패키지 6파일이 돼서 청크가 안 떨어지는 것도 이유다. 테스트 485개 통과, 빌드 경고 0 | |
 
 | 2026-08-12 | 35c. HTTP 층 상품 픽스처 | 완료 — `HttpTestBase` 에 `givenSellableProduct`·`givenSellerOwner`·`postWithIdempotencyKey` 추가와 정리 확장, `HttpFlowTest` 에 「사고 파는 관통」 4개, `V17`·`ApiExceptionHandler` 수정, `stack.md` 갱신. **버그 둘이 나왔고 둘 다 이 층이 아니면 안 잡혔다.** **(1) `POST /api/orders` 가 실서버에서 언제나 500 이었다.** `V17` 의 지연 트리거가 `new.response_body` 를 보는데 **`NEW` 는 그 트리거를 걸어 준 문장 시점의 행**이라, `insert`(응답 null)로 걸린 예약분이 커밋 때 null 을 들고 터진다. 뒤에 `update` 로 채워도 그 예약분은 안 바뀐다 — **즉 그 트리거는 절대 통과할 수 없었다.** 행을 다시 읽도록 고쳤다. `V16` 의 `assert_order_amounts` 가 처음부터 그 모양이었는데 `V17` 만 `NEW` 를 믿었다. **왜 아무도 몰랐나** — `PROGRESS.md` 가 이미 경고한 자리다. 지연 트리거는 `@Transactional` 테스트에서 안 돌고, `10-0`·`10-2` 의 테스트 30개가 전부 롤백 층이었다. **HTTP 층이 커밋을 일으키는 유일한 층이라 여기서 처음 드러났다.** **(2) `ApiExceptionHandler` 가 500 원인을 로그에 안 남겼다.** 주석에 "원인은 로그에 남기고" 라고 적혀 있는데 코드가 없었다 — 응답에는 `trace_id` 가 나가는데 **그 ID 로 찾을 줄이 없었다**(`D16`). 스택까지 남기게 고쳤고, **이걸 안 고쳤으면 (1)의 원인을 못 찾았다.** **픽스처는 파는 쪽까지 통째로 세운다** — 셀러 생성·신원 확인·대표 부여·상품 `on_sale`·SKU. 그 벽 때문에 청크 9 가 장바구니 병합을 서비스 층에만 남겼었다. **시드를 안 쓴다** — `local` 프로필이라 테스트가 안 태우고, 태우면 테스트가 시드 데이터에 기대게 된다. **정리를 한 트랜잭션으로 묶었다**(`TransactionTemplate`) — 나눠 지우면 `order_item` 만 지운 커밋에서 `order_item_amounts_check` 가 터진다. 순서는 외래키 순서다(이력 → 항목 → 묶음 → 주문 → SKU → 상품 → 셀러 → 계정). **`Idempotency-Key` 를 싣는 메서드를 만들었다** — 필터로 강제하지 않은 것이 의도였으므로(`10-0`) 이 층이 헤더가 실제로 요구되는지 확인하는 유일한 자리다. 관통 넷: 담기→주문→내 주문, 셀러 목록→발송, 상세의 `seller_order_number`·`allowed_actions`, 모르는 묶음 번호 404. 테스트 489개 통과, 빌드 경고 0. **실서버로는 안 띄웠다** — `V17` 을 고쳤으니 `docker compose down -v` 가 먼저다 | |
+
+| 2026-08-12 | 35c-1. 실서버 확인 | 완료 — `docker compose down -v` 로 DB 를 다시 만들고 `local` 프로필로 띄워 관통을 손으로 밟았다. `applied_migrations` 18. **`V17` 수정이 실제로 먹는 것을 봤다** — 로그인 → 담기 204 → **주문 생성 201**(고치기 전엔 언제나 500). 같은 `Idempotency-Key` 재전송이 같은 응답을 주고 주문은 1건, 상세에 `seller_order_number`·`allowed_actions`, **구매자의 발송 시도 404**·취소 204, 취소 뒤 재고 복구·`closed_at`·이력 한 줄. 요청마다 추적 ID 가 다른 것도 확인. **확인하다 결함이 하나 더 나왔다** — `audit_log` 의 `permission.denied` 가 **0줄**이었다. `AuditLog.record` 가 `Propagation.REQUIRED` 라 업무 트랜잭션에 얹혀 가는데, `OrderActionService.run` 이 `@Transactional` 이고 거부로 `ShopException` 을 던지면 **그 거부 기록까지 같이 롤백된다.** `AuditLog` 의 javadoc 이 「권한 거부는 어차피 쓰기를 안 하므로 이 선택에 안 걸린다」고 적어 뒀는데 **`11c-3a` 가 트랜잭션 안에서 판정하는 서비스를 만들면서 그 전제가 깨졌다.** `ProductReviewService.authorize` 도 같은 모양이다. 판정이 트랜잭션 밖인 경로(`/api/audit-logs` 403)는 그대로 남아서 **경로마다 남는 것과 안 남는 것이 갈려 있다** — 감사로 시도를 세는 것이 지금 성립 안 한다. 처분: **`4b-2` 신규**. 거짓이 된 javadoc 에 그 사실과 청크 번호를 적어 뒀다 — 다음 사람이 읽고 믿으면 안 된다. **고치는 것은 다음 세션이다**(전부 `REQUIRES_NEW` 로 빼면 「안 일어난 일이 기록에 남는다」는 `4b` 의 원래 근거가 반대로 깨져서, 사건 종류로 가를지부터 정해야 한다). 앱은 확인 뒤 껐고 컨테이너는 띄워 뒀다 | |
 
 ## 기록 규칙
 

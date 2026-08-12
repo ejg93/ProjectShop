@@ -18,7 +18,15 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p><b>업무 트랜잭션에 얹혀 간다.</b> 역할 부여가 롤백되면 그 기록도 같이 사라진다.
  * 안 일어난 일이 기록에 남지 않게 하려는 것이다. 대신 "시도했지만 실패했다" 는 안 남는다.
- * 권한 거부는 어차피 쓰기를 안 하므로 그 부분은 이 선택에 안 걸린다.
+ *
+ * <p><b>「권한 거부는 어차피 쓰기를 안 하므로 안 걸린다」는 전제가 깨졌다.</b>
+ * {@code @Transactional} 서비스 안에서 판정하고 거부로 예외를 던지면 <b>그 거부 기록까지 롤백된다.</b>
+ * {@code OrderActionService.run}·{@code ProductReviewService.authorize} 가 그 모양이고,
+ * 청크 {@code 35c} 가 실서버에서 확인했다 — 구매자가 남의 발송 경로를 두드렸는데
+ * {@code audit_log} 에 한 줄도 안 남았다.
+ *
+ * <p>판정 밖에서 기록하는 경로({@code /api/audit-logs} 의 403 처럼 트랜잭션이 없는 조회)는
+ * 그대로 남는다. <b>즉 경로마다 남는 것과 안 남는 것이 갈려 있다.</b> 청크 {@code 4b-2} 가 정한다.
  */
 @Component
 public class AuditLog {
