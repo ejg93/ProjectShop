@@ -47,10 +47,30 @@ create index idempotency_key_created_idx on idempotency_key (created_at);
 --
 -- check 로 못 거는 이유는 insert 시점에는 응답을 아직 모르기 때문이다.
 -- Postgres 의 check 는 지연시킬 수 없어서(deferrable 을 못 붙인다) 트리거로 간다.
+--
+-- NEW 를 보지 않고 행을 다시 읽는다. NEW 는 이 트리거를 걸어 준 문장 시점의 값이라
+-- insert 로 걸린 것은 언제나 response_body 가 null 이다 — 뒤에 update 로 채워도 그 예약분은
+-- null 을 들고 커밋 시점에 터진다. 즉 NEW 를 믿으면 이 트리거는 절대 통과할 수 없다.
+--
+-- 청크 35c 가 HTTP 층에서 잡았다. 그때까지 통합 테스트가 전부 롤백해서 이 트리거가 한 번도
+-- 안 돌았고, 그래서 POST /api/orders 가 실서버에서 언제나 500 이었다.
+--
+-- V16 의 assert_order_amounts 가 같은 이유로 같은 모양이다 — 지연 트리거는 NEW 를 안 믿고
+-- 커밋 시점의 값을 다시 조회한다.
 create or replace function check_idempotency_response() returns trigger
 language plpgsql as $$
+declare v_body jsonb;
 begin
-    if new.response_body is null then
+    select response_body into v_body
+      from idempotency_key
+     where idempotency_key_id = new.idempotency_key_id;
+
+    -- 같은 트랜잭션에서 지워졌다. 검사할 것이 없다.
+    if not found then
+        return null;
+    end if;
+
+    if v_body is null then
         raise exception '멱등키에 응답이 안 붙었다 (key=%)', new.key_value;
     end if;
     return null;

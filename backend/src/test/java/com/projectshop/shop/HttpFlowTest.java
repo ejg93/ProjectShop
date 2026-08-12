@@ -392,6 +392,157 @@ class HttpFlowTest extends HttpTestBase {
         }
     }
 
+    /**
+     * 사는 사람이 담고 주문하고, 파는 사람이 그것을 처리한다.
+     *
+     * <p><b>여기가 상품 픽스처의 첫 호출자다</b>(`35c`). 그 전까지 이 층은 상품이 필요한 흐름을
+     * 하나도 못 덮었다 — 셀러·신원확인·검수까지 세워야 해서 청크 9 가 장바구니 병합을
+     * 서비스 층에만 남겼다.
+     *
+     * <p>규칙 하나하나는 통합 층이 본다. 여기서 보는 것은 <b>여섯 경로가 실제 HTTP 로 이어지느냐</b>다 —
+     * 담기·주문·구매자 조회·셀러 조회·발송·확정. 하나라도 끊기면 화면이 못 만든다.
+     */
+    @Nested
+    @DisplayName("사고 파는 관통")
+    class Commerce {
+
+        @Test
+        @DisplayName("담고 주문하면 주문번호가 나오고 내 주문에서 보인다")
+        void buysAndSeesOwnOrder() {
+            SellableProduct product = givenSellableProduct(12000, 5);
+            Session buyer = loggedIn("buyer");
+
+            Response added = addToCart(buyer, product.skuId(), 2);
+            assertThat(added.status().value())
+                    .as("담기는 돌려줄 본문이 없다(`D5`). 본문: %s", added.body())
+                    .isEqualTo(204);
+
+
+            // 커밋까지 가는 유일한 층이다. 지연 트리거가 실제로 도는 자리라 상태 코드만 보지 않고
+            // 본문을 같이 남긴다 — 500 이 나면 그 본문의 trace_id 로 로그를 찾는다.
+            Response created = placeOrder(buyer, cartItemIdOf("buyer"));
+            assertThat(created.status().value())
+                    .as("주문 생성이 커밋까지 가야 한다. 본문: %s", created.body())
+                    .isEqualTo(201);
+            assertThat(created.body()).contains("\"order_number\"");
+
+            Response mine = buyer.get("/api/orders");
+            assertThat(mine.is(200)).isTrue();
+            assertThat(mine.body())
+                    .as("배송비까지 더한 값이 결제할 금액이다")
+                    .contains("\"payable_amount\"");
+        }
+
+        @Test
+        @DisplayName("셀러가 자기 묶음을 보고 발송한다")
+        void sellerShipsOwnBundle() {
+            SellableProduct product = givenSellableProduct(9000, 3);
+            Session buyer = loggedIn("shipbuyer");
+            addToCart(buyer, product.skuId(), 1);
+            placeOrder(buyer, cartItemIdOf("shipbuyer"));
+            payAll();
+
+            Session seller = loggedIn("shipseller");
+            givenSellerOwner(userIdOf("shipseller"), product.sellerId());
+
+            Response list = seller.get("/api/seller/orders");
+            assertThat(list.is(200)).isTrue();
+            assertThat(list.body()).contains("\"seller_order_number\"");
+
+            String number = sellerOrderNumberOf(product.sellerId());
+            assertThat(seller.post("/api/shipments/" + number + "/ship", null).is(204))
+                    .as("셀러 처리 경로가 안 열리면 주문이 영원히 준비중이다")
+                    .isTrue();
+        }
+
+        /**
+         * `11c-3b` 가 내리기 시작한 값이다. <b>화면이 이걸로 버튼을 그린다</b> —
+         * 안 나오면 화면이 역할 이름으로 판단하게 된다(`D20`).
+         */
+        @Test
+        @DisplayName("상세가 지금 할 수 있는 것을 같이 내린다")
+        void detailCarriesAllowedActions() {
+            SellableProduct product = givenSellableProduct(15000, 2);
+            Session buyer = loggedIn("actions");
+            addToCart(buyer, product.skuId(), 1);
+            placeOrder(buyer, cartItemIdOf("actions"));
+            payAll();
+
+            Response detail = buyer.get("/api/orders/" + orderNumberOf("actions"));
+
+            assertThat(detail.is(200)).isTrue();
+            assertThat(detail.body())
+                    .as("묶음을 가리킬 번호가 없으면 화면이 동작을 못 부른다")
+                    .contains("\"seller_order_number\"")
+                    .contains("\"allowed_actions\":[\"CANCEL\"]");
+        }
+
+        @Test
+        @DisplayName("모르는 묶음 번호는 없는 것과 같다")
+        void unknownShipmentLooksMissing() {
+            Session buyer = loggedIn("missing");
+
+            assertThat(buyer.post("/api/shipments/S-20260101-ZZZZZZ/cancel", null).is(404))
+                    .as("403 이면 번호를 훑어 실재하는 묶음의 지도가 그려진다(`D5`)")
+                    .isTrue();
+        }
+    }
+
+    private Response addToCart(Session session, long skuId, int quantity) {
+        return session.post("/api/cart/items", """
+                {"sku_id": %d, "quantity": %d}
+                """.formatted(skuId, quantity));
+    }
+
+    private Response placeOrder(Session session, long cartItemId) {
+        return session.postWithIdempotencyKey("/api/orders", """
+                {
+                  "cart_item_ids": [%d],
+                  "shipping": {
+                    "receiver_name": "홍길동", "receiver_phone": "010-0000-0000",
+                    "postal_code": "06134", "address1": "서울시 강남구", "address2": "101호"
+                  }
+                }
+                """.formatted(cartItemId), "http-test-" + cartItemId);
+    }
+
+    /** 결제 모듈은 청크 12 다. 그때까지는 상태를 직접 옮겨 셀러 쪽 뷰를 연다 */
+    private void payAll() {
+        jdbc.sql("update shop_order set status = 'paid' where status = 'payment_pending'").update();
+    }
+
+    private long cartItemIdOf(String name) {
+        return jdbc.sql("""
+                        select ci.cart_item_id from cart_item ci
+                          join cart c on c.cart_id = ci.cart_id
+                         where c.user_id = :userId
+                         order by ci.cart_item_id desc limit 1
+                        """)
+                .param("userId", userIdOf(name))
+                .query(Long.class)
+                .single();
+    }
+
+    private String orderNumberOf(String name) {
+        return jdbc.sql("""
+                        select order_number from shop_order where user_id = :userId
+                         order by order_id desc limit 1
+                        """)
+                .param("userId", userIdOf(name))
+                .query(String.class)
+                .single();
+    }
+
+    private String sellerOrderNumberOf(long sellerId) {
+        return jdbc.sql("""
+                        select seller_order_number from seller_order where seller_id = :sellerId
+                         order by seller_order_id desc limit 1
+                        """)
+                .param("sellerId", sellerId)
+                .query(String.class)
+                .single();
+    }
+
     /** 토큰을 받고 가입해서 로그인까지 마친 세션. 계정 관리 테스트가 매번 밟는 준비 단계다. */
     private Session loggedIn(String name) {
         Session session = newSession();

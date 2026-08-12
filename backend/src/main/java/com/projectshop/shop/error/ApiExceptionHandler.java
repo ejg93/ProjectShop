@@ -1,5 +1,7 @@
 package com.projectshop.shop.error;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
@@ -25,6 +27,12 @@ import jakarta.servlet.http.HttpServletRequest;
  */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
+
+    /**
+     * 추적 ID 는 MDC 가 붙인다(`D16`). 그래서 여기서 따로 안 싣는다 —
+     * 응답의 {@code trace_id} 와 로그 앞머리의 값이 같아야 서로 이어진다.
+     */
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     private final ProblemFactory problems;
 
@@ -86,9 +94,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      * <p>여기까지 온 것은 우리가 예상 못 한 것이다. <b>원인을 응답에 안 담는다</b> —
      * 스택이나 SQL 문구가 나가면 그 자체가 정보 유출이다(`D14`).
      * 원인은 로그에 남기고 클라이언트에는 추적 ID 만 준다.
+     *
+     * <p><b>로그를 실제로 남긴다</b>(`35c` 에서 고쳤다). 그 전까지 이 주석만 있고 코드가 없어서
+     * <b>500 이 나가는데 원인이 어디에도 안 남았다</b> — 응답에는 추적 ID 가 있는데
+     * 그 ID 로 찾을 줄이 없었다. 스택까지 남긴다. 여기 온 예외는 우리가 모르는 것이라
+     * 메시지 한 줄로는 어느 줄에서 났는지 못 찾는다(`D16`).
      */
     @ExceptionHandler(Exception.class)
     ProblemDetail handle(Exception e, HttpServletRequest request) {
+        log.error("처리하지 못한 예외: {} {}", request.getMethod(), request.getRequestURI(), e);
         return problems.create(ErrorCode.INTERNAL, null, request);
     }
 

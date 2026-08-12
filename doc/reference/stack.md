@@ -313,6 +313,34 @@ jdbc.sql("set constraints all immediate").update();
 Spring 이 `UncategorizedSQLException` 으로 준다. `DataIntegrityViolationException` 이 아니다 —
 둘을 같이 받으려면 `DataAccessException` 으로 잡는다.
 
+### 지연 트리거 안에서 `NEW` 는 커밋 시점의 값이 아니다
+
+**`NEW` 는 그 트리거를 걸어 준 문장 시점의 행이다.** 커밋 때 도는 것이지 커밋 때의 값을 보는 게 아니다.
+
+같은 트랜잭션에서 넣고 고치는 흐름이면 이 차이가 결과를 뒤집는다.
+
+```
+insert (컬럼 = null)   ← 트리거 예약. NEW 에 null 이 박힌다
+update (컬럼 = 값)     ← 트리거 또 예약. 이건 통과한다
+commit                 ← 앞의 예약분이 null 로 터진다
+```
+
+**`after insert` 를 같이 걸어 두면 그 트리거는 절대 통과할 수 없다.**
+
+```sql
+-- 안 된다: insert 로 걸린 예약분이 언제나 null 을 본다
+if new.response_body is null then raise exception ...
+
+-- 한다: 행을 다시 읽는다. 지워졌으면 검사할 것이 없다
+select response_body into v_body from idempotency_key
+ where idempotency_key_id = new.idempotency_key_id;
+if not found then return null; end if;
+```
+
+`V16` 의 `assert_order_amounts` 가 처음부터 이 모양이었고, `V17` 은 `NEW` 를 믿었다가
+**`POST /api/orders` 가 실서버에서 언제나 500** 이었다. 위의 「한 번도 안 돈다」와 겹쳐서
+테스트 30개가 전부 초록인 채로 지나갔다 — 청크 `35c` 가 HTTP 층에서 첫 커밋을 일으켜 잡았다.
+
 ### 시드를 한 번 넣은 DB 에는 새 마이그레이션이 안 들어간다
 
 데모 시드가 `V900` 이라 **적용 이력의 최고 버전이 900** 이 된다.
