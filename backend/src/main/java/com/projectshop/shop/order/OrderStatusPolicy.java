@@ -24,22 +24,34 @@ import com.projectshop.shop.order.OrderTransitions.Shipment;
 class OrderStatusPolicy implements StatusPolicy {
 
     /**
-     * 상태를 옮기는 동작이 열려 있는 상태.
+     * 동작마다 열려 있는 상태.
      *
-     * <p><b>{@code delivered} 를 지나면 닫힌다.</b> 배송완료 뒤의 전이(구매확정·반품접수)는
-     * 소비자가 일으키는 사건이고, 셀러가 그걸 밀 수 있으면 청약철회 기산점을 조작할 수 있다(`D7`).
+     * <p><b>동작이 넷인 이유가 이 표에 있다</b>(`V20`). 이 메서드의 인자가 {@code resource} 와
+     * {@code action} 뿐이라 <b>역할을 못 본다</b> — 고객과 셀러가 같은 동작을 쓰면 허용 상태가
+     * 한 집합이 되고, 한쪽에 필요한 상태를 열면 다른 쪽에도 열린다.
      *
-     * <p>{@code return_requested} 는 열어 둔다 — 반품 완료 처리는 물건을 받아 본 셀러가 한다.
+     * <p>{@code update_status} 는 셀러 몫이다. <b>{@code delivered} 를 지나면 닫힌다</b> —
+     * 배송완료 뒤의 전이는 소비자가 일으키는 사건이고, 셀러가 그걸 밀 수 있으면
+     * 청약철회 기산점을 조작할 수 있다(`D7`). {@code return_requested} 만 열어 둔다:
+     * 반품 완료 처리는 물건을 받아 본 셀러가 한다.
      *
-     * <p>종착 상태({@code confirmed}·{@code cancelled}·{@code returned})는 전이표가 이미 막지만
-     * 권한도 같이 닫는다. 그래야 시도가 감사 로그에 남는다 — 도메인 예외로만 막으면
-     * 누가 종착 주문을 계속 두드리는지 세는 자리가 없다.
+     * <p>{@code confirm}·{@code request_return} 은 {@code delivered} 에서만 열린다.
+     * {@code cancel} 은 {@code preparing} 에서만 — 물건이 떠난 뒤의 되돌림은 취소가 아니라
+     * 반품이다(`glossary.md`).
+     *
+     * <p>종착 상태({@code confirmed}·{@code cancelled}·{@code returned})는 어느 동작에도 없다.
+     * 전이표가 이미 막지만 권한도 같이 닫는다 — 그래야 시도가 감사 로그에 남는다.
+     * 도메인 예외로만 막으면 누가 종착 주문을 계속 두드리는지 세는 자리가 없다.
      */
     private static final Map<String, Allowed<String>> BY_ACTION = Map.of(
             "update_status", Allowed.only(Set.of(
                     Shipment.PREPARING.code(),
                     Shipment.SHIPPING.code(),
-                    Shipment.RETURN_REQUESTED.code())));
+                    Shipment.RETURN_REQUESTED.code())),
+
+            "cancel", Allowed.only(Set.of(Shipment.PREPARING.code())),
+            "confirm", Allowed.only(Set.of(Shipment.DELIVERED.code())),
+            "request_return", Allowed.only(Set.of(Shipment.DELIVERED.code())));
 
     /**
      * <b>관리자도 같이 걸린다.</b> 축은 규칙 위에 있어서 스코프로 비켜 갈 수 없다.

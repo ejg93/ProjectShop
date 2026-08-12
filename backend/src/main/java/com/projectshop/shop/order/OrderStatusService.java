@@ -117,6 +117,10 @@ public class OrderStatusService {
     }
 
     private void applyShipment(long sellerOrderId, Shipment from, Shipment to, Actor actor) {
+        if (to == Shipment.RETURN_REQUESTED) {
+            requireWithdrawable(sellerOrderId);
+        }
+
         if (to == Shipment.CANCELLED) {
             // 되돌리기 전에 옮긴다. 상태가 먼저 바뀌어야 같은 셀러 주문을 두 번 취소하는 요청이
             // 두 번째에 전이표에 걸린다 — 안 그러면 재고가 두 번 늘어난다.
@@ -156,6 +160,67 @@ public class OrderStatusService {
         for (long sellerOrderId : pending) {
             applyShipment(sellerOrderId, Shipment.PREPARING, Shipment.CANCELLED,
                     Actor.system("결제가 %s 로 끝나 자동 취소".formatted(reason.code())));
+        }
+    }
+
+    /**
+     * 이 묶음을 반품 접수할 수 있나.
+     *
+     * <p><b>도메인 규칙이라 여기 있다</b>(`permission-rules.md` 「상태 축」). 근거가 주문 상태가
+     * 아니라 기한과 상품 속성이고, 틀렸을 때 생기는 일이 "남의 것을 본다" 가 아니라
+     * "반품이 잘못 돈다" 다. 전이를 부르는 모든 입구가 여기를 지난다.
+     *
+     * <p>둘을 본다.
+     * <ul>
+     *   <li><b>기한</b> — 청약철회는 7일이다(`D2` R3, 전자상거래법 제17조). 배송완료 때 박제해 둔
+     *       값을 읽는다. 여기서 다시 계산하면 그 사이 임시공휴일이 추가됐을 때
+     *       지나간 주문의 기한까지 흔들린다(`D10`)</li>
+     *   <li><b>제한 상품</b> — 제17조제2항이 정한 사유다(`D2` R4). 하나라도 걸리면 묶음 전체를
+     *       막는다. 취소·반품의 최소 단위가 셀러 묶음이라(`D7`) 항목별로 못 가른다</li>
+     * </ul>
+     *
+     * <p><b>제한 사유 셋을 다 막는다.</b> {@code digital_content}(제17조제2항 5호)는 "제공이 개시된"
+     * 사건이 있어야 성립하는데, 반품 접수는 {@code delivered} 에서만 열려서
+     * (`OrderStatusPolicy`) 여기 오는 묶음은 이미 재화가 공급된 것이다 —
+     * 개시 여부를 따로 담을 컬럼이 필요 없다.
+     *
+     * <p><b>하자 반품은 아직 이 경로에 없다.</b> 제17조제3항은 3개월인데 접수가 사유를 안 받으므로
+     * 지금 들어오는 것은 전부 단순 변심으로 볼 수밖에 없다. 사유를 받는 것은 반품 축(43·44)이고
+     * 그때 이 검사에 갈래가 생긴다.
+     */
+    private void requireWithdrawable(long sellerOrderId) {
+        // 기한이 비어 있으면 막을 근거가 없다. 배송완료를 안 지난 묶음인데 그건 전이표가 이미 막는다.
+        OffsetDateTime expireAt = jdbc.sql("""
+                        select withdrawal_expire_at from seller_order
+                         where seller_order_id = :sellerOrderId
+                        """)
+                .param("sellerOrderId", sellerOrderId)
+                .query((rs, rowNum) -> rs.getObject("withdrawal_expire_at", OffsetDateTime.class))
+                .single();
+
+        if (expireAt != null && expireAt.isBefore(OffsetDateTime.now())) {
+            throw new ShopException(ErrorCode.WITHDRAWAL_PERIOD_EXPIRED,
+                    "청약철회 기간이 %s 에 끝났다".formatted(expireAt));
+        }
+
+        String restriction = jdbc.sql("""
+                        select p.withdrawal_restriction_reason
+                          from order_item oi
+                          join sku s     on s.sku_id = oi.sku_id
+                          join product p on p.product_id = s.product_id
+                         where oi.seller_order_id = :sellerOrderId
+                           and p.is_withdrawal_restricted
+                         order by oi.order_item_id
+                         limit 1
+                        """)
+                .param("sellerOrderId", sellerOrderId)
+                .query(String.class)
+                .optional()
+                .orElse(null);
+
+        if (restriction != null) {
+            throw new ShopException(ErrorCode.WITHDRAWAL_RESTRICTED,
+                    "청약철회가 제한된 상품이 들어 있다: " + restriction);
         }
     }
 

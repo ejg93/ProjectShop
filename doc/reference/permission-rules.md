@@ -21,7 +21,7 @@ decide(userId, resource, action, target) -> Decision
 |---|---|
 | `userId` | 판정 대상 사용자 |
 | `resource` | 자원 종류. `order`, `product`, `payment`, `user`, `role` |
-| `action` | 동작. `read`, `create`, `update`, `delete`, `update_status`, `refund`, `assign`, `manage` |
+| `action` | 동작. `read`, `create`, `update`, `delete`, `update_status`, `cancel`, `confirm`, `request_return`, `refund`, `assign`, `manage` |
 | `target.ownerUserId` | 이 행의 주인. 주문이면 주문자. 주인이 없으면 null |
 | `target.sellerId` | 이 행이 속한 셀러. 셀러와 무관하면 null |
 
@@ -127,7 +127,7 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 
 ## 지금 데이터 — 역할 × 권한 매트릭스
 
-마이그레이션 V3·V5·V6 이 넣은 값이다. 청크 4c 의 회귀 테스트가 이 표를 고정한다.
+마이그레이션 V3·V5·V6·V20 이 넣은 값이다. 청크 4c 의 회귀 테스트가 이 표를 고정한다.
 
 `A/범위` 는 allow, `D/범위` 는 deny 다. 빈 칸은 규칙 없음이다.
 
@@ -140,6 +140,9 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `order:read` | A/own | A/seller | A/all | A/all |
 | `order:create` | A/own | A/own | A/all | D/all |
 | `order:update_status` | | A/seller + **D/own** | A/all | D/all |
+| `order:cancel` | A/own | A/seller | A/all | D/all |
+| `order:confirm` | A/own | | A/all | D/all |
+| `order:request_return` | A/own | | A/all | D/all |
 | `payment:read` | A/own | A/seller | A/all | A/all |
 | `payment:refund` | | | A/all | D/all |
 | `user:read` | A/own | A/own | A/all | A/all |
@@ -276,6 +279,28 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 | 표에 있는데 상태를 안 실어 보냈다 | **거부한다.** 빠뜨린 것이 조용히 허용으로 안 떨어져야 한다 |
 | 규칙과 상태 중 무엇을 먼저 보나 | 규칙이 먼저다. 상태를 먼저 보면 권한이 아예 없는 사용자도 "상태 때문" 이라는 답을 받는다 |
 | 관리자는 비켜 가나 | **못 간다.** 축은 규칙 위에 있다. 강제로 옮길 일이 생기면 표에 예외를 파지 말고 동작을 새로 만든다 |
+
+#### 이 축이 동작을 가른다 (11c-3)
+
+`allowedStatuses(resource, action)` 의 인자에 **역할이 없다.** 그래서 한 동작을 둘이 나눠 쓰면
+허용 상태가 한 집합이 되고, 한쪽에 필요한 상태를 열면 다른 쪽에도 열린다.
+
+`order:update_status` 하나가 여섯 전이를 맡고 있었고, 고객이 부를 경로가 생기면서 걸렸다.
+
+| 열면 | 생기는 일 |
+|---|---|
+| `delivered` 를 `update_status` 에 | 셀러가 고객 대신 구매확정을 눌러 자기 정산을 당긴다 |
+| 고객에게 `update_status` 를 | 고객이 `preparing → shipping → delivered` 를 혼자 밀어, 셀러가 안 보낸 주문이 확정된다 |
+
+**동작을 넷으로 갈랐다**(`V20`). 축을 늘린 것이 아니다 — `decide` 시그니처도 `Target` 도 그대로고,
+`permission` 행과 `OrderStatusPolicy` 의 표 키가 늘었을 뿐이다.
+
+| 동작 | 열리는 상태 | 누가 |
+|---|---|---|
+| `update_status` | `preparing`·`shipping`·`return_requested` | 셀러 |
+| `cancel` | `preparing` | 고객·셀러 |
+| `confirm` | `delivered` | 고객 |
+| `request_return` | `delivered` | 고객 |
 
 **강제 지점은 3위(앱 검증)다**(`D23` 「축 2」). 더 못 내렸다 — 상태별 허용은 행 하나를 만질 때
 정해지는 것이라 타입으로도 DB 제약으로도 표현이 안 된다. 대신 **빠뜨렸을 때 거부로 떨어지게** 해서

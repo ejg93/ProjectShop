@@ -82,10 +82,34 @@ public enum ErrorCode {
     // 0건과 못 봄이 갈려야 개수로 정보가 새지 않는다.
     ORDER_FORBIDDEN(HttpStatus.FORBIDDEN, "order-forbidden", "주문을 볼 권한이 없다"),
 
-    // 전이표에 없는 이동이다(`D7`). 422 인 이유는 요청 형식이 아니라 지금 상태가 못 받아서다 —
-    // 같은 요청이 상태가 달랐으면 통과한다.
-    ORDER_TRANSITION_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_CONTENT, "order-transition-not-allowed",
+    // 전이표에 없는 이동이다(`D7`).
+    //
+    // 409 다. `D5` 「동작」이 "허용되지 않은 전이는 409" 라고 정했고 RFC 9110 §15.5.10 의
+    // 409 정의("대상 자원의 현재 상태와의 충돌")와 같은 자리다.
+    //
+    // 청크 11-2 가 422 로 넣었던 것을 11c-3 이 고쳤다. `11-2` 는 HTTP 경로를 안 만들었으므로
+    // 이 코드가 밖으로 나간 적이 없다 — 첫 노출이 11c-3 이라 고치는 대가가 없다.
+    ORDER_TRANSITION_NOT_ALLOWED(HttpStatus.CONFLICT, "order-transition-not-allowed",
             "지금 상태에서 할 수 없는 처리다"),
+
+    // 청약철회 기간이 지났다(`D2` R3, 전자상거래법 제17조).
+    //
+    // 409 로 가른 기준은 <b>더 일찍 왔으면 통과했나</b> 다. 기한은 행에 박제된 값이라
+    // 대상 자원의 현재 상태고, 그 상태와의 충돌은 409 다.
+    WITHDRAWAL_PERIOD_EXPIRED(HttpStatus.CONFLICT, "withdrawal-period-expired",
+            "청약철회 기간이 지났다"),
+
+    // 청약철회가 제한된 상품이다(`D2` R4, 전자상거래법 제17조제2항).
+    //
+    // 이쪽은 422 다. 상품 속성이라 언제 다시 와도 답이 같다 — 상태와의 충돌이 아니라
+    // 요청 내용이 규칙을 못 통과하는 것이다.
+    WITHDRAWAL_RESTRICTED(HttpStatus.UNPROCESSABLE_CONTENT, "withdrawal-restricted",
+            "청약철회가 제한된 상품이다"),
+
+    // 관리자가 옮길 때는 사유가 남아야 한다(`D7`). 정상 경로가 아니라서 왜 그랬는지가 없으면
+    // 나중에 데이터가 왜 이 모양인지 아무도 모른다.
+    TRANSITION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "transition-reason-required",
+            "관리자 처리에는 사유가 필요하다"),
 
     // 주문에 쓰인 SKU 가 있으면 옵션 축을 못 바꾼다. 바꾸면 지나간 주문의 옵션 라벨이
     // 가리키던 것이 사라진다 — 영수증이 뜻을 잃는다.
