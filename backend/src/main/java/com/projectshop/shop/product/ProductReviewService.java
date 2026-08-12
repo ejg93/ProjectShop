@@ -40,15 +40,15 @@ public class ProductReviewService {
         this.auditLog = auditLog;
     }
 
-    private record Product(long sellerId, String status) {
+    private record Product(long sellerId, ProductStatus status) {
     }
 
     /** 검수를 신청한다. {@code draft} → {@code pending_review} */
     @Transactional
     public void submit(long actorUserId, long productId) {
-        Product product = authorize(actorUserId, productId, "pending_review");
+        Product product = authorize(actorUserId, productId, ProductStatus.PENDING_REVIEW);
 
-        move(productId, "pending_review", null, null);
+        move(productId, ProductStatus.PENDING_REVIEW, null, null);
         record("product.review_submitted", actorUserId, productId, product, Map.of());
     }
 
@@ -61,11 +61,11 @@ public class ProductReviewService {
      */
     @Transactional
     public void approve(long actorUserId, long productId) {
-        Product product = authorize(actorUserId, productId, "on_sale");
+        Product product = authorize(actorUserId, productId, ProductStatus.ON_SALE);
         requireVerifiedSeller(product.sellerId());
 
         // 승인하면 지난 사유를 비운다. 남기면 지난 반려·제재가 현재 상태처럼 보인다.
-        move(productId, "on_sale", null, null);
+        move(productId, ProductStatus.ON_SALE, null, null);
         record("product.review_approved", actorUserId, productId, product, Map.of());
     }
 
@@ -78,9 +78,9 @@ public class ProductReviewService {
      */
     @Transactional
     public void reject(long actorUserId, long productId, String note) {
-        Product product = authorize(actorUserId, productId, "draft");
+        Product product = authorize(actorUserId, productId, ProductStatus.DRAFT);
 
-        move(productId, "draft", note, null);
+        move(productId, ProductStatus.DRAFT, note, null);
         record("product.review_rejected", actorUserId, productId, product, Map.of("note", note));
     }
 
@@ -92,19 +92,19 @@ public class ProductReviewService {
      */
     @Transactional
     public void suspend(long actorUserId, long productId) {
-        Product product = authorize(actorUserId, productId, "suspended");
+        Product product = authorize(actorUserId, productId, ProductStatus.SUSPENDED);
 
-        move(productId, "suspended", null, null);
+        move(productId, ProductStatus.SUSPENDED, null, null);
         record("product.suspended", actorUserId, productId, product, Map.of());
     }
 
     /** 셀러가 다시 판다. {@code suspended} → {@code on_sale} */
     @Transactional
     public void resume(long actorUserId, long productId) {
-        Product product = authorize(actorUserId, productId, "on_sale");
+        Product product = authorize(actorUserId, productId, ProductStatus.ON_SALE);
         requireVerifiedSeller(product.sellerId());
 
-        move(productId, "on_sale", null, null);
+        move(productId, ProductStatus.ON_SALE, null, null);
         record("product.resumed", actorUserId, productId, product, Map.of());
     }
 
@@ -118,16 +118,16 @@ public class ProductReviewService {
      */
     @Transactional
     public void block(long actorUserId, long productId, String reason) {
-        Product product = authorize(actorUserId, productId, "blocked");
+        Product product = authorize(actorUserId, productId, ProductStatus.BLOCKED);
 
-        move(productId, "blocked", null, reason);
+        move(productId, ProductStatus.BLOCKED, null, reason);
         record("product.blocked", actorUserId, productId, product, Map.of("reason", reason));
     }
 
     /** 제재를 푼다. 오인이었으면 {@code on_sale}, 실제로 문제가 있었으면 {@code draft} 다 */
     @Transactional
     public void unblock(long actorUserId, long productId, boolean backToSale) {
-        String to = backToSale ? "on_sale" : "draft";
+        ProductStatus to = backToSale ? ProductStatus.ON_SALE : ProductStatus.DRAFT;
         Product product = authorize(actorUserId, productId, to);
 
         if (backToSale) {
@@ -135,7 +135,7 @@ public class ProductReviewService {
         }
 
         move(productId, to, null, null);
-        record("product.unblocked", actorUserId, productId, product, Map.of("to", to));
+        record("product.unblocked", actorUserId, productId, product, Map.of("to", to.code()));
     }
 
     /**
@@ -143,12 +143,12 @@ public class ProductReviewService {
      *
      * <p>표가 두 질문에 한 번에 답한다. 전이가 없으면 422, 권한이 없으면 403 이다.
      */
-    private Product authorize(long actorUserId, long productId, String to) {
+    private Product authorize(long actorUserId, long productId, ProductStatus to) {
         Product product = load(productId);
 
         String action = ProductTransitions.actionFor(product.status(), to)
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_TRANSITION_NOT_ALLOWED,
-                        product.status() + " 에서 " + to + " 로 갈 수 없다"));
+                        product.status().code() + " 에서 " + to.code() + " 로 갈 수 없다"));
 
         if (!evaluator.decide(actorUserId, "product", action, Target.ofSeller(product.sellerId()))
                 .allowed()) {
@@ -163,13 +163,13 @@ public class ProductReviewService {
      * <p>넘긴 것만 남기고 <b>나머지는 비운다.</b> 반려 사유와 제재 사유가 같이 남으면
      * 화면이 무엇을 보여줄지 갈리고, 지난 것이 현재 상태처럼 보인다.
      */
-    private void move(long productId, String to, String reviewNote, String blockReason) {
+    private void move(long productId, ProductStatus to, String reviewNote, String blockReason) {
         jdbc.sql("""
                         update product
                            set status = :status, review_note = :reviewNote, block_reason = :blockReason
                          where product_id = :id
                         """)
-                .param("status", to)
+                .param("status", to.code())
                 .param("reviewNote", reviewNote)
                 .param("blockReason", blockReason)
                 .param("id", productId)
@@ -181,7 +181,7 @@ public class ProductReviewService {
 
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("seller_id", product.sellerId());
-        detail.put("from", product.status());
+        detail.put("from", product.status().code());
         detail.putAll(extra);
 
         auditLog.record(eventType, actorUserId, AuditLog.Target.of("product", productId), detail);
@@ -193,7 +193,8 @@ public class ProductReviewService {
                          where product_id = :id and deleted_at is null
                         """)
                 .param("id", productId)
-                .query((rs, rowNum) -> new Product(rs.getLong("seller_id"), rs.getString("status")))
+                .query((rs, rowNum) -> new Product(rs.getLong("seller_id"),
+                        ProductStatus.of(rs.getString("status"))))
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
     }

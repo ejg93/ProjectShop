@@ -13,15 +13,18 @@ import java.util.Optional;
  * {@code blocked → on_sale} 이 {@code product:review} 라는 사실이 표에 적혀 있으면
  * 셀러는 그 권한이 없어서 자동으로 막힌다. 조건문을 따로 쓸 필요가 없다.
  *
- * <p><b>{@code sold_out} 은 여기 없다.</b> 사람이 옮기는 상태가 아니라 재고에서 파생된다 —
+ * <p><b>{@code SOLD_OUT} 은 여기 없다.</b> 사람이 옮기는 상태가 아니라 재고에서 파생된다 —
  * 주문(청크 10)이 재고를 깎을 때 바뀐다.
+ *
+ * <p><b>상태를 {@link ProductStatus} 로 든다</b>(`7e`). 문자열이면 표의 오타를 컴파일러가 못 잡고,
+ * 그 줄은 <b>영원히 안 걸리는 전이</b>가 되면서 아무 오류도 안 난다.
  */
 final class ProductTransitions {
 
     /**
      * @param permission 이 전이를 할 수 있는 권한. {@code resource:action} 형태다
      */
-    record Transition(String from, String to, String permission) {
+    record Transition(ProductStatus from, ProductStatus to, String permission) {
     }
 
     private static final String UPDATE = "update";
@@ -29,23 +32,23 @@ final class ProductTransitions {
 
     private static final List<Transition> ALLOWED = List.of(
             // 검수 (7c)
-            new Transition("draft", "pending_review", UPDATE),
-            new Transition("pending_review", "on_sale", REVIEW),
-            new Transition("pending_review", "draft", REVIEW),
+            new Transition(ProductStatus.DRAFT, ProductStatus.PENDING_REVIEW, UPDATE),
+            new Transition(ProductStatus.PENDING_REVIEW, ProductStatus.ON_SALE, REVIEW),
+            new Transition(ProductStatus.PENDING_REVIEW, ProductStatus.DRAFT, REVIEW),
 
             // 셀러가 쉰다 (7d). 품절·단종처럼 자기 사정으로 내리는 것이다.
-            new Transition("on_sale", "suspended", UPDATE),
-            new Transition("suspended", "on_sale", UPDATE),
+            new Transition(ProductStatus.ON_SALE, ProductStatus.SUSPENDED, UPDATE),
+            new Transition(ProductStatus.SUSPENDED, ProductStatus.ON_SALE, UPDATE),
 
             // 관리자가 막는다 (7d). 승인 뒤에 문제가 드러나는 경우다 —
             // 위법 표시, 위조품 신고, 리콜. 알고도 방치하면 중개자가 연대책임을 진다(제20조의2).
-            new Transition("on_sale", "blocked", REVIEW),
-            new Transition("suspended", "blocked", REVIEW),
+            new Transition(ProductStatus.ON_SALE, ProductStatus.BLOCKED, REVIEW),
+            new Transition(ProductStatus.SUSPENDED, ProductStatus.BLOCKED, REVIEW),
 
             // 푸는 것도 관리자만이다. 셀러가 풀 수 있으면 제재가 무의미해진다.
-            new Transition("blocked", "on_sale", REVIEW),
+            new Transition(ProductStatus.BLOCKED, ProductStatus.ON_SALE, REVIEW),
             // 고쳐서 다시 검수받으라는 뜻. 오인이 아니라 실제로 문제가 있었던 경우다.
-            new Transition("blocked", "draft", REVIEW));
+            new Transition(ProductStatus.BLOCKED, ProductStatus.DRAFT, REVIEW));
 
     private ProductTransitions() {
     }
@@ -56,9 +59,9 @@ final class ProductTransitions {
      * <p>돌려주는 것이 {@code product:update} 의 {@code update} 부분이다 —
      * 자원은 언제나 {@code product} 라 호출자가 붙인다.
      */
-    static Optional<String> actionFor(String from, String to) {
+    static Optional<String> actionFor(ProductStatus from, ProductStatus to) {
         return ALLOWED.stream()
-                .filter(t -> t.from().equals(from) && t.to().equals(to))
+                .filter(t -> t.from() == from && t.to() == to)
                 .map(Transition::permission)
                 .findFirst();
     }

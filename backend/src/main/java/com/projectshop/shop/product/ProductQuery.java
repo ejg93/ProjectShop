@@ -2,7 +2,6 @@ package com.projectshop.shop.product;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -234,10 +233,11 @@ public class ProductQuery {
     /**
      * 저장값을 응답 표기로 바꾼다. <b>열거값은 대문자 스네이크다</b>(`D5` 「형식」).
      *
-     * <p>{@code Locale.ROOT} 를 쓴다. 기본 로케일이면 터키어에서 {@code i} 가 {@code İ} 가 돼서
-     * 같은 코드가 서버 설정에 따라 다르게 나간다.
+     * <p><b>{@link ProductStatus} 를 지나간다.</b> 문자열을 그냥 대문자로 올리면
+     * DB 에 모르는 값이 들어와 있어도 그대로 응답에 실려 나가고, 화면이 처음 보는 값을 받는다.
+     * enum 을 지나면 <b>마이그레이션과 코드가 어긋난 순간 여기서 터진다.</b>
      */
     private static String enumValue(String storedCode) {
-        return storedCode == null ? null : storedCode.toUpperCase(Locale.ROOT);
+        return storedCode == null ? null : ProductStatus.of(storedCode).name();
     }
 }

@@ -292,10 +292,11 @@ public class ProductService {
     private void retireOrderedSkus(long productId) {
         jdbc.sql("""
                         update sku
-                           set status = 'suspended', deleted_at = now()
+                           set status = :status, deleted_at = now()
                          where product_id = :productId and deleted_at is null
                            and exists (select 1 from order_item oi where oi.sku_id = sku.sku_id)
                         """)
+                .param("status", SkuStatus.SUSPENDED.code())
                 .param("productId", productId)
                 .update();
     }
