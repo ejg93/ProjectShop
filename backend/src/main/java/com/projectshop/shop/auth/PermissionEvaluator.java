@@ -162,6 +162,42 @@ public class PermissionEvaluator {
     }
 
     /**
+     * 이 대상에 지금 열려 있는 동작만 골라 돌려준다. <b>화면이 버튼을 그리려고 묻는 자리다</b>(11c-3b).
+     *
+     * <p><b>거부를 감사에 안 남긴다.</b> {@link #decide} 로 동작 여섯을 물으면 상세 조회 한 번에
+     * 거부가 넷씩 쌓이고, 그것들은 공격 시도가 아니라 <b>화면이 버튼 모양을 물어본 것</b>이다.
+     * 감사 로그는 보존 3년이라(`V10`) 그 잡음에 진짜 시도가 묻힌다.
+     *
+     * <p><b>그래서 이걸로 접근을 허용하면 안 된다.</b> 실제 허용은 언제나 {@link #decide} 가 정한다 —
+     * 그쪽 하나만 기록을 남기므로 "허용한 자리는 전부 감사를 지난다" 가 유지된다.
+     * {@code 8a} 의 권한 목록({@link PermissionCatalog})이 같은 이유로 같은 모양을 하고 있다.
+     *
+     * <p>판정을 다시 구현하지 않는다. {@link #decide} 와 같은 {@link #evaluate} 를 지나므로
+     * 목록에 뜬 동작은 실제로도 통과한다 — <b>상태까지 보기 때문에</b> 권한 목록보다 정확하다.
+     *
+     * @param actions 물어볼 동작들. 자원이 무엇을 할 수 있는지는 그 자원이 안다
+     * @return 통과한 동작. 순서는 호출자가 정한다
+     */
+    public Set<String> allowedActions(long userId, String resource, Set<String> actions,
+            Target target) {
+
+        Set<Long> memberOf = loader.loadSellerMemberships(userId);
+
+        Set<String> allowed = new HashSet<>();
+        for (String action : actions) {
+            List<Rule> rules = loader.loadRules(userId, resource, action);
+            if (rules.isEmpty()) {
+                continue;
+            }
+            if (evaluate(rules, memberOf, userId, target, allowedStatuses(resource, action))
+                    .allowed()) {
+                allowed.add(action);
+            }
+        }
+        return allowed;
+    }
+
+    /**
      * 거부를 감사 로그에 남긴다. 호출자가 부르는 게 아니라 여기서 남기는 이유는 <b>빠뜨릴 수 없게</b> 하려는 것이다.
      * 새 API 를 만들면서 기록을 잊으면 그 경로만 감사에서 통째로 사라지는데, 그건 나중에 알 방법이 없다.
      *

@@ -1,5 +1,10 @@
 package com.projectshop.shop.order;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -99,6 +104,39 @@ public class OrderActionService {
         }
 
         statuses.moveShipment(row.sellerOrderId(), action.to(), actorOf(userId, row, reason));
+    }
+
+    /**
+     * 이 사람이 지금 이 묶음에 할 수 있는 것. 상세 응답의 {@code allowed_actions} 다.
+     *
+     * <p><b>거르는 것이 둘이다.</b> 전이표에 그 화살표가 있어야 하고(도메인), 권한과 상태 축이
+     * 열려 있어야 한다. 앞을 빼면 {@code preparing} 인 묶음에 「배송완료」가 뜨고 —
+     * 셀러는 {@code update_status} 를 셋에 다 쓰므로 권한만으로는 안 갈린다.
+     *
+     * <p><b>청약철회 제한 상품은 여기서 안 본다.</b> 이 목록의 물음이 "이 사람이 이 상태에서 무엇을
+     * 할 권한이 있나" 고, 제한은 상품 속성이라 축이 아니다(`permission-rules.md`).
+     * 화면은 그 사실을 상품에서 이미 받는다 — <b>미리 알리는 것이 제한의 성립 요건</b>이라
+     * (전자상거래법 제17조제2항 단서, `D2` R4) 주문 화면에 오기 전에 표시돼 있어야 한다.
+     *
+     * <p>이름은 {@link Action} 그대로다. <b>소문자·하이픈으로 바꾸면 경로가 된다</b> —
+     * {@code REQUEST_RETURN} 이 {@code /api/shipments/{번호}/request-return} 이다.
+     * 화면이 동작마다 경로를 표로 들고 있지 않게 하려는 것이다.
+     */
+    public List<String> allowedActions(long userId, long buyerUserId, long sellerId, String status) {
+        Shipment from = Shipment.of(status);
+        Target target = Target.of(buyerUserId, sellerId).inStatus(status);
+
+        Set<String> permitted = evaluator.allowedActions(userId, "order",
+                Arrays.stream(Action.values())
+                        .map(Action::permission)
+                        .collect(Collectors.toUnmodifiableSet()),
+                target);
+
+        return Arrays.stream(Action.values())
+                .filter(action -> permitted.contains(action.permission()))
+                .filter(action -> OrderTransitions.allows(from, action.to()))
+                .map(Enum::name)
+                .toList();
     }
 
     private Row find(String sellerOrderNumber) {

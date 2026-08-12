@@ -38,6 +38,12 @@ class OrderActionTest extends PostgresTestBase {
     private OrderActionService actions;
 
     @Autowired
+    private SellerOrderQuery sellerOrders;
+
+    @Autowired
+    private OrderQuery orders;
+
+    @Autowired
     private OrderService orderService;
 
     @Autowired
@@ -248,6 +254,122 @@ class OrderActionTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 상세가 내리는 `allowed_actions`.
+     *
+     * <p><b>목록이 실제 판정과 어긋나면 안 된다.</b> 어긋나는 쪽이 어느 쪽이든 나쁘다 —
+     * 없는데 뜨면 눌렀을 때 404 고, 있는데 안 뜨면 할 수 있는 일을 못 한다.
+     */
+    @Nested
+    @DisplayName("할 수 있는 것 목록")
+    class AllowedActions {
+
+        @Test
+        @DisplayName("셀러는 배송 전에 발송과 취소가 열린다")
+        void sellerAtPreparing() {
+            String number = paidShipment();
+
+            assertThat(allowedFor(alphaOwner, number))
+                    .containsExactlyInAnyOrder("SHIP", "CANCEL");
+        }
+
+        @Test
+        @DisplayName("고객은 배송 전에 취소만 열린다")
+        void buyerAtPreparing() {
+            String number = paidShipment();
+
+            assertThat(allowedForBuyer(number)).containsExactly("CANCEL");
+        }
+
+        @Test
+        @DisplayName("고객은 배송받으면 확정과 반품접수가 열린다")
+        void buyerAtDelivered() {
+            String number = deliveredShipment();
+
+            assertThat(allowedForBuyer(number))
+                    .containsExactlyInAnyOrder("CONFIRM", "REQUEST_RETURN");
+        }
+
+        /** 이것이 없으면 화면이 `/api/shipments/{번호}/confirm` 을 못 부른다 */
+        @Test
+        @DisplayName("구매자 상세가 셀러 묶음의 노출 번호를 같이 내린다")
+        void buyerSeesSellerOrderNumber() {
+            String number = paidShipment();
+
+            assertThat(bundleOf(number).sellerOrderNumber()).isEqualTo(number);
+        }
+
+        /** `D7` — 배송완료를 지나면 셀러의 전이 권한이 닫힌다. 안 닫으면 기산점을 조작한다 */
+        @Test
+        @DisplayName("셀러는 배송완료 뒤에 할 것이 없다")
+        void sellerAtDelivered() {
+            String number = deliveredShipment();
+
+            assertThat(allowedFor(alphaOwner, number))
+                    .as("셀러에게 확정이 뜨면 정산 시점을 셀러가 당길 수 있다")
+                    .isEmpty();
+        }
+
+        /**
+         * 권한만 보면 셋(`SHIP`·`DELIVER`·`COMPLETE_RETURN`)이 다 열린다 —
+         * 셀러가 `update_status` 하나로 셋을 쓴다. 전이표가 갈라야 「배송 전인데 배송완료」가 안 뜬다.
+         */
+        @Test
+        @DisplayName("전이표에 없는 화살표는 안 뜬다")
+        void transitionTableFilters() {
+            String number = paidShipment();
+
+            assertThat(allowedFor(alphaOwner, number))
+                    .as("권한만 보면 배송완료·반품완료까지 열린다. 전이표가 그것을 자른다")
+                    .doesNotContain("DELIVER", "COMPLETE_RETURN");
+        }
+
+        @Test
+        @DisplayName("종착 상태에서는 아무것도 안 열린다")
+        void terminalIsEmpty() {
+            String number = deliveredShipment();
+            actions.run(buyer, number, Action.CONFIRM, null);
+
+            assertThat(allowedForBuyer(number)).isEmpty();
+            assertThat(allowedFor(alphaOwner, number)).isEmpty();
+        }
+
+        /**
+         * 목록을 만들려고 판정을 여섯 번 부르는데, 그 거부가 감사에 쌓이면
+         * <b>상세를 열 때마다 네 줄</b>이다. 진짜 시도가 그 잡음에 묻힌다(`4b`).
+         */
+        @Test
+        @DisplayName("목록을 묻는 것은 감사 로그에 안 남는다")
+        void doesNotPolluteAuditLog() {
+            String number = deliveredShipment();
+            long before = denialCount();
+
+            allowedFor(alphaOwner, number);
+
+            assertThat(denialCount())
+                    .as("버튼 모양을 물어본 것이 침입 시도와 같은 모양으로 쌓이면 안 된다")
+                    .isEqualTo(before);
+        }
+
+        /** 셀러가 보는 경로(`/api/seller/orders/{번호}`) */
+        private List<String> allowedFor(long userId, String sellerOrderNumber) {
+            return sellerOrders.findByNumber(userId, sellerOrderNumber).allowedActions();
+        }
+
+        /** 구매자가 보는 경로(`/api/orders/{주문번호}`). 묶음마다 따로 붙는다 */
+        private List<String> allowedForBuyer(String sellerOrderNumber) {
+            return bundleOf(sellerOrderNumber).allowedActions();
+        }
+
+        private OrderQuery.SellerOrder bundleOf(String sellerOrderNumber) {
+            return orders.findByNumber(buyer, orderNumberOf(sellerOrderNumber))
+                    .sellerOrders().stream()
+                    .filter(bundle -> sellerOrderNumber.equals(bundle.sellerOrderNumber()))
+                    .findFirst()
+                    .orElseThrow();
+        }
+    }
+
     @Nested
     @DisplayName("이력의 행위자")
     class ActorType {
@@ -336,6 +458,25 @@ class OrderActionTest extends PostgresTestBase {
                          where seller_order_number = :number
                         """)
                 .param("number", sellerOrderNumber)
+                .query(Long.class)
+                .single();
+    }
+
+    private String orderNumberOf(String sellerOrderNumber) {
+        return jdbc.sql("""
+                        select o.order_number
+                          from shop_order o
+                          join seller_order so on so.order_id = o.order_id
+                         where so.seller_order_number = :number
+                        """)
+                .param("number", sellerOrderNumber)
+                .query(String.class)
+                .single();
+    }
+
+    /** 판정이 남긴 거부의 수. 목록 계산이 여기를 안 건드려야 한다 */
+    private long denialCount() {
+        return jdbc.sql("select count(*) from audit_log where event_type = 'permission.denied'")
                 .query(Long.class)
                 .single();
     }

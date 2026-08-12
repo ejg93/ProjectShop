@@ -2,6 +2,7 @@ package com.projectshop.shop.product;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,7 +62,11 @@ public class ProductQuery {
             long minPrice, OffsetDateTime createdAt) {
     }
 
-    /** 셀러가 자기 상품을 볼 때. 팔기 전 상태와 재고가 보인다 */
+    /**
+     * 셀러가 자기 상품을 볼 때. 팔기 전 상태와 재고가 보인다.
+     *
+     * @param status 업무 상태. <b>대문자 스네이크로 나간다</b>(`D5` 「형식」)
+     */
     public record SellerItem(long productId, long sellerId, String name, String status,
             Integer commissionBp, long minPrice, long totalStock, OffsetDateTime createdAt) {
     }
@@ -170,7 +175,7 @@ public class ProductQuery {
                         rs.getLong("product_id"),
                         rs.getLong("seller_id"),
                         rs.getString("name"),
-                        rs.getString("status"),
+                        enumValue(rs.getString("status")),
                         rs.getObject("commission_bp", Integer.class),
                         rs.getLong("min_price"),
                         rs.getLong("total_stock"),
@@ -224,5 +229,15 @@ public class ProductQuery {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
         return Allowed.only(visible);
+    }
+
+    /**
+     * 저장값을 응답 표기로 바꾼다. <b>열거값은 대문자 스네이크다</b>(`D5` 「형식」).
+     *
+     * <p>{@code Locale.ROOT} 를 쓴다. 기본 로케일이면 터키어에서 {@code i} 가 {@code İ} 가 돼서
+     * 같은 코드가 서버 설정에 따라 다르게 나간다.
+     */
+    private static String enumValue(String storedCode) {
+        return storedCode == null ? null : storedCode.toUpperCase(Locale.ROOT);
     }
 }

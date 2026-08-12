@@ -49,10 +49,12 @@ public class OrderQuery {
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
+    private final OrderActionService actions;
 
-    OrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator) {
+    OrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator, OrderActionService actions) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
+        this.actions = actions;
     }
 
     /** 목록 한 줄. 무엇을 샀는지는 상세가 답한다 — 목록에 상품을 붙이면 화면마다 다른 요약이 필요해진다 */
@@ -71,12 +73,17 @@ public class OrderQuery {
     /**
      * 셀러별 배송 묶음. 상태와 기한이 여기 붙는다(`D7`).
      *
+     * <p><b>노출 번호가 여기 나간다.</b> 구매확정·반품접수의 단위가 주문 전체가 아니라 이 묶음이라
+     * (`D7`: 취소·반품의 최소 단위는 셀러 묶음) 이것이 없으면 화면이 동작을 못 부른다.
+     * 내부 {@code seller_order_id} 는 여전히 안 나간다(`D9`).
+     *
      * @param withdrawalExpireAt 청약철회 기한. 배송완료 때 박제한 값이다
      * @param autoConfirmAt      자동 구매확정 예정일. 배치가 이 시각을 보고 옮긴다
+     * @param allowedActions     지금 이 묶음에 할 수 있는 것. 소문자·하이픈이 곧 경로다
      */
-    public record SellerOrder(String sellerName, String status, long shippingFee,
-            OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
-            OffsetDateTime autoConfirmAt, List<Item> items) {
+    public record SellerOrder(String sellerOrderNumber, String sellerName, String status,
+            long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
+            OffsetDateTime autoConfirmAt, List<Item> items, List<String> allowedActions) {
     }
 
     /**
@@ -201,7 +208,7 @@ public class OrderQuery {
                 order.shippingFeeTotal(),
                 order.payableAmount(),
                 order.createdAt(),
-                sellerOrdersOf(order.orderId()),
+                sellerOrdersOf(order.orderId(), userId, order.userId()),
                 historyOf(order.orderId()),
                 decision.canSee("shipping") ? shippingOf(order.orderId()) : null,
                 List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
@@ -213,7 +220,7 @@ public class OrderQuery {
      * <p>항목을 묶음마다 한 번씩 조회하지 않는다. 셀러가 셋이면 쿼리가 넷이 되고,
      * 그 모양은 셀러 수가 늘 때마다 조용히 느려진다.
      */
-    private List<SellerOrder> sellerOrdersOf(long orderId) {
+    private List<SellerOrder> sellerOrdersOf(long orderId, long viewerId, long buyerUserId) {
         Map<Long, List<Item>> itemsBySellerOrder = new LinkedHashMap<>();
         jdbc.sql("""
                         select oi.seller_order_id, oi.product_name, oi.option_label,
@@ -238,9 +245,9 @@ public class OrderQuery {
                         .add(row.item()));
 
         return jdbc.sql("""
-                        select so.seller_order_id, s.name as seller_name, so.status,
-                               so.shipping_fee, so.delivered_at, so.withdrawal_expire_at,
-                               so.auto_confirm_at
+                        select so.seller_order_id, so.seller_order_number, so.seller_id,
+                               s.name as seller_name, so.status, so.shipping_fee,
+                               so.delivered_at, so.withdrawal_expire_at, so.auto_confirm_at
                           from seller_order so
                           join seller s on s.seller_id = so.seller_id
                          where so.order_id = :orderId
@@ -248,6 +255,7 @@ public class OrderQuery {
                         """)
                 .param("orderId", orderId)
                 .query((rs, rowNum) -> new SellerOrder(
+                        rs.getString("seller_order_number"),
                         rs.getString("seller_name"),
                         enumValue(rs.getString("status")),
                         rs.getLong("shipping_fee"),
@@ -255,7 +263,9 @@ public class OrderQuery {
                         rs.getObject("withdrawal_expire_at", OffsetDateTime.class),
                         rs.getObject("auto_confirm_at", OffsetDateTime.class),
                         List.copyOf(itemsBySellerOrder.getOrDefault(
-                                rs.getLong("seller_order_id"), List.of()))))
+                                rs.getLong("seller_order_id"), List.of())),
+                        actions.allowedActions(viewerId, buyerUserId,
+                                rs.getLong("seller_id"), rs.getString("status"))))
                 .list();
     }
 

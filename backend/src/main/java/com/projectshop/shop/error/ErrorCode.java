@@ -69,10 +69,20 @@ public enum ErrorCode {
     SKU_NOT_BUYABLE(HttpStatus.UNPROCESSABLE_CONTENT, "sku-not-buyable", "지금 살 수 없는 것이다"),
 
     // 주문
-    //
-    // 재고 부족은 422 다. 요청 형식은 맞는데 지금 상태가 못 받아들이는 것이라 400 이 아니다.
     ORDER_EMPTY(HttpStatus.UNPROCESSABLE_CONTENT, "order-empty", "주문할 것이 없다"),
-    OUT_OF_STOCK(HttpStatus.UNPROCESSABLE_CONTENT, "out-of-stock", "재고가 모자란다"),
+
+    // 재고 부족은 409 다.
+    //
+    // 청크 10-2 가 422 로 넣었다. 그때 견준 것이 400 과 422 뿐이었고 409 를 안 봤다 —
+    // "형식은 맞는데 지금 상태가 못 받는다" 는 그 판단은 409 의 정의이기도 하다.
+    //
+    // 11c-3b 가 409 로 바꿨다. 근거 셋이다.
+    //  1. `D5` 상태 코드 표가 재고 부족을 409 로 적었다. 표준(RFC 9110)은 이 경계를 안 갈랐으므로
+    //     2순위가 침묵하고 3순위(프로젝트 규약)가 이긴다(`D23` 축 1)
+    //  2. 가르는 기준은 "다른 시점이면 통과했나" 다(아래 청약철회 두 줄과 같은 기준).
+    //     재고는 남이 먼저 샀을 뿐이고 채워지면 같은 요청이 통과한다 — 고칠 내용이 없다
+    //  3. 위 EMAIL_TAKEN 이 같은 모양이다. 대상은 만들 자원인데 충돌은 다른 행과 난다
+    OUT_OF_STOCK(HttpStatus.CONFLICT, "out-of-stock", "재고가 모자란다"),
 
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "order-not-found", "그런 주문이 없다"),
     SELLER_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-order-not-found", "그런 셀러 주문이 없다"),

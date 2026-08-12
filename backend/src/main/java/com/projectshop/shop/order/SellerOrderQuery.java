@@ -41,10 +41,12 @@ public class SellerOrderQuery {
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
+    private final OrderActionService actions;
 
-    SellerOrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator) {
+    SellerOrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator, OrderActionService actions) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
+        this.actions = actions;
     }
 
     /** 처리 화면의 한 줄. 무엇을 보낼지는 상세가 답한다 */
@@ -58,13 +60,15 @@ public class SellerOrderQuery {
     /**
      * 셀러가 보는 묶음 하나.
      *
-     * @param shipping 받는 사람. {@code shipping} 그룹이라 못 보면 응답에서 빠진다(`D5`)
+     * @param allowedActions 지금 이 묶음에 할 수 있는 것. <b>밑줄이 없다</b> —
+     *                       `D5` 의 밑줄은 "이 응답이 깎였다" 는 표시고 이건 그게 아니다
+     * @param shipping       받는 사람. {@code shipping} 그룹이라 못 보면 응답에서 빠진다(`D5`)
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Detail(String sellerOrderNumber, String orderNumber, String status,
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
-            List<OrderQuery.Item> items, OrderQuery.Shipping shipping,
+            List<OrderQuery.Item> items, List<String> allowedActions, OrderQuery.Shipping shipping,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
     }
 
@@ -189,6 +193,7 @@ public class SellerOrderQuery {
                 row.autoConfirmAt(),
                 row.createdAt(),
                 itemsOf(row.sellerOrderId()),
+                actions.allowedActions(viewerId, row.buyerUserId(), row.sellerId(), row.status()),
                 decision.canSee("shipping") ? shippingOf(row.orderId()) : null,
                 List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
     }

@@ -28,6 +28,10 @@ import com.projectshop.shop.order.OrderActionService.Action;
  *
  * <p>동작마다 경로가 다르다(`D5` 「동작」). {@code PATCH} 로 {@code status} 를 받지 않는다 —
  * 전이표를 안 거치는 상태 변경 경로가 생긴다(`ADR 0009`).
+ *
+ * <p><b>경로 이름이 동작 이름의 소문자·하이픈이다.</b> 상세 응답의 {@code allowed_actions} 가
+ * {@code ["CONFIRM", "REQUEST_RETURN"]} 을 내리면 화면은 그것을 그대로 바꿔 부른다 —
+ * 동작과 경로를 잇는 표를 화면이 따로 들고 있으면 동작이 늘 때 한쪽만 고쳐진다.
  */
 @RestController
 @RequestMapping("/api/shipments")
@@ -99,7 +103,7 @@ public class ShipmentController {
     }
 
     /** 고객이 반품을 접수한다. 기한과 제한 상품을 전이가 본다(`D2` R3·R4) */
-    @PostMapping("/{sellerOrderNumber}/return-request")
+    @PostMapping("/{sellerOrderNumber}/request-return")
     public ResponseEntity<Void> requestReturn(
             @AuthenticationPrincipal ShopUser user,
             @PathVariable String sellerOrderNumber,

@@ -184,7 +184,9 @@ class ProductQueryTest extends PostgresTestBase {
                     .orElseThrow();
 
             assertThat(item.totalStock()).isEqualTo(17);
-            assertThat(item.status()).isEqualTo("draft");
+            assertThat(item.status())
+                    .as("열거값은 대문자 스네이크로 나간다(`D5` 「형식」)")
+                    .isEqualTo("DRAFT");
         }
     }
 
