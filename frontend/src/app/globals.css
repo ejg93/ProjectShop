@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
+/*
+ * 색을 컴포넌트에 박지 않고 토큰으로 둔다.
+ *
+ * 다크모드 토글을 지금 안 만들기로 했지만(`D20`), 나중에 붙일 때 값이 여기 모여 있어야
+ * 얹기만 하면 된다. 컴포넌트마다 색을 적어 두면 그때가 전면 수정이다.
+ *
+ * 순검정(#000)과 순백(#fff)을 안 쓴다. 깊이가 사라진다(디자인 스킬 8.B).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --surface: #fafaf9;
+  --surface-raised: #fdfdfc;
+  --border: #e4e4e7;
+  --text: #18181b;
+  --text-muted: #52525b;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* 강조색은 하나다. 페이지 전체에서 이것만 쓴다(디자인 스킬 4.2) */
+  --accent: #9f1239;
+  --accent-hover: #881337;
+  --accent-on: #fff5f6;
+  --accent-text: #9f1239;
+
+  --danger-text: #b42318;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --surface: #0f0f11;
+    --surface-raised: #17171a;
+    --border: #2a2a2f;
+    --text: #ededf0;
+    --text-muted: #a1a1aa;
+
+    /* 배경 위에 얹히는 강조색은 그대로 두고, 글자로 쓰이는 쪽만 올린다.
+       어두운 바탕에서 #9f1239 글자는 대비가 2.5 라 본문 기준(4.5)을 못 넘는다. */
+    --accent-text: #fda4af;
+
+    --danger-text: #fda29b;
   }
 }
 
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-on: var(--accent-on);
+  --color-accent-text: var(--accent-text);
+  --color-danger-text: var(--danger-text);
+
+  /* 모서리는 한 값이다. 버튼만 둥글고 입력칸은 각지면 깨진 디자인이다(디자인 스킬 4.4) */
+  --radius-ui: 0.5rem;
+
+  /* 라틴은 Geist, 한글은 Noto Sans KR 이 받는다. Geist 에 한글 글리프가 없어서
+     한 벌로는 안 되고, 순서가 뒤집히면 영문까지 Noto 로 그려진다. */
+  --font-sans: var(--font-geist-sans), var(--font-noto-kr), sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
 }

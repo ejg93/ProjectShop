@@ -4,13 +4,13 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: **청크 `13-2` 로그인 화면.** API 래퍼(snake_case→camelCase)와 첫 화면이다.
-  **화면을 그리기 전에 `design-taste-frontend` 스킬을 읽는다**(`D20`, 다이얼은 `4`/`4`/`5`).
-  **한글 글꼴도 거기서 정한다** — `13-1` 이 깐 Geist 는 라틴 전용이라 한글이 시스템 기본으로 떨어진다.
+- **다음에 할 것**: **청크 `13a` 정책 문안** 또는 **`14` 상품 화면**(선행 `8`·`13-2`·`D20` 이 다 찼다).
+  `PLAN.md` 분할표에서 선행이 `완료` 인 행을 고르면 된다.
 
-  **프론트가 섰다**(`13-1`). Next 16 App Router + TypeScript + Tailwind v4,
-  `/api/*` 를 8080 으로 넘기는 rewrite 프록시, 접근성 린트, `<html lang="ko">`.
-  **띄워서 확인했다** — 3000 경유가 8080 직접과 같은 JSON 을 주고 401 도 그대로 온다.
+  **화면 축이 열렸다**(`13-1`·`13-2`). Next 16 App Router + Tailwind v4,
+  `/api/*` rewrite 프록시, 접근성 린트, `<html lang="ko">`, 그리고 **로그인이 실제로 된다**.
+  **API 는 `src/lib/api.ts` 하나로만 부른다**(`D5`) — 표기 변환·CSRF·오류 변환이 거기 있다.
+  **색은 토큰으로 두고 컴포넌트에 안 박았다**(`globals.css`) — 다크모드 토글을 나중에 얹기 위해서다.
 
   **`4b-2`·`10c`·`13-0` 도 끝났다.** 감사 기록은 경로마다 안 갈리고(거부는 `Kind.ATTEMPT`),
   충돌 재시도는 `Retries.onConflict` 이 주문 생성과 배치 둘에 걸려 있다.
@@ -125,6 +125,13 @@
   실제로 도는 자리라, **지연 제약을 새로 걸면 이 층에 관통 하나를 같이 둔다**
 - **HTTP 층 정리는 한 트랜잭션이어야 한다.** 나눠 지우면 `order_item` 만 지운 커밋에서
   금액 등식이 깨진다. `HttpTestBase.cleanUp` 이 `TransactionTemplate` 으로 묶는다
+- **서버를 부르는 곳은 `src/lib/api.ts` 하나다**(`D5`). 직접 `fetch` 를 쓰지 않는다 —
+  표기 변환·CSRF 헤더·오류 변환이 거기에만 있어서, 우회하면 어떤 응답만 안 바뀐 채 화면에 닿는다.
+  **키만 바꾸고 값은 안 바꾼다** — `allowed_actions` 의 값이 열거값이라 바꾸면 서버가 모르는 이름이 된다
+- **CSRF 쿠키는 아무 요청도 안 나가면 안 생긴다.** 서버가 토큰을 **읽을 때** 심는다.
+  래퍼가 토큰이 없으면 `/api/health` 를 한 번 두드려 받아 온다. 안 그러면 첫 로그인이 401 이다
+- **화면 색은 `globals.css` 의 토큰으로만 둔다.** 컴포넌트에 색을 박으면
+  다크모드 토글을 붙이는 날 전면 수정이 된다. 순검정·순백은 안 쓴다
 - **프론트 코드를 쓰기 전에 `frontend/AGENTS.md` 를 본다.** Next 16 은 이전 판과 API 가 갈려서
   `node_modules/next/dist/docs/` 를 읽으라고 그 파일이 지시한다. **`next dev` 가 다시 써 넣으므로
   지우면 계속 되살아난다** — 커밋해 두는 것이 맞다
@@ -442,6 +449,8 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-12 | 7e. 상품 상태를 enum 으로 | 완료 — `ProductStatus`·`SkuStatus` 신설, `ProductTransitions`·`ProductReviewService`·`ProductQuery`·`ProductService` 수정, `ProductStatusTest` 신설 4개, `ProductTransitionsTest` 수정, `D23` 갱신. `D23-1` 이 세운 규칙에 상품 축을 맞췄다 — 리터럴 13곳이 타입이 됐고 전이표도 enum 을 든다. **enum 을 둘로 만들었다** — `product.status` 와 `sku.status` 가 둘 다 `on_sale` 을 쓰는데 목록이 다르다(조합은 검수도 제재도 없다). 하나로 두면 `sku` 자리에 `draft` 를 넣어도 컴파일이 통과하고, 문자열이면 검색으로도 안 갈린다. **대조 테스트를 뒀다** — `pg_get_constraintdef` 로 제약 정의를 읽어 값을 뽑고 enum 과 맞춘다. **목록을 테스트에 손으로 또 적지 않았다** — 그러면 세 번째 사본이 생기고, 그게 이 테스트가 막으려는 것이다. 어긋나는 방향마다 증상이 달라서 둘 다 늦게 드러난다: DB 에만 있으면 읽는 순간 `of()` 가 터지고(조회가 통째로 500), 코드에만 있으면 `update` 가 `check` 에 걸려 **절대 성공하지 않는 전이**가 표에 남는다. **응답 변환도 enum 을 지나게 했다** — `toUpperCase` 만 하면 DB 의 모르는 값이 그대로 화면에 나간다. **SQL 텍스트 안의 리터럴은 안 바꿨다**(처분: `D23` 에 근거 기록) — `where p.status = 'on_sale'` 은 자바 식별자가 아니라 그 쿼리의 조건 자체고, `:status` 로 빼면 쿼리만 봐서 무엇을 거르는지 안 보인다. 대신 **읽기 쪽 오타가 0건을 조용히 준다**는 것을 밝히고, 쓰기 쪽은 `check` 가 잡는다는 것도 같이 적었다. 세 패키지 6파일이 돼서 청크가 안 떨어지는 것도 이유다. 테스트 485개 통과, 빌드 경고 0 | |
 
 | 2026-08-12 | 35c. HTTP 층 상품 픽스처 | 완료 — `HttpTestBase` 에 `givenSellableProduct`·`givenSellerOwner`·`postWithIdempotencyKey` 추가와 정리 확장, `HttpFlowTest` 에 「사고 파는 관통」 4개, `V17`·`ApiExceptionHandler` 수정, `stack.md` 갱신. **버그 둘이 나왔고 둘 다 이 층이 아니면 안 잡혔다.** **(1) `POST /api/orders` 가 실서버에서 언제나 500 이었다.** `V17` 의 지연 트리거가 `new.response_body` 를 보는데 **`NEW` 는 그 트리거를 걸어 준 문장 시점의 행**이라, `insert`(응답 null)로 걸린 예약분이 커밋 때 null 을 들고 터진다. 뒤에 `update` 로 채워도 그 예약분은 안 바뀐다 — **즉 그 트리거는 절대 통과할 수 없었다.** 행을 다시 읽도록 고쳤다. `V16` 의 `assert_order_amounts` 가 처음부터 그 모양이었는데 `V17` 만 `NEW` 를 믿었다. **왜 아무도 몰랐나** — `PROGRESS.md` 가 이미 경고한 자리다. 지연 트리거는 `@Transactional` 테스트에서 안 돌고, `10-0`·`10-2` 의 테스트 30개가 전부 롤백 층이었다. **HTTP 층이 커밋을 일으키는 유일한 층이라 여기서 처음 드러났다.** **(2) `ApiExceptionHandler` 가 500 원인을 로그에 안 남겼다.** 주석에 "원인은 로그에 남기고" 라고 적혀 있는데 코드가 없었다 — 응답에는 `trace_id` 가 나가는데 **그 ID 로 찾을 줄이 없었다**(`D16`). 스택까지 남기게 고쳤고, **이걸 안 고쳤으면 (1)의 원인을 못 찾았다.** **픽스처는 파는 쪽까지 통째로 세운다** — 셀러 생성·신원 확인·대표 부여·상품 `on_sale`·SKU. 그 벽 때문에 청크 9 가 장바구니 병합을 서비스 층에만 남겼었다. **시드를 안 쓴다** — `local` 프로필이라 테스트가 안 태우고, 태우면 테스트가 시드 데이터에 기대게 된다. **정리를 한 트랜잭션으로 묶었다**(`TransactionTemplate`) — 나눠 지우면 `order_item` 만 지운 커밋에서 `order_item_amounts_check` 가 터진다. 순서는 외래키 순서다(이력 → 항목 → 묶음 → 주문 → SKU → 상품 → 셀러 → 계정). **`Idempotency-Key` 를 싣는 메서드를 만들었다** — 필터로 강제하지 않은 것이 의도였으므로(`10-0`) 이 층이 헤더가 실제로 요구되는지 확인하는 유일한 자리다. 관통 넷: 담기→주문→내 주문, 셀러 목록→발송, 상세의 `seller_order_number`·`allowed_actions`, 모르는 묶음 번호 404. 테스트 489개 통과, 빌드 경고 0. **실서버로는 안 띄웠다** — `V17` 을 고쳤으니 `docker compose down -v` 가 먼저다 | |
+
+| 2026-08-13 | 13-2. 로그인 화면 | 완료 — `src/lib/api.ts` 신설, `src/app/login/page.tsx`·`login-form.tsx` 신설, `globals.css`·`layout.tsx`·`page.tsx` 수정, `PLAN.md` 갱신. **`5b`(CSRF 프론트 연동)를 흡수했다** — 토큰을 안 실으면 로그인이 401 이라 떼어 놓으면 이 청크가 안 돌아가는 채로 끝난다. **CSRF 쿠키는 아무 요청도 안 나가면 안 생긴다**(서버가 토큰을 읽을 때 심는다) — 화면만 띄우고 바로 누르면 그 자리에서 막히므로 래퍼가 `/api/health` 를 한 번 두드려 받아 온다. **표기 변환은 키만 한다** — `allowed_actions` 의 `REQUEST_RETURN` 같은 값이 열거값이라(`D5`) 값까지 바꾸면 화면이 서버가 모르는 이름으로 동작을 부른다. **오류 본문이 `problem+json` 이 아닐 수 있다** — 프록시가 안 붙거나 서버가 죽으면 HTML 이 와서, 파싱을 믿으면 진짜 원인 대신 파싱 오류가 보인다. 그래서 실패해도 상태 코드로 만든다. **서버 문구를 화면에 그대로 안 쓴다**(`D20`) — `type` 으로 갈라 존댓말로 옮긴다. 로그인 실패는 계정 존재 여부가 안 새게 한 문구다(`D14`). **디자인 스킬을 읽고 그렸다**: 라벨은 입력칸 위, 자리표시를 라벨로 안 씀, 오류는 입력칸 아래 `role=alert`, 대기 상태는 버튼에, 모서리 한 값(`--radius-ui`), 강조색 하나(`#9f1239`), 순검정·순백 금지, `motion-safe:` 로 전환을 감쌈. **색을 토큰으로 뺐다** — 다크모드 토글을 나중에 얹기 위해서고, 어두운 바탕에서 `#9f1239` 글자는 대비가 2.5 라 글자용 강조색만 따로 올렸다. **한글 글꼴을 정했다** — `Noto Sans KR`(400·600)을 Geist 뒤에 둔다. 순서가 뒤집히면 영문까지 Noto 로 그려진다. **「회원가입」 링크를 안 뒀다** — 가입 화면이 없어서 걸면 홈으로 보내는 거짓 링크가 된다. **띄워서 확인했다**(프록시 경유): CSRF 쿠키 발급 → **토큰 없이 로그인은 401** → 토큰 실으면 **200 + `{"user_id":3}`** → 인증 필요 경로 200(세션 유지) → 틀린 비밀번호는 `type: urn:shop:error:login-failed`. 렌더된 HTML 에 `label for`·`aria-invalid`·`required` 가 있고, 컴파일된 CSS 에 다크 토큰과 `prefers-reduced-motion` 게이트가 둘 다 들어갔다. `npm run lint` 출력 없음, `npm run build` 통과. **눈으로는 안 봤다** — 두 모드를 실제로 그려 본 것이 아니라 토큰이 컴파일된 것까지만 확인했다 | |
 
 | 2026-08-13 | 13-1. 프론트 기반 | 완료 — `frontend/` 에 Next 16 셋업(App Router·TypeScript·Tailwind v4·`src/`), `next.config.ts`(rewrite 프록시·turbopack root), `eslint.config.mjs`(jsx-a11y), `layout.tsx`·`page.tsx`·`README.md`, 백엔드 `application.yml`, `CLAUDE.md` 검증표, `PLAN.md` 분할. **청크 13 을 둘로 쪼갰다**(사용자 선택) — 로그인 화면은 디자인 스킬 1206줄을 읽어야 해서 그것만으로 청크 하나다. **CORS 대신 프록시**다: 화면 코드는 `/api/...` 만 쓰고 포트를 모른다. CORS 를 열면 세션 쿠키 때문에 `credentials` 와 `Allow-Origin` 을 정확히 맞춰야 하고 **한 곳만 틀려도 로그인이 조용히 안 된다**. 배포에서도 같은 모양이라 쿠키의 `same-site: lax` 가 그대로 성립한다. **`internal-proxies` 를 루프백으로 좁혔다**(`D14`) — 기본값이 사설 대역 전체라 **같은 망의 무엇이든 `X-Forwarded-For` 한 줄로 IP 를 속일 수 있었다**. `user_consent.acted_ip` 가 그 값을 쌓으므로 거짓 개인정보가 들어간다. **`jsx-a11y` 를 규칙만 얹었다** — 설정을 통째로 넣으면 `Cannot redefine plugin` 으로 죽는다(`eslint-config-next` 가 이미 등록해 뒀다). 일부러 위반한 파일로 `alt-text` 가 실제로 걸리는 것까지 봤다. **`AGENTS.md`·`CLAUDE.md` 는 생성기가 깐 것을 남겼다** — Next 16 이 학습 데이터와 API 가 갈리니 `node_modules/next/dist/docs/` 를 읽으라는 지시고, `next dev` 가 다시 써 넣는다. **생성기의 안내 페이지는 지웠다** — 남기면 그 마크업이 관례로 읽힌다. **띄워서 확인했다**: `npm run build` 통과(타입 검사 포함), `npm run lint` 출력 없음, 백엔드와 같이 띄워 **3000 경유가 8080 직접과 같은 JSON**, `/api/orders` 가 프록시로도 401, 응답 HTML 에 `<html lang="ko">`. **한글 글꼴은 안 정했다** — Geist 가 라틴 전용이라 한글이 시스템 기본으로 떨어진다. `13-2` 가 정한다 | |
 

@@ -1,0 +1,172 @@
+/**
+ * 서버를 부르는 유일한 통로.
+ *
+ * <p>여기를 안 거치는 `fetch` 를 쓰지 않는다(`D5`). 표기 변환과 CSRF 헤더가 여기에만 있어서,
+ * 직접 부르면 어떤 응답은 바뀌고 어떤 것은 안 바뀐 채로 화면에 닿는다.
+ *
+ * <p>브라우저에서 부르는 것을 전제한다. 쿠키를 `document.cookie` 로 읽기 때문이다.
+ * 서버 컴포넌트에서 부를 일이 생기면 쿠키를 손으로 넘겨야 하므로 그때 입구를 하나 더 만든다.
+ */
+
+/** 백엔드가 RFC 9457 로 내려준 오류(`D5`). 화면은 `status` 가 아니라 `type` 으로 갈린다 */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly type: string,
+    readonly detail: string,
+    readonly traceId?: string,
+  ) {
+    super(detail);
+    this.name = "ApiError";
+  }
+}
+
+/** CSRF 토큰이 담겨 오는 쿠키와 그것을 돌려보낼 헤더. 이름은 Spring Security 기본값이다 */
+const CSRF_COOKIE = "XSRF-TOKEN";
+const CSRF_HEADER = "X-XSRF-TOKEN";
+
+/** 토큰이 없을 때 한 번 두드려서 쿠키를 받아 오는 곳. 인증이 필요 없는 경로여야 한다 */
+const CSRF_PRIMER = "/api/health";
+
+/** 이 메서드들은 서버 상태를 안 바꾼다. CSRF 토큰이 필요 없다 */
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+type Json = unknown;
+
+/**
+ * 서버를 부르고 응답을 화면이 쓰는 모양으로 돌려준다.
+ *
+ * @param path `/api` 로 시작하는 경로. 포트를 적지 않는다 - 프록시가 같은 출처로 넘긴다
+ * @throws ApiError 서버가 2xx 가 아닌 것을 줬을 때
+ */
+export async function api<T>(
+  path: string,
+  init: { method?: string; body?: Json } = {},
+): Promise<T> {
+  const method = init.method ?? "GET";
+  const headers: Record<string, string> = {};
+
+  if (init.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (!SAFE_METHODS.has(method)) {
+    headers[CSRF_HEADER] = await csrfToken();
+  }
+
+  const response = await fetch(path, {
+    method,
+    headers,
+    // 세션 쿠키를 싣는다. 같은 출처라 기본값도 같지만, 프록시를 걷어내는 날
+    // 이 줄이 없으면 로그인만 조용히 안 된다.
+    credentials: "same-origin",
+    body: init.body === undefined ? undefined : JSON.stringify(toSnake(init.body)),
+  });
+
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+
+  // 204 는 본문이 없다. 파싱하면 그 자리에서 터진다.
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return toCamel(await response.json()) as T;
+}
+
+/**
+ * 쿠키에 든 CSRF 토큰. 없으면 한 번 두드려서 받아 온다.
+ *
+ * <p>서버는 <b>토큰을 읽을 때</b> 쿠키를 심는다. 화면만 띄우고 바로 로그인을 누르면
+ * 아직 아무 요청도 안 나가서 쿠키가 없다. 그 자리에서 403 이 되므로 여기서 한 번 채운다.
+ *
+ * <p>쿠키 값을 그대로 헤더에 싣는다. 서버가 헤더로 온 값은 평문으로 비교하도록 맞춰 뒀다
+ * (`SecurityConfig`). 풀거나 다시 인코딩하지 않는다.
+ */
+async function csrfToken(): Promise<string> {
+  const existing = readCookie(CSRF_COOKIE);
+  if (existing) {
+    return existing;
+  }
+
+  await fetch(CSRF_PRIMER, { credentials: "same-origin" });
+
+  const issued = readCookie(CSRF_COOKIE);
+  if (!issued) {
+    // 여기까지 오면 서버 설정이 바뀐 것이다. 403 을 받고 원인을 찾는 것보다 먼저 말하는 편이 낫다.
+    throw new Error("CSRF 토큰을 못 받았다. 백엔드가 XSRF-TOKEN 쿠키를 안 내려준다");
+  }
+  return issued;
+}
+
+function readCookie(name: string): string | null {
+  const found = document.cookie
+    .split("; ")
+    .find((pair) => pair.startsWith(`${name}=`));
+
+  return found ? decodeURIComponent(found.slice(name.length + 1)) : null;
+}
+
+/**
+ * 오류 응답을 예외로 바꾼다.
+ *
+ * <p>본문이 `problem+json` 이 아닐 수도 있다. 프록시가 못 붙었거나 서버가 죽으면
+ * HTML 이 오는데, 그때 파싱을 믿으면 진짜 원인 대신 파싱 오류가 보인다.
+ */
+async function toApiError(response: Response): Promise<ApiError> {
+  try {
+    const body = (await response.json()) as {
+      type?: string;
+      detail?: string;
+      trace_id?: string;
+    };
+
+    return new ApiError(
+      response.status,
+      body.type ?? "about:blank",
+      body.detail ?? "요청을 처리하지 못했습니다.",
+      body.trace_id,
+    );
+  } catch {
+    return new ApiError(
+      response.status,
+      "about:blank",
+      `서버가 ${response.status} 로 답했습니다.`,
+    );
+  }
+}
+
+/**
+ * 키만 바꾼다. <b>값은 손대지 않는다.</b>
+ *
+ * <p>`allowed_actions` 의 `REQUEST_RETURN` 같은 값이 열거값이라 그렇다(`D5`).
+ * 값까지 바꾸면 화면이 서버가 모르는 이름으로 동작을 부른다.
+ */
+function toCamel(value: Json): Json {
+  return mapKeys(value, (key) =>
+    key.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase()),
+  );
+}
+
+function toSnake(value: Json): Json {
+  return mapKeys(value, (key) => key.replace(/[A-Z]/g, (char) => `_${char.toLowerCase()}`));
+}
+
+function mapKeys(value: Json, rename: (key: string) => string): Json {
+  if (Array.isArray(value)) {
+    return value.map((item) => mapKeys(item, rename));
+  }
+
+  // null 도 object 다. 걸러내지 않으면 Object.entries 가 터진다.
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, Json>).map(([key, item]) => [
+      rename(key),
+      mapKeys(item, rename),
+    ]),
+  );
+}
