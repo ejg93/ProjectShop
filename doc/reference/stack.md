@@ -425,6 +425,31 @@ Redis 를 쓰는 테스트는 `@BeforeEach` 에서 자기 키를 지운다.
 **이건 우연히 성립한 안전장치라 테스트로 고정해 뒀다**(`RedisConnectionTest`).
 누가 그 빈을 지우면 캐시 구현이 조용히 바뀌는데, 그건 코드 어디에도 안 보인다.
 
+### 화면을 진짜 브라우저로 밟는 방법이 있다
+
+`curl` 은 HTML 만 받는다. **버튼을 눌러 무슨 일이 나는지는 못 본다** — 로그인이 200 인데
+화면이 안 넘어가는 결함(`13-2` 수정)이 그 사이에 숨어 있었다.
+
+Puppeteer 가 이 기계에 깔려 있다. 저장소 의존성이 아니라 **사용자 홈**에 있다.
+
+```
+C:\Users\EJG\node_modules\puppeteer   (25.3.0)
+~/.cache/puppeteer                    (Chrome 바이너리)
+```
+
+**저장소에 안 넣는다.** 화면 테스트를 정식으로 세우는 것은 나중 청크고(`D15`),
+지금은 손으로 확인할 때만 쓴다. 스크래치패드에 스크립트를 두고 부른다.
+
+```js
+// .mjs 여야 한다. 이 판은 ESM 전용이라 require 가 안 된다.
+const { default: puppeteer } = await import(
+  "file:///C:/Users/EJG/node_modules/puppeteer/lib/puppeteer/puppeteer.js"
+);
+```
+
+**경로를 `file://` URL 로 준다.** Git Bash 의 POSIX 경로(`/c/Users/...`)를 그대로 넘기면
+Node 가 `C:\c\Users\...` 로 읽어서 못 찾는다.
+
 ## 넣었지만 안 쓰는 것
 
 **`spring-boot-starter-data-jpa` 가 의존성에 있는데 코드는 `JdbcClient` 만 쓴다.**

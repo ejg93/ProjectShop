@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
@@ -47,7 +46,6 @@ function messageOf(error: unknown): string {
 }
 
 export function LoginForm() {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,10 +62,17 @@ export function LoginForm() {
         },
       });
 
-      // 서버 컴포넌트가 들고 있는 것을 버리고 다시 받는다. 안 부르면 로그인 전 화면이 남는다.
-      router.refresh();
-      // replace 다. push 면 뒤로 가기가 로그인 화면으로 돌아온다.
-      router.replace("/");
+      // 통째로 다시 받는다. 클라이언트 이동(router)이 아니라 브라우저 이동이다.
+      //
+      // 세션 쿠키가 HttpOnly 라 서버만 읽는다. 로그인한 사실을 화면에 반영하려면
+      // 서버 컴포넌트가 전부 다시 그려져야 하고, 그걸 확실히 하는 것이 통짜 이동이다.
+      //
+      // `router.refresh()` 와 `router.replace()` 를 이어서 부르던 것을 걷어냈다 —
+      // 둘이 같은 전환 안에서 부딪혀서 **이동이 아예 안 일어났다.** 로그인은 200 인데
+      // 화면은 그대로고 버튼만 「확인하는 중」에 멈춰 있었다.
+      //
+      // replace 와 같은 자리다. 이력을 안 쌓아서 뒤로 가기가 로그인 화면으로 안 돌아온다.
+      window.location.replace("/");
     } catch (thrown) {
       setError(messageOf(thrown));
       setPending(false);
