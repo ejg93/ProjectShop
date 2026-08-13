@@ -64,6 +64,17 @@ public class ProductController {
     }
 
     /**
+     * 공개 상세. 목록과 같은 조건이라 <b>목록에 없는 상품은 여기서도 안 열린다.</b>
+     *
+     * <p>없는 상품과 아직 안 파는 상품이 같은 404 다. 가르면 주소를 하나씩 두드려서
+     * 남의 {@code draft} 가 존재한다는 것을 알아낼 수 있다(`D5` 「403 이냐 404 냐」).
+     */
+    @GetMapping("/{productId}")
+    public ProductQuery.PublicDetail detail(@PathVariable long productId) {
+        return productQuery.findPublicDetail(productId);
+    }
+
+    /**
      * 상품·옵션·SKU 를 한 번에 받는다(`D4` — 상품은 한 덩어리로 산다).
      *
      * <p>{@code Location} 을 붙인다. 조회 경로가 청크 8 에서 생기지만 <b>경로 규칙은 지금 정해져 있고</b>,

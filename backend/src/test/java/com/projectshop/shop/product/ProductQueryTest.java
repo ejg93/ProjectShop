@@ -242,6 +242,125 @@ class ProductQueryTest extends PostgresTestBase {
         }
     }
 
+    @Nested
+    @DisplayName("공개 상세")
+    class PublicDetail {
+
+        @Test
+        @DisplayName("옵션과 살 수 있는 조합이 같이 온다")
+        void includesOptionsAndSkus() {
+            long productId = createAndPutOnSale(ownerA, sellerA, "상세 티셔츠");
+
+            ProductQuery.PublicDetail detail = productQuery.findPublicDetail(productId);
+
+            assertThat(detail.sellerName()).isEqualTo("A셀러");
+            assertThat(detail.options()).singleElement()
+                    .satisfies(group -> {
+                        assertThat(group.name()).isEqualTo("색상");
+                        assertThat(group.values()).extracting(ProductQuery.OptionValue::value)
+                                .containsExactly("검정", "흰색");
+                    });
+            assertThat(detail.skus()).extracting(ProductQuery.PublicSku::price)
+                    .containsExactlyInAnyOrder(15000L, 18000L);
+            assertThat(detail.skus())
+                    .as("어느 값들의 조합인지가 없으면 화면이 고른 옵션으로 SKU 를 못 찾는다")
+                    .allSatisfy(sku -> assertThat(sku.optionValueIds()).isNotEmpty());
+        }
+
+        @Test
+        @DisplayName("파는 중이 아니면 없는 것과 같은 404 다")
+        void hidesDraft() {
+            long draft = create(ownerA, sellerA, "준비 중인 상세");
+
+            assertThatThrownBy(() -> productQuery.findPublicDetail(draft))
+                    .as("""
+                            없는 것과 아직 안 파는 것을 가르면 주소를 하나씩 두드려서
+                            남의 draft 가 존재한다는 것을 알아낼 수 있다.
+                            """)
+                    .isInstanceOf(ShopException.class)
+                    .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("내린 상품도 404 다")
+        void hidesDeleted() {
+            long productId = createAndPutOnSale(ownerA, sellerA, "곧 내릴 상세");
+            productService.delete(ownerA, productId);
+
+            assertThatThrownBy(() -> productQuery.findPublicDetail(productId))
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("재고는 수량이 아니라 있고 없고만 나간다")
+        void tellsStockWithoutCount() {
+            long productId = createAndPutOnSale(ownerA, sellerA, "품절 섞인 상세");
+            jdbc.sql("""
+                            update sku set stock_count = 0
+                             where product_id = :id and price = 15000
+                            """)
+                    .param("id", productId)
+                    .update();
+
+            List<ProductQuery.PublicSku> skus = productQuery.findPublicDetail(productId).skus();
+
+            assertThat(skus).filteredOn(sku -> sku.price() == 15000L)
+                    .singleElement()
+                    .satisfies(sku -> assertThat(sku.inStock()).isFalse());
+            assertThat(skus).filteredOn(sku -> sku.price() == 18000L)
+                    .singleElement()
+                    .satisfies(sku -> assertThat(sku.inStock()).isTrue());
+        }
+
+        @Test
+        @DisplayName("내린 조합은 목록에서 빠진다")
+        void hidesRetiredSku() {
+            long productId = createAndPutOnSale(ownerA, sellerA, "조합 하나 내린 상세");
+            jdbc.sql("""
+                            update sku set status = 'suspended'
+                             where product_id = :id and price = 18000
+                            """)
+                    .param("id", productId)
+                    .update();
+
+            assertThat(productQuery.findPublicDetail(productId).skus())
+                    .as("못 사는 조합을 주면 화면이 고를 수 있는 것으로 그리고 담기에서야 막힌다")
+                    .extracting(ProductQuery.PublicSku::price)
+                    .containsExactly(15000L);
+        }
+
+        @Test
+        @DisplayName("청약철회 제한은 사유까지 대문자로 나간다")
+        void exposesWithdrawalRestriction() {
+            long productId = productService.create(ownerA, new ProductService.Command(
+                    sellerA, "주문 제작 티셔츠", null, null, true, "made_to_order",
+                    List.of(new ProductService.OptionCommand("색상", List.of("검정"))),
+                    List.of(new ProductService.SkuCommand(List.of("검정"), 20000, 3))))
+                    .productId();
+            jdbc.sql("update product set status = 'on_sale' where product_id = :id")
+                    .param("id", productId)
+                    .update();
+
+            ProductQuery.PublicDetail detail = productQuery.findPublicDetail(productId);
+
+            assertThat(detail.withdrawalRestricted()).isTrue();
+            assertThat(detail.withdrawalRestrictionReason())
+                    .as("법이 고지를 요구하는 값이라 공개로 나가야 한다(`D2` R4)")
+                    .isEqualTo("MADE_TO_ORDER");
+        }
+
+        @Test
+        @DisplayName("제한이 없으면 사유가 비어 있다")
+        void leavesReasonEmptyWhenUnrestricted() {
+            long productId = createAndPutOnSale(ownerA, sellerA, "그냥 티셔츠");
+
+            ProductQuery.PublicDetail detail = productQuery.findPublicDetail(productId);
+
+            assertThat(detail.withdrawalRestricted()).isFalse();
+            assertThat(detail.withdrawalRestrictionReason()).isNull();
+        }
+    }
+
     private long create(long actorUserId, long sellerId, String name) {
         return productService.create(actorUserId, new ProductService.Command(
                 sellerId, name, null, null, false, null,

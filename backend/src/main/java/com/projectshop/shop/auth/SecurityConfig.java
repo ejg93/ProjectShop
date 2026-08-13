@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.HttpBasicConfigurer;
@@ -72,6 +73,9 @@ public class SecurityConfig {
             "/api/consent-items/**",
             // 상품 공개 목록. 비로그인도 본다 — 사는 사람은 로그인 전에 물건을 고른다.
             // 이 경로는 판정이 없다. on_sale 만 나가므로 감출 것이 없다(청크 8).
+            //
+            // 상세(/api/products/{id})는 여기 안 넣는다. 같은 경로에 PUT·DELETE 가 있어서
+            // 경로만으로 열면 비로그인이 남의 상품을 고치고 지운다. 아래에서 GET 만 연다.
             "/api/products",
             // 장바구니는 비로그인도 쓴다. 담는 것이 계약 체결 과정의 요청이라
             // 동의 없이 되고(개인정보법 제15조①4호), 주인은 쿠키가 가리킨다(청크 9).
@@ -84,6 +88,9 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
+                        // 상품 상세는 읽기만 연다(청크 8b). 별 하나라 /{id} 까지만 걸리고
+                        // /{id}/approve 같은 검수 경로는 안 걸린다 — 둘 다 필요한 조건이다.
+                        .requestMatchers(HttpMethod.GET, "/api/products/*").permitAll()
                         .anyRequest().authenticated())
 
                 // 폼 로그인과 HTTP Basic 을 끈다.

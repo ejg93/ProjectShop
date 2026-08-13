@@ -59,6 +59,20 @@ class ProductStatusTest extends PostgresTestBase {
                 .hasSizeLessThan(ProductStatus.values().length);
     }
 
+    /**
+     * 이 목록은 법이 정했다(전자상거래법 제17조제2항, `D2` R4).
+     *
+     * <p>어긋나면 <b>법이 인정하지 않는 사유가 화면에 나가거나</b>, 인정한 사유를 못 쓴다.
+     * 다른 두 목록보다 값이 비싸서 같은 방식으로 묶어 둔다.
+     */
+    @Test
+    @DisplayName("청약철회 제한 사유가 DB 제약과 같다")
+    void withdrawalReasonMatchesConstraint() {
+        assertThat(valuesIn("product_withdrawal_reason_check"))
+                .containsExactlyInAnyOrderElementsOf(
+                        codesOf(WithdrawalRestrictionReason.values()));
+    }
+
     @Test
     @DisplayName("모르는 값은 조용히 통과하지 않는다")
     void unknownCodeThrows() {
@@ -93,5 +107,9 @@ class ProductStatusTest extends PostgresTestBase {
 
     private static List<String> codesOf(SkuStatus[] values) {
         return Arrays.stream(values).map(SkuStatus::code).toList();
+    }
+
+    private static List<String> codesOf(WithdrawalRestrictionReason[] values) {
+        return Arrays.stream(values).map(WithdrawalRestrictionReason::code).toList();
     }
 }

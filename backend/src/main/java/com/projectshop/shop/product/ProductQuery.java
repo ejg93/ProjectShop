@@ -1,6 +1,8 @@
 package com.projectshop.shop.product;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -71,6 +73,33 @@ public class ProductQuery {
     }
 
     public record PublicPage(List<PublicItem> items, int page, int size, long total) {
+    }
+
+    /**
+     * 공개 상세. 목록보다 많이 주지만 <b>재고 수량과 수수료율은 여전히 없다.</b>
+     *
+     * @param withdrawalRestrictionReason 청약철회를 제한하는 사유. 제한이 없으면 null.
+     *                                    <b>법이 고지를 요구하는 값이라 공개로 나간다</b>(`D2` R4)
+     */
+    public record PublicDetail(long productId, long sellerId, String sellerName, String name,
+            String description, boolean withdrawalRestricted, String withdrawalRestrictionReason,
+            List<OptionGroup> options, List<PublicSku> skus, OffsetDateTime createdAt) {
+    }
+
+    /** 옵션 하나와 고를 수 있는 값들. 「색상」에 「빨강·파랑」 같은 것 */
+    public record OptionGroup(long productOptionId, String name, List<OptionValue> values) {
+    }
+
+    public record OptionValue(long productOptionValueId, String value) {
+    }
+
+    /**
+     * 살 수 있는 조합 하나.
+     *
+     * @param optionValueIds 이 조합이 어느 값들로 이루어졌나. <b>화면이 고른 값으로 SKU 를 찾는 열쇠다</b>
+     * @param inStock 재고가 있나. <b>몇 개인지는 안 준다</b> — 살 수 있는지만 알면 화면이 그려진다
+     */
+    public record PublicSku(long skuId, long price, boolean inStock, List<Long> optionValueIds) {
     }
 
     public record SellerPage(List<SellerItem> items, int page, int size, long total) {
@@ -198,6 +227,124 @@ public class ProductQuery {
     }
 
     /**
+     * 공개 상세. <b>목록과 같은 조건이다</b> — 파는 중이고 살아 있는 것.
+     *
+     * <p>조건이 목록과 갈리면 목록에 없는 상품이 상세로는 열리거나 그 반대가 된다.
+     * 주소를 직접 치는 사람이 그 틈으로 들어온다.
+     *
+     * <p><b>재고 수량을 안 내린다.</b> 셀러 목록에만 있는 값이고(`8`), 품절인지만 알면
+     * 살 수 있는지가 정해진다. 수량은 남에게 우리 사정을 알려 주는 값이다.
+     *
+     * <p>쿼리를 셋으로 나눴다. 한 번에 조인하면 옵션 수 × SKU 수만큼 행이 불어나고,
+     * 그걸 자바에서 다시 접어야 한다 — <b>접는 코드가 틀려도 조용하다.</b>
+     */
+    public PublicDetail findPublicDetail(long productId) {
+        PublicDetail head = jdbc.sql("""
+                        select p.product_id, p.seller_id, s.name as seller_name, p.name,
+                               p.description, p.is_withdrawal_restricted,
+                               p.withdrawal_restriction_reason, p.created_at
+                          from product p
+                          join seller s on s.seller_id = p.seller_id
+                         where p.product_id = :id
+                           and p.status = 'on_sale' and p.deleted_at is null
+                        """)
+                .param("id", productId)
+                .query((rs, rowNum) -> new PublicDetail(
+                        rs.getLong("product_id"),
+                        rs.getLong("seller_id"),
+                        rs.getString("seller_name"),
+                        rs.getString("name"),
+                        rs.getString("description"),
+                        rs.getBoolean("is_withdrawal_restricted"),
+                        reasonValue(rs.getString("withdrawal_restriction_reason")),
+                        List.of(),
+                        List.of(),
+                        rs.getObject("created_at", OffsetDateTime.class)))
+                .optional()
+                // 파는 중이 아닌 것과 아예 없는 것을 안 가른다. 가르면 draft 상품의 존재가 샌다.
+                .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        return new PublicDetail(head.productId(), head.sellerId(), head.sellerName(), head.name(),
+                head.description(), head.withdrawalRestricted(), head.withdrawalRestrictionReason(),
+                findOptions(productId), findPublicSkus(productId), head.createdAt());
+    }
+
+    /**
+     * 옵션과 그 값들. 정렬 순서는 셀러가 정한 것을 그대로 따른다.
+     *
+     * <p>값을 옵션마다 다시 조회하지 않는다 — 옵션이 셋이면 쿼리가 넷이 되고,
+     * 그 모양은 상품 수만큼 늘어난다.
+     */
+    private List<OptionGroup> findOptions(long productId) {
+        record Row(long optionId, String optionName, long valueId, String value) {
+        }
+
+        List<Row> rows = jdbc.sql("""
+                        select o.product_option_id, o.name as option_name,
+                               v.product_option_value_id, v.value
+                          from product_option o
+                          join product_option_value v
+                            on v.product_option_id = o.product_option_id
+                         where o.product_id = :id
+                         order by o.sort_no, o.product_option_id, v.sort_no, v.product_option_value_id
+                        """)
+                .param("id", productId)
+                .query((rs, rowNum) -> new Row(
+                        rs.getLong("product_option_id"),
+                        rs.getString("option_name"),
+                        rs.getLong("product_option_value_id"),
+                        rs.getString("value")))
+                .list();
+
+        // LinkedHashMap 이다. 위에서 정렬해 온 순서가 그대로 남아야 화면의 선택 순서가 셀러 뜻대로다.
+        Map<Long, OptionGroup> grouped = new LinkedHashMap<>();
+        for (Row row : rows) {
+            grouped.computeIfAbsent(row.optionId(),
+                            id -> new OptionGroup(id, row.optionName(), new ArrayList<>()))
+                    .values()
+                    .add(new OptionValue(row.valueId(), row.value()));
+        }
+        return List.copyOf(grouped.values());
+    }
+
+    /**
+     * 살 수 있는 조합들.
+     *
+     * <p>{@code on_sale} 인 SKU 만 나간다. 내린 조합을 같이 주면 화면이 고를 수 있는 것으로 그리고,
+     * 담기에서야 막힌다.
+     */
+    private List<PublicSku> findPublicSkus(long productId) {
+        record Row(long skuId, long price, boolean inStock, long optionValueId) {
+        }
+
+        List<Row> rows = jdbc.sql("""
+                        select sk.sku_id, sk.price, sk.stock_count > 0 as in_stock,
+                               sov.product_option_value_id
+                          from sku sk
+                          join sku_option_value sov on sov.sku_id = sk.sku_id
+                         where sk.product_id = :id
+                           and sk.status = 'on_sale' and sk.deleted_at is null
+                         order by sk.sku_id, sov.product_option_value_id
+                        """)
+                .param("id", productId)
+                .query((rs, rowNum) -> new Row(
+                        rs.getLong("sku_id"),
+                        rs.getLong("price"),
+                        rs.getBoolean("in_stock"),
+                        rs.getLong("product_option_value_id")))
+                .list();
+
+        Map<Long, PublicSku> grouped = new LinkedHashMap<>();
+        for (Row row : rows) {
+            grouped.computeIfAbsent(row.skuId(),
+                            id -> new PublicSku(id, row.price(), row.inStock(), new ArrayList<>()))
+                    .optionValueIds()
+                    .add(row.optionValueId());
+        }
+        return List.copyOf(grouped.values());
+    }
+
+    /**
      * 이 사람이 목록에서 볼 수 있는 셀러들.
      *
      * <p>{@link Allowed} 로 돌려준다. <b>"전부" 를 빈 집합으로 표현하면 호출자가 그걸
@@ -239,5 +386,11 @@ public class ProductQuery {
      */
     private static String enumValue(String storedCode) {
         return storedCode == null ? null : ProductStatus.of(storedCode).name();
+    }
+
+    /** 같은 이유로 사유도 enum 을 지난다. 제한이 없으면 null 이 그대로 나간다 */
+    private static String reasonValue(String storedCode) {
+        WithdrawalRestrictionReason reason = WithdrawalRestrictionReason.of(storedCode);
+        return reason == null ? null : reason.name();
     }
 }
