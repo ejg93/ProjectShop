@@ -15,6 +15,20 @@ type LoginResponse = {
   email: string;
 };
 
+/**
+ * 개발 중에 칸을 미리 채워 둘 계정(`V901__test_account.sql`).
+ *
+ * <p><b>운영 빌드에서는 없어진다.</b> `process.env.NODE_ENV` 는 번들러가 빌드 시점에
+ * 상수로 바꾸므로 이 값이 `null` 로 접히고, 문자열 자체가 결과물에 안 남는다.
+ * 조건 없이 두면 <b>배포한 화면에 계정과 비밀번호가 박혀 나간다.</b>
+ *
+ * <p>편의 하나를 잃는다 - 로그인 실패를 손으로 확인하려면 칸을 지우고 쳐야 한다.
+ */
+const TEST_ACCOUNT =
+  process.env.NODE_ENV === "development"
+    ? { email: "test@test.local", password: "1" }
+    : null;
+
 /** 서버가 준 오류를 화면 문구로 옮긴다. `type` 으로 갈린다(`D5`) */
 function messageOf(error: unknown): string {
   if (!(error instanceof ApiError)) {
@@ -68,6 +82,7 @@ export function LoginForm() {
         label="이메일"
         autoComplete="email"
         invalid={error !== null}
+        defaultValue={TEST_ACCOUNT?.email}
       />
 
       <Field
@@ -76,6 +91,7 @@ export function LoginForm() {
         label="비밀번호"
         autoComplete="current-password"
         invalid={error !== null}
+        defaultValue={TEST_ACCOUNT?.password}
       />
 
       {/*
@@ -116,12 +132,14 @@ function Field({
   label,
   autoComplete,
   invalid,
+  defaultValue,
 }: {
   name: string;
   type: "email" | "password";
   label: string;
   autoComplete: string;
   invalid: boolean;
+  defaultValue?: string;
 }) {
   return (
     <div className="grid gap-2">
@@ -135,6 +153,7 @@ function Field({
         required
         autoComplete={autoComplete}
         aria-invalid={invalid}
+        defaultValue={defaultValue}
         className="
           rounded-ui border border-border bg-surface-raised px-3 py-2.5 text-base
           transition-colors duration-200
