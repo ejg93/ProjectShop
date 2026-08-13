@@ -1,7 +1,13 @@
 package com.projectshop.shop;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.test.context.TestSecurityContextHolder;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -52,6 +58,39 @@ public abstract class PostgresTestBase {
         SecurityContextHolder.clearContext();
         TestSecurityContextHolder.clearContext();
     }
+
+    /**
+     * 앞 테스트가 따로 커밋한 감사 기록을 걷어낸다.
+     *
+     * <p>시도 기록({@code AuditLog.Kind.ATTEMPT})은 {@code REQUIRES_NEW} 라 <b>테스트 롤백에 안 쓸린다.</b>
+     * 그게 청크 {@code 4b-2} 의 목적이라 고칠 것이 아니고, 대신 다음 테스트로 넘어간다.
+     *
+     * <p><b>지우는 것도 별도 트랜잭션이어야 한다.</b> 테스트 트랜잭션 안에서 지우면 삭제까지 같이
+     * 롤백돼서 아무것도 안 지운 것이 된다.
+     *
+     * <p>{@code @BeforeTransaction} 을 안 쓴 이유는 <b>{@code @Nested} 클래스에서 안 돌아서</b>다.
+     * Spring 은 테스트 클래스의 상속 계층에서만 그 표시를 찾는데, 중첩 클래스는 이 바탕을 상속하지 않는다.
+     * {@code @BeforeEach} 는 JUnit 이 바깥 클래스까지 훑어서 중첩에서도 돈다.
+     *
+     * <p>뒤가 아니라 앞에서 지운다. 뒤에서 지우려면 <b>아직 커밋 안 된 이 테스트의 행</b>을
+     * 다른 트랜잭션이 지우려 드는 모양이 돼서 잠금에 걸린다.
+     *
+     * <p>남으면 깨지는 것이 <b>남의 테스트</b>라 원인을 찾을 실마리가 없다.
+     * 그래서 각 테스트가 아니라 바탕에 둔다.
+     */
+    @BeforeEach
+    protected void purgeCommittedAuditLogs() {
+        TransactionTemplate detached = new TransactionTemplate(auditTxManager);
+        detached.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        detached.executeWithoutResult(
+                status -> auditCleanup.sql("delete from audit_log").update());
+    }
+
+    @Autowired
+    private JdbcClient auditCleanup;
+
+    @Autowired
+    private PlatformTransactionManager auditTxManager;
 
     @TestConfiguration(proxyBeanMethods = false)
     static class Containers {

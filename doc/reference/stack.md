@@ -188,6 +188,22 @@ MockMvc 쪽 테스트는 상태 코드를 못박지 말고 `is4xxClientError()` 
 청크 4a 에서 조회를 `PermissionRuleLoader` 로 뺀 이유가 이것이다.
 캐시를 새로 붙일 때 **부르는 쪽과 캐시된 메서드가 다른 빈에 있는지** 먼저 본다.
 
+**`@Transactional` 도 같다.** 자기 호출이면 전파 설정이 통째로 무시되고
+`REQUIRES_NEW` 가 `REQUIRED` 처럼 돈다 — **고쳤다고 믿는 채로 원래 결함이 남는 모양이라
+증상으로는 안 갈린다.** 청크 4b-2 가 삽입을 `AuditLogWriter` 로 뺀 이유다.
+
+### `@BeforeTransaction`·`@AfterTransaction` 은 `@Nested` 클래스에서 안 돈다
+
+Spring 은 그 표시를 **테스트 클래스의 상속 계층**에서 찾는데, 중첩 클래스는 바탕 클래스를
+상속하지 않는다. 바탕에 달아 두면 중첩 안 쓴 클래스에서만 돌아서 **일부만 정리된다.**
+
+`@BeforeEach`·`@AfterEach` 는 JUnit 이 바깥 클래스까지 훑으므로 중첩에서도 돈다.
+그래서 트랜잭션 밖에서 해야 하는 정리는 **`@BeforeEach` 안에서 `REQUIRES_NEW` 로 연다**
+(`PostgresTestBase.purgeCommittedAuditLogs`).
+
+**뒤가 아니라 앞에서 지운다.** 뒤에서 지우면 아직 커밋 안 된 그 테스트의 행을
+다른 트랜잭션이 지우려 드는 모양이 돼서 잠금에 걸린다.
+
 ### Testcontainers 는 Boot BOM 이 관리하지 않는다
 
 버전을 직접 지정한다. 이유와 Docker 29 함정은 `build.gradle.kts` 주석에 있다.

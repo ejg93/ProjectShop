@@ -110,7 +110,7 @@ public class AccountPurgeService {
         // 파기 사실의 증거가 이 로그뿐이라 그 질문이 실제로 온다.
         //
         // actor 가 null 인 것은 사람이 한 일이 아니라서다. 배치는 주체가 없다.
-        purgedIds.forEach(userId -> auditLog.record(
+        purgedIds.forEach(userId -> auditLog.record(AuditLog.Kind.OUTCOME,
                 "user.purged", null, AuditLog.Target.of("user", userId),
                 Map.of("grace_days", GRACE_DAYS)));
 

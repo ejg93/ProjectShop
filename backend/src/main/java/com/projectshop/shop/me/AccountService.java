@@ -106,7 +106,7 @@ public class AccountService {
                 .param("id", userId)
                 .update();
 
-        auditLog.record("user.display_name_changed", userId,
+        auditLog.record(AuditLog.Kind.OUTCOME, "user.display_name_changed", userId,
                 AuditLog.Target.of("user", userId), Map.of());
 
         return read(userId);
@@ -140,7 +140,7 @@ public class AccountService {
                 .update();
 
         // 무엇으로 바꿨는지는 안 남긴다. 남길 것은 바꿨다는 사실뿐이다(D16).
-        auditLog.record("user.password_changed", userId,
+        auditLog.record(AuditLog.Kind.OUTCOME, "user.password_changed", userId,
                 AuditLog.Target.of("user", userId), Map.of());
 
         // 다른 기기의 세션은 그대로 살아 있다. 끊으려면 SessionRegistry 를 부르면 되지만,

@@ -72,7 +72,8 @@ public class WithdrawalService {
                 .param("id", userId)
                 .update();
 
-        auditLog.record("user.withdrawn", userId, AuditLog.Target.of("user", userId), Map.of());
+        auditLog.record(AuditLog.Kind.OUTCOME, "user.withdrawn", userId,
+                AuditLog.Target.of("user", userId), Map.of());
 
         // 트랜잭션 안에서 부른다. 롤백되면 계정이 살아 있는데 캐시만 비어 있는 상태가 되는데,
         // 그쪽은 한 번 더 조회할 뿐이라 틀리지 않는다. 반대로 두면 죽은 계정이 캐시에 남는다.

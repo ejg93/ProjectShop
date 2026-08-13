@@ -11,6 +11,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
@@ -34,6 +37,9 @@ class AuditLogTest extends PostgresTestBase {
     @Autowired
     JdbcClient jdbc;
 
+    @Autowired
+    PlatformTransactionManager txManager;
+
     AuthFixture fixture;
     long alpha;
     long customer;
@@ -53,7 +59,8 @@ class AuditLogTest extends PostgresTestBase {
         @Test
         @DisplayName("사건 하나가 그대로 들어간다")
         void recordsOneEvent() {
-            auditLog.record("role.granted", customer, AuditLog.Target.of("user", customer),
+            auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
+                    AuditLog.Target.of("user", customer),
                     Map.of("role_code", "seller_owner", "seller_id", alpha));
 
             Map<String, Object> row = latest();
@@ -68,7 +75,8 @@ class AuditLogTest extends PostgresTestBase {
         @Test
         @DisplayName("대상이 없는 사건도 남는다")
         void recordsEventWithoutTarget() {
-            auditLog.record("session.expired", customer, AuditLog.Target.none(), Map.of());
+            auditLog.record(AuditLog.Kind.OUTCOME, "session.expired", customer,
+                    AuditLog.Target.none(), Map.of());
 
             assertThat(latest()).containsEntry("target_type", null);
         }
@@ -76,8 +84,8 @@ class AuditLogTest extends PostgresTestBase {
         @Test
         @DisplayName("시스템이 한 일은 행위자가 비어 있다")
         void systemActorIsNull() {
-            auditLog.record("batch.purged", null, AuditLog.Target.ofType("order"),
-                    Map.of("count", 12));
+            auditLog.record(AuditLog.Kind.OUTCOME, "batch.purged", null,
+                    AuditLog.Target.ofType("order"), Map.of("count", 12));
 
             assertThat(latest()).containsEntry("actor_user_id", null);
         }
@@ -125,10 +133,11 @@ class AuditLogTest extends PostgresTestBase {
     class Transaction {
 
         @Test
-        @DisplayName("같은 트랜잭션에 얹혀서 업무 데이터와 함께 보인다")
+        @DisplayName("결과는 같은 트랜잭션에 얹혀서 업무 데이터와 함께 보인다")
         void sharesTransactionWithBusinessWork() {
             fixture.grantOrg(customer, "seller_owner", insertMembership());
-            auditLog.record("role.granted", customer, AuditLog.Target.of("user", customer), Map.of());
+            auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
+                    AuditLog.Target.of("user", customer), Map.of());
 
             assertThat(count())
                     .as("""
@@ -136,6 +145,48 @@ class AuditLogTest extends PostgresTestBase {
                             감사 기록만 먼저 커밋돼서 롤백 뒤에도 남는다.
                             """)
                     .isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("결과는 업무가 롤백되면 같이 사라진다")
+        void outcomeVanishesWithBusinessRollback() {
+            business().execute(status -> {
+                auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
+                        AuditLog.Target.of("user", customer), Map.of());
+                status.setRollbackOnly();
+                return null;
+            });
+
+            assertThat(count())
+                    .as("안 일어난 일이 기록에 남으면 감사가 거짓말을 한다")
+                    .isZero();
+        }
+
+        @Test
+        @DisplayName("거부는 업무가 롤백돼도 남는다")
+        void denialSurvivesBusinessRollback() {
+            business().execute(status -> {
+                evaluator.decide(customer, "order", "read", Target.of(9999L, alpha));
+                status.setRollbackOnly();
+                return null;
+            });
+
+            assertThat(count())
+                    .as("""
+                            @Transactional 서비스 안의 거부는 예외와 함께 롤백된다.
+                            거부가 사라지면 감사 로그로 시도를 세는 것이 성립 안 한다.
+                            """)
+                    .isEqualTo(1);
+        }
+
+        /**
+         * 업무 트랜잭션을 흉내 낸다. 테스트 자체의 트랜잭션과 갈라야 롤백을 관찰할 수 있다 —
+         * 테스트 트랜잭션은 어차피 마지막에 롤백돼서 무엇이 살아남는지 안 보인다.
+         */
+        private TransactionTemplate business() {
+            TransactionTemplate template = new TransactionTemplate(txManager);
+            template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            return template;
         }
 
         private long insertMembership() {

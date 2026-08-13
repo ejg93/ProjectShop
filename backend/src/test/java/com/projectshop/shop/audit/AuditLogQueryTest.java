@@ -52,10 +52,12 @@ class AuditLogQueryTest extends PostgresTestBase {
         customer = fixture.insertUser("q-customer@test.local", "고객");
         fixture.grantGlobal(customer, "customer");
 
-        auditLog.record("order.created", customer, AuditLog.Target.of("order", 11L), Map.of());
-        auditLog.record("order.cancelled", customer, AuditLog.Target.of("order", 11L), Map.of());
-        auditLog.record("role.granted", auditor, AuditLog.Target.of("user", customer),
-                Map.of("role_code", "customer"));
+        auditLog.record(AuditLog.Kind.OUTCOME, "order.created", customer,
+                AuditLog.Target.of("order", 11L), Map.of());
+        auditLog.record(AuditLog.Kind.OUTCOME, "order.cancelled", customer,
+                AuditLog.Target.of("order", 11L), Map.of());
+        auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", auditor,
+                AuditLog.Target.of("user", customer), Map.of("role_code", "customer"));
     }
 
     @Nested

@@ -213,7 +213,10 @@ public class PermissionEvaluator {
         detail.put("seller_id", target.sellerId());
         detail.put("status", target.status());
 
-        auditLog.record("permission.denied", userId, AuditLog.Target.ofType(resource), detail);
+        // 시도다. 업무 트랜잭션 안에서 거부하고 예외를 던지는 경로가 있어서, 결과로 두면
+        // 그 경로의 거부가 통째로 사라진다(`4b-2`).
+        auditLog.record(AuditLog.Kind.ATTEMPT, "permission.denied", userId,
+                AuditLog.Target.ofType(resource), detail);
     }
 
     /**

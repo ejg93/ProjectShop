@@ -86,7 +86,7 @@ public class ProductService {
         Map<String, Long> valueIds = insertOptions(productId, command.options());
         List<Long> skuIds = insertSkus(productId, command.skus(), valueIds);
 
-        auditLog.record("product.created", actorUserId,
+        auditLog.record(AuditLog.Kind.OUTCOME, "product.created", actorUserId,
                 AuditLog.Target.of("product", productId),
                 Map.of("seller_id", command.sellerId(), "sku_count", skuIds.size()));
 
@@ -141,7 +141,7 @@ public class ProductService {
                 : insertOptions(productId, command.options());
         List<Long> skuIds = insertSkus(productId, command.skus(), valueIds);
 
-        auditLog.record("product.updated", actorUserId,
+        auditLog.record(AuditLog.Kind.OUTCOME, "product.updated", actorUserId,
                 AuditLog.Target.of("product", productId),
                 Map.of("seller_id", sellerId, "sku_count", skuIds.size()));
 
@@ -158,7 +158,7 @@ public class ProductService {
                 .param("id", productId)
                 .update();
 
-        auditLog.record("product.deleted", actorUserId,
+        auditLog.record(AuditLog.Kind.OUTCOME, "product.deleted", actorUserId,
                 AuditLog.Target.of("product", productId), Map.of("seller_id", sellerId));
     }
 

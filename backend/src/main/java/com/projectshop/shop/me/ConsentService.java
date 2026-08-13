@@ -233,7 +233,7 @@ public class ConsentService {
                 .param("actorIp", actorIp)
                 .update();
 
-        auditLog.record(granted ? "consent.granted" : "consent.revoked", userId,
+        auditLog.record(AuditLog.Kind.OUTCOME, granted ? "consent.granted" : "consent.revoked", userId,
                 AuditLog.Target.of("user", userId), Map.of("item_code", item.code()));
     }
 

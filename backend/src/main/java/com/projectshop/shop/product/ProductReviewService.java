@@ -184,7 +184,8 @@ public class ProductReviewService {
         detail.put("from", product.status().code());
         detail.putAll(extra);
 
-        auditLog.record(eventType, actorUserId, AuditLog.Target.of("product", productId), detail);
+        auditLog.record(AuditLog.Kind.OUTCOME, eventType, actorUserId,
+                AuditLog.Target.of("product", productId), detail);
     }
 
     private Product load(long productId) {

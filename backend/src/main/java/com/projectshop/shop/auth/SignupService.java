@@ -58,7 +58,8 @@ public class SignupService {
         grantDefaultRole(userId);
         recordConsents(userId, command, items);
 
-        auditLog.record("user.signed_up", userId, AuditLog.Target.of("user", userId),
+        auditLog.record(AuditLog.Kind.OUTCOME, "user.signed_up", userId,
+                AuditLog.Target.of("user", userId),
                 Map.of("role_code", DEFAULT_ROLE, "consent_count", command.consents().size()));
 
         return userId;
