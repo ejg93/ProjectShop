@@ -4,12 +4,17 @@
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
 - **진행중 청크**: 없음
-- **다음에 할 것**: **청크 `13` 프론트 골격**(Next.js). 화면 축의 선행이 전부 찼다 —
-  `D20` 도 `13-0` 도 완료다. 다른 후보는 `PLAN.md` 분할표에서 선행이 `완료` 인 행을 고르면 된다.
+- **다음에 할 것**: **청크 `13-2` 로그인 화면.** API 래퍼(snake_case→camelCase)와 첫 화면이다.
+  **화면을 그리기 전에 `design-taste-frontend` 스킬을 읽는다**(`D20`, 다이얼은 `4`/`4`/`5`).
+  **한글 글꼴도 거기서 정한다** — `13-1` 이 깐 Geist 는 라틴 전용이라 한글이 시스템 기본으로 떨어진다.
 
-  **`4b-2`·`10c`·`13-0` 이 끝났다.** 감사 기록은 경로마다 안 갈리고(거부는 `Kind.ATTEMPT`),
+  **프론트가 섰다**(`13-1`). Next 16 App Router + TypeScript + Tailwind v4,
+  `/api/*` 를 8080 으로 넘기는 rewrite 프록시, 접근성 린트, `<html lang="ko">`.
+  **띄워서 확인했다** — 3000 경유가 8080 직접과 같은 JSON 을 주고 401 도 그대로 온다.
+
+  **`4b-2`·`10c`·`13-0` 도 끝났다.** 감사 기록은 경로마다 안 갈리고(거부는 `Kind.ATTEMPT`),
   충돌 재시도는 `Retries.onConflict` 이 주문 생성과 배치 둘에 걸려 있다.
-  **실서버로는 둘 다 아직 안 밟았다** — 남의 발송 경로를 두드려 `audit_log` 에 줄이 남는지 보는 것이
+  **그 둘은 실서버로 아직 안 밟았다** — 남의 발송 경로를 두드려 `audit_log` 에 줄이 남는지 보는 것이
   다음 실서버 확인의 첫 항목이다.
 
   **주문 축이 관통했다.** 생성 → 결제 → 발송 → 배송완료 → 확정·반품이 HTTP 로 이어지고,
@@ -120,6 +125,11 @@
   실제로 도는 자리라, **지연 제약을 새로 걸면 이 층에 관통 하나를 같이 둔다**
 - **HTTP 층 정리는 한 트랜잭션이어야 한다.** 나눠 지우면 `order_item` 만 지운 커밋에서
   금액 등식이 깨진다. `HttpTestBase.cleanUp` 이 `TransactionTemplate` 으로 묶는다
+- **프론트 코드를 쓰기 전에 `frontend/AGENTS.md` 를 본다.** Next 16 은 이전 판과 API 가 갈려서
+  `node_modules/next/dist/docs/` 를 읽으라고 그 파일이 지시한다. **`next dev` 가 다시 써 넣으므로
+  지우면 계속 되살아난다** — 커밋해 두는 것이 맞다
+- **`eslint-config-next` 가 `jsx-a11y` 를 이미 등록해 뒀다.** 플러그인 설정을 통째로 얹으면
+  `Cannot redefine plugin` 으로 죽는다. **규칙만 가져온다**(`eslint.config.mjs`)
 - **`design-taste-frontend` 스킬은 기본이 쓰는 것이다**(`13-0`). 막는 것이 생성형의 기본 출력이라
   페이지 종류를 안 가린다. 스킬의 좁은 범위 선언(`§13`)은 배제가 아니라 부분 적용 지시다 —
   **주문 흐름·셀러 화면에서는 `§9`·`§4`·`§6` 만 쓰고 흐름 설계는 `D20` 이 정한다**
@@ -432,6 +442,8 @@ git 커밋 신원은 전역 `~/.gitconfig` 에 `EJG <64519398+ejg93@users.norepl
 | 2026-08-12 | 7e. 상품 상태를 enum 으로 | 완료 — `ProductStatus`·`SkuStatus` 신설, `ProductTransitions`·`ProductReviewService`·`ProductQuery`·`ProductService` 수정, `ProductStatusTest` 신설 4개, `ProductTransitionsTest` 수정, `D23` 갱신. `D23-1` 이 세운 규칙에 상품 축을 맞췄다 — 리터럴 13곳이 타입이 됐고 전이표도 enum 을 든다. **enum 을 둘로 만들었다** — `product.status` 와 `sku.status` 가 둘 다 `on_sale` 을 쓰는데 목록이 다르다(조합은 검수도 제재도 없다). 하나로 두면 `sku` 자리에 `draft` 를 넣어도 컴파일이 통과하고, 문자열이면 검색으로도 안 갈린다. **대조 테스트를 뒀다** — `pg_get_constraintdef` 로 제약 정의를 읽어 값을 뽑고 enum 과 맞춘다. **목록을 테스트에 손으로 또 적지 않았다** — 그러면 세 번째 사본이 생기고, 그게 이 테스트가 막으려는 것이다. 어긋나는 방향마다 증상이 달라서 둘 다 늦게 드러난다: DB 에만 있으면 읽는 순간 `of()` 가 터지고(조회가 통째로 500), 코드에만 있으면 `update` 가 `check` 에 걸려 **절대 성공하지 않는 전이**가 표에 남는다. **응답 변환도 enum 을 지나게 했다** — `toUpperCase` 만 하면 DB 의 모르는 값이 그대로 화면에 나간다. **SQL 텍스트 안의 리터럴은 안 바꿨다**(처분: `D23` 에 근거 기록) — `where p.status = 'on_sale'` 은 자바 식별자가 아니라 그 쿼리의 조건 자체고, `:status` 로 빼면 쿼리만 봐서 무엇을 거르는지 안 보인다. 대신 **읽기 쪽 오타가 0건을 조용히 준다**는 것을 밝히고, 쓰기 쪽은 `check` 가 잡는다는 것도 같이 적었다. 세 패키지 6파일이 돼서 청크가 안 떨어지는 것도 이유다. 테스트 485개 통과, 빌드 경고 0 | |
 
 | 2026-08-12 | 35c. HTTP 층 상품 픽스처 | 완료 — `HttpTestBase` 에 `givenSellableProduct`·`givenSellerOwner`·`postWithIdempotencyKey` 추가와 정리 확장, `HttpFlowTest` 에 「사고 파는 관통」 4개, `V17`·`ApiExceptionHandler` 수정, `stack.md` 갱신. **버그 둘이 나왔고 둘 다 이 층이 아니면 안 잡혔다.** **(1) `POST /api/orders` 가 실서버에서 언제나 500 이었다.** `V17` 의 지연 트리거가 `new.response_body` 를 보는데 **`NEW` 는 그 트리거를 걸어 준 문장 시점의 행**이라, `insert`(응답 null)로 걸린 예약분이 커밋 때 null 을 들고 터진다. 뒤에 `update` 로 채워도 그 예약분은 안 바뀐다 — **즉 그 트리거는 절대 통과할 수 없었다.** 행을 다시 읽도록 고쳤다. `V16` 의 `assert_order_amounts` 가 처음부터 그 모양이었는데 `V17` 만 `NEW` 를 믿었다. **왜 아무도 몰랐나** — `PROGRESS.md` 가 이미 경고한 자리다. 지연 트리거는 `@Transactional` 테스트에서 안 돌고, `10-0`·`10-2` 의 테스트 30개가 전부 롤백 층이었다. **HTTP 층이 커밋을 일으키는 유일한 층이라 여기서 처음 드러났다.** **(2) `ApiExceptionHandler` 가 500 원인을 로그에 안 남겼다.** 주석에 "원인은 로그에 남기고" 라고 적혀 있는데 코드가 없었다 — 응답에는 `trace_id` 가 나가는데 **그 ID 로 찾을 줄이 없었다**(`D16`). 스택까지 남기게 고쳤고, **이걸 안 고쳤으면 (1)의 원인을 못 찾았다.** **픽스처는 파는 쪽까지 통째로 세운다** — 셀러 생성·신원 확인·대표 부여·상품 `on_sale`·SKU. 그 벽 때문에 청크 9 가 장바구니 병합을 서비스 층에만 남겼었다. **시드를 안 쓴다** — `local` 프로필이라 테스트가 안 태우고, 태우면 테스트가 시드 데이터에 기대게 된다. **정리를 한 트랜잭션으로 묶었다**(`TransactionTemplate`) — 나눠 지우면 `order_item` 만 지운 커밋에서 `order_item_amounts_check` 가 터진다. 순서는 외래키 순서다(이력 → 항목 → 묶음 → 주문 → SKU → 상품 → 셀러 → 계정). **`Idempotency-Key` 를 싣는 메서드를 만들었다** — 필터로 강제하지 않은 것이 의도였으므로(`10-0`) 이 층이 헤더가 실제로 요구되는지 확인하는 유일한 자리다. 관통 넷: 담기→주문→내 주문, 셀러 목록→발송, 상세의 `seller_order_number`·`allowed_actions`, 모르는 묶음 번호 404. 테스트 489개 통과, 빌드 경고 0. **실서버로는 안 띄웠다** — `V17` 을 고쳤으니 `docker compose down -v` 가 먼저다 | |
+
+| 2026-08-13 | 13-1. 프론트 기반 | 완료 — `frontend/` 에 Next 16 셋업(App Router·TypeScript·Tailwind v4·`src/`), `next.config.ts`(rewrite 프록시·turbopack root), `eslint.config.mjs`(jsx-a11y), `layout.tsx`·`page.tsx`·`README.md`, 백엔드 `application.yml`, `CLAUDE.md` 검증표, `PLAN.md` 분할. **청크 13 을 둘로 쪼갰다**(사용자 선택) — 로그인 화면은 디자인 스킬 1206줄을 읽어야 해서 그것만으로 청크 하나다. **CORS 대신 프록시**다: 화면 코드는 `/api/...` 만 쓰고 포트를 모른다. CORS 를 열면 세션 쿠키 때문에 `credentials` 와 `Allow-Origin` 을 정확히 맞춰야 하고 **한 곳만 틀려도 로그인이 조용히 안 된다**. 배포에서도 같은 모양이라 쿠키의 `same-site: lax` 가 그대로 성립한다. **`internal-proxies` 를 루프백으로 좁혔다**(`D14`) — 기본값이 사설 대역 전체라 **같은 망의 무엇이든 `X-Forwarded-For` 한 줄로 IP 를 속일 수 있었다**. `user_consent.acted_ip` 가 그 값을 쌓으므로 거짓 개인정보가 들어간다. **`jsx-a11y` 를 규칙만 얹었다** — 설정을 통째로 넣으면 `Cannot redefine plugin` 으로 죽는다(`eslint-config-next` 가 이미 등록해 뒀다). 일부러 위반한 파일로 `alt-text` 가 실제로 걸리는 것까지 봤다. **`AGENTS.md`·`CLAUDE.md` 는 생성기가 깐 것을 남겼다** — Next 16 이 학습 데이터와 API 가 갈리니 `node_modules/next/dist/docs/` 를 읽으라는 지시고, `next dev` 가 다시 써 넣는다. **생성기의 안내 페이지는 지웠다** — 남기면 그 마크업이 관례로 읽힌다. **띄워서 확인했다**: `npm run build` 통과(타입 검사 포함), `npm run lint` 출력 없음, 백엔드와 같이 띄워 **3000 경유가 8080 직접과 같은 JSON**, `/api/orders` 가 프록시로도 401, 응답 HTML 에 `<html lang="ko">`. **한글 글꼴은 안 정했다** — Geist 가 라틴 전용이라 한글이 시스템 기본으로 떨어진다. `13-2` 가 정한다 | |
 
 | 2026-08-13 | 13-0. 디자인 취향 스킬 설치 | 완료 — `.agents/skills/design-taste-frontend/SKILL.md`·`skills-lock.json` 추가, `.gitignore`·`D20`·`PLAN.md` 수정. 사용자가 `npx skills add` 를 직접 돌렸다. 받은 것은 **실행 스크립트가 없는 지침 문서 하나**(1206줄, 88K)고 보안 스캔도 Safe/0 alerts/Low. **`~/.claude` 가 아니라 저장소 안에 깔렸다** — `.agents/skills/` 다. 본체와 잠금파일을 커밋했다(사용자 선택) — 다음 세션이 네트워크 없이도 같은 지침을 얻는 쪽이 "진행 상태는 전부 파일에 있다" 는 전제와 맞다. `.claude/` 는 gitignore 다: 거기 생긴 것이 `.agents/` 로 가는 **심볼릭 링크**인데 `core.symlinks=false` 라 절대경로가 든 텍스트 파일로 커밋되고 다른 기계에서 쓰레기가 된다. `settings.local.json` 도 이름 그대로 로컬 설정이라 같이 빠진다. **범위를 어디까지 쓸지가 나왔다(처분: `D20` 에 표를 세웠다).** **처음에 좁게 잡았다가 사용자 지적으로 넓혔다** — 스킬 첫 줄의 "Not dashboards, not data tables, not multi-step product UI" 한 줄에 무게를 과하게 실었는데, **같은 절(`§13`) 마지막 문장이 "그런 화면이면 그렇다고 밝히고 해당되는 부분만 적용하라" 라 배제가 아니라 부분 적용 지시**다. 본문을 보면 알맹이(`§9` AI Tells·`§4` 편향 교정·`§6` 가드레일·`§14` 프리플라이트)가 **페이지 종류를 안 가린다** — 보라 그라데이션·3등분 동일 카드·`#000000`·가짜 데이터는 쇼핑몰에도 그대로 나온다. 그래서 **기본은 쓰는 것**이고, 주문 흐름·셀러 화면에서만 흐름 설계를 `D20` 이 가져간다. **다이얼(`§1`)이 조절 장치다** — 랜딩 기본 `8/6/4` 가 아니라 `trust-first` 줄의 `VARIANCE 3-4 / MOTION 2-3 / DENSITY 4-5` 고, 값은 청크 13 이 확정한다. **스택은 우리가 이긴다**(`D23` 축 1 — 스킬은 업계 관례 4순위, 프로젝트 규약이 3순위): 프레임워크는 Next.js + RSC 로 이미 같고 Tailwind v4·Motion·Phosphor 는 청크 13 이 정한다. **`§9.G` em-dash 하드 금지는 화면 문구에만 걸린다** — 문서·커밋의 `—` 는 안 바꾼다. **`§9.D` 의 이름·수치 창작은 시드·데모 데이터에 적용하지 않는다** — 그쪽은 재현이 목적이라 그럴듯함보다 고정이 중요하다. **대비 점검은 스킬이 아니라 법에서 온 것이라 스킬을 버려도 남는다**(장애인차별금지법 → KWCAG 2.2 → `D20`) | |
 

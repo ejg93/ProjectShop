@@ -121,7 +121,13 @@
 | backend (데모 데이터) | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. 계정 6·셀러 2, 비밀번호는 전부 `demo-password-1234`. **`local` 없이 뜨면 시드가 안 들어간다** |
 | backend (로그) | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
 
-`frontend/` 는 아직 비어 있어서 명령이 없다. 청크 13에서 여기에 추가한다.
+프론트 명령은 전부 `frontend/` 안에서 돌린다.
+
+| 구역 | 명령 | 통과 기준 |
+|---|---|---|
+| frontend | `cd frontend && npm run build` | `Compiled successfully` + `Finished TypeScript`. 타입 검사가 여기 같이 돈다 |
+| frontend | `npm run lint` | 출력 없음. **접근성 규칙이 포함돼 있다**(`D20`) |
+| frontend (프록시) | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |
 
 이 환경의 `JAVA_HOME` 은 JDK 11을 가리켜서 Gradle이 안 뜬다.
 `JAVA_HOME="C:/Program Files/Java/jdk-25"` 를 앞에 붙여서 돌린다.
