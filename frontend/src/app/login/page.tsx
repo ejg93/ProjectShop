@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { LoginForm } from "./login-form";
 
@@ -28,9 +29,20 @@ export default function LoginPage() {
       </div>
 
       <LoginForm />
+
+      {/*
+        가입 화면은 아직 자리표시지만 링크는 건다(`D20`). 지도에 있는 경로라
+        `13d` 가 자리표시를 지우면 이 링크는 그대로 살아 있다.
+      */}
+      <p className="text-sm text-text-muted">
+        아직 계정이 없으신가요?{" "}
+        <Link
+          href="/signup"
+          className="font-semibold text-accent-text underline underline-offset-4"
+        >
+          회원가입
+        </Link>
+      </p>
     </main>
   );
 }
-
-// 「회원가입」 링크를 안 뒀다. 가입 화면이 아직 없어서, 걸면 홈으로 보내는 거짓 링크가 된다.
-// 가입 화면이 생기는 청크에서 여기 한 줄을 붙인다.

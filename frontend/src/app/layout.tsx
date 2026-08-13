@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_KR } from "next/font/google";
+
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -40,7 +44,32 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} ${notoSansKr.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {/*
+          머리의 링크를 지나 본문으로 바로 가는 링크(`D20`). 키보드만 쓰는 사람은
+          화면을 옮길 때마다 같은 머리를 다시 통과한다.
+
+          평소에는 화면 밖에 있다가 초점이 오면 나타난다. display:none 으로 숨기면
+          초점 자체가 안 가서 있으나 마나다.
+        */}
+        <a
+          href="#main"
+          className="
+            sr-only
+            focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-10
+            focus:rounded-ui focus:bg-accent focus:px-4 focus:py-2
+            focus:text-sm focus:font-semibold focus:text-accent-on
+          "
+        >
+          본문 바로가기
+        </a>
+
+        <SiteHeader />
+        <div id="main" className="flex flex-1 flex-col">
+          {children}
+        </div>
+        <SiteFooter />
+      </body>
     </html>
   );
 }
