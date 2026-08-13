@@ -14,6 +14,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderStatusService.Actor;
 import com.projectshop.shop.order.OrderTransitions.Payment;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
+import com.projectshop.shop.support.Retries;
 
 /**
  * 사람이 안 눌러도 시각이 되면 옮겨지는 전이 둘(`D7`).
@@ -146,11 +147,18 @@ public class OrderStatusBatch {
      * 사람이 결제했거나 반품을 넣은 것이고, 사람이 할 일이 없다.
      * 그 밖의 실패는 `ERROR` 다 — 배치가 못 도는 것이라 누가 봐야 한다(`D16`).
      *
+     * <p><b>충돌은 여기서 다시 돈다</b>(`D11`). 건마다 트랜잭션이 갈려 있어서
+     * "트랜잭션 바깥" 조건이 이 자리에서 이미 맞다. 재시도를 다 쓰면 그 건만 실패로 떨어지고
+     * 나머지는 계속한다 — 다음 회차가 다시 집는다.
+     *
      * @param target 로그에 남길 식별자. 개인정보는 안 넣는다(`D16`)
      */
     private static boolean move(Runnable transition, String target) {
         try {
-            transition.run();
+            Retries.onConflict(() -> {
+                transition.run();
+                return null;
+            });
             return true;
         } catch (ShopException e) {
             log.warn("배치가 건너뛴다 {} 이유={}", target, e.code());

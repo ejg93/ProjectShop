@@ -21,6 +21,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.Retries;
 
 /**
  * 주문을 만들고 산 사람이 그것을 보는 입구.
@@ -75,12 +76,17 @@ public class OrderController {
             @RequestHeader("Idempotency-Key") @Size(min = 1, max = 255) String idempotencyKey,
             @Valid @RequestBody CreateRequest request) {
 
-        CreateResponse response = idempotency.run(user.id(), idempotencyKey, request,
-                CreateResponse.class,
-                () -> {
-                    OrderService.Created created = orderService.create(user.id(), toCommand(request));
-                    return new CreateResponse(created.orderNumber(), created.payableAmount());
-                });
+        // 재시도가 멱등 바깥이다(`D11`). 안쪽은 이미 깨진 트랜잭션이라 다음 문장부터 못 돈다.
+        // 바깥이면 선점 기록도 같이 롤백돼 있어서 같은 키로 다시 들어오는 것이 맞다 —
+        // 앞 시도가 아무것도 안 남겼으므로 막을 중복이 없다.
+        CreateResponse response = Retries.onConflict(
+                () -> idempotency.run(user.id(), idempotencyKey, request,
+                        CreateResponse.class,
+                        () -> {
+                            OrderService.Created created =
+                                    orderService.create(user.id(), toCommand(request));
+                            return new CreateResponse(created.orderNumber(), created.payableAmount());
+                        }));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
