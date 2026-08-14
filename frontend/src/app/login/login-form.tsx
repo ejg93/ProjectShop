@@ -25,7 +25,7 @@ type LoginResponse = {
  */
 const TEST_ACCOUNT =
   process.env.NODE_ENV === "development"
-    ? { email: "test@test.local", password: "1" }
+    ? { email: "test@test.local", password: "test-account-1234" }
     : null;
 
 /** 서버가 준 오류를 화면 문구로 옮긴다. `type` 으로 갈린다(`D5`) */

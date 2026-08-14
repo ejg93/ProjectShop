@@ -142,8 +142,9 @@ D3 의 기본 요율 10% 는 아래를 보고 가운데를 잡은 값이다. 202
 
 | 자료 | 링크 | 확인한 것 |
 |---|---|---|
-| OWASP Top 10 | https://owasp.org/www-project-top-ten/ | 웹 애플리케이션의 위험 열 가지. 항목이 적어 전부 훑을 수 있다 |
+| OWASP Top 10 **2025** | https://owasp.org/Top10/2025/ | 웹 애플리케이션의 위험 열 가지. 항목이 적어 전부 훑을 수 있다. **2026-01 최종.** `D14` 를 `D14-1` 이 이 판으로 다시 매핑했다 |
 | OWASP Cheat Sheet Series | https://cheatsheetseries.owasp.org/ | 주제별 실무 지침. Top 10 이 "무엇이 위험한가" 라면 이쪽이 "어떻게 막나" 다 |
+| **NIST SP 800-63B Rev 4** | https://pages.nist.gov/800-63-4/sp800-63b.html | 비밀번호 규칙의 근거. **문장 단위로 대조했다**(점검 E) — 단독 인증수단이면 **최소 15자 `SHALL`**, 블록리스트 대조 `SHALL`, 조합 강제 `SHALL NOT`, 최대 64자·인쇄 ASCII+공백·유니코드는 `SHOULD` |
 | Spring Security 레퍼런스 | https://docs.spring.io/spring-security/reference/index.html | **7.1.0**. CSRF 와 Session Management 절이 따로 있다 |
 
 Spring Security 문서에서 청크가 직접 쓰는 절

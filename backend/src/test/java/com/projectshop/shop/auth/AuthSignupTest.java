@@ -226,16 +226,30 @@ class AuthSignupTest extends PostgresTestBase {
     @DisplayName("입력 검증")
     class Validation {
 
+        /**
+         * <b>경계를 짚는다.</b> 14자와 15자를 같이 보므로 최소 길이가 밀리면 한쪽이 깨진다.
+         *
+         * <p>15자인 이유는 NIST SP 800-63B Rev 4 다 — 비밀번호가 단독 인증수단이면
+         * 그것이 {@code SHALL} 이고, 8자는 MFA 가 있을 때만 허용된다(`D14`).
+         */
         @Test
-        @DisplayName("짧은 비밀번호를 막는다")
-        void rejectsShortPassword() throws Exception {
-            signUp("m@test.local", required(true), "short12").andExpect(status().isBadRequest());
+        @DisplayName("14자를 막고 15자를 받는다")
+        void enforcesMinimumLength() throws Exception {
+            signUp("m@test.local", required(true), "a".repeat(14))
+                    .andExpect(status().isBadRequest());
+
+            signUp("m15@test.local", required(true), "a".repeat(15))
+                    .andExpect(status().isCreated());
         }
 
+        /**
+         * <b>길이로 떨어지지 않게 15자를 넘긴다.</b> 짧은 한글을 쓰면 문자 집합이 아니라
+         * 길이에 걸려서, 이 테스트가 무엇을 막는지 알 수 없게 된다.
+         */
         @Test
         @DisplayName("한글 비밀번호를 막는다 — bcrypt 72바이트 절단 구간을 안 만든다")
         void rejectsNonAsciiPassword() throws Exception {
-            signUp("n@test.local", required(true), "비밀번호입니다여덟자")
+            signUp("n@test.local", required(true), "비밀번호입니다열다섯자넘음")
                     .andExpect(status().isBadRequest());
         }
 

@@ -178,7 +178,7 @@ class MeAccountTest extends PostgresTestBase {
         @Test
         @DisplayName("새 비밀번호도 가입과 같은 규칙을 탄다")
         void newPasswordFollowsTheSameRules() throws Exception {
-            mvc.perform(passwordRequest(PASSWORD, "짧고한글"))
+            mvc.perform(passwordRequest(PASSWORD, "한글이라막힌다열다섯자넘김"))
                     .andExpect(status().isBadRequest());
         }
 
