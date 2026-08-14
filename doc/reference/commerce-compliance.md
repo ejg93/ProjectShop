@@ -52,29 +52,29 @@
 이 저장소는 배포 전이라 마이그레이션의 `create` 문을 직접 고치고(`D23`),
 **제약 한 줄이 조용히 빠져도 테스트가 안 잡는다.** 이름이 없으면 물어볼 대상이 없다.
 
-**아직 대부분 미확인이다.** 아래 둘만 실제로 확인해 채웠고, 나머지는 **점검 A**(법 축)가 채운다 —
-요건마다 코드로 내려가며 이름을 찾는 것이 곧 그 점검이라, 미리 채우면 같은 추적을 두 번 한다.
+**점검 A 가 채웠다**(2026-08-14, `doc/notes/checkpoint-4-law.md`). 요건마다 코드로 내려가며 찾았다.
+**「미착수」는 그 기능 자체가 아직 없다는 뜻이고, 「없다」는 있어야 하는데 없다는 뜻**이라 갈라 적는다.
 
 | # | 요건 | 근거 | 강제 지점 | 청크 |
 |---|---|---|---|---|
 | R1 | 셀러 신원 정보 표시 | 전자상거래법 제10조·제13조 | `seller` 신원 7컬럼(`V4`)<br>`seller_verified_fields_check` — `active` 면 빈 칸이 없다<br>`SellerQuery.findPublicIdentity` — 공개로 내린다<br>`SellerQueryTest.givesEveryRequiredField`<br>**화면 표시는 미착수**(`14b`) | 3c, 14a, 14b |
-| R2 | 중개자 지위 고지 | 전자상거래법 제20조·제20조의2 | 상품 상세 화면, 주문 화면, 이용약관 | 13a, 14b, 15 |
-| R3 | 청약철회 기간과 기산점 | 전자상거래법 제17조 | 주문 상태머신의 전이 조건 | 11 |
+| R2 | 중개자 지위 고지 | 전자상거래법 제20조·제20조의2 | `consent_item` 의 `terms_of_service` 제2조(`V11`) — **본문에 이미 있다**<br>`SellerQuery.findPublicIdentity` — 셀러 정보 제공<br>**상품 상세·주문서 고지는 미착수**(`14b`·`15`) | 13a, 14b, 15 |
+| R3 | 청약철회 기간과 기산점 | 전자상거래법 제17조 | `OrderStatusService.WITHDRAWAL_DAYS = 7`<br>`seller_order.delivered_at`·`withdrawal_expire_at` — 배송완료 때 박제<br>`OrderStatusService.requireWithdrawable` — 기한 지나면 거부<br>`order_status_history`(`V18`) — 기산점의 근거<br>**광고 상이 3개월·30일은 미착수**(`43`·`44`) | 11 |
 | R4 | 청약철회 제한 사유 | 전자상거래법 제17조제2항 | `product_withdrawal_reason_check` — 법이 인정한 셋만<br>`WithdrawalRestrictionReason` enum<br>`ProductStatusTest.withdrawalReasonMatchesConstraint` — 둘이 갈리는 것을 막는다<br>`OrderStatusService.requireWithdrawable` — 반품을 막는다 | 6, 11 |
-| R5 | 환급 기한 | 전자상거래법 제18조제2항 | 환불 워크플로 | 12a |
-| R6 | 거래기록 보존 | 전자상거래법 제6조, 시행령 제6조 | 주문·결제 삭제 정책 | 10a |
-| R7 | 개인정보 수집 동의 | 개인정보법 제15조·제22조 | 가입 흐름, 동의 이력 테이블 | 5 |
-| R8 | 셀러에게 주문자 정보 제공 | 개인정보법 제17조 | 주문 조회 스코프, 제공 항목 최소화 | 4, 8 |
-| R9 | 개인정보 파기 | 개인정보법 제21조, 시행령 제16조 | 탈퇴 처리와 보존기간의 분리 | 10a |
-| R10 | 비밀번호 일방향 암호화 | 개인정보법 제29조 + 고시 | `app_user.password_hash` | 5 |
-| R11 | 처리방침 공개 | 개인정보법 제30조 | 정책 문안 | 13a |
-| R12 | 판매가격 표시 | 물가안정법 제3조 + 가격표시제 고시 | 가격 컬럼의 정의 | 6 |
-| R13 | 미성년자 거래 취소권 | 민법 제5조 | 주문 취소 권한 판정 | 4, 11a |
-| R14 | 광고성 정보 수신 동의 | 정보통신망법 제50조 | 동의 이력 테이블 | 5 |
-| R15 | 부당 표시·광고 금지 | 표시광고법 제3조, 전자상거래법 제21조 | 상품 설명 필드 | 6 |
-| R16 | 약관 명시·설명과 불공정 조항 | 약관규제법 제3조·제6조 | `consent_item` 의 약관 판, 개정 통지 | 5-0, 5j, 13a |
-| R17 | 세금계산서 발급 주체 | 부가가치세법 제32조 | 정산 항목의 공급자 구분 | 17, 18 |
-| R18 | 결제수단 정보 보관 금지 | 여신전문금융업법 제19조, 신용정보법 | `payment` 필드 그룹, 결제 스키마 | 4d, 12 |
+| R5 | 환급 기한 | 전자상거래법 제18조제2항 | **미착수**(`12a`). 지금은 `permission` 의 `payment:refund` 행뿐이다 | 12a |
+| R6 | 거래기록 보존 | 전자상거래법 제6조, 시행령 제6조 | **`shop_order` 에 `deleted_at` 이 없다**(`V16`) — 지울 컬럼이 없는 구조<br>`order_status_history`(`V18`) — 제3항 열람의 근거<br>`OrderQuery` 상세가 이력을 같이 내린다<br>`order_shipping` 분리(`10-1`) — 개인정보만 파기<br>`TransactionPurgeService`<br>**열람 화면은 미착수**(`15`) | 10a |
+| R7 | 개인정보 수집 동의 | 개인정보법 제15조·제22조 | `consent_item` 의 `purpose`·`collected_items`·`retention_period`·`refusal_disadvantage`<br>`consent_item_notice_check` — **넷을 통째로 요구한다.** 하나만 채우는 것을 막는다<br>`consent_item_code_version_key` — 고지가 바뀌면 새 판<br>`user_consent` append-only, `current_consent` 뷰<br>`SignupService` — 계정·역할·동의가 한 트랜잭션<br>`ConsentSchemaTest` | 5 |
+| R8 | 셀러에게 주문자 정보 제공 | 개인정보법 제17조 | `permission_field_group`·`role_permission_field`(`V6`)<br>`Decision.visibleFieldGroups`<br>`FieldVisibilityTest` | 4, 8 |
+| R9 | 개인정보 파기 | 개인정보법 제21조, 시행령 제16조 | `AccountPurgeService` — `email`·`display_name`·`password_hash` 를 `null` 로<br>`app_user_email_key` 부분 인덱스(`where email is not null`) — 파기해도 유니크가 안 깨진다<br>`TransactionPurgeService`<br>`app_user.deleted_at`(`V8`) — 수명과 업무 상태를 가른다 | 10a |
+| R10 | 비밀번호 일방향 암호화 | 개인정보법 제29조 + 고시 | `SecurityConfig.passwordEncoder` — `DelegatingPasswordEncoder`, `{bcrypt}` 접두사<br>`@Password`(`Password.java`) — 길이·문자 규칙의 유일한 출처 | 5 |
+| R11 | 처리방침 공개 | 개인정보법 제30조 | **미착수**(`13a`) | 13a |
+| R12 | 판매가격 표시 | 물가안정법 제3조 + 가격표시제 고시 | **주석뿐이다** — `V13` 의 `sku.price` 주석, `ProductController`·`ProductService` javadoc<br>**강제 지점이 5순위에 있다**(`D23` 축 2). 공급가액을 넣어도 아무것도 안 막는다<br>**표시는 미착수**(`14`·`14b`) | 6 |
+| R13 | 미성년자 거래 취소권 | 민법 제5조 | **없다.** 코드·스키마·주석에 흔적이 0건이다<br>`D2` 가 「안 다루기로 해도 왜 안 다루는지 적는다」고 요구했는데 그 근거가 어디에도 없다 | 11b |
+| R14 | 광고성 정보 수신 동의 | 정보통신망법 제50조 | `consent_item` 의 `marketing_email`·`marketing_sms`·`marketing_night`(`V11`)<br>`depends_on_id` — 야간 수신이 마케팅 수신에 걸린다<br>채널을 쪼개 둬서 나중에 갈라진다 | 5 |
+| R15 | 부당 표시·광고 금지 | 표시광고법 제3조, 전자상거래법 제21조 | `product.status` 의 `pending_review`·`blocked`(`V13`)<br>`ProductReviewService` — 검수·반려·제재<br>`ProductTransitions` — 셀러가 제재를 못 푼다 | 6 |
+| R16 | 약관 명시·설명과 불공정 조항 | 약관규제법 제3조·제6조 | ② `GET /api/consent-items/{code}` → `ConsentService.readCurrent` — **사본 제공**<br>`consent_item.body` 마크다운 — ①의 강조를 원문에 담는다<br>`consent_item_content_check` — `body` 나 `purpose` 중 하나는 있어야 한다<br>`effective_at` — 개정판을 미리 넣고 시점에 갈아 끼운다<br>**①③ 의 화면은 미착수**(`13d`) | 5-0, 5j, 13a |
+| R17 | 세금계산서 발급 주체 | 부가가치세법 제32조 | **미착수**(`17`~`21`). `sku.price` 를 부가세 포함가로 둔 것이 역산의 근거다 | 17, 18 |
+| R18 | 결제수단 정보 보관 금지 | 여신전문금융업법 제19조, 신용정보법 | `permission_field_group` 의 `order`·`payment`(`V6`) — 셀러의 `order:read` 에서 빠져 있다<br>**나머지 절반은 미착수**(`12`) — 애초에 안 담는 것으로 채운다 | 4d, 12 |
 
 ---
 
