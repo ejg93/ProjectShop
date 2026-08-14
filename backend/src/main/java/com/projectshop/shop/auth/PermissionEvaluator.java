@@ -118,9 +118,14 @@ public class PermissionEvaluator {
             return visibleFieldGroups.restricted();
         }
 
-        /** 이 필드 그룹을 볼 수 있나. 제한이 없으면 무엇이든 볼 수 있다 */
-        public boolean canSee(String fieldGroup) {
-            return allowed && visibleFieldGroups.covers(fieldGroup);
+        /**
+         * 이 필드 그룹을 볼 수 있나. 제한이 없으면 무엇이든 볼 수 있다.
+         *
+         * <p><b>{@link FieldGroup} 만 받는다.</b> 생 문자열을 받던 자리고, 오타가 나면
+         * 조용히 {@code false} 가 돌아와 그 필드가 응답에서 빠졌다 — 오류도 로그도 안 남는다(`4g`).
+         */
+        public boolean canSee(FieldGroup fieldGroup) {
+            return allowed && visibleFieldGroups.covers(fieldGroup.code());
         }
 
         static Decision allow(Rule rule, Allowed<String> fieldGroups) {

@@ -89,9 +89,9 @@ public class AccountService {
 
         return new Account(
                 userId,
-                decision.canSee("basic") ? row.displayName() : null,
-                decision.canSee("basic") ? row.createdAt() : null,
-                decision.canSee("contact") ? row.email() : null,
+                decision.canSee(UserFields.BASIC) ? row.displayName() : null,
+                decision.canSee(UserFields.BASIC) ? row.createdAt() : null,
+                decision.canSee(UserFields.CONTACT) ? row.email() : null,
                 // 제한이 없으면 빈 배열로 나간다. 그 값이 응답에서 "전부 본다" 를 뜻하는 것은
                 // 안쪽에서 타입으로 가른 것과 달리 여전히 모호하다 — 화면 청크(13b)가 그걸 정한다.
                 List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));

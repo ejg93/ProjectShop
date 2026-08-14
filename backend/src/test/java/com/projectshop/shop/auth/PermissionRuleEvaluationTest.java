@@ -1,5 +1,6 @@
 package com.projectshop.shop.auth;
 
+import com.projectshop.shop.order.OrderFields;
 import static com.projectshop.shop.auth.PermissionEvaluator.evaluate;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -188,7 +189,7 @@ class PermissionRuleEvaluationTest {
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.of(ME, ALPHA));
 
             assertThat(decision.fieldRestricted()).isFalse();
-            assertThat(decision.canSee("payment")).isTrue();
+            assertThat(decision.canSee(OrderFields.PAYMENT)).isTrue();
         }
 
         @Test
@@ -212,7 +213,7 @@ class PermissionRuleEvaluationTest {
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.ownedBy(ME));
 
-            assertThat(decision.canSee("basic")).isFalse();
+            assertThat(decision.canSee(OrderFields.BASIC)).isFalse();
         }
     }
 

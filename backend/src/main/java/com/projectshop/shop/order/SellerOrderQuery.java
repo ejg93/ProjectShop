@@ -194,7 +194,7 @@ public class SellerOrderQuery {
                 row.createdAt(),
                 itemsOf(row.sellerOrderId()),
                 actions.allowedActions(viewerId, row.buyerUserId(), row.sellerId(), row.status()),
-                decision.canSee("shipping") ? shippingOf(row.orderId()) : null,
+                decision.canSee(OrderFields.SHIPPING) ? shippingOf(row.orderId()) : null,
                 List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
     }
 

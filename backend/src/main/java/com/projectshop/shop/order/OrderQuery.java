@@ -210,7 +210,7 @@ public class OrderQuery {
                 order.createdAt(),
                 sellerOrdersOf(order.orderId(), userId, order.userId()),
                 historyOf(order.orderId()),
-                decision.canSee("shipping") ? shippingOf(order.orderId()) : null,
+                decision.canSee(OrderFields.SHIPPING) ? shippingOf(order.orderId()) : null,
                 List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
     }
 

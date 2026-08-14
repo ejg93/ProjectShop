@@ -1,5 +1,6 @@
 package com.projectshop.shop.auth;
 
+import com.projectshop.shop.order.OrderFields;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -56,8 +57,8 @@ class FieldVisibilityTest extends PostgresTestBase {
         Decision decision = evaluator.decide(seller, "order", "read", Target.of(buyer, alpha));
 
         assertThat(decision.allowed()).isTrue();
-        assertThat(decision.canSee("shipping")).isTrue();
-        assertThat(decision.canSee("payment")).isFalse();
+        assertThat(decision.canSee(OrderFields.SHIPPING)).isTrue();
+        assertThat(decision.canSee(OrderFields.PAYMENT)).isFalse();
     }
 
     @Test
@@ -67,7 +68,11 @@ class FieldVisibilityTest extends PostgresTestBase {
 
         assertThat(decision.allowed()).isTrue();
         assertThat(decision.fieldRestricted()).isFalse();
-        assertThat(decision.canSee("무엇이든")).isTrue();
+        // 그룹을 안 건 자원이라 무엇을 물어도 참이다. 어느 자원의 목록에도 없는 그룹으로 묻는다 —
+        // 제한이 없다는 것은 "이 목록만" 이 아니라 "전부" 라는 뜻이다(`Allowed.Everything`).
+        FieldGroup anything = () -> "무엇이든";
+
+        assertThat(decision.canSee(anything)).isTrue();
     }
 
     @Test
@@ -76,7 +81,7 @@ class FieldVisibilityTest extends PostgresTestBase {
         Decision decision = evaluator.decide(buyer, "order", "read", Target.of(seller, alpha));
 
         assertThat(decision.allowed()).isFalse();
-        assertThat(decision.canSee("basic")).isFalse();
+        assertThat(decision.canSee(OrderFields.BASIC)).isFalse();
     }
 
     @Test
