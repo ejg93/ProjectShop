@@ -70,6 +70,7 @@
 |---|---|
 | `doc/reference/coding-rules.md` (D23) | 계층·예외·트랜잭션·SQL·주석·테스트 작성 방식 |
 | `doc/reference/naming-rules.md` (D22) | DB 컬럼·테이블·기본키, Java 식별자 |
+| `doc/reference/frontend-rules.md` (D24) | 화면 코드를 쓸 때 — 서버·클라이언트 경계, `api.ts` 입구, 세션 운반, 캐시 |
 | `doc/reference/api-guidelines.md` (D5) | 엔드포인트를 만들 때 — 상태 코드, 응답 형식, 목록 규약 |
 | `doc/reference/testing-strategy.md` (D15) | 검증을 어느 층에 둘까 |
 | `doc/reference/security-baseline.md` (D14) | 인증·입력 검증·비밀을 건드릴 때 |
