@@ -241,7 +241,7 @@ read().atZoneSameInstant(ZONE).toLocalDate()     // lastDay 가 아니다
 ```
 
 시각으로 비교하는 코드는 멀쩡하고 **날짜로 되돌리는 코드만 틀린다.** 그래서 늦게 드러난다 —
-`OrderStatusServiceTest` 가 말일이 금요일인 날에만 깨졌다(청크 `11-4`).
+`OrderStatusServiceTest` 가 말일이 금요일인 날에만 깨졌다(청크 `11-4` 가 고쳤다).
 
 ### 텍스트 블록은 줄 끝 공백을 지운다
 

@@ -42,6 +42,13 @@ public class OrderStatusService {
      */
     private static final int AUTO_CONFIRM_DAYS = 8;
 
+    /**
+     * 말일의 마지막 순간. <b>저장 정밀도에 맞춘 값이다</b>(`D10` 「저장 정밀도가 마이크로초다」).
+     *
+     * <p>Postgres 가 마이크로초 아래를 올리므로 나노초를 채우면 날짜가 하루 넘어간다.
+     */
+    private static final LocalTime END_OF_DAY = LocalTime.of(23, 59, 59, 999_999_000);
+
     private final JdbcClient jdbc;
     private final BusinessCalendar calendar;
 
@@ -292,9 +299,18 @@ public class OrderStatusService {
         return calendar.nextBusinessDay(byCount.isAfter(afterWithdrawal) ? byCount : afterWithdrawal);
     }
 
-    /** 말일 24시. 기간은 날짜 단위라 시각으로 안 센다(`D10`) */
+    /**
+     * 말일 24시. 기간은 날짜 단위라 시각으로 안 센다(`D10`).
+     *
+     * <p><b>{@code LocalTime.of(23, 59, 59, 999_999_000)} 를 안 쓴다.</b> 그건 나노초까지(`.999999999`)인데
+     * Postgres {@code timestamptz} 는 마이크로초까지만 담고 나머지를 <b>올린다</b> —
+     * 저장되면 말일이 아니라 <b>다음날 {@code 00:00:00}</b> 이 된다.
+     *
+     * <p>시각으로 비교하는 코드는 그래도 멀쩡해서 늦게 드러난다. 저장된 값을 다시 날짜로
+     * 되돌리는 자리만 한 칸 밀리고, 그게 말일이 금요일인 날에만 테스트를 깨뜨렸다(`stack.md`).
+     */
     private static OffsetDateTime endOfDay(LocalDate lastDay) {
-        return lastDay.atTime(LocalTime.MAX).atZone(BusinessCalendar.ZONE).toOffsetDateTime();
+        return lastDay.atTime(END_OF_DAY).atZone(BusinessCalendar.ZONE).toOffsetDateTime();
     }
 
     /** 거래가 끝난 시각. 보존 기간이 여기서부터 흐른다(`D13`) */

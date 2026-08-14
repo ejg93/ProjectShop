@@ -155,15 +155,31 @@ class OrderStatusServiceTest extends PostgresTestBase {
                     .isEqualTo(LocalDate.of(2026, 8, 19));
         }
 
+        /**
+         * <b>저장하고 다시 읽어도 날짜가 안 밀리는 것</b>을 고정한다.
+         *
+         * <p>「말일이 쉬는 날이면 다음 영업일」 자체는 위 고정 날짜 테스트가 본다.
+         * 여기가 보는 것은 그 계산이 <b>DB 를 왕복해도 살아남나</b>다 — 그 구간에서 하루가 밀렸다.
+         *
+         * <p>{@code LocalTime.MAX} 를 넣으면 Postgres 가 마이크로초 아래를 올려서 다음날
+         * {@code 00:00} 이 되고, 되돌린 날짜가 말일+1 이 된다. <b>말일이 금요일인 날에만
+         * 깨져서</b> 여러 날 잠복했다(`D10`·`stack.md`).
+         */
         @Test
-        @DisplayName("기한의 말일이 쉬는 날이면 다음 영업일이다")
-        void movesDeadlineOffHolidays() {
+        @DisplayName("박제한 기한이 저장·조회를 왕복해도 같은 날이다")
+        void keepsDeadlineDateAcrossRoundTrip() {
+            LocalDate deliveredOn = LocalDate.now(BusinessCalendar.ZONE);
+            LocalDate expected = calendar.nextBusinessDay(deliveredOn.plusDays(7));
+
             deliver();
 
-            LocalDate lastDay = timeOf("withdrawal_expire_at")
+            LocalDate stored = timeOf("withdrawal_expire_at")
                     .atZoneSameInstant(BusinessCalendar.ZONE).toLocalDate();
 
-            assertThat(calendar.isBusinessDay(lastDay))
+            assertThat(stored)
+                    .as("하루 밀리면 청약철회 기간이 법정 7일보다 길어진다(`D2` R3)")
+                    .isEqualTo(expected);
+            assertThat(calendar.isBusinessDay(stored))
                     .as("민법이 말일이 토·일·공휴일이면 다음날 만료된다고 정한다(`D10`)")
                     .isTrue();
         }
