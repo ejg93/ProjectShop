@@ -65,9 +65,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </a>
 
         <SiteHeader />
-        <div id="main" className="flex flex-1 flex-col">
+        {/*
+          `main` 표지를 셸이 한 번만 그린다(`D20` 「셸」). 화면이 각자 `main` 을 그리고
+          여기서 `div` 로 감싸면 위 건너뛰기 링크는 그 `div` 에 닿고 표지는 안쪽에 남는다 —
+          링크가 가리키는 곳과 보조기술이 찾는 곳이 갈린다.
+        */}
+        <main id="main" className="flex flex-1 flex-col">
           {children}
-        </div>
+        </main>
         <SiteFooter />
       </body>
     </html>

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
  */
 export default function LoginPage() {
   return (
-    <main className="mx-auto grid w-full max-w-md flex-1 content-center gap-8 px-4 py-16">
+    <div className="mx-auto grid w-full max-w-md flex-1 content-center gap-8 px-4 py-16">
       <div className="grid gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">로그인</h1>
         <p className="text-sm text-text-muted">
@@ -43,6 +43,6 @@ export default function LoginPage() {
           회원가입
         </Link>
       </p>
-    </main>
+    </div>
   );
 }

@@ -8,7 +8,7 @@ import Link from "next/link";
  */
 export default function Home() {
   return (
-    <main className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-6 px-4 py-16">
+    <div className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-6 px-4 py-16">
       <div className="grid gap-2">
         <h1 className="text-3xl font-semibold tracking-tight">
           여러 판매자가 함께 파는 곳
@@ -30,6 +30,6 @@ export default function Home() {
       >
         상품 보기
       </Link>
-    </main>
+    </div>
   );
 }

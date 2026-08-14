@@ -81,26 +81,21 @@ export function LoginForm() {
 
   return (
     <form action={submit} className="grid gap-5">
-      <Field
-        name="email"
-        type="email"
-        label="이메일"
-        autoComplete="email"
-        invalid={error !== null}
-        defaultValue={TEST_ACCOUNT?.email}
-      />
+      {/*
+        `invalid` 를 안 넘긴다. 로그인 실패는 **어느 칸이 틀렸는지 서버가 안 알려주는 오류**라
+        칸을 지목할 근거가 없다(`D20` 「모르는 칸을 지목하지 않는다」).
 
-      <Field
-        name="password"
-        type="password"
-        label="비밀번호"
-        autoComplete="current-password"
-        invalid={error !== null}
-        defaultValue={TEST_ACCOUNT?.password}
-      />
+        두 칸에 다 걸었더니 화면낭독기가 **맞은 이메일까지 「잘못된 입력」이라고 읽었다.**
+        `aria-invalid` 의 뜻은 「이 칸의 값이 유효하지 않다」고, 그건 여기서 사실이 아니다.
+      */}
+      <Field name="email" type="email" label="이메일" autoComplete="email"
+              defaultValue={TEST_ACCOUNT?.email} />
+
+      <Field name="password" type="password" label="비밀번호" autoComplete="current-password"
+              defaultValue={TEST_ACCOUNT?.password} />
 
       {/*
-        오류를 입력칸 아래, 버튼 위에 둔다. 위쪽에 두면 스크롤한 화면에서 안 보이고,
+        폼 전체 오류를 입력칸 아래, 버튼 위에 둔다. 위쪽에 두면 스크롤한 화면에서 안 보이고,
         role=alert 라 화면낭독기가 나타나는 순간 읽는다(`D20`).
       */}
       {error && (
@@ -130,20 +125,24 @@ export function LoginForm() {
 /**
  * 라벨은 입력칸 위에 둔다. <b>자리표시 문구를 라벨로 쓰지 않는다</b> - 값을 넣는 순간
  * 무슨 칸이었는지가 사라지고, 화면낭독기는 "편집창" 이라고만 말한다.
+ *
+ * @param invalid <b>그 칸의 값이 규칙에 안 맞을 때만</b> 참이다(`D20`). 어느 칸인지 모르는
+ *                오류에는 안 넘긴다 - 기본값이 거짓인 이유가 그것이다. 가입 화면(`13d`)처럼
+ *                칸마다 검사하는 곳이 이 자리를 쓴다
  */
 function Field({
   name,
   type,
   label,
   autoComplete,
-  invalid,
+  invalid = false,
   defaultValue,
 }: {
   name: string;
   type: "email" | "password";
   label: string;
   autoComplete: string;
-  invalid: boolean;
+  invalid?: boolean;
   defaultValue?: string;
 }) {
   return (

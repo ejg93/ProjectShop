@@ -6,17 +6,17 @@
  *
  * <p><b>이 자리표시는 그 화면을 만드는 청크가 지운다.</b> 남아 있으면 그 청크가 안 끝난 것이다.
  *
- * <p>화면 전체를 대신하므로 {@code main} 을 여기서 그린다. 쓰는 쪽마다 다시 감싸면
- * 자리표시를 지울 때 껍데기가 남는다.
+ * <p><b>{@code main} 을 안 그린다.</b> 표지는 셸이 한 번만 그린다(`D20` 「셸」) —
+ * 화면마다 그리면 건너뛰기 링크가 가리키는 곳과 보조기술이 찾는 표지가 갈린다.
  */
 export function ComingSoon({ title, detail }: { title: string; detail: string }) {
   return (
-    <main className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-2 px-4 py-16">
+    <div className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-2 px-4 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="text-sm text-text-muted">{detail}</p>
       <p className="text-sm text-text-muted">
         준비가 끝나면 이 자리에서 바로 쓰실 수 있습니다.
       </p>
-    </main>
+    </div>
   );
 }
