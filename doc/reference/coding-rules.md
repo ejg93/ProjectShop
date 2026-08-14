@@ -579,6 +579,9 @@ private static final int WITHDRAWAL_DAYS = 7;
 |---|---|
 | 주문 축의 상태 목록에 **대조 테스트가 없다** — `check` 셋과 `Payment`·`Shipment` enum 이 두 사본인데 방벽이 상품 축에만 있다 | `11-5` |
 | `app_user.status`·`seller.status` 를 **생 문자열로 비교한다**(`"active".equals(...)`) — 분기하므로 enum 이어야 한다 | `11-5` |
+| 필드 그룹 코드가 **생 문자열이다**(`canSee("shipping")`) — 오타가 조용히 필드를 숨긴다 | `4g` |
+| `me` 패키지가 **관객 단위다** — 아래 「패키지」가 자원 단위를 요구한다 | `5l` |
+| 인용 자료의 라이선스가 **`external-references.md` 에 없다** — 아래 「라이선스」가 가리키는 자리가 비었다 | `D22-1` |
 | 제약 대조 헬퍼가 **사본 둘**이고 정규식이 다르다 | `35e` |
 
 치운 것: 서비스의 HTTP 예외는 청크 7b 가, `AuditLogQuery` 의 문자열 결합은 청크 8 이,
