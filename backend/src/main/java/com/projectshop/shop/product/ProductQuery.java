@@ -60,7 +60,7 @@ public class ProductQuery {
 
     /** 누구에게나 같은 값. 수수료율·재고·업무 상태가 없다 */
     public record PublicItem(long productId, long sellerId, String sellerName, String name,
-            long minPrice, OffsetDateTime createdAt) {
+            long minPriceInclVat, OffsetDateTime createdAt) {
     }
 
     /**
@@ -69,7 +69,7 @@ public class ProductQuery {
      * @param status 업무 상태. <b>대문자 스네이크로 나간다</b>(`D5` 「형식」)
      */
     public record SellerItem(long productId, long sellerId, String name, String status,
-            Integer commissionBp, long minPrice, long totalStock, OffsetDateTime createdAt) {
+            Integer commissionBp, long minPriceInclVat, long totalStock, OffsetDateTime createdAt) {
     }
 
     public record PublicPage(List<PublicItem> items, int page, int size, long total) {
@@ -99,7 +99,7 @@ public class ProductQuery {
      * @param optionValueIds 이 조합이 어느 값들로 이루어졌나. <b>화면이 고른 값으로 SKU 를 찾는 열쇠다</b>
      * @param inStock 재고가 있나. <b>몇 개인지는 안 준다</b> — 살 수 있는지만 알면 화면이 그려진다
      */
-    public record PublicSku(long skuId, long price, boolean inStock, List<Long> optionValueIds) {
+    public record PublicSku(long skuId, long priceInclVat, boolean inStock, List<Long> optionValueIds) {
     }
 
     public record SellerPage(List<SellerItem> items, int page, int size, long total) {
@@ -119,7 +119,7 @@ public class ProductQuery {
 
         List<PublicItem> items = jdbc.sql("""
                         select p.product_id, p.seller_id, s.name as seller_name, p.name,
-                               coalesce(min(sk.price), 0) as min_price, p.created_at
+                               coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat, p.created_at
                           from product p
                           join seller s on s.seller_id = p.seller_id
                           left join sku sk on sk.product_id = p.product_id
@@ -142,7 +142,7 @@ public class ProductQuery {
                         rs.getLong("seller_id"),
                         rs.getString("seller_name"),
                         rs.getString("name"),
-                        rs.getLong("min_price"),
+                        rs.getLong("min_price_incl_vat"),
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .list();
 
@@ -181,7 +181,7 @@ public class ProductQuery {
 
         List<SellerItem> items = jdbc.sql("""
                         select p.product_id, p.seller_id, p.name, p.status, p.commission_bp,
-                               coalesce(min(sk.price), 0) as min_price,
+                               coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat,
                                coalesce(sum(sk.stock_count), 0) as total_stock,
                                p.created_at
                           from product p
@@ -205,7 +205,7 @@ public class ProductQuery {
                         rs.getString("name"),
                         enumValue(rs.getString("status")),
                         rs.getObject("commission_bp", Integer.class),
-                        rs.getLong("min_price"),
+                        rs.getLong("min_price_incl_vat"),
                         rs.getLong("total_stock"),
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .list();
@@ -314,11 +314,11 @@ public class ProductQuery {
      * 담기에서야 막힌다.
      */
     private List<PublicSku> findPublicSkus(long productId) {
-        record Row(long skuId, long price, boolean inStock, long optionValueId) {
+        record Row(long skuId, long priceInclVat, boolean inStock, long optionValueId) {
         }
 
         List<Row> rows = jdbc.sql("""
-                        select sk.sku_id, sk.price, sk.stock_count > 0 as in_stock,
+                        select sk.sku_id, sk.price_incl_vat, sk.stock_count > 0 as in_stock,
                                sov.product_option_value_id
                           from sku sk
                           join sku_option_value sov on sov.sku_id = sk.sku_id
@@ -329,7 +329,7 @@ public class ProductQuery {
                 .param("id", productId)
                 .query((rs, rowNum) -> new Row(
                         rs.getLong("sku_id"),
-                        rs.getLong("price"),
+                        rs.getLong("price_incl_vat"),
                         rs.getBoolean("in_stock"),
                         rs.getLong("product_option_value_id")))
                 .list();
@@ -337,7 +337,7 @@ public class ProductQuery {
         Map<Long, PublicSku> grouped = new LinkedHashMap<>();
         for (Row row : rows) {
             grouped.computeIfAbsent(row.skuId(),
-                            id -> new PublicSku(id, row.price(), row.inStock(), new ArrayList<>()))
+                            id -> new PublicSku(id, row.priceInclVat(), row.inStock(), new ArrayList<>()))
                     .optionValueIds()
                     .add(row.optionValueId());
         }

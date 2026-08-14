@@ -267,7 +267,7 @@ class ProductServiceTest extends PostgresTestBase {
 
             assertThat(jdbc.sql("""
                             select count(*) from sku
-                             where product_id = :id and deleted_at is null and price = 19000
+                             where product_id = :id and deleted_at is null and price_incl_vat = 19000
                             """).param("id", productId).query(Long.class).single())
                     .as("막는 것은 옵션 축이지 값이 아니다")
                     .isEqualTo(2);
@@ -326,7 +326,7 @@ class ProductServiceTest extends PostgresTestBase {
 
             jdbc.sql("""
                             insert into order_item (seller_order_id, sku_id, product_name,
-                                                    unit_price, quantity, line_amount,
+                                                    unit_price_incl_vat, quantity, line_amount,
                                                     commission_bp, commission_amount)
                             values (:sellerOrderId, :skuId, '티셔츠', 15000, 1, 15000, 1000, 1500)
                             """)

@@ -48,6 +48,16 @@ public class OrderActionService {
         DELIVER("update_status", Shipment.DELIVERED),
         COMPLETE_RETURN("update_status", Shipment.RETURNED),
 
+        /**
+         * 자기 주문을 스스로 무른다.
+         *
+         * <p><b>미성년자 취소권(민법 제5조, `D2` R13)은 여기 없다.</b> 안 빠뜨린 것이고
+         * 일부러 안 넣었다 — 그 취소는 <b>주문한 사람이 아닌 제3자(법정대리인)가 부른다</b>.
+         * {@code scope=own} 으로는 표현할 방법이 없어서 계정에 생년월일과 대리인 관계가 먼저 있어야 한다.
+         *
+         * <p>그 축이 서는 것은 청크 `11b` 다. <b>그때까지 이 경로는 본인 취소만 받는다.</b>
+         * 근거를 여기 적는 이유는, `D2` 에만 두면 이 코드를 고치는 사람이 문서를 안 열고 지나서다.
+         */
         CANCEL("cancel", Shipment.CANCELLED),
         CONFIRM("confirm", Shipment.CONFIRMED),
         REQUEST_RETURN("request_return", Shipment.RETURN_REQUESTED);

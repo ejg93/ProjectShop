@@ -68,8 +68,8 @@ class ProductApiTest extends PostgresTestBase {
                                   "name": "티셔츠",
                                   "options": [{"name": "색상", "values": ["검정", "흰색"]}],
                                   "skus": [
-                                    {"option_values": ["검정"], "price": 15000, "stock_count": 10},
-                                    {"option_values": ["흰색"], "price": 15000, "stock_count": 5}
+                                    {"option_values": ["검정"], "price_incl_vat": 15000, "stock_count": 10},
+                                    {"option_values": ["흰색"], "price_incl_vat": 15000, "stock_count": 5}
                                   ]
                                 }
                                 """.formatted(sellerId)))
@@ -139,8 +139,8 @@ class ProductApiTest extends PostgresTestBase {
                                   "name": "공개 티셔츠",
                                   "options": [{"name": "색상", "values": ["검정", "흰색"]}],
                                   "skus": [
-                                    {"option_values": ["검정"], "price": 15000, "stock_count": 10},
-                                    {"option_values": ["흰색"], "price": 18000, "stock_count": 4}
+                                    {"option_values": ["검정"], "price_incl_vat": 15000, "stock_count": 10},
+                                    {"option_values": ["흰색"], "price_incl_vat": 18000, "stock_count": 4}
                                   ]
                                 }
                                 """.formatted(sellerId)))

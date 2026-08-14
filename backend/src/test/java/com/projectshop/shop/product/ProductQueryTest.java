@@ -109,7 +109,7 @@ class ProductQueryTest extends PostgresTestBase {
                     .findFirst()
                     .orElseThrow();
 
-            assertThat(item.minPrice())
+            assertThat(item.minPriceInclVat())
                     .as("가격은 sku 에 있어서 상품당 여럿이다. 목록은 하나를 골라 보여줘야 한다")
                     .isEqualTo(15000);
         }
@@ -260,7 +260,7 @@ class ProductQueryTest extends PostgresTestBase {
                         assertThat(group.values()).extracting(ProductQuery.OptionValue::value)
                                 .containsExactly("검정", "흰색");
                     });
-            assertThat(detail.skus()).extracting(ProductQuery.PublicSku::price)
+            assertThat(detail.skus()).extracting(ProductQuery.PublicSku::priceInclVat)
                     .containsExactlyInAnyOrder(15000L, 18000L);
             assertThat(detail.skus())
                     .as("어느 값들의 조합인지가 없으면 화면이 고른 옵션으로 SKU 를 못 찾는다")
@@ -297,17 +297,17 @@ class ProductQueryTest extends PostgresTestBase {
             long productId = createAndPutOnSale(ownerA, sellerA, "품절 섞인 상세");
             jdbc.sql("""
                             update sku set stock_count = 0
-                             where product_id = :id and price = 15000
+                             where product_id = :id and price_incl_vat = 15000
                             """)
                     .param("id", productId)
                     .update();
 
             List<ProductQuery.PublicSku> skus = productQuery.findPublicDetail(productId).skus();
 
-            assertThat(skus).filteredOn(sku -> sku.price() == 15000L)
+            assertThat(skus).filteredOn(sku -> sku.priceInclVat() == 15000L)
                     .singleElement()
                     .satisfies(sku -> assertThat(sku.inStock()).isFalse());
-            assertThat(skus).filteredOn(sku -> sku.price() == 18000L)
+            assertThat(skus).filteredOn(sku -> sku.priceInclVat() == 18000L)
                     .singleElement()
                     .satisfies(sku -> assertThat(sku.inStock()).isTrue());
         }
@@ -318,14 +318,14 @@ class ProductQueryTest extends PostgresTestBase {
             long productId = createAndPutOnSale(ownerA, sellerA, "조합 하나 내린 상세");
             jdbc.sql("""
                             update sku set status = 'suspended'
-                             where product_id = :id and price = 18000
+                             where product_id = :id and price_incl_vat = 18000
                             """)
                     .param("id", productId)
                     .update();
 
             assertThat(productQuery.findPublicDetail(productId).skus())
                     .as("못 사는 조합을 주면 화면이 고를 수 있는 것으로 그리고 담기에서야 막힌다")
-                    .extracting(ProductQuery.PublicSku::price)
+                    .extracting(ProductQuery.PublicSku::priceInclVat)
                     .containsExactly(15000L);
         }
 

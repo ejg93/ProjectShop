@@ -324,7 +324,7 @@ class OrderConcurrencyTest extends PostgresTestBase {
         return sellerId;
     }
 
-    private long skuOf(long sellerId, String name, long price, int stock) {
+    private long skuOf(long sellerId, String name, long priceInclVat, int stock) {
         long productId = jdbc.sql("""
                         insert into product (seller_id, created_by_user_id, name, status)
                         values (:sellerId, :userId, :name, 'on_sale')
@@ -337,12 +337,12 @@ class OrderConcurrencyTest extends PostgresTestBase {
                 .single();
 
         return jdbc.sql("""
-                        insert into sku (product_id, price, stock_count)
-                        values (:productId, :price, :stock)
+                        insert into sku (product_id, price_incl_vat, stock_count)
+                        values (:productId, :priceInclVat, :stock)
                         returning sku_id
                         """)
                 .param("productId", productId)
-                .param("price", price)
+                .param("priceInclVat", priceInclVat)
                 .param("stock", stock)
                 .query(Long.class)
                 .single();

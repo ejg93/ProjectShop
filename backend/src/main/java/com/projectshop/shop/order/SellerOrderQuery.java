@@ -205,7 +205,7 @@ public class SellerOrderQuery {
 
     private List<OrderQuery.Item> itemsOf(long sellerOrderId) {
         return jdbc.sql("""
-                        select product_name, option_label, quantity, unit_price, line_amount
+                        select product_name, option_label, quantity, unit_price_incl_vat, line_amount
                           from order_item
                          where seller_order_id = :sellerOrderId
                          order by order_item_id
@@ -215,7 +215,7 @@ public class SellerOrderQuery {
                         rs.getString("product_name"),
                         rs.getString("option_label"),
                         rs.getInt("quantity"),
-                        rs.getLong("unit_price"),
+                        rs.getLong("unit_price_incl_vat"),
                         rs.getLong("line_amount")))
                 .list();
     }

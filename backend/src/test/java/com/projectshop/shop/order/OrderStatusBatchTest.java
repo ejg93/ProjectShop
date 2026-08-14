@@ -217,7 +217,7 @@ class OrderStatusBatchTest extends PostgresTestBase {
                 .single();
 
         return jdbc.sql("""
-                        insert into sku (product_id, price, stock_count)
+                        insert into sku (product_id, price_incl_vat, stock_count)
                         values (:productId, 10000, :stock)
                         returning sku_id
                         """)

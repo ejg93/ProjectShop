@@ -62,9 +62,9 @@ class OrderServiceTest extends PostgresTestBase {
 
             OrderService.Created created = order(cartItemId);
 
-            jdbc.sql("update sku set price = 99_999 where sku_id = :id").param("id", skuA).update();
+            jdbc.sql("update sku set price_incl_vat = 99_999 where sku_id = :id").param("id", skuA).update();
 
-            assertThat(itemOf(created.orderId(), "unit_price"))
+            assertThat(itemOf(created.orderId(), "unit_price_incl_vat"))
                     .as("가격을 조인해 오면 셀러가 값을 바꿀 때 과거 주문 금액이 같이 바뀐다")
                     .isEqualTo(10_000L);
         }
@@ -246,7 +246,7 @@ class OrderServiceTest extends PostgresTestBase {
         return sellerId;
     }
 
-    private long skuOf(long sellerId, String name, long price, int stock) {
+    private long skuOf(long sellerId, String name, long priceInclVat, int stock) {
         long productId = jdbc.sql("""
                         insert into product (seller_id, created_by_user_id, name, status)
                         values (:sellerId, :userId, :name, 'on_sale')
@@ -259,12 +259,12 @@ class OrderServiceTest extends PostgresTestBase {
                 .single();
 
         return jdbc.sql("""
-                        insert into sku (product_id, price, stock_count)
-                        values (:productId, :price, :stock)
+                        insert into sku (product_id, price_incl_vat, stock_count)
+                        values (:productId, :priceInclVat, :stock)
                         returning sku_id
                         """)
                 .param("productId", productId)
-                .param("price", price)
+                .param("priceInclVat", priceInclVat)
                 .param("stock", stock)
                 .query(Long.class)
                 .single();

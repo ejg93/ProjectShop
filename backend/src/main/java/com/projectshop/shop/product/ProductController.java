@@ -222,7 +222,7 @@ public class ProductController {
                             .toList(),
                     skus.stream()
                             .map(s -> new ProductService.SkuCommand(
-                                    s.optionValues(), s.price(), s.stockCount()))
+                                    s.optionValues(), s.priceInclVat(), s.stockCount()))
                             .toList());
         }
     }
@@ -232,10 +232,10 @@ public class ProductController {
             @NotEmpty List<@NotBlank String> values) {
     }
 
-    /** @param price 부가세를 포함한 판매가다(`D8`). 원 단위 정수라 소수가 없다 */
+    /** @param priceInclVat 부가세를 포함한 판매가다(`D8`). 원 단위 정수라 소수가 없다 */
     public record SkuRequest(
             @NotNull List<@NotBlank String> optionValues,
-            @NotNull @PositiveOrZero Long price,
+            @NotNull @PositiveOrZero Long priceInclVat,
             @NotNull @PositiveOrZero Integer stockCount) {
     }
 }

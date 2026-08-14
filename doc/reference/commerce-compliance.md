@@ -68,12 +68,12 @@
 | R9 | 개인정보 파기 | 개인정보법 제21조, 시행령 제16조 | `AccountPurgeService` — `email`·`display_name`·`password_hash` 를 `null` 로<br>`app_user_email_key` 부분 인덱스(`where email is not null`) — 파기해도 유니크가 안 깨진다<br>`TransactionPurgeService`<br>`app_user.deleted_at`(`V8`) — 수명과 업무 상태를 가른다 | 10a |
 | R10 | 비밀번호 일방향 암호화 | 개인정보법 제29조 + 고시 | `SecurityConfig.passwordEncoder` — `DelegatingPasswordEncoder`, `{bcrypt}` 접두사<br>`@Password`(`Password.java`) — 길이·문자 규칙의 유일한 출처 | 5 |
 | R11 | 처리방침 공개 | 개인정보법 제30조 | **미착수**(`13a`) | 13a |
-| R12 | 판매가격 표시 | 물가안정법 제3조 + 가격표시제 고시 | **주석뿐이다** — `V13` 의 `sku.price` 주석, `ProductController`·`ProductService` javadoc<br>**강제 지점이 5순위에 있다**(`D23` 축 2). 공급가액을 넣어도 아무것도 안 막는다<br>**표시는 미착수**(`14`·`14b`) | 6 |
-| R13 | 미성년자 거래 취소권 | 민법 제5조 | **없다.** 코드·스키마·주석에 흔적이 0건이다<br>`D2` 가 「안 다루기로 해도 왜 안 다루는지 적는다」고 요구했는데 그 근거가 어디에도 없다 | 11b |
+| R12 | 판매가격 표시 | 물가안정법 제3조 + 가격표시제 고시 | `sku.price_incl_vat`·`order_item.unit_price_incl_vat` — **이름이 강제 지점이다**(`D2-2`)<br>`sku_price_incl_vat_check`·`order_item_unit_price_incl_vat_check`<br>**값만 봐서는 세금 포함 여부를 모르니 `check` 로 못 막는다** — 내릴 수 있는 데까지 내린 것이 이름이다(`D23` 축 2)<br>**표시는 미착수**(`14`·`14b`) | 6 |
+| R13 | 미성년자 거래 취소권 | 민법 제5조 | **일부러 안 다룬다.** 근거가 `OrderActionService.Action.CANCEL` 에 있다(`D2-2`)<br>취소 주체가 제3자(법정대리인)라 `scope=own` 으로 표현이 안 되고, 계정에 생년월일·대리인 관계가 먼저 필요하다<br>그 축이 서는 것은 `11b` 다 | 11b |
 | R14 | 광고성 정보 수신 동의 | 정보통신망법 제50조 | `consent_item` 의 `marketing_email`·`marketing_sms`·`marketing_night`(`V11`)<br>`depends_on_id` — 야간 수신이 마케팅 수신에 걸린다<br>채널을 쪼개 둬서 나중에 갈라진다 | 5 |
 | R15 | 부당 표시·광고 금지 | 표시광고법 제3조, 전자상거래법 제21조 | `product.status` 의 `pending_review`·`blocked`(`V13`)<br>`ProductReviewService` — 검수·반려·제재<br>`ProductTransitions` — 셀러가 제재를 못 푼다 | 6 |
 | R16 | 약관 명시·설명과 불공정 조항 | 약관규제법 제3조·제6조 | ② `GET /api/consent-items/{code}` → `ConsentService.readCurrent` — **사본 제공**<br>`consent_item.body` 마크다운 — ①의 강조를 원문에 담는다<br>`consent_item_content_check` — `body` 나 `purpose` 중 하나는 있어야 한다<br>`effective_at` — 개정판을 미리 넣고 시점에 갈아 끼운다<br>**①③ 의 화면은 미착수**(`13d`) | 5-0, 5j, 13a |
-| R17 | 세금계산서 발급 주체 | 부가가치세법 제32조 | **미착수**(`17`~`21`). `sku.price` 를 부가세 포함가로 둔 것이 역산의 근거다 | 17, 18 |
+| R17 | 세금계산서 발급 주체 | 부가가치세법 제32조 | **미착수**(`17`~`21`). `sku.price_incl_vat` 를 부가세 포함가로 둔 것이 역산의 근거다 | 17, 18 |
 | R18 | 결제수단 정보 보관 금지 | 여신전문금융업법 제19조, 신용정보법 | `permission_field_group` 의 `order`·`payment`(`V6`) — 셀러의 `order:read` 에서 빠져 있다<br>**나머지 절반은 미착수**(`12`) — 애초에 안 담는 것으로 채운다 | 4d, 12 |
 
 ---
@@ -347,7 +347,7 @@
 
 소비자에게 최종 지불 가격을 표시한다. 부가가치세를 포함한 금액이다.
 
-`sku.price` 가 무엇을 담는지 정의가 필요하다. 부가세 포함 판매가로 두는 편이 단순하다.
+`sku.price_incl_vat` 가 부가세 포함 판매가다. **이름에 박았다**(`D2-2`) — 값만 봐서는 세금 포함 여부를 모르니 `check` 로 못 막고, 내릴 수 있는 데까지 내린 것이 이름이다(`D23` 축 2).
 공급가액과 세액이 따로 필요해지는 건 세금계산서·정산 단계이고, 그때 역산한다.
 
 배송비를 상품 가격과 어떻게 합쳐 보여줄지도 여기 걸린다. 멀티 셀러라 **셀러별로 배송비가 따로 붙는다.**
@@ -441,7 +441,7 @@ R7의 동의 이력 테이블에 항목으로 들어간다. 야간 수신 동의
 정산 항목이 **누가 누구에게 무엇을 공급했나**로 갈려야 한다.
 지급액 한 줄로 뭉치면 그 안에 성격이 다른 둘이 섞인다.
 
-`D8` 이 `sku.price` 를 부가세 포함가로 두고 필요할 때 역산하기로 한 것이 여기 맞물린다.
+`D8` 이 `sku.price_incl_vat` 를 부가세 포함가로 두고 필요할 때 역산하기로 한 것이 여기 맞물린다.
 세액을 저장하면 세율이 바뀔 때 과거 값이 굳는데, 발급은 **거래 시점의 세율**로 해야 한다.
 
 국세청 연동은 안 한다(아래 「안 다루는 것」). 다만 **정산 데이터가 발급에 필요한 것을 갖고 있어야**

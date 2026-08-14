@@ -70,7 +70,7 @@ class OrderIdempotencyTest extends PostgresTestBase {
                 .single();
 
         long skuId = jdbc.sql("""
-                        insert into sku (product_id, price, stock_count) values (:productId, 10000, 50)
+                        insert into sku (product_id, price_incl_vat, stock_count) values (:productId, 10000, 50)
                         returning sku_id
                         """)
                 .param("productId", productId)

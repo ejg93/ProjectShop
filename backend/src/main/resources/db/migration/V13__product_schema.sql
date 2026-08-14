@@ -167,9 +167,13 @@ create table sku (
 
     product_id bigint not null references product (product_id) on delete cascade,
 
-    -- 부가세를 포함한 판매가다(ADR 0007). 공급가액과 세액은 저장하지 않고 필요할 때 역산한다.
+    -- 부가세를 포함한 판매가다(ADR 0007, D2 R12). 공급가액과 세액은 저장하지 않고 필요할 때 역산한다.
     -- 원 단위 정수라 bigint 다(D8).
-    price       bigint not null,
+    --
+    -- 이름에 incl_vat 를 박은 것은 강제 지점을 주석에서 이름으로 올리려는 것이다(D23 축 2).
+    -- 값만 봐서는 세금이 포함됐는지 알 방법이 없어 check 로 못 막는다 — 공급가액을 넣으려던
+    -- 사람이 멈추는 자리가 이름뿐이다.
+    price_incl_vat bigint not null,
 
     -- 재고 스키마(청크 52)가 입고·안전재고를 붙이기 전까지 이 컬럼 하나가 재고다.
     -- 주문이 조건부 UPDATE 로 깎는다(D11) — 음수를 DB 가 막아야 그 조건이 성립한다.
@@ -182,7 +186,7 @@ create table sku (
     updated_at  timestamptz not null default now(),
     deleted_at  timestamptz,
 
-    constraint sku_price_check check (price >= 0),
+    constraint sku_price_incl_vat_check check (price_incl_vat >= 0),
     constraint sku_stock_count_check check (stock_count >= 0),
     constraint sku_status_check check (status in ('on_sale', 'suspended'))
 );

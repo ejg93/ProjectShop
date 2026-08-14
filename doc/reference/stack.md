@@ -209,6 +209,19 @@ Spring 은 그 표시를 **테스트 클래스의 상속 계층**에서 찾는�
 버전을 직접 지정한다. 이유와 Docker 29 함정은 `build.gradle.kts` 주석에 있다.
 요약하면 **1.21.4 미만은 Docker 29 에서 안 뜨고, 오류 메시지에 원인이 안 드러난다.**
 
+### `bootRun` 을 멈춰도 java 프로세스가 남는다
+
+Gradle 태스크를 죽여도 **`bootRun` 이 띄운 자식 java 는 8080 을 계속 쥔다.**
+다음 기동은 `Port 8080 was already in use` 로 죽는데, **그때 `curl` 은 200 을 준다** —
+낡은 인스턴스가 답하기 때문이다.
+
+**옛 코드로 검증하게 되는 자리다.** 마이그레이션이나 응답 형식을 고친 뒤라면 결과가 거짓이 된다.
+포트를 잡은 프로세스를 직접 죽이고 다시 띄운다.
+
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+```
+
 ### `JAVA_HOME` 이 JDK 11 을 가리킨다
 
 이 환경의 문제다. `CLAUDE.md` 의 검증 절에 명령이 있다.

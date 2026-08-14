@@ -71,10 +71,10 @@ public class OrderService {
      * <p>{@code commissionBp} 는 상품에 정해진 것이 있으면 그것이고 없으면 셀러 기본값이다(`D3`).
      */
     private record Line(long skuId, long sellerId, String productName, String optionLabel,
-            long unitPrice, int quantity, int commissionBp) {
+            long unitPriceInclVat, int quantity, int commissionBp) {
 
         long lineAmount() {
-            return unitPrice * quantity;
+            return unitPriceInclVat * quantity;
         }
 
         /** 항목마다 자르고 원 미만은 버린다. 전체를 한 번에 자른 값과 1원 다를 수 있고 그게 맞다(`D8`) */
@@ -125,7 +125,7 @@ public class OrderService {
     private List<Line> readLines(long userId, List<Long> cartItemIds) {
         List<Line> lines = jdbc.sql("""
                         select s.sku_id, p.seller_id, p.name as product_name, ci.quantity,
-                               s.price, coalesce(p.commission_bp, sel.commission_bp) as commission_bp,
+                               s.price_incl_vat, coalesce(p.commission_bp, sel.commission_bp) as commission_bp,
                                (select string_agg(pov.value, ' / ' order by po.sort_no, pov.sort_no)
                                   from sku_option_value sov
                                   join product_option_value pov
@@ -150,7 +150,7 @@ public class OrderService {
                         rs.getLong("seller_id"),
                         rs.getString("product_name"),
                         rs.getString("option_label"),
-                        rs.getLong("price"),
+                        rs.getLong("price_incl_vat"),
                         rs.getInt("quantity"),
                         rs.getInt("commission_bp")))
                 .list();
@@ -241,16 +241,16 @@ public class OrderService {
             for (Line line : sellerLines) {
                 jdbc.sql("""
                                 insert into order_item (seller_order_id, sku_id, product_name, option_label,
-                                                        unit_price, quantity, line_amount,
+                                                        unit_price_incl_vat, quantity, line_amount,
                                                         commission_bp, commission_amount)
                                 values (:sellerOrderId, :skuId, :productName, :optionLabel,
-                                        :unitPrice, :quantity, :lineAmount, :bp, :commission)
+                                        :unitPriceInclVat, :quantity, :lineAmount, :bp, :commission)
                                 """)
                         .param("sellerOrderId", sellerOrderId)
                         .param("skuId", line.skuId())
                         .param("productName", line.productName())
                         .param("optionLabel", line.optionLabel())
-                        .param("unitPrice", line.unitPrice())
+                        .param("unitPriceInclVat", line.unitPriceInclVat())
                         .param("quantity", line.quantity())
                         .param("lineAmount", line.lineAmount())
                         .param("bp", line.commissionBp())

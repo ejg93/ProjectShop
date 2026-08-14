@@ -351,24 +351,24 @@ class OrderSchemaTest extends PostgresTestBase {
     }
 
     /** 등식을 지켜서 넣는다. 틀린 값을 넣는 것은 {@link #insertItemRaw} 다 */
-    private void insertItem(long sellerOrderId, long unitPrice, int quantity, int commissionBp) {
-        long lineAmount = unitPrice * quantity;
-        insertItemRaw(sellerOrderId, unitPrice, quantity, lineAmount, commissionBp,
+    private void insertItem(long sellerOrderId, long unitPriceInclVat, int quantity, int commissionBp) {
+        long lineAmount = unitPriceInclVat * quantity;
+        insertItemRaw(sellerOrderId, unitPriceInclVat, quantity, lineAmount, commissionBp,
                 lineAmount * commissionBp / 10_000);
     }
 
-    private void insertItemRaw(long sellerOrderId, long unitPrice, int quantity, long lineAmount,
+    private void insertItemRaw(long sellerOrderId, long unitPriceInclVat, int quantity, long lineAmount,
             int commissionBp, long commissionAmount) {
         jdbc.sql("""
                         insert into order_item (seller_order_id, sku_id, product_name,
-                                                unit_price, quantity, line_amount,
+                                                unit_price_incl_vat, quantity, line_amount,
                                                 commission_bp, commission_amount)
                         values (:sellerOrderId, :skuId, '테스트 상품',
-                                :unitPrice, :quantity, :lineAmount, :bp, :commission)
+                                :unitPriceInclVat, :quantity, :lineAmount, :bp, :commission)
                         """)
                 .param("sellerOrderId", sellerOrderId)
                 .param("skuId", skuId)
-                .param("unitPrice", unitPrice)
+                .param("unitPriceInclVat", unitPriceInclVat)
                 .param("quantity", quantity)
                 .param("lineAmount", lineAmount)
                 .param("bp", commissionBp)
@@ -386,7 +386,7 @@ class OrderSchemaTest extends PostgresTestBase {
                 .update();
     }
 
-    private long insertSku(long seller, long price) {
+    private long insertSku(long seller, long priceInclVat) {
         long productId = jdbc.sql("""
                         insert into product (seller_id, created_by_user_id, name)
                         values (:sellerId, :userId, '테스트 상품')
@@ -398,12 +398,12 @@ class OrderSchemaTest extends PostgresTestBase {
                 .single();
 
         return jdbc.sql("""
-                        insert into sku (product_id, price, stock_count)
-                        values (:productId, :price, 100)
+                        insert into sku (product_id, price_incl_vat, stock_count)
+                        values (:productId, :priceInclVat, 100)
                         returning sku_id
                         """)
                 .param("productId", productId)
-                .param("price", price)
+                .param("priceInclVat", priceInclVat)
                 .query(Long.class)
                 .single();
     }

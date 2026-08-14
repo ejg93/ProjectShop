@@ -67,7 +67,7 @@ public class OrderQuery {
 
     /** 산 것 한 줄. 주문 시점에 박제된 값이라 상품이 바뀌어도 안 바뀐다 */
     public record Item(String productName, String optionLabel, int quantity,
-            long unitPrice, long lineAmount) {
+            long unitPriceInclVat, long lineAmount) {
     }
 
     /**
@@ -224,7 +224,7 @@ public class OrderQuery {
         Map<Long, List<Item>> itemsBySellerOrder = new LinkedHashMap<>();
         jdbc.sql("""
                         select oi.seller_order_id, oi.product_name, oi.option_label,
-                               oi.quantity, oi.unit_price, oi.line_amount
+                               oi.quantity, oi.unit_price_incl_vat, oi.line_amount
                           from order_item oi
                           join seller_order so on so.seller_order_id = oi.seller_order_id
                          where so.order_id = :orderId
@@ -237,7 +237,7 @@ public class OrderQuery {
                                 rs.getString("product_name"),
                                 rs.getString("option_label"),
                                 rs.getInt("quantity"),
-                                rs.getLong("unit_price"),
+                                rs.getLong("unit_price_incl_vat"),
                                 rs.getLong("line_amount"))))
                 .list()
                 .forEach(row -> itemsBySellerOrder

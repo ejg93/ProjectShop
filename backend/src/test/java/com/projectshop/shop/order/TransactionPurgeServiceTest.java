@@ -236,7 +236,7 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
 
         jdbc.sql("""
                         insert into order_item (seller_order_id, sku_id, product_name,
-                                                unit_price, quantity, line_amount,
+                                                unit_price_incl_vat, quantity, line_amount,
                                                 commission_bp, commission_amount)
                         values (:sellerOrderId, :skuId, '파기 상품', 10000, 1, 10000, 1000, 1000)
                         """)
@@ -299,7 +299,7 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
                 .single();
 
         return jdbc.sql("""
-                        insert into sku (product_id, price, stock_count)
+                        insert into sku (product_id, price_incl_vat, stock_count)
                         values (:productId, 10000, 10)
                         returning sku_id
                         """)

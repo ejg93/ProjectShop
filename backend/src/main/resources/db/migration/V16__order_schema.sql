@@ -233,7 +233,9 @@ create table order_item (
     -- "검정 / M". 옵션 조합을 사람이 읽는 형태로 굳힌다 — 옵션 행이 나중에 바뀌어도 남는다.
     option_label text,
 
-    unit_price bigint not null,
+    -- 부가세를 포함한 판매가다(D2 R12). sku 에서 그대로 굳힌 값이라 세금 취급이 같다.
+    -- 이름에 incl_vat 를 박는 이유는 `sku.price_incl_vat` 와 같다(D23 축 2).
+    unit_price_incl_vat bigint not null,
     quantity   int    not null,
     line_amount bigint not null,
 
@@ -245,12 +247,12 @@ create table order_item (
     created_at timestamptz not null default now(),
 
     constraint order_item_quantity_check   check (quantity >= 1),
-    constraint order_item_unit_price_check check (unit_price >= 0),
+    constraint order_item_unit_price_incl_vat_check check (unit_price_incl_vat >= 0),
     constraint order_item_commission_bp_check check (commission_bp between 0 and 10000),
 
     -- 한 행 안에서 끝나는 등식 둘. 앱을 안 거치는 입구에서도 막힌다.
     constraint order_item_line_amount_check
-        check (line_amount = unit_price * quantity),
+        check (line_amount = unit_price_incl_vat * quantity),
 
     -- 정수 나눗셈이 곧 버림이다(D8). 절사 규칙이 등식 안에 들어가서 따로 표현할 것이 없다.
     -- 규칙을 반올림으로 바꾸면 이 제약을 갈아 끼워야 한다 — money-invariants.md 에 적어 뒀다.

@@ -17,10 +17,10 @@
 
 | 등식 | 강제 |
 |---|---|
-| `order_item.line_amount = order_item.unit_price * order_item.quantity` | `check` |
+| `order_item.line_amount = order_item.unit_price_incl_vat * order_item.quantity` | `check` |
 | `order_item.commission_amount = order_item.line_amount * order_item.commission_bp / 10000` | `check` |
 | `order_item.quantity >= 1` | `check` |
-| `order_item.unit_price >= 0` | `check` |
+| `order_item.unit_price_incl_vat >= 0` | `check` |
 | `order_item.commission_bp between 0 and 10000` | `check` |
 | `seller_order.shipping_fee >= 0` | `check` |
 | `shop_order.payable_amount = shop_order.total_amount + shop_order.shipping_fee_total` | `check` |

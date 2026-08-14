@@ -47,9 +47,9 @@ public class ProductService {
 
     /**
      * @param optionValues 이 조합을 이루는 선택지들. {@code options} 에 적은 축 순서와 같아야 한다
-     * @param price        부가세를 포함한 판매가(`D8`)
+     * @param priceInclVat        부가세를 포함한 판매가(`D8`)
      */
-    public record SkuCommand(List<String> optionValues, long price, int stockCount) {
+    public record SkuCommand(List<String> optionValues, long priceInclVat, int stockCount) {
     }
 
     /**
@@ -361,12 +361,12 @@ public class ProductService {
 
         for (SkuCommand sku : skus) {
             long skuId = jdbc.sql("""
-                            insert into sku (product_id, price, stock_count)
-                            values (:productId, :price, :stockCount)
+                            insert into sku (product_id, price_incl_vat, stock_count)
+                            values (:productId, :priceInclVat, :stockCount)
                             returning sku_id
                             """)
                     .param("productId", productId)
-                    .param("price", sku.price())
+                    .param("priceInclVat", sku.priceInclVat())
                     .param("stockCount", sku.stockCount())
                     .query(Long.class)
                     .single();

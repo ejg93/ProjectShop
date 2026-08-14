@@ -43,11 +43,11 @@ public class CartService {
     }
 
     /**
-     * @param price     지금 가격이다. <b>주문할 때 박제한다</b>(청크 10) — 담아 둔 사이에 바뀔 수 있다
+     * @param priceInclVat     지금 가격이다. <b>주문할 때 박제한다</b>(청크 10) — 담아 둔 사이에 바뀔 수 있다
      * @param available 지금 살 수 있나. 재고가 없거나 상품이 내려갔으면 거짓이다
      */
     public record Item(long cartItemId, long skuId, long productId, String productName,
-            long price, int quantity, boolean available) {
+            long priceInclVat, int quantity, boolean available) {
     }
 
     public record Cart(List<Item> items, long total) {
@@ -125,7 +125,7 @@ public class CartService {
 
         long total = items.stream()
                 .filter(Item::available)
-                .mapToLong(item -> item.price() * item.quantity())
+                .mapToLong(item -> item.priceInclVat() * item.quantity())
                 .sum();
 
         return new Cart(items, total);
@@ -198,7 +198,7 @@ public class CartService {
     private List<Item> itemsOf(long cartId) {
         return jdbc.sql("""
                         select ci.cart_item_id, ci.sku_id, ci.quantity,
-                               p.product_id, p.name as product_name, s.price,
+                               p.product_id, p.name as product_name, s.price_incl_vat,
                                (s.deleted_at is null and s.status = 'on_sale'
                                 and p.deleted_at is null and p.status = 'on_sale'
                                 and s.stock_count >= ci.quantity) as available
@@ -214,7 +214,7 @@ public class CartService {
                         rs.getLong("sku_id"),
                         rs.getLong("product_id"),
                         rs.getString("product_name"),
-                        rs.getLong("price"),
+                        rs.getLong("price_incl_vat"),
                         rs.getInt("quantity"),
                         rs.getBoolean("available")))
                 .list();

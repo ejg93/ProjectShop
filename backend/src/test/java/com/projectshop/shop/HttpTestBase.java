@@ -131,10 +131,10 @@ public abstract class HttpTestBase {
      * <p>시드(`db/seed`)를 안 쓴다. 그쪽은 {@code local} 프로필이라 테스트가 안 태우고,
      * 태우게 만들면 <b>테스트가 시드 데이터에 기대게 된다</b> — 시드를 고치는 날 테스트가 깨진다.
      *
-     * @param price 조합 하나의 값. 금액 등식을 보는 테스트가 이 값으로 기대치를 만든다
+     * @param priceInclVat 조합 하나의 값. 금액 등식을 보는 테스트가 이 값으로 기대치를 만든다
      * @param stock 재고. 품절 경로를 보려면 작게 준다
      */
-    protected SellableProduct givenSellableProduct(long price, int stock) {
+    protected SellableProduct givenSellableProduct(long priceInclVat, int stock) {
         int sequence = SEQUENCE.incrementAndGet();
         AuthFixture fixture = new AuthFixture(jdbc);
 
@@ -159,17 +159,17 @@ public abstract class HttpTestBase {
                 .single();
 
         long skuId = jdbc.sql("""
-                        insert into sku (product_id, price, stock_count)
-                        values (:productId, :price, :stock)
+                        insert into sku (product_id, price_incl_vat, stock_count)
+                        values (:productId, :priceInclVat, :stock)
                         returning sku_id
                         """)
                 .param("productId", productId)
-                .param("price", price)
+                .param("priceInclVat", priceInclVat)
                 .param("stock", stock)
                 .query(Long.class)
                 .single();
 
-        return new SellableProduct(sellerId, ownerUserId, productId, skuId, price);
+        return new SellableProduct(sellerId, ownerUserId, productId, skuId, priceInclVat);
     }
 
     /**
@@ -187,7 +187,7 @@ public abstract class HttpTestBase {
      * 노출 번호 규칙(`D9`)이 안 걸린다.
      */
     protected record SellableProduct(long sellerId, long ownerUserId, long productId,
-            long skuId, long price) {
+            long skuId, long priceInclVat) {
     }
 
     /** 한 사람이 브라우저 하나로 하는 일. 쿠키를 들고 다닌다. */
