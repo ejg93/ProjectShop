@@ -91,6 +91,9 @@ public class SecurityConfig {
                         // 상품 상세는 읽기만 연다(청크 8b). 별 하나라 /{id} 까지만 걸리고
                         // /{id}/approve 같은 검수 경로는 안 걸린다 — 둘 다 필요한 조건이다.
                         .requestMatchers(HttpMethod.GET, "/api/products/*").permitAll()
+                        // 셀러 신원은 법이 청약 이전에 제공하라고 한 값이라(`D2` R1) 비로그인이 본다.
+                        // 여기도 GET 만 연다 — 이 경로에 쓰기가 생기는 날 조용히 같이 열리지 않게.
+                        .requestMatchers(HttpMethod.GET, "/api/sellers/*").permitAll()
                         .anyRequest().authenticated())
 
                 // 폼 로그인과 HTTP Basic 을 끈다.

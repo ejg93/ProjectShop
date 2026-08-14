@@ -61,6 +61,12 @@ public enum ErrorCode {
     SELLER_NOT_VERIFIED(HttpStatus.UNPROCESSABLE_CONTENT, "seller-not-verified",
             "셀러 신원정보가 확인되지 않았다"),
 
+    // 셀러
+    //
+    // 아직 안 파는 셀러와 아예 없는 셀러가 같은 404 다. 가르면 번호를 하나씩 두드려서
+    // 심사 중인 셀러가 존재한다는 것을 알아낼 수 있다.
+    SELLER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-not-found", "그런 셀러가 없다"),
+
     // 장바구니
     //
     // 담긴 것을 못 찾는 것은 404 다. 장바구니는 주인만 만지고 주인은 요청이 가리키므로

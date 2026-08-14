@@ -228,6 +228,21 @@ insert into cart (cart_token, updated_at) values (:t, :old)
 
 `created_at` 은 트리거가 없어서 `update` 로도 된다. **`updated_at` 만 이 문제가 있다.**
 
+### `LocalTime.MAX` 를 `timestamptz` 에 넣으면 다음날이 된다
+
+`23:59:59.999999999` 는 나노초까지고 Postgres 는 **마이크로초까지만 담고 나머지를 올린다.**
+저장된 값은 다음날 `00:00:00` 이다.
+
+「말일 24시」로 쓸 때는 맞는 값이지만, **그것을 다시 날짜로 되돌리면 말일이 아니라 말일+1** 이다.
+
+```java
+lastDay.atTime(LocalTime.MAX)                    // 저장되면 lastDay + 1일 00:00
+read().atZoneSameInstant(ZONE).toLocalDate()     // lastDay 가 아니다
+```
+
+시각으로 비교하는 코드는 멀쩡하고 **날짜로 되돌리는 코드만 틀린다.** 그래서 늦게 드러난다 —
+`OrderStatusServiceTest` 가 말일이 금요일인 날에만 깨졌다(청크 `11-4`).
+
 ### 텍스트 블록은 줄 끝 공백을 지운다
 
 SQL 을 텍스트 블록으로 쓰다가 변수를 이으면 단어가 붙는다.
