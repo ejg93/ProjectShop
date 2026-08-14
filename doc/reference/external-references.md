@@ -340,6 +340,61 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 `SQL Antipatterns`(Bill Karwin)도 같은 방향(`bug_id`)을 말한다. 책이라 링크로 대조할 수 없어서
 기준으로 안 잡았지만, 두 자료가 같은 결론이라는 점은 이 결정의 근거가 된다.
 
+## 유효성 확인 이력
+
+**점검 E** 가 링크를 실제로 열어 대조한다. 표준은 개정되고, 개정되면 **우리 규약이 2순위 근거를 잃는다.**
+
+| 확인일 | 무엇을 봤나 |
+|---|---|
+| 2026-08-05 | 링크를 처음 열어 확인하고 이 문서를 만들었다 |
+| **2026-08-14** | 점검 E. **핵심 근거 여섯을 원문으로 대조**했다(아래) |
+
+### 2026-08-14 에 확인한 것
+
+| 자료 | 결과 |
+|---|---|
+| RFC 9457 | **현행.** Standards Track 이고 폐지 안 됐다. RFC 7807 을 폐지한 쪽이 이것이다 |
+| **OWASP Top 10** | **개정됐다 — 2025 판.** 2025-11 발표, 2026-01 최종. `D14` 가 2021 에 매핑돼 있다 |
+| **NIST SP 800-63B** | **개정됐다 — Revision 4.** 비밀번호 `SHALL` 둘을 우리가 못 지킨다 |
+| W3C Trace Context | Level 2 가 **후보 권고 초안**이다. `traceparent` 형식은 그대로고 하위호환이라 `D16` 은 안 바뀐다 |
+| KWCAG 2.2 | **현행.** `KS X OT0003:2022` 다. `D20` 그대로 |
+| Flyway | Apache-2.0 그대로 |
+
+**나머지 링크는 이번에 안 열었다.** Stripe·Zalando·Spring 처럼 회사가 갱신하는 문서와
+`D12`·`D17`·`D21` 처럼 아직 청크가 안 온 것이 그렇다. 다음 점검 E 에서 본다.
+
+## 라이선스
+
+`D23` 「라이선스」가 **의존성과 인용 자료 둘 다** 보라고 한다. 그 기록 자리가 여기다.
+
+### 인용 자료
+
+| 자료 | 라이선스 | 우리가 한 것 |
+|---|---|---|
+| SQL Style Guide (Simon Holywell) | **CC BY-SA 4.0** | 규칙을 골라 쓰고 벗어난 것을 따로 적었다. **인용에 가깝지만 파생물 판단은 안 했다** — 공개하기로 하면 이 줄을 먼저 다시 본다(`D23`) |
+| OWASP (Top 10 · Cheat Sheet) | CC BY-SA 4.0 | 항목 이름을 청크에 매핑했다 |
+| NIST SP 800-63B | 미국 정부 저작물 — 저작권 없음 | 요건을 근거로 인용 |
+| RFC 9457 · W3C Trace Context | IETF Trust / W3C 문서 라이선스 | 형식을 따랐다 |
+| Zalando RESTful API Guidelines | MIT | 규칙을 따르고 벗어난 둘을 명시했다 |
+
+### 의존성
+
+`build.gradle.kts` 에 줄을 추가할 때 본다. **GPL 계열은 0건**이다.
+
+| 의존성 | 라이선스 |
+|---|---|
+| Spring Boot · Spring Security · Spring Framework | Apache-2.0 |
+| Micrometer · Micrometer Tracing (Brave) | Apache-2.0 |
+| Caffeine | Apache-2.0 |
+| Flyway (Community) | Apache-2.0 (2026-08-14 확인) |
+| Jackson | Apache-2.0 |
+| PostgreSQL JDBC Driver | BSD-2-Clause |
+| Testcontainers | MIT |
+| Next.js · React · Tailwind CSS | MIT |
+
+**판단한 적 없는 것과 판단해서 괜찮은 것은 다르다**(`D23`). 위 표가 그 판단을 기록한 것이다.
+새 의존성을 넣으면 이 표에 줄을 더한다.
+
 ## 이 문서를 고칠 때
 
 링크가 죽거나 문서 구조가 바뀌면 여기를 고친다.
