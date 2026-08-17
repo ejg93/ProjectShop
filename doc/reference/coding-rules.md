@@ -453,6 +453,24 @@ and (:seesEverything or p.seller_id = any(:sellers))
 
 대가는 플래너가 `or` 를 못 풀 때 인덱스를 안 타는 것이다. **측정한 뒤에 손본다**(청크 42).
 
+### 바깥 조인 쪽 숫자는 `getObject` 로 받는다
+
+`ResultSet.getLong` 은 **null 을 0 으로 준다.** 기본형이라 null 을 담을 자리가 없어서고,
+`wasNull()` 을 따로 묻지 않으면 **틀렸다는 신호가 없다.** 0 은 식별자로도 금액으로도
+그럴듯한 값이라 화면까지 조용히 내려간다.
+
+```java
+// 안 한다 — 조합이 없는 SKU 가 0 번 선택지를 가리킨다
+rs.getLong("product_option_value_id")
+
+// 한다 — 없으면 null 이고, 부르는 쪽이 거를지 말지를 고른다
+rs.getObject("product_option_value_id", Long.class)
+```
+
+**걸리는 자리는 둘이다** — `left join` 의 바깥 쪽 컬럼, 그리고 `null` 을 허용하는 컬럼.
+안쪽 조인이거나 `coalesce` 가 씌워져 있으면 `getLong` 이 맞다 — 그쪽은 null 이 안 온다.
+같은 이유로 시각·문자열은 이미 `getObject`·`getString` 이라 안 걸린다.
+
 ## 마이그레이션
 
 **배포 전까지는 `create` 문을 직접 고친다.** 새 마이그레이션에 `alter` 를 쌓지 않는다.
