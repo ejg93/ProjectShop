@@ -72,7 +72,7 @@
 | R13 | 미성년자 거래 취소권 | 민법 제5조 | **일부러 안 다룬다.** 근거가 `OrderActionService.Action.CANCEL` 에 있다(`D2-2`)<br>취소 주체가 제3자(법정대리인)라 `scope=own` 으로 표현이 안 되고, 계정에 생년월일·대리인 관계가 먼저 필요하다<br>그 축이 서는 것은 `11b` 다 | 11b |
 | R14 | 광고성 정보 수신 동의 | 정보통신망법 제50조 | `consent_item` 의 `marketing_email`·`marketing_sms`·`marketing_night`(`V11`)<br>`depends_on_id` — 야간 수신이 마케팅 수신에 걸린다<br>채널을 쪼개 둬서 나중에 갈라진다 | 5 |
 | R15 | 부당 표시·광고 금지 | 표시광고법 제3조, 전자상거래법 제21조 | `product.status` 의 `pending_review`·`blocked`(`V13`)<br>`ProductReviewService` — 검수·반려·제재<br>`ProductTransitions` — 셀러가 제재를 못 푼다 | 6 |
-| R16 | 약관 명시·설명과 불공정 조항 | 약관규제법 제3조·제6조 | ② `GET /api/consent-items/{code}` → `ConsentService.readCurrent` — **사본 제공**<br>`consent_item.body` 마크다운 — ①의 강조를 원문에 담는다<br>`consent_item_content_check` — `body` 나 `purpose` 중 하나는 있어야 한다<br>`effective_at` — 개정판을 미리 넣고 시점에 갈아 끼운다<br>**①③ 의 화면은 미착수**(`13d`) | 5-0, 5j, 13a |
+| R16 | 약관 명시·설명과 불공정 조항 | 약관규제법 제3조·제6조 | ② `GET /api/consent-items/{code}` → `ConsentService.readCurrent` — **사본 제공**<br>`consent_item.body` 마크다운 — ①의 강조를 원문에 담는다<br>`consent_item_content_check` — `body` 나 `purpose` 중 하나는 있어야 한다<br>`effective_at` — 개정판을 미리 넣고 시점에 갈아 끼운다<br>`/signup` 화면(`13d-2`) — **①** 은 `PolicyBody` 가 마크다운 강조를 굵게+색으로 살려 그린다, **③** 은 개인정보 고지 넷을 접지 않고 동의 칸 옆에 펼쳐 둔다. `/terms` 도 전문을 그린다(`13a-2`) | 5-0, 5j, 13a-2, 13d-1, 13d-2 |
 | R17 | 세금계산서 발급 주체 | 부가가치세법 제32조 | **미착수**(`17`~`21`). `sku.price_incl_vat` 를 부가세 포함가로 둔 것이 역산의 근거다 | 17, 18 |
 | R18 | 결제수단 정보 보관 금지 | 여신전문금융업법 제19조, 신용정보법 | `permission_field_group` 의 `order`·`payment`(`V6`) — 셀러의 `order:read` 에서 빠져 있다<br>**나머지 절반은 미착수**(`12`) — 애초에 안 담는 것으로 채운다 | 4d, 12 |
 

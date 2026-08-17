@@ -40,16 +40,27 @@ export function PolicyDocument({
         )}
       </header>
 
-      <div className="grid gap-4">
-        {/*
-          원시 HTML 을 안 살린다. rehype-raw 를 안 붙였으므로 본문에 태그가 들어와도 글자로 나간다 -
-          지금 본문은 우리가 쓰지만, 이 컴포넌트가 셀러 글을 그리게 되는 날 그 결정이 방벽이 된다.
-        */}
-        <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN}>
-          {body}
-        </Markdown>
-      </div>
+      <PolicyBody>{body}</PolicyBody>
     </article>
+  );
+}
+
+/**
+ * 본문만 그린다. <b>셸이 없어서 다른 화면 안에 넣을 수 있다</b> —
+ * 가입 화면이 약관 전문을 `details` 안에 펼칠 때 쓴다(`13d-2`).
+ *
+ * <p><b>원시 HTML 을 안 살린다.</b> `rehype-raw` 를 안 붙였으므로 본문에 태그가 들어와도
+ * 글자로 나간다 — 지금 본문은 우리가 쓰지만, 이것이 셀러 글을 그리게 되는 날 그 결정이 방벽이 된다.
+ *
+ * @param children 마크다운 원문
+ */
+export function PolicyBody({ children }: { children: string }) {
+  return (
+    <div className="grid gap-4">
+      <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN}>
+        {children}
+      </Markdown>
+    </div>
   );
 }
 

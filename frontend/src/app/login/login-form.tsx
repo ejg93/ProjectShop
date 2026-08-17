@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { Field } from "@/components/field";
 import { ApiError, api } from "@/lib/api";
 
 /**
@@ -122,49 +123,3 @@ export function LoginForm() {
   );
 }
 
-/**
- * 라벨은 입력칸 위에 둔다. <b>자리표시 문구를 라벨로 쓰지 않는다</b> - 값을 넣는 순간
- * 무슨 칸이었는지가 사라지고, 화면낭독기는 "편집창" 이라고만 말한다.
- *
- * @param invalid <b>그 칸의 값이 규칙에 안 맞을 때만</b> 참이다(`D20`). 어느 칸인지 모르는
- *                오류에는 안 넘긴다 - 기본값이 거짓인 이유가 그것이다. 가입 화면(`13d`)처럼
- *                칸마다 검사하는 곳이 이 자리를 쓴다
- */
-function Field({
-  name,
-  type,
-  label,
-  autoComplete,
-  invalid = false,
-  defaultValue,
-}: {
-  name: string;
-  type: "email" | "password";
-  label: string;
-  autoComplete: string;
-  invalid?: boolean;
-  defaultValue?: string;
-}) {
-  return (
-    <div className="grid gap-2">
-      <label htmlFor={name} className="text-sm font-semibold">
-        {label}
-      </label>
-      <input
-        id={name}
-        name={name}
-        type={type}
-        required
-        autoComplete={autoComplete}
-        aria-invalid={invalid}
-        defaultValue={defaultValue}
-        className="
-          rounded-ui border border-border bg-surface-raised px-3 py-2.5 text-base
-          transition-colors duration-200
-          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
-          aria-invalid:border-danger-text
-        "
-      />
-    </div>
-  );
-}
