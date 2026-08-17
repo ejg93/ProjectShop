@@ -330,6 +330,29 @@ class ProductQueryTest extends PostgresTestBase {
         }
 
         @Test
+        @DisplayName("옵션이 없어도 살 수 있는 조합이 나온다")
+        void includesSkuOfOptionlessProduct() {
+            long productId = createOptionlessAndPutOnSale(ownerA, sellerA, "옵션 없는 머그컵");
+
+            ProductQuery.PublicDetail detail = productQuery.findPublicDetail(productId);
+
+            assertThat(detail.options()).isEmpty();
+            assertThat(detail.skus())
+                    .as("""
+                            조합이 비면 화면에 살 수 있는 것이 하나도 안 보인다.
+                            담기·주문은 sku_id 로 하므로 오류가 안 나고 화면만 못 그린다.
+                            """)
+                    .singleElement()
+                    .satisfies(sku -> {
+                        assertThat(sku.priceInclVat()).isEqualTo(9000L);
+                        assertThat(sku.inStock()).isTrue();
+                        assertThat(sku.optionValueIds())
+                                .as("고를 것이 없으면 빈 배열이다. 0 이 섞이면 없는 선택지를 가리킨다")
+                                .isEmpty();
+                    });
+        }
+
+        @Test
         @DisplayName("청약철회 제한은 사유까지 대문자로 나간다")
         void exposesWithdrawalRestriction() {
             long productId = productService.create(ownerA, new ProductService.Command(
@@ -371,7 +394,19 @@ class ProductQueryTest extends PostgresTestBase {
 
     /** 검수(7c)가 아직 없어서 상태를 직접 올린다. 그 전이는 그 청크가 규칙을 정한다 */
     private long createAndPutOnSale(long actorUserId, long sellerId, String name) {
-        long productId = create(actorUserId, sellerId, name);
+        return putOnSale(create(actorUserId, sellerId, name));
+    }
+
+    /** 옵션 축이 없는 상품. SKU 는 하나고 {@code sku_option_value} 에 행이 안 생긴다 */
+    private long createOptionlessAndPutOnSale(long actorUserId, long sellerId, String name) {
+        long productId = productService.create(actorUserId, new ProductService.Command(
+                sellerId, name, null, null, false, null,
+                List.of(),
+                List.of(new ProductService.SkuCommand(List.of(), 9000, 4)))).productId();
+        return putOnSale(productId);
+    }
+
+    private long putOnSale(long productId) {
         jdbc.sql("update product set status = 'on_sale' where product_id = :id")
                 .param("id", productId)
                 .update();

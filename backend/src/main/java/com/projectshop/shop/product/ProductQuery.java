@@ -312,16 +312,22 @@ public class ProductQuery {
      *
      * <p>{@code on_sale} 인 SKU 만 나간다. 내린 조합을 같이 주면 화면이 고를 수 있는 것으로 그리고,
      * 담기에서야 막힌다.
+     *
+     * <p><b>{@code sku_option_value} 를 left join 한다.</b> 옵션이 없는 상품도 SKU 는 하나 있는데,
+     * inner join 이면 그 SKU 가 행을 하나도 안 만들어서 <b>살 수 있는 조합이 통째로 사라진다.</b>
+     * 담기·주문은 {@code sku_id} 로 하므로 오류 없이 화면만 못 그린다.
+     *
+     * @param productId 조합을 찾을 상품
      */
     private List<PublicSku> findPublicSkus(long productId) {
-        record Row(long skuId, long priceInclVat, boolean inStock, long optionValueId) {
+        record Row(long skuId, long priceInclVat, boolean inStock, Long optionValueId) {
         }
 
         List<Row> rows = jdbc.sql("""
                         select sk.sku_id, sk.price_incl_vat, sk.stock_count > 0 as in_stock,
                                sov.product_option_value_id
                           from sku sk
-                          join sku_option_value sov on sov.sku_id = sk.sku_id
+                          left join sku_option_value sov on sov.sku_id = sk.sku_id
                          where sk.product_id = :id
                            and sk.status = 'on_sale' and sk.deleted_at is null
                          order by sk.sku_id, sov.product_option_value_id
@@ -331,15 +337,17 @@ public class ProductQuery {
                         rs.getLong("sku_id"),
                         rs.getLong("price_incl_vat"),
                         rs.getBoolean("in_stock"),
-                        rs.getLong("product_option_value_id")))
+                        // getLong 은 null 을 0 으로 준다. 옵션 없는 SKU 가 0 번 선택지를 가리키게 된다.
+                        rs.getObject("product_option_value_id", Long.class)))
                 .list();
 
         Map<Long, PublicSku> grouped = new LinkedHashMap<>();
         for (Row row : rows) {
-            grouped.computeIfAbsent(row.skuId(),
-                            id -> new PublicSku(id, row.priceInclVat(), row.inStock(), new ArrayList<>()))
-                    .optionValueIds()
-                    .add(row.optionValueId());
+            PublicSku sku = grouped.computeIfAbsent(row.skuId(),
+                    id -> new PublicSku(id, row.priceInclVat(), row.inStock(), new ArrayList<>()));
+            if (row.optionValueId() != null) {
+                sku.optionValueIds().add(row.optionValueId());
+            }
         }
         return List.copyOf(grouped.values());
     }
