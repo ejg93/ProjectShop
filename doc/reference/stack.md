@@ -222,6 +222,11 @@ Gradle 태스크를 죽여도 **`bootRun` 이 띄운 자식 java 는 8080 을 �
 Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```
 
+**`npm run dev` 도 같다.** 3000 을 쥔 node 가 남고, 다음 `dev` 는 조용히 실패하는데
+**낡은 서버가 계속 답한다.** 그쪽은 파일 변경을 따라가므로(HMR) 새 코드가 도는 것처럼 보이지만
+**시작 시점에 만들어진 것은 안 바뀐다** — 그 상태에서 `notFound()` 가 500 을 준 적이 있다.
+포트 둘 다 위 명령으로 확인하고 시작한다. **화면 축은 두 포트를 다 본다.**
+
 ### `JAVA_HOME` 이 JDK 11 을 가리킨다
 
 이 환경의 문제다. `CLAUDE.md` 의 검증 절에 명령이 있다.
