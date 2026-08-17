@@ -37,6 +37,7 @@ public enum ErrorCode {
             "필수 동의 항목이라 철회할 수 없다"),
     CONSENT_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "consent-item-not-found", "그런 동의 항목이 없다"),
     CONSENT_NOT_FOUND(HttpStatus.NOT_FOUND, "consent-not-found", "동의한 적이 없는 항목이다"),
+    POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "policy-not-found", "그런 정책 문서가 없다"),
 
     // 권한
     //

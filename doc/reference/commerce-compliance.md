@@ -67,7 +67,7 @@
 | R8 | 셀러에게 주문자 정보 제공 | 개인정보법 제17조 | `permission_field_group`·`role_permission_field`(`V6`)<br>`Decision.visibleFieldGroups`<br>`FieldVisibilityTest` | 4, 8 |
 | R9 | 개인정보 파기 | 개인정보법 제21조, 시행령 제16조 | `AccountPurgeService` — `email`·`display_name`·`password_hash` 를 `null` 로<br>`app_user_email_key` 부분 인덱스(`where email is not null`) — 파기해도 유니크가 안 깨진다<br>`TransactionPurgeService`<br>`app_user.deleted_at`(`V8`) — 수명과 업무 상태를 가른다 | 10a |
 | R10 | 비밀번호 일방향 암호화 | 개인정보법 제29조 + 고시 | `SecurityConfig.passwordEncoder` — `DelegatingPasswordEncoder`, `{bcrypt}` 접두사<br>`@Password`(`Password.java`) — 길이·문자 규칙의 유일한 출처 | 5 |
-| R11 | 처리방침 공개 | 개인정보법 제30조 | **미착수**(`13a`) | 13a |
+| R11 | 처리방침 공개 | 개인정보법 제30조 | `policy_document`(`V21`) — `code`+`version`+`effective_at` 로 개정판을 쌓는다. **시행 7일 전 고지**(시행령 제31조제3항)가 이 설계를 요구한다<br>`PolicyQuery.readCurrent` — 시행 전인 판은 안 나간다<br>`PolicyQueryTest.privacyPolicyCoversArticle30` — **제30조제1항의 아홉 항목이 본문에 있는지를 고정한다**<br>`PUBLIC_PATHS` 의 `/api/policies/**` — 로그인 전에 읽는다<br>**화면 표시는 미착수**(`13a-2`) | 13a-1, 13a-2 |
 | R12 | 판매가격 표시 | 물가안정법 제3조 + 가격표시제 고시 | `sku.price_incl_vat`·`order_item.unit_price_incl_vat` — **이름이 강제 지점이다**(`D2-2`)<br>`sku_price_incl_vat_check`·`order_item_unit_price_incl_vat_check`<br>**값만 봐서는 세금 포함 여부를 모르니 `check` 로 못 막는다** — 내릴 수 있는 데까지 내린 것이 이름이다(`D23` 축 2)<br>**표시는 미착수**(`14`·`14b`) | 6 |
 | R13 | 미성년자 거래 취소권 | 민법 제5조 | **일부러 안 다룬다.** 근거가 `OrderActionService.Action.CANCEL` 에 있다(`D2-2`)<br>취소 주체가 제3자(법정대리인)라 `scope=own` 으로 표현이 안 되고, 계정에 생년월일·대리인 관계가 먼저 필요하다<br>그 축이 서는 것은 `11b` 다 | 11b |
 | R14 | 광고성 정보 수신 동의 | 정보통신망법 제50조 | `consent_item` 의 `marketing_email`·`marketing_sms`·`marketing_night`(`V11`)<br>`depends_on_id` — 야간 수신이 마케팅 수신에 걸린다<br>채널을 쪼개 둬서 나중에 갈라진다 | 5 |
