@@ -23,6 +23,15 @@
   **규칙을 넘고 문서를 안 고친 것이 순서를 거꾸로 밟은 것이라** `CLAUDE.md` 「청크 규칙」에
   **흡수 조항**을 넣었다(사용자 선택) — 흡수하면 그 청크 몫까지 상한이 늘어난다.
 
+  **`5m` 이 끝났다** — `5l` 이 드러낸 것을 그 자리에서 닫았다. 패키지를 가르고 나니
+  `account/WithdrawalService` 가 `user_consent` 에 **직접 `insert`** 하는 것이 보였다(전에는 같은
+  패키지라 안 보였다). `ConsentService.revokeAll` 로 옮겼다 — **위험은 「철회란 무엇인가」가 두 벌인 것**이고,
+  지금은 결과가 우연히 같지만 규칙을 고치는 사람이 탈퇴 경로를 못 본다.
+  **`AccountPurgeService` 는 안 옮겼다** — 조건이 전부 `app_user.deleted_at` 이라 옮기면
+  `consent` 가 `app_user` 를 읽게 돼서 **방향만 뒤집힌다.** 그 선(도메인 규칙이냐 보존 기간이냐)을
+  `D23` 「남의 자원 표를 언제 직접 만지나」에 적었다. **`MeController` 이름도 `D23` 이 받았다** —
+  아홉 경로 중 다섯이 `app_user` 가 아니라 `AccountController` 로 부르면 이름이 더 좁게 말한다.
+
   **`5l` 이 끝났다.** `me/` 가 **`account/`**(`app_user`)와 **`consent/`**(`consent_item`·`user_consent`)로
   갈렸다. **예외를 적는 쪽이 아니라 옮기는 쪽을 골랐고 근거는 관례를 세어 본 것이다**(사용자 선택) —
   Magento·Shopware·Sylius·Medusa·Spree·Saleor 가 전부 모듈은 자원 이름이고

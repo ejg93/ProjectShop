@@ -15,6 +15,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionRuleLoader;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.consent.ConsentService;
 
 /**
  * 탈퇴. 계정의 수명을 끊는다.
@@ -37,15 +38,18 @@ public class WithdrawalService {
     private final PermissionRuleLoader ruleLoader;
     private final SessionRegistry sessionRegistry;
     private final AuditLog auditLog;
+    private final ConsentService consentService;
 
     WithdrawalService(JdbcClient jdbc, PasswordEncoder passwordEncoder,
-            PermissionRuleLoader ruleLoader, SessionRegistry sessionRegistry, AuditLog auditLog) {
+            PermissionRuleLoader ruleLoader, SessionRegistry sessionRegistry, AuditLog auditLog,
+            ConsentService consentService) {
 
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
         this.ruleLoader = ruleLoader;
         this.sessionRegistry = sessionRegistry;
         this.auditLog = auditLog;
+        this.consentService = consentService;
     }
 
     /**
@@ -66,7 +70,8 @@ public class WithdrawalService {
             throw new ShopException(ErrorCode.PASSWORD_MISMATCH);
         }
 
-        revokeAllConsents(userId, actorIp);
+        // 동의를 어떻게 거두느냐는 여기서 안 정한다. 남의 자원이라 규칙도 그쪽에 있다(`5m`).
+        consentService.revokeAll(userId, actorIp);
 
         jdbc.sql("update app_user set deleted_at = now() where user_id = :id")
                 .param("id", userId)
@@ -79,24 +84,6 @@ public class WithdrawalService {
         // 그쪽은 한 번 더 조회할 뿐이라 틀리지 않는다. 반대로 두면 죽은 계정이 캐시에 남는다.
         ruleLoader.evict(userId);
         expireSessions(userId);
-    }
-
-    /**
-     * 남아 있던 동의를 전부 거둔다. <b>필수 항목도 거둔다</b> — 탈퇴가 그 경로다(`5f`).
-     *
-     * <p>여기서도 사건을 적는다. {@code source} 가 {@code withdraw} 라서 나중에 이 철회가
-     * 마이페이지에서 한 것인지 탈퇴로 일어난 것인지 갈린다.
-     */
-    private void revokeAllConsents(long userId, String actorIp) {
-        jdbc.sql("""
-                        insert into user_consent (user_id, consent_item_id, granted, source, acted_ip)
-                        select :userId, cc.consent_item_id, false, 'withdraw', cast(:actorIp as inet)
-                          from current_consent cc
-                         where cc.user_id = :userId and cc.granted
-                        """)
-                .param("userId", userId)
-                .param("actorIp", actorIp)
-                .update();
     }
 
     /**

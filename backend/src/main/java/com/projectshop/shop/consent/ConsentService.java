@@ -27,7 +27,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @Service
 public class ConsentService {
 
-    private static final String SOURCE = "mypage";
+    /** 마이페이지에서 손으로 바꾼 것 */
+    private static final String SOURCE_MYPAGE = "mypage";
+
+    /** 탈퇴가 일으킨 것. 나중에 이력을 볼 때 사람이 끈 것과 갈린다 */
+    private static final String SOURCE_WITHDRAW = "withdraw";
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
@@ -212,6 +216,38 @@ public class ConsentService {
     }
 
     /**
+     * 켜져 있는 것을 전부 거둔다. <b>탈퇴(5g)가 부른다.</b>
+     *
+     * <p><b>{@link #revoke} 와 두 가지가 다르다.</b> 필수 항목도 거두고, 종속을 안 따진다 —
+     * 전부가 대상이라 따질 것이 없다. 그래서 {@code revoke} 를 반복 호출하지 않는다.
+     * 필수 항목에서 그대로 터진다.
+     *
+     * <p>권한을 안 본다. 되돌릴 수 없는 조작이라 <b>부르는 쪽이 비밀번호를 다시 받아</b>
+     * 이미 확인했다. 여기서 또 물으면 같은 판단이 두 벌이 된다.
+     *
+     * <p><b>이 메서드가 {@code account} 에 있었다.</b> 거기 두면 「철회란 무엇인가」가 두 곳에
+     * 적히고, 한쪽 규칙을 고치는 사람이 다른 쪽을 못 본다(`D23` 「패키지」, `5m`).
+     *
+     * @param userId   거둘 사람
+     * @param actorIp  요청이 온 곳. 동의 이력의 입증 자료다(`D2` R11)
+     */
+    @Transactional
+    public void revokeAll(long userId, String actorIp) {
+        // 켜져 있는 것만 고른다. 상태가 안 바뀌는 행은 안 쓴다는 규칙이 여기서도 같다 —
+        // 한 줄 SQL 이라 record() 와 모양이 다를 뿐 뜻은 하나다.
+        jdbc.sql("""
+                        insert into user_consent (user_id, consent_item_id, granted, source, acted_ip)
+                        select :userId, cc.consent_item_id, false, :source, cast(:actorIp as inet)
+                          from current_consent cc
+                         where cc.user_id = :userId and cc.granted
+                        """)
+                .param("userId", userId)
+                .param("source", SOURCE_WITHDRAW)
+                .param("actorIp", actorIp)
+                .update();
+    }
+
+    /**
      * 상태가 안 바뀌면 행을 안 쓴다.
      *
      * <p>append-only 라고 같은 값을 계속 쌓으면 이력이 의미를 잃는다.
@@ -229,7 +265,7 @@ public class ConsentService {
                 .param("userId", userId)
                 .param("itemId", item.consentItemId())
                 .param("granted", granted)
-                .param("source", SOURCE)
+                .param("source", SOURCE_MYPAGE)
                 .param("actorIp", actorIp)
                 .update();
 

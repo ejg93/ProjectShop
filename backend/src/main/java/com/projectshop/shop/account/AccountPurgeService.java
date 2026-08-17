@@ -24,6 +24,14 @@ import com.projectshop.shop.audit.AuditLog;
  * <p><b>두 번 돌아도 결과가 같다.</b> 조건에 {@code email is not null} 과
  * {@code acted_ip is not null} 이 들어가 있어서 이미 비운 행은 대상에서 빠진다.
  * 배치가 두 번 도는 것은 사고가 아니라 정상이다 — 재시도와 수동 실행이 겹친다.
+ *
+ * <p><b>남의 자원 테이블을 직접 만진다</b>({@code user_consent}·{@code cart}·
+ * {@code idempotency_key}). 그 패키지의 서비스로 안 옮긴 이유가 있다 —
+ * 조건이 전부 {@code app_user.deleted_at} 이라, 옮기면 그쪽이 {@code app_user} 를 읽게 돼서
+ * <b>방향만 뒤집힌다.</b> 파기는 개인정보를 든 모든 표에 걸리는 일이라 어느 한 자원의 것이 아니다.
+ *
+ * <p>여기 있는 것은 <b>보존 기간</b>뿐이고 그 출처는 `D13` 이다. 자원의 도메인 규칙은 안 든다 —
+ * 「철회란 무엇인가」는 {@code ConsentService} 가 답한다(`5m`).
  */
 @Service
 public class AccountPurgeService {
