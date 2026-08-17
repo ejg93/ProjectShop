@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
-import com.projectshop.shop.me.UserFields;
+import com.projectshop.shop.account.UserFields;
 import com.projectshop.shop.order.OrderFields;
 
 /**

@@ -1,4 +1,4 @@
-package com.projectshop.shop.me;
+package com.projectshop.shop.account;
 
 import com.projectshop.shop.auth.FieldGroup;
 

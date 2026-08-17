@@ -1,4 +1,4 @@
-package com.projectshop.shop.me;
+package com.projectshop.shop.account;
 
 import java.util.List;
 
@@ -21,11 +21,16 @@ import jakarta.validation.constraints.Size;
 import com.projectshop.shop.auth.Password;
 import com.projectshop.shop.auth.PermissionCatalog;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.consent.ConsentService;
 
 /**
  * 로그인한 사람이 자기에 대해 묻는 자리.
  *
  * <p>계정 조회·수정(5e)과 동의 조회·철회(5f)가 여기 붙는다.
+ *
+ * <p><b>이 클래스만 관객으로 묶인다.</b> 경로가 `/api/me` 라서고, 그래서 자원이 둘이다 —
+ * `app_user` 는 이 패키지 것이고 동의는 {@code consent} 에서 가져온다(`5l`).
+ * 패키지를 경로에 맞춰 가르지 않는다. 그러면 `app_user` 를 읽는 SQL 이 두 패키지로 흩어진다.
  */
 @RestController
 @RequestMapping("/api/me")

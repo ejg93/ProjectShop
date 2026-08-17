@@ -1,4 +1,4 @@
-package com.projectshop.shop.me;
+package com.projectshop.shop.consent;
 
 import java.time.OffsetDateTime;
 import java.util.List;

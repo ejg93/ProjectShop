@@ -1,4 +1,4 @@
-package com.projectshop.shop.me;
+package com.projectshop.shop.consent;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

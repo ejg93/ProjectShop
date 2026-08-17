@@ -1,4 +1,4 @@
-package com.projectshop.shop.me;
+package com.projectshop.shop.account;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
