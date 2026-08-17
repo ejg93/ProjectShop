@@ -43,7 +43,7 @@ public class ShopUserDetailsService implements UserDetailsService {
                         rs.getLong("user_id"),
                         rs.getString("email"),
                         rs.getString("password_hash"),
-                        "active".equals(rs.getString("status"))))
+                        UserStatus.of(rs.getString("status")) == UserStatus.ACTIVE))
                 .optional();
 
         // 없는 계정과 틀린 비밀번호가 같은 결과로 나가야 한다(D14).

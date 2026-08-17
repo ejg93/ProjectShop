@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
+import com.projectshop.shop.support.ConstraintValues;
 
 /**
  * 상태 목록이 DB 와 코드 두 군데에 있다. <b>어긋나는 것을 여기서 잡는다</b>(`D23` 「열거값을 어디에 두나」).
@@ -81,24 +82,8 @@ class ProductStatusTest extends PostgresTestBase {
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    /**
-     * {@code check (status in ('draft', 'pending_review', ...))} 에서 따옴표 안을 뽑는다.
-     *
-     * <p>제약 정의를 문자열로 읽는 것이 거칠지만, 대안이 <b>목록을 여기 손으로 또 적는 것</b>이라
-     * 그러면 세 번째 사본이 생긴다 — 이 테스트가 막으려는 것이 정확히 그거다.
-     */
     private List<String> valuesIn(String constraintName) {
-        String definition = jdbc.sql("""
-                        select pg_get_constraintdef(oid) from pg_constraint
-                         where conname = :name
-                        """)
-                .param("name", constraintName)
-                .query(String.class)
-                .single();
-
-        return Arrays.stream(definition.split("'"))
-                .filter(part -> part.matches("[a-z_]+"))
-                .toList();
+        return ConstraintValues.of(jdbc, constraintName);
     }
 
     private static List<String> codesOf(ProductStatus[] values) {

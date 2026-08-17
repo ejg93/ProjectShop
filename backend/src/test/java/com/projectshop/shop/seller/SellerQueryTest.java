@@ -22,6 +22,7 @@ import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.support.ConstraintValues;
 
 /**
  * 셀러 신원 공개 조회(`14a`). <b>법이 표시를 요구하는 값이라 안 나가는 것이 곧 위반이다</b>(`D2` R1).
@@ -167,20 +168,7 @@ class SellerQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("DB 제약과 같다")
         void matchesConstraint() {
-            String definition = jdbc.sql("""
-                            select pg_get_constraintdef(oid) from pg_constraint
-                             where conname = 'seller_exempt_reason_check'
-                            """)
-                    .query(String.class)
-                    .single();
-
-            // 따옴표 안을 뽑는다. `ProductStatusTest` 와 같은 방식이지만 숫자를 같이 받는다 —
-            // `under_50_transactions` 에 50 이 들어 있어서 소문자만 훑으면 그 값이 빠진다.
-            List<String> inDatabase = Arrays.stream(definition.split("'"))
-                    .filter(part -> part.matches("[a-z0-9_]+"))
-                    .toList();
-
-            assertThat(inDatabase)
+            assertThat(ConstraintValues.of(jdbc, "seller_exempt_reason_check"))
                     .as("한쪽에만 있는 사유가 생기면 조회가 통째로 500 이 되거나 못 쓰는 값이 남는다")
                     .containsExactlyInAnyOrderElementsOf(
                             Arrays.stream(MailOrderExemption.values())
