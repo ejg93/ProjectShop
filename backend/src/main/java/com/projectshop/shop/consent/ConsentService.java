@@ -140,6 +140,37 @@ public class ConsentService {
     }
 
     /**
+     * 지금 효력 있는 항목 전부. <b>로그인 전에 부른다.</b>
+     *
+     * <p>가입 화면이 <b>무엇에 동의받아야 하는지</b>를 여기서 안다. 화면에 코드를 박으면
+     * `V11` 이 항목을 데이터로 둔 뜻이 사라진다 — 항목을 하나 늘릴 때 화면을 같이 고치게 된다.
+     *
+     * <p><b>본문을 안 내린다.</b> 약관 전문이 항목 수만큼 딸려 나온다.
+     * 펼칠 때 {@link #readCurrent} 로 그 항목만 따로 받는다.
+     *
+     * <p><b>사람 데이터가 없다.</b> 나가는 것은 법이 공개하라고 한 고지 문안뿐이고,
+     * "누가 무엇에 동의했나" 는 {@link #list(long)} 가 답한다 — 그쪽은 로그인이 필요하다.
+     */
+    public List<Notice> listCurrent() {
+        return jdbc.sql("""
+                        select ci.code, ci.title, ci.version, ci.is_required,
+                               ci.purpose, ci.collected_items, ci.retention_period,
+                               ci.refusal_disadvantage, null as body, ci.effective_at,
+                               p.code as depends_on
+                          from (
+                              select distinct on (code) *
+                                from consent_item
+                               where effective_at <= now()
+                               order by code, effective_at desc, version desc
+                          ) ci
+                          left join consent_item p on p.consent_item_id = ci.depends_on_id
+                         order by ci.is_required desc, ci.sort_no, ci.code
+                        """)
+                .query(ConsentService::mapNotice)
+                .list();
+    }
+
+    /**
      * 지금 효력이 있는 항목을 전부 보여준다. <b>건드린 적 없는 항목도 나온다.</b>
      *
      * <p>동의한 것만 보여주면 무엇을 더 켤 수 있는지 알 방법이 없다.
@@ -151,7 +182,8 @@ public class ConsentService {
                         select ci.code, ci.title, ci.is_required, p.code as depends_on,
                                coalesce(cc.granted, false) as granted, cc.acted_at
                           from (
-                              select distinct on (code) consent_item_id, code, title, is_required, depends_on_id
+                              select distinct on (code)
+                                     consent_item_id, code, title, is_required, sort_no, depends_on_id
                                 from consent_item
                                where effective_at <= now()
                                order by code, effective_at desc, version desc
@@ -159,7 +191,8 @@ public class ConsentService {
                           left join consent_item p on p.consent_item_id = ci.depends_on_id
                           left join current_consent cc
                                  on cc.user_id = :userId and cc.item_code = ci.code
-                         order by ci.is_required desc, ci.code
+                         -- 가입 화면과 같은 순서다. 갈리면 같은 항목이 화면마다 다른 자리에 뜬다.
+                         order by ci.is_required desc, ci.sort_no, ci.code
                         """)
                 .param("userId", userId)
                 .query((rs, rowNum) -> new ConsentView(

@@ -19,6 +19,15 @@ create table consent_item (
 
     title         text        not null,
 
+    -- 화면에 늘어놓는 순서. 개정판이 생겨도 자리가 안 바뀐다.
+    --
+    -- 기본키 순으로 두면 개정할 때 새 행의 id 가 커져서 그 항목이 목록 끝으로 간다.
+    -- 이름순도 안 된다 — "개인정보 수집" 이 "이용약관" 앞에 온다.
+    --
+    -- 종속 항목은 부모보다 뒤에 와야 한다. 스키마로는 못 건다 — 다른 행을 봐야 하는 조건이라
+    -- check 에 안 들어간다. 그 자리는 테스트가 막는다(D23 「불변식」).
+    sort_no       int         not null default 0,
+
     -- 동의받을 때 알려야 하는 것들. 알리지 않고 받은 동의는 동의가 아니다.
     --
     -- 개인정보 동의는 개인정보법 제15조제2항이 넷을 요구하고(목적·항목·기간·거부권과 불이익),
@@ -146,8 +155,8 @@ comment on view current_consent is
 --
 -- 본문은 이 프로젝트가 실제로 하는 것만 적는다. 실제 서비스 문안을 베껴 오면
 -- 스키마에 없는 것을 약속하게 되고, 그건 지킬 수 없는 약관이다.
-insert into consent_item (code, title, is_required, body) values
-    ('terms_of_service', '이용약관', true, $$
+insert into consent_item (code, title, is_required, sort_no, body) values
+    ('terms_of_service', '이용약관', true, 10, $$
 ## 제1조 (목적)
 
 이 약관은 회사가 운영하는 통신판매중개 서비스의 이용 조건을 정합니다.
@@ -172,21 +181,22 @@ $$);
 --
 -- 수집 항목에 접속 IP 가 들어 있다. user_consent.acted_ip 가 실제로 받고 있는 값이고,
 -- 스키마에 있는데 고지에 없으면 근거 없이 받는 것이 된다.
-insert into consent_item (code, title, is_required,
+insert into consent_item (code, title, is_required, sort_no,
                           purpose, collected_items, retention_period, refusal_disadvantage) values
-    ('privacy_collect', '개인정보 수집·이용', true,
+    ('privacy_collect', '개인정보 수집·이용', true, 20,
      '회원 식별과 주문 처리, 고객 문의 응대',
      '이메일, 이름, 비밀번호(암호화 저장), 동의 시점의 접속 IP',
      '탈퇴 후 30일까지. 법령이 보존을 요구하는 거래기록은 해당 기간 동안 분리 보관',
      '거부할 수 있으나 회원 가입이 되지 않습니다'),
 
-    ('marketing_email', '광고성 정보 수신 (이메일)', false,
+    -- 야간 수신(sort_no 40)이 이메일 수신 바로 뒤에 오도록 사이를 비워 둔다.
+    ('marketing_email', '광고성 정보 수신 (이메일)', false, 30,
      '신규 상품과 혜택 안내',
      '이메일, 이름',
      '동의를 철회할 때까지',
      '거부해도 서비스 이용에는 제한이 없습니다'),
 
-    ('marketing_sms', '광고성 정보 수신 (문자)', false,
+    ('marketing_sms', '광고성 정보 수신 (문자)', false, 50,
      '신규 상품과 혜택 안내',
      '휴대전화번호, 이름',
      '동의를 철회할 때까지',
@@ -195,9 +205,9 @@ insert into consent_item (code, title, is_required,
 -- 야간 수신은 21시~08시 전송에 필요한 별도 동의다(R14).
 -- 채널 동의와 따로 받아야 하므로 항목이 따로 있고, 채널을 거부한 사람에게는 물어볼 이유가 없어서
 -- 이메일 수신 동의에 걸어 둔다.
-insert into consent_item (code, title, is_required, depends_on_id,
+insert into consent_item (code, title, is_required, sort_no, depends_on_id,
                           purpose, collected_items, retention_period, refusal_disadvantage)
-select 'marketing_night', '야간 광고성 정보 수신 (21시~08시)', false, consent_item_id,
+select 'marketing_night', '야간 광고성 정보 수신 (21시~08시)', false, 40, consent_item_id,
        '21시부터 다음날 08시 사이의 광고성 정보 전송',
        '이메일, 이름',
        '동의를 철회할 때까지',

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Comparator;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,9 @@ class MeConsentTest extends PostgresTestBase {
     @Autowired
     JdbcClient jdbc;
 
+    @Autowired
+    ConsentService consentService;
+
     AuthFixture fixture;
     long userId;
 
@@ -65,6 +69,40 @@ class MeConsentTest extends PostgresTestBase {
                     .andExpect(jsonPath("$.body").isNotEmpty());
         }
 
+        /**
+         * 가입 화면이 부르는 목록. <b>로그인 전이다.</b>
+         *
+         * <p>이 경로가 없으면 화면이 코드를 박게 되고, `V11` 이 항목을 데이터로 둔 뜻이 사라진다.
+         */
+        @Test
+        @DisplayName("로그인 없이 항목 전부를 받는다")
+        void listsEveryItemWithoutLogin() throws Exception {
+            mvc.perform(get("/api/consent-items"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(5))
+                    .andExpect(jsonPath("$[0].code").value("terms_of_service"))
+                    .andExpect(jsonPath("$[0].is_required").value(true));
+        }
+
+        @Test
+        @DisplayName("목록에는 본문이 없다 — 약관 전문이 항목 수만큼 딸려 나온다")
+        void listOmitsBody() throws Exception {
+            mvc.perform(get("/api/consent-items"))
+                    .andExpect(jsonPath("$[0].body").doesNotExist())
+                    .andExpect(jsonPath("$[0].title").isNotEmpty());
+        }
+
+        @Test
+        @DisplayName("목록에도 고지 넷이 온다 — 동의받는 그 자리에서 보여야 한다")
+        void listCarriesNotices() throws Exception {
+            mvc.perform(get("/api/consent-items"))
+                    .andExpect(jsonPath("$[1].code").value("privacy_collect"))
+                    .andExpect(jsonPath("$[1].purpose").isNotEmpty())
+                    .andExpect(jsonPath("$[1].collected_items").isNotEmpty())
+                    .andExpect(jsonPath("$[1].retention_period").isNotEmpty())
+                    .andExpect(jsonPath("$[1].refusal_disadvantage").isNotEmpty());
+        }
+
         @Test
         @DisplayName("개인정보 항목은 고지 넷이 다 온다")
         void returnsAllFourNotices() throws Exception {
@@ -73,6 +111,43 @@ class MeConsentTest extends PostgresTestBase {
                     .andExpect(jsonPath("$.collected_items").isNotEmpty())
                     .andExpect(jsonPath("$.retention_period").isNotEmpty())
                     .andExpect(jsonPath("$.refusal_disadvantage").isNotEmpty());
+        }
+
+        /**
+         * <b>종속 항목이 부모보다 뒤에 온다.</b> 스키마로는 못 건다 — 다른 행을 봐야 하는 조건이라
+         * {@code check} 에 안 들어간다. 여기가 유일한 방벽이다(`D23` 「불변식」).
+         *
+         * <p>어기면 화면에 <b>야간 수신이 이메일 수신보다 위에</b> 뜬다. 그 칸은 부모가 꺼져 있으면
+         * 누를 수 없는 칸이라, 먼저 나오면 이유를 모른 채 막힌 것을 먼저 보게 된다.
+         */
+        @Test
+        @DisplayName("종속 항목이 부모 바로 뒤에 온다")
+        void placesDependentAfterParent() {
+            List<String> codes = consentService.listCurrent().stream()
+                    .map(ConsentService.Notice::code)
+                    .toList();
+
+            for (ConsentService.Notice item : consentService.listCurrent()) {
+                if (item.dependsOn() == null) {
+                    continue;
+                }
+                assertThat(codes.indexOf(item.code()))
+                        .as("%s 가 부모 %s 보다 앞에 있다. sort_no 를 부모 뒤로 옮긴다",
+                                item.code(), item.dependsOn())
+                        .isGreaterThan(codes.indexOf(item.dependsOn()));
+            }
+        }
+
+        @Test
+        @DisplayName("필수가 먼저 오고 그 안에서 정한 순서를 따른다")
+        void ordersRequiredFirst() {
+            List<Boolean> required = consentService.listCurrent().stream()
+                    .map(ConsentService.Notice::required)
+                    .toList();
+
+            assertThat(required)
+                    .as("선택 항목이 필수보다 먼저 오면 가입하려는 사람이 안 눌러도 되는 것부터 읽는다")
+                    .isSortedAccordingTo(Comparator.<Boolean>naturalOrder().reversed());
         }
 
         @Test
