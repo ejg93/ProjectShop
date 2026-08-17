@@ -36,6 +36,25 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  /**
+   * 상품 사진의 자리표시(`D20` 「화면마다 다시 정하지 않는 것」).
+   *
+   * 스키마에 이미지 컬럼이 없어서 상품번호를 씨앗으로 받아 온다. 같은 상품은 언제나 같은 사진이다.
+   * 진짜 업로드는 청크 26 이고 그때 이 항목이 우리 저장소 주소로 바뀐다.
+   *
+   * 목록을 안 쓰면 `next/image` 가 남의 주소를 통째로 거부한다. 아무 주소나 받으면
+   * 우리 서버가 남의 이미지를 대신 내려받아 주는 통로가 된다.
+   */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "picsum.photos",
+        pathname: "/seed/**",
+      },
+    ],
+  },
 };
 
 export default nextConfig;
