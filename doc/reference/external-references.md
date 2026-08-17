@@ -392,6 +392,11 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | PostgreSQL JDBC Driver | BSD-2-Clause |
 | Testcontainers | MIT |
 | Next.js · React · Tailwind CSS | MIT |
+| react-markdown · remark-gfm (unified 계열) | MIT (2026-08-17 확인) |
+
+`react-markdown` 은 **정책 문서를 그리려고 넣었다**(`13a-2`). 본문이 DB 에 마크다운으로 들어가서
+문법을 우리가 통제하지 않고, 처리방침이 목록과 표를 쓴다 — 표는 CommonMark 가 아니라 GFM 이라
+`remark-gfm` 이 같이 온다. **직접 쓴 렌더러는 안 다루는 문법을 오류 없이 원문 글자로 내보낸다.**
 
 **판단한 적 없는 것과 판단해서 괜찮은 것은 다르다**(`D23`). 위 표가 그 판단을 기록한 것이다.
 새 의존성을 넣으면 이 표에 줄을 더한다.
