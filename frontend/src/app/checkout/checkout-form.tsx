@@ -227,8 +227,8 @@ type PaymentResult = {
  * 그 주문은 이미 닫혔고 재고도 돌아갔으므로 <b>같은 주문으로 다시 결제할 수 없다</b> —
  * 그래서 「다시 시도」가 아니라 「다시 주문」이라고 적는다.
  *
- * <p>주문 내역으로 가는 길은 아직 없다. `/orders` 는 `15-3` 이 만든다 —
- * 없는 주소로 링크를 걸면 사용자가 고장으로 본다(`D20`).
+ * <p><b>거절이어도 주문 상세로 보낸다</b>(`15-3`). 그 주문은 취소된 채로 남고,
+ * 왜 그렇게 됐는지는 거기 처리 내역에 있다 — 거래기록 열람이 그 화면이다(`D2` R6 제3항).
  */
 function Done({ result }: { result: PaymentResult }) {
   const approved = result.status === "APPROVED";
@@ -272,15 +272,26 @@ function Done({ result }: { result: PaymentResult }) {
         </p>
       )}
 
-      <Link
-        href="/products"
-        className="
-          text-sm font-semibold text-accent-text underline underline-offset-4
-          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
-        "
-      >
-        상품 더 보기
-      </Link>
+      <div className="flex flex-wrap gap-4">
+        <Link
+          href={`/orders/${result.orderNumber}`}
+          className="
+            text-sm font-semibold text-accent-text underline underline-offset-4
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
+          "
+        >
+          주문 상세 보기
+        </Link>
+        <Link
+          href="/products"
+          className="
+            text-sm text-text-muted underline underline-offset-4 hover:text-accent-text
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
+          "
+        >
+          상품 더 보기
+        </Link>
+      </div>
     </section>
   );
 }
