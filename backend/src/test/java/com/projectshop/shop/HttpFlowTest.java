@@ -19,6 +19,12 @@ class HttpFlowTest extends HttpTestBase {
 
     private static final String PASSWORD = "hunter2-and-then-some";
 
+    /** 모의 PG 가 승인하는 카드. 뒷 4자리가 결과를 가른다(`MockPaymentGateway`) */
+    private static final String GOOD_CARD = "4242-4242-4242-4242";
+
+    /** 한도 초과로 거절되는 카드 */
+    private static final String DECLINED_CARD = "4242-4242-4242-0000";
+
     @Autowired
     JdbcClient jdbc;
 
@@ -440,7 +446,7 @@ class HttpFlowTest extends HttpTestBase {
             Session buyer = loggedIn("shipbuyer");
             addToCart(buyer, product.skuId(), 1);
             placeOrder(buyer, cartItemIdOf("shipbuyer"));
-            payAll();
+            pay(buyer, orderNumberOf("shipbuyer"), GOOD_CARD);
 
             Session seller = loggedIn("shipseller");
             givenSellerOwner(userIdOf("shipseller"), product.sellerId());
@@ -466,7 +472,7 @@ class HttpFlowTest extends HttpTestBase {
             Session buyer = loggedIn("actions");
             addToCart(buyer, product.skuId(), 1);
             placeOrder(buyer, cartItemIdOf("actions"));
-            payAll();
+            pay(buyer, orderNumberOf("actions"), GOOD_CARD);
 
             Response detail = buyer.get("/api/orders/" + orderNumberOf("actions"));
 
@@ -475,6 +481,66 @@ class HttpFlowTest extends HttpTestBase {
                     .as("묶음을 가리킬 번호가 없으면 화면이 동작을 못 부른다")
                     .contains("\"seller_order_number\"")
                     .contains("\"allowed_actions\":[\"CANCEL\"]");
+        }
+
+        /**
+         * <b>결제가 실제 HTTP 로 도는 유일한 자리다</b>(`12-2`).
+         *
+         * <p>여기서만 보이는 것이 둘이다. 하나는 <b>지연 트리거가 실제로 도는 것</b> —
+         * 통합 층은 전부 롤백해서 멱등키의 응답 검사 트리거가 한 번도 안 돈다(`V17` 이 겪었다).
+         * 다른 하나는 <b>카드번호가 응답에 안 실리는 것</b>이다. 표에 없다는 것과
+         * 응답에 없다는 것은 다른 자리라 따로 봐야 한다(`D2` R18).
+         */
+        @Test
+        @DisplayName("결제하면 승인이 나고 주문 상세에 붙는다")
+        void paysAndSeesApproval() {
+            SellableProduct product = givenSellableProduct(11000, 4);
+            Session buyer = loggedIn("payer");
+            addToCart(buyer, product.skuId(), 1);
+            placeOrder(buyer, cartItemIdOf("payer"));
+            String orderNumber = orderNumberOf("payer");
+
+            Response paid = pay(buyer, orderNumber, GOOD_CARD);
+
+            assertThat(paid.status().value())
+                    .as("결제가 커밋까지 가야 한다. 본문: %s", paid.body())
+                    .isEqualTo(201);
+            assertThat(paid.body())
+                    .as("열거값은 대문자 스네이크다(`D5`)")
+                    .contains("\"status\":\"APPROVED\"")
+                    .contains("\"approval_number\"");
+            assertThat(paid.headers().getFirst("Location"))
+                    .as("결제 결과를 다시 보는 경로가 주문 상세다(`D5`)")
+                    .isEqualTo("/api/orders/" + orderNumber);
+
+            Response detail = buyer.get("/api/orders/" + orderNumber);
+
+            assertThat(detail.body())
+                    .as("가맹점은 카드번호를 보관도 전달도 못 한다(여신전문금융업법 제19조)")
+                    .contains("\"card_last4\":\"4242\"")
+                    .doesNotContain("4242424242424242")
+                    .doesNotContain(GOOD_CARD);
+        }
+
+        @Test
+        @DisplayName("거절도 201 로 내려오고 주문이 닫힌다")
+        void declinedPaymentComesBackAsResult() {
+            SellableProduct product = givenSellableProduct(8000, 2);
+            Session buyer = loggedIn("declined");
+            addToCart(buyer, product.skuId(), 1);
+            placeOrder(buyer, cartItemIdOf("declined"));
+
+            Response paid = pay(buyer, orderNumberOf("declined"), DECLINED_CARD);
+
+            assertThat(paid.status().value())
+                    .as("4xx 로 던지면 주문 상태와 재고 복구가 같이 롤백된다(`D11`). 본문: %s", paid.body())
+                    .isEqualTo(201);
+            assertThat(paid.body()).contains("\"status\":\"FAILED\"")
+                    .contains("\"decline_reason\":\"limit_exceeded\"");
+
+            assertThat(orderStatusOf("declined"))
+                    .as("거절된 주문이 결제 대기로 남으면 재고를 물고 있다")
+                    .isEqualTo("payment_failed");
         }
 
         @Test
@@ -506,9 +572,14 @@ class HttpFlowTest extends HttpTestBase {
                 """.formatted(cartItemId), "http-test-" + cartItemId);
     }
 
-    /** 결제 모듈은 청크 12 다. 그때까지는 상태를 직접 옮겨 셀러 쪽 뷰를 연다 */
-    private void payAll() {
-        jdbc.sql("update shop_order set status = 'paid' where status = 'payment_pending'").update();
+    /**
+     * 실제 결제 경로로 낸다. <b>청크 12-2 가 SQL 로 상태를 밀던 것을 걷어냈다</b> —
+     * 그 방식은 전이표도 결제 기록도 안 거쳐서, 셀러 쪽 뷰가 열리는 것 말고는 아무것도 안 봤다.
+     */
+    private Response pay(Session session, String orderNumber, String cardNumber) {
+        return session.postWithIdempotencyKey("/api/payments", """
+                {"order_number": "%s", "method": "card", "card_number": "%s"}
+                """.formatted(orderNumber, cardNumber), "http-test-pay-" + orderNumber);
     }
 
     private long cartItemIdOf(String name) {
@@ -520,6 +591,16 @@ class HttpFlowTest extends HttpTestBase {
                         """)
                 .param("userId", userIdOf(name))
                 .query(Long.class)
+                .single();
+    }
+
+    private String orderStatusOf(String name) {
+        return jdbc.sql("""
+                        select status from shop_order where user_id = :userId
+                         order by order_id desc limit 1
+                        """)
+                .param("userId", userIdOf(name))
+                .query(String.class)
                 .single();
     }
 

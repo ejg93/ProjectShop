@@ -38,7 +38,7 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 class OrderIdempotencyTest extends PostgresTestBase {
 
     /** `D11` 이 멱등키를 필수로 정한 경로. 돈이나 재고가 움직이는 POST 만 여기 든다 */
-    static final List<String> IDEMPOTENT_PATHS = List.of("/api/orders");
+    static final List<String> IDEMPOTENT_PATHS = List.of("/api/orders", "/api/payments");
 
     @Autowired
     private MockMvc mvc;
@@ -98,8 +98,24 @@ class OrderIdempotencyTest extends PostgresTestBase {
     void requiresIdempotencyKey(String path) throws Exception {
         mvc.perform(post(path).with(user(buyer)).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body()))
+                        .content(bodyFor(path)))
                 .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * 그 경로가 받는 본문. <b>경로마다 달라야 이 테스트가 뜻을 갖는다</b> —
+     * 아무 본문이나 보내면 400 이 나긴 하는데 그건 형식이 틀려서지 키가 없어서가 아니다.
+     *
+     * <p>결제 본문의 주문번호는 실재하지 않는 것이다. 헤더가 없으면 컨트롤러 본체가 아예 안 돌아서
+     * 주문을 찾는 자리까지 못 간다 — 그 사실이 여기서 보려는 것과 같다.
+     */
+    private String bodyFor(String path) {
+        return "/api/payments".equals(path)
+                ? """
+                {"order_number": "20260101-2222AA", "method": "card",
+                 "card_number": "4242424242424242"}
+                """
+                : body();
     }
 
     @Test

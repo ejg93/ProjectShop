@@ -97,6 +97,13 @@ TypeScript 의 템플릿 리터럴 타입으로 변환해서 쓴다.
 | 409 | 상태가 안 맞음. 허용되지 않은 상태 전이, 재고 부족 |
 | 422 | 형식은 맞는데 값이 규칙에 안 맞음 |
 
+**`Location` 이 만들어진 자원을 못 가리킬 때가 있다.** 결제(`POST /api/payments`)가 그 자리다 —
+결제 결과를 다시 보는 경로가 주문 상세뿐이라 거기를 가리킨다. 결제만 여는 경로를 따로 내면
+그 응답이 주문 상세의 `payment` 필드 그룹과 같은 것을 그리게 된다(청크 12-2).
+
+**바깥이 거절한 것은 4xx 가 아니다.** 카드 거절은 요청 처리가 성공한 결과라 201 로 내려가고
+본문의 `status` 가 그것을 말한다. 4xx 로 던지면 그 결과를 적은 기록이 같이 롤백된다(`D11`).
+
 ## 오류 본문
 
 **RFC 9457 Problem Details.** `application/problem+json` 으로 내보낸다.
@@ -351,7 +358,7 @@ POST /api/settlements/{id}/confirm
 | 헤더 | 용도 |
 |---|---|
 | `traceparent` | 요청 추적. W3C Trace Context 형식 (D16) |
-| `Idempotency-Key` | 멱등 요청. POST 에만 (D11, 청크 12) |
+| `Idempotency-Key` | 멱등 요청. `POST /api/orders`·`POST /api/payments` 에 필수다 (D11) |
 | `Location` | 201 응답에서 새 자원 경로 |
 
 자체 헤더를 만들 때는 `X-` 를 붙이지 않는다. RFC 6648 이 그 관행을 폐기했다.

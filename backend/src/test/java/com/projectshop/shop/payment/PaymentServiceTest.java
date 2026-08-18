@@ -77,7 +77,7 @@ class PaymentServiceTest extends PostgresTestBase {
         void movesOrderToPaid() {
             PaymentService.Result result = pay(GOOD_CARD);
 
-            assertThat(result.status()).isEqualTo("approved");
+            assertThat(result.status()).isEqualTo("APPROVED");
             assertThat(orderStatus())
                     .as("결제 모듈 말고는 이 전이를 일으키는 곳이 없다(`D7`)")
                     .isEqualTo("paid");
@@ -137,7 +137,7 @@ class PaymentServiceTest extends PostgresTestBase {
         void comesBackAsAResult() {
             PaymentService.Result result = pay(DECLINED_CARD);
 
-            assertThat(result.status()).isEqualTo("failed");
+            assertThat(result.status()).isEqualTo("FAILED");
             assertThat(result.declineReason()).isEqualTo("limit_exceeded");
             assertThat(result.approvalNumber()).isNull();
         }
@@ -215,7 +215,7 @@ class PaymentServiceTest extends PostgresTestBase {
 
             assertThat(result.status())
                     .as("키를 새로 만들어 재시도하면 결제사가 다른 요청으로 보고 두 번 승인한다(`D11`)")
-                    .isEqualTo("approved");
+                    .isEqualTo("APPROVED");
             assertThat(paymentCount()).isEqualTo(1);
         }
     }

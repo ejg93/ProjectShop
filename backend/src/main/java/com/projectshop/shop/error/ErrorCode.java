@@ -144,6 +144,11 @@ public enum ErrorCode {
     PAYMENT_GATEWAY_UNAVAILABLE(HttpStatus.GATEWAY_TIMEOUT, "payment-gateway-unavailable",
             "결제사가 응답하지 않는다"),
 
+    // 422 다. 형식은 맞는데 수단과 값이 안 맞는 것이라, 입구의 형식 검사(400)로는 안 걸린다 —
+    // 카드번호 칸이 비어 있는 것 자체는 계좌이체에서 정상이다.
+    PAYMENT_CARD_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "payment-card-required",
+            "카드 결제에는 카드번호가 필요하다"),
+
     // 멱등키
     //
     // 409 는 "진행중" 이 아니라 "앞 요청을 기다렸는데 너무 길다" 다. 처리와 기록이 한 트랜잭션이라

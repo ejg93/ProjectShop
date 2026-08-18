@@ -1,5 +1,6 @@
 package com.projectshop.shop.payment;
 
+import java.util.Locale;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -59,14 +60,19 @@ public class PaymentService {
     /**
      * 결제 결과.
      *
-     * <p>{@code status} 가 {@code approved} 면 승인번호가, {@code failed} 면 거절 사유가 찬다.
+     * <p>{@code status} 가 {@code APPROVED} 면 승인번호가, {@code FAILED} 면 거절 사유가 찬다.
      * 카드번호는 어디에도 없다(`D2` R18).
      */
     public record Result(String orderNumber, String status, String method, long amount,
             String approvalNumber, String cardIssuer, String cardLast4, String declineReason) {
 
-        static final String APPROVED = "approved";
-        static final String FAILED = "failed";
+        /** 응답 표기다. <b>저장값과 다르다</b> — `D5` 가 열거값을 대문자 스네이크로 정했다 */
+        static final String APPROVED = "APPROVED";
+        static final String FAILED = "FAILED";
+
+        /** {@code payment.status} 에 들어가는 값(`V22`) */
+        static final String APPROVED_CODE = "approved";
+        static final String FAILED_CODE = "failed";
     }
 
     /**
@@ -77,6 +83,8 @@ public class PaymentService {
      * @param idempotencyKey 클라이언트가 만든 키(`D11`). 우리 표와 PG 가 같은 값을 쓴다
      */
     public Result pay(long userId, String idempotencyKey, Command command) {
+        requireCardNumberForCard(command);
+
         Fingerprint fingerprint = fingerprint(command);
 
         // 재생 확인이 주문 상태 검사보다 앞이다. 재전송 시점에는 그 주문이 이미 결제완료라
@@ -95,6 +103,22 @@ public class PaymentService {
         // 다시 돌아도 같은 승인이 재생된다 — 두 번 청구되지 않는다.
         return Retries.onConflict(() -> idempotency.run(userId, idempotencyKey, fingerprint,
                 Result.class, () -> settle(payable, command.method(), verdict)));
+    }
+
+    /**
+     * 카드로 내겠다면서 번호가 없는 조합을 막는다.
+     *
+     * <p><b>입구의 형식 검사로는 안 걸린다.</b> 카드번호 칸이 비어 있는 것은 계좌이체에서 정상이라
+     * 필드 하나만 봐서는 판정이 안 서고, 수단과 같이 봐야 한다.
+     *
+     * <p>여기서 안 막으면 게이트웨이가 {@code IllegalArgumentException} 을 던져 500 이 된다 —
+     * 사용자 잘못이 서버 오류로 나가고, 그 응답에는 무엇을 고쳐야 하는지가 없다.
+     */
+    private static void requireCardNumberForCard(Command command) {
+        if ("card".equals(command.method())
+                && (command.cardNumber() == null || command.cardNumber().isBlank())) {
+            throw new ShopException(ErrorCode.PAYMENT_CARD_REQUIRED);
+        }
     }
 
     /** 결제할 주문. 금액은 여기서만 온다 */
@@ -165,7 +189,7 @@ public class PaymentService {
      * <b>승인은 적혔는데 주문은 결제 대기</b>인 행이 남고, 그 주문은 만료 배치가 취소한다.
      */
     private Result settle(Payable payable, String method, MockPaymentGateway.Result verdict) {
-        String status = verdict.approved() ? Result.APPROVED : Result.FAILED;
+        String status = verdict.approved() ? Result.APPROVED_CODE : Result.FAILED_CODE;
 
         jdbc.sql("""
                         insert into payment (order_id, status, method, amount,
@@ -189,7 +213,11 @@ public class PaymentService {
             orderStatuses.markPaymentFailed(payable.orderId(), "결제 거절 " + verdict.declineReason());
         }
 
-        return new Result(payable.orderNumber(), status, method, payable.amount(),
+        // 응답은 저장값이 아니라 표기다(`D5`). 거절 사유는 안 올린다 —
+        // 우리 열거값이 아니라 PG 가 준 코드라 그 규칙이 안 걸린다.
+        return new Result(payable.orderNumber(),
+                verdict.approved() ? Result.APPROVED : Result.FAILED,
+                method.toUpperCase(Locale.ROOT), payable.amount(),
                 verdict.approvalNumber(), verdict.cardIssuer(), verdict.cardLast4(),
                 verdict.declineReason());
     }

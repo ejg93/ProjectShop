@@ -102,14 +102,28 @@ public class OrderQuery {
     }
 
     /**
+     * 낸 것. {@code payment} 그룹이라 <b>셀러에게는 이 필드가 통째로 빠진다</b>(`V6`, `D2` R18).
+     *
+     * <p>카드번호가 없는 것이 아니라 <b>담은 적이 없다</b> — 여신전문금융업법 제19조라
+     * 결제 표에 그 컬럼이 아예 없다(`V22`). 여기 있는 것이 우리가 가진 전부다.
+     */
+    public record Payment(String status, String method, String approvalNumber, String cardIssuer,
+            String cardLast4, String declineReason, OffsetDateTime paidAt) {
+    }
+
+    /**
      * 주문 상세. <b>못 보는 것은 null 이 아니라 응답에서 빠진다</b>(`D5`).
      *
      * @param shipping 배송지. {@code shipping} 그룹
+     * @param payment  결제. {@code payment} 그룹. <b>아직 안 낸 주문은 그룹이 보여도 비어 있다</b> —
+     *                 `D5` 가 "필드가 있는데 값이 없으면 진짜로 값이 없는 것" 이라고 갈라 뒀고,
+     *                 여기서는 그룹 목록에 {@code payment} 가 있느냐가 그 둘을 가른다
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Detail(String orderNumber, String status, long totalAmount,
             long shippingFeeTotal, long payableAmount, OffsetDateTime createdAt,
             List<SellerOrder> sellerOrders, List<HistoryEntry> history, Shipping shipping,
+            Payment payment,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
     }
 
@@ -211,6 +225,7 @@ public class OrderQuery {
                 sellerOrdersOf(order.orderId(), userId, order.userId()),
                 historyOf(order.orderId()),
                 decision.canSee(OrderFields.SHIPPING) ? shippingOf(order.orderId()) : null,
+                decision.canSee(OrderFields.PAYMENT) ? paymentOf(order.orderId()) : null,
                 List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
     }
 
@@ -312,6 +327,38 @@ public class OrderQuery {
                         rs.getString("address1"),
                         rs.getString("address2"),
                         rs.getString("delivery_memo")))
+                .optional()
+                .orElse(null);
+    }
+
+    /**
+     * 마지막 결제 하나. <b>거절이 여러 번 날 수 있어서 목록이 아니라 최근 것이다.</b>
+     *
+     * <p>승인이 나면 주문이 {@code paid} 로 가서 더는 결제가 안 생긴다(`D7`) —
+     * 승인이 있는 주문에서 최근 행은 언제나 그 승인이다. 거절만 쌓인 주문은 마지막 거절이 보이고,
+     * 그것이 화면이 물어보는 것("왜 안 됐나")에 답하는 값이다.
+     *
+     * <p>지나간 시도 전체는 여기서 안 내린다. 그것을 보는 자리는 관리자 조회고
+     * {@code payment:read} 권한이 거기 걸린다(`V3`).
+     */
+    private Payment paymentOf(long orderId) {
+        return jdbc.sql("""
+                        select status, method, approval_number, card_issuer, card_last4,
+                               decline_reason, created_at
+                          from payment
+                         where order_id = :orderId
+                         order by created_at desc, payment_id desc
+                         limit 1
+                        """)
+                .param("orderId", orderId)
+                .query((rs, rowNum) -> new Payment(
+                        enumValue(rs.getString("status")),
+                        enumValue(rs.getString("method")),
+                        rs.getString("approval_number"),
+                        rs.getString("card_issuer"),
+                        rs.getString("card_last4"),
+                        rs.getString("decline_reason"),
+                        rs.getObject("created_at", OffsetDateTime.class)))
                 .optional()
                 .orElse(null);
     }
