@@ -75,6 +75,16 @@ class SellerQueryTest extends PostgresTestBase {
         }
 
         @Test
+        @DisplayName("배송비가 같이 나간다")
+        void givesShippingFee() {
+            SellerQuery.PublicIdentity identity = sellerQuery.findPublicIdentity(selling);
+
+            assertThat(identity.defaultShippingFee())
+                    .as("주문서가 총액을 청약 전에 못 적으면 전자상거래법 제13조제2항에 걸린다(`D2` R1)")
+                    .isNotNegative();
+        }
+
+        @Test
         @DisplayName("신고번호가 없으면 면제 사유가 대신 나간다")
         void tellsExemptionWhenUnregistered() {
             SellerQuery.PublicIdentity identity = sellerQuery.findPublicIdentity(selling);
@@ -105,14 +115,32 @@ class SellerQueryTest extends PostgresTestBase {
         /**
          * 마스킹을 안 붙인 이유를 고정한다. record 에 애초에 그 칸이 없어서 샐 자리가 없다 —
          * <b>필드 그룹을 걸면 새 컬럼을 더할 때마다 빠뜨릴 수 있다</b>(`4d` 와 반대 방향의 선택).
+         *
+         * <p><b>배송비는 여기서 빠졌다</b>(청크 15-2). 처음엔 수수료율과 같이 막았는데
+         * 성격이 다르다 — 수수료율은 우리가 셀러에게 받는 것이고 배송비는 사는 사람이 내는 돈이다.
+         * 아래 테스트가 그 자리를 이어받는다.
          */
         @Test
-        @DisplayName("수수료율과 배송비는 응답에 없다")
+        @DisplayName("수수료율은 응답에 없다")
         void hidesOurTerms() throws Exception {
             mvc.perform(get("/api/sellers/{id}", selling))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.commission_bp").doesNotExist())
-                    .andExpect(jsonPath("$.default_shipping_fee").doesNotExist());
+                    .andExpect(jsonPath("$.commission_bp").doesNotExist());
+        }
+
+        /**
+         * <b>없어지면 주문서가 총액을 못 적는다.</b> 전자상거래법 제13조제2항이 재화의 가격에
+         * 배송료를 포함해 <b>청약 이전에</b> 표시하도록 요구한다(`D2` R1).
+         *
+         * <p>총액을 주문 생성 응답으로 대신할 수 없다 — 주문을 만드는 것이 곧 청약이라
+         * 그 시점은 이미 늦다.
+         */
+        @Test
+        @DisplayName("배송비는 응답에 있다")
+        void showsShippingFee() throws Exception {
+            mvc.perform(get("/api/sellers/{id}", selling))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.default_shipping_fee").exists());
         }
     }
 

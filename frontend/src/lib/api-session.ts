@@ -37,8 +37,17 @@ import { BACKEND_ORIGIN, toApiError, toCamel } from "./api";
  */
 const FORWARDED_COOKIES = ["SHOPSESSION", "CART-TOKEN"];
 
-/** 세션이 끊겨서 로그인 화면으로 보낼 때 붙이는 표시. 그 화면이 이유를 말한다(`D20`) */
+/** 세션 쿠키의 이름. 있었는지로 「끊겼다」와 「처음부터 없었다」를 가른다 */
+const SESSION_COOKIE = "SHOPSESSION";
+
+/**
+ * 로그인 화면으로 보낼 때 붙이는 표시. 그 화면이 이유를 말한다(`D20`).
+ *
+ * <p><b>둘로 가른다.</b> 로그인한 적 없는 사람에게 「만료되었습니다」라고 하면 사실이 아닌 것을
+ * 말하는 것이고, 사용자는 자기가 뭘 잘못했다고 생각한다.
+ */
 const SESSION_EXPIRED = "/login?reason=session-expired";
+const LOGIN_REQUIRED = "/login?reason=login-required";
 
 /**
  * 세션을 실어서 부른다.
@@ -68,7 +77,7 @@ export async function apiSession<T>(path: string): Promise<T> {
 
   if (response.status === 401) {
     // 던지지 않고 여기서 보낸다. 예외로 올리면 화면마다 같은 처리를 다시 적게 된다.
-    redirect(SESSION_EXPIRED);
+    redirect(jar.get(SESSION_COOKIE) ? SESSION_EXPIRED : LOGIN_REQUIRED);
   }
 
   if (!response.ok) {

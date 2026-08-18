@@ -12,6 +12,10 @@
  *                두 칸에 다 걸었더니 화면낭독기가 <b>맞은 이메일까지 「잘못된 입력」이라고 읽었다.</b>
  * @param hint 규칙을 미리 알린다. <b>오류로 알리기 전에 말하는 쪽이 낫다</b> —
  *             비밀번호 길이처럼 지키면 되는 것은 틀린 뒤에 알려 줄 이유가 없다
+ * @param required 기본이 참이다. <b>거짓으로 두는 것은 서버도 선택으로 받는 칸뿐이다</b>(청크 15-2) —
+ *                 상세 주소와 배송 요청사항이 그것이다. 화면만 풀면 서버에서 400 이 난다
+ * @param maxLength 서버가 거는 길이와 같은 값을 준다. <b>여기서 막는 것이 목적이 아니라</b>
+ *                  다 치고 나서 거절당하는 것을 줄이는 것이다 — 판정은 서버가 한다
  */
 export function Field({
   name,
@@ -21,6 +25,8 @@ export function Field({
   invalid = false,
   defaultValue,
   hint,
+  required = true,
+  maxLength,
 }: {
   name: string;
   type: "email" | "password" | "text";
@@ -29,6 +35,8 @@ export function Field({
   invalid?: boolean;
   defaultValue?: string;
   hint?: string;
+  required?: boolean;
+  maxLength?: number;
 }) {
   const hintId = hint ? `${name}-hint` : undefined;
 
@@ -48,7 +56,8 @@ export function Field({
         id={name}
         name={name}
         type={type}
-        required
+        required={required}
+        maxLength={maxLength}
         autoComplete={autoComplete}
         aria-invalid={invalid}
         // 힌트를 칸에 묶는다. 안 묶으면 화면낭독기가 라벨만 읽고 규칙을 안 말한다.

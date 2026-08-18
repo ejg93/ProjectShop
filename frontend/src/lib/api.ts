@@ -50,17 +50,24 @@ type Json = unknown;
  * 서버를 부르고 응답을 화면이 쓰는 모양으로 돌려준다.
  *
  * @param path `/api` 로 시작하는 경로. 포트를 적지 않는다 - 프록시가 같은 출처로 넘긴다
+ * @param init.idempotencyKey 돈이나 재고가 움직이는 POST 에 필수다(`D11`). 만드는 쪽은 화면이고,
+ *                            <b>재시도에도 같은 값을 보내야 한다</b> — 새로 만들면 서버가
+ *                            재전송이 아니라 새 요청으로 보고 주문을 하나 더 만든다
  * @throws ApiError 서버가 2xx 가 아닌 것을 줬을 때
  */
 export async function api<T>(
   path: string,
-  init: { method?: string; body?: Json } = {},
+  init: { method?: string; body?: Json; idempotencyKey?: string } = {},
 ): Promise<T> {
   const method = init.method ?? "GET";
   const headers: Record<string, string> = {};
 
   if (init.body !== undefined) {
     headers["Content-Type"] = "application/json";
+  }
+
+  if (init.idempotencyKey !== undefined) {
+    headers["Idempotency-Key"] = init.idempotencyKey;
   }
 
   if (!SAFE_METHODS.has(method)) {
@@ -75,6 +82,21 @@ export async function api<T>(
     credentials: "same-origin",
     body: init.body === undefined ? undefined : JSON.stringify(toSnake(init.body)),
   });
+
+  // 세션이 끊겼다. 화면마다 문구를 만들지 않고 로그인으로 보낸다(`D20` 「401 은 조용히 보내지 않는다」).
+  //
+  // 로그인·가입 경로는 뺀다. 거기서 나는 401 은 「세션이 없다」가 아니라 「이번 시도가 틀렸다」라
+  // 보내 봐야 같은 화면이고, 대신 그 폼이 어느 칸도 지목하지 않는 오류로 그린다(`D20`).
+  //
+  // 서버 컴포넌트 쪽은 `api-session.ts` 가 같은 일을 한다. 층이 둘이라 두 군데인 것이지
+  // 규칙이 둘인 것이 아니다.
+  if (response.status === 401 && !path.startsWith("/api/auth/")) {
+    window.location.replace("/login?reason=session-expired");
+
+    // 이동이 시작돼도 이 함수는 계속 돈다. 여기서 안 끊으면 부르는 쪽이 오류 문구를 띄우고,
+    // 사용자는 로그인 화면으로 넘어가기 직전에 그것을 본다.
+    await new Promise(() => {});
+  }
 
   if (!response.ok) {
     throw await toApiError(response);

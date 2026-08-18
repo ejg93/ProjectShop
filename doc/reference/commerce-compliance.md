@@ -57,8 +57,8 @@
 
 | # | 요건 | 근거 | 강제 지점 | 청크 |
 |---|---|---|---|---|
-| R1 | 셀러 신원 정보 표시 | 전자상거래법 제10조·제13조 | `seller` 신원 7컬럼(`V4`)<br>`seller_verified_fields_check` — `active` 면 빈 칸이 없다<br>`SellerQuery.findPublicIdentity` — 공개로 내린다<br>`SellerQueryTest.givesEveryRequiredField`<br>**상품 상세가 일곱 칸을 표로 그린다**(`14b`) — 신고번호가 없으면 면제 사유가 그 자리에 나간다<br>**주문서 표시는 미착수**(`15`) | 3c, 14a, 14b |
-| R2 | 중개자 지위 고지 | 전자상거래법 제20조·제20조의2 | `consent_item` 의 `terms_of_service` 제2조(`V11`) — **본문에 이미 있다**<br>`SellerQuery.findPublicIdentity` — 셀러 정보 제공<br>**상품 상세가 고지를 그린다**(`14b`) — **문안이 두 벌이다.** 약관 본문을 잘라 오면 절 제목이 바뀔 때 고지가 조용히 사라져서 화면에 짧게 쓰고 전문으로 링크했다(사용자 선택)<br>**주문서 고지는 미착수**(`15`) | 13a, 14b, 15 |
+| R1 | 셀러 신원 정보 표시 | 전자상거래법 제10조·제13조 | `seller` 신원 7컬럼(`V4`)<br>`seller_verified_fields_check` — `active` 면 빈 칸이 없다<br>`SellerQuery.findPublicIdentity` — 공개로 내린다<br>`SellerQueryTest.givesEveryRequiredField`<br>**상품 상세가 일곱 칸을 표로 그린다**(`14b`) — 신고번호가 없으면 면제 사유가 그 자리에 나간다<br>**주문서가 셀러별로 접어서 일곱 칸을 그린다**(`15-2`) — 제20조제2항이 말하는 「청약 이전」이 그 화면이다<br>**배송비를 공개 응답에 더했다**(`15-2`) — 제13조제2항이 가격에 배송료를 포함해 표시하라고 한다. 없으면 총액이 주문을 만든 뒤에야 나온다 | 3c, 14a, 14b, 15-2 |
+| R2 | 중개자 지위 고지 | 전자상거래법 제20조·제20조의2 | `consent_item` 의 `terms_of_service` 제2조(`V11`) — **본문에 이미 있다**<br>`SellerQuery.findPublicIdentity` — 셀러 정보 제공<br>**상품 상세가 고지를 그린다**(`14b`) — **문안이 두 벌이다.** 약관 본문을 잘라 오면 절 제목이 바뀔 때 고지가 조용히 사라져서 화면에 짧게 쓰고 전문으로 링크했다(사용자 선택)<br>**주문서도 같은 고지를 그린다**(`15-2`) — `BrokerageNotice` 를 컴포넌트로 빼서 상품 상세와 한 벌을 쓴다. 사본을 두면 한쪽 문안만 다듬는 날이 온다 | 13a, 14b, 15-2 |
 | R3 | 청약철회 기간과 기산점 | 전자상거래법 제17조 | `OrderStatusService.WITHDRAWAL_DAYS = 7`<br>`seller_order.delivered_at`·`withdrawal_expire_at` — 배송완료 때 박제<br>`OrderStatusService.requireWithdrawable` — 기한 지나면 거부<br>`order_status_history`(`V18`) — 기산점의 근거<br>**광고 상이 3개월·30일은 미착수**(`43`·`44`) | 11 |
 | R4 | 청약철회 제한 사유 | 전자상거래법 제17조제2항 | `product_withdrawal_reason_check` — 법이 인정한 셋만<br>`WithdrawalRestrictionReason` enum<br>`ProductStatusTest.withdrawalReasonMatchesConstraint` — 둘이 갈리는 것을 막는다<br>`OrderStatusService.requireWithdrawable` — 반품을 막는다<br>**상품 상세가 사유를 사람이 읽는 말로 그린다**(`14b`) — **표시가 제한의 성립 요건이라**(제17조제2항 단서) 여기까지 와야 집행에 근거가 선다. 사유를 모르는 경우에도 제한 사실은 알린다 | 6, 11, 14b |
 | R5 | 환급 기한 | 전자상거래법 제18조제2항 | **미착수**(`12a`). 지금은 `permission` 의 `payment:refund` 행뿐이다 | 12a |
@@ -473,6 +473,14 @@ R7의 동의 이력 테이블에 항목으로 들어간다. 야간 수신 동의
 
 나머지 절반은 청크 `12` 가 채웠다. `payment` 표에 **카드번호·유효기간·CVC 컬럼이 아예 없다** —
 안 담으면 샐 것도 마스킹을 빠뜨릴 것도 없다(`D16` 이 로그에서 쓴 것과 같은 논리다).
+
+**실물 PG 는 한 칸 더 아래에서 막는다.** Stripe Elements·토스 SDK 같은 것은 카드번호를
+**브라우저에서 PG 로 바로** 보내고 가맹점 서버에는 토큰만 온다. 우리는 모의 PG 가 우리 프로세스
+안에 있어서 그 경계가 없고, **서버가 카드번호를 본다** — 저장은 안 하지만 받기는 한다.
+
+진짜 PG 를 붙이는 청크가 이 구조를 같이 바꾼다. 그때 `PaymentService.Command` 의 `cardNumber` 가
+토큰으로 바뀌고 입구의 형식 검사가 사라진다. **안 적어 두면 다음 사람이 「우리는 R18 을 지켰다」만
+읽고 지금 구조를 그대로 둔다** — 보관 금지는 지켰는데 표준이 요구하는 것은 애초에 안 받는 것이다.
 
 **해시도 보관이다.** 멱등키의 요청 비교값에 카드번호를 넣지 않는다 —
 자릿수가 정해진 값이라 해시를 되짚을 수 있어서, 카드번호의 해시를 갖는 것은 카드번호를 갖는 것과 같다.

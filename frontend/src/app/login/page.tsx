@@ -18,6 +18,17 @@ export const metadata: Metadata = {
  * <p>큰 사진을 안 넣는다. 랜딩이 아니라 <b>지나가는 화면</b>이라, 첫 그림이 커질수록
  * 할 일(입력)에 닿는 시간만 늘어난다.
  */
+/**
+ * 왜 이 화면으로 왔는지(`D20` 「401 은 조용히 보내지 않는다」). 보낸 자리는 `api-session.ts` 다.
+ *
+ * <p><b>모르는 값은 아무것도 안 그린다.</b> 주소는 사람이 고칠 수 있어서 여기 없는 값이 올 수 있고,
+ * 그때 「로그인이 만료됐다」를 그리면 사실이 아닌 것을 말하게 된다.
+ */
+const REASON_TEXT: Record<string, string> = {
+  "session-expired": "로그인이 만료되어 다시 로그인이 필요합니다.",
+  "login-required": "이 화면은 로그인하신 뒤에 이용하실 수 있습니다.",
+};
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -38,12 +49,12 @@ export default async function LoginPage({
         왜 여기로 왔는지를 말한다(`D20` 「401 은 조용히 보내지 않는다」). 설명 없이 로그인 화면이
         나오면 사용자는 자기가 뭘 잘못 눌렀다고 생각한다. 보낸 자리는 `api-session.ts` 다.
       */}
-      {reason === "session-expired" ? (
+      {REASON_TEXT[reason ?? ""] ? (
         <p
           role="status"
           className="rounded-ui border border-border bg-surface-raised px-4 py-3 text-sm"
         >
-          로그인이 만료되어 다시 로그인이 필요합니다.
+          {REASON_TEXT[reason ?? ""]}
         </p>
       ) : null}
 

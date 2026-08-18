@@ -41,7 +41,7 @@ public class SellerQuery {
         return jdbc.sql("""
                         select seller_id, name, business_name, representative_name,
                                business_reg_no, address, phone, email,
-                               mail_order_no, mail_order_exempt_reason
+                               mail_order_no, mail_order_exempt_reason, default_shipping_fee
                           from seller
                          where seller_id = :id
                            and status = 'active' and deleted_at is null
@@ -57,17 +57,26 @@ public class SellerQuery {
                         rs.getString("phone"),
                         rs.getString("email"),
                         rs.getString("mail_order_no"),
-                        MailOrderExemption.of(rs.getString("mail_order_exempt_reason"))))
+                        MailOrderExemption.of(rs.getString("mail_order_exempt_reason")),
+                        rs.getLong("default_shipping_fee")))
                 .optional()
                 // 아직 안 파는 셀러와 아예 없는 셀러가 같은 404 다. 상품 상세와 같은 이유로 안 가른다.
                 .orElseThrow(() -> new ShopException(ErrorCode.SELLER_NOT_FOUND));
     }
 
     /**
-     * 누구에게나 같은 값. <b>수수료율·기본 배송비가 없다</b> — 우리와 셀러 사이의 조건이라
-     * 사는 사람이 볼 것이 아니고, 한 record 로 만들면 마스킹을 또 붙이게 된다.
+     * 누구에게나 같은 값. <b>수수료율이 없다</b> — 우리와 셀러 사이의 조건이라 사는 사람이
+     * 볼 것이 아니고, 한 record 로 만들면 마스킹을 또 붙이게 된다.
+     *
+     * <p><b>배송비는 반대로 넣는다</b>(청크 15-2). `14a` 가 수수료율과 같이 묶어서 뺐는데
+     * <b>성격이 다르다</b> — 수수료율은 우리가 셀러에게 받는 것이고 배송비는 <b>사는 사람이 내는 돈</b>이다.
+     * 전자상거래법 제13조제2항이 재화의 가격에 <b>배송료를 포함</b>해 청약 이전에 표시하도록 요구한다
+     * (`D2` R1). 안 내리면 주문서가 총액을 못 적고, 총액은 주문을 만든 뒤에야 나온다 —
+     * 그때는 이미 청약이 끝난 시점이다.
      *
      * @param name 화면에 쓰는 이름. {@code businessName} 은 법정 상호라 다를 수 있다
+     * @param defaultShippingFee 이 셀러 묶음에 붙는 배송비. 주문 생성이 쓰는 값과 같은 컬럼이라
+     *                           <b>화면이 미리 보여준 값과 실제 청구가 안 갈린다</b>
      * @param businessRegNo 숫자 10자리다. <b>하이픈은 화면이 넣는다</b> — 저장 형식을 안 바꾼다
      * @param mailOrderNo 통신판매업 신고번호. 면제면 {@code null} 이고 그때 아래가 채워진다
      * @param mailOrderExemptReason 신고를 안 해도 되는 사유. 신고번호가 있으면 {@code null}.
@@ -75,6 +84,7 @@ public class SellerQuery {
      */
     public record PublicIdentity(long sellerId, String name, String businessName,
             String representativeName, String businessRegNo, String address, String phone,
-            String email, String mailOrderNo, MailOrderExemption mailOrderExemptReason) {
+            String email, String mailOrderNo, MailOrderExemption mailOrderExemptReason,
+            long defaultShippingFee) {
     }
 }
