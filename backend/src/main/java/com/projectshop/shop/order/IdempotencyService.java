@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import org.springframework.dao.CannotAcquireLockException;
@@ -115,8 +116,43 @@ public class IdempotencyService {
         }
     }
 
+    /**
+     * 이 키로 이미 끝난 요청이 있나. 있으면 그때 응답을 그대로 준다.
+     *
+     * <p><b>{@link #run} 앞에 둘 자리가 필요해서 연다.</b> 결제는 PG 호출이 트랜잭션 밖이라
+     * (`D11` 「트랜잭션 경계」) {@code run} 에 들어가기 전에 주문이 낼 수 있는 상태인지 본다.
+     * 그런데 재전송 시점에는 그 주문이 이미 결제완료라 <b>재생에 닿기 전에 막힌다</b> —
+     * 밖으로 나간 것이 PG 호출뿐이면 재생 확인도 같이 나와야 한다.
+     *
+     * <p><b>진행중인 앞 요청은 여기서 안 보인다.</b> 커밋 전이라서다. 그때는 비어 있는 것으로 답하고,
+     * {@code run} 의 유니크 충돌 대기가 그 뒤를 맡는다 — 앞이 커밋되면 재생을 읽는다.
+     */
+    @Transactional(readOnly = true)
+    public <T> Optional<T> replayIfPresent(long userId, String key, Object request,
+            Class<T> responseType) {
+
+        String hash = sha256(toJson(request));
+
+        return findStored(userId, key).map(stored -> {
+            if (!stored.requestHash().equals(hash)) {
+                throw new ShopException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
+            }
+            return deserialize(stored, key, responseType);
+        });
+    }
+
     private <T> T replay(long userId, String key, String hash, Class<T> responseType) {
-        Stored stored = jdbc.sql("""
+        Stored stored = findStored(userId, key)
+                .orElseThrow(() -> new IllegalStateException("선점에 실패했는데 행이 없다: " + key));
+
+        if (!stored.requestHash().equals(hash)) {
+            throw new ShopException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
+        }
+        return deserialize(stored, key, responseType);
+    }
+
+    private Optional<Stored> findStored(long userId, String key) {
+        return jdbc.sql("""
                         select request_hash, response_body::text as response_body
                           from idempotency_key
                          where user_id = :userId and key_value = :key
@@ -124,12 +160,16 @@ public class IdempotencyService {
                 .param("userId", userId)
                 .param("key", key)
                 .query((rs, rowNum) -> new Stored(rs.getString("request_hash"), rs.getString("response_body")))
-                .single();
+                .optional();
+    }
 
-        if (!stored.requestHash().equals(hash)) {
-            throw new ShopException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
-        }
-
+    /**
+     * 저장해 둔 응답을 되돌린다.
+     *
+     * <p>{@code response_body} 가 비어 있을 수 없다. 커밋 시점에 채워졌는지를
+     * {@code idempotency_key_response_check} 지연 트리거가 본다(`V17`).
+     */
+    private <T> T deserialize(Stored stored, String key, Class<T> responseType) {
         try {
             return objectMapper.readValue(stored.responseBody(), responseType);
         } catch (JacksonException e) {

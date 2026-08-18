@@ -105,6 +105,31 @@ public class OrderStatusService {
     }
 
     /**
+     * 결제가 승인됐다. <b>결제 모듈이 부르는 입구다</b>(`D7` 「누가 옮기나」).
+     *
+     * <p>{@link #movePayment} 를 안 열고 이 둘만 여는 이유는 <b>결제 상태의 뜻이 이 패키지 것</b>이라서다
+     * (`D23` 「남의 자원 표를 언제 직접 만지나」). 밖에서 전이 대상을 골라 넘기게 하면
+     * 결제 모듈이 "무엇에서 무엇으로 갈 수 있나" 를 같이 알게 되고, 그 표가 두 군데가 된다.
+     *
+     * <p>행위자가 {@code system} 이다. 사람이 옮기는 것이 아니라 승인 결과가 옮기는 것이라
+     * 지목할 사람이 없다(`D7`).
+     */
+    @Transactional
+    public void markPaid(long orderId, String reason) {
+        movePayment(orderId, Payment.PAID, Actor.system(reason));
+    }
+
+    /**
+     * 결제가 거절됐다.
+     *
+     * <p>그 주문의 셀러 주문이 같이 닫히고 재고가 돌아온다 — {@link #movePayment} 의 곁가지다.
+     */
+    @Transactional
+    public void markPaymentFailed(long orderId, String reason) {
+        movePayment(orderId, Payment.PAYMENT_FAILED, Actor.system(reason));
+    }
+
+    /**
      * 배송 상태를 옮긴다.
      *
      * <p>곁가지가 셋 붙는다.

@@ -2,6 +2,7 @@ package com.projectshop.shop.support;
 
 import java.sql.SQLException;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
@@ -46,19 +47,36 @@ public final class Retries {
      * @throws RuntimeException 충돌이 아닌 예외는 그대로 올린다. 재시도 횟수를 다 쓰면 마지막 것을 올린다
      */
     public static <T> T onConflict(Supplier<T> work) {
+        return on(work, thrown -> {
+            String state = conflictState(thrown);
+            return state == null ? null : "충돌 sqlstate=" + state;
+        });
+    }
+
+    /**
+     * {@code work} 를 돌리고, {@code reason} 이 사유를 짚어 주면 간격을 두고 다시 돌린다.
+     *
+     * <p><b>무엇을 다시 돌릴지는 부르는 쪽이 정한다.</b> 충돌 말고도 다시 해서 결과가 달라지는 자리가
+     * 있어서다 — 결제사 무응답이 그것이고, 그건 SQLSTATE 로 안 갈린다(`D11`).
+     * 간격과 횟수는 여기 하나뿐이라 자리마다 다른 값이 생기지 않는다.
+     *
+     * @param reason 다시 돌릴 예외면 로그에 남길 사유를, 아니면 {@code null}
+     * @throws RuntimeException 사유가 없는 예외는 그대로 올린다. 횟수를 다 쓰면 마지막 것을 올린다
+     */
+    public static <T> T on(Supplier<T> work, Function<RuntimeException, String> reason) {
         RuntimeException last = null;
 
         for (int attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
             if (attempt > 0) {
                 // 재시도는 WARN 이다 — 지금은 도는데 이상한 것이다(`D16`)
-                log.warn("충돌로 다시 돈다 {}번째 sqlstate={}", attempt, conflictState(last));
+                log.warn("{} 라 다시 돈다 {}번째", reason.apply(last), attempt);
                 sleep(BACKOFF_MS[attempt - 1]);
             }
 
             try {
                 return work.get();
             } catch (RuntimeException e) {
-                if (conflictState(e) == null) {
+                if (reason.apply(e) == null) {
                     throw e;
                 }
                 last = e;

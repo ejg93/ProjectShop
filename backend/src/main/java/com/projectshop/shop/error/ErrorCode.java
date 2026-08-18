@@ -133,6 +133,17 @@ public enum ErrorCode {
     PRODUCT_OPTIONS_LOCKED(HttpStatus.UNPROCESSABLE_CONTENT, "product-options-locked",
             "주문에 쓰인 상품이라 옵션 구성을 바꿀 수 없다"),
 
+    // 결제
+    //
+    // 504 다. RFC 9110 §15.6.5 가 "위쪽에서 제때 응답을 못 받았다" 로 정의했고 이 자리가 그것이다.
+    // 500 으로 뭉치면 우리가 터진 것과 결제사가 안 받은 것이 같은 코드가 돼서,
+    // 화면이 「잠시 뒤 다시」 를 안내할지 「고객센터」 를 안내할지 못 가른다.
+    //
+    // 여기 오는 것은 재시도를 다 쓴 뒤다(`D11`). 그전에는 같은 멱등키로 다시 부르므로
+    // 결제사가 중복 승인을 안 낸다.
+    PAYMENT_GATEWAY_UNAVAILABLE(HttpStatus.GATEWAY_TIMEOUT, "payment-gateway-unavailable",
+            "결제사가 응답하지 않는다"),
+
     // 멱등키
     //
     // 409 는 "진행중" 이 아니라 "앞 요청을 기다렸는데 너무 길다" 다. 처리와 기록이 한 트랜잭션이라
