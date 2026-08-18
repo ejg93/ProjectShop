@@ -18,7 +18,13 @@ export const metadata: Metadata = {
  * <p>큰 사진을 안 넣는다. 랜딩이 아니라 <b>지나가는 화면</b>이라, 첫 그림이 커질수록
  * 할 일(입력)에 닿는 시간만 늘어난다.
  */
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reason?: string }>;
+}) {
+  const { reason } = await searchParams;
+
   return (
     <div className="mx-auto grid w-full max-w-md flex-1 content-center gap-8 px-4 py-16">
       <div className="grid gap-2">
@@ -27,6 +33,19 @@ export default function LoginPage() {
           주문 내역과 장바구니를 계정에 묶어 둡니다.
         </p>
       </div>
+
+      {/*
+        왜 여기로 왔는지를 말한다(`D20` 「401 은 조용히 보내지 않는다」). 설명 없이 로그인 화면이
+        나오면 사용자는 자기가 뭘 잘못 눌렀다고 생각한다. 보낸 자리는 `api-session.ts` 다.
+      */}
+      {reason === "session-expired" ? (
+        <p
+          role="status"
+          className="rounded-ui border border-border bg-surface-raised px-4 py-3 text-sm"
+        >
+          로그인이 만료되어 다시 로그인이 필요합니다.
+        </p>
+      ) : null}
 
       <LoginForm />
 

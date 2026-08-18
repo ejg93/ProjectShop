@@ -43,10 +43,16 @@ public class CartService {
     }
 
     /**
-     * @param priceInclVat     지금 가격이다. <b>주문할 때 박제한다</b>(청크 10) — 담아 둔 사이에 바뀔 수 있다
-     * @param available 지금 살 수 있나. 재고가 없거나 상품이 내려갔으면 거짓이다
+     * @param optionLabel  고른 조합. 옵션이 없는 상품은 {@code null} 이다(`8c`).
+     *                     <b>지금 값이라 셀러가 옵션 이름을 바꾸면 같이 바뀐다</b> —
+     *                     주문할 때 {@code order_item.option_label} 로 박제되는 것과 다른 성격이다
+     * @param sellerName   파는 사람. <b>주문서가 청약 이전에 신원을 제공해야 한다</b>
+     *                     (`D2` R1, 전자상거래법 제20조제2항). 그 화면이 셀러별로 묶으려면 여기가 실려야 한다
+     * @param priceInclVat 지금 가격이다. <b>주문할 때 박제한다</b>(청크 10) — 담아 둔 사이에 바뀔 수 있다
+     * @param available    지금 살 수 있나. 재고가 없거나 상품이 내려갔으면 거짓이다
      */
     public record Item(long cartItemId, long skuId, long productId, String productName,
+            String optionLabel, long sellerId, String sellerName,
             long priceInclVat, int quantity, boolean available) {
     }
 
@@ -195,16 +201,36 @@ public class CartService {
         }
     }
 
+    /**
+     * 담긴 것.
+     *
+     * <p><b>조합 라벨과 파는 사람이 같이 나간다</b>(청크 15-1). 없으면 화면이 같은 상품의
+     * 다른 조합을 <b>글자가 똑같은 두 줄</b>로 그리고, 주문서는 누구에게 사는 것인지를
+     * 청약 전에 못 보여준다(`D2` R1).
+     *
+     * <p>조합 라벨을 만드는 서브쿼리가 {@code OrderService.readLines} 와 같은 모양이다.
+     * <b>같은 값을 두 번 만드는 것이 아니다</b> — 저쪽은 주문 시점의 값을 박제하려고 읽고,
+     * 여기는 지금 값을 보여주려고 읽는다. 셀러가 옵션 이름을 바꾸면 이쪽만 따라 바뀌는 것이 맞다.
+     */
     private List<Item> itemsOf(long cartId) {
         return jdbc.sql("""
                         select ci.cart_item_id, ci.sku_id, ci.quantity,
                                p.product_id, p.name as product_name, s.price_incl_vat,
+                               p.seller_id, sel.name as seller_name,
+                               (select string_agg(pov.value, ' / ' order by po.sort_no, pov.sort_no)
+                                  from sku_option_value sov
+                                  join product_option_value pov
+                                    on pov.product_option_value_id = sov.product_option_value_id
+                                  join product_option po
+                                    on po.product_option_id = pov.product_option_id
+                                 where sov.sku_id = s.sku_id) as option_label,
                                (s.deleted_at is null and s.status = 'on_sale'
                                 and p.deleted_at is null and p.status = 'on_sale'
                                 and s.stock_count >= ci.quantity) as available
                           from cart_item ci
                           join sku s on s.sku_id = ci.sku_id
                           join product p on p.product_id = s.product_id
+                          join seller sel on sel.seller_id = p.seller_id
                          where ci.cart_id = :cartId
                          order by ci.created_at, ci.cart_item_id
                         """)
@@ -214,6 +240,9 @@ public class CartService {
                         rs.getLong("sku_id"),
                         rs.getLong("product_id"),
                         rs.getString("product_name"),
+                        rs.getString("option_label"),
+                        rs.getLong("seller_id"),
+                        rs.getString("seller_name"),
                         rs.getLong("price_incl_vat"),
                         rs.getInt("quantity"),
                         rs.getBoolean("available")))

@@ -152,6 +152,41 @@ class CartServiceTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 화면이 줄을 그리는 데 필요한 것이 실려 나가나(`15-1`).
+     *
+     * <p>둘 다 <b>없으면 화면이 조용히 틀린다.</b> 조합이 없으면 같은 상품의 다른 조합이
+     * 글자가 똑같은 두 줄로 보이고, 파는 사람이 없으면 주문서가 누구에게 사는 것인지를
+     * 청약 전에 못 밝힌다(`D2` R1, 전자상거래법 제20조제2항).
+     */
+    @Nested
+    @DisplayName("담긴 것을 보여줄 때")
+    class Display {
+
+        @Test
+        @DisplayName("고른 조합이 같이 나온다")
+        void carriesOptionLabel() {
+            cartService.add(account(), skuA, 1);
+
+            assertThat(cartService.read(account()).items().get(0).optionLabel())
+                    .as("없으면 검정과 흰색이 화면에서 같은 줄로 보인다")
+                    .isEqualTo("검정");
+        }
+
+        @Test
+        @DisplayName("파는 사람이 같이 나온다")
+        void carriesSeller() {
+            cartService.add(account(), skuA, 1);
+
+            CartService.Item item = cartService.read(account()).items().get(0);
+
+            assertThat(item.sellerName()).isEqualTo("A셀러");
+            assertThat(item.sellerId())
+                    .as("화면이 셀러로 묶으려면 이름만으로는 안 된다 — 같은 이름의 셀러가 있을 수 있다")
+                    .isPositive();
+        }
+    }
+
     @Nested
     @DisplayName("수량과 삭제")
     class Changing {

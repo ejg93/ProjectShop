@@ -4,15 +4,21 @@
  * <p>여기를 안 거치는 `fetch` 를 쓰지 않는다(`D5`). 표기 변환과 CSRF 헤더가 여기에만 있어서,
  * 직접 부르면 어떤 응답은 바뀌고 어떤 것은 안 바뀐 채로 화면에 닿는다.
  *
- * <p>입구가 둘이다(`D24` 「서버를 부르는 입구가 둘이다」). 도는 곳이 달라서 갈렸다.
+ * <p>입구가 셋이다(`D24` 「서버를 부르는 입구가 둘이다」에서 하나 늘었다).
+ * <b>도는 곳과 누구의 것이냐로 갈린다.</b>
  *
  * <pre>
- * api()       클라이언트 컴포넌트 · 상대경로 · 쿠키를 브라우저가 붙인다 · CSRF 를 싣는다
- * apiPublic() 서버 컴포넌트       · 절대주소 · 쿠키 없음               · 읽기 전용
+ * api()        클라이언트 컴포넌트 · 상대경로 · 쿠키를 브라우저가 붙인다 · CSRF 를 싣는다
+ * apiPublic()  서버 컴포넌트       · 절대주소 · 쿠키 없음               · 읽기 전용
+ * apiSession() 서버 컴포넌트       · 절대주소 · 쿠키를 손으로 싣는다     · 읽기 전용
  * </pre>
  *
  * <p>{@link api} 는 쿠키를 `document.cookie` 로 읽어서 <b>브라우저에서만 돈다.</b>
  * 서버 컴포넌트에서 부르면 그 자리에서 터진다.
+ *
+ * <p><b>{@link apiSession} 만 파일이 다르다</b>(`api-session.ts`). `next/headers` 를 쓰는데,
+ * 그것을 여기 들이면 이 파일을 가져다 쓰는 <b>클라이언트 컴포넌트가 전부 빌드에서 깨진다.</b>
+ * 세 입구가 같은 변환·같은 오류 처리를 쓰도록 아래 셋을 내보낸다.
  */
 
 /** 백엔드가 RFC 9457 로 내려준 오류(`D5`). 화면은 `status` 가 아니라 `type` 으로 갈린다 */
@@ -88,7 +94,7 @@ export async function api<T>(
  * <p>서버 컴포넌트는 프록시를 안 지난다. 브라우저가 아니라 Next 서버가 부르는 것이라
  * 상대경로에 붙일 출처가 없어서 절대 주소가 필요하다.
  */
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
+export const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
 
 /**
  * 로그인 없이 볼 수 있는 것을 서버 컴포넌트에서 읽는다.
@@ -153,7 +159,7 @@ function readCookie(name: string): string | null {
  * <p>본문이 `problem+json` 이 아닐 수도 있다. 프록시가 못 붙었거나 서버가 죽으면
  * HTML 이 오는데, 그때 파싱을 믿으면 진짜 원인 대신 파싱 오류가 보인다.
  */
-async function toApiError(response: Response): Promise<ApiError> {
+export async function toApiError(response: Response): Promise<ApiError> {
   try {
     const body = (await response.json()) as {
       type?: string;
@@ -182,7 +188,7 @@ async function toApiError(response: Response): Promise<ApiError> {
  * <p>`allowed_actions` 의 `REQUEST_RETURN` 같은 값이 열거값이라 그렇다(`D5`).
  * 값까지 바꾸면 화면이 서버가 모르는 이름으로 동작을 부른다.
  */
-function toCamel(value: Json): Json {
+export function toCamel(value: Json): Json {
   return mapKeys(value, (key) =>
     key.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase()),
   );
