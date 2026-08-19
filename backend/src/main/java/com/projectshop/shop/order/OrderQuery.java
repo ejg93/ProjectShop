@@ -133,6 +133,21 @@ public class OrderQuery {
     }
 
     /**
+     * 계약 시점의 문서 한 줄(`D2` R22, 전자상거래법 제13조제2항 후단).
+     *
+     * <p><b>본문을 안 싣는다.</b> 상세 하나가 정책 문서 넷을 통째로 지고 가면 응답이 수만 자가
+     * 되고, 화면은 대개 제목과 링크만 그린다. 본문은 {@code /api/policies/...} 가 낸다.
+     *
+     * <p><b>{@code version} 이 이 응답의 핵심이다.</b> 「지금의 문안」이 아니라 그 계약이
+     * 무엇에 걸렸는지를 가리키는 값이고, 시행된 판은 못 고치므로(`V27`) 언제 읽어도 같다.
+     *
+     * @param clause 제13조제2항의 몇 호를 채우나. 문서를 쪼개거나 합쳐도 이 값은 안 바뀐다
+     */
+    public record ContractDocument(String clause, String code, String title, int version,
+            OffsetDateTime effectiveAt) {
+    }
+
+    /**
      * 주문 상세. <b>못 보는 것은 null 이 아니라 응답에서 빠진다</b>(`D5`).
      *
      * @param shipping 배송지. {@code shipping} 그룹
@@ -146,7 +161,7 @@ public class OrderQuery {
     public record Detail(String orderNumber, String status, long totalAmount,
             long shippingFeeTotal, long payableAmount, OffsetDateTime createdAt,
             List<SellerOrder> sellerOrders, List<HistoryEntry> history, Shipping shipping,
-            Payment payment, List<Refund> refunds,
+            Payment payment, List<Refund> refunds, List<ContractDocument> contractDocuments,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
     }
 
@@ -250,6 +265,9 @@ public class OrderQuery {
                 decision.canSee(OrderFields.SHIPPING) ? shippingOf(order.orderId()) : null,
                 decision.canSee(OrderFields.PAYMENT) ? paymentOf(order.orderId()) : null,
                 decision.canSee(OrderFields.REFUND) ? refundsOf(order.orderId()) : null,
+                // 필드 그룹에 안 건다. 계약 조건은 사는 사람에게도 파는 사람에게도
+                // 같은 것이 걸려 있고, 보는 사람에 따라 갈릴 것이 아니다(`D23` 「어느 쪽을 언제 쓰나」).
+                contractDocumentsOf(order.orderId()),
                 List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
     }
 
@@ -371,6 +389,45 @@ public class OrderQuery {
      * <p>지나간 시도 전체는 여기서 안 내린다. 그것을 보는 자리는 관리자 조회고
      * {@code payment:read} 권한이 거기 걸린다(`V3`).
      */
+    /**
+     * 이 주문에 걸린 계약 문서(`D2` R22).
+     *
+     * <p>두 표에서 온다 — 청약철회·분쟁 처리는 {@code policy_document} 고 약관은
+     * {@code consent_item} 이다. 한 목록으로 합치는 이유는 <b>보는 쪽에는 같은 것</b>이라서고,
+     * 어느 표에서 왔는지는 화면이 알 필요가 없다.
+     *
+     * <p>호 순서로 낸다. 법이 정한 순서라 화면이 다시 정렬할 것이 없다.
+     */
+    private List<ContractDocument> contractDocumentsOf(long orderId) {
+        return jdbc.sql("""
+                        select d.clause,
+                               coalesce(p.code, c.code)                 as code,
+                               coalesce(p.title, c.title)               as title,
+                               coalesce(p.version, c.version)           as version,
+                               coalesce(p.effective_at, c.effective_at) as effective_at
+                          from order_contract_document d
+                          left join policy_document p
+                                 on p.policy_document_id = d.policy_document_id
+                          left join consent_item c
+                                 on c.consent_item_id = d.consent_item_id
+                         where d.order_id = :orderId
+                         order by case d.clause
+                                      when 'withdrawal' then 1
+                                      when 'exchange'   then 2
+                                      when 'dispute'    then 3
+                                      else 4
+                                  end
+                        """)
+                .param("orderId", orderId)
+                .query((rs, rowNum) -> new ContractDocument(
+                        enumValue(rs.getString("clause")),
+                        rs.getString("code"),
+                        rs.getString("title"),
+                        rs.getInt("version"),
+                        rs.getObject("effective_at", OffsetDateTime.class)))
+                .list();
+    }
+
     /**
      * 이 주문에서 나간 환불. <b>반려된 것도 내린다.</b>
      *

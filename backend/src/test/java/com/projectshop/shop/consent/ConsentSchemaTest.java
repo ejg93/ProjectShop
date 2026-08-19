@@ -12,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
@@ -268,6 +269,15 @@ class ConsentSchemaTest extends PostgresTestBase {
             assertThat(left).isZero();
         }
 
+        /**
+         * <b>이제 방벽이 둘이고 트리거가 먼저 걸린다</b>(`V27`).
+         *
+         * <p>시행된 문서는 이력이 있든 없든 못 지운다 — 전자문서법 제4조의2 2호가
+         * 「저장된 때의 형태로 보존」을 서면 요건으로 정해서다(`D2` R22).
+         * 그래서 예외 타입이 외래키의 것이 아니라 트리거의 것이 된다.
+         *
+         * <p>외래키가 사라진 것이 아니라 <b>가려진 것</b>이라, 그쪽은 아래 시행 전 판이 증명한다.
+         */
         @Test
         @DisplayName("동의 이력이 달린 항목은 못 지운다")
         void itemWithHistoryIsProtected() {
@@ -276,6 +286,40 @@ class ConsentSchemaTest extends PostgresTestBase {
             assertThatThrownBy(() -> jdbc.sql(
                             "delete from consent_item where code = 'terms_of_service' and version = 1")
                     .update())
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        /**
+         * 외래키가 여전히 지키는 것을 <b>트리거가 안 가리는 자리</b>에서 본다.
+         *
+         * <p>시행 전인 판은 불변 제약이 열려 있으므로(`V27`) 여기서 막는 것은 외래키뿐이다.
+         * 이 테스트가 없으면 `V27` 이 외래키를 통째로 지워도 아무것도 안 깨진다.
+         */
+        @Test
+        @DisplayName("시행 전인 판도 이력이 달리면 외래키가 막는다")
+        void draftItemWithHistoryIsProtectedByTheForeignKey() {
+            long draftId = jdbc.sql("""
+                            insert into consent_item (code, version, title, body, effective_at)
+                            values ('terms_of_service', 99, '개정 예정판', '개정될 문안',
+                                    now() + interval '30 days')
+                            returning consent_item_id
+                            """)
+                    .query(Long.class)
+                    .single();
+
+            jdbc.sql("""
+                            insert into user_consent (user_id, consent_item_id, granted, source)
+                            values (:user, :item, true, 'signup')
+                            """)
+                    .param("user", user)
+                    .param("item", draftId)
+                    .update();
+
+            assertThatThrownBy(() -> jdbc.sql(
+                            "delete from consent_item where consent_item_id = :id")
+                    .param("id", draftId)
+                    .update())
+                    .as("불변 트리거가 안 걸리는 판이라 외래키가 유일한 방벽이다")
                     .isInstanceOf(DataIntegrityViolationException.class);
         }
     }

@@ -105,9 +105,56 @@ public class OrderService {
         long orderId = insertOrder(userId, lines);
         insertSellerOrdersAndItems(orderId, lines);
         insertShipping(orderId, command.shipping());
+        insertContractDocuments(orderId);
         removeOrderedFromCart(userId, command.cartItemIds());
 
         return readCreated(orderId);
+    }
+
+    /**
+     * 계약 시점의 문서 판을 박제한다(`D2` R22, 전자상거래법 제13조제2항 후단).
+     *
+     * <p><b>가격·수수료율과 같은 이유다.</b> 화면 바닥 링크는 「지금의 문안」을 가리켜서,
+     * 청약철회 안내를 개정하면 지나간 주문의 계약 조건까지 바뀐 것처럼 보인다.
+     *
+     * <p><b>약관도 여기서 다시 박제한다.</b> {@code user_consent} 가 이미 판을 가리키지만
+     * 그건 <b>가입 시점</b>이다 — 가입 후 약관이 개정되면 주문 시점 약관이 무엇이었는지
+     * 아무 데도 없다.
+     *
+     * <p>시행된 판은 못 고친다({@code policy_document_immutable}). 그 제약이 있어야
+     * 「그때의 형태로 보존」이 성립하고, 그래야 이것이 서면이다(전자문서법 제4조의2 2호).
+     *
+     * <p><b>문서가 없으면 그 호는 안 붙는다.</b> 없는 것을 가리키는 행을 만드는 대신
+     * 빠진 채로 두고, 빠졌다는 사실은 주문 상세가 그대로 내린다 —
+     * 조용히 채우면 그 주문이 무엇을 고지받았는지가 사실과 달라진다.
+     */
+    private void insertContractDocuments(long orderId) {
+        jdbc.sql("""
+                        insert into order_contract_document (order_id, policy_document_id, clause)
+                        select :orderId, d.policy_document_id, v.clause
+                          from (values ('withdrawal_guide', 'withdrawal'),
+                                       ('withdrawal_guide', 'exchange'),
+                                       ('dispute_resolution', 'dispute')) as v (code, clause)
+                          join lateral (
+                              select p.policy_document_id
+                                from policy_document p
+                               where p.code = v.code and p.effective_at <= now()
+                               order by p.effective_at desc, p.version desc
+                               limit 1) d on true
+                        """)
+                .param("orderId", orderId)
+                .update();
+
+        jdbc.sql("""
+                        insert into order_contract_document (order_id, consent_item_id, clause)
+                        select :orderId, c.consent_item_id, 'terms'
+                          from consent_item c
+                         where c.code = 'terms_of_service' and c.effective_at <= now()
+                         order by c.effective_at desc, c.version desc
+                         limit 1
+                        """)
+                .param("orderId", orderId)
+                .update();
     }
 
     /**
