@@ -112,18 +112,35 @@ public class OrderQuery {
     }
 
     /**
+     * 돌려받은 것 한 줄. {@code refund} 그룹이다(`V24`).
+     *
+     * <p><b>요청 사유가 없다.</b> 소비자가 쓴 자유 텍스트라 무엇이 들어올지 모르고, 셀러에게
+     * 나가는 것이 제3자 제공이다(`D2` R8). 반려 사유는 <b>고객에게 왜 안 됐는지 답하는 값</b>이라
+     * 성격이 달라서 환불 상세({@code GET /api/refunds/{번호}})가 내린다.
+     *
+     * @param overdue 환급 기한을 넘겼나. <b>서버가 계산한다</b> — 화면이 비교하면 시계 차이만큼
+     *                답이 갈리고, 그 답이 법 요건이다(`D2` R5)
+     */
+    public record Refund(String refundNumber, String sellerOrderNumber, String status,
+            String reasonCode, long amount, OffsetDateTime dueAt, boolean overdue,
+            OffsetDateTime createdAt) {
+    }
+
+    /**
      * 주문 상세. <b>못 보는 것은 null 이 아니라 응답에서 빠진다</b>(`D5`).
      *
      * @param shipping 배송지. {@code shipping} 그룹
      * @param payment  결제. {@code payment} 그룹. <b>아직 안 낸 주문은 그룹이 보여도 비어 있다</b> —
      *                 `D5` 가 "필드가 있는데 값이 없으면 진짜로 값이 없는 것" 이라고 갈라 뒀고,
      *                 여기서는 그룹 목록에 {@code payment} 가 있느냐가 그 둘을 가른다
+     * @param refunds  환불. {@code refund} 그룹. <b>없으면 빈 배열이고 못 보면 필드가 빠진다</b> —
+     *                 같은 이유로 그룹 목록이 그 둘을 가른다
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Detail(String orderNumber, String status, long totalAmount,
             long shippingFeeTotal, long payableAmount, OffsetDateTime createdAt,
             List<SellerOrder> sellerOrders, List<HistoryEntry> history, Shipping shipping,
-            Payment payment,
+            Payment payment, List<Refund> refunds,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
     }
 
@@ -226,6 +243,7 @@ public class OrderQuery {
                 historyOf(order.orderId()),
                 decision.canSee(OrderFields.SHIPPING) ? shippingOf(order.orderId()) : null,
                 decision.canSee(OrderFields.PAYMENT) ? paymentOf(order.orderId()) : null,
+                decision.canSee(OrderFields.REFUND) ? refundsOf(order.orderId()) : null,
                 List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
     }
 
@@ -341,6 +359,38 @@ public class OrderQuery {
      * <p>지나간 시도 전체는 여기서 안 내린다. 그것을 보는 자리는 관리자 조회고
      * {@code payment:read} 권한이 거기 걸린다(`V3`).
      */
+    /**
+     * 이 주문에서 나간 환불. <b>반려된 것도 내린다.</b>
+     *
+     * <p>목록에서 빼면 「요청했는데 아무 일도 안 일어난」 것처럼 보인다 —
+     * 반려는 결과지 없던 일이 아니고, 고객이 물어볼 것이 그 줄이다.
+     *
+     * <p>주문 전체를 훑는다. 환불은 셀러 묶음 단위지만 상세가 주문 하나라 여기 모아 내리고,
+     * 어느 묶음 것인지는 {@code sellerOrderNumber} 가 가리킨다.
+     */
+    private List<Refund> refundsOf(long orderId) {
+        return jdbc.sql("""
+                        select r.refund_number, so.seller_order_number, r.status, r.reason_code,
+                               r.amount, r.due_at, r.created_at,
+                               (r.status = 'requested' and r.due_at < now()) as overdue
+                          from refund r
+                          join seller_order so on so.seller_order_id = r.seller_order_id
+                         where so.order_id = :orderId
+                         order by r.refund_id
+                        """)
+                .param("orderId", orderId)
+                .query((rs, rowNum) -> new Refund(
+                        rs.getString("refund_number"),
+                        rs.getString("seller_order_number"),
+                        enumValue(rs.getString("status")),
+                        enumValue(rs.getString("reason_code")),
+                        rs.getLong("amount"),
+                        rs.getObject("due_at", OffsetDateTime.class),
+                        rs.getBoolean("overdue"),
+                        rs.getObject("created_at", OffsetDateTime.class)))
+                .list();
+    }
+
     private Payment paymentOf(long orderId) {
         return jdbc.sql("""
                         select status, method, approval_number, card_issuer, card_last4,

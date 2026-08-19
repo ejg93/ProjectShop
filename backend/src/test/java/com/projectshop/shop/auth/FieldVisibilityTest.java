@@ -48,7 +48,8 @@ class FieldVisibilityTest extends PostgresTestBase {
         Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
 
         assertThat(decision.allowed()).isTrue();
-        assertThat(decision.visibleFieldGroups().values()).containsExactlyInAnyOrder("basic", "shipping", "payment");
+        assertThat(decision.visibleFieldGroups().values())
+                .containsExactlyInAnyOrder("basic", "shipping", "payment", "refund");
     }
 
     @Test
@@ -93,8 +94,8 @@ class FieldVisibilityTest extends PostgresTestBase {
         Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
 
         assertThat(decision.visibleFieldGroups().values())
-                .as("고객 역할이 payment 를, 셀러 대표 역할이 basic·shipping 을 준다")
-                .containsExactlyInAnyOrder("basic", "shipping", "payment");
+                .as("고객 역할이 payment 를, 셀러 대표 역할이 basic·shipping 을 준다. refund 는 양쪽에 있다")
+                .containsExactlyInAnyOrder("basic", "shipping", "payment", "refund");
     }
 
     @Test
@@ -110,6 +111,32 @@ class FieldVisibilityTest extends PostgresTestBase {
         assertThat(decision.fieldRestricted())
                 .as("관리자 규칙에 필드 그룹 연결이 없다")
                 .isFalse();
+    }
+
+    /**
+     * <b>새 필드 그룹이 관리자를 좁히지 않는지 본다.</b>
+     *
+     * <p>`V6` 가 「연결이 하나도 없는 규칙은 제한이 없는 것으로 본다」고 정해서 관리자가 전부 본다.
+     * 새 그룹을 <b>조건 없이</b> 붙이면 관리자 규칙에 연결이 하나 생기고, 그 순간 관리자는
+     * 그 하나만 보게 된다 — 배송지도 결제도 사라진다.
+     *
+     * <p>`V24` 를 그렇게 썼다가 여기서 잡혔다. <b>넓히려는 마이그레이션이 좁히는 결과를 내는</b>
+     * 방향이라, 그룹을 더하는 다음 마이그레이션도 같은 함정을 지난다.
+     */
+    @Test
+    @DisplayName("새 그룹이 생겨도 관리자는 계속 전부 본다")
+    void newGroupDoesNotNarrowAdmin() {
+        long admin = fixture.insertUser("admin-groups@test.local", "관리자");
+        fixture.grantGlobal(admin, "admin");
+
+        Decision decision = evaluator.decide(admin, "order", "read", Target.of(buyer, alpha));
+
+        assertThat(decision.fieldRestricted())
+                .as("연결이 하나라도 붙으면 그것만 보게 된다(`V6`)")
+                .isFalse();
+        assertThat(decision.canSee(OrderFields.SHIPPING)).isTrue();
+        assertThat(decision.canSee(OrderFields.PAYMENT)).isTrue();
+        assertThat(decision.canSee(OrderFields.REFUND)).isTrue();
     }
 
     @Test

@@ -155,7 +155,9 @@ class SellerOrderQueryTest extends PostgresTestBase {
 
             SellerOrderQuery.Detail detail = sellerOrders.findByNumber(alphaOwner, numberOf(alpha));
 
-            assertThat(detail.visibleFieldGroups()).containsExactly("basic", "shipping");
+            assertThat(detail.visibleFieldGroups())
+                    .as("refund 는 열려 있다 — 셀러 정산에서 차감되는 돈이라 봐야 한다(`V24`)")
+                    .containsExactly("basic", "refund", "shipping");
         }
 
         @Test

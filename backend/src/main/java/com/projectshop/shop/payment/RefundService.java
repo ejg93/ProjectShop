@@ -12,6 +12,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.auth.PermissionEvaluator;
+import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.BusinessCalendar;
@@ -66,14 +68,31 @@ public class RefundService {
             REASON_CANCELLED, "cancelled",
             REASON_WITHDRAWAL, "returned");
 
+    /**
+     * 판정에 쓰는 자원 이름과 동작 이름(`V3`·`V24`).
+     *
+     * <p><b>둘로 갈린 것이 이 워크플로의 뼈대다.</b> 하나면 요청을 여는 순간 승인이 같이 열려서
+     * 고객이 남의 환불을 승인한다 — {@code refund_self_approval_check} 는 자기 것만 막는다.
+     *
+     * <p>{@link #APPROVE} 는 관리자에게만 있고 근거가 법이다(`D2` R5) —
+     * 제18조제2항 괄호가 대금을 받은 자를 통신판매업자에 넣어서 <b>환급 의무자가 우리</b>고,
+     * 제20조의2제3항이 중개자 고지로 그 책임을 못 면한다고 한다.
+     */
+    private static final String RESOURCE = "payment";
+    private static final String REQUEST = "request_refund";
+    private static final String APPROVE = "refund";
+
     private final JdbcClient jdbc;
     private final MockPaymentGateway gateway;
     private final BusinessCalendar calendar;
+    private final PermissionEvaluator evaluator;
 
-    RefundService(JdbcClient jdbc, MockPaymentGateway gateway, BusinessCalendar calendar) {
+    RefundService(JdbcClient jdbc, MockPaymentGateway gateway, BusinessCalendar calendar,
+            PermissionEvaluator evaluator) {
         this.jdbc = jdbc;
         this.gateway = gateway;
         this.calendar = calendar;
+        this.evaluator = evaluator;
     }
 
     /** 돌려줄 항목 하나. {@code quantity} 는 그 주문 항목에서 이번에 돌려줄 개수다 */
@@ -106,6 +125,15 @@ public class RefundService {
     @Transactional
     public Refund request(long userId, RequestCommand command) {
         Bundle bundle = findRefundableBundle(command.sellerOrderNumber());
+
+        // 거부는 404 다(`D5` 의 자원별 표). 403 을 주면 노출 번호를 훑어서 실재하는 묶음의
+        // 지도를 그릴 수 있고, 그게 곧 셀러별 거래 건수다 — `OrderActionService` 와 같은 판단.
+        if (!evaluator.decide(userId, RESOURCE, REQUEST,
+                Target.of(bundle.buyerUserId(), bundle.sellerId())).allowed()) {
+            throw new ShopException(ErrorCode.SELLER_ORDER_NOT_FOUND,
+                    "그런 셀러 주문이 없다: " + command.sellerOrderNumber());
+        }
+
         requireBundleStatus(bundle, command.reasonCode());
 
         List<Item> items = itemsOf(bundle.sellerOrderId());
@@ -130,7 +158,7 @@ public class RefundService {
      * <b>환불번호를 멱등키로 넘긴 것</b>이다 — PG 가 같은 키에 같은 답을 준다.
      */
     public Refund approve(long userId, String refundNumber, String reason) {
-        Pending pending = findPending(refundNumber);
+        Pending pending = findPending(userId, refundNumber);
         requireNotSelf(userId, pending);
 
         MockPaymentGateway.RefundResult result = askGateway(refundNumber, pending.amount());
@@ -169,7 +197,7 @@ public class RefundService {
      */
     @Transactional
     public Refund reject(long userId, String refundNumber, String reason) {
-        Pending pending = findPending(refundNumber);
+        Pending pending = findPending(userId, refundNumber);
         requireNotSelf(userId, pending);
 
         if (blankToNull(reason) == null) {
@@ -198,9 +226,15 @@ public class RefundService {
         return read(refundNumber);
     }
 
-    /** 환불할 묶음. {@code closedAt} 이 환급 기한의 기산점이다 */
+    /**
+     * 환불할 묶음. {@code closedAt} 이 환급 기한의 기산점이다.
+     *
+     * <p>{@code buyerUserId}·{@code sellerId} 는 판정에 쓴다 — 스코프 {@code own} 과
+     * {@code seller} 가 각각 그 둘을 본다(`D6`).
+     */
     private record Bundle(long sellerOrderId, long orderId, String sellerOrderNumber,
-            String status, long shippingFee, OffsetDateTime closedAt) {}
+            String status, long shippingFee, OffsetDateTime closedAt,
+            long buyerUserId, long sellerId) {}
 
     /**
      * 돌려줄 돈이 있는 묶음인가.
@@ -216,8 +250,10 @@ public class RefundService {
     private Bundle findRefundableBundle(String sellerOrderNumber) {
         Bundle bundle = jdbc.sql("""
                         select so.seller_order_id, so.order_id, so.seller_order_number,
-                               so.status, so.shipping_fee, so.closed_at
+                               so.status, so.shipping_fee, so.closed_at, so.seller_id,
+                               o.user_id as buyer_user_id
                           from seller_order so
+                          join shop_order o on o.order_id = so.order_id
                          where so.seller_order_number = :number
                         """)
                 .param("number", sellerOrderNumber)
@@ -227,7 +263,9 @@ public class RefundService {
                         rs.getString("seller_order_number"),
                         rs.getString("status"),
                         rs.getLong("shipping_fee"),
-                        rs.getObject("closed_at", OffsetDateTime.class)))
+                        rs.getObject("closed_at", OffsetDateTime.class),
+                        rs.getLong("buyer_user_id"),
+                        rs.getLong("seller_id")))
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.SELLER_ORDER_NOT_FOUND));
 
@@ -466,30 +504,49 @@ public class RefundService {
         }
     }
 
-    /** 아직 처리 안 된 요청 */
-    private record Pending(long requestedByUserId, long amount) {}
+    /** 아직 처리 안 된 요청. 뒤 둘은 판정에 쓴다 */
+    private record Pending(long requestedByUserId, long amount, String status,
+            long buyerUserId, long sellerId) {}
 
-    private Pending findPending(String refundNumber) {
+    /**
+     * 처리할 수 있는 요청인가.
+     *
+     * <p><b>판정이 상태 검사보다 앞이다.</b> 순서를 바꾸면 남의 환불에 승인을 시도한 사람이
+     * 「이미 처리됐다」(409)를 받는데, 그것만으로 <b>그 번호가 실재한다는 것</b>이 드러난다.
+     */
+    private Pending findPending(long userId, String refundNumber) {
         Pending pending = jdbc.sql("""
-                        select requested_by_user_id, amount, status
-                          from refund
-                         where refund_number = :number
+                        select r.requested_by_user_id, r.amount, r.status, so.seller_id,
+                               o.user_id as buyer_user_id
+                          from refund r
+                          join seller_order so on so.seller_order_id = r.seller_order_id
+                          join shop_order o    on o.order_id = so.order_id
+                         where r.refund_number = :number
                         """)
                 .param("number", refundNumber)
-                .query((rs, rowNum) -> new Object[] {
-                        rs.getLong("requested_by_user_id"), rs.getLong("amount"),
-                        rs.getString("status")})
+                .query((rs, rowNum) -> new Pending(
+                        rs.getLong("requested_by_user_id"),
+                        rs.getLong("amount"),
+                        rs.getString("status"),
+                        rs.getLong("buyer_user_id"),
+                        rs.getLong("seller_id")))
                 .optional()
-                .map(row -> {
-                    if (!REQUESTED_CODE.equals(row[2])) {
-                        throw new ShopException(ErrorCode.REFUND_ALREADY_DECIDED,
-                                "이미 " + row[2] + " 인 요청이다");
-                    }
-                    return new Pending((Long) row[0], (Long) row[1]);
-                })
-                .orElseThrow(() -> new ShopException(ErrorCode.REFUND_NOT_FOUND));
+                .orElseThrow(() -> notFound(refundNumber));
 
+        if (!evaluator.decide(userId, RESOURCE, APPROVE,
+                Target.of(pending.buyerUserId(), pending.sellerId())).allowed()) {
+            throw notFound(refundNumber);
+        }
+
+        if (!REQUESTED_CODE.equals(pending.status())) {
+            throw new ShopException(ErrorCode.REFUND_ALREADY_DECIDED,
+                    "이미 " + pending.status() + " 인 요청이다");
+        }
         return pending;
+    }
+
+    private static ShopException notFound(String refundNumber) {
+        return new ShopException(ErrorCode.REFUND_NOT_FOUND, "그런 환불 요청이 없다: " + refundNumber);
     }
 
     /**

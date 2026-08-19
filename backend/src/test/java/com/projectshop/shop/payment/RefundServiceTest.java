@@ -78,8 +78,14 @@ class RefundServiceTest extends PostgresTestBase {
     @BeforeEach
     void setUp() {
         fixture = new AuthFixture(jdbc);
+
         buyerId = fixture.insertUser("refund-buyer@test.local", "환불구매자");
+        fixture.grantGlobal(buyerId, "customer");
+
+        // 승인은 관리자만 한다(`V24`). 근거가 법이다 — 대금을 받은 우리가 환급 의무자고
+        // 중개자 고지로 그 책임을 못 면한다(`D2` R5, 전자상거래법 제18조제2항·제20조의2제3항).
         approverId = fixture.insertUser("refund-approver@test.local", "환불승인자");
+        fixture.grantGlobal(approverId, "admin");
 
         long sellerId = fixture.insertSeller("s-refund", "환불셀러");
         fixture.verifySeller(sellerId);
@@ -215,16 +221,59 @@ class RefundServiceTest extends PostgresTestBase {
     @DisplayName("승인은")
     class Approval {
 
+        /**
+         * <b>승인 권한을 가진 사람이 자기 요청을 승인하는 것</b>이 이 제약이 막는 유일한 조합이다.
+         *
+         * <p>고객으로는 이 자리를 못 만든다 — 애초에 승인 권한이 없어서 판정에서 먼저 걸린다.
+         * 관리자가 자기 이름으로 요청을 내는 것은 실제로 있는 경로다(`payment:request_refund` 가
+         * 관리자에게 {@code all} 스코프로 있다).
+         */
         @Test
-        @DisplayName("자기가 낸 요청을 자기가 못 한다")
+        @DisplayName("승인 권한자도 자기가 낸 요청은 못 한다")
         void cannotBeDoneByTheRequester() {
+            closeBundle("cancelled");
+
+            RefundService.Refund refund = refunds.request(approverId,
+                    new RefundService.RequestCommand(sellerOrderNumber, "cancelled", List.of(), null));
+
+            assertThatThrownBy(() -> refunds.approve(approverId, refund.refundNumber(), "확인함"))
+                    .as("요청과 승인을 가른 것이 형식만 남으면 가른 값이 없다")
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.REFUND_SELF_APPROVAL));
+        }
+
+        /**
+         * 고객에게는 <b>없는 요청과 같은 404</b> 다(`D5` 「권한 실패」).
+         *
+         * <p>403 을 주면 번호를 두드려서 환불이 몇 건인지 셀 수 있고, 그게 곧 취소율이다.
+         */
+        @Test
+        @DisplayName("요청만 낼 수 있는 사람에게는 없는 것과 같다")
+        void looksMissingToRequestOnlyRoles() {
             closeBundle("cancelled");
             RefundService.Refund refund = requestAll();
 
             assertThatThrownBy(() -> refunds.approve(buyerId, refund.refundNumber(), "확인함"))
-                    .as("요청과 승인을 가른 것이 형식만 남으면 가른 값이 없다")
+                    .as("권한을 둘로 가른 값이 여기서 나온다(`V24`)")
                     .isInstanceOfSatisfying(ShopException.class, e ->
-                            assertThat(e.code()).isEqualTo(ErrorCode.REFUND_SELF_APPROVAL));
+                            assertThat(e.code()).isEqualTo(ErrorCode.REFUND_NOT_FOUND));
+        }
+
+        @Test
+        @DisplayName("셀러도 승인은 못 한다")
+        void isClosedToSellers() {
+            long sellerOwner = fixture.insertUser("refund-seller-owner@test.local", "환불셀러대표");
+            fixture.joinSeller(sellerIdOfBundle(), sellerOwner);
+            fixture.grantOrg(sellerOwner, "seller_owner", sellerIdOfBundle());
+
+            closeBundle("cancelled");
+            RefundService.Refund refund = requestAll();
+
+            assertThatThrownBy(() -> refunds.approve(sellerOwner, refund.refundNumber(), "확인함"))
+                    .as("대금을 받은 우리가 환급 의무자다(`D2` R5, 제18조제2항·제20조의2제3항). "
+                            + "셀러가 승인하면 우리 법적 의무의 이행 여부를 남이 정한다")
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.REFUND_NOT_FOUND));
         }
 
         @Test
@@ -469,6 +518,13 @@ class RefundServiceTest extends PostgresTestBase {
         sellerOrderId = bundleIdOf(orderId);
         sellerOrderNumber = bundleNumberOf(orderId);
         orderItemId = itemIdOf(sellerOrderId);
+    }
+
+    private long sellerIdOfBundle() {
+        return jdbc.sql("select seller_id from seller_order where seller_order_id = :id")
+                .param("id", sellerOrderId)
+                .query(Long.class)
+                .single();
     }
 
     private long bundleIdOf(long targetOrderId) {

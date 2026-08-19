@@ -177,7 +177,9 @@ class OrderQueryTest extends PostgresTestBase {
 
             OrderQuery.Detail detail = orders.findByNumber(auditor, orderNumber);
 
-            assertThat(detail.visibleFieldGroups()).containsExactly("basic", "shipping");
+            assertThat(detail.visibleFieldGroups())
+                    .as("refund 는 열려 있다 — `V6` 가 감사자에게 닫은 근거가 결제 수단이지 금액이 아니다(`V24`)")
+                    .containsExactly("basic", "refund", "shipping");
             assertThat(detail.shipping()).isNotNull();
         }
 
