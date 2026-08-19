@@ -111,26 +111,43 @@
 원하는 금액으로 결제된다. 등식을 트리거로 거는 것은 그 검사를 한 층 아래로 옮긴 것일 뿐이고,
 애초에 받지 않는 것이 한 칸 더 아래다.
 
-## 환불 — 청크 12a
+## 환불 — 청크 12a-1
 
 | 등식 | 강제 |
 |---|---|
-| `sum(refund.amount) <= payment.amount` | 지연 트리거 |
-| `refund_item.commission_refund <= order_item.commission_amount` | 지연 트리거 |
-| 항목을 통째로 환불하면 `commission_refund = order_item.commission_amount` | 테스트 |
+| `sum(refund.amount) <= payment.amount` | `assert_refund_within_payment` |
+| `refund.amount = sum(refund_item.amount) + refund.shipping_fee_refund` | `assert_refund_totals` |
+| `sum(refund_item.quantity) <= order_item.quantity` | `assert_refund_item_within_order_item` |
+| `sum(refund_item.amount) <= order_item.line_amount` | `assert_refund_item_within_order_item` |
+| `sum(refund_item.commission_refund) <= order_item.commission_amount` | `assert_refund_item_within_order_item` |
+| 항목을 통째로 환불하면 `sum(commission_refund) = order_item.commission_amount` | 테스트 |
 
 부등호인 것이 여기의 성질이다. 주문·정산 축은 합이 정확히 맞아야 하지만 환불은 **여러 번 날 수 있고
 매번 일부만 낼 수 있다.** 그래서 상한만 건다.
 
-세 번째 줄이 항목 단위 절사의 값을 회수하는 자리다. 수수료를 항목마다 잘라 뒀으므로
-통째 환불은 뺄셈 하나로 끝난다(`money-rules.md`). **수량 일부만 환불할 때 얼마를 돌려주나**는
-다시 나누는 일이라 청크 12a 가 정한다.
+**상한은 한 행이 아니라 누계로 센다.** 수량 3개짜리를 2개씩 두 번 환불하면 각각은 상한 안이고
+합만 넘는다 — 행마다 보면 안 걸린다. 반려된 요청은 누계에서 뺀다.
+
+### 수량 일부를 환불할 때 절사 잔액
+
+마지막 남은 수량을 환불할 때 **잔액을 전부 싣는다**(청크 12a-1, 사용자 선택).
+
+```
+commission_refund = 마지막 수량이면  commission_amount - 이미 나간 합
+                    아니면          commission_amount × 이번 수량 / 주문 수량 (버림)
+```
+
+수수료가 항목 단위로 이미 잘린 값이라(`money-rules.md`) 수량으로 또 나누면 1원이 남는데,
+안 몰아 주면 **통째로 환불했는데 그 1원이 정산에 우리 몫으로 남는다.** 위 표의 마지막 줄이
+그것을 잡는 자리고, 상한만 보는 트리거로는 안 걸려서 강제 지점이 테스트다.
+
+배송비는 나누지 않는다. `seller_order` 단위라 항목별로 가를 근거가 없어서,
+그 묶음이 비워질 때 전액이고 그전에는 0 이다.
 
 ## 지금 못 거는 것
 
 | 등식 | 왜 | 언제 |
 |---|---|---|
-| 환불 축 셋 | `refund` 테이블이 없다. `payment` 는 청크 12 가 세웠다 | 청크 12a |
 | 정산 축 다섯 | `settlement` 테이블이 없다 | 청크 17 |
 
 **적어 두는 것과 거는 것을 가른다.** 등식을 지금 고정해 두면 그 스키마를 만드는 청크가

@@ -149,6 +149,31 @@ public enum ErrorCode {
     PAYMENT_CARD_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "payment-card-required",
             "카드 결제에는 카드번호가 필요하다"),
 
+    // 환불
+    REFUND_NOT_FOUND(HttpStatus.NOT_FOUND, "refund-not-found", "그런 환불 요청이 없다"),
+
+    // 409 다. 이미 처리된 요청을 또 처리하려는 것이라 대상 자원의 현재 상태와 부딪힌다 —
+    // ORDER_TRANSITION_NOT_ALLOWED 와 같은 기준이다(RFC 9110 §15.5.10).
+    REFUND_ALREADY_DECIDED(HttpStatus.CONFLICT, "refund-already-decided",
+            "이미 처리된 환불 요청이다"),
+
+    // 자기가 낸 요청은 자기가 승인 못 한다(12a).
+    //
+    // 403 이다. 요청 내용이 잘못된 것도(422) 상태와 부딪히는 것도(409) 아니라
+    // <b>이 사람이라서</b> 안 되는 것이고, 그건 권한 판정의 답과 같은 자리다.
+    // 다른 사람이 부르면 같은 요청이 통과한다는 점이 422 와 갈리는 기준이다.
+    REFUND_SELF_APPROVAL(HttpStatus.FORBIDDEN, "refund-self-approval",
+            "자기가 낸 환불 요청은 자기가 승인할 수 없다"),
+
+    // 422 다. 환불할 수 있는 것보다 많이 달라는 것이라 언제 다시 와도 답이 같다.
+    // 상한은 결제액과 항목별 누계 둘 다이고(money-invariants) 어느 쪽이든 이 코드로 나간다.
+    REFUND_EXCEEDS_LIMIT(HttpStatus.UNPROCESSABLE_CONTENT, "refund-exceeds-limit",
+            "환불할 수 있는 금액을 넘는다"),
+
+    // 422 다. 결제가 안 된 주문은 돌려줄 돈이 없다 — 결제하면 통과하지만 그건 다른 요청이다.
+    REFUND_NOT_PAYABLE(HttpStatus.UNPROCESSABLE_CONTENT, "refund-not-payable",
+            "결제되지 않은 주문은 환불할 수 없다"),
+
     // 멱등키
     //
     // 409 는 "진행중" 이 아니라 "앞 요청을 기다렸는데 너무 길다" 다. 처리와 기록이 한 트랜잭션이라

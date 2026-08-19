@@ -116,6 +116,48 @@ public class MockPaymentGateway {
         return result;
     }
 
+    /**
+     * 환불 결과.
+     *
+     * @param refundNumber 결제사가 채번한 환불 거래번호
+     */
+    public record RefundResult(String refundNumber) {}
+
+    /** 이미 돌려준 환불 요청. 키는 우리 환불번호다 */
+    private final Map<String, RefundResult> refundsByKey = new ConcurrentHashMap<>();
+
+    /**
+     * 승인된 결제의 일부 또는 전부를 돌려준다.
+     *
+     * <p><b>거절이 없다.</b> 결제 승인과 다른 점이다 — 승인은 카드 한도·유효성 판정이라 거절이
+     * 정상 결과지만, 환불은 이미 받은 돈을 돌려주는 것이라 결제사가 거부할 사유가 없다.
+     * 실물 PG 도 원거래가 살아 있으면 거절하지 않는다. <b>상한 검사는 우리 쪽 몫</b>이고
+     * {@code assert_refund_within_payment} 가 그것을 본다.
+     *
+     * <p><b>멱등키는 우리 환불번호다.</b> 승인과 같은 이유로 필요하다 — PG 호출이 트랜잭션 밖이라
+     * (`D11`) 재시도가 두 번 환불하는 구간이 열리고, 그 구간을 닫는 것은 PG 가 같은 키에
+     * 같은 답을 주는 것이다. 승인은 클라이언트가 만든 키를 그대로 넘겼는데 환불은
+     * <b>요청 자체가 우리 자원</b>이라 그 번호가 곧 키다.
+     *
+     * @throws TimedOut 응답이 없을 때. 같은 환불번호로 다시 부르는 것이 안전하다
+     */
+    public RefundResult refund(String refundNumber, long amount) {
+        RefundResult remembered = refundsByKey.get(refundNumber);
+        if (remembered != null) {
+            return remembered;
+        }
+
+        if (amount <= 0) {
+            throw new IllegalArgumentException("환불 금액이 0 이하다");
+        }
+
+        RefundResult result = new RefundResult("MR%d%04d"
+                .formatted(System.currentTimeMillis(), random.nextInt(10_000)));
+
+        refundsByKey.put(refundNumber, result);
+        return result;
+    }
+
     private Result judge(Request request) {
         if (!"card".equals(request.method())) {
             // 계좌이체는 카드정보가 없다. 실패를 유도할 자리도 없어서 늘 승인이다

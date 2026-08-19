@@ -1,22 +1,18 @@
 package com.projectshop.shop.order;
 
-import java.security.SecureRandom;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.support.ExposedNumber;
 
 /**
  * 장바구니에서 고른 것을 주문으로 굳힌다.
@@ -33,21 +29,12 @@ import com.projectshop.shop.error.ShopException;
 @Service
 public class OrderService {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final DateTimeFormatter ORDER_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
-
-    /** 노출 번호의 난수 부분. `0`·`O`·`1`·`I` 를 뺀 32자다(`D9`) */
-    private static final char[] NUMBER_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ".toCharArray();
-    private static final int NUMBER_RANDOM_LENGTH = 6;
-
-    /** 번호가 부딪히면 다시 뽑는다. 3회에도 안 되면 오류다(`D9`) */
-    private static final int NUMBER_RETRIES = 3;
-
     /**
-     * 예측 가능한 주문번호는 순번만큼은 아니어도 정보가 샌다(`D9`).
-     * 비용 차이가 없으므로 안전한 쪽을 쓴다.
+     * 셀러 묶음의 노출 번호 접두어. <b>주문번호는 접두어가 없다</b>(`D9`).
+     *
+     * <p>형식이 같으면 전화로 번호를 받는 자리에서 어느 쪽인지 못 가른다.
      */
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final String SELLER_ORDER_PREFIX = "S-";
 
     private final JdbcClient jdbc;
 
@@ -202,29 +189,20 @@ public class OrderService {
         long commissionTotal = lines.stream().mapToLong(Line::commissionAmount).sum();
         long shippingTotal = shippingFeeBySeller(lines).values().stream().mapToLong(Long::longValue).sum();
 
-        for (int attempt = 1; attempt <= NUMBER_RETRIES; attempt++) {
-            try {
-                return jdbc.sql("""
+        return ExposedNumber.insertWith("", "주문번호", number -> jdbc.sql("""
                                 insert into shop_order (order_number, user_id, total_amount,
                                                         commission_total, shipping_fee_total, payable_amount)
                                 values (:number, :userId, :total, :commission, :shipping, :payable)
                                 returning order_id
                                 """)
-                        .param("number", nextOrderNumber())
-                        .param("userId", userId)
-                        .param("total", totalAmount)
-                        .param("commission", commissionTotal)
-                        .param("shipping", shippingTotal)
-                        .param("payable", totalAmount + shippingTotal)
-                        .query(Long.class)
-                        .single();
-            } catch (DuplicateKeyException e) {
-                if (attempt == NUMBER_RETRIES) {
-                    throw new ShopException(ErrorCode.INTERNAL, "주문번호를 못 뽑았다");
-                }
-            }
-        }
-        throw new IllegalStateException("여기 올 수 없다");
+                .param("number", number)
+                .param("userId", userId)
+                .param("total", totalAmount)
+                .param("commission", commissionTotal)
+                .param("shipping", shippingTotal)
+                .param("payable", totalAmount + shippingTotal)
+                .query(Long.class)
+                .single());
     }
 
     private void insertSellerOrdersAndItems(long orderId, List<Line> lines) {
@@ -267,27 +245,18 @@ public class OrderService {
      * 두 번호가 같은 난수 집합에서 나오므로 충돌 확률도 같고, 따로 두면 한쪽만 고치는 날이 온다.
      */
     private long insertSellerOrder(long orderId, long sellerId, long shippingFee) {
-        for (int attempt = 1; attempt <= NUMBER_RETRIES; attempt++) {
-            try {
-                return jdbc.sql("""
+        return ExposedNumber.insertWith(SELLER_ORDER_PREFIX, "셀러 주문번호", number -> jdbc.sql("""
                                 insert into seller_order (seller_order_number, order_id,
                                                           seller_id, shipping_fee)
                                 values (:number, :orderId, :sellerId, :fee)
                                 returning seller_order_id
                                 """)
-                        .param("number", nextSellerOrderNumber())
-                        .param("orderId", orderId)
-                        .param("sellerId", sellerId)
-                        .param("fee", shippingFee)
-                        .query(Long.class)
-                        .single();
-            } catch (DuplicateKeyException e) {
-                if (attempt == NUMBER_RETRIES) {
-                    throw new ShopException(ErrorCode.INTERNAL, "셀러 주문번호를 못 뽑았다");
-                }
-            }
-        }
-        throw new IllegalStateException("여기 올 수 없다");
+                .param("number", number)
+                .param("orderId", orderId)
+                .param("sellerId", sellerId)
+                .param("fee", shippingFee)
+                .query(Long.class)
+                .single());
     }
 
     /** 셀러마다 한 번씩 붙는다. 한 셀러 것을 여럿 사도 배송비는 하나다 */
@@ -351,26 +320,4 @@ public class OrderService {
                 .single();
     }
 
-    /** {@code 20260809-7QX4M2}. 날짜는 CS 용이고 뒤는 순번을 가린다(`D9`) */
-    private static String nextOrderNumber() {
-        return LocalDate.now(KST).format(ORDER_DATE) + "-" + randomPart();
-    }
-
-    /**
-     * 셀러 묶음의 노출 번호. <b>{@code S-} 로 시작한다</b>(`D9`).
-     *
-     * <p>주문번호와 형식이 같으면 전화로 번호를 받는 자리에서 어느 쪽인지 못 가른다.
-     * 접두어 하나가 그것을 가른다.
-     */
-    private static String nextSellerOrderNumber() {
-        return "S-" + LocalDate.now(KST).format(ORDER_DATE) + "-" + randomPart();
-    }
-
-    private static String randomPart() {
-        StringBuilder random = new StringBuilder(NUMBER_RANDOM_LENGTH);
-        for (int i = 0; i < NUMBER_RANDOM_LENGTH; i++) {
-            random.append(NUMBER_ALPHABET[RANDOM.nextInt(NUMBER_ALPHABET.length)]);
-        }
-        return random.toString();
-    }
 }

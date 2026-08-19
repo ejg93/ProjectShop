@@ -42,6 +42,23 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 
 ## 기억으로 쓰면 틀리는 자리
 
+### 테스트가 전부 실패하면 Docker 부터 본다
+
+Docker Desktop 이 꺼져 있으면 **테스트가 하나도 안 통과한다.** `PostgresTestBase` 가
+Testcontainers 로 Postgres 를 직접 띄우기 때문이다(`D15`).
+
+읽히는 오류가 코드 문제처럼 생겼다는 것이 함정이다 — 맨 앞에 나오는 것은
+`IllegalStateException at DefaultCacheAwareContextLoaderDelegate` 고, Spring 컨텍스트가
+안 뜬 이야기라 **방금 고친 코드를 의심하게 된다.** 진짜 원인은 스택 맨 아래
+`DockerClientProviderStrategy` 한 줄이다.
+
+```
+docker info --format "{{.ServerVersion}}"
+```
+
+이것이 실패하면 코드를 보지 말고 Docker Desktop 을 띄운다. 기동에 시간이 걸려서
+바로 다시 돌리면 같은 오류가 난다.
+
 ### Boot 4 는 스타터 이름이 3.x 와 다르다
 
 `build.gradle.kts` 에 실제로 들어 있는 이름이다.

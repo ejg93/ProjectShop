@@ -61,7 +61,7 @@
 | R2 | 중개자 지위 고지 | 전자상거래법 제20조·제20조의2 | `consent_item` 의 `terms_of_service` 제2조(`V11`) — **본문에 이미 있다**<br>`SellerQuery.findPublicIdentity` — 셀러 정보 제공<br>**상품 상세가 고지를 그린다**(`14b`) — **문안이 두 벌이다.** 약관 본문을 잘라 오면 절 제목이 바뀔 때 고지가 조용히 사라져서 화면에 짧게 쓰고 전문으로 링크했다(사용자 선택)<br>**주문서도 같은 고지를 그린다**(`15-2`) — `BrokerageNotice` 를 컴포넌트로 빼서 상품 상세와 한 벌을 쓴다. 사본을 두면 한쪽 문안만 다듬는 날이 온다 | 13a, 14b, 15-2 |
 | R3 | 청약철회 기간과 기산점 | 전자상거래법 제17조 | `OrderStatusService.WITHDRAWAL_DAYS = 7`<br>`seller_order.delivered_at`·`withdrawal_expire_at` — 배송완료 때 박제<br>`OrderStatusService.requireWithdrawable` — 기한 지나면 거부<br>`order_status_history`(`V18`) — 기산점의 근거<br>**광고 상이 3개월·30일은 미착수**(`43`·`44`) | 11 |
 | R4 | 청약철회 제한 사유 | 전자상거래법 제17조제2항 | `product_withdrawal_reason_check` — 법이 인정한 셋만<br>`WithdrawalRestrictionReason` enum<br>`ProductStatusTest.withdrawalReasonMatchesConstraint` — 둘이 갈리는 것을 막는다<br>`OrderStatusService.requireWithdrawable` — 반품을 막는다<br>**상품 상세가 사유를 사람이 읽는 말로 그린다**(`14b`) — **표시가 제한의 성립 요건이라**(제17조제2항 단서) 여기까지 와야 집행에 근거가 선다. 사유를 모르는 경우에도 제한 사실은 알린다 | 6, 11, 14b |
-| R5 | 환급 기한 | 전자상거래법 제18조제2항 | **미착수**(`12a`). 지금은 `permission` 의 `payment:refund` 행뿐이다 | 12a |
+| R5 | 환급 기한 | 전자상거래법 제18조제2항 | `refund.due_at`(`V23`) — 요청할 때 박제한다<br>`RefundService.DUE_BUSINESS_DAYS = 3`·`BusinessCalendar.plusBusinessDays`<br>**기산점이 `seller_order.closed_at` 이다** — 요청 시각에서 세면 늦게 요청할수록 기한이 밀려서 법보다 늦게 줘도 안 늦은 것이 된다<br>`refund_pending_due_idx` — 기한 넘긴 미처리 요청을 찾는 자리<br>`RefundServiceTest.freezesTheRefundDeadline` — 저장하고 되읽어도 같은 날인지 본다<br>**「기한 안에 승인」은 제약으로 못 건다** — 막으면 늦은 돈이 영영 안 나간다. 강제는 「넘긴 것이 조회로 드러난다」가 천장이고 그 위는 사람이 본다<br>**넘긴 요청을 실제로 알리는 것은 미착수**(`12a-2`) | 12a-1 |
 | R6 | 거래기록 보존 | 전자상거래법 제6조, 시행령 제6조 | **`shop_order` 에 `deleted_at` 이 없다**(`V16`) — 지울 컬럼이 없는 구조<br>`order_status_history`(`V18`) — 제3항 열람의 근거<br>`OrderQuery` 상세가 이력을 같이 내린다<br>`order_shipping` 분리(`10-1`) — 개인정보만 파기<br>`TransactionPurgeService`<br>**주문 상세가 처리 내역을 그린다**(`15-3`) — 제3항이 요구하는 열람이 이 자리다. 현재 상태만 보여주면 「언제 배송됐나」에 못 답한다<br>`OrderQuery.HistoryEntry` 에 사람 이름이 없다 — 역할이면 충분하고 계정이 파기돼도 이력은 5년 남는다 | 10a, 15-3 |
 | R7 | 개인정보 수집 동의 | 개인정보법 제15조·제22조 | `consent_item` 의 `purpose`·`collected_items`·`retention_period`·`refusal_disadvantage`<br>`consent_item_notice_check` — **넷을 통째로 요구한다.** 하나만 채우는 것을 막는다<br>`consent_item_code_version_key` — 고지가 바뀌면 새 판<br>`user_consent` append-only, `current_consent` 뷰<br>`SignupService` — 계정·역할·동의가 한 트랜잭션<br>`ConsentSchemaTest` | 5 |
 | R8 | 셀러에게 주문자 정보 제공 | 개인정보법 제17조 | `permission_field_group`·`role_permission_field`(`V6`)<br>`Decision.visibleFieldGroups`<br>`FieldVisibilityTest` | 4, 8 |
@@ -193,8 +193,23 @@
 
 청약철회를 받으면 **3영업일** 이내에 대금을 환급한다. 늦으면 지연이자가 붙는다.
 
-모의 결제라 실제 환급은 없지만, 환불 워크플로(12a)에 기한 개념이 들어간다.
-요청과 승인을 가르는 설계에서 **승인이 늦어지면 기한을 넘긴다**는 점이 드러나야 한다.
+모의 결제라 실제 환급은 없지만, 환불 워크플로(12a-1)가 기한을 `refund.due_at` 에 박제한다.
+요청과 승인을 가른 설계에서 **승인이 늦어지면 기한을 넘긴다**는 것이 그 컬럼으로 드러난다.
+
+### 기산점을 요청 시각으로 잡으면 안 된다
+
+법은 「재화를 반환받은 날」부터 센다. 요청이 들어온 시각에서 세면 **늦게 요청할수록 기한이 밀려서**
+법이 정한 것보다 늦게 줘도 안 늦은 것이 된다. 그래서 묶음이 닫힌 시각(`seller_order.closed_at`)에서 센다.
+
+`payment_error` 사유만 요청일에서 센다. 반환이 없는 정정이라 기산할 반환일이 없다.
+
+### 강제 지점이 여기서 멈춘다
+
+「기한 안에 승인」을 `check` 로 못 건다. **막으면 기한을 넘긴 돈이 영영 안 나간다** —
+늦은 환불도 되기는 해야 한다. 그래서 이 요건이 닿는 가장 낮은 층은 「기한을 박제하고
+넘긴 것이 조회로 드러난다」까지고, 그 위는 사람이 본다.
+
+`D23` 「가장 낮은 층에 건다」가 늘 DB 제약까지 내려가는 것은 아니라는 예다.
 
 ## R6. 거래기록 보존
 
