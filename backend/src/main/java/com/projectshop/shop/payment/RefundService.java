@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -50,10 +51,15 @@ public class RefundService {
     static final String APPROVED_CODE = "approved";
     static final String REJECTED_CODE = "rejected";
 
-    /** {@code refund.reason_code} 에 들어가는 값(`V23`) */
+    /** {@code refund.reason_code} 에 들어가는 값(`V23`·`V25`) */
     static final String REASON_CANCELLED = "cancelled";
+    static final String REASON_SUPPLY_FAILED = "supply_failed";
+    static final String REASON_ADMIN_CANCELLED = "admin_cancelled";
     static final String REASON_WITHDRAWAL = "withdrawal";
     static final String REASON_PAYMENT_ERROR = "payment_error";
+
+    /** {@code refund.requested_by_type} 에 들어가는 값(`V25`) */
+    static final String BY_SYSTEM = "system";
 
     /**
      * 사유마다 묶음이 어느 상태여야 하나.
@@ -66,7 +72,29 @@ public class RefundService {
      */
     private static final Map<String, String> REQUIRED_BUNDLE_STATUS = Map.of(
             REASON_CANCELLED, "cancelled",
+            REASON_SUPPLY_FAILED, "cancelled",
+            REASON_ADMIN_CANCELLED, "cancelled",
             REASON_WITHDRAWAL, "returned");
+
+    /**
+     * 기산점이 <b>묶음이 닫힌 날</b>인 사유.
+     *
+     * <p>여기 없는 사유는 <b>대금을 지급한 날</b>에서 센다. 목록을 이쪽으로 만든 이유는
+     * 새 사유가 늘 때 안전한 쪽으로 떨어지게 하려는 것이다 — 빠뜨리면 기한이 이른 쪽으로
+     * 잡히고, 그건 우리가 손해를 보는 방향이지 위반이 아니다.
+     *
+     * <table>
+     *   <caption>법이 정한 기산점</caption>
+     *   <tr><th>사유</th><th>조문</th><th>기산점</th></tr>
+     *   <tr><td>{@code withdrawal}</td><td>제18조제2항 1호</td><td>재화를 반환받은 날</td></tr>
+     *   <tr><td>{@code cancelled}</td><td>제18조제2항 3호</td><td>청약철회를 한 날</td></tr>
+     *   <tr><td>{@code supply_failed}</td><td><b>제15조제2항</b></td><td><b>대금을 지급한 날</b></td></tr>
+     *   <tr><td>{@code admin_cancelled}</td><td>판단 불가</td><td>이른 쪽인 대금 지급일</td></tr>
+     *   <tr><td>{@code payment_error}</td><td>제18조 밖(부당이득)</td><td>법정 기한 없음. 결제일에서 센다</td></tr>
+     * </table>
+     */
+    private static final Set<String> DUE_FROM_CLOSED_AT =
+            Set.of(REASON_CANCELLED, REASON_WITHDRAWAL);
 
     /**
      * 판정에 쓰는 자원 이름과 동작 이름(`V3`·`V24`).
@@ -134,6 +162,55 @@ public class RefundService {
                     "그런 셀러 주문이 없다: " + command.sellerOrderNumber());
         }
 
+        return place(requesterOf(userId, bundle), bundle, command);
+    }
+
+    /**
+     * 이 사람이 이 묶음에 대해 무엇인가.
+     *
+     * <p><b>역할 이름을 안 쓴다.</b> 같은 사람이 자기 가게에서 살 수도 있어서 역할만으로는
+     * 이 요청에서 무엇이었는지가 안 갈린다 — 대상 행과의 관계로 정한다
+     * ({@code OrderActionService.actorOf} 와 같은 판단).
+     */
+    private Requester requesterOf(long userId, Bundle bundle) {
+        if (userId == bundle.buyerUserId()) {
+            return new Requester("customer", userId);
+        }
+
+        boolean member = jdbc.sql("""
+                        select exists (select 1 from seller_member
+                                        where user_id = :userId and seller_id = :sellerId)
+                        """)
+                .param("userId", userId)
+                .param("sellerId", bundle.sellerId())
+                .query(Boolean.class)
+                .single();
+
+        return new Requester(member ? "seller" : "admin", userId);
+    }
+
+    /**
+     * 배치가 요청을 만든다. <b>판정을 안 지난다.</b>
+     *
+     * <p><b>법이 청약철회만으로 환급 의무를 발생시킨다</b>(`D2` R5) — 별도 요청을 요구할 근거가
+     * 없어서, 사람이 안 내면 3영업일이 그냥 흐르고 지연배상금이 붙는다.
+     * 그것을 닫는 것이 {@link RefundSweeper} 이고 이 입구가 그 자리다.
+     *
+     * <p>판정이 없는 이유는 <b>부르는 쪽이 사람이 아니어서</b>다. 권한은 「이 사람이 이것을 해도
+     * 되나」를 묻는데 여기에는 사람이 없다. 대신 <b>패키지 밖에서 못 부른다</b> —
+     * 공개하면 HTTP 입구가 이것을 부르는 날 판정이 통째로 빠진다.
+     */
+    @Transactional
+    Refund requestBySystem(Bundle bundle, RequestCommand command) {
+        return place(Requester.system(), bundle, command);
+    }
+
+    /**
+     * <b>금액을 요청자가 안 정한다.</b> 주문 항목에 박제된 단가·수수료에서 계산한다 —
+     * 받으면 그 값이 맞는지 검사하는 코드가 따로 필요하고, 빠뜨리면 원하는 금액이 나간다
+     * ({@code PaymentService} 가 금액을 안 받는 것과 같은 이유).
+     */
+    private Refund place(Requester requester, Bundle bundle, RequestCommand command) {
         requireBundleStatus(bundle, command.reasonCode());
 
         List<Item> items = itemsOf(bundle.sellerOrderId());
@@ -142,10 +219,25 @@ public class RefundService {
 
         long amount = portions.stream().mapToLong(Portion::amount).sum() + shippingRefund;
 
-        String refundNumber = insertRefund(userId, bundle, command, amount, shippingRefund);
+        String refundNumber = insertRefund(requester, bundle, command, amount, shippingRefund);
         insertItems(refundNumber, portions);
 
         return read(refundNumber);
+    }
+
+    /**
+     * 요청을 낸 주체(`V25`).
+     *
+     * <p>{@code order_status_history} 의 {@code actor_type} 과 같은 목록을 쓴다 — 둘이 다르면
+     * 「이 행을 누가 만들었나」를 묻는 코드가 표마다 갈린다.
+     *
+     * @param userId 시스템이면 {@code null}. 제약이 그 짝을 강제한다
+     */
+    record Requester(String type, Long userId) {
+
+        static Requester system() {
+            return new Requester(BY_SYSTEM, null);
+        }
     }
 
     /**
@@ -232,7 +324,7 @@ public class RefundService {
      * <p>{@code buyerUserId}·{@code sellerId} 는 판정에 쓴다 — 스코프 {@code own} 과
      * {@code seller} 가 각각 그 둘을 본다(`D6`).
      */
-    private record Bundle(long sellerOrderId, long orderId, String sellerOrderNumber,
+    record Bundle(long sellerOrderId, long orderId, String sellerOrderNumber,
             String status, long shippingFee, OffsetDateTime closedAt,
             long buyerUserId, long sellerId) {}
 
@@ -247,7 +339,7 @@ public class RefundService {
      * <p>{@code assert_refund_within_payment} 가 같은 것을 본다. 여기서 막는 것은
      * 이유를 담은 422 를 주기 위해서고, 트리거는 다른 입구를 막는다(`D23` 축 2 의 두 겹).
      */
-    private Bundle findRefundableBundle(String sellerOrderNumber) {
+    Bundle findRefundableBundle(String sellerOrderNumber) {
         Bundle bundle = jdbc.sql("""
                         select so.seller_order_id, so.order_id, so.seller_order_number,
                                so.status, so.shipping_fee, so.closed_at, so.seller_id,
@@ -443,34 +535,62 @@ public class RefundService {
     }
 
     /**
-     * 환급 기한을 박제한다(`D2` R5, 전자상거래법 제18조제2항).
+     * 환급 기한을 박제한다(`D2` R5). <b>기산점이 사유마다 다르다.</b>
      *
-     * <p><b>기산점이 요청 시각이 아니다.</b> 법은 「재화를 반환받은 날」부터 세는데 요청 시각으로
-     * 잡으면 <b>늦게 요청할수록 기한이 밀려서</b> 법이 정한 것보다 늦게 줘도 안 늦은 것이 된다.
-     * 그래서 묶음이 닫힌 시각({@code closed_at} — 취소·반품이 채운다)에서 센다.
+     * <p><b>요청 시각에서 세면 안 된다.</b> 늦게 요청할수록 기한이 밀려서 법이 정한 것보다
+     * 늦게 줘도 안 늦은 것이 된다. 그래서 사건이 일어난 날에서 센다.
      *
-     * <p>{@code payment_error} 는 닫힌 시각이 없을 수 있다. 그 사유는 반환이 없는 정정이라
-     * 기산점이 요청일인 것이 맞다.
+     * <p>어느 사건이냐가 조문에 따라 갈린다({@link #DUE_FROM_CLOSED_AT} 의 표).
+     * <ul>
+     *   <li><b>고객 취소·반품</b> — 청약철회에 따른 환급이라 제18조제2항이고,
+     *       기산점이 묶음이 닫힌 날이다({@code closed_at})</li>
+     *   <li><b>셀러 공급 불능</b> — 청약철회가 아니라 <b>제15조제2항</b>이고,
+     *       기산점이 <b>대금을 지급한 날</b>이다. 취소 시각에서 세면 결제일보다 뒤로 밀린다</li>
+     * </ul>
+     *
+     * <p><b>결제일을 못 찾으면 오늘에서 센다.</b> 승인이 없는 주문은 애초에 여기 못 오지만
+     * ({@code findRefundableBundle}), 그 검사가 언젠가 갈릴 수 있고 그때 기한이 <b>없는 것보다는
+     * 이른 것</b>이 낫다.
      */
-    private OffsetDateTime dueAt(Bundle bundle) {
-        LocalDate from = bundle.closedAt() == null
-                ? LocalDate.now(BusinessCalendar.ZONE)
-                : bundle.closedAt().atZoneSameInstant(BusinessCalendar.ZONE).toLocalDate();
+    private OffsetDateTime dueAt(Bundle bundle, String reasonCode) {
+        LocalDate from = DUE_FROM_CLOSED_AT.contains(reasonCode)
+                ? dateOf(bundle.closedAt())
+                : dateOf(paidAt(bundle.orderId()));
 
         return BusinessCalendar.endOfDay(calendar.plusBusinessDays(from, DUE_BUSINESS_DAYS));
     }
 
-    private String insertRefund(long userId, Bundle bundle, RequestCommand command, long amount,
-            long shippingRefund) {
+    /** 대금을 지급한 날. 승인은 주문마다 하나뿐이다({@code payment_approved_unique}) */
+    private OffsetDateTime paidAt(long orderId) {
+        return jdbc.sql("""
+                        select created_at from payment
+                         where order_id = :orderId and status = 'approved'
+                        """)
+                .param("orderId", orderId)
+                .query((rs, rowNum) -> rs.getObject("created_at", OffsetDateTime.class))
+                .optional()
+                .orElse(null);
+    }
 
-        OffsetDateTime dueAt = dueAt(bundle);
+    /** 값이 없으면 오늘. 기한이 없는 것보다 이른 것이 낫다 */
+    private static LocalDate dateOf(OffsetDateTime moment) {
+        return moment == null
+                ? LocalDate.now(BusinessCalendar.ZONE)
+                : moment.atZoneSameInstant(BusinessCalendar.ZONE).toLocalDate();
+    }
+
+    private String insertRefund(Requester requester, Bundle bundle, RequestCommand command,
+            long amount, long shippingRefund) {
+
+        OffsetDateTime dueAt = dueAt(bundle, command.reasonCode());
 
         return ExposedNumber.insertWith(NUMBER_PREFIX, "환불번호", number -> jdbc.sql("""
                                 insert into refund (refund_number, seller_order_id, status,
                                                     reason_code, amount, shipping_fee_refund,
-                                                    requested_by_user_id, request_reason, due_at)
+                                                    requested_by_type, requested_by_user_id,
+                                                    request_reason, due_at)
                                 values (:number, :sellerOrderId, :status, :reasonCode, :amount,
-                                        :shippingRefund, :userId, :reason, :dueAt)
+                                        :shippingRefund, :byType, :userId, :reason, :dueAt)
                                 returning refund_number
                                 """)
                 .param("number", number)
@@ -479,7 +599,8 @@ public class RefundService {
                 .param("reasonCode", command.reasonCode())
                 .param("amount", amount)
                 .param("shippingRefund", shippingRefund)
-                .param("userId", userId)
+                .param("byType", requester.type())
+                .param("userId", requester.userId())
                 .param("reason", blankToNull(command.reason()))
                 .param("dueAt", dueAt)
                 .query(String.class)

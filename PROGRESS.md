@@ -3,7 +3,20 @@
 ## 현재 상태
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
-- **진행중 청크**: 없음
+- **진행중 청크**: **`12a-3`** — 코드는 다 섰고 **테스트가 안 붙었다.**
+
+  | 파일 | 상태 |
+  |---|---|
+  | `V25__refund_origin.sql` | 완료 — 사유 둘 추가(`supply_failed`·`admin_cancelled`), `requested_by_type`, 부분 인덱스 |
+  | `RefundService` | 완료 — `dueAt` 이 사유를 보고 기산점을 가른다, `requestBySystem` 입구 |
+  | `RefundSweeper` | 완료 — `fixedDelay` 5분, 이력의 `actor_type` 으로 사유 판정 |
+  | **`RefundSweeperTest`** | **미착수** |
+  | `RefundServiceTest` 기산점 테스트 | **미착수** — 셀러 취소가 결제일에서 세는지를 아무것도 안 지킨다 |
+
+  **결정 둘은 사용자가 골랐다** — 기산점 갈래를 `reason_code` 에 담는 것,
+  스위퍼 요청자를 `requested_by_type` + nullable 로 두는 것(`order_status_history` 선례).
+
+  기존 환불 테스트 전부 통과하고 빌드도 통과한다. 실서버 기동은 아직 안 해 봤다.
 - **다음에 할 것**: **`12a-3` 환불 요청 스위퍼**다 — **법 구멍이 열려 있다.**
   청약철회만으로 환급 의무가 생기는데(`D2` R5) 지금은 사람이 요청을 내야 환불이 시작된다.
   아무도 안 내면 3영업일이 그냥 흐르고 지연배상금이 **연 15%**로 붙는다(시행령 제21조의3).

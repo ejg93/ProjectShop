@@ -490,9 +490,9 @@ class RefundServiceTest extends PostgresTestBase {
     private void insertRefundRow(long bundleId, long amount, long itemId, int quantity) {
         long refundId = jdbc.sql("""
                         insert into refund (refund_number, seller_order_id, status, reason_code,
-                                            amount, requested_by_user_id, due_at)
+                                            amount, requested_by_type, requested_by_user_id, due_at)
                         values (:number, :bundleId, 'requested', 'cancelled', :amount,
-                                :userId, now())
+                                'customer', :userId, now())
                         returning refund_id
                         """)
                 .param("number", forcedRefundNumber())

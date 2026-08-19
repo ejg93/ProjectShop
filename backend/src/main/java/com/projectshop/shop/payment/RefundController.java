@@ -76,7 +76,9 @@ public class RefundController {
      */
     public record RefundRequest(
             @NotBlank @Size(max = 30) String sellerOrderNumber,
-            @NotBlank @Pattern(regexp = "cancelled|withdrawal|payment_error") String reasonCode,
+            @NotBlank
+            @Pattern(regexp = "cancelled|supply_failed|admin_cancelled|withdrawal|payment_error")
+            String reasonCode,
             List<@Valid LineRequest> lines,
             @Size(max = 500) String reason) {
     }
