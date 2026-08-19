@@ -59,6 +59,23 @@ docker info --format "{{.ServerVersion}}"
 이것이 실패하면 코드를 보지 말고 Docker Desktop 을 띄운다. 기동에 시간이 걸려서
 바로 다시 돌리면 같은 오류가 난다.
 
+### `bootRun` 은 죽여도 8080 을 안 놓는다
+
+`bootRun` 을 배경으로 띄우고 Gradle 쪽 프로세스를 죽여도 **앱의 JVM 은 남는다.**
+그 상태에서 `docker compose down -v` 를 하면 살아 있던 앱이 DB 를 잃고,
+`/api/health` 가 이렇게 답한다.
+
+```
+relation "flyway_schema_history" does not exist
+```
+
+**새 마이그레이션이 깨진 것처럼 보이는 것이 함정이다.** 실제로는 방금 띄우려던 앱이
+아직 뜨지도 않았고, 답한 것은 지난번 앱이다. 다시 띄우기 전에 포트를 비운다.
+
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+```
+
 ### Boot 4 는 스타터 이름이 3.x 와 다르다
 
 `build.gradle.kts` 에 실제로 들어 있는 이름이다.
