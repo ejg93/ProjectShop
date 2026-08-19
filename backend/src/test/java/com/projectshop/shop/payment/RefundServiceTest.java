@@ -152,6 +152,88 @@ class RefundServiceTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * <b>법이 사유마다 다른 기산점을 정한다</b>(`D2` R5).
+     *
+     * <p>같은 「취소」인데 조문이 갈린다 — 고객이 무르면 청약철회라 제18조제2항 3호고,
+     * 셀러가 못 보내면 공급 곤란이라 <b>제15조제2항</b>이다. 뒤엣것은 <b>대금을 지급한 날</b>부터
+     * 센다. 취소 시각에서 세면 결제일보다 뒤로 밀려서 <b>법보다 늦게 잡는다.</b>
+     *
+     * <p>결제는 {@code setUp} 에서 지금 일어나고, 이 테스트들이 <b>취소 시각을 닷새 뒤로 민다</b> —
+     * 두 기산점이 같은 날이면 무엇을 쓰든 통과해서 규칙이 있으나 없으나 초록이 된다.
+     */
+    @Nested
+    @DisplayName("환급 기한의 기산점은")
+    class DueDateBasis {
+
+        /** 결제일과 취소일이 갈리게 미는 날수. 3영업일 계산이 겹치지 않을 만큼 크다 */
+        private static final int CLOSED_LATER_DAYS = 5;
+
+        @Test
+        @DisplayName("고객 취소면 청약철회한 날이다")
+        void countsFromClosedAtWhenCustomerCancels() {
+            closeBundleLate("cancelled");
+
+            RefundService.Refund refund = requestAll();
+
+            assertThat(dueDateOf(refund))
+                    .as("제18조제2항 3호 — 재화등을 공급하지 아니한 청약철회는 철회한 날부터 센다")
+                    .isEqualTo(businessDaysAfter(today().plusDays(CLOSED_LATER_DAYS)));
+        }
+
+        @Test
+        @DisplayName("셀러 공급 불능이면 대금을 지급한 날이다")
+        void countsFromPaymentWhenSupplyFails() {
+            closeBundleLate("cancelled");
+
+            RefundService.Refund refund = request("supply_failed", ORDERED);
+
+            assertThat(dueDateOf(refund))
+                    .as("제15조제2항 — 청약철회가 아니라 공급 곤란이라 대금 지급일부터 센다")
+                    .isEqualTo(businessDaysAfter(today()));
+        }
+
+        /**
+         * 관리자 취소는 사유가 자유 텍스트라 코드가 조문을 못 고른다.
+         *
+         * <p><b>모르면 이른 쪽</b>이다 — 늦게 잡으면 위반이고 일찍 잡으면 우리가 손해를 볼 뿐이다.
+         */
+        @Test
+        @DisplayName("관리자 취소면 이른 쪽인 결제일이다")
+        void countsFromPaymentWhenAdminCancels() {
+            closeBundleLate("cancelled");
+
+            RefundService.Refund refund = request("admin_cancelled", ORDERED);
+
+            assertThat(dueDateOf(refund)).isEqualTo(businessDaysAfter(today()));
+        }
+
+        @Test
+        @DisplayName("반품이면 재화를 반환받은 날이다")
+        void countsFromClosedAtWhenReturned() {
+            closeBundleLate("returned");
+
+            RefundService.Refund refund = request("withdrawal", ORDERED);
+
+            assertThat(dueDateOf(refund))
+                    .as("제18조제2항 1호 — 셀러가 반품완료를 누르는 것이 반환 수령이다")
+                    .isEqualTo(businessDaysAfter(today().plusDays(CLOSED_LATER_DAYS)));
+        }
+
+        /** 결제보다 늦게 닫는다. 두 기산점이 갈려야 어느 쪽을 썼는지가 드러난다 */
+        private void closeBundleLate(String status) {
+            jdbc.sql("""
+                            update seller_order
+                               set status = :status, closed_at = now() + make_interval(days => :days)
+                             where order_id = :orderId
+                            """)
+                    .param("status", status)
+                    .param("days", CLOSED_LATER_DAYS)
+                    .param("orderId", orderId)
+                    .update();
+        }
+    }
+
     @Nested
     @DisplayName("부분 환불은")
     class Partial {
@@ -448,6 +530,20 @@ class RefundServiceTest extends PostgresTestBase {
     private RefundService.Refund request(String reasonCode, int quantity) {
         return refunds.request(buyerId, new RefundService.RequestCommand(sellerOrderNumber,
                 reasonCode, List.of(new RefundService.Line(orderItemId, quantity)), null));
+    }
+
+    /** 저장된 기한을 날짜로 되돌린다. 왕복이 하루를 밀지 않는지도 같이 본다(`stack.md`) */
+    private static LocalDate dueDateOf(RefundService.Refund refund) {
+        return refund.dueAt().atZoneSameInstant(BusinessCalendar.ZONE).toLocalDate();
+    }
+
+    /** 그날 다음날부터 3영업일째. 서비스가 쓰는 계산과 같은 것을 쓴다 */
+    private LocalDate businessDaysAfter(LocalDate from) {
+        return calendar.plusBusinessDays(from, 3);
+    }
+
+    private static LocalDate today() {
+        return LocalDate.now(BusinessCalendar.ZONE);
     }
 
     private long commissionOf(RefundService.Refund refund) {
