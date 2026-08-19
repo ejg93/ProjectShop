@@ -52,6 +52,19 @@ public class ShipmentController {
     public record ActionRequest(@Size(max = 500) String reason) {
     }
 
+    /**
+     * 반품 접수에만 쓰는 요청.
+     *
+     * <p><b>{@code returnReason} 이 조항을 가른다</b>(`D2` R3). 비우면 단순 변심이다 —
+     * 기본값을 하자로 두면 7일과 청약철회 제한이 아무에게도 안 걸린다.
+     *
+     * @param returnReason {@code CHANGE_OF_MIND} 또는 {@code DEFECT}. 열거값이라 대문자다(`D5`)
+     */
+    public record ReturnRequest(
+            @Size(max = 500) String reason,
+            OrderStatusService.ReturnReason returnReason) {
+    }
+
     /** 셀러가 물건을 보냈다 */
     @PostMapping("/{sellerOrderNumber}/ship")
     public ResponseEntity<Void> ship(
@@ -102,14 +115,28 @@ public class ShipmentController {
         return run(user, sellerOrderNumber, Action.CONFIRM, request);
     }
 
-    /** 고객이 반품을 접수한다. 기한과 제한 상품을 전이가 본다(`D2` R3·R4) */
+    /**
+     * 고객이 반품을 접수한다. 기한과 제한 상품을 전이가 본다(`D2` R3·R4).
+     *
+     * <p><b>사유의 종류로 조항이 갈린다.</b> 제17조제3항이 「제1항 및 제2항에도 불구하고」로
+     * 시작해서, 하자 반품은 <b>7일도 청약철회 제한도 안 걸리고 3개월</b>이다.
+     * 안 받으면 들어오는 것을 전부 단순 변심으로 볼 수밖에 없고, 그러면
+     * <b>8일째 하자 신고가 거부된다.</b>
+     *
+     * <p><b>하자 주장을 안 거른다.</b> 제17조제5항이 훼손에 소비자 책임이 있는지의 입증을
+     * 통신판매업자에게 지웠다 — 접수를 막을 근거가 없고 다툼은 사후다.
+     */
     @PostMapping("/{sellerOrderNumber}/request-return")
     public ResponseEntity<Void> requestReturn(
             @AuthenticationPrincipal ShopUser user,
             @PathVariable String sellerOrderNumber,
-            @Valid @RequestBody(required = false) ActionRequest request) {
+            @Valid @RequestBody(required = false) ReturnRequest request) {
 
-        return run(user, sellerOrderNumber, Action.REQUEST_RETURN, request);
+        actions.run(user.id(), sellerOrderNumber, Action.REQUEST_RETURN,
+                request == null ? null : request.reason(),
+                request == null ? null : request.returnReason());
+
+        return ResponseEntity.noContent().build();
     }
 
     /**

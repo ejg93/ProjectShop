@@ -59,8 +59,8 @@
 |---|---|---|---|---|
 | R1 | 셀러 신원 정보 표시 | 전자상거래법 제10조·제13조 | `seller` 신원 7컬럼(`V4`)<br>`seller_verified_fields_check` — `active` 면 빈 칸이 없다<br>`SellerQuery.findPublicIdentity` — 공개로 내린다<br>`SellerQueryTest.givesEveryRequiredField`<br>**상품 상세가 일곱 칸을 표로 그린다**(`14b`) — 신고번호가 없으면 면제 사유가 그 자리에 나간다<br>**주문서가 셀러별로 접어서 일곱 칸을 그린다**(`15-2`) — 제20조제2항이 말하는 「청약 이전」이 그 화면이다<br>**배송비를 공개 응답에 더했다**(`15-2`) — 제13조제2항이 가격에 배송료를 포함해 표시하라고 한다. 없으면 총액이 주문을 만든 뒤에야 나온다 | 3c, 14a, 14b, 15-2 |
 | R2 | 중개자 지위 고지 | 전자상거래법 제20조·제20조의2 | `consent_item` 의 `terms_of_service` 제2조(`V11`) — **본문에 이미 있다**<br>`SellerQuery.findPublicIdentity` — 셀러 정보 제공<br>**상품 상세가 고지를 그린다**(`14b`) — **문안이 두 벌이다.** 약관 본문을 잘라 오면 절 제목이 바뀔 때 고지가 조용히 사라져서 화면에 짧게 쓰고 전문으로 링크했다(사용자 선택)<br>**주문서도 같은 고지를 그린다**(`15-2`) — `BrokerageNotice` 를 컴포넌트로 빼서 상품 상세와 한 벌을 쓴다. 사본을 두면 한쪽 문안만 다듬는 날이 온다<br>**고지가 책임을 면해 주지 않는다는 것을 같이 적는다**(`V28`) — 「당사자가 아니다」만 있으면 약관규제법 제7조1호에 걸린다. 제20조제1항이 그 고지를 요구하므로 지우는 것이 아니라 더한다 | 13a, 14b, 15-2 |
-| R3 | 청약철회 기간과 기산점 | 전자상거래법 제17조 | `OrderStatusService.WITHDRAWAL_DAYS = 7`<br>`seller_order.delivered_at`·`withdrawal_expire_at` — 배송완료 때 박제<br>`OrderStatusService.requireWithdrawable` — 기한 지나면 거부<br>`order_status_history`(`V18`) — 기산점의 근거<br>**광고 상이 3개월·30일은 미착수**(`43`·`44`) | 11 |
-| R4 | 청약철회 제한 사유 | 전자상거래법 제17조제2항 | `product_withdrawal_reason_check` — 법이 인정한 셋만<br>`WithdrawalRestrictionReason` enum<br>`ProductStatusTest.withdrawalReasonMatchesConstraint` — 둘이 갈리는 것을 막는다<br>`OrderStatusService.requireWithdrawable` — 반품을 막는다<br>**상품 상세가 사유를 사람이 읽는 말로 그린다**(`14b`) — **표시가 제한의 성립 요건이라**(제17조제2항 단서) 여기까지 와야 집행에 근거가 선다. 사유를 모르는 경우에도 제한 사실은 알린다 | 6, 11, 14b |
+| R3 | 청약철회 기간과 기산점 | 전자상거래법 제17조 | ① `OrderStatusService.WITHDRAWAL_DAYS = 7`, `seller_order.withdrawal_expire_at` — 배송완료 때 박제<br>③ `DEFECT_WITHDRAWAL_MONTHS = 3`, `requireWithinDefectPeriod` — **`delivered_at` 에서 계산한다**(사용자 선택). 3개월은 역일이라 박제할 이유가 없다<br>`seller_order.return_reason`(`V29`) — 어느 조항으로 받았는지가 여기 남는다<br>`seller_order_return_reason_required_check` — 사유 없는 접수를 막는다<br>`DefectReturnTest` 9개<br>`order_status_history`(`V18`) — 기산점의 근거<br>**「안 날부터 30일」은 안 건다**(사용자 선택) — 그 날은 소비자의 인식이라 관찰할 수 없고, 제17조제5항이 다툼의 입증을 우리에게 지웠다 | 11, 11-7 |
+| R4 | 청약철회 제한 사유 | 전자상거래법 제17조제2항 | **하자 반품에는 안 걸린다**(`V29`, `11-7`) — 제17조제3항이 「제1항 및 제2항에도 불구하고」로 시작한다<br>`product_withdrawal_reason_check` — 법이 인정한 셋만<br>`WithdrawalRestrictionReason` enum<br>`ProductStatusTest.withdrawalReasonMatchesConstraint` — 둘이 갈리는 것을 막는다<br>`OrderStatusService.requireWithdrawable` — 반품을 막는다<br>**상품 상세가 사유를 사람이 읽는 말로 그린다**(`14b`) — **표시가 제한의 성립 요건이라**(제17조제2항 단서) 여기까지 와야 집행에 근거가 선다. 사유를 모르는 경우에도 제한 사실은 알린다 | 6, 11, 14b |
 | R5 | 환급 기한 | 전자상거래법 제18조제2항 | `refund.due_at`(`V23`) — 요청할 때 박제한다<br>`RefundService.DUE_BUSINESS_DAYS = 3`·`BusinessCalendar.plusBusinessDays`<br>**기산점이 `seller_order.closed_at` 이다** — 요청 시각에서 세면 늦게 요청할수록 기한이 밀려서 법보다 늦게 줘도 안 늦은 것이 된다<br>`refund_pending_due_idx` — 기한 넘긴 미처리 요청을 찾는 자리<br>`RefundServiceTest.freezesTheRefundDeadline` — 저장하고 되읽어도 같은 날인지 본다<br>**「기한 안에 승인」은 제약으로 못 건다** — 막으면 늦은 돈이 영영 안 나간다. 강제는 「넘긴 것이 조회로 드러난다」가 천장이고 그 위는 사람이 본다<br>**넘긴 요청을 실제로 알리는 것은 미착수**(`12a-2`) | 12a-1 |
 | R6 | 거래기록 보존 | 전자상거래법 제6조, 시행령 제6조 | **`shop_order` 에 `deleted_at` 이 없다**(`V16`) — 지울 컬럼이 없는 구조<br>`order_status_history`(`V18`) — 제3항 열람의 근거<br>`OrderQuery` 상세가 이력을 같이 내린다<br>`order_shipping` 분리(`10-1`) — 개인정보만 파기<br>`TransactionPurgeService`<br>**주문 상세가 처리 내역을 그린다**(`15-3`) — 제3항이 요구하는 열람이 이 자리다. 현재 상태만 보여주면 「언제 배송됐나」에 못 답한다<br>`OrderQuery.HistoryEntry` 에 사람 이름이 없다 — 역할이면 충분하고 계정이 파기돼도 이력은 5년 남는다<br>**제1항 후단의 「열람·보존」 중 보존이 빠졌다**(`15-5`) — 소비자가 자기 기록을 내려받거나 인쇄할 자리가 없다 | 10a, 15-3, 15-5 |
 | R7 | 개인정보 수집 동의 | 개인정보법 제15조·제22조 | `consent_item` 의 `purpose`·`collected_items`·`retention_period`·`refusal_disadvantage`<br>`consent_item_notice_check` — **넷을 통째로 요구한다.** 하나만 채우는 것을 막는다<br>`consent_item_code_version_key` — 고지가 바뀌면 새 판<br>`user_consent` append-only, `current_consent` 뷰<br>`SignupService` — 계정·역할·동의가 한 트랜잭션<br>`ConsentSchemaTest` | 5 |
@@ -155,7 +155,61 @@
 - 계약 내용에 관한 서면을 받은 날
 - 재화를 공급받은 날 (서면을 나중에 받았거나 재화가 나중에 온 경우)
 
-광고 내용과 다른 재화면 **공급받은 날부터 3개월 이내, 그 사실을 안 날부터 30일 이내** 중 빠른 쪽이다.
+광고 내용과 다른 재화면 **공급받은 날부터 3개월 이내, 그 사실을 안 날부터 30일 이내**다.
+
+### 「제1항 및 제2항에도 불구하고」가 둘을 동시에 연다
+
+제3항의 이 한 마디가 하자 반품의 설계를 통째로 정한다.
+
+| | 단순 변심(제1항) | 하자(제3항) |
+|---|---|---|
+| 기한 | 7일 | **공급받은 날부터 3개월** |
+| 청약철회 제한(제2항) | 걸린다 | **안 걸린다** |
+
+제2항은 **멀쩡한 물건을 무르는 것**을 막는 규정이라, 물건이 약속과 다른 경우에는
+애초에 적용될 자리가 아니다. **주문제작 상품이어도 하자면 반품된다.**
+
+`11-7` 전까지 우리는 들어오는 반품을 전부 단순 변심으로 봤다 —
+**8일째 하자 신고와 제한 상품의 하자를 거부**하고 있었다.
+
+### 하자 주장을 안 거른다
+
+제17조제5항이 정한다 — 「재화등의 훼손에 대하여 **소비자의 책임이 있는지 여부** … 다툼이 있는
+경우에는 **통신판매업자가 이를 증명**하여야 한다」.
+
+입증책임이 우리에게 있으므로 **접수 자체를 막을 근거가 없다.** 소비자가 하자라고 하면
+3개월이 열리고, 다툼은 사후다. 사유는 `seller_order.return_reason` 에 남아서
+반품 비용 부담(제18조제9항·제10항)과 셀러 평가가 그것을 읽는다.
+
+### 기한 셋 중 이것만 박제를 안 한다
+
+`withdrawal_expire_at`·`auto_confirm_at`·`ship_due_at` 은 박제한다. 근거는 `D10` 의
+「임시공휴일이 나중에 추가되면 지난 기한이 흔들린다」고, **영업일 계산이 달력을 타서**다.
+
+**제17조제3항의 3개월은 역일이다.** 조문에 영업일이라는 말이 없고, `delivered_at` 에서
+세면 언제 계산해도 같은 값이 나온다 — 박제할 이유가 없는데 박제하면 같은 사실이 두 곳에 생긴다.
+
+### 「안 날부터 30일」은 안 건다
+
+그 날은 **소비자의 인식**이라 우리가 관찰할 수 없다. 접수 화면에서 물어볼 수는 있지만
+소비자가 자기에게 불리한 날짜를 적을 이유가 없어서 거르는 힘이 없고,
+제17조제5항이 입증책임을 우리에게 지운 마당에 **소비자 진술로 권리를 자르는 모양**이 된다.
+
+**짧게 지는 쪽이 안전한 방향이다** — 3개월만 보면 우리가 더 받아 주는 것이고,
+30일을 우리가 계산해서 자르면 그것이 틀렸을 때 권리를 뺏은 것이 된다.
+안 건 것이지 빠뜨린 것이 아니다(`D23` 「안 넣은 것도 근거를 남긴다」).
+
+### 관리자 직행에는 사유가 없다
+
+`seller_order_return_reason_required_check` 를 `return_requested` 에만 걸었다.
+
+정상 경로는 접수를 지나므로 그때 채워진 값이 반품완료까지 남는다. 그런데 관리자가
+표 밖으로 옮기는 경로(`D7`)가 **접수를 건너뛰고 반품완료로 직행**할 수 있고, 그 경우는
+접수 자체가 없었으므로 조항도 없는 것이 사실이다. 왜 그랬는지는
+`order_status_history.reason` 에 남는다 — 관리자 강제 전이는 사유가 필수다(`V18`).
+
+**`returned` 에도 걸면 CS 처리가 막힌다.** 사실 아닌 값을 채워 넣게 만드는 제약은
+데이터를 지키는 것이 아니라 거짓말을 강요하는 것이다.
 
 ### 설계에 걸리는 지점
 

@@ -41,6 +41,40 @@ public class OrderStatusService {
      */
     private static final int AUTO_CONFIRM_DAYS = 8;
 
+    /**
+     * 하자 반품의 기간(`D2` R3, 전자상거래법 제17조제3항).
+     *
+     * <p><b>영업일이 아니라 역일이다.</b> 조문이 「3개월」이라고 하고 영업일이라는 말이 없다 —
+     * 7일·8일과 달리 {@link BusinessCalendar} 를 안 태우는 이유가 이것이다.
+     */
+    private static final int DEFECT_WITHDRAWAL_MONTHS = 3;
+
+    /**
+     * 반품 사유의 종류(`V29`). <b>어느 조항으로 받는지가 여기서 갈린다.</b>
+     *
+     * <p>제17조제3항이 「제1항 및 제2항에도 불구하고」로 시작해서, 하자 반품은 7일 기한도
+     * 청약철회 제한도 안 걸린다. 사유를 안 받으면 들어오는 것을 전부 단순 변심으로 볼 수밖에 없고
+     * 그러면 <b>8일째 하자 신고가 거부된다</b>.
+     */
+    public enum ReturnReason {
+
+        /** 제17조제1항. 7일이고 제한 사유가 걸린다 */
+        CHANGE_OF_MIND("change_of_mind"),
+
+        /** 제17조제3항. 표시·광고와 다르거나 계약과 다르게 이행된 경우. 3개월이고 제한이 안 걸린다 */
+        DEFECT("defect");
+
+        private final String code;
+
+        ReturnReason(String code) {
+            this.code = code;
+        }
+
+        public String code() {
+            return code;
+        }
+    }
+
     private final JdbcClient jdbc;
     private final BusinessCalendar calendar;
 
@@ -175,15 +209,37 @@ public class OrderStatusService {
      */
     @Transactional
     public void moveShipment(long sellerOrderId, Shipment to, Actor actor) {
+        moveShipment(sellerOrderId, to, actor, null);
+    }
+
+    /**
+     * 반품 사유를 실어 옮긴다.
+     *
+     * <p><b>{@code RETURN_REQUESTED} 에만 쓴다.</b> 그 밖의 전이는 사유가 없어서
+     * {@code null} 이 오고, 오버로드가 그것을 대신 넘긴다.
+     *
+     * @param returnReason 반품 접수의 사유. 없으면 단순 변심으로 본다(`V29`)
+     */
+    @Transactional
+    public void moveShipment(long sellerOrderId, Shipment to, Actor actor,
+            ReturnReason returnReason) {
+
         Shipment from = Shipment.of(currentShipmentStatus(sellerOrderId));
         require(OrderTransitions.allows(from, to), from.code(), to.code(), actor);
 
-        applyShipment(sellerOrderId, from, to, actor);
+        applyShipment(sellerOrderId, from, to, actor, returnReason);
     }
 
-    private void applyShipment(long sellerOrderId, Shipment from, Shipment to, Actor actor) {
+    private void applyShipment(long sellerOrderId, Shipment from, Shipment to, Actor actor,
+            ReturnReason returnReason) {
+
         if (to == Shipment.RETURN_REQUESTED) {
-            requireWithdrawable(sellerOrderId);
+            // 사유를 안 주면 단순 변심이다. 하자 반품은 요청이 그렇다고 말해야 열린다 —
+            // 기본값을 하자로 두면 7일과 제한 검사가 아무에게도 안 걸린다.
+            ReturnReason reason = returnReason == null ? ReturnReason.CHANGE_OF_MIND : returnReason;
+
+            requireWithdrawable(sellerOrderId, reason);
+            recordReturnReason(sellerOrderId, reason);
         }
 
         if (to == Shipment.CANCELLED) {
@@ -227,7 +283,7 @@ public class OrderStatusService {
 
         for (long sellerOrderId : pending) {
             applyShipment(sellerOrderId, Shipment.PREPARING, Shipment.CANCELLED,
-                    Actor.system("결제가 %s 로 끝나 자동 취소".formatted(reason.code())));
+                    Actor.system("결제가 %s 로 끝나 자동 취소".formatted(reason.code())), null);
         }
     }
 
@@ -256,7 +312,39 @@ public class OrderStatusService {
      * 지금 들어오는 것은 전부 단순 변심으로 볼 수밖에 없다. 사유를 받는 것은 반품 축(43·44)이고
      * 그때 이 검사에 갈래가 생긴다.
      */
-    private void requireWithdrawable(long sellerOrderId) {
+    /**
+     * 사유를 묶음에 남긴다.
+     *
+     * <p>상태만 남기면 <b>어느 조항으로 받은 것인지가 사라진다.</b> 반품 비용 부담이 사유로
+     * 갈리고(제18조제9항·제10항), 셀러 평가도 하자율을 봐야 한다.
+     *
+     * <p>{@code seller_order_return_reason_required_check} 가 같은 것을 한 층 아래에서 막는다.
+     */
+    private void recordReturnReason(long sellerOrderId, ReturnReason reason) {
+        jdbc.sql("""
+                        update seller_order set return_reason = :reason
+                         where seller_order_id = :sellerOrderId
+                        """)
+                .param("reason", reason.code())
+                .param("sellerOrderId", sellerOrderId)
+                .update();
+    }
+
+    private void requireWithdrawable(long sellerOrderId, ReturnReason reason) {
+        if (reason == ReturnReason.DEFECT) {
+            requireWithinDefectPeriod(sellerOrderId);
+            return;
+        }
+        requireWithinWithdrawalPeriod(sellerOrderId);
+        requireNoRestrictedItem(sellerOrderId);
+    }
+
+    /**
+     * 단순 변심의 기한(제17조제1항). 배송완료 때 박제한 값을 읽는다.
+     *
+     * <p>여기서 다시 계산하면 그 사이 임시공휴일이 추가됐을 때 지나간 주문의 기한까지 흔들린다(`D10`).
+     */
+    private void requireWithinWithdrawalPeriod(long sellerOrderId) {
         // 기한이 비어 있으면 막을 근거가 없다. 배송완료를 안 지난 묶음인데 그건 전이표가 이미 막는다.
         OffsetDateTime expireAt = jdbc.sql("""
                         select withdrawal_expire_at from seller_order
@@ -270,7 +358,51 @@ public class OrderStatusService {
             throw new ShopException(ErrorCode.WITHDRAWAL_PERIOD_EXPIRED,
                     "청약철회 기간이 %s 에 끝났다".formatted(expireAt));
         }
+    }
 
+    /**
+     * 하자 반품의 기한(제17조제3항). <b>공급받은 날부터 3개월</b>이다.
+     *
+     * <p><b>박제를 안 한다</b>(사용자 선택). 기한 셋을 박제한 근거는 영업일 계산이 달력을 타서
+     * 지난 기한이 흔들리는 것이었는데(`D10`), 3개월은 역일이라 언제 세도 같은 값이 나온다.
+     * 박제할 이유가 없는 값을 박제하면 같은 사실이 두 곳에 생긴다.
+     *
+     * <p><b>「안 날 또는 알 수 있었던 날부터 30일」은 안 건다</b>(`D2` R3). 그 날은 소비자의
+     * 인식이라 우리가 관찰할 수 없고, 제17조제5항이 다툼의 입증책임을 우리에게 지웠다.
+     * 짧게 지는 쪽이 안전한 방향이다 — 3개월만 보면 우리가 더 받아 주는 것이고,
+     * 30일을 우리가 계산해서 자르면 그것이 틀렸을 때 권리를 뺏은 것이 된다.
+     */
+    private void requireWithinDefectPeriod(long sellerOrderId) {
+        OffsetDateTime deliveredAt = jdbc.sql("""
+                        select delivered_at from seller_order
+                         where seller_order_id = :sellerOrderId
+                        """)
+                .param("sellerOrderId", sellerOrderId)
+                .query((rs, rowNum) -> rs.getObject("delivered_at", OffsetDateTime.class))
+                .single();
+
+        if (deliveredAt == null) {
+            return;
+        }
+
+        OffsetDateTime expireAt = deliveredAt.plusMonths(DEFECT_WITHDRAWAL_MONTHS);
+        if (expireAt.isBefore(OffsetDateTime.now())) {
+            throw new ShopException(ErrorCode.WITHDRAWAL_PERIOD_EXPIRED,
+                    "하자 반품 기간이 %s 에 끝났다".formatted(expireAt));
+        }
+    }
+
+    /**
+     * 청약철회가 제한된 상품이 들어 있나(제17조제2항, `D2` R4).
+     *
+     * <p><b>하자 반품에는 안 부른다.</b> 제17조제3항이 「제1항 <b>및 제2항</b>에도 불구하고」로
+     * 시작해서 이 제한을 통째로 비켜 간다 — 제2항은 <b>멀쩡한 물건을 무르는 것</b>을 막는
+     * 규정이라, 물건이 약속과 다른 경우에는 적용될 자리가 아니다.
+     *
+     * <p>제한 사유 하나라도 걸리면 묶음 전체를 막는다. 취소·반품의 최소 단위가 셀러 묶음이라
+     * (`D7`) 항목별로 못 가른다.
+     */
+    private void requireNoRestrictedItem(long sellerOrderId) {
         String restriction = jdbc.sql("""
                         select p.withdrawal_restriction_reason
                           from order_item oi

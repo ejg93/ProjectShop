@@ -106,6 +106,21 @@ public class OrderActionService {
      */
     @Transactional
     public void run(long userId, String sellerOrderNumber, Action action, String reason) {
+        run(userId, sellerOrderNumber, action, reason, null);
+    }
+
+    /**
+     * 반품 사유를 실어 부른다.
+     *
+     * <p><b>{@link Action#REQUEST_RETURN} 에만 쓴다.</b> 사유가 무엇이냐로 기한과 제한이 갈린다 —
+     * 하자 반품은 3개월이고 청약철회 제한이 안 걸린다(`D2` R3, 전자상거래법 제17조제3항).
+     *
+     * @param returnReason 없으면 단순 변심으로 본다
+     */
+    @Transactional
+    public void run(long userId, String sellerOrderNumber, Action action, String reason,
+            OrderStatusService.ReturnReason returnReason) {
+
         Row row = find(sellerOrderNumber);
 
         Target target = Target.of(row.buyerUserId(), row.sellerId()).inStatus(row.status());
@@ -113,7 +128,8 @@ public class OrderActionService {
             throw notFound(sellerOrderNumber);
         }
 
-        statuses.moveShipment(row.sellerOrderId(), action.to(), actorOf(userId, row, reason));
+        statuses.moveShipment(row.sellerOrderId(), action.to(), actorOf(userId, row, reason),
+                returnReason);
     }
 
     /**
