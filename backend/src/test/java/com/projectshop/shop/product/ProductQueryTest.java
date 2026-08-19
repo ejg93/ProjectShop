@@ -69,6 +69,52 @@ class ProductQueryTest extends PostgresTestBase {
         fixture.grantGlobal(customer, "customer");
     }
 
+    /**
+     * <b>첫 화면이 총액을 그리려면 배송비가 응답에 있어야 한다</b>(`D2` R24).
+     *
+     * <p>전자상거래법 제21조의2 1호가 「가격을 알리는 표시·광고의 첫 화면에서 필수 총금액 중
+     * 일부만 표시해서 유인하는 것」을 <b>금지행위</b>로 정한다. 배송비가 그 필수 수반 비용이다.
+     *
+     * <p>값이 빠지면 화면은 그저 상품가만 그린다 — <b>오류가 안 나고 조용히 어긴다.</b>
+     * 그래서 계약에 칸이 있는지를 여기서 고정한다.
+     */
+    @Nested
+    @DisplayName("총액을 그릴 값")
+    class TotalPriceInputs {
+
+        @Test
+        @DisplayName("목록이 셀러 배송비를 같이 내린다")
+        void listCarriesShippingFee() {
+            long productId = createAndPutOnSale(ownerA, sellerA, "배송비 붙는 티셔츠");
+
+            ProductQuery.PublicItem item = productQuery.findPublic(null, null, 0, 20).items()
+                    .stream()
+                    .filter(each -> each.productId() == productId)
+                    .findFirst()
+                    .orElseThrow();
+
+            assertThat(item.shippingFee())
+                    .as("셀러 조회로 따로 받으면 목록에서 상품마다 한 번씩이라 N+1 이다")
+                    .isEqualTo(shippingFeeOf(sellerA));
+        }
+
+        @Test
+        @DisplayName("상세도 같이 내린다")
+        void detailCarriesShippingFee() {
+            long productId = createAndPutOnSale(ownerA, sellerA, "배송비 붙는 셔츠");
+
+            assertThat(productQuery.findPublicDetail(productId).shippingFee())
+                    .isEqualTo(shippingFeeOf(sellerA));
+        }
+
+        private long shippingFeeOf(long sellerId) {
+            return jdbc.sql("select default_shipping_fee from seller where seller_id = :id")
+                    .param("id", sellerId)
+                    .query(Long.class)
+                    .single();
+        }
+    }
+
     @Nested
     @DisplayName("공개 목록")
     class PublicList {

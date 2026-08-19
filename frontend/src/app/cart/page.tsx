@@ -58,13 +58,38 @@ export default async function CartPage() {
                 </li>
               ))}
             </ul>
+
+            {/*
+              묶음마다 한 번 붙는다. 같은 셀러 것을 여럿 담아도 배송비는 하나라
+              줄이 아니라 묶음 바닥에 적는다.
+            */}
+            <p className="flex justify-between border-t border-border pt-2 text-sm text-text-muted">
+              <span>배송비</span>
+              <span>{group.shippingFee === 0 ? "무료" : priceText(group.shippingFee)}</span>
+            </p>
           </section>
         ))}
       </div>
 
-      <Summary total={cart.total} blocked={unavailable.length} />
+      <Summary
+        total={cart.total}
+        shippingTotal={shippingTotalOf(bySeller)}
+        blocked={unavailable.length}
+      />
     </div>
   );
+}
+
+/**
+ * 배송비 합.
+ *
+ * <p><b>살 수 없는 것만 담긴 묶음은 안 센다.</b> 그 묶음은 주문에 안 들어가서 배송비도 안 붙는데,
+ * 세면 합계가 실제로 낼 돈보다 커진다.
+ */
+function shippingTotalOf(groups: SellerGroup[]): number {
+  return groups
+    .filter((group) => group.items.some((item) => item.available))
+    .reduce((sum, group) => sum + group.shippingFee, 0);
 }
 
 /**
@@ -74,16 +99,31 @@ export default async function CartPage() {
  * (`OrderService` — 조용히 빼면 사려던 것과 산 것이 달라진다). 버튼을 눌러야 알게 되면
  * 사용자는 무엇을 고쳐야 하는지 모른 채 실패만 본다.
  *
- * <p>합계에 배송비가 없다. <b>배송지를 정해야 나오는 값</b>이라 여기서 적으면
- * 주문서에서 금액이 바뀌고, 그건 결제 직전에 값이 늘어나는 모양이 된다.
+ * <p><b>배송비를 여기서 적는다.</b> 예전에는 「배송지를 정해야 나오는 값」이라고 미뤄 뒀는데
+ * 그것이 사실과 달랐다 — 배송비는 셀러가 정한 값이라({@code seller.default_shipping_fee})
+ * 배송지와 무관하다. 주문서에 가서야 총액이 나오면 <b>결제 직전에 금액이 늘어나는 모양</b>이고,
+ * 그게 전자상거래법 제21조의2 1호가 막는 것이다(`D2` R24).
  */
-function Summary({ total, blocked }: { total: number; blocked: number }) {
+function Summary({
+  total,
+  shippingTotal,
+  blocked,
+}: {
+  total: number;
+  shippingTotal: number;
+  blocked: number;
+}) {
   return (
     <div className="grid justify-items-end gap-3 border-t border-border pt-6">
+      {/* 총액이 큰 글자다. 상품 금액만 크게 두면 배송비가 덤처럼 읽힌다(`D2` R24) */}
       <p className="text-sm text-text-muted">
-        상품 금액 <span className="text-lg font-semibold text-text">{priceText(total)}</span>
+        결제하실 금액{" "}
+        <span className="text-lg font-semibold text-text">{priceText(total + shippingTotal)}</span>
       </p>
-      <p className="text-xs text-text-muted">배송비는 주문서에서 판매자별로 계산됩니다.</p>
+      <p className="text-xs text-text-muted">
+        상품 {priceText(total)}
+        {shippingTotal === 0 ? " · 무료배송" : ` + 배송비 ${priceText(shippingTotal)}`}
+      </p>
 
       {blocked > 0 ? (
         <p role="alert" className="text-sm text-danger-text">
@@ -135,8 +175,16 @@ function Empty() {
  * 셀러로 묶는다. <b>담은 순서를 안에서 지킨다</b> — 서버가 담은 시각 순으로 내려주므로
  * 다시 정렬하지 않는다. 묶음의 순서도 그 안에서 처음 나온 순서다.
  */
-function groupBySeller(items: CartItem[]) {
-  const groups = new Map<number, { sellerId: number; sellerName: string; items: CartItem[] }>();
+/** 배송비는 셀러가 정한 값이라 그 셀러의 어느 줄에서 읽어도 같다 */
+type SellerGroup = {
+  sellerId: number;
+  sellerName: string;
+  shippingFee: number;
+  items: CartItem[];
+};
+
+function groupBySeller(items: CartItem[]): SellerGroup[] {
+  const groups = new Map<number, SellerGroup>();
 
   for (const item of items) {
     const group = groups.get(item.sellerId);
@@ -146,6 +194,7 @@ function groupBySeller(items: CartItem[]) {
       groups.set(item.sellerId, {
         sellerId: item.sellerId,
         sellerName: item.sellerName,
+        shippingFee: item.shippingFee,
         items: [item],
       });
     }

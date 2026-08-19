@@ -36,9 +36,12 @@ export type PublicSku = {
 export function PurchasePanel({
   options,
   skus,
+  shippingFee,
 }: {
   options: OptionGroup[];
   skus: PublicSku[];
+  /** 이 셀러의 배송비. 총액을 그리려면 있어야 한다(`D2` R24) */
+  shippingFee: number;
 }) {
   // 옵션 축 id → 고른 값 id. 축이 없는 상품이면 영원히 빈 객체다.
   const [picked, setPicked] = useState<Record<number, number>>({});
@@ -116,7 +119,7 @@ export function PurchasePanel({
         </fieldset>
       ))}
 
-      <Status options={options} allPicked={allPicked} sku={sku} />
+      <Status options={options} allPicked={allPicked} sku={sku} shippingFee={shippingFee} />
 
       {sku?.inStock ? (
         <button
@@ -174,10 +177,12 @@ function Status({
   options,
   allPicked,
   sku,
+  shippingFee,
 }: {
   options: OptionGroup[];
   allPicked: boolean;
   sku: PublicSku | undefined;
+  shippingFee: number;
 }) {
   if (!allPicked) {
     return (
@@ -196,10 +201,25 @@ function Status({
 
   return (
     <div className="grid gap-1">
-      <p className="text-lg font-semibold">{sku.priceInclVat.toLocaleString("ko-KR")}원</p>
+      {/*
+        총액이 큰 글자다(`D2` R24, 전자상거래법 제21조의2 1호). 법이 막는 것은
+        「총금액 중 일부만 표시해서 유인하는 것」이라, 상품가만 크게 두고 배송비를
+        작게 두면 규제 대상이 된 바로 그 관행이 된다.
+      */}
+      <p className="text-lg font-semibold">{priceText(sku.priceInclVat + shippingFee)}</p>
+      <p className="text-sm text-text-muted">
+        {shippingFee === 0
+          ? `상품 ${priceText(sku.priceInclVat)} · 무료배송`
+          : `상품 ${priceText(sku.priceInclVat)} + 배송비 ${priceText(shippingFee)}`}
+      </p>
       {sku.inStock ? null : <p className="text-sm text-danger-text">품절된 조합입니다.</p>}
     </div>
   );
+}
+
+/** 부가세가 이미 포함된 값이다(`D8`). 화면이 다시 더하지 않는다 */
+function priceText(amount: number): string {
+  return `${amount.toLocaleString("ko-KR")}원`;
 }
 
 /**

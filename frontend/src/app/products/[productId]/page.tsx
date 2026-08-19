@@ -23,6 +23,8 @@ type ProductDetail = {
   description: string | null;
   withdrawalRestricted: boolean;
   withdrawalRestrictionReason: WithdrawalReason | null;
+  /** 이 셀러의 배송비. 총액을 그리려면 있어야 한다(`D2` R24) */
+  shippingFee: number;
   options: OptionGroup[];
   skus: PublicSku[];
 };
@@ -91,7 +93,11 @@ export default async function ProductDetailPage({
             ) : null}
           </div>
 
-          <PurchasePanel options={product.options} skus={product.skus} />
+          <PurchasePanel
+            options={product.options}
+            skus={product.skus}
+            shippingFee={product.shippingFee}
+          />
 
           {product.withdrawalRestricted ? (
             <Withdrawal reason={product.withdrawalRestrictionReason} />

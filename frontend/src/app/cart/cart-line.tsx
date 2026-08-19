@@ -21,6 +21,8 @@ export type CartItem = {
   sellerId: number;
   sellerName: string;
   priceInclVat: number;
+  /** 이 셀러의 배송비. <b>묶음마다 한 번 붙어서</b> 줄이 아니라 묶음 바닥에 그린다(`D2` R24) */
+  shippingFee: number;
   quantity: number;
   available: boolean;
 };

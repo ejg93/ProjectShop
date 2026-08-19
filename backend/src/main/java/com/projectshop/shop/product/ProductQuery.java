@@ -58,9 +58,16 @@ public class ProductQuery {
         this.evaluator = evaluator;
     }
 
-    /** 누구에게나 같은 값. 수수료율·재고·업무 상태가 없다 */
+    /**
+     * 누구에게나 같은 값. 수수료율·재고·업무 상태가 없다.
+     *
+     * @param shippingFee 이 셀러의 배송비. <b>가격만 내리면 화면이 총액을 못 그린다</b> —
+     *                    전자상거래법 제21조의2 1호가 첫 화면에 필수 총금액을 요구하고
+     *                    배송비가 그 필수 수반 비용이다(`D2` R24). 셀러 조회로 따로 받으면
+     *                    목록에서 상품마다 한 번씩이라 N+1 이다
+     */
     public record PublicItem(long productId, long sellerId, String sellerName, String name,
-            long minPriceInclVat, OffsetDateTime createdAt) {
+            long minPriceInclVat, long shippingFee, OffsetDateTime createdAt) {
     }
 
     /**
@@ -83,7 +90,8 @@ public class ProductQuery {
      */
     public record PublicDetail(long productId, long sellerId, String sellerName, String name,
             String description, boolean withdrawalRestricted, String withdrawalRestrictionReason,
-            List<OptionGroup> options, List<PublicSku> skus, OffsetDateTime createdAt) {
+            long shippingFee, List<OptionGroup> options, List<PublicSku> skus,
+            OffsetDateTime createdAt) {
     }
 
     /** 옵션 하나와 고를 수 있는 값들. 「색상」에 「빨강·파랑」 같은 것 */
@@ -119,7 +127,8 @@ public class ProductQuery {
 
         List<PublicItem> items = jdbc.sql("""
                         select p.product_id, p.seller_id, s.name as seller_name, p.name,
-                               coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat, p.created_at
+                               coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat,
+                               s.default_shipping_fee, p.created_at
                           from product p
                           join seller s on s.seller_id = p.seller_id
                           left join sku sk on sk.product_id = p.product_id
@@ -128,7 +137,7 @@ public class ProductQuery {
                          where p.status = 'on_sale' and p.deleted_at is null
                            and (cast(:sellerId as bigint) is null
                                 or p.seller_id = cast(:sellerId as bigint))
-                         group by p.product_id, s.name
+                         group by p.product_id, s.name, s.default_shipping_fee
                         """
                 // 텍스트 블록은 줄 끝 공백을 지운다. 블록 안에서 이으면 "order by" 와
                 // 컬럼이 붙어 버려서, 공백을 이 문자열에 직접 넣는다.
@@ -143,6 +152,7 @@ public class ProductQuery {
                         rs.getString("seller_name"),
                         rs.getString("name"),
                         rs.getLong("min_price_incl_vat"),
+                        rs.getLong("default_shipping_fee"),
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .list();
 
@@ -242,7 +252,8 @@ public class ProductQuery {
         PublicDetail head = jdbc.sql("""
                         select p.product_id, p.seller_id, s.name as seller_name, p.name,
                                p.description, p.is_withdrawal_restricted,
-                               p.withdrawal_restriction_reason, p.created_at
+                               p.withdrawal_restriction_reason, s.default_shipping_fee,
+                               p.created_at
                           from product p
                           join seller s on s.seller_id = p.seller_id
                          where p.product_id = :id
@@ -257,6 +268,7 @@ public class ProductQuery {
                         rs.getString("description"),
                         rs.getBoolean("is_withdrawal_restricted"),
                         reasonValue(rs.getString("withdrawal_restriction_reason")),
+                        rs.getLong("default_shipping_fee"),
                         List.of(),
                         List.of(),
                         rs.getObject("created_at", OffsetDateTime.class)))
@@ -266,7 +278,8 @@ public class ProductQuery {
 
         return new PublicDetail(head.productId(), head.sellerId(), head.sellerName(), head.name(),
                 head.description(), head.withdrawalRestricted(), head.withdrawalRestrictionReason(),
-                findOptions(productId), findPublicSkus(productId), head.createdAt());
+                head.shippingFee(), findOptions(productId), findPublicSkus(productId),
+                head.createdAt());
     }
 
     /**

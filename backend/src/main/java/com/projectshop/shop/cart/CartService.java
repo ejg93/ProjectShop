@@ -49,11 +49,14 @@ public class CartService {
      * @param sellerName   파는 사람. <b>주문서가 청약 이전에 신원을 제공해야 한다</b>
      *                     (`D2` R1, 전자상거래법 제20조제2항). 그 화면이 셀러별로 묶으려면 여기가 실려야 한다
      * @param priceInclVat 지금 가격이다. <b>주문할 때 박제한다</b>(청크 10) — 담아 둔 사이에 바뀔 수 있다
+     * @param shippingFee  이 셀러의 배송비. <b>묶음마다 한 번 붙는다</b> — 같은 셀러 것을 여럿 담아도
+     *                     한 번이라 화면이 셀러로 묶어 더한다. 담을 때 결정되는 값이 아니라
+     *                     지금 값이고, 주문할 때 {@code seller_order.shipping_fee} 로 박제된다
      * @param available    지금 살 수 있나. 재고가 없거나 상품이 내려갔으면 거짓이다
      */
     public record Item(long cartItemId, long skuId, long productId, String productName,
             String optionLabel, long sellerId, String sellerName,
-            long priceInclVat, int quantity, boolean available) {
+            long priceInclVat, long shippingFee, int quantity, boolean available) {
     }
 
     public record Cart(List<Item> items, long total) {
@@ -216,7 +219,7 @@ public class CartService {
         return jdbc.sql("""
                         select ci.cart_item_id, ci.sku_id, ci.quantity,
                                p.product_id, p.name as product_name, s.price_incl_vat,
-                               p.seller_id, sel.name as seller_name,
+                               p.seller_id, sel.name as seller_name, sel.default_shipping_fee,
                                (select string_agg(pov.value, ' / ' order by po.sort_no, pov.sort_no)
                                   from sku_option_value sov
                                   join product_option_value pov
@@ -244,6 +247,7 @@ public class CartService {
                         rs.getLong("seller_id"),
                         rs.getString("seller_name"),
                         rs.getLong("price_incl_vat"),
+                        rs.getLong("default_shipping_fee"),
                         rs.getInt("quantity"),
                         rs.getBoolean("available")))
                 .list();

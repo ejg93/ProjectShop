@@ -30,6 +30,8 @@ type ProductItem = {
   sellerName: string;
   name: string;
   minPriceInclVat: number;
+  /** 이 셀러의 배송비. 총액을 그리려면 있어야 한다(`D2` R24) */
+  shippingFee: number;
   createdAt: string;
 };
 
@@ -125,9 +127,35 @@ function ProductCard({ item }: { item: ProductItem }) {
           </h2>
           <p className="text-xs text-text-muted">{item.sellerName}</p>
         </div>
-        <p className="text-sm font-semibold">{priceText(item.minPriceInclVat)}</p>
+        <TotalPrice price={item.minPriceInclVat} shippingFee={item.shippingFee} />
       </div>
     </Link>
+  );
+}
+
+/**
+ * 사려면 실제로 내야 하는 돈.
+ *
+ * <p><b>총액이 큰 글자다</b>(`D2` R24, 전자상거래법 제21조의2 1호). 법이 막는 것은
+ * 「총금액 중 일부만 표시해서 유인하는 것」이라, 상품가만 크게 두고 배송비를 작게 두면
+ * 규제 대상이 된 바로 그 관행이 된다.
+ *
+ * <p>내역을 같이 적는다. 총액만 있으면 배송비가 얼마인지 못 보고, 그것도 제13조제2항이
+ * 요구하는 표시다.
+ *
+ * <p><b>무료배송은 그렇게 적는다.</b> 배송비 줄을 통째로 빼면 「배송비가 있는데 안 적었나」와
+ * 「없나」가 화면에서 안 갈린다.
+ */
+function TotalPrice({ price, shippingFee }: { price: number; shippingFee: number }) {
+  return (
+    <div className="grid gap-0.5">
+      <p className="text-sm font-semibold">{priceText(price + shippingFee)}</p>
+      <p className="text-xs text-text-muted">
+        {shippingFee === 0
+          ? `상품 ${priceText(price)} · 무료배송`
+          : `상품 ${priceText(price)} + 배송비 ${priceText(shippingFee)}`}
+      </p>
+    </div>
   );
 }
 
