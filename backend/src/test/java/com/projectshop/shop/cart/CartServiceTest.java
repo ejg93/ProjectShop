@@ -64,7 +64,7 @@ class CartServiceTest extends PostgresTestBase {
         fixture.grantGlobal(buyer, "customer");
 
         ProductService.Created created = productService.create(owner, new ProductService.Command(
-                sellerId, "티셔츠", null, null, false, null,
+                sellerId, "티셔츠", null, null, false, null, null,
                 List.of(new ProductService.OptionCommand("색상", List.of("검정", "흰색"))),
                 List.of(new ProductService.SkuCommand(List.of("검정"), 15000, 10),
                         new ProductService.SkuCommand(List.of("흰색"), 18000, 10))));
@@ -282,7 +282,7 @@ class CartServiceTest extends PostgresTestBase {
                 .query(Long.class).single();
 
         return productService.create(owner, new ProductService.Command(
-                sellerId, "준비 중", null, null, false, null,
+                sellerId, "준비 중", null, null, false, null, null,
                 List.of(),
                 List.of(new ProductService.SkuCommand(List.of(), 1000, 1)))).skuIds().get(0);
     }

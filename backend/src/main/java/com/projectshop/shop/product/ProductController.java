@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -201,6 +203,9 @@ public class ProductController {
      *
      * @param commissionBp 비우면 셀러 기본 요율을 쓴다(`D3`)
      * @param withdrawalRestricted 비우면 제한 없음으로 본다. 대부분의 상품이 그렇다
+     * @param supplyLeadDays 공급시기 약정 날수(영업일). <b>비우면 법정 3영업일이 걸린다</b> —
+     *                       비운 것이 「빠르게 보낸다」가 아니라 「약정이 없다」다
+     *                       (`D2` R21, 전자상거래법 제15조제1항 단서)
      * @param options      옵션이 없는 상품은 빈 배열이고 SKU 가 하나다
      */
     public record ProductRequest(
@@ -210,6 +215,7 @@ public class ProductController {
             Integer commissionBp,
             Boolean withdrawalRestricted,
             String withdrawalRestrictionReason,
+            @Min(0) @Max(60) Integer supplyLeadDays,
             @NotNull List<@Valid OptionRequest> options,
             @NotEmpty List<@Valid SkuRequest> skus) {
 
@@ -217,6 +223,7 @@ public class ProductController {
             return new ProductService.Command(
                     sellerId, name, description, commissionBp,
                     Boolean.TRUE.equals(withdrawalRestricted), withdrawalRestrictionReason,
+                    supplyLeadDays,
                     options.stream()
                             .map(o -> new ProductService.OptionCommand(o.name(), o.values()))
                             .toList(),

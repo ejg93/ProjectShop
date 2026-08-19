@@ -159,7 +159,7 @@ class ProductServiceTest extends PostgresTestBase {
         @DisplayName("SKU 가 없으면 못 만든다")
         void rejectsProductWithoutSku() {
             ProductService.Command command = new ProductService.Command(
-                    sellerA, "빈 상품", null, null, false, null,
+                    sellerA, "빈 상품", null, null, false, null, null,
                     List.of(new ProductService.OptionCommand("색상", List.of("검정"))),
                     List.of());
 
@@ -173,7 +173,7 @@ class ProductServiceTest extends PostgresTestBase {
         @DisplayName("선언 안 한 옵션값으로 조합을 만들 수 없다")
         void rejectsUndeclaredOptionValue() {
             ProductService.Command command = new ProductService.Command(
-                    sellerA, "티셔츠", null, null, false, null,
+                    sellerA, "티셔츠", null, null, false, null, null,
                     List.of(new ProductService.OptionCommand("색상", List.of("검정"))),
                     List.of(new ProductService.SkuCommand(List.of("빨강"), 15000, 1)));
 
@@ -187,7 +187,7 @@ class ProductServiceTest extends PostgresTestBase {
         @DisplayName("옵션 축 수와 조합 길이가 다르면 못 만든다")
         void rejectsWrongCombinationLength() {
             ProductService.Command command = new ProductService.Command(
-                    sellerA, "티셔츠", null, null, false, null,
+                    sellerA, "티셔츠", null, null, false, null, null,
                     List.of(new ProductService.OptionCommand("색상", List.of("검정")),
                             new ProductService.OptionCommand("사이즈", List.of("M"))),
                     List.of(new ProductService.SkuCommand(List.of("검정"), 15000, 1)));
@@ -207,7 +207,7 @@ class ProductServiceTest extends PostgresTestBase {
             long productId = productService.create(ownerA, tshirt(sellerA)).productId();
 
             ProductService.Command changed = new ProductService.Command(
-                    sellerA, "티셔츠 개정", null, null, false, null,
+                    sellerA, "티셔츠 개정", null, null, false, null, null,
                     List.of(new ProductService.OptionCommand("사이즈", List.of("M", "L", "XL"))),
                     List.of(new ProductService.SkuCommand(List.of("M"), 17000, 5),
                             new ProductService.SkuCommand(List.of("L"), 17000, 5),
@@ -258,7 +258,7 @@ class ProductServiceTest extends PostgresTestBase {
             placeOrderOn(anySkuOf(productId));
 
             ProductService.Command repriced = new ProductService.Command(
-                    sellerA, "티셔츠", null, null, false, null,
+                    sellerA, "티셔츠", null, null, false, null, null,
                     List.of(new ProductService.OptionCommand("색상", List.of("검정", "흰색"))),
                     List.of(new ProductService.SkuCommand(List.of("검정"), 19000, 3),
                             new ProductService.SkuCommand(List.of("흰색"), 19000, 3)));
@@ -280,7 +280,7 @@ class ProductServiceTest extends PostgresTestBase {
             placeOrderOn(anySkuOf(productId));
 
             ProductService.Command differentAxis = new ProductService.Command(
-                    sellerA, "티셔츠", null, null, false, null,
+                    sellerA, "티셔츠", null, null, false, null, null,
                     List.of(new ProductService.OptionCommand("사이즈", List.of("M", "L"))),
                     List.of(new ProductService.SkuCommand(List.of("M"), 15000, 5),
                             new ProductService.SkuCommand(List.of("L"), 15000, 5)));
@@ -360,7 +360,7 @@ class ProductServiceTest extends PostgresTestBase {
     /** 색상 두 가지짜리 티셔츠. 대부분의 테스트가 이걸 쓴다 */
     private static ProductService.Command tshirt(long sellerId) {
         return new ProductService.Command(
-                sellerId, "티셔츠", "면 100%", null, false, null,
+                sellerId, "티셔츠", "면 100%", null, false, null, null,
                 List.of(new ProductService.OptionCommand("색상", List.of("검정", "흰색"))),
                 List.of(new ProductService.SkuCommand(List.of("검정"), 15000, 10),
                         new ProductService.SkuCommand(List.of("흰색"), 15000, 7)));

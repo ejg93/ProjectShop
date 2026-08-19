@@ -79,11 +79,17 @@ public class OrderQuery {
      *
      * @param withdrawalExpireAt 청약철회 기한. 배송완료 때 박제한 값이다
      * @param autoConfirmAt      자동 구매확정 예정일. 배치가 이 시각을 보고 옮긴다
+     * @param shipDueAt          발송 기한. 결제 승인 때 박제한다(`D2` R21, 전자상거래법 제15조제1항)
+     * @param shippedAt          실제로 보낸 시각. 늦게 보낸 것도 사후에 보인다
+     * @param shipOverdue        발송이 늦었나. <b>서버가 판단한다</b> — 화면이 두 시각을 비교하면
+     *                           시계 차이만큼 답이 갈리고, 아직 안 보낸 것과 늦게 보낸 것을
+     *                           가르는 규칙이 두 벌이 된다
      * @param allowedActions     지금 이 묶음에 할 수 있는 것. 소문자·하이픈이 곧 경로다
      */
     public record SellerOrder(String sellerOrderNumber, String sellerName, String status,
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
-            OffsetDateTime autoConfirmAt, List<Item> items, List<String> allowedActions) {
+            OffsetDateTime autoConfirmAt, OffsetDateTime shipDueAt, OffsetDateTime shippedAt,
+            boolean shipOverdue, List<Item> items, List<String> allowedActions) {
     }
 
     /**
@@ -280,7 +286,10 @@ public class OrderQuery {
         return jdbc.sql("""
                         select so.seller_order_id, so.seller_order_number, so.seller_id,
                                s.name as seller_name, so.status, so.shipping_fee,
-                               so.delivered_at, so.withdrawal_expire_at, so.auto_confirm_at
+                               so.delivered_at, so.withdrawal_expire_at, so.auto_confirm_at,
+                               so.ship_due_at, so.shipped_at,
+                               (so.ship_due_at is not null
+                                and coalesce(so.shipped_at, now()) > so.ship_due_at) as ship_overdue
                           from seller_order so
                           join seller s on s.seller_id = so.seller_id
                          where so.order_id = :orderId
@@ -295,6 +304,9 @@ public class OrderQuery {
                         rs.getObject("delivered_at", OffsetDateTime.class),
                         rs.getObject("withdrawal_expire_at", OffsetDateTime.class),
                         rs.getObject("auto_confirm_at", OffsetDateTime.class),
+                        rs.getObject("ship_due_at", OffsetDateTime.class),
+                        rs.getObject("shipped_at", OffsetDateTime.class),
+                        rs.getBoolean("ship_overdue"),
                         List.copyOf(itemsBySellerOrder.getOrDefault(
                                 rs.getLong("seller_order_id"), List.of())),
                         actions.allowedActions(viewerId, buyerUserId,

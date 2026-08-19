@@ -55,6 +55,9 @@ public class ProductService {
     /**
      * @param commissionBp 이 상품만의 수수료율. null 이면 셀러 기본 요율을 쓴다(`D3`)
      * @param withdrawalRestrictionReason 청약철회 제한 사유. 제한 안 하면 null(`D2` R4)
+     * @param supplyLeadDays 공급시기 약정 날수(영업일). <b>null 이 기본값을 뜻하지 않는다</b> —
+     *                       「약정이 없다」는 사실이고, 약정이 없으면 법정 3영업일이 걸린다
+     *                       (`D2` R21, 전자상거래법 제15조제1항 단서)
      */
     public record Command(
             long sellerId,
@@ -63,6 +66,7 @@ public class ProductService {
             Integer commissionBp,
             boolean withdrawalRestricted,
             String withdrawalRestrictionReason,
+            Integer supplyLeadDays,
             List<OptionCommand> options,
             List<SkuCommand> skus) {
     }
@@ -115,7 +119,8 @@ public class ProductService {
                            set name = :name, description = :description,
                                commission_bp = :commissionBp,
                                is_withdrawal_restricted = :restricted,
-                               withdrawal_restriction_reason = :reason
+                               withdrawal_restriction_reason = :reason,
+                               supply_lead_days = :leadDays
                          where product_id = :id and deleted_at is null
                         """)
                 .param("name", command.name())
@@ -123,6 +128,7 @@ public class ProductService {
                 .param("commissionBp", command.commissionBp())
                 .param("restricted", command.withdrawalRestricted())
                 .param("reason", command.withdrawalRestrictionReason())
+                .param("leadDays", command.supplyLeadDays())
                 .param("id", productId)
                 .update();
 
@@ -219,9 +225,9 @@ public class ProductService {
         return jdbc.sql("""
                         insert into product (seller_id, created_by_user_id, name, description,
                                              commission_bp, is_withdrawal_restricted,
-                                             withdrawal_restriction_reason)
+                                             withdrawal_restriction_reason, supply_lead_days)
                         values (:sellerId, :actor, :name, :description,
-                                :commissionBp, :restricted, :reason)
+                                :commissionBp, :restricted, :reason, :leadDays)
                         returning product_id
                         """)
                 .param("sellerId", command.sellerId())
@@ -231,6 +237,7 @@ public class ProductService {
                 .param("commissionBp", command.commissionBp())
                 .param("restricted", command.withdrawalRestricted())
                 .param("reason", command.withdrawalRestrictionReason())
+                .param("leadDays", command.supplyLeadDays())
                 .query(Long.class)
                 .single();
     }

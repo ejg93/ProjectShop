@@ -57,7 +57,7 @@ class ProductReviewServiceTest extends PostgresTestBase {
         fixture.grantGlobal(admin, "admin");
 
         productId = productService.create(owner, new ProductService.Command(
-                sellerId, "티셔츠", null, null, false, null,
+                sellerId, "티셔츠", null, null, false, null, null,
                 List.of(new ProductService.OptionCommand("색상", List.of("검정"))),
                 List.of(new ProductService.SkuCommand(List.of("검정"), 15000, 10)))).productId();
     }

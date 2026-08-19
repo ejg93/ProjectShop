@@ -68,6 +68,7 @@ public class SellerOrderQuery {
     public record Detail(String sellerOrderNumber, String orderNumber, String status,
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
+            OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue,
             List<OrderQuery.Item> items, List<String> allowedActions, OrderQuery.Shipping shipping,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
     }
@@ -76,7 +77,8 @@ public class SellerOrderQuery {
     private record Row(long sellerOrderId, long orderId, String sellerOrderNumber,
             String orderNumber, long buyerUserId, long sellerId, String status, long shippingFee,
             OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
-            OffsetDateTime autoConfirmAt, OffsetDateTime createdAt) {
+            OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
+            OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue) {
     }
 
     /**
@@ -155,7 +157,10 @@ public class SellerOrderQuery {
                         select so.seller_order_id, so.order_id, so.seller_order_number,
                                o.order_number, o.user_id as buyer_user_id, so.seller_id,
                                so.status, so.shipping_fee, so.delivered_at,
-                               so.withdrawal_expire_at, so.auto_confirm_at, so.created_at
+                               so.withdrawal_expire_at, so.auto_confirm_at, so.created_at,
+                               so.ship_due_at, so.shipped_at,
+                               (so.ship_due_at is not null
+                                and coalesce(so.shipped_at, now()) > so.ship_due_at) as ship_overdue
                           from seller_order_visible so
                           join shop_order o on o.order_id = so.order_id
                          where so.seller_order_number = :number
@@ -173,7 +178,10 @@ public class SellerOrderQuery {
                         rs.getObject("delivered_at", OffsetDateTime.class),
                         rs.getObject("withdrawal_expire_at", OffsetDateTime.class),
                         rs.getObject("auto_confirm_at", OffsetDateTime.class),
-                        rs.getObject("created_at", OffsetDateTime.class)))
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        rs.getObject("ship_due_at", OffsetDateTime.class),
+                        rs.getObject("shipped_at", OffsetDateTime.class),
+                        rs.getBoolean("ship_overdue")))
                 .optional()
                 .orElseThrow(() -> notFound(sellerOrderNumber));
 
@@ -192,6 +200,9 @@ public class SellerOrderQuery {
                 row.withdrawalExpireAt(),
                 row.autoConfirmAt(),
                 row.createdAt(),
+                row.shipDueAt(),
+                row.shippedAt(),
+                row.shipOverdue(),
                 itemsOf(row.sellerOrderId()),
                 actions.allowedActions(viewerId, row.buyerUserId(), row.sellerId(), row.status()),
                 decision.canSee(OrderFields.SHIPPING) ? shippingOf(row.orderId()) : null,

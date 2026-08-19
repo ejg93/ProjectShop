@@ -91,8 +91,49 @@ public class OrderStatusService {
 
         recordOrderHistory(orderId, from, to, actor);
 
+        if (to == Payment.PAID) {
+            freezeShipDeadline(orderId);
+        }
         if (to == Payment.PAYMENT_EXPIRED || to == Payment.PAYMENT_FAILED) {
             cancelSellerOrdersOf(orderId, to);
+        }
+    }
+
+    /**
+     * 결제가 승인된 순간 발송 기한을 박제한다(`D2` R21, 전자상거래법 제15조제1항).
+     *
+     * <p><b>선지급식이라 기산점이 대금을 지급한 날이다.</b> 법이 3영업일을 정했고,
+     * 공급시기를 따로 약정한 상품은 그 날수를 쓴다(제15조제1항 단서) —
+     * 주문 시점에 묶음에 박제해 둔 {@code supply_lead_days} 가 그 값이다(`V26`).
+     *
+     * <p><b>지금 계산하고 다시 안 센다.</b> 조회할 때마다 세면 임시공휴일이 나중에 추가됐을 때
+     * 지나간 주문의 기한까지 흔들린다(`D10`) — {@link #freezeDeadlines} 와 같은 이유다.
+     *
+     * <p>한 주문의 묶음이 여럿이면 <b>각자 다른 기한을 갖는다.</b> 약정이 상품마다 다르고
+     * 묶음이 셀러마다 나가므로 하나로 묶을 근거가 없다.
+     */
+    private void freezeShipDeadline(long orderId) {
+        LocalDate paidOn = LocalDate.now(BusinessCalendar.ZONE);
+
+        List<Long[]> bundles = jdbc.sql("""
+                        select seller_order_id, supply_lead_days from seller_order
+                         where order_id = :orderId
+                         order by seller_order_id
+                        """)
+                .param("orderId", orderId)
+                .query((rs, rowNum) -> new Long[] {
+                        rs.getLong("seller_order_id"), (long) rs.getInt("supply_lead_days")})
+                .list();
+
+        for (Long[] bundle : bundles) {
+            jdbc.sql("""
+                            update seller_order set ship_due_at = :dueAt
+                             where seller_order_id = :sellerOrderId
+                            """)
+                    .param("dueAt", BusinessCalendar.endOfDay(
+                            calendar.plusBusinessDays(paidOn, bundle[1].intValue())))
+                    .param("sellerOrderId", bundle[0])
+                    .update();
         }
     }
 
@@ -154,6 +195,9 @@ public class OrderStatusService {
             updateShipmentStatus(sellerOrderId, to);
         }
 
+        if (to == Shipment.SHIPPING) {
+            markShipped(sellerOrderId);
+        }
         if (to == Shipment.DELIVERED) {
             freezeDeadlines(sellerOrderId);
         }
@@ -314,6 +358,21 @@ public class OrderStatusService {
         LocalDate afterWithdrawal = withdrawalLastDay.plusDays(1);
 
         return calendar.nextBusinessDay(byCount.isAfter(afterWithdrawal) ? byCount : afterWithdrawal);
+    }
+
+    /**
+     * 실제로 보낸 시각을 남긴다(`D2` R21).
+     *
+     * <p><b>이것이 없으면 지연이 「지금 {@code preparing} 이면서 기한을 넘긴 것」으로만 표현되고,
+     * 늦게라도 보내는 순간 흔적이 사라진다.</b> 상습적으로 늦는 셀러와 한 번 늦은 셀러가
+     * 데이터에서 같아 보이고, 그러면 제재의 근거가 없다.
+     *
+     * <p>{@code delivered_at} 이 이미 같은 모양이다 — 배송 소요일 같은 지표도 그 둘의 차로 나온다.
+     */
+    private void markShipped(long sellerOrderId) {
+        jdbc.sql("update seller_order set shipped_at = now() where seller_order_id = :sellerOrderId")
+                .param("sellerOrderId", sellerOrderId)
+                .update();
     }
 
     /** 거래가 끝난 시각. 보존 기간이 여기서부터 흐른다(`D13`) */

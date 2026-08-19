@@ -356,7 +356,7 @@ class ProductQueryTest extends PostgresTestBase {
         @DisplayName("청약철회 제한은 사유까지 대문자로 나간다")
         void exposesWithdrawalRestriction() {
             long productId = productService.create(ownerA, new ProductService.Command(
-                    sellerA, "주문 제작 티셔츠", null, null, true, "made_to_order",
+                    sellerA, "주문 제작 티셔츠", null, null, true, "made_to_order", null,
                     List.of(new ProductService.OptionCommand("색상", List.of("검정"))),
                     List.of(new ProductService.SkuCommand(List.of("검정"), 20000, 3))))
                     .productId();
@@ -386,7 +386,7 @@ class ProductQueryTest extends PostgresTestBase {
 
     private long create(long actorUserId, long sellerId, String name) {
         return productService.create(actorUserId, new ProductService.Command(
-                sellerId, name, null, null, false, null,
+                sellerId, name, null, null, false, null, null,
                 List.of(new ProductService.OptionCommand("색상", List.of("검정", "흰색"))),
                 List.of(new ProductService.SkuCommand(List.of("검정"), 15000, 10),
                         new ProductService.SkuCommand(List.of("흰색"), 18000, 7)))).productId();
@@ -400,7 +400,7 @@ class ProductQueryTest extends PostgresTestBase {
     /** 옵션 축이 없는 상품. SKU 는 하나고 {@code sku_option_value} 에 행이 안 생긴다 */
     private long createOptionlessAndPutOnSale(long actorUserId, long sellerId, String name) {
         long productId = productService.create(actorUserId, new ProductService.Command(
-                sellerId, name, null, null, false, null,
+                sellerId, name, null, null, false, null, null,
                 List.of(),
                 List.of(new ProductService.SkuCommand(List.of(), 9000, 4)))).productId();
         return putOnSale(productId);

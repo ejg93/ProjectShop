@@ -76,6 +76,19 @@ relation "flyway_schema_history" does not exist
 Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```
 
+### 뷰는 표에 컬럼이 늘어도 안 따라온다
+
+Postgres 는 `create view` 시점의 컬럼 목록을 굳힌다. `select so.*` 로 썼어도 마찬가지다 —
+뷰를 만들 때 `*` 가 그 순간의 컬럼으로 펼쳐져 저장된다.
+
+`seller_order_visible` 이 그 자리다(`V16`). 표에 컬럼을 더하는 마이그레이션은
+**뷰를 `drop` 하고 다시 만들어야** 한다. `V26` 이 그것을 빠뜨려서 셀러 조회가
+`bad SQL grammar` 로 깨졌다 — 셀러 조회가 이 뷰만 읽기 때문이다(`11c-2b`).
+
+**조용히 틀리지 않고 바로 깨지는 쪽이라** 별도 방벽을 안 뒀다.
+`create or replace view` 는 컬럼을 <b>뒤에 더할 때만</b> 되고 순서를 바꾸거나
+중간에 끼우면 거부한다 — 그래서 `drop` 후 재생성이 정해진 방법이다.
+
 ### Boot 4 는 스타터 이름이 3.x 와 다르다
 
 `build.gradle.kts` 에 실제로 들어 있는 이름이다.

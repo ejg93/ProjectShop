@@ -36,6 +36,15 @@ public class OrderService {
      */
     private static final String SELLER_ORDER_PREFIX = "S-";
 
+    /**
+     * 공급시기 약정이 없을 때의 날수. 전자상거래법 제15조제1항(`D2` R21).
+     *
+     * <p>상품이 값을 안 가지면 이것이 걸린다. <b>{@code product.supply_lead_days} 의 기본값이
+     * 아니다</b> — 그 컬럼의 {@code null} 은 「약정이 없다」는 사실이고, 약정이 없으면
+     * 법정 기한이 그대로 걸리는 것이다(`V26`).
+     */
+    private static final int LEGAL_SUPPLY_LEAD_DAYS = 3;
+
     private final JdbcClient jdbc;
 
     OrderService(JdbcClient jdbc) {
@@ -58,7 +67,7 @@ public class OrderService {
      * <p>{@code commissionBp} 는 상품에 정해진 것이 있으면 그것이고 없으면 셀러 기본값이다(`D3`).
      */
     private record Line(long skuId, long sellerId, String productName, String optionLabel,
-            long unitPriceInclVat, int quantity, int commissionBp) {
+            long unitPriceInclVat, int quantity, int commissionBp, int supplyLeadDays) {
 
         long lineAmount() {
             return unitPriceInclVat * quantity;
@@ -113,6 +122,7 @@ public class OrderService {
         List<Line> lines = jdbc.sql("""
                         select s.sku_id, p.seller_id, p.name as product_name, ci.quantity,
                                s.price_incl_vat, coalesce(p.commission_bp, sel.commission_bp) as commission_bp,
+                               coalesce(p.supply_lead_days, :legalLeadDays) as supply_lead_days,
                                (select string_agg(pov.value, ' / ' order by po.sort_no, pov.sort_no)
                                   from sku_option_value sov
                                   join product_option_value pov
@@ -132,6 +142,7 @@ public class OrderService {
                         """)
                 .param("userId", userId)
                 .param("cartItemIds", cartItemIds)
+                .param("legalLeadDays", LEGAL_SUPPLY_LEAD_DAYS)
                 .query((rs, rowNum) -> new Line(
                         rs.getLong("sku_id"),
                         rs.getLong("seller_id"),
@@ -139,7 +150,8 @@ public class OrderService {
                         rs.getString("option_label"),
                         rs.getLong("price_incl_vat"),
                         rs.getInt("quantity"),
-                        rs.getInt("commission_bp")))
+                        rs.getInt("commission_bp"),
+                        rs.getInt("supply_lead_days")))
                 .list();
 
         if (lines.size() != cartItemIds.size()) {
@@ -214,7 +226,15 @@ public class OrderService {
         }
 
         bySeller.forEach((sellerId, sellerLines) -> {
-            long sellerOrderId = insertSellerOrder(orderId, sellerId, shippingFees.get(sellerId));
+            // 묶음 안에서 가장 긴 것을 쓴다. 한 셀러 묶음은 한 번에 나가므로
+            // 가장 늦게 준비되는 항목이 그 묶음의 발송 시점을 정한다(`V26`).
+            int leadDays = sellerLines.stream()
+                    .mapToInt(Line::supplyLeadDays)
+                    .max()
+                    .orElse(LEGAL_SUPPLY_LEAD_DAYS);
+
+            long sellerOrderId =
+                    insertSellerOrder(orderId, sellerId, shippingFees.get(sellerId), leadDays);
 
             for (Line line : sellerLines) {
                 jdbc.sql("""
@@ -244,17 +264,18 @@ public class OrderService {
      * <p>주문번호와 같은 방식으로 부딪히면 다시 뽑는다. 재시도 수도 같은 상수를 쓴다 —
      * 두 번호가 같은 난수 집합에서 나오므로 충돌 확률도 같고, 따로 두면 한쪽만 고치는 날이 온다.
      */
-    private long insertSellerOrder(long orderId, long sellerId, long shippingFee) {
+    private long insertSellerOrder(long orderId, long sellerId, long shippingFee, int leadDays) {
         return ExposedNumber.insertWith(SELLER_ORDER_PREFIX, "셀러 주문번호", number -> jdbc.sql("""
                                 insert into seller_order (seller_order_number, order_id,
-                                                          seller_id, shipping_fee)
-                                values (:number, :orderId, :sellerId, :fee)
+                                                          seller_id, shipping_fee, supply_lead_days)
+                                values (:number, :orderId, :sellerId, :fee, :leadDays)
                                 returning seller_order_id
                                 """)
                 .param("number", number)
                 .param("orderId", orderId)
                 .param("sellerId", sellerId)
                 .param("fee", shippingFee)
+                .param("leadDays", leadDays)
                 .query(Long.class)
                 .single());
     }
