@@ -65,7 +65,8 @@ class MeConsentTest extends PostgresTestBase {
         void readsCurrentWithoutLogin() throws Exception {
             mvc.perform(get("/api/consent-items/terms_of_service"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.version").value(1))
+                    // 판 번호를 안 박는다. 개정하면 늘어나는 값이라 박으면 개정마다 이 줄이 깨진다.
+                    .andExpect(jsonPath("$.version").value(currentTermsVersion()))
                     .andExpect(jsonPath("$.body").isNotEmpty());
         }
 
@@ -160,20 +161,24 @@ class MeConsentTest extends PostgresTestBase {
         @Test
         @DisplayName("개정돼도 내 사본은 내가 동의한 판이다")
         void myCopyStaysOnTheVersionIAgreedTo() throws Exception {
-            // 2판을 내놓는다. 지금 효력 있는 판이 바뀐다.
+            // 동의는 setUp 에서 이미 했다. 그때 판이 무엇이었는지를 붙잡아 둔다.
+            int agreedVersion = currentTermsVersion();
+
+            // 개정판을 내놓는다. 지금 효력 있는 판이 바뀐다.
             jdbc.sql("""
                             insert into consent_item (code, version, title, body)
-                            values ('terms_of_service', 2, '이용약관 2판', '## 2판 본문')
+                            values ('terms_of_service', 99, '이용약관 개정 예정판', '## 개정판 본문')
                             """).update();
 
             // 공개 조회는 지금 판을 준다.
             mvc.perform(get("/api/consent-items/terms_of_service"))
-                    .andExpect(jsonPath("$.version").value(2));
+                    .andExpect(jsonPath("$.version").value(99));
 
             mvc.perform(get("/api/me/consents/terms_of_service").with(user(principal())))
                     // 최신판을 내주면 그 사이 우리가 고친 것을 들이미는 꼴이 된다.
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.notice.version").value(1))
+                    // 내가 동의한 판이다. 시드 판 번호를 박으면 개정하는 청크마다 이 줄이 깨진다.
+                    .andExpect(jsonPath("$.notice.version").value(agreedVersion))
                     .andExpect(jsonPath("$.granted").value(true))
                     .andExpect(jsonPath("$.acted_at").isNotEmpty());
         }
@@ -371,6 +376,22 @@ class MeConsentTest extends PostgresTestBase {
                 .param("id", userId)
                 .param("code", code)
                 .update();
+    }
+
+    /**
+     * 지금 효력 있는 약관 판.
+     *
+     * <p><b>번호를 안 박는다.</b> 개정하면 늘어나는 값이라 박아 두면 개정하는 청크마다
+     * 이 줄이 깨진다 — `V28` 이 제2판을 쌓았을 때 실제로 깨졌다.
+     */
+    private int currentTermsVersion() {
+        return jdbc.sql("""
+                        select version from consent_item
+                         where code = 'terms_of_service' and effective_at <= now()
+                         order by effective_at desc, version desc limit 1
+                        """)
+                .query(Integer.class)
+                .single();
     }
 
     private ShopUser principal() {

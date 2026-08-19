@@ -108,10 +108,22 @@ export function BrokerageNotice({
       <h2 id={headingId} className="text-sm font-semibold">
         통신판매중개자 고지
       </h2>
+      {/*
+        「당사자가 아니다」를 지우지 않는다. 전자상거래법 제20조제1항이 그 고지를 요구한다.
+        더하는 것이지 무르는 것이 아니다.
+
+        뒤 문장이 없으면 약관규제법 제7조1호(법률상 책임을 배제하는 조항)에 걸린다 —
+        제20조의2제3항이 못 면한다고 못박은 책임을 면하는 것처럼 읽힌다(`D2` R16·R25).
+
+        화면은 여기까지다. 무엇을 누가 지는지는 약관과 분쟁 처리 안내가 표로 그린다(`D20`).
+      */}
       <p className="max-w-3xl text-sm leading-relaxed text-text-muted">
         이 상품은 판매자가 등록하고 판매합니다.<br />
-        ProjectShop 은 통신판매중개자로서 통신판매의 당사자가 아니며, 상품 정보와 거래에 대한
-        책임은 판매자에게 있습니다.
+        ProjectShop 은 통신판매중개자로서 통신판매의 당사자가 아니며, 상품의 내용과 배송에 대한
+        책임은 판매자에게 있습니다.<br />
+        <strong className="font-semibold text-text">
+          다만 ProjectShop 이 대금을 직접 받으므로, 대금 환급에 관한 책임은 판매자와 함께 집니다.
+        </strong>
       </p>
       <Link
         href="/terms"

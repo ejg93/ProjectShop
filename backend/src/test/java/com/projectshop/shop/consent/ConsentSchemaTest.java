@@ -48,7 +48,7 @@ class ConsentSchemaTest extends PostgresTestBase {
         @DisplayName("필수는 계약과 개인정보 수집 둘뿐이다")
         void requiredItemsAreTwo() {
             List<String> required = jdbc.sql(
-                            "select code from consent_item where is_required order by code")
+                            "select distinct code from consent_item where is_required order by code")
                     .query(String.class)
                     .list();
 
@@ -125,7 +125,11 @@ class ConsentSchemaTest extends PostgresTestBase {
         @DisplayName("이용약관은 본문을 갖는다")
         void termsHaveBody() {
             String body = jdbc.sql(
-                            "select body from consent_item where code = 'terms_of_service'")
+                            """
+                            select body from consent_item
+                             where code = 'terms_of_service'
+                             order by version desc limit 1
+                            """)
                     .query(String.class)
                     .single();
 
@@ -231,8 +235,12 @@ class ConsentSchemaTest extends PostgresTestBase {
         @Test
         @DisplayName("개정 전 판에 한 동의도 코드로 잡힌다")
         void oldVersionStillCountsUnderTheSameCode() {
+            // 동의한 판을 붙잡아 둔다. 번호를 박으면 개정하는 청크마다 이 줄이 깨진다 —
+            // `V28` 이 약관 제2판을 쌓았을 때 실제로 깨졌다.
             grant("terms_of_service", true, "signup");
-            insertItem("terms_of_service", 2, "이용약관 2판");
+            int agreedVersion = latestVersionOf("terms_of_service");
+
+            insertItem("terms_of_service", 99, "이용약관 개정 예정판");
 
             Map<String, Object> row = jdbc.sql("""
                             select granted, item_version
@@ -246,7 +254,18 @@ class ConsentSchemaTest extends PostgresTestBase {
             assertThat(row).containsEntry("granted", true);
             assertThat(row)
                     .as("동의한 판이 남아야 재동의가 필요한지 판단할 수 있다")
-                    .containsEntry("item_version", 1);
+                    .containsEntry("item_version", agreedVersion);
+        }
+
+        /** {@code grant} 가 고르는 것과 같은 판. 그쪽이 {@code order by version desc limit 1} 이다 */
+        private int latestVersionOf(String code) {
+            return jdbc.sql("""
+                            select version from consent_item
+                             where code = :code order by version desc limit 1
+                            """)
+                    .param("code", code)
+                    .query(Integer.class)
+                    .single();
         }
     }
 

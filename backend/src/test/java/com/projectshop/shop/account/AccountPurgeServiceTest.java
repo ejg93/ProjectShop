@@ -319,6 +319,7 @@ class AccountPurgeServiceTest extends PostgresTestBase {
                         select :userId, consent_item_id, true, 'signup', cast(:ip as inet)
                           from consent_item
                          where code = 'terms_of_service'
+                         order by version desc limit 1
                         """)
                 .param("userId", userId)
                 .param("ip", ip)

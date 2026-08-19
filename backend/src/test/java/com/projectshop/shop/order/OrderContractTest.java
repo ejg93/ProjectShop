@@ -33,6 +33,14 @@ class OrderContractTest extends PostgresTestBase {
 
     private static final long PRICE = 10_000;
 
+    /**
+     * 테스트가 넣는 개정판의 번호.
+     *
+     * <p><b>시드 판 번호를 안 쓴다.</b> `V28` 이 제2판을 쌓으면서 2 를 박아 둔 테스트가 전부
+     * 유니크 제약에 걸렸다 — 문안을 개정하는 청크마다 이 파일이 깨지는 자리였다.
+     */
+    private static final int DRAFT_VERSION = 99;
+
     @Autowired
     private OrderService orderService;
 
@@ -98,13 +106,13 @@ class OrderContractTest extends PostgresTestBase {
         @Test
         @DisplayName("시행 전인 판은 안 잡는다")
         void ignoresDocumentsNotYetEffective() {
-            insertFuturePolicy("withdrawal_guide", 2);
+            insertFuturePolicy("withdrawal_guide", DRAFT_VERSION);
 
             OrderQuery.Detail detail = orders.findByNumber(buyerId, placeOrder());
 
             assertThat(clause(detail, "WITHDRAWAL").version())
                     .as("미래 판을 미리 넣어 두는 것이 이 표의 설계다(`V21`)")
-                    .isEqualTo(1);
+                    .isEqualTo(effectiveVersionOf("withdrawal_guide"));
         }
 
         /**
@@ -117,20 +125,21 @@ class OrderContractTest extends PostgresTestBase {
         @DisplayName("나중에 개정해도 지나간 주문은 옛 판을 가리킨다")
         void keepsPointingAtTheOldVersion() {
             String orderNumber = placeOrder();
-            insertEffectivePolicy("withdrawal_guide", 2);
+            int before = clause(orders.findByNumber(buyerId, orderNumber), "WITHDRAWAL").version();
+            insertEffectivePolicy("withdrawal_guide", DRAFT_VERSION);
 
             assertThat(clause(orders.findByNumber(buyerId, orderNumber), "WITHDRAWAL").version())
                     .as("계약 조건은 그 계약 시점의 것이다")
-                    .isEqualTo(1);
+                    .isEqualTo(before);
         }
 
         @Test
         @DisplayName("새 주문은 개정판을 가리킨다")
         void newOrdersTakeTheNewVersion() {
-            insertEffectivePolicy("withdrawal_guide", 2);
+            insertEffectivePolicy("withdrawal_guide", DRAFT_VERSION);
 
             assertThat(clause(orders.findByNumber(buyerId, placeOrder()), "WITHDRAWAL").version())
-                    .isEqualTo(2);
+                    .isEqualTo(DRAFT_VERSION);
         }
     }
 
@@ -199,12 +208,12 @@ class OrderContractTest extends PostgresTestBase {
         @Test
         @DisplayName("시행 전인 판은 고칠 수 있다")
         void allowsEditingDraftVersions() {
-            insertFuturePolicy("withdrawal_guide", 2);
+            insertFuturePolicy("withdrawal_guide", DRAFT_VERSION);
 
             int updated = jdbc.sql("""
                             update policy_document set body = '오타를 고친 문안'
-                             where code = 'withdrawal_guide' and version = 2
-                            """)
+                             where code = 'withdrawal_guide' and version = %d
+                            """.formatted(DRAFT_VERSION))
                     .update();
 
             assertThat(updated)
@@ -274,6 +283,18 @@ class OrderContractTest extends PostgresTestBase {
                 .filter(document -> document.clause().equals(clause))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("그 호의 계약 문서가 없다: " + clause));
+    }
+
+    /** 지금 효력 있는 판. <b>번호를 안 박는다</b> — 개정하면 늘어나는 값이다 */
+    private int effectiveVersionOf(String code) {
+        return jdbc.sql("""
+                        select version from policy_document
+                         where code = :code and effective_at <= now()
+                         order by effective_at desc, version desc limit 1
+                        """)
+                .param("code", code)
+                .query(Integer.class)
+                .single();
     }
 
     /** 아직 시행 안 된 개정판. 미리 넣어 두는 것이 `V21` 의 설계다 */
