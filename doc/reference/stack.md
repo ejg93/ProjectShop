@@ -437,6 +437,34 @@ if not found then return null; end if;
 **`POST /api/orders` 가 실서버에서 언제나 500** 이었다. 위의 「한 번도 안 돈다」와 겹쳐서
 테스트 30개가 전부 초록인 채로 지나갔다 — 청크 `35c` 가 HTTP 층에서 첫 커밋을 일으켜 잡았다.
 
+### 동의 항목·정책 문서는 「지금 판」을 골라야 한다
+
+개정판을 **미리 넣어 두고 시행 시각에 갈아 끼우는** 설계다(`V27` 의 불변 트리거).
+그래서 표에는 **아직 시행 안 된 판이 같이 들어 있다.**
+
+```sql
+-- 틀린다. 시행 전인 판을 집는다
+where code = :code order by version desc limit 1
+
+-- 맞다
+where code = :code and effective_at <= now()
+order by effective_at desc, version desc limit 1
+```
+
+**같은 실수가 하루에 셋이었다**(`D2-7`·`6b-1`). `V36`(약관 제3판, 시행 이레 뒤)이 들어오는
+순간 한꺼번에 드러났다.
+
+| 어디 | 어떻게 됐나 |
+|---|---|
+| `MeConsentTest` 픽스처 | **시행 전 판에 동의**한 것으로 기록돼서 「내 사본」 테스트가 깨졌다 |
+| `V900` 데모 시드 | `join consent_item ci on ci.is_required` — 판을 안 가려서 **두 판에 다 동의**했다 |
+| 운영 경로 둘 | **안 틀렸다.** `SignupService.currentConsentItems`·`ConsentService.findItem` 이 둘 다 본다 |
+
+**운영만 맞고 나머지가 틀린 것이 이 함정의 모양이다.** 시행 전 판이 없는 동안에는
+`order by version desc` 도 같은 답을 줘서, **개정판을 처음 넣는 날까지 아무도 모른다.**
+
+`version` 이 크다고 지금 판이 아니다 — 고르는 기준은 언제나 `effective_at` 이다.
+
 ### 시드를 한 번 넣은 DB 에는 새 마이그레이션이 안 들어간다
 
 데모 시드가 `V900` 이라 **적용 이력의 최고 버전이 900** 이 된다.
@@ -448,6 +476,15 @@ Detected resolved migration not applied to database: 19.
 
 `local` 프로필로 한 번 띄운 로컬 DB 에서만 난다. **`docker compose down -v` 로 다시 만든다** —
 `out-of-order=true` 를 켜는 쪽은 안 골랐다. 그걸 켜면 진짜 순서 사고도 같이 통과한다.
+
+**`6b-1` 에서 실제로 막혔고, 그때 이 결정을 어겼다가 되돌렸다.** `V29` 까지 적용된 로컬 DB 에
+`V30`~`V36` 이 한꺼번에 왔고, `out-of-order` 를 켜 봤더니 **그것만으로도 안 뜬다** —
+옮기기 전에 도는 검증이 먼저 막아서 `ignore-migration-patterns` 까지 켜야 했다.
+**끄는 스위치가 둘이면 그만큼 안 보이게 된다**는 것이 이 문서의 판단을 되레 뒷받침했다.
+
+**다시 만드는 값이 `6b-1` 로 싸졌다.** 그전에는 상품을 손으로 넣어 둔 것이 같이 날아가서
+`down -v` 가 아까웠는데, 이제 시드가 상품·옵션·조합·재고까지 넣는다 —
+**날아갈 것이 없으면 다시 만드는 것이 가장 싼 길이다.**
 
 ### 422 와 `asText()` 는 이름이 바뀌었다
 
