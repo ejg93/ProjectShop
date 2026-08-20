@@ -3,6 +3,7 @@ package com.projectshop.shop.error;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -45,7 +46,10 @@ class ProblemResponseTest extends PostgresTestBase {
                     // 보안 필터가 MVC 앞에서 끊는 자리라 @RestControllerAdvice 가 못 잡는다.
                     // 본문 없이 상태만 나가면 클라이언트가 이 하나만 다르게 처리해야 한다.
                     .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:unauthenticated"))
-                    .andExpect(jsonPath("$.trace_id").isNotEmpty());
+                    .andExpect(jsonPath("$.trace_id").isNotEmpty())
+                    // RFC 9110 제15.5.2절이 401 에 챌린지를 **MUST** 로 둔다(`Q12`).
+                    // 등록된 스킴을 넣으면 브라우저 기본 인증 대화상자가 로그인 화면을 가린다.
+                    .andExpect(header().string("WWW-Authenticate", "Session"));
         }
 
         @Test

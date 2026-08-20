@@ -2,6 +2,7 @@ package com.projectshop.shop.error;
 
 import java.io.IOException;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.AuthenticationException;
@@ -26,6 +27,26 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class ProblemEntryPoint implements AuthenticationEntryPoint {
 
+    /**
+     * 401 에 반드시 붙어야 하는 챌린지(RFC 9110 제15.5.2절, RFC 7235 제3.1절).
+     *
+     * <p>「The server generating a 401 response <b>MUST send a WWW-Authenticate header field</b>
+     * containing at least one challenge」다. 예외가 없다.
+     *
+     * <p><b>등록된 스킴을 안 쓴다</b>(사용자 선택, `Q12`). {@code Basic} 이나 {@code Digest} 를 넣으면
+     * 브라우저가 <b>기본 인증 대화상자를 띄워서 우리 로그인 화면을 가린다</b> —
+     * 우리 인증은 세션 쿠키라 그 상자에 무엇을 넣어도 안 맞는다.
+     *
+     * <p>{@code Session} 은 IANA 에 등록된 이름이 아니다. 브라우저는 모르는 스킴을 무시하므로
+     * 팝업이 안 뜨고, 형식상 챌린지는 하나 있다. <b>버린 길 셋</b>은 이렇다 —
+     * 등록된 스킴(팝업이 뜬다), 403 으로 바꾸기(「인증이 없다」와 「권한이 없다」가 뭉친다),
+     * 그냥 두기(MUST 위반이 근거 없이 남는다).
+     *
+     * <p>{@code realm} 은 안 붙인다. 그 값이 뜻을 갖는 것은 스킴이 그것을 쓰기로 정했을 때고,
+     * 여기서는 아무도 안 읽는다.
+     */
+    private static final String CHALLENGE = "Session";
+
     private final ProblemFactory problems;
     private final ObjectMapper objectMapper;
 
@@ -41,6 +62,7 @@ public class ProblemEntryPoint implements AuthenticationEntryPoint {
         ProblemDetail problem = problems.create(ErrorCode.UNAUTHENTICATED, null, request);
 
         response.setStatus(ErrorCode.UNAUTHENTICATED.status().value());
+        response.setHeader(HttpHeaders.WWW_AUTHENTICATE, CHALLENGE);
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         objectMapper.writeValue(response.getWriter(), problem);
