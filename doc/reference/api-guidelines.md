@@ -370,6 +370,70 @@ POST /api/settlements/{id}/confirm
 
 쿠키를 골랐으므로 CSRF 토큰이 필요하다(청크 5b). 쓰기 요청은 토큰을 같이 보낸다.
 
+## 2026-08-20 표준 대조에서 나온 것
+
+**아직 안 고쳤다**(사용자 선택) — 축 여섯을 다 훑은 뒤에 한꺼번에 처분한다.
+법 축은 `D2` 의 같은 이름 절에 있다.
+
+RFC 원문(`rfc-editor.org`·`httpwg.org`)과 IETF 초안으로 최근 3일치 작업을 대조했다.
+**여기 적힌 것은 우리가 고칠 수 없는 쪽**이다 — 축 1에서 표준은 2순위고 어기면 남의 시스템과 안 붙는다.
+
+| # | 무엇 | 근거 | 어디 |
+|---|---|---|---|
+| S1 | **401 에 `WWW-Authenticate` 가 없다** | RFC 9110 제15.5.2절(RFC 7235 제3.1절) — **MUST** | `ProblemEntryPoint`, `ErrorCode.ALREADY_WITHDRAWN` |
+| S2 | **`urn:shop:` 은 등록되지 않은 NID 다** | RFC 8141 제5절 | `ErrorCode.type()` 전부 |
+| S3 | **`PATCH` 의 패치 문서 형식을 안 밝힌다** | RFC 5789 제2절, RFC 7396 | `PATCH /api/me` |
+| S4 | **우편번호·전화번호에 형식 강제가 없다** | 우정사업본부 고시(2015-08-01) — 우편번호는 5자리 | `OrderController.Shipping`, `checkout-form.tsx` |
+| S5 | 프레임워크가 만드는 오류는 `type` 이 `about:blank` 다 | 우리 규약(위 「`type` 은 URN 이다」) | `ApiExceptionHandler` 가 안 잡는 부류 |
+| S6 | `POST /api/orders` 의 201 에 `Location` 이 없다 | 위 「헤더」 | `OrderController` |
+
+### S1 — 표준과 화면이 정면으로 부딪친다
+
+> The server generating a 401 response **MUST send a WWW-Authenticate header field**
+> containing at least one challenge applicable to the target resource.
+
+예외가 없다. 그런데 **넣으면 브라우저가 기본 인증 대화상자를 띄운다** — `Basic` 이나 `Digest`
+같은 등록된 스킬을 쓰면 그렇고, 그 팝업은 우리 로그인 화면을 가린다.
+
+| 길 | 대가 |
+|---|---|
+| 등록된 스킴을 넣는다 | 표준을 지키고 **브라우저 팝업이 뜬다** |
+| 등록 안 된 스킴 이름을 넣는다(`Session` 등) | 팝업은 안 뜨고 형식은 맞는다. **아무도 안 읽는 헤더가 는다** |
+| 401 대신 403 을 쓴다 | MUST 를 안 건드린다. **「인증이 없다」와 「권한이 없다」가 뭉친다** |
+| 지금대로 둔다 | MUST 위반이 남는다. `api.ts`·`api-session.ts` 가 401 로 로그인 화면을 띄우는 것이 이 상태에 기대 있다 |
+
+**결정이 필요한 자리다.** 지금 코드는 넷째 길이고 근거가 문서에 없다.
+
+### S2 — URN 은 아무 이름이나 못 쓴다
+
+RFC 8141 은 NID 를 **등록**하게 한다. 정식은 전문가 심사고, 안 받으려면 IANA 가 `urn-<숫자>` 를 준다.
+`urn:shop:` 은 둘 다 아니라서 **문법만 맞고 URN 은 아니다.**
+
+위 「`type` 은 URN 이다」가 확인한 것은 RFC 9457 쪽뿐이다 — 역참조를 요구하지 않는다는 것은 맞다.
+**URN 자체의 규격은 안 봤다.**
+
+`tag:` URI(RFC 4151)가 우리가 하려던 것에 정확히 맞는다 — 등록이 필요 없고, 역참조도 요구하지 않고,
+도메인과 날짜로 소유를 증명한다(`tag:projectshop.example,2026:error:validation-failed`).
+
+**바꾸면 계약 변경이다.** 화면 넷이 `type` 으로 분기하고 있어서 **쓰는 곳이 늘기 전이 제일 싸다**
+(`D23` 「무엇부터」 2순위).
+
+### S3 — `null` 의 뜻을 미디어 타입이 정한다
+
+RFC 5789 는 패치 문서의 형식을 미디어 타입으로 식별하라고 한다. 지금 `PATCH /api/me` 는
+`application/json` 으로 부분 갱신을 보낸다. **고칠 필드가 하나뿐이라 아직 안 갈린다.**
+
+필드가 늘면 「`null` 을 보내면 지우라는 뜻인가 건드리지 말라는 뜻인가」가 문제가 되고,
+그 답을 정하는 것이 `application/merge-patch+json`(RFC 7396)이다. 위 「null 과 생략」이 그 자리다.
+
+### S4 — 규격이 있는 값을 자유 텍스트로 받는다
+
+우편번호는 2015-08-01 부터 **국가기초구역번호 5자리**다. 우리는 `@Size(max = 10)` 이고
+화면도 `maxLength={10}` 이라 **어느 층에도 형식이 안 내려가 있다**(`D23` 축 2 기준 강제 지점 0).
+전화번호도 `max = 30` 자유 텍스트다.
+
+`autocomplete` 토큰(`postal-code`·`tel`)은 제대로 붙어 있다 — **분류는 맞는데 형식이 없다.**
+
 ## 이 문서를 고칠 때
 
 새 규칙이 필요해지면 여기 추가하고, Zalando 에 이미 있는 규칙이면 **적지 말고 따른다.**
