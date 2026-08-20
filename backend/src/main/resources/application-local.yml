@@ -2,10 +2,24 @@
 #
 # 켜는 법: ./gradlew bootRun --args='--spring.profiles.active=local'
 #
-# 여기서 하는 일은 하나뿐이다 — 데모 데이터를 Flyway 의 대상에 더한다.
+# 하는 일은 하나다 — 데모 데이터를 Flyway 의 대상에 더한다.
 # 다른 설정을 여기 넣지 않는다. 프로필마다 설정이 갈리면 안 돌려본 조합이 생기고,
-# 안 돌려본 설정은 깨져 있다(`D16`).
+# 안 돌려본 설정은 깨져 있다(`D16`). 아래 둘은 그 하나를 성립시키는 데 필요한 값이다.
 spring:
   flyway:
     # 기본 location 을 다시 적어야 한다. 이 키는 합쳐지지 않고 덮어쓴다.
     locations: classpath:db/migration,classpath:db/seed
+
+    # 시드가 V900 이라 **그 뒤에 오는 스키마 마이그레이션이 전부 「순서를 벗어난 것」**이 된다.
+    # V29 까지 적용된 로컬 DB 에 V900 이 얹혀 있으면, 새로 온 V30 이 그보다 낮아서
+    # Flyway 가 기동을 막는다 — `6b-1` 에서 실제로 막혔다.
+    #
+    # **로컬에서만 켠다.** 운영에서 켜면 「빠뜨린 마이그레이션」과 「나중에 끼워 넣은 것」이
+    # 같아 보여서, 순서가 뜻을 갖는 변경이 조용히 어긋난다.
+    # 여기는 데모 데이터를 얹으려고 번호를 띄운 것이 원인이라 그 대가를 로컬에서만 치른다.
+    out-of-order: true
+
+    # `out-of-order` 만으로는 안 뜬다. 옮기기 전에 도는 검증이 그 마이그레이션들을 먼저 막는다 —
+    # 「Detected resolved migration not applied to database: 30」이 그것이다.
+    # 그 부류만 눈감아 준다. **체크섬이 어긋나는 것은 그대로 막힌다.**
+    ignore-migration-patterns: "*:ignored,*:pending"
