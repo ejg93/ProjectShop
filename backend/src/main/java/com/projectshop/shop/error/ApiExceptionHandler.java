@@ -3,6 +3,7 @@ package com.projectshop.shop.error;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -82,10 +83,33 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
         if (body instanceof ProblemDetail detail && detail.getProperties() == null) {
             ProblemDetail ours = problems.create(
-                    ErrorCode.VALIDATION_FAILED, detail.getDetail(), servletRequestOf(request));
+                    frameworkCodeOf(statusCode), detail.getDetail(), servletRequestOf(request));
             return super.createResponseEntity(ours, headers, statusCode, request);
         }
         return super.createResponseEntity(body, headers, statusCode, request);
+    }
+
+    /**
+     * 프레임워크가 정한 상태 코드를 우리 {@link ErrorCode} 로 옮긴다.
+     *
+     * <p><b>하나로 뭉치면 안 된다</b>(`Q1`). 여기서 전부 {@code validation-failed} 를 주면
+     * 405·415·깨진 JSON 이 같은 {@code type} 으로 나가고, 그러면 <b>상태 코드보다 {@code type} 이
+     * 더 뭉친다</b> — `D5` 가 상태 코드 대신 {@code type} 으로 분기하라고 한 근거가 그 자리에서 뒤집힌다.
+     *
+     * <p>예외 종류가 아니라 상태 코드로 가른다. 프레임워크가 예외를 늘려도 상태 코드는 같은 표에
+     * 떨어지고, 우리가 모르는 것은 <b>그 무리의 기본값</b>으로 내려간다.
+     */
+    private static ErrorCode frameworkCodeOf(HttpStatusCode status) {
+        if (status.isSameCodeAs(HttpStatus.METHOD_NOT_ALLOWED)) {
+            return ErrorCode.METHOD_NOT_ALLOWED;
+        }
+        if (status.isSameCodeAs(HttpStatus.UNSUPPORTED_MEDIA_TYPE)) {
+            return ErrorCode.UNSUPPORTED_MEDIA_TYPE;
+        }
+        if (status.isSameCodeAs(HttpStatus.NOT_FOUND)) {
+            return ErrorCode.ENDPOINT_NOT_FOUND;
+        }
+        return status.is5xxServerError() ? ErrorCode.INTERNAL : ErrorCode.MALFORMED_REQUEST;
     }
 
     /**

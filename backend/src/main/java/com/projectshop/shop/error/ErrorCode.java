@@ -12,9 +12,17 @@ import org.springframework.http.HttpStatus;
  * 고 정했다. 상태 코드는 여러 오류가 공유하지만 {@code type} 은 하나를 가리킨다.
  * <b>이 값을 바꾸면 화면이 깨진다</b> — 문구({@code title})는 다듬어도 되지만 슬러그는 못 바꾼다.
  *
- * <p>URN 을 쓰는 이유는 <b>없는 도메인을 가리키지 않으려는 것</b>이다.
- * {@code https://example.com/...} 를 쓰면 언젠가 열어보는 사람이 생기고 그때 404 가 난다.
- * RFC 9457 은 {@code type} 이 역참조 가능해야 한다고 요구하지 않는다.
+ * <p><b>{@code tag:} URI 다</b>(RFC 4151). 없는 도메인을 가리키지 않으려는 것이 첫 이유고 —
+ * {@code https://...} 를 쓰면 언젠가 열어보는 사람이 생기고 그때 404 가 난다 —
+ * RFC 9457 이 {@code type} 의 역참조를 요구하지 않아서 그래도 된다.
+ *
+ * <p><b>{@code urn:shop:} 에서 옮겨 왔다</b>(`Q1`). RFC 8141 은 URN 의 네임스페이스 식별자를
+ * <b>등록</b>하게 하는데 {@code shop} 은 정식 등록도, IANA 가 주는 비공식 이름({@code urn-<숫자>})도
+ * 아니었다 — <b>문법만 맞고 URN 은 아닌 값</b>이었다. {@code tag:} 는 등록이 필요 없고
+ * 권한 이름과 날짜로 소유를 밝힌다.
+ *
+ * <p>{@code projectshop.example} 은 자리표시다. RFC 2606 이 예시용으로 잡아 둔 이름이라
+ * 남의 것을 가리킬 위험이 없다. <b>진짜 도메인이 생기면 그때 바꾸고, 그것은 계약 변경이다.</b>
  */
 public enum ErrorCode {
 
@@ -192,9 +200,27 @@ public enum ErrorCode {
     //
     // 판정이 실패하거나 예상 못 한 것이 터졌을 때다. detail 에 원인을 안 담는다 —
     // 스택이나 SQL 문구가 응답으로 나가면 그 자체가 정보 유출이다(`D14`).
-    INTERNAL(HttpStatus.INTERNAL_SERVER_ERROR, "internal", "요청을 처리하지 못했다");
+    INTERNAL(HttpStatus.INTERNAL_SERVER_ERROR, "internal", "요청을 처리하지 못했다"),
 
-    private static final String URN_PREFIX = "urn:shop:error:";
+    // 프레임워크가 MVC 에 닿기 전에 끊는 것.
+    //
+    // 이 넷이 없으면 전부 validation-failed 하나로 뭉친다 — 405 와 415 와 깨진 JSON 이
+    // 같은 type 으로 나가고, 그러면 「상태 코드가 아니라 type 으로 분기한다」(`D5`)는 근거가
+    // 이 경로에서만 뒤집힌다. 상태 코드보다 type 이 더 뭉치는 자리가 된다.
+    MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "malformed-request", "요청을 읽지 못했다"),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "method-not-allowed",
+            "그 경로에 쓸 수 없는 메서드다"),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported-media-type",
+            "다룰 수 없는 미디어 타입이다"),
+    ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "endpoint-not-found", "그런 경로가 없다");
+
+    /**
+     * RFC 4151 의 {@code tag:} URI. 권한 이름과 날짜가 소유를 밝힌다.
+     *
+     * <p>날짜는 <b>이 이름을 쓰기 시작한 해</b>고 오류를 더할 때마다 바꾸지 않는다 —
+     * 바꾸면 같은 오류가 해마다 다른 {@code type} 으로 나간다.
+     */
+    private static final String TAG_PREFIX = "tag:projectshop.example,2026:error:";
 
     private final HttpStatus status;
     private final String slug;
@@ -212,7 +238,7 @@ public enum ErrorCode {
 
     /** 응답의 {@code type}. 프론트가 이 값으로 분기한다 */
     public String type() {
-        return URN_PREFIX + slug;
+        return TAG_PREFIX + slug;
     }
 
     public String title() {

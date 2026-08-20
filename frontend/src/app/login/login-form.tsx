@@ -29,14 +29,14 @@ const TEST_ACCOUNT =
     ? { email: "test@test.local", password: "test-account-1234" }
     : null;
 
-/** 서버가 준 오류를 화면 문구로 옮긴다. `type` 으로 갈린다(`D5`) */
+/** 서버가 준 오류를 화면 문구로 옮긴다. `slug` 로 갈린다(`D5`) */
 function messageOf(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }
 
-  switch (error.type) {
-    case "urn:shop:error:login-failed":
+  switch (error.slug) {
+    case "login-failed":
       // 없는 계정인지 틀린 비밀번호인지 가르지 않는다. 서버가 이미 한 문구로 내려주고,
       // 화면이 그걸 나누면 가입 여부를 물어보는 도구가 된다(`D14`).
       return "이메일 또는 비밀번호가 맞지 않습니다.";

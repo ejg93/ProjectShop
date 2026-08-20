@@ -181,18 +181,18 @@ function SubmitButton({
   );
 }
 
-/** 서버가 준 오류를 화면 문구로. <b>`type` 으로 갈린다</b>(`D5`·`D20`) */
+/** 서버가 준 오류를 화면 문구로. <b>`slug` 로 갈린다</b>(`D5`·`D20`) */
 function messageOf(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }
 
-  switch (error.type) {
-    case "urn:shop:error:password-mismatch":
+  switch (error.slug) {
+    case "password-mismatch":
       return "현재 비밀번호가 맞지 않습니다.";
-    case "urn:shop:error:account-forbidden":
+    case "account-forbidden":
       return "이 계정을 고치실 권한이 없습니다.";
-    case "urn:shop:error:validation-failed":
+    case "validation-failed":
       // 어느 칸인지는 서버가 알려주지만, 그것을 화면 문구로 옮기는 표를 여기 두면
       // 서버가 칸을 바꿀 때 한쪽만 고쳐진다. 규칙을 다시 알리는 쪽을 고른다(가입 화면과 같다).
       return `입력하신 내용을 다시 확인해 주세요. 비밀번호는 ${PASSWORD_HINT}`;

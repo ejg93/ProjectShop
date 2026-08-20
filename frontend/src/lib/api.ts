@@ -21,8 +21,27 @@
  * 세 입구가 같은 변환·같은 오류 처리를 쓰도록 아래 셋을 내보낸다.
  */
 
-/** 백엔드가 RFC 9457 로 내려준 오류(`D5`). 화면은 `status` 가 아니라 `type` 으로 갈린다 */
+/**
+ * 우리 오류 `type` 의 접두어. 서버의 `ErrorCode.TAG_PREFIX` 와 같은 값이다.
+ *
+ * <p>`tag:` URI 다(RFC 4151). 예전에는 `urn:shop:error:` 였는데 RFC 8141 이 요구하는
+ * 네임스페이스 등록이 없어서 문법만 맞는 이름이었다(`Q1`).
+ *
+ * <p><b>바뀌는 자리가 여기 하나다.</b> 화면들은 접두어를 모르고 슬러그만 본다 —
+ * 그러지 않으면 접두어를 바꿀 때 화면 아홉을 같이 고쳐야 하고, 하나를 빠뜨리면
+ * 그 화면만 조용히 기본 문구로 떨어진다.
+ */
+const ERROR_TYPE_PREFIX = "tag:projectshop.example,2026:error:";
+
 export class ApiError extends Error {
+  /**
+   * 접두어를 뗀 오류 이름. <b>화면은 이것으로 분기한다</b>(`D5`·`D20`).
+   *
+   * <p>우리가 낸 오류가 아니면 빈 문자열이다 — 프록시나 다른 서버가 낸 `problem+json` 이
+   * 우연히 우리 이름과 겹치는 일이 없다.
+   */
+  readonly slug: string;
+
   constructor(
     readonly status: number,
     readonly type: string,
@@ -31,6 +50,9 @@ export class ApiError extends Error {
   ) {
     super(detail);
     this.name = "ApiError";
+    this.slug = type.startsWith(ERROR_TYPE_PREFIX)
+      ? type.slice(ERROR_TYPE_PREFIX.length)
+      : "";
   }
 }
 

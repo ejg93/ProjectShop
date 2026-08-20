@@ -178,20 +178,20 @@ function ChangeButton({
   );
 }
 
-/** 서버가 준 오류를 화면 문구로. <b>`type` 으로 갈린다</b>(`D5`·`D20`) */
+/** 서버가 준 오류를 화면 문구로. <b>`slug` 로 갈린다</b>(`D5`·`D20`) */
 function messageOf(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }
 
-  switch (error.type) {
-    case "urn:shop:error:required-consent-revoke":
+  switch (error.slug) {
+    case "required-consent-revoke":
       return "필수 항목이라 철회하실 수 없습니다. 탈퇴로 처리해 드립니다.";
-    case "urn:shop:error:consent-dependency":
+    case "consent-dependency":
       return "먼저 동의하셔야 하는 항목이 있습니다. 위 안내를 확인해 주세요.";
-    case "urn:shop:error:consent-forbidden":
+    case "consent-forbidden":
       return "동의 내역을 바꾸실 권한이 없습니다.";
-    case "urn:shop:error:consent-item-not-found":
+    case "consent-item-not-found":
       return "지금은 없는 동의 항목입니다. 새로고침해 주세요.";
     default:
       return "바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.";

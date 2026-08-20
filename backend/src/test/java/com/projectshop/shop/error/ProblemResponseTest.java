@@ -44,7 +44,7 @@ class ProblemResponseTest extends PostgresTestBase {
                             MediaType.APPLICATION_PROBLEM_JSON))
                     // 보안 필터가 MVC 앞에서 끊는 자리라 @RestControllerAdvice 가 못 잡는다.
                     // 본문 없이 상태만 나가면 클라이언트가 이 하나만 다르게 처리해야 한다.
-                    .andExpect(jsonPath("$.type").value("urn:shop:error:unauthenticated"))
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:unauthenticated"))
                     .andExpect(jsonPath("$.trace_id").isNotEmpty());
         }
 
@@ -55,7 +55,7 @@ class ProblemResponseTest extends PostgresTestBase {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"email\":\"nobody@test.local\",\"password\":\"whatever-long\"}"))
                     .andExpect(status().isUnauthorized())
-                    .andExpect(jsonPath("$.type").value("urn:shop:error:login-failed"))
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:login-failed"))
                     .andExpect(jsonPath("$.title").isNotEmpty())
                     .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.instance").value("/api/auth/login"))
@@ -88,7 +88,7 @@ class ProblemResponseTest extends PostgresTestBase {
                                      "display_name":"","consents":{}}
                                     """))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.type").value("urn:shop:error:validation-failed"))
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:validation-failed"))
                     // "형식이 맞지 않는다" 만 주면 어디를 고칠지 몰라서 사람이 눈으로 찾는다.
                     .andExpect(jsonPath("$.errors").isNotEmpty())
                     // 요청에 쓴 이름과 오류에 나온 이름이 다르면 화면이 그 필드를 못 찾는다.

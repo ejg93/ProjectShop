@@ -313,7 +313,7 @@ function optional(form: FormData, name: string): string | undefined {
 /**
  * 실패를 사람이 읽는 말로.
  *
- * <p><b>`type` 으로 갈린다</b>(`D5`·`D20`). 상태 코드로 가르면 서버가 코드를 조정할 때
+ * <p><b>`slug` 로 갈린다</b>(`D5`·`D20`). 상태 코드로 가르면 서버가 코드를 조정할 때
  * 화면이 같이 틀어지고, `detail` 을 그대로 쓰면 개발자 문체가 사용자에게 나간다.
  */
 function messageFor(error: unknown): string {
@@ -321,20 +321,20 @@ function messageFor(error: unknown): string {
     return "요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }
 
-  switch (error.type) {
-    case "urn:shop:error:out-of-stock":
+  switch (error.slug) {
+    case "out-of-stock":
       return "재고가 모자랍니다. 장바구니에서 개수를 줄여 주세요.";
-    case "urn:shop:error:sku-not-buyable":
+    case "sku-not-buyable":
       return "지금은 구매할 수 없는 상품이 들어 있습니다.";
-    case "urn:shop:error:order-empty":
+    case "order-empty":
       return "주문할 상품이 없습니다.";
-    case "urn:shop:error:payment-gateway-unavailable":
+    case "payment-gateway-unavailable":
       return "결제사가 응답하지 않습니다. 잠시 후 다시 시도해 주세요.";
-    case "urn:shop:error:payment-card-required":
+    case "payment-card-required":
       return "카드번호를 입력해 주세요.";
-    case "urn:shop:error:validation-failed":
+    case "validation-failed":
       return "입력하신 내용을 다시 확인해 주세요.";
-    case "urn:shop:error:order-transition-not-allowed":
+    case "order-transition-not-allowed":
       return "이미 결제가 끝난 주문입니다.";
     default:
       return "결제하지 못했습니다. 잠시 후 다시 시도해 주세요.";

@@ -260,7 +260,7 @@ function matchSku(skus: PublicSku[], pickedValueIds: number[]): PublicSku | unde
 /**
  * 실패를 사람이 읽는 말로.
  *
- * <p><b>`type` 으로 갈린다</b>(`D5`·`D20`). 상태 코드로 가르면 서버가 코드를 조정할 때
+ * <p><b>`slug` 로 갈린다</b>(`D5`·`D20`). 상태 코드로 가르면 서버가 코드를 조정할 때
  * 화면이 같이 틀어지고, `detail` 을 그대로 쓰면 개발자 문체가 사용자에게 나간다.
  */
 function messageFor(error: unknown): string {
@@ -268,10 +268,10 @@ function messageFor(error: unknown): string {
     return "잠시 후 다시 시도해 주세요.";
   }
 
-  switch (error.type) {
-    case "urn:shop:error:out-of-stock":
+  switch (error.slug) {
+    case "out-of-stock":
       return "재고가 모자랍니다. 개수를 줄이거나 다른 조합을 선택해 주세요.";
-    case "urn:shop:error:sku-not-buyable":
+    case "sku-not-buyable":
       return "지금은 구매할 수 없는 조합입니다.";
     default:
       return "장바구니에 담지 못했습니다. 잠시 후 다시 시도해 주세요.";

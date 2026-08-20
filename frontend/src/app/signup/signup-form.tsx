@@ -266,20 +266,20 @@ function NoticeRow({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-/** 서버가 준 오류를 화면 문구로 옮긴다. `type` 으로 갈린다(`D5`·`D20`) */
+/** 서버가 준 오류를 화면 문구로 옮긴다. `slug` 로 갈린다(`D5`·`D20`) */
 function messageOf(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }
 
-  switch (error.type) {
-    case "urn:shop:error:email-taken":
+  switch (error.slug) {
+    case "email-taken":
       return "이미 가입된 이메일입니다. 로그인해 주세요.";
-    case "urn:shop:error:required-consent-missing":
+    case "required-consent-missing":
       return "필수 항목에 동의하셔야 가입하실 수 있습니다.";
-    case "urn:shop:error:consent-dependency":
+    case "consent-dependency":
       return "야간 수신은 이메일 수신에 동의하셔야 받으실 수 있습니다.";
-    case "urn:shop:error:validation-failed":
+    case "validation-failed":
       // 어느 칸인지는 서버가 필드 이름으로 알려주지만, 그것을 화면 문구로 옮기는 표를
       // 여기 두면 서버가 칸을 바꿀 때 한쪽만 고쳐진다. 규칙을 다시 알리는 쪽을 고른다.
       return `입력하신 내용을 다시 확인해 주세요. 비밀번호는 ${PASSWORD_HINT}`;

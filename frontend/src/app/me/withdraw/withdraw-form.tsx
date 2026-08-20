@@ -73,16 +73,16 @@ export function WithdrawForm() {
   );
 }
 
-/** 서버가 준 오류를 화면 문구로. <b>`type` 으로 갈린다</b>(`D5`·`D20`) */
+/** 서버가 준 오류를 화면 문구로. <b>`slug` 로 갈린다</b>(`D5`·`D20`) */
 function messageOf(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }
 
-  switch (error.type) {
-    case "urn:shop:error:password-mismatch":
+  switch (error.slug) {
+    case "password-mismatch":
       return "비밀번호가 맞지 않습니다.";
-    case "urn:shop:error:already-withdrawn":
+    case "already-withdrawn":
       // 401 이라 `api.ts` 가 먼저 로그인으로 보낸다. 그래도 적어 두는 것은 그쪽 규칙이
       // 바뀌었을 때 이 화면이 아무 말도 안 하는 상태로 남지 않게 하려는 것이다.
       return "이미 탈퇴 처리된 계정입니다.";

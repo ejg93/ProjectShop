@@ -98,21 +98,21 @@ export function OrderActions({
 }
 
 /**
- * 실패를 사람이 읽는 말로. <b>`type` 으로 갈린다</b>(`D5`·`D20`).
+ * 실패를 사람이 읽는 말로. <b>`slug` 로 갈린다</b>(`D5`·`D20`).
  */
 function messageFor(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return "잠시 후 다시 시도해 주세요.";
   }
 
-  switch (error.type) {
-    case "urn:shop:error:order-transition-not-allowed":
+  switch (error.slug) {
+    case "order-transition-not-allowed":
       return "지금 상태에서는 할 수 없는 처리입니다. 새로고침해 주세요.";
-    case "urn:shop:error:withdrawal-period-expired":
+    case "withdrawal-period-expired":
       return "청약철회 기간이 지났습니다.";
-    case "urn:shop:error:withdrawal-restricted":
+    case "withdrawal-restricted":
       return "청약철회가 제한된 상품이 들어 있습니다.";
-    case "urn:shop:error:seller-order-not-found":
+    case "seller-order-not-found":
       return "이미 처리된 주문입니다. 새로고침해 주세요.";
     default:
       return "처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
