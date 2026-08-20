@@ -103,8 +103,12 @@ public class RefundService {
      * 고객이 남의 환불을 승인한다 — {@code refund_self_approval_check} 는 자기 것만 막는다.
      *
      * <p>{@link #APPROVE} 는 관리자에게만 있고 근거가 법이다(`D2` R5) —
-     * 제18조제2항 괄호가 대금을 받은 자를 통신판매업자에 넣어서 <b>환급 의무자가 우리</b>고,
-     * 제20조의2제3항이 중개자 고지로 그 책임을 못 면한다고 한다.
+     * <b>제18조제2항 첫 문장 괄호</b>가 「소비자로부터 재화등의 대금을 받은 자」를
+     * 통신판매업자에 넣어서 <b>환급 의무자가 우리</b>다.
+     *
+     * <p><b>제20조의2제3항이 아니다</b>(`Q14` 에서 고쳤다). 그 조항은
+     * 「통신판매업자인 통신판매중개자」에게만 걸려서 우리를 직접 지목하지 않는다 —
+     * 결론은 같고 근거가 한 칸 비켜 있었다.
      */
     private static final String RESOURCE = "payment";
     private static final String REQUEST = "request_refund";
