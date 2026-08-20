@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -151,6 +152,26 @@ public class MeController {
     }
 
     public record UpdateRequest(@NotBlank @Size(max = 50) String displayName) {
+    }
+
+    /**
+     * 이메일을 고친다(`Q13`). <b>비밀번호를 다시 받는다</b> — 이메일이 계정을 되찾는 통로라
+     * 세션을 훔친 사람이 이것을 바꾸면 주인이 계정을 잃는다.
+     *
+     * <p>{@code PATCH} 에 안 섞는 이유는 비밀번호 변경과 같다 — 이름만 바꾸는 요청에
+     * 비밀번호 칸이 딸려 다니게 된다.
+     */
+    @PostMapping("/email")
+    public AccountService.Account changeEmail(
+            @AuthenticationPrincipal ShopUser user, @Valid @RequestBody EmailRequest request) {
+
+        return accountService.changeEmail(
+                user.id(), request.email(), request.currentPassword());
+    }
+
+    public record EmailRequest(
+            @NotBlank @Email @Size(max = 320) String email,
+            @NotBlank String currentPassword) {
     }
 
     /**

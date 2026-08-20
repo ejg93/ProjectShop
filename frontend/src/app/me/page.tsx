@@ -80,7 +80,7 @@ export default async function MyPage() {
           )}
         </dl>
 
-        <AccountForms displayName={account.displayName} />
+        <AccountForms displayName={account.displayName} email={account.email} />
       </section>
 
       <section aria-labelledby="consent-heading" className="grid gap-4">
@@ -96,16 +96,21 @@ export default async function MyPage() {
         </h2>
 
         {/*
-          처리정지(개인정보법 제37조)와 이의제기(제38조제5항)에는 아직 화면도 API 도 없다.
-          방침 제7절이 처리정지를 탈퇴로, 제9절이 이의제기를 고객센터·분쟁조정기관으로
-          이미 안내해 뒀으므로 화면은 그 두 절을 가리킨다(사용자 선택).
+          처리정지(개인정보법 제37조)는 **탈퇴와 다른 권리다**(`Q13`). 제37조제1항이 요구권 자체를
+          인정하고 거절은 제2항 각 호에 해당할 때만 되는데, 「탈퇴해 주십시오」라고만 하면
+          요구를 받을 자리가 없는 상태에서 탈퇴를 유일한 길로 제시하는 것이 된다.
+
+          접수 창구를 화면 안에 내는 것은 Q&A 축(`58`·`59`) 뒤다. 그때까지는 **권리가 있다는
+          사실과 지금 닿을 수 있는 창구**를 같이 말한다.
         */}
         <p className="text-sm text-text-muted">
-          처리 정지를 원하시면 탈퇴해 주시기 바랍니다. 탈퇴하시면 이후의 처리가 멈춥니다.
-          <br />
-          열람·정정 결과에 이의가 있으시면{" "}
+          처리 정지를 요구하실 수 있습니다(개인정보 보호법 제37조). 지금은 접수 창구가 따로 없어
           <PolicyLink>개인정보처리방침 제9절</PolicyLink>
-          의 창구로 알려 주시기 바랍니다.
+          의 고객센터로 알려 주시면 처리해 드립니다.
+          <br />
+          탈퇴하시면 이후의 처리가 함께 멈춥니다.
+          <br />
+          열람·정정 결과에 이의가 있으실 때도 같은 창구로 알려 주시기 바랍니다.
         </p>
 
         <div className="flex flex-wrap items-center gap-4">

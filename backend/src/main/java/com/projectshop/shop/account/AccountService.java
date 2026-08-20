@@ -113,6 +113,62 @@ public class AccountService {
     }
 
     /**
+     * 이메일을 고친다(`Q13`, `D2` R28).
+     *
+     * <p><b>개인정보법 제36조제1항이 정정 요구권을 준다.</b> 가입 화면에서 받은 값인데
+     * 고칠 경로가 화면에도 API 에도 없었고, 제38조제4항은 그 방법이
+     * <b>수집보다 어렵지 않아야 한다</b>고 한다 — 없는 것은 어려운 것보다 나쁘다.
+     *
+     * <p><b>비밀번호를 다시 받는다.</b> 이메일이 계정을 되찾는 통로라, 세션을 훔친 사람이
+     * 이것을 바꾸면 주인이 계정을 잃는다 — 탈퇴·비밀번호 변경과 같은 판단이다(`D20`).
+     *
+     * <p><b>확인 메일은 아직 없다.</b> 보낼 채널이 없어서(`54`~`56`) 지금은 바꾸는 즉시 반영된다.
+     * 그 사이 오타를 넣으면 그 계정으로는 알림을 못 받는데, <b>알림 자체가 없어서 지금은
+     * 손해가 없다.</b> 채널이 서는 청크에서 확인 절차를 같이 세운다.
+     */
+    @Transactional
+    public Account changeEmail(long userId, String email, String currentPassword) {
+        requireUpdatePermission(userId);
+
+        String stored = jdbc.sql(
+                        "select password_hash from app_user where user_id = :id and deleted_at is null")
+                .param("id", userId)
+                .query(String.class)
+                .single();
+
+        if (!passwordEncoder.matches(currentPassword, stored)) {
+            throw new ShopException(ErrorCode.PASSWORD_MISMATCH, "현재 비밀번호가 맞지 않는다");
+        }
+
+        // 부분 유니크 인덱스가 같은 것을 한 층 아래에서 막는다(`app_user_email_key`).
+        // 여기서 먼저 보는 것은 사람이 읽을 문구를 주려는 것뿐이다.
+        boolean taken = jdbc.sql("""
+                        select exists(
+                            select 1 from app_user
+                             where lower(email) = lower(:email) and user_id <> :id)
+                        """)
+                .param("email", email)
+                .param("id", userId)
+                .query(Boolean.class)
+                .single();
+
+        if (taken) {
+            throw new ShopException(ErrorCode.EMAIL_TAKEN);
+        }
+
+        jdbc.sql("update app_user set email = :email where user_id = :id and deleted_at is null")
+                .param("email", email)
+                .param("id", userId)
+                .update();
+
+        // 무엇으로 바꿨는지는 안 남긴다. 남길 것은 바꿨다는 사실뿐이다(`D16`).
+        auditLog.record(AuditLog.Kind.OUTCOME, "user.email_changed", userId,
+                AuditLog.Target.of("user", userId), Map.of());
+
+        return read(userId);
+    }
+
+    /**
      * 현재 비밀번호를 다시 받는다.
      *
      * <p>세션을 훔친 사람이 비밀번호까지 바꾸면 주인이 계정을 영영 잃는다.

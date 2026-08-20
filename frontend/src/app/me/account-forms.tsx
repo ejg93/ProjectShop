@@ -21,12 +21,72 @@ const PASSWORD_HINT = "15자 이상 64자 이하, 영문·숫자·기호를 쓸 
  * @param displayName 지금 이름. <b>볼 수 없으면 undefined 고, 그때는 이름 폼을 안 그린다</b>(`D20`) —
  *                    지금 값을 모르는 채로 고치게 하면 무엇을 덮어쓰는지 모르고 누르게 된다
  */
-export function AccountForms({ displayName }: { displayName?: string }) {
+export function AccountForms({ displayName, email }: { displayName?: string; email?: string }) {
   return (
     <div className="grid gap-6">
       {displayName === undefined ? null : <NameForm displayName={displayName} />}
+      {email === undefined ? null : <EmailForm email={email} />}
       <PasswordForm />
     </div>
+  );
+}
+
+/**
+ * 이메일 바꾸기(`Q13`).
+ *
+ * <p><b>개인정보법 제36조제1항의 정정 요구권이 여기서 선다.</b> 가입 화면에서 받은 값인데
+ * 고칠 자리가 없었고, 제38조제4항은 그 방법이 <b>수집보다 어렵지 않아야 한다</b>고 한다 —
+ * 없는 것은 어려운 것보다 나쁘다.
+ *
+ * <p><b>비밀번호를 다시 받는다.</b> 이메일이 계정을 되찾는 통로라, 세션을 훔친 사람이
+ * 이것을 바꾸면 주인이 계정을 잃는다.
+ */
+function EmailForm({ email }: { email: string }) {
+  const router = useRouter();
+  const form = useRef<HTMLFormElement>(null);
+  const [sending, setSending] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
+  const [notice, setNotice] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  async function submit(data: FormData) {
+    setSending(true);
+    setNotice(null);
+    setFailure(null);
+
+    try {
+      await api("/api/me/email", {
+        method: "POST",
+        body: { email: data.get("email"), currentPassword: data.get("emailPassword") },
+      });
+
+      form.current?.reset();
+      setNotice("이메일을 바꿨습니다.");
+      startRefresh(() => router.refresh());
+    } catch (thrown) {
+      setFailure(messageOf(thrown));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <form ref={form} action={submit} className="grid gap-4 rounded-ui border border-border p-5">
+      <h3 className="text-sm font-semibold">이메일 바꾸기</h3>
+
+      <Field name="email" type="email" label="새 이메일" autoComplete="email" defaultValue={email} />
+      <Field
+        name="emailPassword"
+        type="password"
+        label="현재 비밀번호"
+        autoComplete="current-password"
+        hint="본인 확인을 위해 입력해 주시기 바랍니다."
+      />
+
+      <Result notice={notice} failure={failure} />
+
+      <SubmitButton pending={sending || refreshing} label="이메일 바꾸기" pendingLabel="바꾸는 중" />
+    </form>
   );
 }
 
@@ -190,6 +250,8 @@ function messageOf(error: unknown): string {
   switch (error.slug) {
     case "password-mismatch":
       return "현재 비밀번호가 맞지 않습니다.";
+    case "email-taken":
+      return "이미 가입된 이메일입니다.";
     case "account-forbidden":
       return "이 계정을 고치실 권한이 없습니다.";
     case "validation-failed":
