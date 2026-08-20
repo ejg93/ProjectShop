@@ -223,6 +223,105 @@ class OrderServiceTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 청약철회 제한이 <b>이 거래에서 성립했나</b>(`Q5`, `D2` R4).
+     *
+     * <p>상품에 붙은 것은 「이 사유에 해당할 수 있다」는 표시고, 제한이 서려면 사유마다 다른
+     * 조건이 차야 한다. 그 판정을 <b>주문 시점에 항목에 박제한다</b> —
+     * 상품의 지금 값을 반품 때 읽으면 셀러가 나중에 제한을 켜서 지나간 주문까지 막을 수 있다.
+     */
+    @Nested
+    @DisplayName("청약철회 제한은")
+    class WithdrawalRestriction {
+
+        @Test
+        @DisplayName("주문제작 상품에 동의가 없으면 안 박힌다")
+        void doesNotBindMadeToOrderWithoutAgreement() {
+            long skuId = restrictedSku("made_to_order");
+
+            orderService.create(userId, command(List.of(addToCart(skuId, 1))));
+
+            assertThat(restrictionOf(skuId))
+                    .as("시행령 제21조는 거래마다 동의를 요구한다. 침묵은 동의가 아니다")
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("주문제작 상품에 동의하면 박히고 시각이 남는다")
+        void bindsMadeToOrderWithAgreement() {
+            long skuId = restrictedSku("made_to_order");
+            long cartItemId = addToCart(skuId, 1);
+
+            orderService.create(userId, new OrderService.Command(List.of(cartItemId),
+                    command(List.of(cartItemId)).shipping(), true));
+
+            assertThat(restrictionOf(skuId)).isEqualTo("made_to_order");
+            assertThat(agreedAtOf(skuId))
+                    .as("언제 받았는지가 입증 자료다")
+                    .isNotNull();
+        }
+
+        @Test
+        @DisplayName("디지털콘텐츠는 동의 없이도 박힌다")
+        void bindsDigitalContentWithoutAgreement() {
+            long skuId = restrictedSku("digital_content");
+
+            orderService.create(userId, command(List.of(addToCart(skuId, 1))));
+
+            assertThat(restrictionOf(skuId))
+                    .as("제17조제2항5호는 동의가 아니라 제공 개시가 요건이다")
+                    .isEqualTo("digital_content");
+        }
+
+        @Test
+        @DisplayName("복제 가능 매체는 주문 시점에 성립하지 않는다")
+        void neverBindsCopyableMedia() {
+            long skuId = restrictedSku("copyable_media");
+            long cartItemId = addToCart(skuId, 1);
+
+            orderService.create(userId, new OrderService.Command(List.of(cartItemId),
+                    command(List.of(cartItemId)).shipping(), true));
+
+            assertThat(restrictionOf(skuId))
+                    .as("포장 훼손은 물건이 돌아와야 아는 사실이고 입증은 우리 몫이다(제17조제5항)")
+                    .isNull();
+        }
+
+        private long restrictedSku(String reason) {
+            long skuId = skuOf(sellerWith("REST", "제한 셀러", 1000, 0), "제한 상품", 10000, 5);
+            jdbc.sql("""
+                            update product set is_withdrawal_restricted = true,
+                                               withdrawal_restriction_reason = :reason
+                             where product_id = (select product_id from sku where sku_id = :skuId)
+                            """)
+                    .param("reason", reason)
+                    .param("skuId", skuId)
+                    .update();
+            return skuId;
+        }
+
+        private String restrictionOf(long skuId) {
+            return columnOf(skuId, "withdrawal_restriction_reason");
+        }
+
+        private String agreedAtOf(long skuId) {
+            return columnOf(skuId, "withdrawal_restriction_agreed_at");
+        }
+
+        /** 장바구니 항목은 주문과 함께 사라지므로 `sku_id` 로 찾는다 */
+        private String columnOf(long skuId, String column) {
+            return jdbc.sql("""
+                            select %s::text from order_item oi
+                             where oi.sku_id = :id
+                             order by oi.order_item_id desc limit 1
+                            """.formatted(column))
+                    .param("id", skuId)
+                    .query(String.class)
+                    .optional()
+                    .orElse(null);
+        }
+    }
+
     private OrderService.Created order(long cartItemId) {
         return orderService.create(userId, command(List.of(cartItemId)));
     }

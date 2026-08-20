@@ -49,9 +49,17 @@ public class OrderController {
         this.idempotency = idempotency;
     }
 
+    /**
+     * @param withdrawalRestrictionAgreed 주문제작 상품의 청약철회 제한에 동의했나(`Q5`).
+     *        <b>안 보내면 안 받은 것</b>이고, 그러면 그 주문에는 제한이 안 걸린다 —
+     *        시행령 제21조가 요구하는 것은 동의고 침묵은 동의가 아니다.
+     *        <b>{@code Boolean} 인 이유는 Jackson 이 빠진 원시 타입을 못 채워서다</b> —
+     *        {@code boolean} 으로 두면 이 칸을 안 보내는 기존 클라이언트가 400 을 받는다
+     */
     public record CreateRequest(
             @NotEmpty @Size(max = 100) List<Long> cartItemIds,
-            @NotNull @Valid ShippingRequest shipping) {
+            @NotNull @Valid ShippingRequest shipping,
+            Boolean withdrawalRestrictionAgreed) {
     }
 
     public record ShippingRequest(
@@ -144,6 +152,7 @@ public class OrderController {
         return new OrderService.Command(request.cartItemIds(),
                 new OrderService.Shipping(shipping.receiverName(), shipping.receiverPhone(),
                         shipping.postalCode(), shipping.address1(), shipping.address2(),
-                        shipping.deliveryMemo()));
+                        shipping.deliveryMemo()),
+                Boolean.TRUE.equals(request.withdrawalRestrictionAgreed()));
     }
 }
