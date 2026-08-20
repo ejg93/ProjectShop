@@ -162,6 +162,13 @@ export function CheckoutForm({
       <fieldset className="grid gap-4">
         <legend className="mb-2 text-sm font-semibold">결제 수단</legend>
 
+        {/*
+          `autocomplete` 을 끈다. WCAG 2.2 SC 1.3.5 는 사용자 정보를 받는 칸에 토큰을 요구하고
+          카드번호도 그 목록에 있지만(`cc-number`), <b>여기는 모의 결제다</b> —
+          브라우저가 진짜 카드를 채우면 그 번호가 우리 서버로 간다. 담을 칸이 없어서
+          저장은 안 되지만(`V22`), 안 받는 것과 받고 안 담는 것은 다르다.
+          진짜 PG 를 붙이는 청크에서 `cc-number` 로 바꾼다(`Q8`).
+        */}
         <Field
           name="cardNumber"
           type="text"
@@ -216,7 +223,7 @@ export function CheckoutForm({
               checked={restrictionAgreed}
               onChange={(event) => setRestrictionAgreed(event.target.checked)}
               className="
-                mt-0.5 size-4 shrink-0 accent-accent
+                mt-0.5 size-6 shrink-0 accent-accent
                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
               "
             />

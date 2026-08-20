@@ -198,7 +198,7 @@ function ConsentRow({
           aria-describedby={blockedBy ? reasonId : undefined}
           onChange={(event) => onChange(event.target.checked)}
           className="
-            mt-0.5 size-4 shrink-0 accent-accent
+            mt-0.5 size-6 shrink-0 accent-accent
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
             disabled:opacity-50
           "
