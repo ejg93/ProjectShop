@@ -123,6 +123,43 @@ class SellerOrderVisibilityTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 뷰가 표를 따라오나.
+     *
+     * <p><b>이 테스트가 없어서 같은 함정을 두 번 밟았다</b>(`Q2`). `11-6` 이 「뷰가 컬럼 목록을
+     * 굳혀서 표에 컬럼이 늘어도 안 따라온다」를 이력에 적고 뷰를 다시 만들었는데,
+     * 다음 날 `V29` 가 {@code return_reason} 을 더하면서 또 안 고쳤다.
+     *
+     * <p><b>뷰에는 {@code check} 를 못 건다.</b> 강제 지점이 테스트가 천장이고(`D23` 축 2)
+     * 그 천장이 비어 있었다.
+     *
+     * <p>일부러 뺀 컬럼이 생기면 이 테스트가 먼저 깨진다 — 그때 <b>왜 뺐는지를 여기 적고</b>
+     * 목록에서 덜어낸다. 조용히 빠지는 것과 밝히고 빼는 것을 가르는 것이 이 테스트의 일이다.
+     */
+    @Nested
+    @DisplayName("뷰와 표의 컬럼")
+    class ViewColumns {
+
+        @Test
+        @DisplayName("표에 있는 컬럼이 뷰에도 다 있다")
+        void viewCarriesEveryColumn() {
+            assertThat(columnsOf("seller_order_visible"))
+                    .as("seller_order 에 컬럼을 더하면 seller_order_visible 도 같이 고친다")
+                    .containsAll(columnsOf("seller_order"));
+        }
+
+        private List<String> columnsOf(String relation) {
+            return jdbc.sql("""
+                            select column_name from information_schema.columns
+                             where table_schema = 'public' and table_name = :relation
+                             order by column_name
+                            """)
+                    .param("relation", relation)
+                    .query(String.class)
+                    .list();
+        }
+    }
+
     private List<String> numbersOf(long orderId) {
         return jdbc.sql("""
                         select seller_order_number from seller_order

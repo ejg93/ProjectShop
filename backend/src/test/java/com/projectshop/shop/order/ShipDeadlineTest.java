@@ -1,6 +1,7 @@
 package com.projectshop.shop.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -206,6 +207,39 @@ class ShipDeadlineTest extends PostgresTestBase {
             assertThat(overdue(orderId))
                     .as("보낸 시각이 없으면 지금 시각과 비교한다")
                     .isTrue();
+        }
+    }
+
+    /**
+     * 기한이 비는 것을 DB 가 막나(`Q2`, `V30`).
+     *
+     * <p><b>앱 검증만으로는 부족하다.</b> 지금 박제를 부르는 자리가 하나뿐이라 안 빠뜨리는데,
+     * 새 입구가 생기면 빠뜨린다(`D23` 축 2). 빠뜨리면 조용하다 —
+     * {@code seller_order_ship_overdue_idx} 가 {@code is not null} 로 걸러서
+     * <b>기한을 넘긴 묶음이 「지금 늦고 있는 것」 조회에서 사라진다.</b>
+     */
+    @Nested
+    @DisplayName("기한이 비면")
+    class MissingDeadline {
+
+        @Test
+        @DisplayName("결제된 주문에 기한 없는 묶음이 남으면 커밋이 막힌다")
+        void rejectsPaidOrderWithoutDeadline() {
+            long orderId = placeAndPay(insertSku(null));
+
+            // 박제를 빠뜨린 새 입구를 흉내 낸다.
+            jdbc.sql("update seller_order set ship_due_at = null where order_id = :orderId")
+                    .param("orderId", orderId)
+                    .update();
+            jdbc.sql("update shop_order set status = 'paid' where order_id = :orderId")
+                    .param("orderId", orderId)
+                    .update();
+
+            // 지연 제약이라 고치는 순간이 아니라 커밋할 때 걸린다. 테스트는 커밋을 안 하므로
+            // 밀린 검사를 여기서 당겨 돌린다(`OrderSchemaTest` 와 같은 수법).
+            assertThatThrownBy(() -> jdbc.sql("set constraints all immediate").update())
+                    .as("발송 기한 없이 결제된 주문이 남으면 안 된다(D2 R21)")
+                    .hasMessageContaining("발송 기한이 없는 묶음");
         }
     }
 
