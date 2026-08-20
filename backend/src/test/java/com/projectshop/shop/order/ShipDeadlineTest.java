@@ -116,6 +116,32 @@ class ShipDeadlineTest extends PostgresTestBase {
         }
 
         /**
+         * <b>약정이 있었는지가 묶음에 남나</b>(`14c`).
+         *
+         * <p>기한은 `supply_lead_days` 로 계산되는데 그 값은 <b>결과</b>라
+         * 3 이 「약정 3영업일」인지 「약정이 없어서 법정 3영업일」인지 안 갈린다.
+         * 나중에 「이 주문에 약정이 있었나」를 물으면 상품의 <b>지금</b> 값을 봐야 하고,
+         * 그건 셀러가 그 사이 바꿨을 수 있다 — 리드타임을 박제한 이유가 바로 그것이었다(`V26`).
+         */
+        @Test
+        @DisplayName("약정이 없으면 약정 칸이 빈다")
+        void leavesAgreementEmptyWithoutOne() {
+            long orderId = placeAndPay(insertSku(null));
+
+            assertThat(agreedLeadDays(orderId))
+                    .as("법정 기한이 걸린 것과 3영업일을 약정한 것은 다른 사실이다")
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("약정이 있으면 그 날수가 남는다")
+        void keepsTheAgreedLeadTime() {
+            long orderId = placeAndPay(insertSku(10));
+
+            assertThat(agreedLeadDays(orderId)).isEqualTo(10);
+        }
+
+        /**
          * 한 셀러 묶음은 한 번에 나간다.
          *
          * <p>가장 짧은 것을 쓰면 <b>아직 준비 안 된 항목이 있는데 기한이 지난 것</b>이 되고,
@@ -256,6 +282,16 @@ class ShipDeadlineTest extends PostgresTestBase {
     private void ship(long orderId) {
         statuses.moveShipment(bundleId(orderId), OrderTransitions.Shipment.SHIPPING,
                 OrderStatusService.Actor.person("seller", buyerId));
+    }
+
+    /** 묶음에 박제된 약정 날수. 약정이 없었으면 {@code null} 이다 */
+    private Integer agreedLeadDays(long orderId) {
+        return jdbc.sql("select agreed_lead_days from seller_order where order_id = :orderId")
+                .param("orderId", orderId)
+                .query((rs, rowNum) -> rs.getObject("agreed_lead_days", Integer.class))
+                // `single()` 은 매핑 결과가 null 이면 터진다. 여기서는 null 이 답이라 목록으로 받는다.
+                .list()
+                .getFirst();
     }
 
     private LocalDate shipDueDate(long orderId) {

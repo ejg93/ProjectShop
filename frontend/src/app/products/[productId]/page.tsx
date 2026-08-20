@@ -25,6 +25,13 @@ type ProductDetail = {
   withdrawalRestrictionReason: WithdrawalReason | null;
   /** 이 셀러의 배송비. 총액을 그리려면 있어야 한다(`D2` R24) */
   shippingFee: number;
+  /**
+   * 공급시기 약정 날수(영업일). `null` 이면 약정이 없고 법정 3영업일이 걸린다.
+   *
+   * <p><b>그리지 않으면 그 약정이 안 선다</b>(전자상거래법 제15조제1항 단서, `D2` R21) —
+   * 고지가 성립 요건이라 값만 두면 법정 기한이 그대로다(`14c`).
+   */
+  supplyLeadDays: number | null;
   options: OptionGroup[];
   skus: PublicSku[];
 };
@@ -99,6 +106,8 @@ export default async function ProductDetailPage({
             shippingFee={product.shippingFee}
           />
 
+          <SupplyLeadTime days={product.supplyLeadDays} />
+
           {product.withdrawalRestricted ? (
             <Withdrawal reason={product.withdrawalRestrictionReason} />
           ) : null}
@@ -116,6 +125,42 @@ export default async function ProductDetailPage({
     </div>
   );
 }
+/**
+ * 공급시기 고지(`14c`, `D2` R21).
+ *
+ * <p><b>이 자리가 비면 약정이 성립하지 않는다.</b> 전자상거래법 제15조제1항은 선지급식 통신판매에
+ * 대금을 지급받은 날부터 3영업일 이내에 공급 조치를 하라고 하고, 단서가 「따로 약정한 것이 있는
+ * 경우에는 그러하지 아니하다」로 연다 — <b>약정은 알린 것만 약정이다.</b>
+ * `R4` 가 청약철회 제한에서 지난 것과 같은 구조다(`6` 이 스키마, `14b` 가 화면).
+ *
+ * <p><b>약정이 없어도 그린다.</b> 안 그리면 사는 사람은 언제 오는지를 아예 모르고,
+ * 법정 기한이 걸린다는 사실도 거래조건이다(제13조제2항 4호).
+ *
+ * <p><b>영업일이라고 밝힌다.</b> 우리 계산이 영업일이라(`BusinessCalendar`) 「5일」이라고만 쓰면
+ * 화면이 말한 것과 실제 기한이 갈린다 — 주말이 끼면 이레가 된다.
+ */
+function SupplyLeadTime({ days }: { days: number | null }) {
+  return (
+    <section aria-labelledby="supply-heading" className="grid gap-2 rounded-ui border border-border p-4">
+      <h2 id="supply-heading" className="text-sm font-semibold">
+        발송 예정
+      </h2>
+      <p className="text-sm text-text-muted">
+        {days === null ? (
+          <>결제하신 날부터 3영업일 이내에 발송해 드립니다.</>
+        ) : (
+          <>
+            이 상품은 결제하신 날부터 <strong className="text-text">{days}영업일</strong> 이내에
+            발송해 드리기로 약정된 상품입니다.
+          </>
+        )}
+        <br />
+        영업일은 주말과 공휴일을 뺀 날입니다.
+      </p>
+    </section>
+  );
+}
+
 
 /**
  * 청약철회 제한 고지(`D2` R4).

@@ -88,10 +88,16 @@ public class ProductQuery {
      * @param withdrawalRestrictionReason 청약철회를 제한하는 사유. 제한이 없으면 null.
      *                                    <b>법이 고지를 요구하는 값이라 공개로 나간다</b>(`D2` R4)
      */
+    /**
+     * @param supplyLeadDays 공급시기 약정 날수(영업일). <b>{@code null} 이면 약정이 없고
+     *        법정 3영업일이 걸린다</b>(전자상거래법 제15조제1항, `D2` R21).
+     *        <b>화면이 그려야 그 약정이 선다</b> — 제15조제1항 단서의 「따로 약정한 것」은
+     *        고지가 성립 요건이라, 값만 두고 안 그리면 법정 기한이 그대로다(`14c`)
+     */
     public record PublicDetail(long productId, long sellerId, String sellerName, String name,
             String description, boolean withdrawalRestricted, String withdrawalRestrictionReason,
-            long shippingFee, List<OptionGroup> options, List<PublicSku> skus,
-            OffsetDateTime createdAt) {
+            long shippingFee, Integer supplyLeadDays, List<OptionGroup> options,
+            List<PublicSku> skus, OffsetDateTime createdAt) {
     }
 
     /** 옵션 하나와 고를 수 있는 값들. 「색상」에 「빨강·파랑」 같은 것 */
@@ -253,7 +259,7 @@ public class ProductQuery {
                         select p.product_id, p.seller_id, s.name as seller_name, p.name,
                                p.description, p.is_withdrawal_restricted,
                                p.withdrawal_restriction_reason, s.default_shipping_fee,
-                               p.created_at
+                               p.supply_lead_days, p.created_at
                           from product p
                           join seller s on s.seller_id = p.seller_id
                          where p.product_id = :id
@@ -269,6 +275,9 @@ public class ProductQuery {
                         rs.getBoolean("is_withdrawal_restricted"),
                         reasonValue(rs.getString("withdrawal_restriction_reason")),
                         rs.getLong("default_shipping_fee"),
+                        // 바깥 조인이 아니라도 null 이 오는 컬럼은 getObject 로 받는다 —
+                        // getInt 는 null 을 0 으로 돌려줘서 「약정 없음」이 「당일 발송」이 된다(`D23`).
+                        rs.getObject("supply_lead_days", Integer.class),
                         List.of(),
                         List.of(),
                         rs.getObject("created_at", OffsetDateTime.class)))
@@ -278,8 +287,8 @@ public class ProductQuery {
 
         return new PublicDetail(head.productId(), head.sellerId(), head.sellerName(), head.name(),
                 head.description(), head.withdrawalRestricted(), head.withdrawalRestrictionReason(),
-                head.shippingFee(), findOptions(productId), findPublicSkus(productId),
-                head.createdAt());
+                head.shippingFee(), head.supplyLeadDays(), findOptions(productId),
+                findPublicSkus(productId), head.createdAt());
     }
 
     /**

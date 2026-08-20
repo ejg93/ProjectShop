@@ -24,6 +24,8 @@ type CartItem = {
   quantity: number;
   available: boolean;
   withdrawalRestrictionReason: string | null;
+  /** 공급시기 약정 날수(영업일). `null` 이면 약정이 없고 법정 3영업일이 걸린다(`14c`) */
+  supplyLeadDays: number | null;
 };
 
 type Cart = { items: CartItem[]; total: number };
@@ -164,6 +166,25 @@ function SellerGroup({
         <span>{priceText(line.shippingFee)}</span>
       </p>
 
+      {/*
+        공급시기 고지(`14c`, `D2` R21). **청약 전에 알아야 할 거래조건이다**(제13조제2항 4호) —
+        상품 상세에서 봤더라도 여기서 다시 말한다. 담고 나서 결제까지 오는 동안
+        무엇을 언제 받는지가 바뀌지 않았다는 것을 이 화면이 확인해 준다.
+
+        **묶음 단위로 적는다.** 한 셀러 묶음은 한 번에 나가므로 가장 늦은 항목이
+        그 묶음의 발송 시점을 정한다(`V26`).
+      */}
+      <p className="border-t border-border pt-2 text-xs text-text-muted">
+        {bundleLeadDays(group.items) === null ? (
+          <>결제하신 날부터 3영업일 이내에 발송됩니다.</>
+        ) : (
+          <>
+            결제하신 날부터 <strong className="text-text">{bundleLeadDays(group.items)}영업일</strong>{" "}
+            이내에 발송하기로 약정된 상품이 들어 있습니다.
+          </>
+        )}
+      </p>
+
       <details className="border-t border-border pt-2">
         <summary
           className="
@@ -245,6 +266,23 @@ function Empty({ hasItems }: { hasItems: boolean }) {
 }
 
 type SellerGrouping = { sellerId: number; sellerName: string; items: CartItem[] };
+
+/**
+ * 이 묶음의 약정 날수(`14c`).
+ *
+ * <p><b>가장 긴 것을 쓴다.</b> 한 셀러 묶음은 한 번에 나가므로 가장 늦게 준비되는 항목이
+ * 그 묶음의 발송 시점을 정한다 — 서버가 `seller_order.supply_lead_days` 를 굳힐 때와 같은 규칙이다(`V26`).
+ *
+ * <p><b>약정이 하나도 없으면 `null` 이다.</b> 그것이 「법정 3영업일이 걸린다」는 사실이고,
+ * 0(당일 발송)과 섞이면 안 된다.
+ */
+function bundleLeadDays(items: CartItem[]): number | null {
+  const agreed = items
+    .map((item) => item.supplyLeadDays)
+    .filter((days): days is number => days !== null);
+
+  return agreed.length === 0 ? null : Math.max(...agreed);
+}
 
 /** 담은 순서를 안에서 지킨다. 서버가 담은 시각 순으로 내려주므로 다시 정렬하지 않는다 */
 function groupBySeller(items: CartItem[]): SellerGrouping[] {

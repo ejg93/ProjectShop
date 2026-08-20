@@ -89,7 +89,7 @@ public class OrderService {
      */
     private record Line(long skuId, long sellerId, String productName, String optionLabel,
             long unitPriceInclVat, int quantity, int commissionBp, int supplyLeadDays,
-            String withdrawalRestrictionReason) {
+            Integer agreedLeadDays, String withdrawalRestrictionReason) {
 
         long lineAmount() {
             return unitPriceInclVat * quantity;
@@ -192,6 +192,7 @@ public class OrderService {
                         select s.sku_id, p.seller_id, p.name as product_name, ci.quantity,
                                s.price_incl_vat, coalesce(p.commission_bp, sel.commission_bp) as commission_bp,
                                coalesce(p.supply_lead_days, :legalLeadDays) as supply_lead_days,
+                               p.supply_lead_days as agreed_lead_days,
                                case when p.is_withdrawal_restricted then p.withdrawal_restriction_reason end
                                     as withdrawal_restriction_reason,
                                (select string_agg(pov.value, ' / ' order by po.sort_no, pov.sort_no)
@@ -223,6 +224,9 @@ public class OrderService {
                         rs.getInt("quantity"),
                         rs.getInt("commission_bp"),
                         rs.getInt("supply_lead_days"),
+                        // 약정이 없으면 null 이다. getInt 로 받으면 0(당일 발송)이 돼서
+                        // 「약정 없음」과 「오늘 보내기로 약속」이 같아진다(`D23`).
+                        rs.getObject("agreed_lead_days", Integer.class),
                         rs.getString("withdrawal_restriction_reason")))
                 .list();
 
@@ -305,8 +309,16 @@ public class OrderService {
                     .max()
                     .orElse(LEGAL_SUPPLY_LEAD_DAYS);
 
-            long sellerOrderId =
-                    insertSellerOrder(orderId, sellerId, shippingFees.get(sellerId), leadDays);
+            // 약정만 따로 센다(`14c`). 약정이 하나도 없으면 null 이고, 그것이
+            // 「법정 기한이 걸렸다」는 사실이다 — 계산 결과(leadDays)로는 그것을 못 가른다.
+            Integer agreedDays = sellerLines.stream()
+                    .map(Line::agreedLeadDays)
+                    .filter(java.util.Objects::nonNull)
+                    .max(Integer::compareTo)
+                    .orElse(null);
+
+            long sellerOrderId = insertSellerOrder(
+                    orderId, sellerId, shippingFees.get(sellerId), leadDays, agreedDays);
 
             for (Line line : sellerLines) {
                 jdbc.sql("""
@@ -372,11 +384,14 @@ public class OrderService {
      * <p>주문번호와 같은 방식으로 부딪히면 다시 뽑는다. 재시도 수도 같은 상수를 쓴다 —
      * 두 번호가 같은 난수 집합에서 나오므로 충돌 확률도 같고, 따로 두면 한쪽만 고치는 날이 온다.
      */
-    private long insertSellerOrder(long orderId, long sellerId, long shippingFee, int leadDays) {
+    private long insertSellerOrder(long orderId, long sellerId, long shippingFee,
+            int leadDays, Integer agreedDays) {
+
         return ExposedNumber.insertWith(SELLER_ORDER_PREFIX, "셀러 주문번호", number -> jdbc.sql("""
                                 insert into seller_order (seller_order_number, order_id,
-                                                          seller_id, shipping_fee, supply_lead_days)
-                                values (:number, :orderId, :sellerId, :fee, :leadDays)
+                                                          seller_id, shipping_fee, supply_lead_days,
+                                                          agreed_lead_days)
+                                values (:number, :orderId, :sellerId, :fee, :leadDays, :agreedDays)
                                 returning seller_order_id
                                 """)
                 .param("number", number)
@@ -384,6 +399,7 @@ public class OrderService {
                 .param("sellerId", sellerId)
                 .param("fee", shippingFee)
                 .param("leadDays", leadDays)
+                .param("agreedDays", agreedDays)
                 .query(Long.class)
                 .single());
     }
