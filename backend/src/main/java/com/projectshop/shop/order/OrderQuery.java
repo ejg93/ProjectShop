@@ -148,6 +148,15 @@ public class OrderQuery {
     }
 
     /**
+     * 조항 하나를 본문까지 펼친 것(`Q4`).
+     *
+     * @param body 마크다운. <b>이 주문이 가리키는 판의 본문</b>이지 지금 효력 있는 판이 아니다
+     */
+    public record ContractDocumentBody(String clause, String code, String title, int version,
+            OffsetDateTime effectiveAt, String body) {
+    }
+
+    /**
      * 주문 상세. <b>못 보는 것은 null 이 아니라 응답에서 빠진다</b>(`D5`).
      *
      * @param shipping 배송지. {@code shipping} 그룹
@@ -426,6 +435,86 @@ public class OrderQuery {
                         rs.getInt("version"),
                         rs.getObject("effective_at", OffsetDateTime.class)))
                 .list();
+    }
+
+    /**
+     * 계약내용 서면 하나를 <b>본문까지</b> 펼친다(`Q4`, `D2` R22).
+     *
+     * <p>전자상거래법 제13조제2항 후단이 「계약내용에 관한 서면을 재화등을 공급할 때까지
+     * <b>교부</b>」라고 한다. 목록만으로는 교부가 아니다 — 제목과 판만 알려 주고 본문을 못 읽으면
+     * 그 사람이 무엇에 계약했는지는 여전히 모른다.
+     *
+     * <p><b>지금 효력 있는 판이 아니라 이 주문이 가리키는 판이다.</b> 개정됐으면 둘이 다르고,
+     * 최신판을 내주면 <b>그 사이 우리가 고친 것을 들이미는 꼴</b>이 된다
+     * ({@code ConsentService.readMine} 이 같은 판단을 했다).
+     *
+     * <p><b>목록에 본문을 안 싣는 이유</b>는 `5k` 와 같다 — 약관 전문이 조항 수만큼 딸려 나오면
+     * 주문 상세가 무거워진다. 펼칠 때 하나씩 받는다.
+     *
+     * <p>권한은 주문 상세와 같은 것을 본다. 못 보는 주문은 없는 주문과 같은 404 다(`D5`).
+     */
+    public ContractDocumentBody contractDocument(long userId, String orderNumber, String clause) {
+        long orderId = requireReadableOrderId(userId, orderNumber);
+
+        return jdbc.sql("""
+                        select d.clause,
+                               coalesce(p.code, c.code)                 as code,
+                               coalesce(p.title, c.title)               as title,
+                               coalesce(p.version, c.version)           as version,
+                               coalesce(p.effective_at, c.effective_at) as effective_at,
+                               coalesce(p.body, c.body)                 as body
+                          from order_contract_document d
+                          left join policy_document p
+                                 on p.policy_document_id = d.policy_document_id
+                          left join consent_item c
+                                 on c.consent_item_id = d.consent_item_id
+                         where d.order_id = :orderId and d.clause = :clause
+                        """)
+                .param("orderId", orderId)
+                .param("clause", clause.toLowerCase(Locale.ROOT))
+                .query((rs, rowNum) -> new ContractDocumentBody(
+                        enumValue(rs.getString("clause")),
+                        rs.getString("code"),
+                        rs.getString("title"),
+                        rs.getInt("version"),
+                        rs.getObject("effective_at", OffsetDateTime.class),
+                        rs.getString("body")))
+                .optional()
+                .orElseThrow(() -> new ShopException(ErrorCode.POLICY_NOT_FOUND,
+                        "그 주문에 그런 조항이 없다: " + clause));
+    }
+
+    /**
+     * 주문 상세와 같은 판정을 한 번 더 쓴다.
+     *
+     * <p>같은 물음("이 사람이 이 주문을 볼 수 있나")에 답하는 자리가 둘이 되면
+     * 한쪽 규칙을 고치는 사람이 다른 쪽을 못 본다.
+     */
+    private long requireReadableOrderId(long userId, String orderNumber) {
+        OrderRow order = jdbc.sql("""
+                        select order_id, order_number, user_id, status, total_amount,
+                               shipping_fee_total, payable_amount, created_at
+                          from shop_order
+                         where order_number = :orderNumber
+                        """)
+                .param("orderNumber", orderNumber)
+                .query((rs, rowNum) -> new OrderRow(
+                        rs.getLong("order_id"),
+                        rs.getString("order_number"),
+                        rs.getLong("user_id"),
+                        rs.getString("status"),
+                        rs.getLong("total_amount"),
+                        rs.getLong("shipping_fee_total"),
+                        rs.getLong("payable_amount"),
+                        rs.getObject("created_at", OffsetDateTime.class)))
+                .optional()
+                .orElseThrow(() -> new ShopException(ErrorCode.ORDER_NOT_FOUND,
+                        "그런 주문이 없다: " + orderNumber));
+
+        if (!evaluator.decide(userId, "order", "read", Target.ownedBy(order.userId())).allowed()) {
+            throw new ShopException(ErrorCode.ORDER_NOT_FOUND, "그런 주문이 없다: " + orderNumber);
+        }
+        return order.orderId();
     }
 
     /**

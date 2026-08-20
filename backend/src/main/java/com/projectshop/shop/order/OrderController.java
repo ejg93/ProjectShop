@@ -121,6 +121,24 @@ public class OrderController {
         return orderQuery.findByNumber(user.id(), orderNumber);
     }
 
+    /**
+     * 계약내용 서면 하나를 본문까지 펼친다(`Q4`, `D2` R22).
+     *
+     * <p><b>목록은 주문 상세가 이미 내린다.</b> 본문만 따로 받는 이유는 약관 전문이 조항 수만큼
+     * 딸려 나오면 주문 상세가 무거워져서다(`5k` 가 동의 고지에서 같은 판단을 했다).
+     *
+     * <p>경로가 주문 아래에 붙는 이유는 <b>같은 조항이라도 주문마다 판이 다르기</b> 때문이다 —
+     * {@code /api/policies/terms} 는 지금 효력 있는 판을 주고, 여기는 그 주문이 계약한 판을 준다.
+     */
+    @GetMapping("/{orderNumber}/contract-documents/{clause}")
+    public OrderQuery.ContractDocumentBody contractDocument(
+            @AuthenticationPrincipal ShopUser user,
+            @PathVariable String orderNumber,
+            @PathVariable String clause) {
+
+        return orderQuery.contractDocument(user.id(), orderNumber, clause);
+    }
+
     private static OrderService.Command toCommand(CreateRequest request) {
         ShippingRequest shipping = request.shipping();
         return new OrderService.Command(request.cartItemIds(),
