@@ -367,11 +367,20 @@ class MeConsentTest extends PostgresTestBase {
                 .single();
     }
 
+    /**
+     * 가입 때 동의한 것처럼 만든다.
+     *
+     * <p><b>시행 전인 판을 고르면 안 된다.</b> 개정판을 미리 넣어 두는 설계라(`V27`)
+     * {@code order by version desc} 만 쓰면 아직 시행 안 된 판을 집는다 —
+     * 운영 경로 둘({@code SignupService.currentConsentItems}·{@code ConsentService.findItem})은
+     * 둘 다 {@code effective_at} 을 보고, 픽스처만 안 봐서 `V36` 을 넣는 순간 깨졌다.
+     */
     private void grantAtSignup(String code) {
         jdbc.sql("""
                         insert into user_consent (user_id, consent_item_id, granted, source)
                         select :id, consent_item_id, true, 'signup' from consent_item
-                         where code = :code order by version desc limit 1
+                         where code = :code and effective_at <= now()
+                         order by effective_at desc, version desc limit 1
                         """)
                 .param("id", userId)
                 .param("code", code)

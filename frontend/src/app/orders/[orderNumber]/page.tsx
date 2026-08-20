@@ -222,10 +222,21 @@ function Deadlines({ bundle }: { bundle: SellerOrder }) {
         </>
       ) : null}
 
+      {/*
+        약관규제법 제12조1호(`R31`, `D2-7`). 부작위를 의사표시로 읽는 조항은
+        **그 뜻을 명확하게 따로 고지**해야 산다 — 날짜만 그리면 읽는 사람은
+        그것을 예정일로 볼 뿐, 자기가 가만히 있는 것이 구매확정이 된다는 것을 모른다.
+      */}
       {bundle.autoConfirmAt ? (
         <>
           <dt>자동 구매확정</dt>
-          <dd>{dateText(bundle.autoConfirmAt)}</dd>
+          <dd>
+            {dateText(bundle.autoConfirmAt)}
+            <br />
+            <span className="text-xs text-text-muted">
+              이날까지 구매확정도 반품 신청도 하지 않으시면 구매확정하신 것으로 봅니다.
+            </span>
+          </dd>
         </>
       ) : null}
     </dl>
