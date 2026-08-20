@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -14,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import com.projectshop.shop.auth.VisibleFieldGroups;
 import com.projectshop.shop.auth.Allowed;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
@@ -206,7 +206,7 @@ public class SellerOrderQuery {
                 itemsOf(row.sellerOrderId()),
                 actions.allowedActions(viewerId, row.buyerUserId(), row.sellerId(), row.status()),
                 decision.canSee(OrderFields.SHIPPING) ? shippingOf(row.orderId()) : null,
-                List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
+                VisibleFieldGroups.of(decision, OrderFields.values()));
     }
 
     private static ShopException notFound(String sellerOrderNumber) {

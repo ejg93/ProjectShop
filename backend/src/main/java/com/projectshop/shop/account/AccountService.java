@@ -3,7 +3,6 @@ package com.projectshop.shop.account;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeSet;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -14,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.auth.VisibleFieldGroups;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -94,7 +94,7 @@ public class AccountService {
                 decision.canSee(UserFields.CONTACT) ? row.email() : null,
                 // 제한이 없으면 빈 배열로 나간다. 그 값이 응답에서 "전부 본다" 를 뜻하는 것은
                 // 안쪽에서 타입으로 가른 것과 달리 여전히 모호하다 — 화면 청크(13b)가 그걸 정한다.
-                List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
+                VisibleFieldGroups.of(decision, UserFields.values()));
     }
 
     @Transactional

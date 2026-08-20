@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
@@ -37,14 +38,19 @@ public class PermissionCatalog {
     private static final Target SOMEONE_ELSES = Target.of(-1L, -1L);
 
     private final PermissionRuleLoader loader;
+    private final JdbcClient jdbc;
 
-    PermissionCatalog(PermissionRuleLoader loader) {
+    PermissionCatalog(PermissionRuleLoader loader, JdbcClient jdbc) {
         this.loader = loader;
+        this.jdbc = jdbc;
     }
 
     /**
      * @param scopes             이 동작이 열리는 범위. 비어 있으면 목록에 안 들어간다
-     * @param visibleFieldGroups 가장 넓은 허용에서 볼 수 있는 필드 그룹. 비어 있으면 제한이 없다
+     * @param visibleFieldGroups 가장 넓은 허용에서 볼 수 있는 필드 그룹.
+     *        <b>비어 있으면 아무것도 못 본다는 뜻이다</b>(`13b`) — 제한이 없으면 그 자원의
+     *        그룹이 전부 실린다. 그 전에는 빈 목록이 「제한 없음」이어서
+     *        <b>「전부 보임」과 「아무것도 안 보임」이 같은 값</b>이었다
      */
     public record Entry(String resource, String action, List<String> scopes,
             List<String> visibleFieldGroups) {
@@ -60,15 +66,34 @@ public class PermissionCatalog {
     public List<Entry> listFor(long userId) {
         Map<ResourceAction, List<Rule>> byPermission = loader.loadAllRules(userId);
         Set<Long> memberOf = loader.loadSellerMemberships(userId);
+        Map<String, List<String>> allGroups = loadFieldGroups();
 
         List<Entry> entries = new ArrayList<>();
         byPermission.forEach((permission, rules) ->
-                toEntry(permission, rules, memberOf, userId).ifPresent(entries::add));
+                toEntry(permission, rules, memberOf, userId, allGroups).ifPresent(entries::add));
         return entries;
     }
 
+    /**
+     * 자원마다 어떤 필드 그룹이 있나.
+     *
+     * <p><b>여기서는 표를 읽는다.</b> 자원 이름이 문자열로 도는 자리라 enum 을 고를 수가 없고,
+     * { auth} 가 { order}·{ account} 를 가리키면 의존이 거꾸로 선다(`D23`).
+     * 표와 enum 이 어긋나는 것은 { FieldGroupTest} 가 따로 막는다.
+     */
+    private Map<String, List<String>> loadFieldGroups() {
+        Map<String, List<String>> byResource = new java.util.HashMap<>();
+        jdbc.sql("select resource, code from permission_field_group order by resource, code")
+                .query((rs, rowNum) -> Map.entry(rs.getString("resource"), rs.getString("code")))
+                .list()
+                .forEach(row -> byResource
+                        .computeIfAbsent(row.getKey(), key -> new ArrayList<>())
+                        .add(row.getValue()));
+        return byResource;
+    }
+
     private Optional<Entry> toEntry(ResourceAction permission, List<Rule> rules,
-            Set<Long> memberOf, long userId) {
+            Set<Long> memberOf, long userId, Map<String, List<String>> allGroups) {
 
         Set<String> scopes = new TreeSet<>();
         Set<String> fieldGroups = new TreeSet<>();
@@ -93,7 +118,9 @@ public class PermissionCatalog {
                 permission.resource(),
                 permission.action(),
                 List.copyOf(scopes),
-                unrestricted ? List.of() : List.copyOf(fieldGroups)));
+                unrestricted
+                        ? allGroups.getOrDefault(permission.resource(), List.of())
+                        : List.copyOf(fieldGroups)));
     }
 
     /**

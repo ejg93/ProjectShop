@@ -94,6 +94,30 @@ class MeAccountTest extends PostgresTestBase {
                             "basic", "contact")));
         }
 
+        /**
+         * 제한이 없을 때 <b>빈 배열이 아니라 전부</b>가 실린다(`13b`, 사용자 선택).
+         *
+         * <p>그전에는 제한이 없으면 빈 배열이었다. 그러면 같은 `[]` 가
+         * <b>「다 보인다」와 「아무것도 안 보인다」 둘</b>을 뜻해서, 응답만 봐서는 안 갈렸다 —
+         * 「빈 값에 뜻을 싣지 않는다」(`D23`)에 걸리던 자리다.
+         *
+         * <p>판정 엔진 안에서는 안 모호했다. {@code Allowed} 가 타입으로 갈라 두는데
+         * <b>직렬화하면서 뭉개졌다.</b>
+         */
+        @Test
+        @DisplayName("제한이 없으면 그 자원의 그룹이 전부 실린다")
+        void unrestrictedListsEveryGroup() throws Exception {
+            long admin = insertUser("me-admin@test.local", "관리자");
+            fixture.grantGlobal(admin, "admin");
+
+            mvc.perform(get("/api/me").with(user(principal(admin, "me-admin@test.local"))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$._visible_field_groups", org.hamcrest.Matchers.hasItems(
+                            "basic", "contact")))
+                    // 빈 배열이면 이제 「아무것도 못 본다」 하나만 뜻한다.
+                    .andExpect(jsonPath("$._visible_field_groups.length()").value(2));
+        }
+
         @Test
         @DisplayName("로그인 없이는 못 본다")
         void requiresLogin() throws Exception {

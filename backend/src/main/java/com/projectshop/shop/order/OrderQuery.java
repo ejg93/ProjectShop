@@ -6,7 +6,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TreeSet;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -14,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import com.projectshop.shop.auth.VisibleFieldGroups;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -277,7 +277,7 @@ public class OrderQuery {
                 // 필드 그룹에 안 건다. 계약 조건은 사는 사람에게도 파는 사람에게도
                 // 같은 것이 걸려 있고, 보는 사람에 따라 갈릴 것이 아니다(`D23` 「어느 쪽을 언제 쓰나」).
                 contractDocumentsOf(order.orderId()),
-                List.copyOf(new TreeSet<>(decision.visibleFieldGroups().values())));
+                VisibleFieldGroups.of(decision, OrderFields.values()));
     }
 
     /**

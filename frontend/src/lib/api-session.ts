@@ -59,25 +59,11 @@ const LOGIN_REQUIRED = "/login?reason=login-required";
  * @throws ApiError 401 말고 2xx 가 아닌 것. 403·404 는 부르는 화면이 잡는다
  */
 export async function apiSession<T>(path: string): Promise<T> {
-  const jar = await cookies();
-
-  const carried = FORWARDED_COOKIES.map((name) => jar.get(name))
-    .filter((cookie) => cookie !== undefined)
-    .map((cookie) => `${cookie.name}=${cookie.value}`)
-    .join("; ");
-
-  const response = await fetch(`${BACKEND_ORIGIN}${path}`, {
-    // 쿠키가 하나도 없을 수 있다. 비로그인이 장바구니를 처음 여는 경우다.
-    headers: carried ? { Cookie: carried } : {},
-
-    // 사람마다 다른 응답이다. 캐시되면 남의 주문이 보인다(`D24` 「캐시」).
-    // 기본값이 이미 캐시 안 함이지만 Next 문서 안에서 서술이 갈리는 자리라 명시한다.
-    cache: "no-store",
-  });
+  const response = await carry(path);
 
   if (response.status === 401) {
     // 던지지 않고 여기서 보낸다. 예외로 올리면 화면마다 같은 처리를 다시 적게 된다.
-    redirect(jar.get(SESSION_COOKIE) ? SESSION_EXPIRED : LOGIN_REQUIRED);
+    redirect((await cookies()).get(SESSION_COOKIE) ? SESSION_EXPIRED : LOGIN_REQUIRED);
   }
 
   if (!response.ok) {
@@ -85,4 +71,57 @@ export async function apiSession<T>(path: string): Promise<T> {
   }
 
   return toCamel(await response.json()) as T;
+}
+
+/**
+ * 로그인해야 보는 것을 <b>안 보내고</b> 읽는다(`13b`).
+ *
+ * <p><b>셸의 머리 때문에 생긴 입구다.</b> 머리는 모든 화면에 있어서 {@link apiSession} 을 쓰면
+ * 비로그인이 상품 목록만 봐도 로그인 화면으로 튕긴다 — 공개 화면이 공개가 아니게 된다.
+ *
+ * <p>「누구인지 모른다」와 「로그인해야 한다」는 다른 상태고, 이 함수는 앞엣것을 돌려준다.
+ * <b>보낼지 말지는 부르는 화면이 정한다.</b>
+ *
+ * <p><b>세션 쿠키가 있는지로 판단하지 않는다.</b> 만료된 세션도 쿠키는 남아서,
+ * 그렇게 하면 머리가 「로그아웃」을 그리는데 누르면 로그인으로 튕긴다 —
+ * 누가 로그인했는지는 백엔드만 안다(`D24`).
+ *
+ * @returns 401 이면 {@code null}. 그 밖의 오류는 그대로 던진다
+ */
+export async function apiSessionOptional<T>(path: string): Promise<T | null> {
+  const response = await carry(path);
+
+  if (response.status === 401) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+
+  return toCamel(await response.json()) as T;
+}
+
+/**
+ * 세션을 실어서 부르고 <b>응답을 그대로 돌려준다.</b>
+ *
+ * <p>401 을 어떻게 다루느냐만 입구마다 다르고 <b>운반은 하나여야 한다</b>(`D24`) —
+ * 쿠키를 만지는 코드가 둘이 되면 목록·캐시·로그 실수가 각각 가능해진다.
+ */
+async function carry(path: string): Promise<Response> {
+  const jar = await cookies();
+
+  const carried = FORWARDED_COOKIES.map((name) => jar.get(name))
+    .filter((cookie) => cookie !== undefined)
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join("; ");
+
+  return fetch(`${BACKEND_ORIGIN}${path}`, {
+    // 쿠키가 하나도 없을 수 있다. 비로그인이 장바구니를 처음 여는 경우다.
+    headers: carried ? { Cookie: carried } : {},
+
+    // 사람마다 다른 응답이다. 캐시되면 남의 주문이 보인다(`D24` 「캐시」).
+    // 기본값이 이미 캐시 안 함이지만 Next 문서 안에서 서술이 갈리는 자리라 명시한다.
+    cache: "no-store",
+  });
 }
