@@ -320,7 +320,7 @@ class OrderSchemaTest extends PostgresTestBase {
     }
 
     private long insertOrder(String number, long total, long commission, long shipping, long payable) {
-        return jdbc.sql("""
+        long orderId = jdbc.sql("""
                         insert into shop_order (order_number, user_id, total_amount,
                                                 commission_total, shipping_fee_total, payable_amount)
                         values (:number, :userId, :total, :commission, :shipping, :payable)
@@ -334,6 +334,10 @@ class OrderSchemaTest extends PostgresTestBase {
                 .param("payable", payable)
                 .query(Long.class)
                 .single();
+
+        // `V31` 이 서면 없는 주문을 막는다. 여기는 서면이 관심사가 아니라 껍데기만 채운다.
+        OrderFixture.attachContractDocuments(jdbc, orderId);
+        return orderId;
     }
 
     private long insertSellerOrder(long orderId, long seller, long shippingFee) {

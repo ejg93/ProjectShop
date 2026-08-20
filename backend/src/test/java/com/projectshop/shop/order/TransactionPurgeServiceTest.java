@@ -204,7 +204,7 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
     private int counter;
 
     private long insertOrder(String number) {
-        return jdbc.sql("""
+        long orderId = jdbc.sql("""
                         insert into shop_order (order_number, user_id, total_amount,
                                                 commission_total, shipping_fee_total, payable_amount)
                         values (:number, :userId, 10000, 1000, 0, 10000)
@@ -214,6 +214,10 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
                 .param("userId", userId)
                 .query(Long.class)
                 .single();
+
+        // `V31` 이 서면 없는 주문을 막는다. 여기는 서면이 관심사가 아니라 껍데기만 채운다.
+        OrderFixture.attachContractDocuments(jdbc, orderId);
+        return orderId;
     }
 
     private void insertSellerOrder(long orderId, OffsetDateTime closedAt) {

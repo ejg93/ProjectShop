@@ -245,7 +245,7 @@ class OrderStatusHistorySchemaTest extends PostgresTestBase {
     }
 
     private long insertOrder() {
-        return jdbc.sql("""
+        long orderId = jdbc.sql("""
                         insert into shop_order (order_number, user_id, total_amount,
                                                 commission_total, shipping_fee_total, payable_amount)
                         values ('20260810-7QX4M9', :userId, 0, 0, 0, 0)
@@ -254,6 +254,10 @@ class OrderStatusHistorySchemaTest extends PostgresTestBase {
                 .param("userId", userId)
                 .query(Long.class)
                 .single();
+
+        // `V31` 이 서면 없는 주문을 막는다. 여기는 서면이 관심사가 아니라 껍데기만 채운다.
+        OrderFixture.attachContractDocuments(jdbc, orderId);
+        return orderId;
     }
 
     private long insertSellerOrder(long order, long sellerId) {

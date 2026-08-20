@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.order.OrderFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 
@@ -311,6 +312,9 @@ class ProductServiceTest extends PostgresTestBase {
                     .param("userId", buyerId)
                     .query(Long.class)
                     .single();
+
+            // `V31` 이 서면 없는 주문을 막는다. 여기는 서면이 관심사가 아니라 껍데기만 채운다.
+            OrderFixture.attachContractDocuments(jdbc, orderId);
 
             long sellerOrderId = jdbc.sql("""
                             insert into seller_order (seller_order_number, order_id, seller_id,

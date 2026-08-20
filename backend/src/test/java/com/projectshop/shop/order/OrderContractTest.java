@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -300,6 +301,68 @@ class OrderContractTest extends PostgresTestBase {
     /** 아직 시행 안 된 개정판. 미리 넣어 두는 것이 `V21` 의 설계다 */
     private void insertFuturePolicy(String code, int version) {
         insertPolicy(code, version, "now() + interval '30 days'");
+    }
+
+    /**
+     * 서면이 빠진 주문이 서지 않나(`Q3`, `V31`).
+     *
+     * <p><b>넣는 코드가 조용히 0행을 낼 수 있다.</b> {@code insert ... select ... join lateral} 이라
+     * 정책 문서가 없거나 아직 시행 전이면 아무것도 안 물고, 반환값도 안 본다.
+     * 유니크 제약은 같은 조항이 두 번 들어가는 것만 막는다 —
+     * <b>넷이 다 있는지는 아무도 안 봤다.</b>
+     */
+    @Nested
+    @DisplayName("서면이 빠지면")
+    class Completeness {
+
+        @Test
+        @DisplayName("조항 하나만 없어도 주문이 안 선다")
+        void rejectsOrderMissingAnyClause() {
+            for (String clause : allowedClauses()) {
+                String orderNumber = placeOrder();
+                jdbc.sql("savepoint before_delete").update();
+
+                jdbc.sql("""
+                                delete from order_contract_document d
+                                 using shop_order o
+                                 where d.order_id = o.order_id
+                                   and o.order_number = :number and d.clause = :clause
+                                """)
+                        .param("number", orderNumber)
+                        .param("clause", clause)
+                        .update();
+
+                // 지연 제약이라 지우는 순간이 아니라 커밋할 때 걸린다. 테스트는 커밋을 안 하므로
+                // 밀린 검사를 당겨 돌린다(`OrderSchemaTest` 와 같은 수법).
+                assertThatThrownBy(() -> jdbc.sql("set constraints all immediate").update())
+                        .as("%s 가 빠진 주문이 서면 그 조항은 교부된 적이 없다", clause)
+                        .hasMessageContaining(clause);
+
+                // 걸린 트랜잭션을 세이브포인트까지만 되감는다. 통째로 rollback 하면
+                // `` 이 깔아 둔 픽스처까지 사라져서 다음 회차가 엉뚱한 데서 깨진다.
+                jdbc.sql("rollback to savepoint before_delete").update();
+            }
+        }
+
+        /**
+         * 조항 이름이 두 곳에 있다 — {@code order_contract_document_clause_check} 와
+         * {@code assert_contract_documents_complete()} 다.
+         *
+         * <p>이 테스트가 <b>제약 쪽 목록에서 이름을 읽어</b> 위 검사를 돌리므로,
+         * 제약에 조항을 하나 늘리고 트리거를 안 늘리면 그 회차에서 깨진다.
+         */
+        private List<String> allowedClauses() {
+            String definition = jdbc.sql("""
+                            select pg_get_constraintdef(oid) from pg_constraint
+                             where conname = 'order_contract_document_clause_check'
+                            """)
+                    .query(String.class)
+                    .single();
+
+            return Pattern.compile("'([a-z_]+)'::text").matcher(definition).results()
+                    .map(match -> match.group(1))
+                    .toList();
+        }
     }
 
     private void insertEffectivePolicy(String code, int version) {
