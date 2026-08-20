@@ -72,7 +72,7 @@ class PolicyQueryTest extends PostgresTestBase {
         void hidesFuturePolicy() {
             jdbc.sql("""
                             insert into policy_document (code, title, version, body, effective_at)
-                            values ('privacy_policy', '개인정보처리방침', 2,
+                            values ('privacy_policy', '개인정보처리방침', 90,
                                     '## 아직 시행 전인 판', now() + interval '7 days')
                             """)
                     .update();
@@ -90,7 +90,7 @@ class PolicyQueryTest extends PostgresTestBase {
         void servesEffectiveRevision() {
             jdbc.sql("""
                             insert into policy_document (code, title, version, body, effective_at)
-                            values ('privacy_policy', '개인정보처리방침', 2, '## 시행된 새 판', now())
+                            values ('privacy_policy', '개인정보처리방침', 90, '## 시행된 새 판', now())
                             """)
                     .update();
 
@@ -109,7 +109,7 @@ class PolicyQueryTest extends PostgresTestBase {
         void ignoresBackdatedRevision() {
             jdbc.sql("""
                             insert into policy_document (code, title, version, body, effective_at)
-                            values ('privacy_policy', '개인정보처리방침', 2, '## 뒤늦게 넣은 옛 판',
+                            values ('privacy_policy', '개인정보처리방침', 90, '## 뒤늦게 넣은 옛 판',
                                     now() - interval '1 day')
                             """)
                     .update();
@@ -122,7 +122,7 @@ class PolicyQueryTest extends PostgresTestBase {
         void keepsOldRevisions() {
             jdbc.sql("""
                             insert into policy_document (code, title, version, body, effective_at)
-                            values ('privacy_policy', '개인정보처리방침', 2, '## 새 판',
+                            values ('privacy_policy', '개인정보처리방침', 90, '## 새 판',
                                     now() - interval '1 day')
                             """)
                     .update();
@@ -132,7 +132,9 @@ class PolicyQueryTest extends PostgresTestBase {
                     .query(Integer.class)
                     .single();
 
-            assertThat(kept).isEqualTo(2);
+            // `V34` 가 유예 5일 개정판을 이미 넣어 뒀다. 여기서 더한 것까지 셋이다 —
+            // 이 검사가 보는 것은 개수가 아니라 **옛 판이 안 지워졌다**는 사실이다.
+            assertThat(kept).isEqualTo(3);
         }
     }
 

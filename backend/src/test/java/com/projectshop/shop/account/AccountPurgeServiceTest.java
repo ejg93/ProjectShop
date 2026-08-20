@@ -112,7 +112,7 @@ class AccountPurgeServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("탈퇴했지만 유예가 안 지난 계정")
         void withinGrace() {
-            long userId = withdrawnUser("purge-5@example.com", NOW.minusDays(29));
+            long userId = withdrawnUser("purge-5@example.com", NOW.minusDays(3));
 
             purgeService.purge(NOW);
 

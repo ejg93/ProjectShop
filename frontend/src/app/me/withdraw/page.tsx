@@ -53,7 +53,7 @@ export default async function WithdrawPage() {
         </h2>
         <ul className="grid list-disc gap-2 pl-5 text-sm text-text-muted">
           <li>
-            이름·이메일·비밀번호는 탈퇴하신 뒤 30일이 지나면 지웁니다. 그 30일은 실수로
+            이름·이메일·비밀번호는 탈퇴하신 뒤 5일이 지나면 지웁니다. 그 5일은 실수로
             탈퇴하신 경우를 위한 기간입니다.
           </li>
           <li>
