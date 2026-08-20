@@ -641,13 +641,92 @@ private static final int WITHDRAWAL_DAYS = 7;
 **청크를 하다가 이 규약과 다르게 짜야 할 이유가 생기면, 코드를 먼저 바꾸지 말고 여기를 고친다.**
 문서에 없는 방식이 코드에 먼저 들어가면 다음 사람이 그것을 관례로 본다.
 
+## 2026-08-20 강제 지점 대조에서 나온 것
+
+**아직 안 고쳤다**(사용자 선택) — 축 여섯을 다 훑은 뒤에 한꺼번에 처분한다.
+법은 `D2`, 표준은 `D5`·`D20` 의 같은 이름 절에 있다.
+
+최근 3일치가 만든 마이그레이션 여덟(`V22`~`V29`)을 **위 「축 2 — 강제 지점」의 잣대로** 훑었다.
+물음이 하나다 — **막을 수 있는 자리보다 위에 걸어 둔 것이 무엇인가.**
+
+| # | 무엇 | 지금 어디에 | 내릴 수 있는 자리 |
+|---|---|---|---|
+| B1 | `seller_order.ship_due_at` 이 비어도 아무것도 안 막는다 | 앱뿐(3위) | **DB 제약**(2위) — 상태 조건부 not null |
+| B2 | `seller_order_visible` 뷰에 `return_reason` 이 없다 | 아무 데도 없다 | 테스트(4위) — 뷰와 표의 컬럼 대조 |
+| B3 | 계약내용 서면이 **0행이어도 주문이 성립한다** | 아무 데도 없다 | **지연 제약 트리거**(2위) — `V23` 이 이미 쓰는 패턴 |
+| B4 | `seller_order.supply_lead_days` 의 `3` 이 뜻을 둘 가진다 | 주석(5위) | 구조(1위) — `product` 쪽처럼 null 로 가른다 |
+| B5 | `refund` 의 사용자 외래키 둘에 인덱스가 없다 | — | 인덱스. 다만 `app_user` 는 물리 삭제를 안 해서 안 탄다 |
+
+### B1 — 옆 마이그레이션이 답을 이미 알고 있다
+
+`V29` 가 「상태가 X 면 이 컬럼이 있어야 한다」를 제약으로 적었다.
+
+```sql
+check (status <> 'return_requested' or return_reason is not null)
+```
+
+`ship_due_at` 은 같은 성격인데 `timestamptz` 하나로 끝난다. 박제를 빠뜨리면
+**`seller_order_ship_overdue_idx` 의 `where ... is not null` 이 그 행을 조용히 뺀다** —
+법정 기한을 넘긴 묶음이 「지금 늦고 있는 것」 조회에서 사라진다.
+
+빠뜨릴 입구가 지금은 하나(결제 승인)뿐이라 안 터진다. **앱 검증은 새 입구가 생기면 빠뜨린다**(위 축 2).
+
+### B2 — 같은 함정을 하루 만에 다시 밟았다
+
+`11-6` 이 뷰를 다시 만든 이유가 「컬럼 목록을 굳혀서 표에 컬럼이 늘어도 안 따라온다」였다.
+**그다음 날 `V29` 가 `return_reason` 을 더하면서 뷰를 안 고쳤다.**
+
+지금 안 터지는 것은 그 컬럼을 읽는 곳이 아직 없어서다 — 쓰기만 하고 아무도 안 읽는다.
+`13g` 셀러 주문 화면이 반품 사유를 그리려는 순간 빈 칸이 된다.
+
+**강제 지점이 0이다.** `SellerOrderVisibilityTest` 는 행 수만 세고 컬럼 목록은 안 본다.
+뷰는 `check` 로 못 막으니 **테스트가 천장**이고, 그 테스트가 없다.
+
+### B3 — 완전성을 아무도 안 본다
+
+```sql
+insert into order_contract_document (...)
+select :orderId, d.policy_document_id, v.clause
+  from (values ('withdrawal_guide', 'withdrawal'), ...) as v (code, clause)
+  join lateral (select ... from policy_document p where p.code = v.code
+                 and p.effective_at <= now() ...) d on true
+```
+
+정책 문서가 없거나 아직 시행 전이면 **조용히 0행**이고 `update()` 의 반환값도 안 본다.
+`order_contract_document_clause_unique` 는 중복만 막는다 — **넷이 다 있는지는 아무도 안 본다.**
+
+`V23` 은 같은 종류의 물음(행 집합이 온전한가)을 `deferrable initially deferred`
+제약 트리거 셋으로 막는다. **같은 저장소에서 같은 문제에 강도가 다르다.**
+
+### 대조해서 맞았던 것
+
+**강제 지점을 제대로 내린 자리가 훨씬 많다.**
+
+| 무엇 | 어디 |
+|---|---|
+| 카드번호를 담을 칸이 아예 없다 | `V22` — 1위(구조). 앱이 실수해도 들어갈 자리가 없다 |
+| 승인은 주문마다 하나 | `payment_approved_unique` 부분 인덱스 — 2위 |
+| 뒷 4자리에 숫자 넷만 | `payment_card_last4_format_check` — 카드번호 전체를 넣으려는 코드가 여기서 걸린다 |
+| 환불 합계·결제 상한·항목 상한 | `V23` 의 지연 제약 트리거 셋 |
+| `check` 가 null 을 통과시키는 함정 | `V25` 가 알고 `refund_self_approval_check` 를 고쳐 놨다 |
+| 정책판을 가리키는 주문이 있으면 그 판을 못 지운다 | `order_contract_document` 의 `on delete restrict` |
+| 시행된 판은 못 고친다 | `policy_document_immutable`·`consent_item_immutable` |
+| 금액 컬럼 전부에 부호 제약 | `> 0` 또는 `>= 0` — 여덟 중 빠진 것이 없다 |
+
+**문서가 이름을 댄 제약은 전부 실물이었다** — `doc/reference` 의 26개를 마이그레이션과 대조했다.
+`sku_price_check` 하나만 없는데 `checkpoint-5-db.md`(과거 기록)라 **그때는 맞았고**
+`D2-2` 가 `sku_price_incl_vat_check` 로 바꿨다.
+
 ## 지금 어긋난 곳
 
-**점검 B·C 가 찾은 다섯을 다 치웠다.** 새로 생기면 여기 적고 어느 청크가 치울지 같이 적는다.
+**점검 B·C 가 찾은 다섯을 다 치웠고, 2026-08-20 축별 재점검이 셋을 새로 넣었다.**
+새로 생기면 여기 적고 어느 청크가 치울지 같이 적는다.
 
 | 어긋난 것 | 어느 청크가 |
 |---|---|
-| (없음) | |
+| `B1` `ship_due_at` 이 비어도 안 막힌다 | 미정 — 축 여섯이 끝난 뒤 처분 |
+| `B2` 뷰에 `return_reason` 이 없다 | 미정 — `13g` 가 밟기 전에 |
+| `B3` 계약내용 서면이 0행이어도 주문이 선다 | 미정 — `F3` 과 같은 자리다 |
 
 치운 것: 필드 그룹의 생 문자열은 `4g` 가, 라이선스 기록은 점검 E 가,
 서비스의 HTTP 예외는 청크 7b 가, `AuditLogQuery` 의 문자열 결합은 청크 8 이,
