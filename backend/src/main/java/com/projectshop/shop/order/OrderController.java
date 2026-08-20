@@ -1,5 +1,6 @@
 package com.projectshop.shop.order;
 
+import java.net.URI;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -99,7 +100,11 @@ public class OrderController {
                             return new CreateResponse(created.orderNumber(), created.payableAmount());
                         }));
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        // 새 자원이 요청 URI 와 다른 경로에 선다. `Location` 이 없으면 만들어진 것이
+        // `/api/orders` 자신이라는 뜻이 되고, 그건 사실이 아니다(`D5` 「헤더」, `Q11`).
+        return ResponseEntity
+                .created(URI.create("/api/orders/" + response.orderNumber()))
+                .body(response);
     }
 
     /**

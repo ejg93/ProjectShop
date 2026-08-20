@@ -117,7 +117,18 @@ public class MeController {
         return accountService.read(user.id());
     }
 
-    @PatchMapping
+    /**
+     * 이름을 고친다.
+     *
+     * <p><b>패치 문서의 형식을 미디어 타입으로 밝힌다</b>(`Q11`). RFC 5789 는 {@code PATCH} 의
+     * 본문이 「바꿀 것의 목록」이고 그 형식을 미디어 타입이 식별한다고 한다.
+     * {@code application/json} 으로 부분 갱신을 보내면 <b>{@code null} 이 삭제인지 무시인지</b>를
+     * 정할 자리가 없다 — 지금은 고칠 필드가 하나뿐이라 안 갈리지만, 늘면 그때 갈린다.
+     *
+     * <p>{@code application/merge-patch+json}(RFC 7396)이 그 답을 정해 둔 형식이다.
+     * <b>{@code null} 은 그 필드를 지우라는 뜻</b>이고, 안 보낸 필드는 안 건드린다.
+     */
+    @PatchMapping(consumes = "application/merge-patch+json")
     public AccountService.Account update(
             @AuthenticationPrincipal ShopUser user, @Valid @RequestBody UpdateRequest request) {
 

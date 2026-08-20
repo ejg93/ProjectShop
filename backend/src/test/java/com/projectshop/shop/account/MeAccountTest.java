@@ -111,7 +111,7 @@ class MeAccountTest extends PostgresTestBase {
             mvc.perform(patch("/api/me")
                             .with(user(principal(customer, "me-customer@test.local")))
                             .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
+                            .contentType("application/merge-patch+json")
                             .content("{\"display_name\": \"바꾼이름\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.display_name").value("바꾼이름"));
@@ -123,7 +123,7 @@ class MeAccountTest extends PostgresTestBase {
             mvc.perform(patch("/api/me")
                             .with(user(principal(customer, "me-customer@test.local")))
                             .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
+                            .contentType("application/merge-patch+json")
                             .content("{\"display_name\": \"  \"}"))
                     .andExpect(status().isBadRequest());
         }
@@ -135,7 +135,7 @@ class MeAccountTest extends PostgresTestBase {
             mvc.perform(patch("/api/me")
                             .with(user(principal(auditor, "me-auditor@test.local")))
                             .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
+                            .contentType("application/merge-patch+json")
                             .content("{\"display_name\": \"바꿔보기\"}"))
                     .andExpect(status().isForbidden());
         }

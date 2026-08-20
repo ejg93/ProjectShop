@@ -79,13 +79,16 @@ type Json = unknown;
  */
 export async function api<T>(
   path: string,
-  init: { method?: string; body?: Json; idempotencyKey?: string } = {},
+  init: { method?: string; body?: Json; idempotencyKey?: string; contentType?: string } = {},
 ): Promise<T> {
   const method = init.method ?? "GET";
   const headers: Record<string, string> = {};
 
   if (init.body !== undefined) {
-    headers["Content-Type"] = "application/json";
+    // `PATCH` 는 「바꿀 것의 목록」이라 형식을 미디어 타입으로 밝혀야 한다(RFC 5789, `Q11`).
+    // 부르는 쪽이 안 정하면 부분 갱신이 아니라 통째로 보내는 것으로 본다.
+    headers["Content-Type"] =
+      init.contentType ?? (method === "PATCH" ? "application/merge-patch+json" : "application/json");
   }
 
   if (init.idempotencyKey !== undefined) {
