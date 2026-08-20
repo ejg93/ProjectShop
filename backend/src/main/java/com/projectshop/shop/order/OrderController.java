@@ -64,6 +64,14 @@ public class OrderController {
             Boolean withdrawalRestrictionAgreed) {
     }
 
+    /**
+     * 배송지.
+     *
+     * <p><b>우편번호 다섯 자리는 우정사업본부 고시에서 온 값이다</b>(2015-08-01 시행,
+     * 국가기초구역번호). 같은 형식이 {@code V33} 의 {@code order_shipping_postal_code_check} 에도
+     * 있고, 둘이 갈리는 것을 {@code ShippingFormatTest} 가 막는다 —
+     * 규격에서 온 값에는 출처를 적는다(`D23` 「법·규정에서 온 것」).
+     */
     public record ShippingRequest(
             @NotBlank @Size(max = 50) String receiverName,
             @NotBlank @Size(max = 30) @Pattern(regexp = "^[0-9-]+$",
