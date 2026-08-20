@@ -123,14 +123,15 @@ export function CheckoutForm({
           label="연락처"
           autoComplete="tel"
           maxLength={30}
-          hint="배송 기사가 연락할 번호입니다."
+          hint="배송 기사가 연락할 번호입니다. 숫자와 하이픈만 쓸 수 있습니다."
         />
         <Field
           name="postalCode"
           type="text"
           label="우편번호"
           autoComplete="postal-code"
-          maxLength={10}
+          maxLength={5}
+          hint="숫자 5자리입니다."
         />
         <Field
           name="address1"

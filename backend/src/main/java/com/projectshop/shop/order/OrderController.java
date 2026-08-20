@@ -18,6 +18,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
@@ -64,8 +65,10 @@ public class OrderController {
 
     public record ShippingRequest(
             @NotBlank @Size(max = 50) String receiverName,
-            @NotBlank @Size(max = 30) String receiverPhone,
-            @NotBlank @Size(max = 10) String postalCode,
+            @NotBlank @Size(max = 30) @Pattern(regexp = "^[0-9-]+$",
+                    message = "숫자와 하이픈만 쓸 수 있습니다") String receiverPhone,
+            @NotBlank @Pattern(regexp = "^[0-9]{5}$",
+                    message = "우편번호는 숫자 5자리입니다") String postalCode,
             @NotBlank @Size(max = 200) String address1,
             @Size(max = 200) String address2,
             @Size(max = 200) String deliveryMemo) {
