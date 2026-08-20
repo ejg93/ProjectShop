@@ -83,7 +83,10 @@ export function SignupForm({
       });
 
       // 가입은 로그인이 아니다. 서버가 세션을 안 만들고 userId 만 준다(`5-2`).
-      window.location.replace("/login?signed-up=1");
+      //
+      // 왜 로그인 화면에 왔는지를 `reason` 하나로 말한다(`13e`). 여기만 다른 이름을 쓰던 탓에
+      // 로그인 화면이 그 값을 못 알아보고 가입한 사람에게 아무 말도 안 했다.
+      window.location.replace("/login?reason=signed-up");
     } catch (thrown) {
       setError(messageOf(thrown));
       setPending(false);

@@ -81,26 +81,6 @@ export function actionPath(sellerOrderNumber: string, action: string): string {
   return `/api/shipments/${sellerOrderNumber}/${action.toLowerCase().replace(/_/g, "-")}`;
 }
 
-/**
- * 시각을 사람이 읽는 말로. <b>시간대를 박는다</b>(`D10`) —
- * 서버 컴포넌트는 서버의 시간대로 그리므로, 안 박으면 서버 설정에 따라 날짜가 하루 밀린다.
- */
-export function dateTimeText(value: string): string {
-  return new Date(value).toLocaleString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-/** 날짜만. 기한처럼 시각이 뜻을 안 갖는 값에 쓴다 */
-export function dateText(value: string): string {
-  return new Date(value).toLocaleDateString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    dateStyle: "medium",
-  });
-}
-
 /** 부가세가 이미 포함된 값이다(`D8`). 화면이 다시 더하지 않는다 */
 export function priceText(amount: number): string {
   return `${amount.toLocaleString("ko-KR")}원`;

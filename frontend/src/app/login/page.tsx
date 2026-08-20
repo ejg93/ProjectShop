@@ -27,6 +27,8 @@ export const metadata: Metadata = {
 const REASON_TEXT: Record<string, string> = {
   "session-expired": "로그인이 만료되어 다시 로그인이 필요합니다.",
   "login-required": "이 화면은 로그인하신 뒤에 이용하실 수 있습니다.",
+  "signed-up": "가입이 끝났습니다. 이제 로그인해 주시기 바랍니다.",
+  withdrawn: "탈퇴 처리되었습니다. 그동안 이용해 주셔서 감사합니다.",
 };
 
 export default async function LoginPage({

@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { apiSession } from "@/lib/api-session";
+import { dateTimeText } from "@/lib/format";
 
-import { dateTimeText, paymentStatusText, priceText } from "./status";
+import { paymentStatusText, priceText } from "./status";
 
 export const metadata: Metadata = { title: "내 주문 · ProjectShop" };
 

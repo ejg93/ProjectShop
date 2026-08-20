@@ -6,6 +6,11 @@ import Link from "next/link";
  * <p><b>로그인 여부로 항목을 아직 안 가른다.</b> 세션 쿠키가 `HttpOnly` 라 화면이 못 읽고,
  * 무엇을 보여줄지는 권한 목록을 받아서 정하는 것이 맞다(청크 `8a`·`13b`).
  * 여기서 임시로 가르면 `13b` 가 그것을 걷어내는 일부터 하게 된다.
+ *
+ * <p><b>「내 정보」는 로그인 전에도 보인다</b>(`13e`). 화면만 만들고 링크를 안 걸면
+ * 주소를 아는 사람만 열람·탈퇴를 할 수 있고, 그건 개인정보법 제38조제4항이 말하는
+ * 「수집보다 어렵지 않게」가 아니다(`D2` R28·R24). 비로그인이 눌러도 새는 것이 없다 —
+ * `/me` 는 그리기 전에 로그인으로 보낸다(`api-session.ts`).
  */
 export function SiteHeader() {
   return (
@@ -21,7 +26,10 @@ export function SiteHeader() {
           <HeaderLink href="/cart">장바구니</HeaderLink>
         </nav>
 
-        <HeaderLink href="/login">로그인</HeaderLink>
+        <div className="flex items-center gap-5">
+          <HeaderLink href="/me">내 정보</HeaderLink>
+          <HeaderLink href="/login">로그인</HeaderLink>
+        </div>
       </div>
     </header>
   );

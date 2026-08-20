@@ -4,11 +4,10 @@ import { notFound } from "next/navigation";
 
 import { ApiError } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
+import { dateText, dateTimeText } from "@/lib/format";
 
 import { OrderActions } from "./order-actions";
 import {
-  dateText,
-  dateTimeText,
   paymentStatusText,
   priceText,
   shipmentStatusText,
