@@ -36,15 +36,21 @@ const SAMPLE_DECLINED = "4242-4242-4242-0000";
 export function CheckoutForm({
   cartItemIds,
   payableAmount,
+  madeToOrderNames,
 }: {
   cartItemIds: number[];
   payableAmount: number;
+  madeToOrderNames: string[];
 }) {
   // 주문이 만들어졌으면 여기 찬다. 값이 있으면 버튼이 「결제 다시 시도」로 바뀐다.
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null);
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+
+  // 주문제작 상품의 청약철회 제한에 동의했나. 시행령 제21조가 거래마다 요구하는 것이라
+  // 상품 상세의 표시로는 안 서고, 이 주문에 대해 따로 받아야 한다(`Q6`).
+  const [restrictionAgreed, setRestrictionAgreed] = useState(false);
 
   // 한 번 만든 키를 그대로 다시 쓴다. 다시 그릴 때 새로 만들어지면 재시도가 재전송이 아니게 된다.
   const orderKey = useRef(crypto.randomUUID());
@@ -85,6 +91,9 @@ export function CheckoutForm({
           address2: optional(form, "address2"),
           deliveryMemo: optional(form, "deliveryMemo"),
         },
+        // 동의를 안 받았으면 보내지 않는다. 서버도 침묵을 동의로 안 읽지만,
+        // 화면이 참을 보내면 그 순간 화면이 근거가 되고 그건 사실이 아니다.
+        withdrawalRestrictionAgreed: restrictionAgreed,
       },
     });
     return created.orderNumber;
@@ -180,6 +189,39 @@ export function CheckoutForm({
           주문이 접수됐고 결제가 남았습니다. 주문번호{" "}
           <span className="font-semibold">{placedOrderNumber}</span>
         </p>
+      ) : null}
+
+      {/*
+        주문제작 상품의 청약철회 제한 동의(`Q6`, 전자상거래법 시행령 제21조).
+
+        시행령이 요구하는 것은 셋이다 — 개별 생산, 회복 불가능한 중대한 피해,
+        그리고 **거래마다 별도 고지와 소비자의 서면 동의**. 상품 상세의 표시는 앞의 둘을
+        알릴 뿐이라 이 칸이 없으면 제한이 서지 않는다.
+
+        미리 체크해 두지 않는다 — 제21조의2 2호가 금지행위로 두는 「미리 선택된 선택항목」이고,
+        무엇보다 안 누른 사람의 침묵을 동의로 읽는 것이 된다.
+      */}
+      {madeToOrderNames.length > 0 ? (
+        <div className="grid gap-2 rounded-ui border border-border bg-surface-raised p-4">
+          <p className="text-sm font-semibold">주문 제작 상품 안내</p>
+          <p className="text-xs text-text-muted">
+            아래 상품은 주문하신 뒤 개별적으로 제작되어, 동의하시면 청약철회를 하실 수 없습니다.
+            <br />
+            {madeToOrderNames.join(", ")}
+          </p>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={restrictionAgreed}
+              onChange={(event) => setRestrictionAgreed(event.target.checked)}
+              className="
+                mt-0.5 size-4 shrink-0 accent-accent
+                focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
+              "
+            />
+            <span>위 상품의 청약철회 제한에 동의합니다. (동의하지 않으셔도 주문하실 수 있습니다)</span>
+          </label>
+        </div>
       ) : null}
 
       {/* 폼 전체 오류는 제출 버튼 위, 입력칸 아래다(`D20`) */}

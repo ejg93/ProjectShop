@@ -393,7 +393,14 @@ public class OrderStatusService {
     }
 
     /**
-     * 청약철회가 제한된 상품이 들어 있나(제17조제2항, `D2` R4).
+     * 청약철회가 제한된 항목이 들어 있나(제17조제2항, `D2` R4).
+     *
+     * <p><b>주문 시점에 박제한 값을 읽는다</b>(`Q5`). 상품의 지금 값을 읽으면 셀러가 나중에
+     * 제한을 켜서 <b>지나간 주문까지 막을 수 있다</b> — 가격·수수료율·리드타임을 전부
+     * 박제해 온 이유와 같다(`D10`).
+     *
+     * <p>박제할 때 이미 성립 조건을 봤다. 여기 남아 있는 값은 <b>이 거래에서 실제로 성립한 제한</b>이라
+     * 사유를 다시 안 가른다.
      *
      * <p><b>하자 반품에는 안 부른다.</b> 제17조제3항이 「제1항 <b>및 제2항</b>에도 불구하고」로
      * 시작해서 이 제한을 통째로 비켜 간다 — 제2항은 <b>멀쩡한 물건을 무르는 것</b>을 막는
@@ -404,12 +411,10 @@ public class OrderStatusService {
      */
     private void requireNoRestrictedItem(long sellerOrderId) {
         String restriction = jdbc.sql("""
-                        select p.withdrawal_restriction_reason
+                        select oi.withdrawal_restriction_reason
                           from order_item oi
-                          join sku s     on s.sku_id = oi.sku_id
-                          join product p on p.product_id = s.product_id
                          where oi.seller_order_id = :sellerOrderId
-                           and p.is_withdrawal_restricted
+                           and oi.withdrawal_restriction_reason is not null
                          order by oi.order_item_id
                          limit 1
                         """)

@@ -23,6 +23,7 @@ type CartItem = {
   priceInclVat: number;
   quantity: number;
   available: boolean;
+  withdrawalRestrictionReason: string | null;
 };
 
 type Cart = { items: CartItem[]; total: number };
@@ -110,6 +111,9 @@ export default async function CheckoutPage() {
       <CheckoutForm
         cartItemIds={buyable.map((item) => item.cartItemId)}
         payableAmount={itemsTotal + shippingTotal}
+        madeToOrderNames={buyable
+          .filter((item) => item.withdrawalRestrictionReason === "made_to_order")
+          .map((item) => item.productName)}
       />
     </div>
   );

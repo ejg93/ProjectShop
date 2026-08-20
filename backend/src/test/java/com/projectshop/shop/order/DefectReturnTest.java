@@ -305,7 +305,7 @@ class DefectReturnTest extends PostgresTestBase {
                 .param("sellerId", sellerId)
                 .param("userId", ownerId)
                 .param("restricted", restricted)
-                .param("reason", restricted ? "made_to_order" : null)
+                .param("reason", restricted ? "digital_content" : null)
                 .query(Long.class)
                 .single();
 

@@ -195,13 +195,15 @@ class OrderActionTest extends PostgresTestBase {
         }
 
         /**
-         * 전자상거래법 제17조제2항(`D2` R4). 상품 속성이라 상태 축으로는 표현이 안 되고,
-         * 이것을 안 막으면 주문 제작 상품이 반품 접수까지 간 뒤에 사람이 손으로 되돌려야 한다.
+         * 전자상거래법 제17조제2항(`D2` R4).
+         *
+         * <p><b>주문 시점에 성립한 제한만 막는다</b>(`Q5`·`Q6`). 디지털콘텐츠는 제공 개시가 요건인데
+         * 반품 접수가 배송완료에서만 열려서 공급이 전제고, 그래서 동의 없이도 성립한다.
          */
         @Test
-        @DisplayName("청약철회 제한 상품은 반품이 막힌다")
+        @DisplayName("청약철회 제한이 성립한 항목은 반품이 막힌다")
         void restrictedProductBlocked() {
-            long restrictedSku = insertSku(alpha, "주문 제작 상품", "made_to_order");
+            long restrictedSku = insertSku(alpha, "디지털 콘텐츠", "digital_content");
             String number = deliveredShipment(restrictedSku);
 
             assertThatThrownBy(() -> actions.run(buyer, number, Action.REQUEST_RETURN, null))
@@ -213,7 +215,7 @@ class OrderActionTest extends PostgresTestBase {
         @Test
         @DisplayName("한 항목만 제한이어도 묶음 전체가 막힌다")
         void oneRestrictedItemBlocksBundle() {
-            long restrictedSku = insertSku(alpha, "주문 제작 상품", "made_to_order");
+            long restrictedSku = insertSku(alpha, "디지털 콘텐츠", "digital_content");
             String number = deliveredShipment(alphaSku, restrictedSku);
 
             assertThatThrownBy(() -> actions.run(buyer, number, Action.REQUEST_RETURN, null))
@@ -243,7 +245,7 @@ class OrderActionTest extends PostgresTestBase {
         @Test
         @DisplayName("전이 서비스를 직접 불러도 제한이 걸린다")
         void checkLivesInTransition() {
-            long restrictedSku = insertSku(alpha, "복제 가능 재화", "copyable_media");
+            long restrictedSku = insertSku(alpha, "디지털 콘텐츠", "digital_content");
             String number = deliveredShipment(restrictedSku);
             long sellerOrderId = idOf(number);
 
@@ -251,6 +253,24 @@ class OrderActionTest extends PostgresTestBase {
                     OrderTransitions.Shipment.RETURN_REQUESTED, Actor.system("직접 호출")))
                     .isInstanceOfSatisfying(ShopException.class, e ->
                             assertThat(e.code()).isEqualTo(ErrorCode.WITHDRAWAL_RESTRICTED));
+        }
+
+        /**
+         * 복제 가능 매체(제17조제2항4호)는 <b>포장을 훼손한 경우</b>가 요건이다.
+         *
+         * <p>물건이 돌아와야 아는 사실이고 제17조제5항이 그 입증을 우리에게 지웠다.
+         * 상품에 그 표시가 붙어 있다는 이유로 접수를 막으면 <b>뜯지 않고 돌려보내는 사람까지 막는</b>
+         * 부당한 제한이 된다. 판단은 반품 검수 축(43·44)이 한다.
+         */
+        @Test
+        @DisplayName("복제 가능 매체는 접수를 안 막는다")
+        void copyableMediaDoesNotBlock() {
+            long restrictedSku = insertSku(alpha, "복제 가능 재화", "copyable_media");
+            String number = deliveredShipment(restrictedSku);
+
+            assertThatCode(() -> actions.run(buyer, number, Action.REQUEST_RETURN, null))
+                    .as("포장 훼손은 접수 시점에 알 수 없다")
+                    .doesNotThrowAnyException();
         }
     }
 

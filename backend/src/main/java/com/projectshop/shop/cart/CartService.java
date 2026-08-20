@@ -56,7 +56,8 @@ public class CartService {
      */
     public record Item(long cartItemId, long skuId, long productId, String productName,
             String optionLabel, long sellerId, String sellerName,
-            long priceInclVat, long shippingFee, int quantity, boolean available) {
+            long priceInclVat, long shippingFee, int quantity, boolean available,
+            String withdrawalRestrictionReason) {
     }
 
     public record Cart(List<Item> items, long total) {
@@ -229,7 +230,9 @@ public class CartService {
                                  where sov.sku_id = s.sku_id) as option_label,
                                (s.deleted_at is null and s.status = 'on_sale'
                                 and p.deleted_at is null and p.status = 'on_sale'
-                                and s.stock_count >= ci.quantity) as available
+                                and s.stock_count >= ci.quantity) as available,
+                               case when p.is_withdrawal_restricted then p.withdrawal_restriction_reason end
+                                    as withdrawal_restriction_reason
                           from cart_item ci
                           join sku s on s.sku_id = ci.sku_id
                           join product p on p.product_id = s.product_id
@@ -249,7 +252,8 @@ public class CartService {
                         rs.getLong("price_incl_vat"),
                         rs.getLong("default_shipping_fee"),
                         rs.getInt("quantity"),
-                        rs.getBoolean("available")))
+                        rs.getBoolean("available"),
+                        rs.getString("withdrawal_restriction_reason")))
                 .list();
     }
 
