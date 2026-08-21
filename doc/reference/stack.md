@@ -592,6 +592,28 @@ const { default: puppeteer } = await import(
 **경로를 `file://` URL 로 준다.** Git Bash 의 POSIX 경로(`/c/Users/...`)를 그대로 넘기면
 Node 가 `C:\c\Users\...` 로 읽어서 못 찾는다.
 
+### `notFound()` 는 404 가 아니라 200 으로 나간다
+
+화면 안에서 `notFound()` 를 부르면 **없는 쪽 UI 는 그려지는데 HTTP 상태는 200** 이다.
+라우팅 단계에서 안 잡힌 주소(`/아무데나`)만 진짜 404 다.
+
+```
+/아무데나없는주소                 404   라우팅이 잡는다
+/products/999999                  200   notFound() 가 던진다
+/seller/orders/S-99999999-XXXXXX  200   같다
+```
+
+**우리가 잘못 쓴 것이 아니다.** 번들된 문서(`node_modules/next/dist/docs`)의
+`04-functions/not-found.md` 가 그렇게 적어 뒀다 — 검사가 `<Suspense>` 안에서 도는데
+**응답은 이미 200 으로 흘러나가기 시작했고, 스트리밍이 시작된 뒤에는 상태를 못 바꾼다.**
+대신 Next 가 `<meta name="robots" content="noindex">` 를 넣어 색인에서 뺀다.
+
+진짜 404 를 내려면 **스트리밍 전에** 검사해야 하고, 그 자리는 `proxy` 다.
+
+**틀린 주석이 하나 있었다**(`13g` 에서 고쳤다). `orders/[orderNumber]/page.tsx` 가
+「화면만 바꿔 그리고 200 으로 답하지 않는다」고 적어 뒀는데 **실제로는 200 이었다** —
+확인 없이 쓴 문장이 코드 옆에서 사실처럼 읽히던 자리다.
+
 ### `bootRun` 을 죽여도 8080 은 안 풀린다
 
 `bootRun` 은 앱을 **자식 JVM** 으로 띄운다. Gradle 쪽 프로세스를 죽이면 그 자식은 남고,

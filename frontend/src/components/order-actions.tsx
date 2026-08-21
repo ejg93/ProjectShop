@@ -7,8 +7,6 @@ import { ApiError, api } from "@/lib/api";
 
 import { actionPath } from "@/lib/order-text";
 
-import { ORDER_ACTIONS } from "../status";
-
 /**
  * 이 묶음에 지금 할 수 있는 것.
  *
@@ -19,16 +17,32 @@ import { ORDER_ACTIONS } from "../status";
  * <p><b>모르는 동작은 건너뛴다</b>(`D5` 「모르는 열거값은 무시한다」).
  * 서버가 동작을 하나 늘려도 빈 버튼이 생기지 않고, 화면 배포를 기다릴 필요도 없다.
  *
- * <p><b>셋 다 확인을 받는다</b>(`D20` 「되돌릴 수 없는 조작」). 브라우저 기본 대화상자를 쓴다 —
+ * <p><b>확인을 받는다</b>(`D20` 「되돌릴 수 없는 조작」). 브라우저 기본 대화상자를 쓴다 —
  * 초점 가두기와 키보드 처리를 우리가 다시 만들 이유가 없고, 여기서 물을 것은 예·아니오뿐이다.
  * 문구는 <b>무엇이 사라지는지</b>를 적는다.
+ *
+ * <p><b>라벨 표는 밖에서 받는다</b>(`13g`). 누르는 절차는 화면군이 같은데 <b>부르는 말이 다르다</b> —
+ * 같은 묶음을 두고 사는 사람은 「반품 신청」을 하고 셀러는 「반품 완료」를 한다.
+ * 표를 안에 박으면 화면군마다 이 파일을 통째로 베끼게 되고, 그러면 <b>눌렀을 때 무엇이
+ * 일어나는지가 화면군마다 갈린다.</b>
  */
+
+/**
+ * 버튼 하나의 말.
+ *
+ * @param label   버튼에 쓰는 말
+ * @param confirm 누르기 전에 무엇이 사라지는지 묻는다(`D20` 「되돌릴 수 없는 조작」)
+ */
+export type OrderAction = { label: string; confirm: string };
+
 export function OrderActions({
   sellerOrderNumber,
   allowedActions,
+  actions: defined,
 }: {
   sellerOrderNumber: string;
   allowedActions: string[];
+  actions: Record<string, OrderAction>;
 }) {
   const router = useRouter();
   const [failure, setFailure] = useState<string | null>(null);
@@ -36,16 +50,16 @@ export function OrderActions({
   const [sending, setSending] = useState<string | null>(null);
   const [refreshing, startRefresh] = useTransition();
 
-  const actions = allowedActions.filter((action) => ORDER_ACTIONS[action]);
+  const available = allowedActions.filter((action) => defined[action]);
   const busy = sending !== null || refreshing;
 
-  if (actions.length === 0) {
+  if (available.length === 0) {
     return null;
   }
 
   async function run(action: string) {
-    const defined = ORDER_ACTIONS[action];
-    if (!window.confirm(defined.confirm)) {
+    const chosen = defined[action];
+    if (!window.confirm(chosen.confirm)) {
       return;
     }
 
@@ -55,7 +69,7 @@ export function OrderActions({
 
     try {
       await api(actionPath(sellerOrderNumber, action), { method: "POST" });
-      setNotice(`${defined.label} 처리가 끝났습니다.`);
+      setNotice(`${chosen.label} 처리가 끝났습니다.`);
 
       // 상태가 바뀌면 할 수 있는 것도 바뀐다. 화면이 직접 고치면 서버가 아는 것과 갈린다.
       startRefresh(() => router.refresh());
@@ -69,7 +83,7 @@ export function OrderActions({
   return (
     <div className="grid gap-2 border-t border-border pt-3">
       <div className="flex flex-wrap gap-2">
-        {actions.map((action) => (
+        {available.map((action) => (
           <button
             key={action}
             type="button"
@@ -83,7 +97,7 @@ export function OrderActions({
               disabled:opacity-60
             "
           >
-            {sending === action ? "처리 중" : ORDER_ACTIONS[action].label}
+            {sending === action ? "처리 중" : defined[action].label}
           </button>
         ))}
       </div>

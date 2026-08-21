@@ -6,16 +6,14 @@
  * 같은 묶음을 두고 사는 사람은 「반품 신청」을 하고 셀러는 「반품 완료」를 한다.
  */
 
+import type { OrderAction } from "@/components/order-actions";
+
 /**
  * 할 수 있는 동작(`8a`·`11c-3b`).
  *
- * @param label   버튼에 쓰는 말
- * @param confirm 누르기 전에 무엇이 사라지는지 묻는다(`D20` 「되돌릴 수 없는 조작」).
- *                <b>셋 다 되돌릴 수 없다</b> — 취소는 주문이 닫히고, 확정은 청약철회를 포기하는 것이며,
- *                반품 접수는 접수 자체를 무를 수 없다
+ * <p><b>셋 다 되돌릴 수 없다</b> — 취소는 주문이 닫히고, 확정은 청약철회를 포기하는 것이며,
+ * 반품 접수는 접수 자체를 무를 수 없다. 그래서 셋 다 확인을 받는다.
  */
-export type OrderAction = { label: string; confirm: string };
-
 export const ORDER_ACTIONS: Record<string, OrderAction> = {
   // 환불을 약속하지 않는다. **환급 경로가 아직 없다**(`12a` 미착수, `D2` R5) —
   // 화면이 지금 없는 것을 말하면 그건 거짓이고, 그 청크가 서면 여기에 기한을 적는다.

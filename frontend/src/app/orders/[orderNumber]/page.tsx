@@ -11,9 +11,10 @@ import {
   statusText,
 } from "@/lib/order-text";
 
+import { OrderActions } from "@/components/order-actions";
 import { PolicyBody } from "@/components/policy-document";
 
-import { OrderActions } from "./order-actions";
+import { ORDER_ACTIONS } from "../status";
 
 export const metadata: Metadata = { title: "주문 상세 · ProjectShop" };
 
@@ -195,6 +196,7 @@ function SellerBundle({ bundle }: { bundle: SellerOrder }) {
       <OrderActions
         sellerOrderNumber={bundle.sellerOrderNumber}
         allowedActions={bundle.allowedActions}
+        actions={ORDER_ACTIONS}
       />
     </section>
   );
@@ -455,12 +457,14 @@ function History({ entries }: { entries: HistoryEntry[] }) {
 }
 
 /**
- * 없는 주문이면 404 로 답한다.
+ * 없는 주문이면 없는 쪽을 그린다.
  *
  * <p>서버가 <b>남의 주문과 없는 주문을 같은 404</b> 로 준다(`D5`) — 가르면 번호를 훑어서
  * 주문 수와 증가 속도가 샌다. 화면도 그 답을 그대로 따른다.
  *
- * <p>화면만 바꿔 그리고 200 으로 답하지 않는다. 없는 주소가 있는 것으로 기록된다.
+ * <p><b>다만 HTTP 상태는 200 이다.</b> 여기 적혀 있던 「200 으로 답하지 않는다」는 틀린 말이었다 —
+ * {@code notFound()} 가 스트리밍이 시작된 뒤에 던져서 상태를 못 바꾼다(`stack.md`).
+ * 대신 {@code noindex} 가 붙어 색인에는 안 들어간다.
  */
 async function findOrder(orderNumber: string): Promise<OrderDetail> {
   try {

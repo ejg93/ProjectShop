@@ -31,7 +31,7 @@ describe("셸의 머리", () => {
   });
 
   it("로그인하면 로그아웃과 내 주문이 생긴다", async () => {
-    apiSessionOptional.mockResolvedValue({ userId: 7 });
+    apiSessionOptional.mockResolvedValue({ userId: 7, permissions: [] });
 
     render(await SiteHeader());
 
@@ -39,6 +39,31 @@ describe("셸의 머리", () => {
     expect(screen.getByRole("link", { name: "내 주문" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "내 정보" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "로그인" })).not.toBeInTheDocument();
+  });
+
+  it("셀러 화면 링크는 그 권한이 있어야 보인다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "order", action: "update_status", scopes: ["seller"] }],
+    });
+
+    render(await SiteHeader());
+
+    // **역할 이름으로 안 가른다**(`D24`). 이 화면이 하는 일이 `order:update_status` 라
+    // 그 권한을 가진 사람에게만 갈 곳이 있다.
+    expect(screen.getByRole("link", { name: "받은 주문" })).toBeInTheDocument();
+  });
+
+  it("사는 사람에게는 셀러 화면 링크가 없다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "order", action: "read", scopes: ["own"] }],
+    });
+
+    render(await SiteHeader());
+
+    // 누르면 튕기는 링크는 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20`).
+    expect(screen.queryByRole("link", { name: "받은 주문" })).not.toBeInTheDocument();
   });
 
   it("상품과 장바구니는 로그인 전에도 있다", async () => {
