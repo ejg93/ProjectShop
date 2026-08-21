@@ -133,6 +133,24 @@ class OrderStatusBatchTest extends PostgresTestBase {
         }
 
         @Test
+        @DisplayName("회차가 이력에 남는다")
+        void recordsTheRun() {
+            java.time.LocalDate baselineDate = java.time.LocalDate.of(2026, 8, 21);
+
+            batch.confirmDeliveredOrders(baselineDate);
+
+            // 이 이력을 처음 쓰는 것이 정산 마감(청크 19)의 체인 판정이다(`36a`).
+            assertThat(jdbc.sql("""
+                            select status from batch_run
+                             where batch_name = 'auto_confirm' and baseline_date = :baselineDate
+                            """)
+                    .param("baselineDate", baselineDate)
+                    .query(String.class)
+                    .single())
+                    .isEqualTo("succeeded");
+        }
+
+        @Test
         @DisplayName("예정일 전에는 안 건드린다")
         void waitsUntilTheDeadline() {
             deliver();

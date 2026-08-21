@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.support.BatchRuns;
+import com.projectshop.shop.support.RetryableBatch;
 
 /**
  * 개인정보 파기를 매일 04:00 KST 에 돌리고 회차를 {@code batch_run} 에 남긴다.
@@ -23,7 +24,7 @@ import com.projectshop.shop.support.BatchRuns;
  * 실패를 남기는 것이 이력의 쓸모 절반이다(`D19`).
  */
 @Component
-public class AccountPurgeBatch {
+public class AccountPurgeBatch implements RetryableBatch {
 
     private static final Logger log = LoggerFactory.getLogger(AccountPurgeBatch.class);
 
@@ -76,5 +77,16 @@ public class AccountPurgeBatch {
             }
             return BatchRuns.Counts.of(processed);
         });
+    }
+
+    @Override
+    public String batchName() {
+        return BATCH_NAME;
+    }
+
+    /** 재시도가 부르는 자리(`36a`). 이미 성공한 회차면 `purge` 안에서 걸러진다 */
+    @Override
+    public void runFor(LocalDate baselineDate) {
+        purge(baselineDate);
     }
 }

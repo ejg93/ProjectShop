@@ -1,8 +1,10 @@
 package com.projectshop.shop.support;
 
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
@@ -27,6 +29,14 @@ import org.springframework.stereotype.Component;
 public class BatchRuns {
 
     private static final Logger log = LoggerFactory.getLogger(BatchRuns.class);
+
+    /** 10분 뒤에 다시 해 볼 실패 */
+    static final String TRANSIENT = "transient";
+    /** 다시 해도 같은 자리에서 죽는 실패 */
+    static final String PERMANENT = "permanent";
+
+    /** 직렬화 충돌과 교착 희생. 연결 끊김(`08*`)은 앞 두 자리로 본다 */
+    private static final Set<String> TRANSIENT_STATES = Set.of("40001", "40P01");
 
     /**
      * 한 회차가 고른 수와 처리한 수.
@@ -68,13 +78,16 @@ public class BatchRuns {
             counts = body.get();
         } catch (RuntimeException e) {
             // 예외 종류만 남긴다. 메시지에는 값이 실려 오고 그 값이 개인정보일 수 있다(`D16`).
-            insert(batchName, baselineDate, startedAt, "failed", null, e.getClass().getSimpleName());
-            log.error("{} 실패 기준일={}", batchName, baselineDate, e);
+            // 종류 판단은 지금 한다 — 나중에 이력만 보고 다시 가르면 판단이 두 벌이 된다(`36a`).
+            String kind = failureKindOf(e);
+            insert(batchName, baselineDate, startedAt, "failed", null,
+                    e.getClass().getSimpleName(), kind);
+            log.error("{} 실패 기준일={} 종류={}", batchName, baselineDate, kind, e);
             return Optional.empty();
         }
 
         try {
-            insert(batchName, baselineDate, startedAt, "succeeded", counts, null);
+            insert(batchName, baselineDate, startedAt, "succeeded", counts, null, null);
         } catch (DuplicateKeyException e) {
             // 부분 유니크가 거부한 것이다. 인스턴스가 둘이면 같은 회차가 동시에 뜬다(`D19`).
             // 파기·전이 배치는 두 번 돌아도 결과가 같아서 여기서 끝내도 되지만,
@@ -82,6 +95,31 @@ public class BatchRuns {
             log.warn("{} 이력 중복 기준일={} — 같은 회차가 동시에 돈 것이다", batchName, baselineDate);
         }
         return Optional.of(counts);
+    }
+
+    /**
+     * 그 회차를 다시 돌려야 하나(`D19` 2층).
+     *
+     * <p>셋을 다 만족해야 한다 — <b>아직 성공한 적이 없고</b>, <b>마지막 실패가 일시적</b>이고,
+     * <b>시도 수가 상한 밑</b>이다. 한 번도 안 돈 회차는 여기 안 걸린다: 그건 스케줄이 할 일이지
+     * 재시도가 아니고, 실패한 적이 없으니 「다시」가 성립하지 않는다.
+     *
+     * @param maxAttempts 이 수를 채우면 포기한다. 시도마다 한 행이 남아서 그 수가 곧 시도 수다
+     */
+    public boolean shouldRetry(String batchName, LocalDate baselineDate, int maxAttempts) {
+        return Boolean.TRUE.equals(jdbc.sql("""
+                        select count(*) filter (where status = 'succeeded') = 0
+                           and count(*) > 0
+                           and count(*) < :maxAttempts
+                           and (array_agg(failure_kind order by batch_run_id desc))[1] = 'transient'
+                          from batch_run
+                         where batch_name = :name and baseline_date = :baselineDate
+                        """)
+                .param("name", batchName)
+                .param("baselineDate", baselineDate)
+                .param("maxAttempts", maxAttempts)
+                .query(Boolean.class)
+                .single());
     }
 
     private boolean alreadySucceeded(String batchName, LocalDate baselineDate) {
@@ -98,12 +136,14 @@ public class BatchRuns {
     }
 
     private void insert(String batchName, LocalDate baselineDate, OffsetDateTime startedAt,
-            String status, Counts counts, String failureReason) {
+            String status, Counts counts, String failureReason, String failureKind) {
         jdbc.sql("""
                         insert into batch_run (batch_name, baseline_date, started_at, finished_at,
-                                               target_count, processed_count, status, failure_reason)
+                                               target_count, processed_count, status,
+                                               failure_reason, failure_kind)
                         values (:name, :baselineDate, :startedAt, :finishedAt,
-                                :targetCount, :processedCount, :status, :failureReason)
+                                :targetCount, :processedCount, :status,
+                                :failureReason, :failureKind)
                         """)
                 .param("name", batchName)
                 .param("baselineDate", baselineDate)
@@ -113,6 +153,30 @@ public class BatchRuns {
                 .param("processedCount", counts == null ? null : counts.processed())
                 .param("status", status)
                 .param("failureReason", failureReason)
+                .param("failureKind", failureKind)
                 .update();
+    }
+
+    /**
+     * 이 실패를 10분 뒤에 다시 해 볼 것인가(`D19` 2층).
+     *
+     * <p><b>SQLSTATE 로 가른다. 예외 타입으로 안 가른다</b>(`D11` 이 `Retries` 에서 정한 것과 같다) —
+     * Spring 이 같은 원인을 판마다 다른 예외로 감싸서, 타입으로 가르면 드라이버를 올릴 때 조용히 어긋난다.
+     *
+     * <p>일시적인 것은 셋이다. 연결이 끊긴 것(`08*`), 직렬화 충돌(`40001`),
+     * 교착으로 희생된 것(`40P01`). <b>나머지는 전부 결정적으로 본다</b> —
+     * 모르는 것을 재시도로 두면 같은 자리에서 세 번 죽고 로그가 세 배가 된다.
+     */
+    static String failureKindOf(Throwable thrown) {
+        for (Throwable cause = thrown; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sql) {
+                String state = sql.getSQLState();
+                if (state != null
+                        && (state.startsWith("08") || TRANSIENT_STATES.contains(state))) {
+                    return TRANSIENT;
+                }
+            }
+        }
+        return PERMANENT;
     }
 }

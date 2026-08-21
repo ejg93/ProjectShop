@@ -48,7 +48,7 @@ class BatchRunsTest extends PostgresTestBase {
 
     private Map<String, Object> rowOf(String batchName) {
         return jdbc.sql("""
-                        select status, target_count, processed_count, failure_reason
+                        select status, target_count, processed_count, failure_reason, failure_kind
                           from batch_run where batch_name = :name
                         """)
                 .param("name", batchName)
@@ -94,6 +94,29 @@ class BatchRunsTest extends PostgresTestBase {
                     .containsEntry("status", "failed")
                     .containsEntry("failure_reason", "IllegalStateException")
                     .containsEntry("target_count", null);
+        }
+
+        @Test
+        @DisplayName("실패 종류를 SQLSTATE 로 가른다")
+        void classifiesFailureBySqlState() {
+            runs.record("test_batch", BASELINE, () -> {
+                throw new org.springframework.dao.ConcurrencyFailureException("충돌",
+                        new java.sql.SQLException("serialization failure", "40001"));
+            });
+
+            // 예외 타입으로 가르면 드라이버를 올릴 때 조용히 어긋난다(`D11` 이 `Retries` 에서 정한 것).
+            assertThat(rowOf("test_batch")).containsEntry("failure_kind", "transient");
+        }
+
+        @Test
+        @DisplayName("모르는 실패는 결정적으로 본다")
+        void treatsUnknownFailureAsPermanent() {
+            runs.record("test_batch", BASELINE, () -> {
+                throw new IllegalStateException("데이터가 틀렸다");
+            });
+
+            // 모르는 것을 재시도로 두면 같은 자리에서 세 번 죽는다(`D19` 2층).
+            assertThat(rowOf("test_batch")).containsEntry("failure_kind", "permanent");
         }
 
         @Test
@@ -152,17 +175,20 @@ class BatchRunsTest extends PostgresTestBase {
 
         private void insert(String status) {
             OffsetDateTime now = OffsetDateTime.now();
+            boolean failed = "failed".equals(status);
             jdbc.sql("""
                             insert into batch_run (batch_name, baseline_date, started_at, finished_at,
-                                                   target_count, processed_count, status, failure_reason)
+                                                   target_count, processed_count, status,
+                                                   failure_reason, failure_kind)
                             values ('test_batch', :baselineDate, :now, :now,
-                                    :count, :count, :status, :reason)
+                                    :count, :count, :status, :reason, :kind)
                             """)
                     .param("baselineDate", BASELINE)
                     .param("now", now)
                     .param("count", "succeeded".equals(status) ? 1 : null)
                     .param("status", status)
-                    .param("reason", "failed".equals(status) ? "IllegalStateException" : null)
+                    .param("reason", failed ? "IllegalStateException" : null)
+                    .param("kind", failed ? BatchRuns.PERMANENT : null)
                     .update();
         }
     }

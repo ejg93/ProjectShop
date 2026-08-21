@@ -1,7 +1,9 @@
 package com.projectshop.shop.order;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -14,7 +16,9 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderStatusService.Actor;
 import com.projectshop.shop.order.OrderTransitions.Payment;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
+import com.projectshop.shop.support.BatchRuns;
 import com.projectshop.shop.support.Retries;
+import com.projectshop.shop.support.RetryableBatch;
 
 /**
  * 사람이 안 눌러도 시각이 되면 옮겨지는 전이 둘(`D7`).
@@ -32,19 +36,27 @@ import com.projectshop.shop.support.Retries;
  * 도중에 죽어도 처리된 것까지는 커밋돼 있고, 남은 것은 다음 회차가 집는다.
  */
 @Component
-public class OrderStatusBatch {
+public class OrderStatusBatch implements RetryableBatch {
 
     private static final Logger log = LoggerFactory.getLogger(OrderStatusBatch.class);
 
     /** 주문을 만들고 이만큼 안에 결제가 끝나야 한다(`D7`) */
     private static final Duration PAYMENT_DEADLINE = Duration.ofMinutes(30);
 
+    /** 자동 구매확정이 카탈로그(`D19`)에서 불리는 이름. 기준일이 있어 이력을 남긴다(`36a`) */
+    static final String BATCH_NAME = "auto_confirm";
+
+    /** 업무 판단은 KST 다(`D10`) */
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final JdbcClient jdbc;
     private final OrderStatusService statuses;
+    private final BatchRuns runs;
 
-    OrderStatusBatch(JdbcClient jdbc, OrderStatusService statuses) {
+    OrderStatusBatch(JdbcClient jdbc, OrderStatusService statuses, BatchRuns runs) {
         this.jdbc = jdbc;
         this.statuses = statuses;
+        this.runs = runs;
     }
 
     /**
@@ -107,7 +119,35 @@ public class OrderStatusBatch {
      */
     @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")
     public void confirmDeliveredOrders() {
-        confirmDeliveredOrders(OffsetDateTime.now());
+        confirmDeliveredOrders(LocalDate.now(KST));
+    }
+
+    /**
+     * 그날 회차를 돌리고 이력을 남긴다(`36a`).
+     *
+     * <p><b>기준일이 있는 배치라 이력을 남긴다</b>(`D19`) — 이 값을 처음 쓰는 것이
+     * 정산 마감(청크 19)의 체인 판정이다. 자동확정이 그날 안 돌면 확정 안 된 건이
+     * 정산에서 빠지므로, 후행이 「선행이 오늘 성공했나」를 이 표에서 본다.
+     *
+     * <p>대상은 <b>지금 시각</b>으로 고른다. 재시도로 04:10 에 돌아도 04:00 에 돌 때와
+     * 결과가 같아야 하는데, 예정일이 이미 지난 것만 고르므로 늦게 돌수록 더 잡을 뿐 안 어긋난다.
+     */
+    public void confirmDeliveredOrders(LocalDate baselineDate) {
+        runs.record(BATCH_NAME, baselineDate, () -> {
+            int confirmed = confirmDeliveredOrders(OffsetDateTime.now());
+            return BatchRuns.Counts.of(confirmed);
+        });
+    }
+
+    @Override
+    public String batchName() {
+        return BATCH_NAME;
+    }
+
+    /** 재시도가 부르는 자리(`36a`). 이미 성공한 회차면 이력 기록기가 걸러 낸다 */
+    @Override
+    public void runFor(LocalDate baselineDate) {
+        confirmDeliveredOrders(baselineDate);
     }
 
     /** @param baseline 이 시각을 지난 예정일을 대상으로 삼는다 */

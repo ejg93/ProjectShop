@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.support.BatchRuns;
+import com.projectshop.shop.support.RetryableBatch;
 
 /**
  * 거래기록 파기를 매월 1일 04:00 KST 에 돌리고 회차를 {@code batch_run} 에 남긴다.
@@ -23,7 +24,7 @@ import com.projectshop.shop.support.BatchRuns;
  * 트랜잭션을 공유하면 실패한 회차가 이력에 안 남는다.
  */
 @Component
-public class TransactionPurgeBatch {
+public class TransactionPurgeBatch implements RetryableBatch {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionPurgeBatch.class);
 
@@ -70,5 +71,16 @@ public class TransactionPurgeBatch {
             }
             return BatchRuns.Counts.of(processed);
         });
+    }
+
+    @Override
+    public String batchName() {
+        return BATCH_NAME;
+    }
+
+    /** 재시도가 부르는 자리(`36a`). 이미 성공한 회차면 `purge` 안에서 걸러진다 */
+    @Override
+    public void runFor(LocalDate baselineDate) {
+        purge(baselineDate);
     }
 }
