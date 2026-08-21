@@ -78,6 +78,12 @@ tasks.withType<JavaCompile> {
 tasks.withType<Test> {
 	useJUnitPlatform()
 
+	// 두 문서를 입력으로 신고한다. 안 하면 문서만 고친 청크에서 Gradle 이 `test` 를
+	// `UP-TO-DATE` 로 건너뛰고, `PlanProgressConsistencyTest` 의 대조가 한 번도 안 돈다.
+	inputs.files(file("../PLAN.md"), file("../PROGRESS.md"))
+		.withPropertyName("planDocs")
+		.withPathSensitivity(PathSensitivity.RELATIVE)
+
 	// 스냅샷은 명시적으로 갱신한다. 자동으로 덮으면 diff 를 안 보고 넘어간다.
 	systemProperty("snapshot.update", System.getProperty("snapshot.update") ?: "false")
 	finalizedBy(tasks.jacocoTestReport)
