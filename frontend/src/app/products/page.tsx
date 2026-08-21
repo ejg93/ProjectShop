@@ -2,15 +2,13 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
+import { Pager, pageNumberOf } from "@/components/pager";
 import { apiPublic } from "@/lib/api";
 
 export const metadata: Metadata = { title: "상품 · ProjectShop" };
 
 /** 한 쪽에 몇 개. 서버 기본값과 같게 둔다(`D5` 「목록」) */
 const PAGE_SIZE = 20;
-
-/** 페이지 번호를 몇 개까지 늘어놓나. 넘으면 앞뒤로만 움직인다 */
-const PAGE_LINK_WINDOW = 5;
 
 /**
  * 공개 목록 한 쪽. 키 이름은 `api.ts` 가 카멜로 바꾼 뒤의 것이다.
@@ -77,7 +75,14 @@ export default async function ProductsPage({
               </li>
             ))}
           </ul>
-          <Pager page={result.page} lastPage={lastPage} total={result.total} />
+          <Pager
+            page={result.page}
+            lastPage={lastPage}
+            total={result.total}
+            basePath="/products"
+            label="상품 목록"
+            unit="개"
+          />
         </>
       ) : (
         <Empty hasAnyProduct={result.total > 0} />
@@ -191,122 +196,6 @@ function Empty({ hasAnyProduct }: { hasAnyProduct: boolean }) {
       </p>
     </div>
   );
-}
-
-/**
- * 쪽 번호. <b>「더 보기」가 아니라 번호다</b>(`D20`) — 상세에 들어갔다 돌아와도 보던 쪽에 남는다.
- *
- * <p>번호를 다 늘어놓지 않는다. 상품이 늘면 줄바꿈이 화면을 밀어낸다.
- */
-function Pager({
-  page,
-  lastPage,
-  total,
-}: {
-  page: number;
-  lastPage: number;
-  total: number;
-}) {
-  if (lastPage === 0) {
-    return null;
-  }
-
-  const half = Math.floor(PAGE_LINK_WINDOW / 2);
-  const start = Math.max(0, Math.min(page - half, lastPage - PAGE_LINK_WINDOW + 1));
-  const end = Math.min(lastPage, start + PAGE_LINK_WINDOW - 1);
-  const numbers = Array.from({ length: end - start + 1 }, (_, index) => start + index);
-
-  return (
-    <nav aria-label="상품 목록 쪽 넘기기" className="grid justify-items-center gap-3">
-      <ul className="flex flex-wrap items-center justify-center gap-1">
-        <li>
-          <PagerLink page={page - 1} disabled={page === 0} label="이전 쪽">
-            이전
-          </PagerLink>
-        </li>
-
-        {numbers.map((number) => (
-          <li key={number}>
-            <PagerLink
-              page={number}
-              current={number === page}
-              label={`${number + 1}쪽`}
-            >
-              {number + 1}
-            </PagerLink>
-          </li>
-        ))}
-
-        <li>
-          <PagerLink page={page + 1} disabled={page === lastPage} label="다음 쪽">
-            다음
-          </PagerLink>
-        </li>
-      </ul>
-
-      {/* 지금 어디인지를 글로도 준다. 번호의 강조만으로 알리면 색에 기대는 것이 된다(`D20`) */}
-      <p className="text-xs text-text-muted">
-        전체 {total.toLocaleString("ko-KR")}개 중 {page + 1} / {lastPage + 1}쪽
-      </p>
-    </nav>
-  );
-}
-
-/**
- * 쪽 하나로 가는 링크.
- *
- * <p><b>갈 곳이 없으면 링크를 안 그린다.</b> 비활성 링크로 두면 보조기술이 읽고
- * 만질 수 없다고 말한다 — 안 그리면 없는 것이다(`D20` 「색만으로 알리지 않는다」).
- */
-function PagerLink({
-  page,
-  label,
-  children,
-  current = false,
-  disabled = false,
-}: {
-  page: number;
-  label: string;
-  children: React.ReactNode;
-  current?: boolean;
-  disabled?: boolean;
-}) {
-  const shape =
-    "grid h-9 min-w-9 place-items-center rounded-ui px-3 text-sm transition-colors duration-200";
-
-  if (disabled) {
-    return <span className={`${shape} text-text-muted opacity-50`}>{children}</span>;
-  }
-
-  return (
-    <Link
-      href={page === 0 ? "/products" : `/products?page=${page}`}
-      aria-label={label}
-      aria-current={current ? "page" : undefined}
-      className={`
-        ${shape}
-        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
-        ${
-          current
-            ? "bg-accent font-semibold text-accent-on"
-            : "border border-border hover:border-accent-text"
-        }
-      `}
-    >
-      {children}
-    </Link>
-  );
-}
-
-/**
- * 주소에서 온 쪽 번호. <b>믿지 않는다</b> — 사람이 직접 고칠 수 있는 값이다.
- *
- * <p>이상한 값에 오류를 내지 않고 첫 쪽으로 본다. 링크를 잘못 받은 사람에게
- * 오류 화면을 주는 것보다 목록을 주는 편이 낫다.
- */
-function pageNumberOf(raw: string | undefined): number {
-  const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
 }
 
 /** 부가세가 이미 포함된 값이다(`D8`). 화면이 다시 더하지 않는다 */

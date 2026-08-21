@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { Pager, pageNumberOf } from "@/components/pager";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText } from "@/lib/format";
 
@@ -10,9 +11,6 @@ export const metadata: Metadata = { title: "내 주문 · ProjectShop" };
 
 /** 한 쪽에 몇 개. 서버 기본값과 같게 둔다(`D5` 「목록」) */
 const PAGE_SIZE = 20;
-
-/** 쪽 번호를 몇 개까지 늘어놓나 */
-const PAGE_LINK_WINDOW = 5;
 
 type OrderSummary = {
   orderNumber: string;
@@ -67,7 +65,14 @@ export default async function OrdersPage({
               </li>
             ))}
           </ul>
-          <Pager page={result.page} lastPage={lastPage} total={result.total} />
+          <Pager
+            page={result.page}
+            lastPage={lastPage}
+            total={result.total}
+            basePath="/orders"
+            label="주문 목록"
+            unit="건"
+          />
         </>
       ) : (
         <Empty hasAnyOrder={result.total > 0} />
@@ -148,101 +153,4 @@ function Empty({ hasAnyOrder }: { hasAnyOrder: boolean }) {
       </Link>
     </div>
   );
-}
-
-/** 쪽 번호. 상품 목록과 같은 규칙이다(`D20` 「목록 넘김」) */
-function Pager({
-  page,
-  lastPage,
-  total,
-}: {
-  page: number;
-  lastPage: number;
-  total: number;
-}) {
-  if (lastPage === 0) {
-    return null;
-  }
-
-  const half = Math.floor(PAGE_LINK_WINDOW / 2);
-  const start = Math.max(0, Math.min(page - half, lastPage - PAGE_LINK_WINDOW + 1));
-  const end = Math.min(lastPage, start + PAGE_LINK_WINDOW - 1);
-  const numbers = Array.from({ length: end - start + 1 }, (_, index) => start + index);
-
-  return (
-    <nav aria-label="주문 목록 쪽 넘기기" className="grid justify-items-center gap-3">
-      <ul className="flex flex-wrap items-center justify-center gap-1">
-        <li>
-          <PagerLink page={page - 1} disabled={page === 0} label="이전 쪽">
-            이전
-          </PagerLink>
-        </li>
-
-        {numbers.map((number) => (
-          <li key={number}>
-            <PagerLink page={number} current={number === page} label={`${number + 1}쪽`}>
-              {number + 1}
-            </PagerLink>
-          </li>
-        ))}
-
-        <li>
-          <PagerLink page={page + 1} disabled={page === lastPage} label="다음 쪽">
-            다음
-          </PagerLink>
-        </li>
-      </ul>
-
-      <p className="text-xs text-text-muted">
-        전체 {total.toLocaleString("ko-KR")}건 중 {page + 1} / {lastPage + 1}쪽
-      </p>
-    </nav>
-  );
-}
-
-/** 갈 곳이 없으면 링크를 안 그린다(`D20`) */
-function PagerLink({
-  page,
-  label,
-  children,
-  current = false,
-  disabled = false,
-}: {
-  page: number;
-  label: string;
-  children: React.ReactNode;
-  current?: boolean;
-  disabled?: boolean;
-}) {
-  const shape =
-    "grid h-9 min-w-9 place-items-center rounded-ui px-3 text-sm transition-colors duration-200";
-
-  if (disabled) {
-    return <span className={`${shape} text-text-muted opacity-50`}>{children}</span>;
-  }
-
-  return (
-    <Link
-      href={page === 0 ? "/orders" : `/orders?page=${page}`}
-      aria-label={label}
-      aria-current={current ? "page" : undefined}
-      className={`
-        ${shape}
-        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
-        ${
-          current
-            ? "bg-accent font-semibold text-accent-on"
-            : "border border-border hover:border-accent-text"
-        }
-      `}
-    >
-      {children}
-    </Link>
-  );
-}
-
-/** 주소에서 온 쪽 번호. <b>믿지 않는다</b> — 이상한 값은 첫 쪽으로 본다 */
-function pageNumberOf(raw: string | undefined): number {
-  const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
 }
