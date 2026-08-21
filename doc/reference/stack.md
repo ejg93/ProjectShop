@@ -160,7 +160,7 @@ unzip -l <jar> | grep ServerProperties.class
 컨트롤러가 `SecurityContextHolder.setContext()` 를 부르면 그 값이 **스레드에 남는다.**
 MockMvc 는 테스트들이 스레드를 나눠 쓰기 때문에 다음 클래스가 그 인증을 물려받는다.
 
-증상이 엉뚱한 데서 난다. `AuthLoginTest` 를 추가했더니 손대지 않은 `CsrfTokenTest` 6개가
+증상이 엉뚱한 데서 난다. `AuthLoginTest` 를 추가했더니 손대지 않은 CSRF 토큰 테스트 여섯이
 토큰 쿠키를 못 받아 깨졌다. **기동한 서버에서는 안 난다** — 요청마다 스레드가 갈린다.
 
 `PostgresTestBase` 가 걷어낸다. 테스트마다 손으로 붙이지 않는 이유는 빠뜨렸을 때
