@@ -49,9 +49,18 @@ public class SellerOrderQuery {
         this.actions = actions;
     }
 
-    /** 처리 화면의 한 줄. 무엇을 보낼지는 상세가 답한다 */
+    /**
+     * 처리 화면의 한 줄. 무엇을 보낼지는 상세가 답한다.
+     *
+     * <p><b>발송 기한은 목록에 있어야 한다</b>(`13g`). 셀러가 이 화면에서 고르는 것이
+     * 「무엇부터 보내나」고, 그 답이 기한이다 — 넘기면 지연배상금이 연 15% 로 붙는다
+     * (전자상거래법 시행령 제21조의3, `D2` R21). 상세를 열어야 보이면 목록이 그 물음에 답을 안 한다.
+     *
+     * @param shipOverdue 지금 늦고 있나. 판정은 뷰가 한다(`V37`) — 화면마다 다시 재지 않는다
+     */
     public record Summary(String sellerOrderNumber, String orderNumber, String status,
-            int itemCount, long shippingFee, OffsetDateTime createdAt) {
+            int itemCount, long shippingFee, OffsetDateTime shipDueAt, boolean shipOverdue,
+            OffsetDateTime createdAt) {
     }
 
     public record Page(List<Summary> items, int page, int size, long total) {
@@ -63,12 +72,17 @@ public class SellerOrderQuery {
      * @param allowedActions 지금 이 묶음에 할 수 있는 것. <b>밑줄이 없다</b> —
      *                       `D5` 의 밑줄은 "이 응답이 깎였다" 는 표시고 이건 그게 아니다
      * @param shipping       받는 사람. {@code shipping} 그룹이라 못 보면 응답에서 빠진다(`D5`)
+     * @param returnReason   반품이 무엇으로 들어왔나(`V29`). 반품이 아니면 {@code null} 이다.
+     *                       <b>셀러가 알아야 갈리는 것이 둘</b>이다 — 하자 반품은 기한이 3개월이고
+     *                       반환 비용을 셀러가 진다(전자상거래법 제17조제3항·제18조제9항, `D2` R3).
+     *                       단순 변심으로 보고 거절하면 그 자리에서 법을 어긴다
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Detail(String sellerOrderNumber, String orderNumber, String status,
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
             OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue,
+            String returnReason,
             List<OrderQuery.Item> items, List<String> allowedActions, OrderQuery.Shipping shipping,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
     }
@@ -78,7 +92,8 @@ public class SellerOrderQuery {
             String orderNumber, long buyerUserId, long sellerId, String status, long shippingFee,
             OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
-            OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue) {
+            OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue,
+            String returnReason) {
     }
 
     /**
@@ -103,7 +118,7 @@ public class SellerOrderQuery {
 
         List<Summary> items = jdbc.sql("""
                         select so.seller_order_number, o.order_number, so.status,
-                               so.shipping_fee, so.created_at,
+                               so.shipping_fee, so.ship_due_at, so.is_ship_overdue, so.created_at,
                                (select count(*) from order_item oi
                                  where oi.seller_order_id = so.seller_order_id) as item_count
                           from seller_order_visible so
@@ -126,6 +141,8 @@ public class SellerOrderQuery {
                         enumValue(rs.getString("status")),
                         rs.getInt("item_count"),
                         rs.getLong("shipping_fee"),
+                        rs.getObject("ship_due_at", OffsetDateTime.class),
+                        rs.getBoolean("is_ship_overdue"),
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .list();
 
@@ -158,9 +175,8 @@ public class SellerOrderQuery {
                                o.order_number, o.user_id as buyer_user_id, so.seller_id,
                                so.status, so.shipping_fee, so.delivered_at,
                                so.withdrawal_expire_at, so.auto_confirm_at, so.created_at,
-                               so.ship_due_at, so.shipped_at,
-                               (so.ship_due_at is not null
-                                and coalesce(so.shipped_at, now()) > so.ship_due_at) as ship_overdue
+                               so.ship_due_at, so.shipped_at, so.is_ship_overdue,
+                               so.return_reason
                           from seller_order_visible so
                           join shop_order o on o.order_id = so.order_id
                          where so.seller_order_number = :number
@@ -181,7 +197,8 @@ public class SellerOrderQuery {
                         rs.getObject("created_at", OffsetDateTime.class),
                         rs.getObject("ship_due_at", OffsetDateTime.class),
                         rs.getObject("shipped_at", OffsetDateTime.class),
-                        rs.getBoolean("ship_overdue")))
+                        rs.getBoolean("is_ship_overdue"),
+                        rs.getString("return_reason")))
                 .optional()
                 .orElseThrow(() -> notFound(sellerOrderNumber));
 
@@ -203,6 +220,7 @@ public class SellerOrderQuery {
                 row.shipDueAt(),
                 row.shippedAt(),
                 row.shipOverdue(),
+                row.returnReason(),
                 itemsOf(row.sellerOrderId()),
                 actions.allowedActions(viewerId, row.buyerUserId(), row.sellerId(), row.status()),
                 decision.canSee(OrderFields.SHIPPING) ? shippingOf(row.orderId()) : null,

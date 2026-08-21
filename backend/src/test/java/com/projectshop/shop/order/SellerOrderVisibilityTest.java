@@ -148,6 +148,76 @@ class SellerOrderVisibilityTest extends PostgresTestBase {
                     .containsAll(columnsOf("seller_order"));
         }
 
+        /**
+         * 뷰에 있는 것이 계약까지 오나.
+         *
+         * <p><b>위 테스트가 못 잡는 한 칸이 더 있었다</b>(`11c-2c`). `V30` 이 뷰에
+         * {@code return_reason} 을 실으면서 "`13g` 가 반품 사유를 그리려면 이 뷰로 와야 한다" 고
+         * 적어 뒀는데, <b>{@link SellerOrderQuery.Detail} 에 칸이 없어서 못 나갔다.</b>
+         * 표→뷰는 지켜졌고 뷰→계약이 비어 있었다.
+         *
+         * <p>못 나가는 것은 조용하다 — 응답에 없는 필드는 아무 데서도 안 깨지고,
+         * 화면을 만들 때가 돼서야 드러난다. 그때는 계약과 화면을 같이 고친다.
+         *
+         * <p><b>뷰 컬럼이 전부 나가야 하는 것은 아니다.</b> 내부 식별자처럼 나가면 안 되는 것이
+         * 있어서, 이 테스트가 요구하는 것은 "다 싣는 것" 이 아니라 <b>칸마다 답이 정해져 있는 것</b>이다.
+         * 새 컬럼이 늘면 계약에 넣든 아래 목록에 넣든 <b>둘 중 하나를 고르게 만든다.</b>
+         */
+        @Test
+        @DisplayName("뷰에 있는 컬럼은 계약에 있거나, 일부러 뺀 것이다")
+        void everyViewColumnIsDecided() {
+            List<String> carried = java.util.Arrays.stream(SellerOrderQuery.Detail.class
+                            .getRecordComponents())
+                    .map(component -> snakeCase(component.getName()))
+                    .toList();
+
+            assertThat(columnsOf("seller_order_visible"))
+                    .as("뷰에 컬럼을 더하면 Detail 에 싣거나 NOT_IN_CONTRACT 에 근거를 적는다")
+                    .allSatisfy(column -> assertThat(carried.contains(fieldNameOf(column))
+                                    || NOT_IN_CONTRACT.contains(column))
+                            .as("뷰 컬럼 %s 를 어디에도 안 정했다", column)
+                            .isTrue());
+        }
+
+        /**
+         * 컬럼 이름을 Java 필드 쪽 이름으로 맞춘다.
+         *
+         * <p><b>불리언의 {@code is_} 는 Java 에서 뗀다</b>(`D22`) — 게터가 {@code isShipOverdue()} 라
+         * 접두사가 두 번 붙어서다. 그 규칙을 여기서도 써야 {@code is_ship_overdue} 와
+         * {@code shipOverdue} 가 같은 것으로 잡힌다.
+         */
+        private String fieldNameOf(String column) {
+            return column.startsWith("is_") ? column.substring("is_".length()) : column;
+        }
+
+        /**
+         * 일부러 안 내보내는 뷰 컬럼. <b>왜 뺐는지가 여기 근거다.</b>
+         *
+         * <p>비우면 위 테스트가 "전부 실어라" 가 되고, 그러면 내부 식별자가 밖으로 나간다.
+         */
+        private static final List<String> NOT_IN_CONTRACT = List.of(
+                // 내부 식별자. 밖으로는 노출 번호만 나간다(`D9`).
+                "seller_order_id", "order_id",
+
+                // 보는 사람이 그 셀러라 자명하다. 여러 셀러에 속한 사람은 목록을 셀러로 거른다.
+                "seller_id",
+
+                // 기한을 계산할 때 쓴 입력이다. 결과인 ship_due_at 이 이미 나가고,
+                // 약정이 있었는지는 사는 사람 화면의 물음이다(`14c`).
+                "supply_lead_days", "agreed_lead_days",
+
+                // 거래가 끝난 시각. 셀러 화면이 묻는 것은 「지금 무엇을 하나」라 상태로 갈음된다.
+                // 정산 축(`D10`)이 이 값을 쓰기 시작하면 그때 계약에 올린다.
+                "closed_at",
+
+                // 행을 마지막으로 건드린 시각. 도메인 사건이 아니라 기록이다.
+                "updated_at");
+
+        /** {@code shipDueAt} → {@code ship_due_at}. 이름이 바뀌는 자리는 여기 하나뿐이다(`D22`) */
+        private String snakeCase(String camel) {
+            return camel.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase();
+        }
+
         private List<String> columnsOf(String relation) {
             return jdbc.sql("""
                             select column_name from information_schema.columns
