@@ -269,6 +269,10 @@
 이 환경의 `JAVA_HOME` 은 JDK 11을 가리켜서 Gradle이 안 뜬다.
 `JAVA_HOME="C:/Program Files/Java/jdk-25"` 를 앞에 붙여서 돌린다.
 
+**커밋마다 CI 가 같은 명령을 돌린다**(`.github/workflows/ci.yml`, 청크 `2c`).
+backend 는 `./gradlew build`, frontend 는 `npm ci` 뒤 `build`·`lint`·`test` 다.
+**푸시해야 돈다** — 원격에 안 올린 커밋은 CI 가 못 보므로, 청크를 닫을 때 돌리는 것은 여전히 위 표다.
+
 돌리지 못했으면 못 돌렸다고 밝힌다. 안 돌려보고 "동작한다"·"빌드 통과"라고 쓰지 않는다.
 
 ## 토큰 절약

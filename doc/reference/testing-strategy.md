@@ -83,7 +83,8 @@ evaluator.decide(userId, "order", "update_status", target)
 
 - Docker Desktop 을 끄면 테스트가 전부 실패한다
 - 앞선 테스트가 남긴 데이터에 결과가 좌우된다
-- CI(청크 2c)에는 붙을 DB 가 아예 없다
+- CI 러너에는 붙을 DB 가 아예 없다. `2c` 의 워크플로가 service 컨테이너를 안 띄우는 이유가 이것이다 —
+  테스트가 스스로 띄우므로 러너의 Docker 만 있으면 된다
 
 컨테이너는 테스트마다 새로 뜨지 않는다. `static` 으로 한 번 띄우고 JVM 이 끝날 때까지 쓴다.
 Spring 컨텍스트 캐싱과 맞물려서 기동 비용이 전체 실행에 한 번만 든다.
