@@ -592,6 +592,27 @@ const { default: puppeteer } = await import(
 **경로를 `file://` URL 로 준다.** Git Bash 의 POSIX 경로(`/c/Users/...`)를 그대로 넘기면
 Node 가 `C:\c\Users\...` 로 읽어서 못 찾는다.
 
+### `bootRun` 을 죽여도 8080 은 안 풀린다
+
+`bootRun` 은 앱을 **자식 JVM** 으로 띄운다. Gradle 쪽 프로세스를 죽이면 그 자식은 남고,
+포트를 쥔 채라 다음 기동이 이렇게 끝난다.
+
+```
+APPLICATION FAILED TO START
+Web server failed to start. Port 8080 was already in use.
+```
+
+**Gradle 이 안 죽였다는 신호가 없다.** 죽인 명령은 성공으로 끝나고, 실패는 다음 기동에서
+전혀 다른 얼굴로 나온다 — 고친 코드가 원인처럼 보인다.
+
+포트를 쥔 것을 직접 찾아 내린다.
+
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen |
+    Select-Object -ExpandProperty OwningProcess -Unique |
+    ForEach-Object { Stop-Process -Id $_ -Force }
+```
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
