@@ -520,6 +520,22 @@ class HttpFlowTest extends HttpTestBase {
                     .contains("\"card_last4\":\"4242\"")
                     .doesNotContain("4242424242424242")
                     .doesNotContain(GOOD_CARD);
+
+            Response record = buyer.get("/api/orders/" + orderNumber + "/record");
+
+            assertThat(record.is(200))
+                    .as("제6조제1항 후단이 소비자에게 보존 방법을 요구한다(`D2` R6). 본문: %s", record.body())
+                    .isTrue();
+            assertThat(record.headers().getFirst("Content-Disposition"))
+                    .as("열람이 아니라 보존이라 파일로 내려간다")
+                    .startsWith("attachment")
+                    .contains(orderNumber);
+            assertThat(record.body())
+                    .as("파일 하나가 그 거래의 전부를 담는다")
+                    .contains("거래기록")
+                    .contains(orderNumber)
+                    .contains("[ 결제 금액 ]")
+                    .contains("[ 처리 내역 ]");
         }
 
         @Test

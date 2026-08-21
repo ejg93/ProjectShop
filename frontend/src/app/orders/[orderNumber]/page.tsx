@@ -131,6 +131,23 @@ export default async function OrderDetailPage({
         <p className="text-sm text-text-muted">
           {dateTimeText(order.createdAt)} · {paymentStatusText(order.status)}
         </p>
+        {/*
+          거래기록 보존(전자상거래법 제6조제1항 후단, `D2` R6). 이 화면은 열람까지고,
+          계정이 막히거나 서비스가 닫히면 남는 사본이 없다. 파일은 서버가 만든다(`15-5`).
+
+          `Link` 가 아니라 `a` 다 — 클라이언트 전환이 아니라 브라우저가 파일로 받아야 한다.
+        */}
+        <p className="text-sm">
+          <a
+            href={`/api/orders/${encodeURIComponent(order.orderNumber)}/record`}
+            className="
+              underline underline-offset-4 hover:text-accent-text
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
+            "
+          >
+            거래기록 내려받기 (.txt)
+          </a>
+        </p>
       </div>
 
       <div className="grid gap-4">

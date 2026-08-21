@@ -1,9 +1,14 @@
 package com.projectshop.shop.order;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
 import java.util.List;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -161,6 +166,37 @@ public class OrderController {
             @PathVariable String clause) {
 
         return orderQuery.contractDocument(user.id(), orderNumber, clause);
+    }
+
+    /**
+     * 거래기록을 파일로 내려준다(`D2` R6, 전자상거래법 제6조제1항 후단·제5조제5항).
+     *
+     * <p><b>화면이 답하는 것은 「열람」까지다</b>(`15-3`). 법은 소비자가 <b>보존</b>할 수 있는
+     * 방법도 요구하는데, 우리 화면 안에만 있는 기록은 계정이 막히거나 서비스가 닫히면 사라진다.
+     *
+     * <p>JSON 이 아니라 글이다(`D5` 「파일 응답」). 소비자가 열어서 읽는 것이 목적이라
+     * 구조를 파싱해야 뜻이 서는 형식은 그 목적에 안 맞는다.
+     *
+     * <p>내용은 {@code detail} 과 같은 조회를 쓴다 — <b>판정을 한 번 더 안 지나가려는 것이다.</b>
+     * 표를 다시 읽으면 남의 주문을 파일로 받는 두 번째 경로가 생긴다.
+     */
+    @GetMapping(value = "/{orderNumber}/record", produces = "text/plain;charset=UTF-8")
+    public ResponseEntity<String> record(
+            @AuthenticationPrincipal ShopUser user,
+            @PathVariable String orderNumber) {
+
+        String body = OrderRecordText.of(orderQuery.findByNumber(user.id(), orderNumber),
+                OffsetDateTime.now());
+
+        // 파일 이름에 주문번호를 넣는다. 여러 건을 받아 두면 어느 주문인지가 이름으로 갈린다.
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename("order-" + orderNumber + ".txt", StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(new MediaType(MediaType.TEXT_PLAIN, StandardCharsets.UTF_8))
+                .body(body);
     }
 
     private static OrderService.Command toCommand(CreateRequest request) {
