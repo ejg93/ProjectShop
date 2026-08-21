@@ -20,8 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 보존이 권리지 의무가 아니므로 <b>쓸 일이 끝나면 버리는 쪽</b>을 골랐다 —
  * 그래야 배송지를 주문에서 분리해 둔 이유가 살아난다.
  *
- * <p>여기서 도는 것들은 아직 <b>호출자가 없다.</b> 스케줄러가 청크 36 이라
- * 지금은 무엇을 언제 지울지만 서 있고 언제 도는지가 없다.
+ * <p>부르는 것은 {@code TransactionPurgeBatch} 다(청크 36) — 매월 1일 04:00 KST.
  */
 @Service
 public class TransactionPurgeService {
@@ -43,6 +42,14 @@ public class TransactionPurgeService {
     /** 분쟁이 늦게 터져도 닿는 기간(`D13`). 동의 이력과 같은 기간이라 대응 범위가 안 어긋난다 */
     private static final int AUDIT_YEARS = 3;
 
+    /**
+     * 배치 회차 이력을 두는 기간(`D19`). <b>개인정보가 아니라 법이 걸리는 파기가 아니다.</b>
+     *
+     * <p>여기 얹은 이유는 <b>수명이 끝난 행을 치운다는 일이 같아서</b>다 —
+     * 멱등키를 개인정보 파기에 얹은 것과 같은 자리다. 1년이면 작년 같은 달과 대조할 수 있다.
+     */
+    private static final int BATCH_RUN_YEARS = 1;
+
     private final JdbcClient jdbc;
 
     TransactionPurgeService(JdbcClient jdbc) {
@@ -53,11 +60,12 @@ public class TransactionPurgeService {
      * @param shippingAddresses 지운 배송지 행 수
      * @param orders            보존 기간이 지나 지운 주문 수
      * @param auditLogs         보존 기간이 지나 지운 감사 로그 수
+     * @param batchRuns         보존 기간이 지나 지운 배치 회차 이력 수
      */
-    public record Purged(int shippingAddresses, int orders, int auditLogs) {}
+    public record Purged(int shippingAddresses, int orders, int auditLogs, int batchRuns) {}
 
     /**
-     * 오늘 기준으로 파기한다. 스케줄러(청크 36)가 생기기 전까지는 손으로 부른다.
+     * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
      *
      * <p>기준 시각을 <b>전날 24시로 고정</b>한다(`D10`). 몇 시에 몇 번 돌든 대상이 같아야 재실행이 안전하다.
      */
@@ -71,8 +79,9 @@ public class TransactionPurgeService {
         int shippingAddresses = deleteExpiredShipping(baseline.minusMonths(SHIPPING_MONTHS));
         int orders = deleteExpiredOrders(baseline.minusYears(ORDER_YEARS));
         int auditLogs = deleteExpiredAuditLogs(baseline.minusYears(AUDIT_YEARS));
+        int batchRuns = deleteExpiredBatchRuns(baseline.minusYears(BATCH_RUN_YEARS));
 
-        return new Purged(shippingAddresses, orders, auditLogs);
+        return new Purged(shippingAddresses, orders, auditLogs, batchRuns);
     }
 
     /**
@@ -165,6 +174,20 @@ public class TransactionPurgeService {
     private int deleteExpiredAuditLogs(OffsetDateTime createdBefore) {
         return jdbc.sql("delete from audit_log where created_at < :createdBefore")
                 .param("createdBefore", createdBefore)
+                .update();
+    }
+
+    /**
+     * 수명이 끝난 배치 회차 이력을 지운다.
+     *
+     * <p><b>기준일로 센다.</b> {@code created_at} 이 아니라 그 회차가 무엇을 다룬 날이고,
+     * 이력을 되짚는 물음이 언제나 「그날 그 배치가 돌았나」라서다(`D19`).
+     *
+     * <p>이 배치 자신의 회차 행도 대상이다. 1년 전 행이라 지금 회차는 안 걸린다.
+     */
+    private int deleteExpiredBatchRuns(OffsetDateTime baselineBefore) {
+        return jdbc.sql("delete from batch_run where baseline_date < :baselineBefore")
+                .param("baselineBefore", baselineBefore.toLocalDate())
                 .update();
     }
 }
