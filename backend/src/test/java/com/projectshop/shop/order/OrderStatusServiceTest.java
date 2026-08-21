@@ -260,6 +260,22 @@ class OrderStatusServiceTest extends PostgresTestBase {
 
             assertThat(stock()).isEqualTo(STOCK);
         }
+
+        @Test
+        @DisplayName("돌아온 것도 이력에 남는다")
+        void leavesARestoreMovement() {
+            statuses.movePayment(orderId, Payment.PAYMENT_FAILED, Actor.system("카드사 거절"));
+
+            // 차감을 지우고 값만 되돌리면 그 사이에 재고가 잡혀 있었다는 사실이 사라진다(`53`).
+            assertThat(jdbc.sql("""
+                            select count(*) from sku_stock_movement
+                             where reason = 'order_cancelled' and order_id = :orderId
+                            """)
+                    .param("orderId", orderId)
+                    .query(Integer.class)
+                    .single())
+                    .isEqualTo(1);
+        }
     }
 
     @Nested

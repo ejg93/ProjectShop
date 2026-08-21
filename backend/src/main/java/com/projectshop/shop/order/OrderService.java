@@ -112,8 +112,9 @@ public class OrderService {
      *   <li>산 것을 장바구니에서 뺀다</li>
      * </ol>
      *
-     * <p>재고를 먼저 깎는 것은 <b>조건부 UPDATE 가 곧 검사</b>라서다. 주문을 만들고 나서 깎으면
-     * 모자랄 때 되돌릴 것이 늘어난다.
+     * <p><b>재고를 주문 뒤에 깎는다</b>(`53`). 이동 이력이 「어느 주문 때문에 나갔나」에 답하려면
+     * 그 시점에 주문번호가 있어야 한다. 한 트랜잭션이라 모자랄 때는 통째로 롤백되고,
+     * <b>다투는 행을 늦게 잡는 편이 잠금을 짧게 문다</b> — 재고 행이 이 흐름에서 가장 붐비는 자리다.
      */
     @Transactional
     public Created create(long userId, Command command) {
@@ -122,9 +123,8 @@ public class OrderService {
             throw new ShopException(ErrorCode.ORDER_EMPTY);
         }
 
-        decreaseStock(lines);
-
         long orderId = insertOrder(userId, lines);
+        decreaseStock(orderId, lines);
         insertSellerOrdersAndItems(orderId, lines, command.withdrawalRestrictionAgreed());
         insertShipping(orderId, command.shipping());
         insertContractDocuments(orderId);
@@ -246,20 +246,22 @@ public class OrderService {
      * <p><b>`sku_id` 오름차순으로 돈다.</b> 잠그는 순서가 요청마다 다르면
      * A 가 10을 잡고 20을 기다리는 사이 B 가 20을 잡고 10을 기다려서 서로 막힌다.
      */
-    private void decreaseStock(List<Line> lines) {
+    private void decreaseStock(long orderId, List<Line> lines) {
         List<Line> ordered = new ArrayList<>(lines);
         ordered.sort(Comparator.comparingLong(Line::skuId));
 
         for (Line line : ordered) {
-            int changed = jdbc.sql("""
-                            update sku_stock set on_hand = on_hand - :quantity
-                             where sku_id = :skuId and available_count >= :quantity
-                            """)
-                    .param("quantity", line.quantity())
+            // 재고는 `move_stock()` 으로만 옮긴다(`53`). 이력을 같이 남기려고 두 문장으로 나누면
+            // 한쪽만 도는 자리가 생기고, 직접 UPDATE 는 트리거가 거부한다.
+            boolean moved = Boolean.TRUE.equals(jdbc.sql(
+                            "select move_stock(:skuId, :quantity, 'order_placed', :orderId)")
                     .param("skuId", line.skuId())
-                    .update();
+                    .param("quantity", -line.quantity())
+                    .param("orderId", orderId)
+                    .query(Boolean.class)
+                    .single());
 
-            if (changed == 0) {
+            if (!moved) {
                 // 왜 0행인지는 UPDATE 결과만으로 모른다. 실패 경로에서만 도는 쿼리다(`D11`).
                 throw new ShopException(ErrorCode.OUT_OF_STOCK,
                         "sku_id=%d 의 재고가 모자란다".formatted(line.skuId()));

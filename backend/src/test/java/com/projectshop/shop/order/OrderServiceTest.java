@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -152,9 +153,34 @@ class OrderServiceTest extends PostgresTestBase {
         }
 
         @Test
+        @DisplayName("왜 줄었는지가 주문번호와 함께 남는다")
+        void leavesAMovement() {
+            order(addToCart(skuA, 3));
+
+            Map<String, Object> movement = jdbc.sql("""
+                            select m.quantity, m.reason, o.order_number
+                              from sku_stock_movement m
+                              join shop_order o on o.order_id = m.order_id
+                             where m.sku_id = :id and m.reason = 'order_placed'
+                            """)
+                    .param("id", skuA)
+                    .query()
+                    .singleRow();
+
+            // 「어제 100 이었는데 왜 97 인가」에 답하는 것이 이 줄이다(`53`).
+            assertThat(movement).containsEntry("quantity", -3);
+            assertThat(movement.get("order_number")).isNotNull();
+        }
+
+        @Test
         @DisplayName("모자라면 주문이 안 된다")
         void rejectsWhenInsufficient() {
-            jdbc.sql("update sku_stock set on_hand = 1 where sku_id = :id").param("id", skuA).update();
+            // 재고를 손으로 맞출 때도 `move_stock()` 을 쓴다(`53`) — 직접 UPDATE 는 트리거가 막는다.
+            jdbc.sql("select move_stock(:id, :quantity, 'adjustment', null)")
+                    .param("id", skuA)
+                    .param("quantity", 1 - stockOf(skuA))
+                    .query(Boolean.class)
+                    .single();
             long cartItemId = addToCart(skuA, 2);
 
             assertThatThrownBy(() -> order(cartItemId))

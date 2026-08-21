@@ -232,9 +232,10 @@ class OrderConcurrencyTest extends PostgresTestBase {
         }
 
         private void decreaseOne(long skuId) {
-            jdbc.sql("update sku_stock set on_hand = on_hand - 1 where sku_id = :id")
+            jdbc.sql("select move_stock(:id, -1, 'order_placed', null)")
                     .param("id", skuId)
-                    .update();
+                    .query(Boolean.class)
+                    .single();
         }
 
         private void await(CyclicBarrier barrier) {

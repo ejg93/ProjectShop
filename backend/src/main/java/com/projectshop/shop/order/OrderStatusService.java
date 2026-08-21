@@ -447,11 +447,20 @@ public class OrderStatusService {
                 .query((rs, rowNum) -> new Long[] {rs.getLong("sku_id"), rs.getLong("quantity")})
                 .list();
 
+        Long orderId = jdbc.sql("select order_id from seller_order where seller_order_id = :id")
+                .param("id", sellerOrderId)
+                .query(Long.class)
+                .single();
+
         for (Long[] item : items) {
-            jdbc.sql("update sku_stock set on_hand = on_hand + :quantity where sku_id = :skuId")
-                    .param("quantity", item[1])
+            // 되돌리는 것도 이동이다(`53`). 이력을 보면 「나갔다가 돌아왔다」가 두 줄로 남는다 —
+            // 차감을 지우면 그 사이에 재고가 잡혀 있었다는 사실이 사라진다.
+            jdbc.sql("select move_stock(:skuId, :quantity, 'order_cancelled', :orderId)")
                     .param("skuId", item[0])
-                    .update();
+                    .param("quantity", item[1].intValue())
+                    .param("orderId", orderId)
+                    .query(Boolean.class)
+                    .single();
         }
     }
 

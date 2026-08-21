@@ -342,13 +342,13 @@ class ProductQueryTest extends PostgresTestBase {
         void tellsStockWithoutCount() {
             long productId = createAndPutOnSale(ownerA, sellerA, "품절 섞인 상세");
             jdbc.sql("""
-                            update sku_stock st set on_hand = 0
-                              from sku sk
-                             where sk.sku_id = st.sku_id
-                               and sk.product_id = :id and sk.price_incl_vat = 15000
+                            select move_stock(sk.sku_id, -st.on_hand, 'adjustment', null)
+                              from sku sk join sku_stock st on st.sku_id = sk.sku_id
+                             where sk.product_id = :id and sk.price_incl_vat = 15000
                             """)
                     .param("id", productId)
-                    .update();
+                    .query(Boolean.class)
+                    .list();
 
             List<ProductQuery.PublicSku> skus = productQuery.findPublicDetail(productId).skus();
 

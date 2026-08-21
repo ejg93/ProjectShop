@@ -95,9 +95,10 @@ class SkuStockTest extends PostgresTestBase {
                     .query(java.time.OffsetDateTime.class)
                     .single();
 
-            jdbc.sql("update sku_stock set on_hand = 3 where sku_id = :id")
+            jdbc.sql("select move_stock(:id, -7, 'adjustment', null)")
                     .param("id", skuId)
-                    .update();
+                    .query(Boolean.class)
+                    .single();
 
             assertThat(jdbc.sql("select updated_at from sku where sku_id = :id")
                     .param("id", skuId)
@@ -141,28 +142,30 @@ class SkuStockTest extends PostgresTestBase {
                     .param("id", skuId)
                     .update();
 
-            // 주문이 쓰는 조건부 UPDATE 와 같은 문장이다(`D11`).
-            int changed = jdbc.sql("""
-                            update sku_stock set on_hand = on_hand - :quantity
-                             where sku_id = :id and available_count >= :quantity
-                            """)
-                    .param("quantity", 3)
-                    .param("id", skuId)
-                    .update();
-
-            assertThat(changed)
-                    .describedAs("가용이 2 인데 3을 깎으면 0행이다. 재고 부족과 같은 신호로 끝난다")
-                    .isZero();
+            // 주문이 쓰는 입구와 같은 함수다(`53`).
+            assertThat(moveStock(-3))
+                    .describedAs("가용이 2 인데 3을 깎으면 아무 일도 안 일어난다. 재고 부족과 같은 신호다")
+                    .isFalse();
         }
 
         @Test
         @DisplayName("재고가 음수로 못 내려간다")
         void neverGoesNegative() {
-            assertThatThrownBy(() -> jdbc.sql("update sku_stock set on_hand = -1 where sku_id = :id")
+            assertThat(moveStock(-11))
+                    .describedAs("가진 것보다 많이 빼는 요청은 통째로 안 먹는다(`D11`)")
+                    .isFalse();
+            assertThat(availableCount())
+                    .describedAs("실패한 이동은 값을 안 건드린다")
+                    .isEqualTo(10);
+        }
+
+        private boolean moveStock(int quantity) {
+            return Boolean.TRUE.equals(jdbc.sql(
+                            "select move_stock(:id, :quantity, 'adjustment', null)")
                     .param("id", skuId)
-                    .update())
-                    .describedAs("조건부 UPDATE 가 성립하려면 음수를 DB 가 막아야 한다(`D11`)")
-                    .isInstanceOf(DataIntegrityViolationException.class);
+                    .param("quantity", quantity)
+                    .query(Boolean.class)
+                    .single());
         }
 
         private int availableCount() {

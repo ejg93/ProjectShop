@@ -20,11 +20,22 @@ Repeatable Read 로 올리면 직렬화 실패(`40001`)가 뜨고, 그러면 **�
 ## 재고 차감 — 조건부 UPDATE
 
 ```sql
-update sku_stock
-   set on_hand = on_hand - :qty
- where sku_id = :skuId
-   and available_count >= :qty
+select move_stock(:skuId, -:qty, 'order_placed', :orderId)
 ```
+
+**함수 안이 조건부 UPDATE 다.** 가용 재고가 모자라면 아무것도 안 하고 `false` 를 준다 —
+예외로 바꾸면 「재고 부족」이 오류 경로로 올라가서, 부르는 쪽이 정상적인 실패와 진짜 고장을
+같은 자리에서 받게 된다.
+
+```sql
+update sku_stock
+   set on_hand = on_hand + p_quantity
+ where sku_id = p_sku_id and available_count >= -p_quantity
+```
+
+**재고를 옮기는 입구가 그 함수 하나다**(청크 53). 이력을 같이 남기려고 앱이 두 문장으로 하면
+한쪽만 도는 자리가 생기고, `sku_stock.on_hand` 를 직접 고치는 UPDATE 는 트리거가 거부한다 —
+관례로 두면 새 경로가 이력을 빼먹고 그 구멍은 숫자가 안 맞는 날에야 드러난다.
 
 **조건이 `on_hand` 이 아니라 `available_count` 다.** 가용 재고는 `on_hand - safety_stock` 을
 DB 가 계산해 저장하는 생성 컬럼이라(청크 52), 안전 재고를 앱이 빼지 않는다 —
