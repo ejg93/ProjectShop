@@ -88,6 +88,50 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
     }
 
     @Nested
+    @DisplayName("카드 정보는")
+    class PaymentCard {
+
+        @Test
+        @DisplayName("거래가 끝나고 6개월이 지나면 사라진다")
+        void isErasedAfterSixMonths() {
+            long orderId = orderClosedAt(NOW.minusMonths(7));
+            insertPaymentWithCard(orderId);
+
+            purgeService.purge(NOW);
+
+            assertThat(paymentCardExists(orderId))
+                    .as("보존분 분리라 배송지와 같은 수명이다(`D2` R9, 제21조제3항)")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("아직 6개월이 안 됐으면 남는다")
+        void survivesWithinSixMonths() {
+            long orderId = orderClosedAt(NOW.minusMonths(5));
+            insertPaymentWithCard(orderId);
+
+            purgeService.purge(NOW);
+
+            assertThat(paymentCardExists(orderId))
+                    .as("「어느 카드로 냈나」는 분쟁과 함께 오는 물음이라 그 기간을 덮는다")
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("지워져도 결제 기록은 남는다")
+        void leavesThePaymentBehind() {
+            long orderId = orderClosedAt(NOW.minusMonths(7));
+            insertPaymentWithCard(orderId);
+
+            purgeService.purge(NOW);
+
+            assertThat(paymentExists(orderId))
+                    .as("금액·승인번호·수단이 남아서 대금결제 기록은 5년을 채운다(제6조제1항)")
+                    .isTrue();
+        }
+    }
+
+    @Nested
     @DisplayName("주문은")
     class Orders {
 
@@ -314,6 +358,34 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
 
     private boolean shippingExists(long orderId) {
         return exists("select 1 from order_shipping where order_id = " + orderId);
+    }
+
+    /** 카드 결제 하나를 만든다. 카드 정보는 갈라진 표에 들어간다(`D2` R9) */
+    private void insertPaymentWithCard(long orderId) {
+        long paymentId = jdbc.sql("""
+                        insert into payment (order_id, status, method, amount, approval_number)
+                        values (:orderId, 'approved', 'card', 10000, 'APPROVAL-1')
+                        returning payment_id
+                        """)
+                .param("orderId", orderId)
+                .query(Long.class)
+                .single();
+
+        jdbc.sql("""
+                        insert into payment_card (payment_id, card_issuer, card_last4)
+                        values (:paymentId, '비자', '4242')
+                        """)
+                .param("paymentId", paymentId)
+                .update();
+    }
+
+    private boolean paymentCardExists(long orderId) {
+        return exists("select 1 from payment_card c"
+                + " join payment p on p.payment_id = c.payment_id where p.order_id = " + orderId);
+    }
+
+    private boolean paymentExists(long orderId) {
+        return exists("select 1 from payment where order_id = " + orderId);
     }
 
     private boolean orderExists(long orderId) {

@@ -551,11 +551,15 @@ public class OrderQuery {
 
     private Payment paymentOf(long orderId) {
         return jdbc.sql("""
-                        select status, method, approval_number, card_issuer, card_last4,
-                               decline_reason, created_at
-                          from payment
-                         where order_id = :orderId
-                         order by created_at desc, payment_id desc
+                        select p.status, p.method, p.approval_number,
+                               c.card_issuer, c.card_last4,
+                               p.decline_reason, p.created_at
+                          from payment p
+                          -- 카드 정보는 거래 종료 여섯 달 뒤에 사라진다(`D2` R9 보존분 분리).
+                          -- 그 뒤로는 수단만 남고 화면은 발급사 자리를 안 그린다.
+                          left join payment_card c on c.payment_id = p.payment_id
+                         where p.order_id = :orderId
+                         order by p.created_at desc, p.payment_id desc
                          limit 1
                         """)
                 .param("orderId", orderId)

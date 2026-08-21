@@ -191,21 +191,34 @@ public class PaymentService {
     private Result settle(Payable payable, String method, MockPaymentGateway.Result verdict) {
         String status = verdict.approved() ? Result.APPROVED_CODE : Result.FAILED_CODE;
 
-        jdbc.sql("""
+        long paymentId = jdbc.sql("""
                         insert into payment (order_id, status, method, amount,
-                                             approval_number, card_issuer, card_last4, decline_reason)
+                                             approval_number, decline_reason)
                         values (:orderId, :status, :method, :amount,
-                                :approvalNumber, :cardIssuer, :cardLast4, :declineReason)
+                                :approvalNumber, :declineReason)
+                        returning payment_id
                         """)
                 .param("orderId", payable.orderId())
                 .param("status", status)
                 .param("method", method)
                 .param("amount", payable.amount())
                 .param("approvalNumber", verdict.approvalNumber())
-                .param("cardIssuer", verdict.cardIssuer())
-                .param("cardLast4", verdict.cardLast4())
                 .param("declineReason", verdict.declineReason())
-                .update();
+                .query(Long.class)
+                .single();
+
+        // 카드 정보는 다른 표다. 5년 사는 결제 기록에서 갈라 둔 개인정보라(`D2` R9)
+        // 거래 종료 여섯 달 뒤에 배송지와 같이 사라진다 — 그때 이 행만 없어지고 결제는 남는다.
+        if (verdict.cardIssuer() != null) {
+            jdbc.sql("""
+                            insert into payment_card (payment_id, card_issuer, card_last4)
+                            values (:paymentId, :cardIssuer, :cardLast4)
+                            """)
+                    .param("paymentId", paymentId)
+                    .param("cardIssuer", verdict.cardIssuer())
+                    .param("cardLast4", verdict.cardLast4())
+                    .update();
+        }
 
         if (verdict.approved()) {
             orderStatuses.markPaid(payable.orderId(), "결제 승인 " + verdict.approvalNumber());

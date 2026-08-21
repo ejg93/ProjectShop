@@ -58,11 +58,13 @@ public class TransactionPurgeService {
 
     /**
      * @param shippingAddresses 지운 배송지 행 수
+     * @param paymentCards      지운 카드 정보 행 수. 결제 행은 남는다
      * @param orders            보존 기간이 지나 지운 주문 수
      * @param auditLogs         보존 기간이 지나 지운 감사 로그 수
      * @param batchRuns         보존 기간이 지나 지운 배치 회차 이력 수
      */
-    public record Purged(int shippingAddresses, int orders, int auditLogs, int batchRuns) {}
+    public record Purged(int shippingAddresses, int paymentCards, int orders,
+            int auditLogs, int batchRuns) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -77,11 +79,12 @@ public class TransactionPurgeService {
     @Transactional
     public Purged purge(OffsetDateTime baseline) {
         int shippingAddresses = deleteExpiredShipping(baseline.minusMonths(SHIPPING_MONTHS));
+        int paymentCards = deleteExpiredPaymentCards(baseline.minusMonths(SHIPPING_MONTHS));
         int orders = deleteExpiredOrders(baseline.minusYears(ORDER_YEARS));
         int auditLogs = deleteExpiredAuditLogs(baseline.minusYears(AUDIT_YEARS));
         int batchRuns = deleteExpiredBatchRuns(baseline.minusYears(BATCH_RUN_YEARS));
 
-        return new Purged(shippingAddresses, orders, auditLogs, batchRuns);
+        return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns);
     }
 
     /**
@@ -188,6 +191,27 @@ public class TransactionPurgeService {
     private int deleteExpiredBatchRuns(OffsetDateTime baselineBefore) {
         return jdbc.sql("delete from batch_run where baseline_date < :baselineBefore")
                 .param("baselineBefore", baselineBefore.toLocalDate())
+                .update();
+    }
+
+    /**
+     * 카드 정보를 지운다. <b>결제 행은 그대로 남는다</b> — 배송지와 같은 구조다(`D2` R9).
+     *
+     * <p>금액·승인번호·수단·시각이 `payment` 에 남아서 <b>대금결제 기록은 5년을 채운다</b>.
+     * 사라지는 것은 「어느 카드로 냈나」뿐이고, 그 물음은 분쟁과 함께 와서 여섯 달이면 닿는다.
+     */
+    private int deleteExpiredPaymentCards(OffsetDateTime closedBefore) {
+        List<Long> orderIds = closedOrderIds(closedBefore);
+        if (orderIds.isEmpty()) {
+            return 0;
+        }
+
+        return jdbc.sql("""
+                        delete from payment_card
+                         where payment_id in (
+                             select payment_id from payment where order_id in (:ids))
+                        """)
+                .param("ids", orderIds)
                 .update();
     }
 }

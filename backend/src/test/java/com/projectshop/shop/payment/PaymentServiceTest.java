@@ -100,8 +100,8 @@ class PaymentServiceTest extends PostgresTestBase {
             pay(GOOD_CARD);
 
             assertThat(paymentColumn("approval_number")).isNotBlank();
-            assertThat(paymentColumn("card_issuer")).isEqualTo("비자");
-            assertThat(paymentColumn("card_last4")).isEqualTo("4242");
+            assertThat(paymentCardColumn("card_issuer")).isEqualTo("비자");
+            assertThat(paymentCardColumn("card_last4")).isEqualTo("4242");
         }
 
         /**
@@ -116,7 +116,12 @@ class PaymentServiceTest extends PostgresTestBase {
         void storesNoCardNumber() {
             pay(GOOD_CARD);
 
-            String row = jdbc.sql("select payment::text from payment where order_id = :orderId")
+            String row = jdbc.sql("""
+                            select payment::text || coalesce(payment_card::text, '')
+                              from payment
+                              left join payment_card using (payment_id)
+                             where order_id = :orderId
+                            """)
                     .param("orderId", orderId)
                     .query(String.class)
                     .single();
@@ -267,12 +272,13 @@ class PaymentServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("뒷 4자리 자리에 카드번호 전체를 못 넣게 막는다")
         void rejectsFullCardNumberInLast4() {
+            long paymentId = insertApproval("M1");
+
             assertThatThrownBy(() -> jdbc.sql("""
-                            insert into payment (order_id, status, method, amount,
-                                                 approval_number, card_issuer, card_last4)
-                            values (:orderId, 'approved', 'card', 1000, 'M1', '비자', '4242424242424242')
+                            insert into payment_card (payment_id, card_issuer, card_last4)
+                            values (:paymentId, '비자', '4242424242424242')
                             """)
-                    .param("orderId", orderId)
+                    .param("paymentId", paymentId)
                     .update())
                     .as("여신전문금융업법 제19조가 가맹점의 카드정보 보관을 금지한다(`D2` R18)")
                     .isInstanceOf(DataIntegrityViolationException.class);
@@ -288,15 +294,18 @@ class PaymentServiceTest extends PostgresTestBase {
                 new PaymentService.Command(orderNumber, "card", cardNumber));
     }
 
-    private void insertApproval(String approvalNumber) {
-        jdbc.sql("""
+    /** 승인 하나를 직접 적는다. 카드 정보는 갈라진 표라 여기서 안 넣는다(`D2` R9) */
+    private long insertApproval(String approvalNumber) {
+        return jdbc.sql("""
                         insert into payment (order_id, status, method, amount,
-                                             approval_number, card_issuer, card_last4)
-                        values (:orderId, 'approved', 'card', 1000, :approvalNumber, '비자', '4242')
+                                             approval_number)
+                        values (:orderId, 'approved', 'card', 1000, :approvalNumber)
+                        returning payment_id
                         """)
                 .param("orderId", orderId)
                 .param("approvalNumber", approvalNumber)
-                .update();
+                .query(Long.class)
+                .single();
     }
 
     private OrderService.Created placeOrder() {
@@ -359,6 +368,18 @@ class PaymentServiceTest extends PostgresTestBase {
 
     private String paymentColumn(String column) {
         return jdbc.sql("select %s::text from payment where order_id = :orderId".formatted(column))
+                .param("orderId", orderId)
+                .query(String.class)
+                .single();
+    }
+
+    /** 카드 정보는 보존분 분리로 갈라져 있다(`D2` R9). 결제 행과 같이 읽을 때 쓴다 */
+    private String paymentCardColumn(String column) {
+        return jdbc.sql("""
+                        select c.%s::text
+                          from payment p join payment_card c on c.payment_id = p.payment_id
+                         where p.order_id = :orderId
+                        """.formatted(column))
                 .param("orderId", orderId)
                 .query(String.class)
                 .single();

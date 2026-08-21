@@ -58,15 +58,15 @@ public class TransactionPurgeBatch {
 
         return runs.record(BATCH_NAME, baselineDate, () -> {
             TransactionPurgeService.Purged purged = purgeService.purge(baseline);
-            int processed = purged.shippingAddresses() + purged.orders() + purged.auditLogs()
-                    + purged.batchRuns();
+            int processed = purged.shippingAddresses() + purged.paymentCards()
+                    + purged.orders() + purged.auditLogs() + purged.batchRuns();
 
             if (processed == 0) {
                 log.debug("거래기록 파기 배치 — 대상 없음 기준일={}", baselineDate);
             } else {
-                log.info("거래기록 파기 배치 끝 기준일={} 배송지={} 주문={} 감사로그={} 배치이력={}",
-                        baselineDate, purged.shippingAddresses(), purged.orders(),
-                        purged.auditLogs(), purged.batchRuns());
+                log.info("거래기록 파기 배치 끝 기준일={} 배송지={} 카드={} 주문={} 감사로그={} 배치이력={}",
+                        baselineDate, purged.shippingAddresses(), purged.paymentCards(),
+                        purged.orders(), purged.auditLogs(), purged.batchRuns());
             }
             return BatchRuns.Counts.of(processed);
         });
