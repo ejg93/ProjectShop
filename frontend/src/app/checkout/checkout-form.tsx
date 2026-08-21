@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 
 import { Field } from "@/components/field";
 import { ApiError, api } from "@/lib/api";
+import { priceText } from "@/lib/format";
 
 /** 셀러 묶음 하나의 금액. 화면이 이미 계산해 둔 것을 폼이 그대로 쓴다 */
 export type OrderLine = { sellerId: number; itemsAmount: number; shippingFee: number };
@@ -255,7 +256,7 @@ export function CheckoutForm({
           ? "처리 중"
           : placedOrderNumber
             ? "결제 다시 시도"
-            : `${payableAmount.toLocaleString("ko-KR")}원 결제하기`}
+            : `${priceText(payableAmount)} 결제하기`}
       </button>
     </form>
   );
@@ -299,7 +300,7 @@ function Done({ result }: { result: PaymentResult }) {
         <dd>{result.orderNumber}</dd>
 
         <dt className="text-text-muted">결제 금액</dt>
-        <dd>{result.amount.toLocaleString("ko-KR")}원</dd>
+        <dd>{priceText(result.amount)}</dd>
 
         {approved ? (
           <>

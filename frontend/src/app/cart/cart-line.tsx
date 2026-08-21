@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { ApiError, api } from "@/lib/api";
+import { priceText } from "@/lib/format";
 
 /**
  * 담긴 것 하나.
@@ -253,9 +254,4 @@ function messageFor(error: unknown): string {
     default:
       return "장바구니를 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }
-}
-
-/** 부가세가 이미 포함된 값이다(`D8`). 화면이 다시 더하지 않는다 */
-function priceText(amount: number): string {
-  return `${amount.toLocaleString("ko-KR")}원`;
 }

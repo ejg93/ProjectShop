@@ -4,17 +4,16 @@ import { notFound } from "next/navigation";
 
 import { ApiError } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
-import { dateText, dateTimeText } from "@/lib/format";
+import { dateText, dateTimeText, priceText } from "@/lib/format";
+import {
+  paymentStatusText,
+  shipmentStatusText,
+  statusText,
+} from "@/lib/order-text";
 
 import { PolicyBody } from "@/components/policy-document";
 
 import { OrderActions } from "./order-actions";
-import {
-  paymentStatusText,
-  priceText,
-  shipmentStatusText,
-  statusText,
-} from "../status";
 
 export const metadata: Metadata = { title: "주문 상세 · ProjectShop" };
 

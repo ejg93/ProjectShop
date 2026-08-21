@@ -8,6 +8,7 @@ import {
 } from "@/components/seller-identity";
 import { apiPublic } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
+import { priceText } from "@/lib/format";
 
 import { CheckoutForm } from "./checkout-form";
 import type { OrderLine } from "./checkout-form";
@@ -301,9 +302,4 @@ function groupBySeller(items: CartItem[]): SellerGrouping[] {
     }
   }
   return [...groups.values()];
-}
-
-/** 부가세가 이미 포함된 값이다(`D8`). 화면이 다시 더하지 않는다 */
-function priceText(amount: number): string {
-  return `${amount.toLocaleString("ko-KR")}원`;
 }

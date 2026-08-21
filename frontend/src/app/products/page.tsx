@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Pager, pageNumberOf } from "@/components/pager";
 import { apiPublic } from "@/lib/api";
+import { priceText } from "@/lib/format";
 
 export const metadata: Metadata = { title: "상품 · ProjectShop" };
 
@@ -196,9 +197,4 @@ function Empty({ hasAnyProduct }: { hasAnyProduct: boolean }) {
       </p>
     </div>
   );
-}
-
-/** 부가세가 이미 포함된 값이다(`D8`). 화면이 다시 더하지 않는다 */
-function priceText(amount: number): string {
-  return `${amount.toLocaleString("ko-KR")}원`;
 }

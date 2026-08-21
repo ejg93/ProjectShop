@@ -3,9 +3,8 @@ import Link from "next/link";
 
 import { Pager, pageNumberOf } from "@/components/pager";
 import { apiSession } from "@/lib/api-session";
-import { dateTimeText } from "@/lib/format";
-
-import { paymentStatusText, priceText } from "./status";
+import { dateTimeText, priceText } from "@/lib/format";
+import { paymentStatusText } from "@/lib/order-text";
 
 export const metadata: Metadata = { title: "내 주문 · ProjectShop" };
 

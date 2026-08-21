@@ -5,7 +5,9 @@ import { useState, useTransition } from "react";
 
 import { ApiError, api } from "@/lib/api";
 
-import { ORDER_ACTIONS, actionPath } from "../status";
+import { actionPath } from "@/lib/order-text";
+
+import { ORDER_ACTIONS } from "../status";
 
 /**
  * 이 묶음에 지금 할 수 있는 것.

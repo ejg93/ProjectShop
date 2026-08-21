@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
+import { priceText } from "@/lib/format";
 
 /** 옵션 한 축과 고를 수 있는 값들. 「색상」에 「검정·흰색」 같은 것 */
 export type OptionGroup = {
@@ -215,11 +216,6 @@ function Status({
       {sku.inStock ? null : <p className="text-sm text-danger-text">품절된 조합입니다.</p>}
     </div>
   );
-}
-
-/** 부가세가 이미 포함된 값이다(`D8`). 화면이 다시 더하지 않는다 */
-function priceText(amount: number): string {
-  return `${amount.toLocaleString("ko-KR")}원`;
 }
 
 /**
