@@ -20,11 +20,15 @@ Repeatable Read 로 올리면 직렬화 실패(`40001`)가 뜨고, 그러면 **�
 ## 재고 차감 — 조건부 UPDATE
 
 ```sql
-update sku
-   set stock = stock - :qty
- where id = :id
-   and stock >= :qty
+update sku_stock
+   set on_hand = on_hand - :qty
+ where sku_id = :skuId
+   and available_count >= :qty
 ```
+
+**조건이 `on_hand` 이 아니라 `available_count` 다.** 가용 재고는 `on_hand - safety_stock` 을
+DB 가 계산해 저장하는 생성 컬럼이라(청크 52), 안전 재고를 앱이 빼지 않는다 —
+빼는 자리가 화면·장바구니·주문 셋이면 세 값이 갈린다.
 
 **갱신된 행이 0개면 재고가 모자란 것이다.** 조회해서 검사하고 다시 쓰는 절차가 없다.
 

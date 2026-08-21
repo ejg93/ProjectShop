@@ -154,7 +154,7 @@ class OrderServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("모자라면 주문이 안 된다")
         void rejectsWhenInsufficient() {
-            jdbc.sql("update sku set stock_count = 1 where sku_id = :id").param("id", skuA).update();
+            jdbc.sql("update sku_stock set on_hand = 1 where sku_id = :id").param("id", skuA).update();
             long cartItemId = addToCart(skuA, 2);
 
             assertThatThrownBy(() -> order(cartItemId))
@@ -358,8 +358,13 @@ class OrderServiceTest extends PostgresTestBase {
                 .single();
 
         return jdbc.sql("""
-                        insert into sku (product_id, price_incl_vat, stock_count)
-                        values (:productId, :priceInclVat, :stock)
+                        with new_sku as (
+                            insert into sku (product_id, price_incl_vat)
+                            values (:productId, :priceInclVat)
+                            returning sku_id
+                        )
+                        insert into sku_stock (sku_id, on_hand)
+                        select sku_id, :stock from new_sku
                         returning sku_id
                         """)
                 .param("productId", productId)
@@ -403,7 +408,7 @@ class OrderServiceTest extends PostgresTestBase {
     }
 
     private int stockOf(long skuId) {
-        return jdbc.sql("select stock_count from sku where sku_id = :id")
+        return jdbc.sql("select on_hand from sku_stock where sku_id = :id")
                 .param("id", skuId)
                 .query(Integer.class)
                 .single();

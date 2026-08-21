@@ -205,6 +205,7 @@ public class OrderService {
                           from cart_item ci
                           join cart c on c.cart_id = ci.cart_id
                           join sku s on s.sku_id = ci.sku_id
+                          join sku_stock st on st.sku_id = s.sku_id
                           join product p on p.product_id = s.product_id
                           join seller sel on sel.seller_id = p.seller_id
                          where c.user_id = :userId
@@ -251,8 +252,8 @@ public class OrderService {
 
         for (Line line : ordered) {
             int changed = jdbc.sql("""
-                            update sku set stock_count = stock_count - :quantity
-                             where sku_id = :skuId and stock_count >= :quantity
+                            update sku_stock set on_hand = on_hand - :quantity
+                             where sku_id = :skuId and available_count >= :quantity
                             """)
                     .param("quantity", line.quantity())
                     .param("skuId", line.skuId())

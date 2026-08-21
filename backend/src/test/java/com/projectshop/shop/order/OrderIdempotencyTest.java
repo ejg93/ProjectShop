@@ -70,7 +70,13 @@ class OrderIdempotencyTest extends PostgresTestBase {
                 .single();
 
         long skuId = jdbc.sql("""
-                        insert into sku (product_id, price_incl_vat, stock_count) values (:productId, 10000, 50)
+                        with new_sku as (
+                            insert into sku (product_id, price_incl_vat)
+                            values (:productId, 10000)
+                            returning sku_id
+                        )
+                        insert into sku_stock (sku_id, on_hand)
+                        select sku_id, 50 from new_sku
                         returning sku_id
                         """)
                 .param("productId", productId)
@@ -139,7 +145,7 @@ class OrderIdempotencyTest extends PostgresTestBase {
         mvc.perform(orderRequest(key)).andExpect(status().isCreated());
         mvc.perform(orderRequest(key)).andExpect(status().isCreated());
 
-        assertThat(jdbc.sql("select stock_count from sku limit 1").query(Integer.class).single())
+        assertThat(jdbc.sql("select on_hand from sku_stock limit 1").query(Integer.class).single())
                 .isEqualTo(49);
     }
 

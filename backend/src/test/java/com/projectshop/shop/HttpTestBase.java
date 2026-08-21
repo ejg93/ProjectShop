@@ -159,8 +159,13 @@ public abstract class HttpTestBase {
                 .single();
 
         long skuId = jdbc.sql("""
-                        insert into sku (product_id, price_incl_vat, stock_count)
-                        values (:productId, :priceInclVat, :stock)
+                        with new_sku as (
+                            insert into sku (product_id, price_incl_vat)
+                            values (:productId, :priceInclVat)
+                            returning sku_id
+                        )
+                        insert into sku_stock (sku_id, on_hand)
+                        select sku_id, :stock from new_sku
                         returning sku_id
                         """)
                 .param("productId", productId)

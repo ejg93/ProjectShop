@@ -198,10 +198,11 @@ public class ProductQuery {
         List<SellerItem> items = jdbc.sql("""
                         select p.product_id, p.seller_id, p.name, p.status, p.commission_bp,
                                coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat,
-                               coalesce(sum(sk.stock_count), 0) as total_stock,
+                               coalesce(sum(st.available_count), 0) as total_stock,
                                p.created_at
                           from product p
                           left join sku sk on sk.product_id = p.product_id and sk.deleted_at is null
+                          left join sku_stock st on st.sku_id = sk.sku_id
                          where p.deleted_at is null
                            and (:seesEverything or p.seller_id = any(:sellers))
                            and (cast(:sellerId as bigint) is null
@@ -346,9 +347,11 @@ public class ProductQuery {
         }
 
         List<Row> rows = jdbc.sql("""
-                        select sk.sku_id, sk.price_incl_vat, sk.stock_count > 0 as in_stock,
+                        select sk.sku_id, sk.price_incl_vat,
+                               st.available_count > 0 as in_stock,
                                sov.product_option_value_id
                           from sku sk
+                          join sku_stock st on st.sku_id = sk.sku_id
                           left join sku_option_value sov on sov.sku_id = sk.sku_id
                          where sk.product_id = :id
                            and sk.status = 'on_sale' and sk.deleted_at is null

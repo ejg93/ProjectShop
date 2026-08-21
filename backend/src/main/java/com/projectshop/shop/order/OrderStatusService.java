@@ -448,7 +448,7 @@ public class OrderStatusService {
                 .list();
 
         for (Long[] item : items) {
-            jdbc.sql("update sku set stock_count = stock_count + :quantity where sku_id = :skuId")
+            jdbc.sql("update sku_stock set on_hand = on_hand + :quantity where sku_id = :skuId")
                     .param("quantity", item[1])
                     .param("skuId", item[0])
                     .update();

@@ -332,8 +332,13 @@ class OrderStatusServiceTest extends PostgresTestBase {
                 .single();
 
         return jdbc.sql("""
-                        insert into sku (product_id, price_incl_vat, stock_count)
-                        values (:productId, 10000, :stock)
+                        with new_sku as (
+                            insert into sku (product_id, price_incl_vat)
+                            values (:productId, 10000)
+                            returning sku_id
+                        )
+                        insert into sku_stock (sku_id, on_hand)
+                        select sku_id, :stock from new_sku
                         returning sku_id
                         """)
                 .param("productId", productId)
@@ -365,7 +370,7 @@ class OrderStatusServiceTest extends PostgresTestBase {
     }
 
     private int stock() {
-        return jdbc.sql("select stock_count from sku where sku_id = :id")
+        return jdbc.sql("select on_hand from sku_stock where sku_id = :id")
                 .param("id", skuId)
                 .query(Integer.class)
                 .single();

@@ -436,8 +436,13 @@ class RefundSweeperTest extends PostgresTestBase {
                 .single();
 
         return jdbc.sql("""
-                        insert into sku (product_id, price_incl_vat, stock_count)
-                        values (:productId, :price, :stock)
+                        with new_sku as (
+                            insert into sku (product_id, price_incl_vat)
+                            values (:productId, :price)
+                            returning sku_id
+                        )
+                        insert into sku_stock (sku_id, on_hand)
+                        select sku_id, :stock from new_sku
                         returning sku_id
                         """)
                 .param("productId", productId)

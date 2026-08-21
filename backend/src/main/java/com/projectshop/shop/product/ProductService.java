@@ -368,8 +368,15 @@ public class ProductService {
 
         for (SkuCommand sku : skus) {
             long skuId = jdbc.sql("""
-                            insert into sku (product_id, price_incl_vat, stock_count)
-                            values (:productId, :priceInclVat, :stockCount)
+                            with new_sku as (
+                                insert into sku (product_id, price_incl_vat)
+                                values (:productId, :priceInclVat)
+                                returning sku_id
+                            )
+                            -- 재고를 같은 문장에서 넣는다. 갈라 두면 한쪽을 빠뜨릴 수 있고,
+                            -- `V40` 의 지연 제약이 커밋 때 그것을 잡지만 잡히는 자리는 늦다.
+                            insert into sku_stock (sku_id, on_hand)
+                            select sku_id, :stockCount from new_sku
                             returning sku_id
                             """)
                     .param("productId", productId)
@@ -377,6 +384,7 @@ public class ProductService {
                     .param("stockCount", sku.stockCount())
                     .query(Long.class)
                     .single();
+
 
             for (String value : sku.optionValues()) {
                 jdbc.sql("""

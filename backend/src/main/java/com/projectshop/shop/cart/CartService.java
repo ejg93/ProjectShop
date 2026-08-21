@@ -230,12 +230,13 @@ public class CartService {
                                  where sov.sku_id = s.sku_id) as option_label,
                                (s.deleted_at is null and s.status = 'on_sale'
                                 and p.deleted_at is null and p.status = 'on_sale'
-                                and s.stock_count >= ci.quantity) as available,
+                                and st.available_count >= ci.quantity) as available,
                                case when p.is_withdrawal_restricted then p.withdrawal_restriction_reason end
                                     as withdrawal_restriction_reason,
                                p.supply_lead_days
                           from cart_item ci
                           join sku s on s.sku_id = ci.sku_id
+                          join sku_stock st on st.sku_id = s.sku_id
                           join product p on p.product_id = s.product_id
                           join seller sel on sel.seller_id = p.seller_id
                          where ci.cart_id = :cartId

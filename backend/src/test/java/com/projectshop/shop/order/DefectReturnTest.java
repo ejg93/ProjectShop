@@ -310,8 +310,13 @@ class DefectReturnTest extends PostgresTestBase {
                 .single();
 
         return jdbc.sql("""
-                        insert into sku (product_id, price_incl_vat, stock_count)
-                        values (:productId, :price, 10)
+                        with new_sku as (
+                            insert into sku (product_id, price_incl_vat)
+                            values (:productId, :price)
+                            returning sku_id
+                        )
+                        insert into sku_stock (sku_id, on_hand)
+                        select sku_id, 10 from new_sku
                         returning sku_id
                         """)
                 .param("productId", productId)

@@ -232,8 +232,9 @@ public class DemoOrderSeeder implements ApplicationRunner {
                         select s.sku_id
                           from sku s
                           join product p on p.product_id = s.product_id
+                          join sku_stock st on st.sku_id = s.sku_id
                          where p.name = :name
-                           and s.stock_count > 0
+                           and st.available_count > 0
                          order by s.sku_id
                          limit 1
                         """)

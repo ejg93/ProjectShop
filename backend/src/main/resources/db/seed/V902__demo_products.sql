@@ -92,9 +92,12 @@ begin
         select * from (values ('검정', 'M', 20), ('검정', 'L', 0),
                               ('흰색', 'M', 20), ('흰색', 'L', 20)) as t (color, size, stock)
     loop
-        insert into sku (product_id, price_incl_vat, stock_count)
-        values (v_product_id, 29000, v_combo.stock)
+        insert into sku (product_id, price_incl_vat)
+        values (v_product_id, 29000)
         returning sku_id into v_sku_id;
+
+        -- 재고 행을 같이 넣는다. 지연 제약이 커밋 때 이 행을 확인한다(`V40`).
+        insert into sku_stock (sku_id, on_hand) values (v_sku_id, v_combo.stock);
 
         insert into sku_option_value (sku_id, product_option_value_id)
         select v_sku_id, pov.product_option_value_id
@@ -110,13 +113,28 @@ end $$;
 --
 -- **옵션이 없어도 sku 는 있다.** 파는 단위가 sku 라 그것이 없으면 살 수가 없다 —
 -- 「옵션 없음」은 조합이 하나뿐인 상태지 조합이 없는 상태가 아니다(`D4`).
-insert into sku (product_id, price_incl_vat, stock_count)
-select p.product_id, v.price, v.stock
-  from (values ('데모 에코백', 12000, 50),
-               ('데모 니트 (품절)', 89000, 0),
-               ('데모 원목 도마', 45000, 5),
-               ('데모 도안 파일', 8000, 999)) as v (name, price, stock)
-  join product p on p.name = v.name;
+-- 재고 행을 sku 마다 같이 넣는다(`V40` 지연 제약).
+
+do $$
+declare
+    v_row    record;
+    v_sku_id bigint;
+begin
+    for v_row in
+        select p.product_id, v.price, v.stock
+          from (values ('데모 에코백', 12000, 50),
+                       ('데모 니트 (품절)', 89000, 0),
+                       ('데모 원목 도마', 45000, 5),
+                       ('데모 도안 파일', 8000, 999)) as v (name, price, stock)
+          join product p on p.name = v.name
+    loop
+        insert into sku (product_id, price_incl_vat)
+        values (v_row.product_id, v_row.price)
+        returning sku_id into v_sku_id;
+
+        insert into sku_stock (sku_id, on_hand) values (v_sku_id, v_row.stock);
+    end loop;
+end $$;
 
 
 -- 배송비를 셀러마다 다르게 둔다.
