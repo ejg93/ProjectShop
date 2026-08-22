@@ -100,7 +100,10 @@ public class ConsentReconfirmSweeper {
                                        'YYYY년 FMMM월 FMDD일') as acted_on
                           from user_consent uc
                           join consent_item ci on ci.consent_item_id = uc.consent_item_id
-                         where ci.code in ('marketing_email', 'marketing_sms', 'marketing_night')
+                         -- **보낼 수 있는 채널의 동의만 확인한다.** 문자는 전화번호를 받는 자리가 없어서
+                         -- 채널이 안 섰다(`D18`) 2014 못 보내는 채널의 동의를 확인해 달라고 하면
+                         -- 사용자가 없는 기능의 설정을 고치게 된다.
+                         where ci.code in ('marketing_email', 'marketing_night')
                            and uc.granted
                            and coalesce(uc.reconfirmed_at, uc.acted_at) < :due
                            and uc.user_consent_id = (

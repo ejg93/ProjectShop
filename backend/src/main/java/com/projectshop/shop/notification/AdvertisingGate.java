@@ -92,11 +92,19 @@ public class AdvertisingGate {
         if (!consents.isGranted(userId, MARKETING)) {
             return Verdict.NO_CONSENT;
         }
-        if (isNight(at) && !consents.isGranted(userId, MARKETING_NIGHT)) {
-            return Verdict.NO_NIGHT_CONSENT;
-        }
-        if (!isReconfirmed(userId, at)) {
+        if (!isReconfirmed(userId, MARKETING, at)) {
             return Verdict.NOT_RECONFIRMED;
+        }
+
+        if (isNight(at)) {
+            if (!consents.isGranted(userId, MARKETING_NIGHT)) {
+                return Verdict.NO_NIGHT_CONSENT;
+            }
+            // **야간 동의도 2년마다 확인해야 한다.** 제50조제8항은 항목을 안 가른다 2014
+            // 여기서 안 보면 확인 안 된 야간 동의로 야간에 광고가 나간다.
+            if (!isReconfirmed(userId, MARKETING_NIGHT, at)) {
+                return Verdict.NOT_RECONFIRMED;
+            }
         }
         return Verdict.ALLOWED;
     }
@@ -108,7 +116,7 @@ public class AdvertisingGate {
      * 관문이 안 보면 그 동안 광고가 그대로 나간다 — 그때 걸리는 것은 테스트가 아니라 과태료다.
      * 배치가 멈추면 <b>안 나가는 쪽</b>으로 기울게 둔다.
      */
-    private boolean isReconfirmed(long userId, OffsetDateTime at) {
+    private boolean isReconfirmed(long userId, String code, OffsetDateTime at) {
         return Boolean.TRUE.equals(jdbc.sql("""
                         select coalesce(uc.reconfirmed_at, uc.acted_at) >= :due
                           from user_consent uc
@@ -118,7 +126,7 @@ public class AdvertisingGate {
                          limit 1
                         """)
                 .param("userId", userId)
-                .param("code", MARKETING)
+                .param("code", code)
                 .param("due", at.minusYears(RECONFIRM_YEARS))
                 .query(Boolean.class)
                 .optional()

@@ -175,6 +175,13 @@ public class ProductService {
                 : insertOptions(productId, command.options());
         List<Long> skuIds = insertSkus(productId, command.skus(), valueIds);
 
+        // **교체는 요청 본문이 곧 새 상태다**(`PUT`). 옛 근거가 새 문구를 실증하지 않으므로
+        // 갈아 끼운다 — 안 보내면 사라지는 것도 그 뜻이다.
+        jdbc.sql("delete from product_substantiation where product_id = :id")
+                .param("id", productId)
+                .update();
+        insertSubstantiations(productId, command.substantiations());
+
         auditLog.record(AuditLog.Kind.OUTCOME, "product.updated", actorUserId,
                 AuditLog.Target.of("product", productId),
                 Map.of("seller_id", sellerId, "sku_count", skuIds.size()));

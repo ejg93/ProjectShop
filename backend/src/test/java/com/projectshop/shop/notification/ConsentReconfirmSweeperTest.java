@@ -29,6 +29,10 @@ class ConsentReconfirmSweeperTest extends PostgresTestBase {
     private static final OffsetDateTime NOW =
             OffsetDateTime.of(2026, 8, 22, 4, 30, 0, 0, ZoneOffset.ofHours(9));
 
+    /** KST 로 새벽 3시. 제50조제3항의 야간이다 */
+    private static final OffsetDateTime NIGHT =
+            OffsetDateTime.of(2026, 8, 22, 3, 0, 0, 0, ZoneOffset.ofHours(9));
+
     /** 관문은 야간도 같이 보므로 낮으로 묻는다. 야간 판정은 `55` 가 따로 밟는다 */
     private static final OffsetDateTime DAY =
             OffsetDateTime.of(2026, 8, 22, 14, 0, 0, 0, ZoneOffset.ofHours(9));
@@ -142,6 +146,18 @@ class ConsentReconfirmSweeperTest extends PostgresTestBase {
 
             // 배치가 못 돌면 확인 없는 동의가 쌓이는데, 관문이 안 보면 그 동안 광고가 나간다.
             assertThat(gate.check(userId, DAY))
+                    .isEqualTo(AdvertisingGate.Verdict.NOT_RECONFIRMED);
+        }
+
+        @Test
+        @DisplayName("야간 동의도 확인이 밀리면 막는다")
+        void blocksWhenNightConsentIsStale() {
+            consent("marketing_email", true, NOW.minusMonths(1));
+            consent("marketing_night", true, NOW.minusYears(3));
+
+            // 제50조제8항은 항목을 안 가른다. 관문이 주간 동의만 보면
+            // **확인 안 된 야간 동의로 야간에 광고가 나간다.**
+            assertThat(gate.check(userId, NIGHT))
                     .isEqualTo(AdvertisingGate.Verdict.NOT_RECONFIRMED);
         }
 

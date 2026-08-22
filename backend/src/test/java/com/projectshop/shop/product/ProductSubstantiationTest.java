@@ -79,6 +79,19 @@ class ProductSubstantiationTest extends PostgresTestBase {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    @DisplayName("교체하면 근거도 갈아 끼운다")
+    void replacesClaimsOnReplace() {
+        long productId = products.create(userId, command(List.of(
+                new ProductService.SubstantiationCommand("옛 문구", "옛 근거", null)))).productId();
+
+        products.replace(userId, productId, command(List.of(
+                new ProductService.SubstantiationCommand("새 문구", "새 근거", null))));
+
+        // `PUT` 은 요청 본문이 곧 새 상태다. 옛 근거가 새 문구를 실증하지 않는다.
+        assertThat(claimsOf(productId)).containsExactly("새 문구");
+    }
+
     private ProductService.Command command(List<ProductService.SubstantiationCommand> proofs) {
         return new ProductService.Command(sellerId, "근거 시험 상품", "설명", null, false, null, 3,
                 List.of(), List.of(new ProductService.SkuCommand(List.of(), 10_000L, 5)), proofs);
