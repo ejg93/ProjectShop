@@ -82,10 +82,11 @@ public class TransactionPurgeService {
      * @param notificationBodies 보존 기간이 지나 지운 발송 본문 수. 메타는 남는다
      * @param notifications     보존 기간이 지나 지운 발송 이력 수
      * @param refundNotes       보존 기간이 지나 지운 환불 사유 글 수. 환불 자체는 남는다
+     * @param historyNotes      보존 기간이 지나 지운 전이 사유 글 수. 이력 자체는 남는다
      */
     public record Purged(int shippingAddresses, int paymentCards, int orders,
             int auditLogs, int batchRuns, int notificationBodies, int notifications,
-            int refundNotes) {}
+            int refundNotes, int historyNotes) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -104,6 +105,7 @@ public class TransactionPurgeService {
         int orders = deleteExpiredOrders(baseline.minusYears(ORDER_YEARS));
         int auditLogs = deleteExpiredAuditLogs(baseline.minusYears(AUDIT_YEARS));
         int batchRuns = deleteExpiredBatchRuns(baseline.minusYears(BATCH_RUN_YEARS));
+        int historyNotes = deleteExpiredHistoryNotes(baseline.minusMonths(SHIPPING_MONTHS));
         int refundNotes = deleteExpiredRefundNotes(baseline.minusMonths(SHIPPING_MONTHS));
         int notificationBodies =
                 deleteExpiredNotificationBodies(baseline.minusMonths(NOTIFICATION_BODY_MONTHS));
@@ -111,7 +113,7 @@ public class TransactionPurgeService {
                 baseline.minusMonths(ADVERTISEMENT_MONTHS), baseline.minusYears(ORDER_YEARS));
 
         return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns,
-                notificationBodies, notifications, refundNotes);
+                notificationBodies, notifications, refundNotes, historyNotes);
     }
 
     /**
@@ -236,6 +238,30 @@ public class TransactionPurgeService {
      * <p>기간은 배송지·카드와 같은 여섯 달이다. 성격이 같은 개인정보 사본이라 값을 맞추면
      * 파기가 같은 기준 시각을 쓴다.
      */
+    /**
+     * 전이 사유 글을 지운다. <b>이력은 그대로 남는다</b>(`5i-3`).
+     *
+     * <p>「무엇이 무엇으로 바뀌었나」는 {@code from_status}·{@code to_status} 가 답한다.
+     * 사라지는 것은 사람이 쓴 글뿐이고 거기 섞여 들어온 연락처도 같이 간다.
+     */
+    private int deleteExpiredHistoryNotes(OffsetDateTime closedBefore) {
+        List<Long> orderIds = closedOrderIds(closedBefore);
+        if (orderIds.isEmpty()) {
+            return 0;
+        }
+
+        return jdbc.sql("""
+                        delete from order_status_history_note
+                         where order_status_history_id in (
+                             select h.order_status_history_id from order_status_history h
+                               left join seller_order so on so.seller_order_id = h.seller_order_id
+                              where h.order_id in (:ids) or so.order_id in (:ids)
+                         )
+                        """)
+                .param("ids", orderIds)
+                .update();
+    }
+
     private int deleteExpiredRefundNotes(OffsetDateTime closedBefore) {
         List<Long> orderIds = closedOrderIds(closedBefore);
         if (orderIds.isEmpty()) {

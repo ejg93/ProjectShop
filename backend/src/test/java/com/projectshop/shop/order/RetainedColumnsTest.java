@@ -28,10 +28,13 @@ class RetainedColumnsTest extends PostgresTestBase {
      * 전자상거래법 제6조로 5년을 사는 표와 그 컬럼. <b>전부 거래 사실이어야 한다.</b>
      * 사람 정보는 수명이 다른 표로 갈라져 있다 — `order_shipping`·`payment_card` 가 여섯 달이다(`D13`).
      *
-     * <p><b>자유 텍스트 넷은 이 목록에 남겨 뒀다</b> — `order_status_history.reason`,
-     * `refund.request_reason`·`decision_reason`, `order_item.withdrawal_restriction_reason`.
-     * 컬럼 자체는 사람 정보가 아니지만 <b>사람이 쓴 글이라 섞여 들어올 수 있다.</b>
-     * 그것을 어떻게 다룰지는 청크 `5i-2` 가 정한다.
+     * <p><b>자유 텍스트가 이 목록에 없다.</b> 사람이 쓴 글은 전부 수명이 다른 표로 갈라졌다 —
+     * 환불 사유 둘은 `refund_note`(`5i-2`), 전이 사유는 `order_status_history_note`(`5i-3`)고
+     * 둘 다 거래 종료 + 여섯 달에 사라진다. 컬럼 자체는 사람 정보가 아닌데
+     * <b>글 안에 연락처가 섞여 들어와서</b> 5년을 같이 살던 것이다.
+     *
+     * <p>남은 `order_item.withdrawal_restriction_reason` 은 이름만 사유고
+     * <b>`check` 로 닫힌 열거값</b>이라 사람 글이 안 들어온다 — 처음부터 자유 텍스트가 아니었다.
      */
     private static final Map<String, List<String>> RETAINED = Map.of(
             "shop_order", List.of("commission_total", "created_at", "order_id", "order_number",
@@ -49,7 +52,7 @@ class RetainedColumnsTest extends PostgresTestBase {
             "payment", List.of("amount", "approval_number", "created_at", "decline_reason",
                     "method", "order_id", "payment_id", "status"),
             "order_status_history", List.of("actor_type", "actor_user_id", "from_status",
-                    "occurred_at", "order_id", "order_status_history_id", "reason",
+                    "occurred_at", "order_id", "order_status_history_id",
                     "seller_order_id", "to_status"),
             "refund", List.of("amount", "approved_by_user_id", "created_at", "decided_at",
                     "delay_interest", "due_at", "gateway_refund_number", "reason_code",

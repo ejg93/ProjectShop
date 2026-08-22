@@ -580,10 +580,11 @@ public class OrderStatusService {
     }
 
     private void recordHistory(Long orderId, Long sellerOrderId, String from, String to, Actor actor) {
-        jdbc.sql("""
+        long historyId = jdbc.sql("""
                         insert into order_status_history (order_id, seller_order_id, from_status, to_status,
-                                                          actor_type, actor_user_id, reason)
-                        values (:orderId, :sellerOrderId, :from, :to, :actorType, :actorUserId, :reason)
+                                                          actor_type, actor_user_id)
+                        values (:orderId, :sellerOrderId, :from, :to, :actorType, :actorUserId)
+                        returning order_status_history_id
                         """)
                 .param("orderId", orderId)
                 .param("sellerOrderId", sellerOrderId)
@@ -591,7 +592,34 @@ public class OrderStatusService {
                 .param("to", to)
                 .param("actorType", actor.type())
                 .param("actorUserId", actor.userId())
-                .param("reason", actor.reason())
+                .query(Long.class)
+                .single();
+
+        writeNote(historyId, actor.reason());
+    }
+
+    /**
+     * 전이 사유 글을 {@code order_status_history_note} 에 남긴다(`5i-3`).
+     *
+     * <p><b>5년 표에 안 둔다.</b> 사람이 쓴 글이라 「고객이 010-… 로 연락 와서 취소」 같은 것이
+     * 섞여 들어오고, 섞이면 거래기록이 5년을 사는 동안 그 연락처도 같이 산다.
+     *
+     * <p><b>사유가 없으면 행을 안 만든다.</b> 대부분의 전이는 사유가 없다 —
+     * 빈 행을 만들면 파기가 셀 대상만 늘고 「사유가 있었나」가 흐려진다.
+     *
+     * <p>관리자 전이에 사유가 없으면 <b>커밋 때 지연 제약 트리거가 막는다</b>(`V49`).
+     */
+    private void writeNote(long historyId, String reason) {
+        if (reason == null || reason.isBlank()) {
+            return;
+        }
+
+        jdbc.sql("""
+                        insert into order_status_history_note (order_status_history_id, reason)
+                        values (:id, :reason)
+                        """)
+                .param("id", historyId)
+                .param("reason", reason)
                 .update();
     }
 }

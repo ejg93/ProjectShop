@@ -280,19 +280,30 @@ class RefundSweeperTest extends PostgresTestBase {
                 .param("id", sellerOrderId)
                 .update();
 
-        jdbc.sql("""
+        long historyId = jdbc.sql("""
                         insert into order_status_history (seller_order_id, from_status, to_status,
-                                                          actor_type, actor_user_id, reason)
-                        values (:id, 'preparing', :status, :actorType, :userId, :reason)
+                                                          actor_type, actor_user_id)
+                        values (:id, 'preparing', :status, :actorType, :userId)
+                        returning order_status_history_id
                         """)
                 .param("id", sellerOrderId)
                 .param("status", status)
                 .param("actorType", actorType)
-                // 시스템 전이에는 남길 사람이 없다(`V18` order_status_history_actor_user_check).
+                // 시스템 전이에는 남길 사람이 없다(`V18` order_status_history_actor_user_check)
                 .param("userId", "system".equals(actorType) ? null : buyerId)
-                // 관리자 강제 전이는 사유가 필수다(`D7`).
-                .param("reason", "admin".equals(actorType) ? "고객센터 요청" : null)
-                .update();
+                .query(Long.class)
+                .single();
+
+        // 관리자 강제 전이는 사유가 필수다(`D7`). 사유 글은 `order_status_history_note` 로 옮겼고(`5i-3`),
+        // 지연 제약 트리거가 커밋 때 그것을 본다.
+        if ("admin".equals(actorType)) {
+            jdbc.sql("""
+                            insert into order_status_history_note (order_status_history_id, reason)
+                            values (:id, '고객센터 요청')
+                            """)
+                    .param("id", historyId)
+                    .update();
+        }
     }
 
     private long insertRefundBy(String type, long userId) {

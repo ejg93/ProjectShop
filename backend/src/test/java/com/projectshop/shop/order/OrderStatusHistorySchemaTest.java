@@ -154,7 +154,11 @@ class OrderStatusHistorySchemaTest extends PostgresTestBase {
         @Test
         @DisplayName("관리자 전이에 사유가 없으면 안 들어간다")
         void requiresReasonFromAdmin() {
-            assertThatThrownBy(() -> insertSellerOrderHistory("delivered", "cancelled", "admin", userId, null))
+            insertSellerOrderHistory("delivered", "cancelled", "admin", userId, null);
+
+            // 사유 글이 다른 표로 가면서 한 행 안에서 안 끝나는 조건이 됐다(`5i-3`).
+            // 지연 제약 트리거라 삽입이 아니라 **커밋 때** 걸린다.
+            assertThatThrownBy(() -> flush())
                     .as("정상 경로가 아니라서 사유가 없으면 왜 이 모양인지 아무도 모른다(`D7`)")
                     .isInstanceOf(DataAccessException.class);
         }
@@ -226,13 +230,14 @@ class OrderStatusHistorySchemaTest extends PostgresTestBase {
             String reason) {
         insertHistory(null, sellerOrderId, from, to, actorType, actorUserId, reason);
     }
-
+    /** 사유 글은 `order_status_history_note` 로 옮겼다(`5i-3`). 지연 제약 트리거가 커밋 때 그것을 본다 */
     private void insertHistory(Long order, Long sellerOrder, String from, String to,
             String actorType, Long actorUserId, String reason) {
-        jdbc.sql("""
+        long historyId = jdbc.sql("""
                         insert into order_status_history (order_id, seller_order_id, from_status, to_status,
-                                                          actor_type, actor_user_id, reason)
-                        values (:orderId, :sellerOrderId, :from, :to, :actorType, :actorUserId, :reason)
+                                                          actor_type, actor_user_id)
+                        values (:orderId, :sellerOrderId, :from, :to, :actorType, :actorUserId)
+                        returning order_status_history_id
                         """)
                 .param("orderId", order)
                 .param("sellerOrderId", sellerOrder)
@@ -240,8 +245,18 @@ class OrderStatusHistorySchemaTest extends PostgresTestBase {
                 .param("to", to)
                 .param("actorType", actorType)
                 .param("actorUserId", actorUserId)
-                .param("reason", reason)
-                .update();
+                .query(Long.class)
+                .single();
+
+        if (reason != null) {
+            jdbc.sql("""
+                            insert into order_status_history_note (order_status_history_id, reason)
+                            values (:id, :reason)
+                            """)
+                    .param("id", historyId)
+                    .param("reason", reason)
+                    .update();
+        }
     }
 
     private long insertOrder() {
@@ -271,6 +286,11 @@ class OrderStatusHistorySchemaTest extends PostgresTestBase {
                 .param("sellerId", sellerId)
                 .query(Long.class)
                 .single();
+    }
+
+    /** 밀려 있던 지연 검사를 이 자리에서 돌린다. 커밋을 안 하는 테스트가 트리거를 밟는 법이다 */
+    private void flush() {
+        jdbc.sql("set constraints all immediate").update();
     }
 
     private int countOf(String sql) {
