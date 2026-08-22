@@ -15,6 +15,7 @@
 | 거래기록 파기 | 보존 기간이 지난 배송지·주문·감사 로그를 지운다 | **매월 1일** 04:00 KST | 전날 24시 | `TransactionPurgeBatch.purge` |
 | 환불 요청 스위퍼 | 닫혔는데 환불 요청이 없는 묶음에 요청을 만든다 | 5분 `fixedDelay` | `seller_order.closed_at` 이 있고 그 묶음에 `refund` 가 없다 | `RefundSweeper.sweep` |
 | 거래 통지 스위퍼 | 법이 요구하는 통지 넷을 아직 안 나간 건에 보낸다 | 5분 `fixedDelay` | 청약 접수·대금 지급·공급 곤란·환급의 상태인데 `notification` 이 없다 | `NotificationSweeper.sweep` |
+| 수신동의 확인 | 2년이 지난 광고 수신동의에 확인 통지를 보낸다 | 매일 04:30 KST | `coalesce(reconfirmed_at, acted_at)` 이 2년 전보다 오래됨 | `ConsentReconfirmSweeper.sweep` |
 | 회차 재시도 스위퍼 | 일시적으로 실패한 회차를 다시 돌린다 | 10분 `fixedDelay` | `batch_run` 의 마지막 실패가 `transient` 이고 시도가 셋 미만 | `BatchRetrySweeper.sweep` |
 | 정산 마감 | 정산 주기가 끝난 건을 확정한다 | 미정 (청크 19) | 미정 | 아직 없다 |
 

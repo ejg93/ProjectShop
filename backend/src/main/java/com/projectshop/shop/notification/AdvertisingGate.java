@@ -4,6 +4,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.consent.ConsentService;
@@ -41,10 +42,15 @@ public class AdvertisingGate {
     /** 야간 수신의 별도 동의(`V11`). 제50조제3항이 제1항과 <b>따로</b> 받으라고 한 것이다 */
     private static final String MARKETING_NIGHT = "marketing_night";
 
-    private final ConsentService consents;
+    /** 시행령 제62조의3 — 수신동의를 받은 날부터 2년마다 확인 */
+    private static final int RECONFIRM_YEARS = 2;
 
-    AdvertisingGate(ConsentService consents) {
+    private final ConsentService consents;
+    private final JdbcClient jdbc;
+
+    AdvertisingGate(ConsentService consents, JdbcClient jdbc) {
         this.consents = consents;
+        this.jdbc = jdbc;
     }
 
     /** 보내도 되나. 안 되면 왜 안 되는지까지 답한다 */
@@ -57,7 +63,10 @@ public class AdvertisingGate {
         NO_CONSENT,
 
         /** 야간인데 야간 동의가 없다. 제50조제3항 */
-        NO_NIGHT_CONSENT;
+        NO_NIGHT_CONSENT,
+
+        /** 동의를 받은 지 2년이 넘었는데 확인을 안 했다. 제50조제8항 */
+        NOT_RECONFIRMED;
 
         public boolean allowed() {
             return this == ALLOWED;
@@ -80,7 +89,34 @@ public class AdvertisingGate {
         if (isNight(at) && !consents.isGranted(userId, MARKETING_NIGHT)) {
             return Verdict.NO_NIGHT_CONSENT;
         }
+        if (!isReconfirmed(userId, at)) {
+            return Verdict.NOT_RECONFIRMED;
+        }
         return Verdict.ALLOWED;
+    }
+
+    /**
+     * 확인이 밀리지 않았나. 시행령 제62조의3 이 동의받은 날부터 2년마다 확인하게 한다.
+     *
+     * <p><b>여기서 막는 것이 강제 지점이다.</b> 확인 배치가 못 돌면 확인 없는 동의가 쌓이는데,
+     * 관문이 안 보면 그 동안 광고가 그대로 나간다 — 그때 걸리는 것은 테스트가 아니라 과태료다.
+     * 배치가 멈추면 <b>안 나가는 쪽</b>으로 기울게 둔다.
+     */
+    private boolean isReconfirmed(long userId, OffsetDateTime at) {
+        return Boolean.TRUE.equals(jdbc.sql("""
+                        select coalesce(uc.reconfirmed_at, uc.acted_at) >= :due
+                          from user_consent uc
+                          join consent_item ci on ci.consent_item_id = uc.consent_item_id
+                         where uc.user_id = :userId and ci.code = :code
+                         order by uc.acted_at desc, uc.user_consent_id desc
+                         limit 1
+                        """)
+                .param("userId", userId)
+                .param("code", MARKETING)
+                .param("due", at.minusYears(RECONFIRM_YEARS))
+                .query(Boolean.class)
+                .optional()
+                .orElse(false));
     }
 
     /** 21시부터 다음 날 08시 전까지. 자정을 넘어가므로 두 구간의 합집합이다 */
