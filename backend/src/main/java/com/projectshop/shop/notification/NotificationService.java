@@ -95,9 +95,21 @@ public class NotificationService {
      */
     public Optional<Long> send(String eventType, Target target, long userId,
             Map<String, String> values) {
-        NotificationTemplates.Version version = templates.current(eventType, OffsetDateTime.now())
+        return send(eventType, eventType, target, userId, values);
+    }
+
+    /**
+     * 사건과 템플릿 코드가 다른 발송. 광고가 그렇다 2014 사건은 {@code advertisement} 하나인데
+     * 문안은 캠페인마다 갈린다.
+     *
+     * <p>패키지 밖에 안 연다. 광고를 보내는 입구는 {@link AdvertisingNotifications} 하나여야
+     * 관문을 건너뛸 자리가 안 생긴다.
+     */
+    Optional<Long> send(String eventType, String templateCode, Target target, long userId,
+            Map<String, String> values) {
+        NotificationTemplates.Version version = templates.current(templateCode, OffsetDateTime.now())
                 .orElseThrow(() -> new IllegalStateException(
-                        "시행 중인 알림 템플릿이 없다: " + eventType));
+                        "시행 중인 알림 템플릿이 없다: " + templateCode));
 
         // 꽂는 것이 남기는 것보다 먼저다. 안 채워진 자리가 있으면 여기서 던져서
         // 이력도 안 남는다 — 보낼 수 없는 것을 「보내는 중」으로 남기면 재시도가 그것을 집는다.

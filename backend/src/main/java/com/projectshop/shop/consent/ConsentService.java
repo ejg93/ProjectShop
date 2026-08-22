@@ -306,7 +306,18 @@ public class ConsentService {
                 AuditLog.Target.of("user", userId), Map.of("item_code", item.code()));
     }
 
-    private boolean isGranted(long userId, String code) {
+    /**
+     * 지금 동의 상태인가. <b>동의한 적이 없으면 거짓이다.</b>
+     *
+     * <p><b>권한을 안 본다.</b> 안에서 쓰던 것을 청크 55 가 밖으로도 쓴다 —
+     * 광고 발송 관문이 부르는 자리라 로그인한 사람이 없다. 남의 동의를 훔쳐보는 것이 아니라
+     * <b>그 사람에게 보내도 되나</b>를 묻는 것이라 열어도 새는 것이 없다.
+     *
+     * <p>여기 두는 이유는 <b>「최신 행이 이긴다」가 동의의 규칙</b>이라서다(`D23`
+     * 「남의 자원 표를 언제 직접 만지나」). 부르는 쪽이 같은 판정을 다시 쓰면
+     * {@code current_consent} 뷰와 사본이 둘이 된다.
+     */
+    public boolean isGranted(long userId, String code) {
         return Boolean.TRUE.equals(jdbc.sql("""
                         select coalesce(
                             (select granted from current_consent
