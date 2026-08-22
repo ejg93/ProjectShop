@@ -1,7 +1,11 @@
 package com.projectshop.shop.payment;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -257,19 +261,30 @@ public class RefundService {
         Pending pending = findPending(userId, refundNumber);
         requireNotSelf(userId, pending);
 
-        MockPaymentGateway.RefundResult result = askGateway(refundNumber, pending.amount());
+        // 시각을 한 번 잡아서 이자 계산과 `decided_at` 이 같은 순간을 쓰게 한다.
+        // 각자 `now()` 를 부르면 그 사이의 간격만큼 이자와 기록이 어긋난다.
+        OffsetDateTime decidedAt = OffsetDateTime.now();
+        long delayInterest = delayInterest(pending.amount(), pending.dueAt(), decidedAt);
+
+        // **이자를 더한 금액을 보낸다.** 제18조제3항이 「이자를 더한 금액의 환급 조치」라고 해서,
+        // 이자를 기록만 하고 안 보내면 조치를 안 한 것이다.
+        MockPaymentGateway.RefundResult result =
+                askGateway(refundNumber, pending.amount() + delayInterest);
 
         int updated = jdbc.sql("""
                         update refund
                            set status                = :approved,
                                approved_by_user_id   = :userId,
                                decision_reason       = :reason,
-                               decided_at            = now(),
+                               decided_at            = :decidedAt,
+                               delay_interest        = :delayInterest,
                                gateway_refund_number = :gatewayNumber,
                                updated_at            = now()
                          where refund_number = :number and status = :requested
                         """)
                 .param("approved", APPROVED_CODE)
+                .param("decidedAt", decidedAt)
+                .param("delayInterest", delayInterest)
                 .param("userId", userId)
                 .param("reason", blankToNull(reason))
                 .param("gatewayNumber", result.refundNumber())
@@ -630,8 +645,49 @@ public class RefundService {
     }
 
     /** 아직 처리 안 된 요청. 뒤 둘은 판정에 쓴다 */
+    /** 지연배상금 이율. 연 100분의 15(전자상거래법 시행령 제21조의3, `D2` R5) */
+    private static final BigDecimal DELAY_RATE = new BigDecimal("0.15");
+
+    /** 이율이 연 단위라 일수로 쪼갤 때 나누는 수. 윤년을 안 가른다 */
+    private static final BigDecimal DAYS_IN_YEAR = new BigDecimal(365);
+
+    /**
+     * 기한을 넘긴 만큼 붙는 지연배상금.
+     *
+     * <p><b>계산이 여기 한 곳이다.</b> 화면이 다시 계산하면 청구액과 표시액이 갈리고,
+     * 갈리는 쪽이 법정 금액이라 어느 쪽이 맞는지를 우리가 못 정한다. 결과를 { refund} 에
+     * 박제해서 나중에 이율이 바뀌어도 지나간 건의 금액이 안 움직이게 한다.
+     *
+     * <p><b>일 단위로 세고 하루가 안 찼어도 1일로 본다</b>(사용자 선택). 법이 「기간」이라고만 해서
+     * 실무 관례를 따랐다 — 한 시간 늦은 것에 0원을 물리면 「늦었는데 배상금이 0」이 된다.
+     *
+     * <p><b>원 미만은 올린다</b>(사용자 선택). `D8` 은 버림이지만 그것은 <b>우리가 받는 돈</b>의 규칙이고,
+     * 이것은 우리가 늦어서 <b>물어 주는 돈</b>이라 방향이 반대다. 버리면 법이 정한 금액보다 적게 준다.
+     *
+     *  amount   돌려줄 대금. 이자는 여기에 안 들어 있다
+     *  dueAt    환급 기한. `12a-3` 이 사유별 기산점으로 박아 둔 값이다
+     *  decidedAt 실제로 조치한 시각
+     *  붙는 이자. 기한 안에 처리했으면 0
+     */
+    static long delayInterest(long amount, OffsetDateTime dueAt, OffsetDateTime decidedAt) {
+        if (!decidedAt.isAfter(dueAt)) {
+            return 0;
+        }
+
+        long days = ChronoUnit.DAYS.between(dueAt, decidedAt);
+        if (Duration.between(dueAt, decidedAt).minusDays(days).isPositive()) {
+            days++;
+        }
+
+        return BigDecimal.valueOf(amount)
+                .multiply(DELAY_RATE)
+                .multiply(BigDecimal.valueOf(days))
+                .divide(DAYS_IN_YEAR, 0, RoundingMode.CEILING)
+                .longValueExact();
+    }
+
     private record Pending(long requestedByUserId, long amount, String status,
-            long buyerUserId, long sellerId) {}
+            long buyerUserId, long sellerId, OffsetDateTime dueAt) {}
 
     /**
      * 처리할 수 있는 요청인가.
@@ -642,7 +698,7 @@ public class RefundService {
     private Pending findPending(long userId, String refundNumber) {
         Pending pending = jdbc.sql("""
                         select r.requested_by_user_id, r.amount, r.status, so.seller_id,
-                               o.user_id as buyer_user_id
+                               o.user_id as buyer_user_id, r.due_at
                           from refund r
                           join seller_order so on so.seller_order_id = r.seller_order_id
                           join shop_order o    on o.order_id = so.order_id
@@ -654,7 +710,8 @@ public class RefundService {
                         rs.getLong("amount"),
                         rs.getString("status"),
                         rs.getLong("buyer_user_id"),
-                        rs.getLong("seller_id")))
+                        rs.getLong("seller_id"),
+                        rs.getObject("due_at", OffsetDateTime.class)))
                 .optional()
                 .orElseThrow(() -> notFound(refundNumber));
 

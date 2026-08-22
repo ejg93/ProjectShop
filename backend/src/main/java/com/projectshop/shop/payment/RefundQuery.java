@@ -81,7 +81,7 @@ public class RefundQuery {
      *                       고객에게 왜 안 됐는지 답하는 값이라 요청 사유와 달리 내린다
      */
     public record Detail(String refundNumber, String sellerOrderNumber, String orderNumber,
-            String status, String reasonCode, long amount, long shippingFeeRefund,
+            String status, String reasonCode, long amount, long shippingFeeRefund, long delayInterest,
             OffsetDateTime dueAt, boolean overdue, String gatewayRefundNumber,
             String decisionReason, OffsetDateTime decidedAt, OffsetDateTime createdAt,
             List<Item> items) {
@@ -167,7 +167,7 @@ public class RefundQuery {
     public Detail findByNumber(long viewerId, String refundNumber) {
         Row row = jdbc.sql("""
                         select r.refund_id, r.refund_number, so.seller_order_number, o.order_number,
-                               r.status, r.reason_code, r.amount, r.shipping_fee_refund,
+                               r.status, r.reason_code, r.amount, r.shipping_fee_refund, r.delay_interest,
                                r.due_at, r.gateway_refund_number, r.decision_reason,
                                r.decided_at, r.created_at,
                                (r.status = 'requested' and r.due_at < now()) as overdue,
@@ -189,6 +189,7 @@ public class RefundQuery {
                                 enumValue(rs.getString("status")),
                                 enumValue(rs.getString("reason_code")),
                                 rs.getLong("amount"),
+                                rs.getLong("delay_interest"),
                                 rs.getLong("shipping_fee_refund"),
                                 rs.getObject("due_at", OffsetDateTime.class),
                                 rs.getBoolean("overdue"),
@@ -208,7 +209,7 @@ public class RefundQuery {
         Detail head = row.detail();
         return new Detail(head.refundNumber(), head.sellerOrderNumber(), head.orderNumber(),
                 head.status(), head.reasonCode(), head.amount(), head.shippingFeeRefund(),
-                head.dueAt(), head.overdue(), head.gatewayRefundNumber(), head.decisionReason(),
+                head.delayInterest(), head.dueAt(), head.overdue(), head.gatewayRefundNumber(), head.decisionReason(),
                 head.decidedAt(), head.createdAt(), itemsOf(row.refundId()));
     }
 
