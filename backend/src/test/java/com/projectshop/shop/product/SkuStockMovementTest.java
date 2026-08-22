@@ -11,8 +11,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
@@ -29,6 +33,9 @@ class SkuStockMovementTest extends PostgresTestBase {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    private PlatformTransactionManager txManager;
 
     private long skuId;
 
@@ -187,6 +194,51 @@ class SkuStockMovementTest extends PostgresTestBase {
             assertThatThrownBy(() -> move(0, "adjustment"))
                     .describedAs("아무것도 안 움직인 줄이 쌓이면 이력을 읽는 값이 떨어진다")
                     .isInstanceOf(DataIntegrityViolationException.class);
+        }
+
+        @Test
+        @DisplayName("예외를 삼켜도 차단이 살아 있다")
+        void guardSurvivesSwallowedFailure() {
+            swallowOverflowingMove();
+
+            assertThatThrownBy(() -> jdbc.sql("update sku_stock set on_hand = 3 where sku_id = :id")
+                    .param("id", skuId)
+                    .update())
+                    .describedAs("삼킨 예외가 플래그를 켠 채로 남기면 차단이 뚫린다. "
+                            + "안 뚫리는 근거는 플랫폼 사실이라 `stack.md` 에 있다")
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
+
+        @Test
+        @DisplayName("삼킨 뒤에도 정상 이동이 된다")
+        void movesStillWorkAfterSwallowedFailure() {
+            int before = onHand();
+
+            swallowOverflowingMove();
+
+            assertThat(move(-1, "order_placed"))
+                    .describedAs("되돌아간 플래그가 꺼진 채로 굳으면 이번엔 정상 이동이 막힌다")
+                    .isTrue();
+            assertThat(onHand()).isEqualTo(before - 1);
+        }
+
+        /**
+         * 플래그를 켠 채로 터지는 이동을 중첩 트랜잭션에서 돌리고 예외를 삼킨다.
+         *
+         * <p>{@code on_hand + Integer.MAX_VALUE} 가 int 를 넘어서 <b>UPDATE 문 자체가 터진다</b> —
+         * {@code move_stock} 이 플래그를 끄기 전이라, 켜 둔 것이 남는지 보는 자리가 여기다.
+         *
+         * <p>삼키는 방식이 {@code PROPAGATION_NESTED} 다. Spring 이 이것을 세이브포인트로 구현하고,
+         * 세이브포인트로 되돌리면 {@code set_config(..., true)} 로 켠 값도 같이 되돌아간다.
+         */
+        private void swallowOverflowingMove() {
+            TransactionTemplate nested = new TransactionTemplate(txManager);
+            nested.setPropagationBehavior(TransactionDefinition.PROPAGATION_NESTED);
+
+            assertThatThrownBy(() -> nested.executeWithoutResult(
+                    status -> move(Integer.MAX_VALUE, "adjustment")))
+                    .describedAs("int 를 넘기는 이동은 UPDATE 에서 터져야 한다. 안 터지면 이 시험이 성립 안 한다")
+                    .isInstanceOf(DataAccessException.class);
         }
     }
 }

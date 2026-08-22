@@ -500,6 +500,27 @@ Detected resolved migration not applied to database: 19.
 `-Xlint:deprecation` 을 켜 두는 이유가 이것이다(`build.gradle.kts`).
 켜기 전에는 "deprecated API 를 쓴다" 까지만 나오고 **어느 줄인지 안 나온다.**
 
+### `set_config(..., true)` 로 켠 값은 서브트랜잭션이 abort 되면 되돌아간다
+
+`V41` 의 재고 차단이 이 사실 위에 서 있다. `move_stock()` 이 `shop.stock_move` 를 켜고
+`UPDATE` 뒤에 끄는데, **그 사이에서 예외가 나면 켠 채로 남는 것처럼 읽힌다.**
+남으면 같은 트랜잭션에서 `sku_stock.on_hand` 직접 `UPDATE` 가 열려서 차단이 뚫린다.
+
+**안 뚫린다.** `is_local := true` 로 켠 값은 GUC 스택에 서브트랜잭션 단위로 쌓여서,
+그 구간이 abort 되면 켜기 전 값으로 돌아간다. 그리고 **예외를 삼키려면 abort 가 반드시 먼저 온다** —
+Postgres 는 오류 뒤에 세이브포인트로 되돌리지 않으면 그 트랜잭션에서 아무것도 못 한다.
+
+두 갈래로 확인했다.
+
+| 삼키는 방식 | 삼킨 뒤 플래그 | 직접 `UPDATE` |
+|---|---|---|
+| `rollback to savepoint` — Spring 중첩 트랜잭션이 이것이다 | 빈 값 | 거부 |
+| plpgsql `exception when others` | 빈 값 | 거부 |
+
+**그래서 `move_stock()` 에 `exception` 블록을 안 넣었다**(청크 `53a`). 넣으면 막는 것 없이
+암묵 세이브포인트가 재고 이동마다 하나씩 생긴다 — plpgsql 의 `exception` 블록이 그것이다.
+`SkuStockMovementTest` 의 「막는 것」이 두 갈래를 다 밟아서, 이 사실이 바뀌면 거기서 빨개진다.
+
 ### Postgres 의 데드락은 `DeadlockLoserDataAccessException` 이 아니다
 
 `40P01` 을 그 이름의 예외로 받을 것 같지만 **`PessimisticLockingFailureException`** 으로 온다.
