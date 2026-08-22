@@ -59,7 +59,8 @@ public class AccountPurgeService {
     /**
      * 동의 이력 보존. 감사 로그와 같은 3년이다(`D13`).
      * 분쟁이 탈퇴 뒤에 와도 "동의받고 수집했다" 에 답할 수 있어야 한다.
-     * 다만 {@code acted_ip} 는 입증에 거의 안 쓰이면서 식별성이 높아 유예 30일에 먼저 버린다.
+     * 다만 {@code acted_ip} 는 입증에 거의 안 쓰이면서 식별성이 높아 {@link #GRACE_DAYS} 가 끝나는 자리에서
+     * 이력보다 먼저 버린다. <b>여기에 날수를 다시 안 적는다</b> — `Q10` 이 30일을 5일로 고칠 때 이 줄이 안 따라왔다.
      */
     private static final int CONSENT_RETENTION_YEARS = 3;
 
