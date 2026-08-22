@@ -50,6 +50,12 @@ class NotificationSweeperTest extends PostgresTestBase {
         sellerId = fixture.insertSeller("sweep-seller", "통지셀러");
         orderId = insertOrder();
         sellerOrderId = insertSellerOrder();
+
+        // 스위퍼의 바닥은 「통지 기능이 선 시각」이다(`56a`). `V44` 가 시드한 시각은 지금이라
+        // 이 시험의 가짜 시간축(NOW)보다 뒤에 있다 2014 판을 뒤로 밀어 두 축을 맞춘다.
+        jdbc.sql("update notification_template set created_at = :began")
+                .param("began", NOW.minusYears(1))
+                .update();
     }
 
     @Nested
@@ -191,10 +197,10 @@ class NotificationSweeperTest extends PostgresTestBase {
         }
 
         @Test
-        @DisplayName("오래된 건은 거슬러 안 보낸다")
-        void ignoresOldRows() {
+        @DisplayName("기능이 서기 전 주문에는 안 보낸다")
+        void ignoresRowsFromBeforeNotificationsExisted() {
             jdbc.sql("update shop_order set created_at = :old where order_id = :id")
-                    .param("old", NOW.minusDays(30))
+                    .param("old", NOW.minusYears(2))
                     .param("id", orderId)
                     .update();
 
@@ -202,6 +208,16 @@ class NotificationSweeperTest extends PostgresTestBase {
 
             // 보내는 자리가 없던 동안 쌓인 주문에 지금 와서 보내면 통지가 아니라 무더기 발송이다.
             assertThat(eventsFor(orderId)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("배치가 오래 멈춰 있었어도 다 잡는다")
+        void catchesUpAfterALongOutage() {
+            // 「이레 안에 생긴 것」으로 자르면 여기가 빈다 2014 법정 통지가 영영 안 나가고
+            // 아무 데도 안 남는 구간이었다(`56a`).
+            sweeper.sweepAll(NOW.plusDays(90));
+
+            assertThat(eventsFor(orderId)).contains("order_placed");
         }
     }
 

@@ -28,17 +28,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class NotificationSweeper {
 
-    /**
-     * 얼마나 지난 것까지 거슬러 보내나.
-     *
-     * <p><b>법이 정한 값이 아니라 우리가 정한 값이다.</b> 보내는 자리가 없던 동안 쌓인 주문에
-     * 지금 와서 통지를 보내면 그것은 통지가 아니라 뒤늦은 무더기 발송이다.
-     *
-     * <p>이레면 배치가 일주일을 죽어 있어야 놓친다. 그보다 오래 멈춘 것은
-     * 통지 하나가 아니라 운영이 문제고, 배치 회차 이력이 그 사실을 들고 있다(`D19`).
-     */
-    private static final int SWEEP_WINDOW_DAYS = 7;
-
     private static final Logger log = LoggerFactory.getLogger(NotificationSweeper.class);
 
     private final JdbcClient jdbc;
@@ -73,13 +62,33 @@ public class NotificationSweeper {
      * @return 실제로 남긴 발송 수
      */
     public int sweepAll(OffsetDateTime now) {
-        OffsetDateTime floor = now.minusDays(SWEEP_WINDOW_DAYS);
+        OffsetDateTime floor = notificationsBeganAt();
 
         return sweepOrderPlaced(floor)
                 + sweepPaymentCompleted(floor)
                 + sweepSupplyDelayed(floor)
                 + sweepRefundCompleted(floor)
                 + sweepConsentResult(floor);
+    }
+
+    /**
+     * 통지를 보내기 시작한 시각. <b>이 앞의 주문은 영영 대상이 아니다.</b>
+     *
+     * <p>처음에는 「이레 안에 생긴 것」으로 잘랐다(`56`). 무더기 발송을 막으려던 것인데
+     * <b>구멍이 하나 열려 있었다</b> — 배치가 일주일 넘게 멈추면 법이 요구하는 통지가
+     * 영영 안 나가고 <b>아무 데도 안 남는다</b>(`56a`).
+     *
+     * <p>막으려던 것은 날짜가 아니라 <b>「보내는 자리가 없던 동안 쌓인 주문」</b>이었다.
+     * 그것은 <b>기능이 언제 섰나</b>로 정확히 표현된다 — 첫 문안 판이 들어간 시각이다.
+     * 그 뒤에 생긴 것은 배치가 얼마를 멈췄든 전부 잡히므로 <b>감시할 구멍이 없어진다.</b>
+     *
+     * <p><b>밀린 것이 한 번에 나가도 스팸이 아니다.</b> 각 통지는 서로 다른 주문 건이고,
+     * 안 보내는 쪽이 위반이다.
+     */
+    private OffsetDateTime notificationsBeganAt() {
+        return jdbc.sql("select min(created_at) from notification_template")
+                .query(OffsetDateTime.class)
+                .single();
     }
 
     /** 청약 접수 확인. 제14조제1항 — 청약 의사표시의 수신 확인 */
