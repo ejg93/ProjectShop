@@ -50,6 +50,23 @@ public class TransactionPurgeService {
      */
     private static final int BATCH_RUN_YEARS = 1;
 
+    /**
+     * 개인화된 발송 본문을 두는 기간(`D18-1`).
+     *
+     * <p><b>법이 정한 값이 아니라 우리가 정한 값이다.</b> 제6조제2항이 거래기록에 딸린 개인정보를
+     * 「보존할 수 있다」고 재량으로 둔 자리라, 배송지·카드와 같은 여섯 달을 골랐다.
+     * 본문은 사본이고 문안은 판에, 금액은 주문·결제에 남아서 복원된다.
+     */
+    private static final int NOTIFICATION_BODY_MONTHS = 6;
+
+    /**
+     * 광고성 정보 발송 이력을 두는 기간(`D18-1`).
+     *
+     * <p>시행령 제6조제1항 1호 「표시·광고에 관한 기록」이 여섯 달이다.
+     * 거래 통지는 같은 항 2·3호라 { #ORDER_YEARS} 를 쓴다 — 같은 표인데 칸이 다르다.
+     */
+    private static final int ADVERTISEMENT_MONTHS = 6;
+
     private final JdbcClient jdbc;
 
     TransactionPurgeService(JdbcClient jdbc) {
@@ -62,9 +79,11 @@ public class TransactionPurgeService {
      * @param orders            보존 기간이 지나 지운 주문 수
      * @param auditLogs         보존 기간이 지나 지운 감사 로그 수
      * @param batchRuns         보존 기간이 지나 지운 배치 회차 이력 수
+     * @param notificationBodies 보존 기간이 지나 지운 발송 본문 수. 메타는 남는다
+     * @param notifications     보존 기간이 지나 지운 발송 이력 수
      */
     public record Purged(int shippingAddresses, int paymentCards, int orders,
-            int auditLogs, int batchRuns) {}
+            int auditLogs, int batchRuns, int notificationBodies, int notifications) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -83,8 +102,13 @@ public class TransactionPurgeService {
         int orders = deleteExpiredOrders(baseline.minusYears(ORDER_YEARS));
         int auditLogs = deleteExpiredAuditLogs(baseline.minusYears(AUDIT_YEARS));
         int batchRuns = deleteExpiredBatchRuns(baseline.minusYears(BATCH_RUN_YEARS));
+        int notificationBodies =
+                deleteExpiredNotificationBodies(baseline.minusMonths(NOTIFICATION_BODY_MONTHS));
+        int notifications = deleteExpiredNotifications(
+                baseline.minusMonths(ADVERTISEMENT_MONTHS), baseline.minusYears(ORDER_YEARS));
 
-        return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns);
+        return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns,
+                notificationBodies, notifications);
     }
 
     /**
@@ -191,6 +215,43 @@ public class TransactionPurgeService {
     private int deleteExpiredBatchRuns(OffsetDateTime baselineBefore) {
         return jdbc.sql("delete from batch_run where baseline_date < :baselineBefore")
                 .param("baselineBefore", baselineBefore.toLocalDate())
+                .update();
+    }
+
+    /**
+     * 개인화된 본문을 지운다. <b>메타는 남는다</b> — 그게 표를 갈라 둔 이유다(`D18-1`).
+     *
+     * <p>「보냈다」를 증명하는 것은 메타고, 본문은 그 위에 얹힌 개인정보 사본이다.
+     * 문안은 템플릿 판에, 금액은 주문·결제에 남아서 <b>무슨 문안을 언제 누구에게 보냈나</b>는 복원된다.
+     */
+    private int deleteExpiredNotificationBodies(OffsetDateTime createdBefore) {
+        return jdbc.sql("""
+                        delete from notification_body
+                         where notification_id in (
+                             select notification_id from notification where created_at < :createdBefore
+                         )
+                        """)
+                .param("createdBefore", createdBefore)
+                .update();
+    }
+
+    /**
+     * 발송 이력을 지운다. <b>종류가 기간을 가른다</b>(`D18-1`).
+     *
+     * <p>거래 통지는 시행령 제6조제1항 2·3호라 5년이고 광고성 정보는 같은 항 1호라 여섯 달이다.
+     * <b>박제해 둔 { kind} 로 고른다</b> — 판을 다시 읽으면 그 사이에 판이 고쳐졌을 때
+     * 이미 나간 것의 보존 기간이 따라 움직인다.
+     *
+     * <p>본문은 위에서 이미 지웠고, 남은 것이 있어도 외래키가 { cascade} 라 같이 사라진다.
+     */
+    private int deleteExpiredNotifications(OffsetDateTime adsBefore, OffsetDateTime noticesBefore) {
+        return jdbc.sql("""
+                        delete from notification
+                         where (kind = 'advertising'   and created_at < :adsBefore)
+                            or (kind = 'transactional' and created_at < :noticesBefore)
+                        """)
+                .param("adsBefore", adsBefore)
+                .param("noticesBefore", noticesBefore)
                 .update();
     }
 

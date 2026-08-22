@@ -247,6 +247,96 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
 
     private int counter;
 
+    @Nested
+    @DisplayName("알림은")
+    class Notifications {
+
+        @Test
+        @DisplayName("광고 이력이 여섯 달을 넘기면 사라진다")
+        void purgesOldAdvertisements() {
+            long id = insertNotification("advertising", "advertisement", NOW.minusMonths(7));
+
+            purgeService.purge(NOW);
+
+            // 시행령 제6조제1항 1호 「표시·광고에 관한 기록」이 여섯 달이다(`D18-1`).
+            assertThat(notificationExists(id)).isFalse();
+        }
+
+        @Test
+        @DisplayName("거래 통지는 여섯 달로는 안 사라진다")
+        void keepsNoticesForFiveYears() {
+            long id = insertNotification("transactional", "order_placed", NOW.minusMonths(7));
+
+            purgeService.purge(NOW);
+
+            // 같은 표인데 칸이 다르다 — 2·3호라 5년이다. 짧게 잡으면 4~5년차 분쟁에서
+            // 「보냈다」를 증명할 것이 사라진다.
+            assertThat(notificationExists(id)).isTrue();
+        }
+
+        @Test
+        @DisplayName("거래 통지도 5년을 넘기면 사라진다")
+        void purgesNoticesAfterFiveYears() {
+            long id = insertNotification("transactional", "order_placed", NOW.minusYears(6));
+
+            purgeService.purge(NOW);
+
+            assertThat(notificationExists(id)).isFalse();
+        }
+
+        @Test
+        @DisplayName("본문은 먼저 사라지고 메타는 남는다")
+        void purgesBodyBeforeMeta() {
+            long id = insertNotification("transactional", "order_placed", NOW.minusMonths(7));
+            jdbc.sql("""
+                            insert into notification_body (notification_id, subject, body)
+                            values (:id, '제목', '완성된 본문')
+                            """)
+                    .param("id", id)
+                    .update();
+
+            purgeService.purge(NOW);
+
+            // 표를 갈라 둔 것이 여기서 값을 한다. 한 표면 파기가 컬럼을 비우는 일이 되고,
+            // 안 비운 행이 섞여도 아무 제약이 안 걸린다(`D18-1`).
+            assertThat(countOf("select count(*) from notification_body where notification_id = " + id))
+                    .isZero();
+            assertThat(notificationExists(id)).isTrue();
+        }
+
+        private long insertNotification(String kind, String eventType, OffsetDateTime createdAt) {
+            long templateId = jdbc.sql("""
+                            insert into notification_template (code, subject, body, kind)
+                            values (:code, '제목', '본문', :kind)
+                            returning notification_template_id
+                            """)
+                    .param("code", eventType + "-" + kind)
+                    .param("kind", kind)
+                    .query(Long.class)
+                    .single();
+
+            return jdbc.sql("""
+                            insert into notification (user_id, event_type, kind,
+                                                      notification_template_id, channel, status,
+                                                      created_at)
+                            values (:userId, :eventType, :kind, :templateId, 'email', 'pending',
+                                    :createdAt)
+                            returning notification_id
+                            """)
+                    .param("userId", userId)
+                    .param("eventType", eventType)
+                    .param("kind", kind)
+                    .param("templateId", templateId)
+                    .param("createdAt", createdAt)
+                    .query(Long.class)
+                    .single();
+        }
+
+        private boolean notificationExists(long id) {
+            return exists("select 1 from notification where notification_id = " + id);
+        }
+    }
+
     private long insertOrder(String number) {
         long orderId = jdbc.sql("""
                         insert into shop_order (order_number, user_id, total_amount,
