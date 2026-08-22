@@ -1,27 +1,51 @@
 import type { Metadata } from "next";
 
 import { ComingSoon } from "@/components/coming-soon";
+import { apiSession } from "@/lib/api-session";
+
+import { ProductForm } from "./product-form";
 
 export const metadata: Metadata = { title: "상품 등록 · ProjectShop" };
 
+type Membership = { sellerId: number; sellerName: string };
+
 /**
- * 상품 등록(`13f`).
+ * 상품 등록(`13f-1`).
  *
- * <p><b>화면이 아니라 자리표시다.</b> 서버에 상품을 만드는 입구가 없다 —
- * {@code /api/seller/products} 는 목록만 내린다. 화면만 그리면 <b>눌러도 아무 일이 안 나는 폼</b>이 되고,
- * 그것은 없는 화면보다 나쁘다.
+ * <p><b>`13f` 가 깐 자리표시를 여기서 지운다.</b> 그때는 「서버에 만드는 입구가 없다」고 적었는데
+ * <b>그것이 틀렸다</b> — `/api/products` 에 `POST` 가 있고 셀러 목록만 조회 전용이었다.
+ * `SellerProductController` 만 보고 판단한 결과다.
  *
- * <p>`13c` 가 {@link ComingSoon} 을 만들어 두고 아무 데서도 안 써서
- * `D20` 의 「아직 없는 화면은 준비 중으로」가 <b>셀러 경로에 한 번도 안 걸려 있었다.</b>
- * 여기가 그 첫 자리다.
- *
- * <p><b>입구가 생기면 이 파일이 폼으로 바뀐다.</b> 남아 있으면 그 청크가 안 끝난 것이다.
+ * <p><b>어느 셀러로 올리나를 서버가 정한다.</b> 화면이 `sellerId` 를 고르게 두면
+ * 남의 셀러 번호를 넣어 볼 수 있고, 그것을 막는 것이 화면이 되면 <b>판정이 두 곳</b>이 된다.
+ * 소속이 하나면 그것으로 정하고, 여럿이면 아직 못 고르므로 준비 중으로 둔다.
  */
-export default function SellerProductNewPage() {
+export default async function SellerProductNewPage() {
+  const memberships = await apiSession<Membership[]>("/api/me/sellers");
+
+  if (memberships.length !== 1) {
+    return (
+      <ComingSoon
+        title="상품 등록"
+        detail={
+          memberships.length === 0
+            ? "셀러 소속이 있어야 상품을 등록하실 수 있습니다."
+            : "여러 셀러에 속한 분의 등록 화면을 준비하고 있습니다."
+        }
+      />
+    );
+  }
+
   return (
-    <ComingSoon
-      title="상품 등록"
-      detail="등록 기능을 준비하고 있습니다. 지금은 등록된 상품의 상태와 재고만 확인하실 수 있습니다."
-    />
+    <>
+      <div className="grid gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight">상품 등록</h1>
+        <p className="text-sm text-text-muted">
+          등록하면 작성 중 상태가 됩니다. 검수를 신청해야 판매가 시작됩니다.
+        </p>
+      </div>
+
+      <ProductForm sellerId={memberships[0].sellerId} />
+    </>
   );
 }

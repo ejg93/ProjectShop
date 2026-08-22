@@ -68,7 +68,34 @@ public class ProductService {
             String withdrawalRestrictionReason,
             Integer supplyLeadDays,
             List<OptionCommand> options,
-            List<SkuCommand> skus) {
+            List<SkuCommand> skus,
+            List<SubstantiationCommand> substantiations) {
+
+        /**
+         * 근거 없이 만든다.
+         *
+         * <p><b>실증자료가 없는 상품이 정상이다</b>(`R32`) 2014 사실 주장을 안 하는 상품이 있어서
+         * 빈 목록이 기본이다. 부르는 쪽이 매번 {@code List.of()} 를 적게 하면
+         * <b>그 자리가 「깜빡한 것」인지 「없는 것」인지 안 갈린다.</b>
+         */
+        public Command(long sellerId, String name, String description, Integer commissionBp,
+                boolean withdrawalRestricted, String withdrawalRestrictionReason,
+                Integer supplyLeadDays, List<OptionCommand> options, List<SkuCommand> skus) {
+
+            this(sellerId, name, description, commissionBp, withdrawalRestricted,
+                    withdrawalRestrictionReason, supplyLeadDays, options, skus, List.of());
+        }
+    }
+
+    /**
+     * 표시·광고 실증자료(`R32`, 표시광고법 제5조).
+     *
+     * <p><b>주장 하나에 근거 하나다.</b> 「국내 1위」·「정품」·「3년 보증」이 한 칸에 섞이면
+     * 공정위가 15일 안에 내라고 할 때 <b>어느 부분이 답인지 사람이 다시 가른다.</b>
+     *
+     * <p><b>파일이 아니다.</b> 올리는 자리를 `D17` 이 아직 안 정했다.
+     */
+    public record SubstantiationCommand(String claim, String evidence, String sourceUrl) {
     }
 
     public record Created(long productId, List<Long> skuIds) {
@@ -89,6 +116,7 @@ public class ProductService {
         long productId = insertProduct(actorUserId, command);
         Map<String, Long> valueIds = insertOptions(productId, command.options());
         List<Long> skuIds = insertSkus(productId, command.skus(), valueIds);
+        insertSubstantiations(productId, command.substantiations());
 
         auditLog.record(AuditLog.Kind.OUTCOME, "product.created", actorUserId,
                 AuditLog.Target.of("product", productId),
@@ -218,6 +246,35 @@ public class ProductService {
                             "선언하지 않은 옵션값이다: " + value);
                 }
             }
+        }
+    }
+
+    /**
+     * 실증자료를 남긴다(`R32`, 표시광고법 제5조).
+     *
+     * <p><b>없어도 막지 않는다.</b> 제5조는 「요청이 오면 낼 수 있어야」지
+     * 「모든 상품에 있어야」가 아니다 — 사실 주장이 없는 상품도 있다.
+     * <b>있어야 하는데 없는 것</b>을 자동으로 가르려면 문구에서 사실 주장을 뽑아내야 하는데,
+     * 그것은 사람이 하는 판단이라 검수가 본다(`D23` 「안 넣은 것도 근거를 남긴다」).
+     *
+     * <p>교체({@code replace})에서도 이 자리를 지난다. 상품이 통째로 바뀌면
+     * 옛 근거가 새 문구를 실증하지 않으므로 <b>같이 갈아 끼워야 한다.</b>
+     */
+    private void insertSubstantiations(long productId, List<SubstantiationCommand> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+
+        for (SubstantiationCommand item : items) {
+            jdbc.sql("""
+                            insert into product_substantiation (product_id, claim, evidence, source_url)
+                            values (:productId, :claim, :evidence, :sourceUrl)
+                            """)
+                    .param("productId", productId)
+                    .param("claim", item.claim())
+                    .param("evidence", item.evidence())
+                    .param("sourceUrl", item.sourceUrl())
+                    .update();
         }
     }
 

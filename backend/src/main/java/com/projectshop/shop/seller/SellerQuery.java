@@ -1,5 +1,7 @@
 package com.projectshop.shop.seller;
 
+import java.util.List;
+
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
@@ -86,5 +88,30 @@ public class SellerQuery {
             String representativeName, String businessRegNo, String address, String phone,
             String email, String mailOrderNo, MailOrderExemption mailOrderExemptReason,
             long defaultShippingFee) {
+    }
+
+    /** 내가 속한 셀러 하나 */
+    public record Membership(long sellerId, String sellerName) {
+    }
+
+    /**
+     * 내가 속한 셀러 목록(`13f-1`).
+     *
+     * <p><b>어느 셀러로 올리나를 서버가 정한다.</b> 화면이 셀러 번호를 고르게 두면
+     * 남의 번호를 넣어 볼 수 있고, 그것을 막는 것이 화면이 되면 <b>판정이 두 곳</b>이 된다.
+     *
+     * <p><b>지워진 셀러는 안 든다.</b> 소속은 남아 있어도 그리로 상품을 올릴 수는 없다.
+     */
+    public List<Membership> membershipsOf(long userId) {
+        return jdbc.sql("""
+                        select s.seller_id, s.name as seller_name
+                          from seller_member m
+                          join seller s on s.seller_id = m.seller_id
+                         where m.user_id = :userId and s.deleted_at is null
+                         order by s.name
+                        """)
+                .param("userId", userId)
+                .query(Membership.class)
+                .list();
     }
 }

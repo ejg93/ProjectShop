@@ -217,7 +217,8 @@ public class ProductController {
             String withdrawalRestrictionReason,
             @Min(0) @Max(60) Integer supplyLeadDays,
             @NotNull List<@Valid OptionRequest> options,
-            @NotEmpty List<@Valid SkuRequest> skus) {
+            @NotEmpty List<@Valid SkuRequest> skus,
+            List<@Valid SubstantiationRequest> substantiations) {
 
         ProductService.Command toCommand() {
             return new ProductService.Command(
@@ -230,8 +231,24 @@ public class ProductController {
                     skus.stream()
                             .map(s -> new ProductService.SkuCommand(
                                     s.optionValues(), s.priceInclVat(), s.stockCount()))
+                            .toList(),
+                    substantiations == null ? List.of() : substantiations.stream()
+                            .map(v -> new ProductService.SubstantiationCommand(
+                                    v.claim(), v.evidence(), v.sourceUrl()))
                             .toList());
         }
+    }
+
+    /**
+     * 표시·광고 실증자료(`R32`, 표시광고법 제5조).
+     *
+     * <p><b>선택이다.</b> 사실 주장이 없는 상품도 있어서 비어 있는 것 자체는 잘못이 아니다 2014
+     * 있어야 하는데 없는 것은 검수가 본다.
+     */
+    public record SubstantiationRequest(
+            @NotBlank @Size(max = 200) String claim,
+            @NotBlank @Size(max = 2000) String evidence,
+            @Size(max = 500) String sourceUrl) {
     }
 
     public record OptionRequest(
