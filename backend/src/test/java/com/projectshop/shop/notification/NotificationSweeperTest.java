@@ -97,6 +97,55 @@ class NotificationSweeperTest extends PostgresTestBase {
     }
 
     @Nested
+    @DisplayName("동의 처리 결과")
+    class ConsentResult {
+
+        @Test
+        @DisplayName("광고 항목에 의사를 표시하면 결과를 알린다")
+        void notifiesConsentResult() {
+            long consentId = consent("marketing_email", true);
+
+            sweeper.sweepAll(NOW);
+
+            // 시행령 제62조의2 — 의사를 표시한 날부터 14일 이내에 처리 결과를 알린다.
+            assertThat(consentEvents(consentId)).contains("consent_result");
+        }
+
+        @Test
+        @DisplayName("필수 약관 동의에는 안 나간다")
+        void ignoresNonMarketingConsent() {
+            long consentId = consent("terms_of_service", true);
+
+            sweeper.sweepAll(NOW);
+
+            // 제50조는 영리목적 광고성 정보에 걸린 의무다. 전부 보내면 가입할 때마다 여러 통 나간다.
+            assertThat(consentEvents(consentId)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("철회에도 나가고 본문이 갈린다")
+        void notifiesRevocation() {
+            long consentId = consent("marketing_email", false);
+
+            sweeper.sweepAll(NOW);
+
+            assertThat(consentEvents(consentId)).contains("consent_result");
+            assertThat(bodyOf("consent_result")).contains("철회");
+        }
+
+        @Test
+        @DisplayName("같은 의사표시에 두 번 안 나간다")
+        void notifiesOncePerAct() {
+            long consentId = consent("marketing_email", true);
+
+            sweeper.sweepAll(NOW);
+            sweeper.sweepAll(NOW);
+
+            assertThat(consentEvents(consentId)).hasSize(1);
+        }
+    }
+
+    @Nested
     @DisplayName("본문에는")
     class Body {
 
@@ -154,6 +203,28 @@ class NotificationSweeperTest extends PostgresTestBase {
             // 보내는 자리가 없던 동안 쌓인 주문에 지금 와서 보내면 통지가 아니라 무더기 발송이다.
             assertThat(eventsFor(orderId)).isEmpty();
         }
+    }
+
+    private long consent(String code, boolean granted) {
+        return jdbc.sql("""
+                        insert into user_consent (user_id, consent_item_id, granted, source, acted_at)
+                        select :id, consent_item_id, :granted, 'signup', :actedAt from consent_item
+                         where code = :code order by version desc limit 1
+                        returning user_consent_id
+                        """)
+                .param("id", userId)
+                .param("code", code)
+                .param("granted", granted)
+                .param("actedAt", NOW.minusHours(1))
+                .query(Long.class)
+                .single();
+    }
+
+    private List<String> consentEvents(long consentId) {
+        return jdbc.sql("select event_type from notification where user_consent_id = :id")
+                .param("id", consentId)
+                .query(String.class)
+                .list();
     }
 
     private List<String> eventsFor(long order) {

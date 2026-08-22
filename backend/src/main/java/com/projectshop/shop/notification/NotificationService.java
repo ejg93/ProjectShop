@@ -60,22 +60,27 @@ public class NotificationService {
      *
      * <p>비밀번호 재설정처럼 걸리는 자원이 없는 통지는 {@link #none()} 이다.
      */
-    public record Target(Long orderId, Long sellerOrderId, Long refundId) {
+    public record Target(Long orderId, Long sellerOrderId, Long refundId, Long userConsentId) {
 
         public static Target order(long orderId) {
-            return new Target(orderId, null, null);
+            return new Target(orderId, null, null, null);
         }
 
         public static Target sellerOrder(long sellerOrderId) {
-            return new Target(null, sellerOrderId, null);
+            return new Target(null, sellerOrderId, null, null);
         }
 
         public static Target refund(long refundId) {
-            return new Target(null, null, refundId);
+            return new Target(null, null, refundId, null);
+        }
+
+        /** 어느 의사표시에 대한 처리 결과인가(`55a`, 시행령 제62조의2) */
+        public static Target consent(long userConsentId) {
+            return new Target(null, null, null, userConsentId);
         }
 
         public static Target none() {
-            return new Target(null, null, null);
+            return new Target(null, null, null, null);
         }
     }
 
@@ -155,9 +160,10 @@ public class NotificationService {
         return jdbc.sql("""
                         insert into notification (user_id, event_type, kind,
                                                   notification_template_id, channel, status,
-                                                  order_id, seller_order_id, refund_id)
+                                                  order_id, seller_order_id, refund_id,
+                                                  user_consent_id)
                         values (:userId, :eventType, :kind, :templateId, 'email', :status,
-                                :orderId, :sellerOrderId, :refundId)
+                                :orderId, :sellerOrderId, :refundId, :userConsentId)
                         returning notification_id
                         """)
                 .param("userId", userId)
@@ -168,6 +174,7 @@ public class NotificationService {
                 .param("orderId", target.orderId())
                 .param("sellerOrderId", target.sellerOrderId())
                 .param("refundId", target.refundId())
+                .param("userConsentId", target.userConsentId())
                 .query(Long.class)
                 .single();
     }

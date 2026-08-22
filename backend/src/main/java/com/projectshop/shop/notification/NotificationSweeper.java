@@ -78,7 +78,8 @@ public class NotificationSweeper {
         return sweepOrderPlaced(floor)
                 + sweepPaymentCompleted(floor)
                 + sweepSupplyDelayed(floor)
-                + sweepRefundCompleted(floor);
+                + sweepRefundCompleted(floor)
+                + sweepConsentResult(floor);
     }
 
     /** 청약 접수 확인. 제14조제1항 — 청약 의사표시의 수신 확인 */
@@ -170,6 +171,58 @@ public class NotificationSweeper {
         return send(targets, "refund_completed", NotificationService.Target::refund,
                 target -> Map.of("refund_number", target.firstValue(),
                         "amount", target.secondValue()));
+    }
+
+    /**
+     * 동의 처리 결과 통지. 정보통신망법 제50조제7항, 시행령 제62조의2.
+     *
+     * <p><b>기한이 의사표시 날부터 14일이다.</b> 스위퍼가 5분마다 도니 기한은 여유가 크고,
+     * 여기서 세는 것은 <b>거슬러 보내는 창</b>뿐이다.
+     *
+     * <p><b>광고 항목의 의사표시만 대상이다.</b> 이 의무는 영리목적 광고성 정보에 걸린 것이라
+     * 필수 약관 동의에는 안 걸린다 — 전부 보내면 가입할 때마다 통지가 여러 통 나간다.
+     *
+     * <p>본문에 <b>광고성 정보를 안 싣는다</b>(시행령 제62조의2). 처리 결과에 혜택 안내를 얹으면
+     * 그것이 광고 전송이 되고, 철회한 사람에게 보낸 것이면 제50조제2항 위반이다 — 판이 그것을 막는다.
+     */
+    private int sweepConsentResult(OffsetDateTime floor) {
+        List<Pending> targets = jdbc.sql("""
+                        select uc.user_id, uc.user_consent_id as target_id,
+                               ci.title as first_value,
+                               to_char(uc.acted_at at time zone 'Asia/Seoul',
+                                       'YYYY년 FMMM월 FMDD일') || '|' ||
+                               case when uc.granted then '동의' else '철회' end as second_value
+                          from user_consent uc
+                          join consent_item ci on ci.consent_item_id = uc.consent_item_id
+                          left join notification n
+                            on n.user_consent_id = uc.user_consent_id
+                           and n.event_type = 'consent_result'
+                         where ci.code in ('marketing_email', 'marketing_sms', 'marketing_night')
+                           and uc.acted_at >= :floor and n.notification_id is null
+                        """)
+                .param("floor", floor)
+                .query(Pending.class)
+                .list();
+
+        return send(targets, "consent_result", NotificationService.Target::consent,
+                target -> consentValues(target));
+    }
+
+    /**
+     * 처리 결과 통지에 꽂을 값. 시행령 제62조의2 각 호가 담을 것을 정했다 —
+     * 전송자의 명칭(판에 박혀 있다), 의사표시 사실과 날짜, 처리 결과다.
+     *
+     * <p>날짜와 의사를 한 칸에 담아 왔다. {@link Pending} 에 칸을 하나 더 두면
+     * 다른 넷이 안 쓰는 칸이 생겨서, 값 둘을 붙여 보내고 여기서 가른다.
+     */
+    private Map<String, String> consentValues(Pending target) {
+        String[] parts = target.secondValue().split("[|]", 2);
+        String action = parts[1];
+
+        return Map.of("item_title", target.firstValue(),
+                "acted_at", parts[0],
+                "action", action,
+                "result", action + " 처리 완료");
     }
 
     /**
