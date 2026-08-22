@@ -23,6 +23,7 @@ import com.projectshop.shop.auth.Password;
 import com.projectshop.shop.auth.PermissionCatalog;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.consent.ConsentService;
+import com.projectshop.shop.seller.SellerQuery;
 
 /**
  * 로그인한 사람이 자기에 대해 묻는 자리.
@@ -41,14 +42,17 @@ public class MeController {
     private final AccountService accountService;
     private final ConsentService consentService;
     private final WithdrawalService withdrawalService;
+    private final SellerQuery sellerQuery;
 
     public MeController(PermissionCatalog permissionCatalog, AccountService accountService,
-            ConsentService consentService, WithdrawalService withdrawalService) {
+            ConsentService consentService, WithdrawalService withdrawalService,
+            SellerQuery sellerQuery) {
 
         this.permissionCatalog = permissionCatalog;
         this.accountService = accountService;
         this.consentService = consentService;
         this.withdrawalService = withdrawalService;
+        this.sellerQuery = sellerQuery;
     }
 
     /**
@@ -193,6 +197,22 @@ public class MeController {
      * <p><b>접근 허용에 쓰면 안 된다.</b> 목록은 대상 행이 없는 근사치고,
      * 실제 허용은 자원을 만질 때 판정이 다시 정한다.
      */
+    /**
+     * 내가 속한 셀러 목록(`13f-1`).
+     *
+     * <p><b>{@code /api/me} 밑에 둔다.</b> 「내」 것을 묻는 자원이 여기 모여 있고,
+     * {@code /api/sellers} 밑에 두면 <b>번호 없이 부르는 것이 전체 셀러 목록으로 읽힌다.</b>
+     * 그 경로는 `D2` R1 때문에 {@code GET} 이 비로그인에 열려 있어서(`SecurityConfig`)
+     * 거기 두면 남의 소속까지 공개될 뻔한 자리다.
+     *
+     * <p><b>어느 셀러로 상품을 올리나를 서버가 정한다</b>(`13f-1`) 2014 화면이 셀러 번호를 고르게 두면
+     * 남의 번호를 넣어 볼 수 있고, 막는 것이 화면이 되면 판정이 두 곳이 된다.
+     */
+    @GetMapping("/sellers")
+    public List<SellerQuery.Membership> mySellers(@AuthenticationPrincipal ShopUser user) {
+        return sellerQuery.membershipsOf(user.id());
+    }
+
     @GetMapping("/permissions")
     public PermissionsResponse permissions(@AuthenticationPrincipal ShopUser user) {
         return new PermissionsResponse(user.id(), permissionCatalog.listFor(user.id()));
