@@ -62,7 +62,7 @@
 | R3 | 청약철회 기간과 기산점 | 전자상거래법 제17조 | ① `OrderStatusService.WITHDRAWAL_DAYS = 7`, `seller_order.withdrawal_expire_at` — 배송완료 때 박제<br>③ `DEFECT_WITHDRAWAL_MONTHS = 3`, `requireWithinDefectPeriod` — **`delivered_at` 에서 계산한다**(사용자 선택). 3개월은 역일이라 박제할 이유가 없다<br>`seller_order.return_reason`(`V29`) — 어느 조항으로 받았는지가 여기 남는다<br>`seller_order_return_reason_required_check` — 사유 없는 접수를 막는다<br>`DefectReturnTest` 9개<br>`order_status_history`(`V18`) — 기산점의 근거<br>**「안 날부터 30일」은 안 건다**(사용자 선택) — 그 날은 소비자의 인식이라 관찰할 수 없고, 제17조제5항이 다툼의 입증을 우리에게 지웠다 | 11, 11-7 |
 | R4 | 청약철회 제한 사유 | 전자상거래법 제17조제2항, 시행령 제21조 | **성립 조건을 주문 항목에 박제한다**(`V32`, `Q5`) — 상품에 붙은 것은 「이 사유에 해당할 수 있다」는 표시고, 제한이 서려면 사유마다 다른 조건이 차야 한다<br>`digital_content`(5호) — 제공 개시가 요건. 반품 접수가 `delivered` 에서만 열려 공급이 전제라 성립한다<br>`made_to_order`(시행령 제21조) — **거래마다 별도 고지 + 소비자의 동의**가 요건. `order_item_made_to_order_agreement_check` 가 동의 없는 제한을 막고 주문서가 그 칸을 낸다(`Q6`)<br>**`copyable_media`(4호)는 주문 시점에 성립하지 않는다** — 포장 훼손은 물건이 돌아와야 아는 사실이고 제17조제5항이 입증을 우리에게 지웠다. 접수를 막지 않는다(`OrderActionTest.copyableMediaDoesNotBlock`). 판단은 반품 검수 축(43·44)<br>`OrderStatusService.requireNoRestrictedItem` — **주문 항목의 박제값을 읽는다.** 상품의 지금 값을 읽으면 셀러가 나중에 제한을 켜서 지나간 주문까지 막는다<br>`OrderServiceTest.WithdrawalRestriction` 4개<br>**하자 반품에는 안 걸린다**(`V29`, `11-7`) — 제17조제3항이 「제1항 및 제2항에도 불구하고」로 시작한다<br>`product_withdrawal_reason_check`·`WithdrawalRestrictionReason` — 상품에 붙일 수 있는 표시의 목록<br>**상품 상세가 사유를 사람이 읽는 말로 그린다**(`14b`) | 6, 11, 14b |
 | R5 | 환급 기한 | 전자상거래법 제18조제2항 | `refund.due_at`(`V23`) — 요청할 때 박제한다<br>`RefundService.DUE_BUSINESS_DAYS = 3`·`BusinessCalendar.plusBusinessDays`<br>**기산점이 `seller_order.closed_at` 이다** — 요청 시각에서 세면 늦게 요청할수록 기한이 밀려서 법보다 늦게 줘도 안 늦은 것이 된다<br>**환급 의무자가 우리인 근거는 제18조제2항 첫 문장 괄호다** — 「통신판매업자(**소비자로부터 재화등의 대금을 받은 자** 또는 소비자와 통신판매에 관한 계약을 체결한 자를 포함한다)」. 제20조의2제3항은 「통신판매업자인 통신판매중개자」에게만 걸려서 우리를 직접 지목하지 않는다<br>`refund_pending_due_idx` — 기한 넘긴 미처리 요청을 찾는 자리<br>`RefundServiceTest.freezesTheRefundDeadline` — 저장하고 되읽어도 같은 날인지 본다<br>**「기한 안에 승인」은 제약으로 못 건다** — 막으면 늦은 돈이 영영 안 나간다. 강제는 「넘긴 것이 조회로 드러난다」가 천장이고 그 위는 사람이 본다<br>**넘긴 요청을 실제로 알리는 것은 미착수**(`12a-2`) | 12a-1 |
-| R6 | 거래기록 보존 | 전자상거래법 제6조, 시행령 제6조 | **`shop_order` 에 `deleted_at` 이 없다**(`V16`) — 지울 컬럼이 없는 구조<br>`order_status_history`(`V18`) — 제3항 열람의 근거<br>`OrderQuery` 상세가 이력을 같이 내린다<br>`order_shipping` 분리(`10-1`) — 개인정보만 파기<br>`TransactionPurgeService`<br>**주문 상세가 처리 내역을 그린다**(`15-3`) — 제3항이 요구하는 열람이 이 자리다. 현재 상태만 보여주면 「언제 배송됐나」에 못 답한다<br>`OrderQuery.HistoryEntry` 에 사람 이름이 없다 — 역할이면 충분하고 계정이 파기돼도 이력은 5년 남는다<br>**제6조제1항 후단(보존)을 `15-5` 가 닫았다** — `GET /api/orders/{번호}/record` 가 거래기록을 파일로 내리고 주문 상세에 내려받기 자리가 있다. 화면 안에만 있는 기록은 계정이 막히면 사라진다<br>`OrderRecordTextTest`·`HttpFlowTest` — 파일이 담는 것(항목·금액·결제·배송지·처리 내역·계약 문서)을 못박는다 | 10a, 15-3, 15-5 |
+| R6 | 거래기록 보존 | 전자상거래법 제6조, 시행령 제6조 | **`shop_order` 에 `deleted_at` 이 없다**(`V16`) — 지울 컬럼이 없는 구조<br>`order_status_history`(`V18`) — 제3항 열람의 근거<br>`OrderQuery` 상세가 이력을 같이 내린다<br>`order_shipping` 분리(`10-1`) — 개인정보만 파기<br>`TransactionPurgeService`<br>**주문 상세가 처리 내역을 그린다**(`15-3`) — 제3항이 요구하는 열람이 이 자리다. 현재 상태만 보여주면 「언제 배송됐나」에 못 답한다<br>`OrderQuery.HistoryEntry` 에 사람 이름이 없다 — 역할이면 충분하고 계정이 파기돼도 이력은 5년 남는다<br>**제6조제1항 후단(보존)을 `15-5` 가 닫았다** — `GET /api/orders/{번호}/record` 가 거래기록을 파일로 내리고 주문 상세에 내려받기 자리가 있다. 화면 안에만 있는 기록은 계정이 막히면 사라진다<br>`OrderRecordTextTest`·`HttpFlowTest` — 파일이 담는 것(항목·금액·결제·배송지·처리 내역·계약 문서)을 못박는다<br>**발송 이력도 이 요건에 걸린다**(`D18-1`) — 법이 요구해서 보낸 통지 넷이 시행령 제6조제1항 2·3호라 **5년**이다. 개인화 본문만 6개월로 떼어 낸다(`notification-rules.md`). 표를 만드는 것은 `54` | 10a, 15-3, 15-5, 54 |
 | R7 | 개인정보 수집 동의 | 개인정보법 제15조·제22조 | `consent_item` 의 `purpose`·`collected_items`·`retention_period`·`refusal_disadvantage`<br>`consent_item_notice_check` — **넷을 통째로 요구한다.** 하나만 채우는 것을 막는다<br>`consent_item_code_version_key` — 고지가 바뀌면 새 판<br>`user_consent` append-only, `current_consent` 뷰<br>`SignupService` — 계정·역할·동의가 한 트랜잭션<br>`ConsentSchemaTest` | 5 |
 | R8 | 셀러에게 주문자 정보 제공 | 개인정보법 제17조 | `permission_field_group`·`role_permission_field`(`V6`)<br>`Decision.visibleFieldGroups`<br>`FieldVisibilityTest` | 4, 8 |
 | R9 | 개인정보 파기 | 개인정보법 제21조, 표준 개인정보 보호지침 제10조 | `AccountPurgeService.GRACE_DAYS = 5`(`Q10`) — 제21조제1항의 「지체 없이」를 **표준 개인정보 보호지침 제10조제1항**이 근무일 기준 5일로 본다. **시행령 제16조는 파기 방법을 정하지 기한을 정하지 않는다**<br>**30일이었던 것을 줄였다** — 그 근거가 「실수로 탈퇴한 사람의 복구」였고, 제21조제1항 단서가 인정하는 것은 **「다른 법령에 따라 보존하여야 하는 경우」 하나뿐**이라 법령 근거가 아니었다<br>`V34` — 방침을 새 판으로 개정했다. 시행일이 이레 뒤인데 코드는 즉시 5일이다(덜 보관하는 방향이라 고지가 늦어도 이용자에게 불리하지 않다)<br>`app_user_email_key` 부분 인덱스(`where email is not null`) — 파기해도 유니크가 안 깨진다<br>`TransactionPurgeService`<br>`app_user.deleted_at`(`V2`) — 수명과 업무 상태를 가른다<br>**제21조제3항의 분리 저장을 `5i-1` 이 했다** — 5년 사는 표에서 사람 정보를 뺐다: 배송지는 `order_shipping`(`10-1`), 카드 정보는 `payment_card`(`V39`)고 둘 다 거래 종료 + 6개월에 사라진다. 카드가 사라져도 금액·승인번호·수단이 남아 대금결제 기록은 5년을 채운다<br>`RetainedColumnsTest` — 5년 보존 표의 컬럼 목록을 못박는다. 새 컬럼이 생기면 거래 사실인지 사람 정보인지 고르게 만든다<br>**자유 텍스트 넷은 판단이 남았다**(`5i-2`) — 사람이 쓴 글이라 개인정보가 섞일 수 있다 | 10a, 5i-1 |
@@ -485,7 +485,20 @@
 그래서 결제 층과 배송 층을 한 테이블에 받았다 — 나누면 화면마다 둘을 이어 붙여야 하고
 한쪽을 빠뜨리면 이력이 반만 보인다.
 
-조문 번호는 미검증이다. 이 저장소의 다른 조문 인용과 같은 취급을 한다.
+### 발송 이력도 거래기록이다
+
+**법이 요구해서 보낸 통지의 이력은 그 거래에 관한 기록이다.** 시행령 제6조제1항의 호에 붙여 보면
+거래 통지 넷이 전부 5년 칸에 들어간다 — 청약 접수 확인(제14조제1항)이 2호, 대금 지급(제8조제3항)과
+공급 곤란(제15조제2항)이 3호, 환급(제18조제3항 단서)이 2호·3호다.
+
+`D18` 이 처음 적은 3년은 감사 로그와 맞춘 우리 판단이었고 **4호(불만·분쟁처리) 칸의 값**이다.
+통지는 그 칸이 아니라서 5년으로 올렸다(`D18-1`). 개인화 본문만 6개월로 떼어 낸 것은
+제6조제2항이 보존을 **재량**으로 둔 자리를 R9 쪽으로 쓴 것이고, 근거는 `notification-rules.md` 에 있다.
+
+**광고성 정보 발송 이력은 1호(표시·광고) 6개월이다.** 같은 표에 담기지만 칸이 다르다.
+
+법 제6조와 시행령 제6조제1항 각 호는 `D18-1` 에서 원문으로 확인했다.
+이 절의 다른 조문 번호는 미검증이고, 이 저장소의 다른 조문 인용과 같은 취급을 한다.
 
 ## R7. 개인정보 수집 동의
 
