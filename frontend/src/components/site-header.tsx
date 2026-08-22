@@ -32,6 +32,18 @@ function canHandleOrders(me: Me): boolean {
 }
 
 /**
+ * 내 상품으로 갈 수 있나.
+ *
+ * <p><b>주문 권한과 따로 본다.</b> 둘이 같은 역할에 붙어 있다고 해서 한 검사로 묶으면,
+ * 역할을 쪼갤 때 안 보이는 링크와 보이는 화면이 어긋난다 2014 판정의 근거는 역할이 아니라 권한이다.
+ */
+function canManageProducts(me: Me): boolean {
+  return me.permissions.some(
+    (granted) => granted.resource === "product" && granted.action === "update",
+  );
+}
+
+/**
  * 모든 화면이 쓰는 머리. 어디에 있든 상품·장바구니·계정으로 갈 수 있다.
  *
  * <p><b>로그인 여부로 항목이 갈린다</b>(`13b`). 그전까지는 누구에게나 「로그인」이 떠서,
@@ -75,6 +87,9 @@ export async function SiteHeader() {
           */}
           {me && canHandleOrders(me) ? (
             <HeaderLink href="/seller/orders">받은 주문</HeaderLink>
+          ) : null}
+          {me && canManageProducts(me) ? (
+            <HeaderLink href="/seller/products">내 상품</HeaderLink>
           ) : null}
         </nav>
 
