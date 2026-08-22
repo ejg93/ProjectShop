@@ -41,6 +41,10 @@ class NotificationSendTest extends PostgresTestBase {
 
     @BeforeEach
     void setUp() {
+        // `V44` 가 진짜 문안을 시드한다. 여기서는 검사할 판을 직접 세우므로 먼저 비운다 —
+        // 코드와 판 번호가 유니크라 같은 코드로 1판을 또 넣으면 부딪친다.
+        jdbc.sql("delete from notification_template").update();
+
         AuthFixture fixture = new AuthFixture(jdbc);
         userId = fixture.insertUser("send-buyer@test.local", "받는이");
         orderId = insertOrder();
