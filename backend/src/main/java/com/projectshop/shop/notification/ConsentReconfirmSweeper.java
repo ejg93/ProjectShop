@@ -29,9 +29,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class ConsentReconfirmSweeper {
 
-    /** 시행령 제62조의3 — 수신동의를 받은 날부터 2년마다 */
-    private static final int RECONFIRM_YEARS = 2;
-
     /** 업무 판단은 KST 다(`D10`) */
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
@@ -66,7 +63,7 @@ public class ConsentReconfirmSweeper {
      * @return 실제로 보낸 수
      */
     public int sweep(OffsetDateTime baseline) {
-        OffsetDateTime due = baseline.minusYears(RECONFIRM_YEARS);
+        OffsetDateTime due = baseline.minusYears(AdvertisingGate.RECONFIRM_YEARS);
         int sent = 0;
 
         for (Overdue target : findOverdue(due)) {

@@ -42,8 +42,14 @@ public class AdvertisingGate {
     /** 야간 수신의 별도 동의(`V11`). 제50조제3항이 제1항과 <b>따로</b> 받으라고 한 것이다 */
     private static final String MARKETING_NIGHT = "marketing_night";
 
-    /** 시행령 제62조의3 — 수신동의를 받은 날부터 2년마다 확인 */
-    private static final int RECONFIRM_YEARS = 2;
+    /**
+     * 시행령 제62조의3 — 수신동의를 받은 날부터 2년마다 확인.
+     *
+     * <p><b>{@link ConsentReconfirmSweeper} 가 이 값을 같이 쓴다.</b> 두 곳에 적으면
+     * 시행령이 바뀔 때 한쪽만 고쳐지고, 그러면 <b>배치는 보냈는데 관문은 아직 밀렸다고 보는</b>
+     * 구간이 열린다 — 그 어긋남은 광고가 안 나가는 것으로만 드러나서 원인을 못 찾는다.
+     */
+    static final int RECONFIRM_YEARS = 2;
 
     private final ConsentService consents;
     private final JdbcClient jdbc;
