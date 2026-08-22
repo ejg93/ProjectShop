@@ -81,9 +81,11 @@ public class TransactionPurgeService {
      * @param batchRuns         보존 기간이 지나 지운 배치 회차 이력 수
      * @param notificationBodies 보존 기간이 지나 지운 발송 본문 수. 메타는 남는다
      * @param notifications     보존 기간이 지나 지운 발송 이력 수
+     * @param refundNotes       보존 기간이 지나 지운 환불 사유 글 수. 환불 자체는 남는다
      */
     public record Purged(int shippingAddresses, int paymentCards, int orders,
-            int auditLogs, int batchRuns, int notificationBodies, int notifications) {}
+            int auditLogs, int batchRuns, int notificationBodies, int notifications,
+            int refundNotes) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -102,13 +104,14 @@ public class TransactionPurgeService {
         int orders = deleteExpiredOrders(baseline.minusYears(ORDER_YEARS));
         int auditLogs = deleteExpiredAuditLogs(baseline.minusYears(AUDIT_YEARS));
         int batchRuns = deleteExpiredBatchRuns(baseline.minusYears(BATCH_RUN_YEARS));
+        int refundNotes = deleteExpiredRefundNotes(baseline.minusMonths(SHIPPING_MONTHS));
         int notificationBodies =
                 deleteExpiredNotificationBodies(baseline.minusMonths(NOTIFICATION_BODY_MONTHS));
         int notifications = deleteExpiredNotifications(
                 baseline.minusMonths(ADVERTISEMENT_MONTHS), baseline.minusYears(ORDER_YEARS));
 
         return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns,
-                notificationBodies, notifications);
+                notificationBodies, notifications, refundNotes);
     }
 
     /**
@@ -224,6 +227,33 @@ public class TransactionPurgeService {
      * <p>「보냈다」를 증명하는 것은 메타고, 본문은 그 위에 얹힌 개인정보 사본이다.
      * 문안은 템플릿 판에, 금액은 주문·결제에 남아서 <b>무슨 문안을 언제 누구에게 보냈나</b>는 복원된다.
      */
+    /**
+     * 환불 사유 글을 지운다. <b>환불은 그대로 남는다</b> 2014 그게 표를 가른 이유다(`5i-2`).
+     *
+     * <p>「무슨 사유로 몇 건」은 {@code reason_code} 가 답한다. 사라지는 것은
+     * <b>사람이 쓴 글</b>뿐이고 거기 섞여 들어온 연락처도 같이 간다.
+     *
+     * <p>기간은 배송지·카드와 같은 여섯 달이다. 성격이 같은 개인정보 사본이라 값을 맞추면
+     * 파기가 같은 기준 시각을 쓴다.
+     */
+    private int deleteExpiredRefundNotes(OffsetDateTime closedBefore) {
+        List<Long> orderIds = closedOrderIds(closedBefore);
+        if (orderIds.isEmpty()) {
+            return 0;
+        }
+
+        return jdbc.sql("""
+                        delete from refund_note
+                         where refund_id in (
+                             select r.refund_id from refund r
+                               join seller_order so on so.seller_order_id = r.seller_order_id
+                              where so.order_id in (:ids)
+                         )
+                        """)
+                .param("ids", orderIds)
+                .update();
+    }
+
     private int deleteExpiredNotificationBodies(OffsetDateTime createdBefore) {
         return jdbc.sql("""
                         delete from notification_body

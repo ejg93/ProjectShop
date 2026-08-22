@@ -335,10 +335,18 @@ class RefundSweeperTest extends PostgresTestBase {
                 .param("amount", PRICE)
                 .update();
 
+        // 사유 글은 `refund_note` 로 옮겼다(`5i-2`). 지연 제약 트리거가 커밋 때 그것을 본다.
+        jdbc.sql("""
+                        insert into refund_note (refund_id, decision_reason)
+                        values (:refundId, '증빙이 없다')
+                        """)
+                .param("refundId", refundId)
+                .update();
+
         jdbc.sql("""
                         update refund
                            set status = 'rejected', approved_by_user_id = :userId,
-                               decision_reason = '증빙이 없다', decided_at = now()
+                               decided_at = now()
                          where refund_id = :refundId
                         """)
                 .param("userId", fixture.insertUser("sweeper-admin@test.local", "관리자"))

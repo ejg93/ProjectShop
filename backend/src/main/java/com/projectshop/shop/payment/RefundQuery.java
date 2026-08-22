@@ -168,13 +168,14 @@ public class RefundQuery {
         Row row = jdbc.sql("""
                         select r.refund_id, r.refund_number, so.seller_order_number, o.order_number,
                                r.status, r.reason_code, r.amount, r.shipping_fee_refund, r.delay_interest,
-                               r.due_at, r.gateway_refund_number, r.decision_reason,
+                               r.due_at, r.gateway_refund_number, n.decision_reason,
                                r.decided_at, r.created_at,
                                (r.status = 'requested' and r.due_at < now()) as overdue,
                                o.user_id as buyer_user_id, so.seller_id
                           from refund r
                           join seller_order so on so.seller_order_id = r.seller_order_id
                           join shop_order o    on o.order_id = so.order_id
+                         left join refund_note n on n.refund_id = r.refund_id
                          where r.refund_number = :number
                         """)
                 .param("number", refundNumber)

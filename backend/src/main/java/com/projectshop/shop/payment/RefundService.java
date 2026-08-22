@@ -275,7 +275,6 @@ public class RefundService {
                         update refund
                            set status                = :approved,
                                approved_by_user_id   = :userId,
-                               decision_reason       = :reason,
                                decided_at            = :decidedAt,
                                delay_interest        = :delayInterest,
                                gateway_refund_number = :gatewayNumber,
@@ -286,7 +285,6 @@ public class RefundService {
                 .param("decidedAt", decidedAt)
                 .param("delayInterest", delayInterest)
                 .param("userId", userId)
-                .param("reason", blankToNull(reason))
                 .param("gatewayNumber", result.refundNumber())
                 .param("number", refundNumber)
                 .param("requested", REQUESTED_CODE)
@@ -297,6 +295,7 @@ public class RefundService {
         if (updated == 0) {
             throw new ShopException(ErrorCode.REFUND_ALREADY_DECIDED);
         }
+        writeNote(refundNumber, null, blankToNull(reason));
         return read(refundNumber);
     }
 
@@ -319,14 +318,12 @@ public class RefundService {
                         update refund
                            set status              = :rejected,
                                approved_by_user_id = :userId,
-                               decision_reason     = :reason,
                                decided_at          = now(),
                                updated_at          = now()
                          where refund_number = :number and status = :requested
                         """)
                 .param("rejected", REJECTED_CODE)
                 .param("userId", userId)
-                .param("reason", reason)
                 .param("number", refundNumber)
                 .param("requested", REQUESTED_CODE)
                 .update();
@@ -334,6 +331,7 @@ public class RefundService {
         if (updated == 0) {
             throw new ShopException(ErrorCode.REFUND_ALREADY_DECIDED);
         }
+        writeNote(refundNumber, null, reason);
         return read(refundNumber);
     }
 
@@ -603,13 +601,13 @@ public class RefundService {
 
         OffsetDateTime dueAt = dueAt(bundle, command.reasonCode());
 
-        return ExposedNumber.insertWith(NUMBER_PREFIX, "환불번호", number -> jdbc.sql("""
+        String refundNumber = ExposedNumber.insertWith(NUMBER_PREFIX, "환불번호", number -> jdbc.sql("""
                                 insert into refund (refund_number, seller_order_id, status,
                                                     reason_code, amount, shipping_fee_refund,
                                                     requested_by_type, requested_by_user_id,
-                                                    request_reason, due_at)
+                                                    due_at)
                                 values (:number, :sellerOrderId, :status, :reasonCode, :amount,
-                                        :shippingRefund, :byType, :userId, :reason, :dueAt)
+                                        :shippingRefund, :byType, :userId, :dueAt)
                                 returning refund_number
                                 """)
                 .param("number", number)
@@ -620,10 +618,12 @@ public class RefundService {
                 .param("shippingRefund", shippingRefund)
                 .param("byType", requester.type())
                 .param("userId", requester.userId())
-                .param("reason", blankToNull(command.reason()))
                 .param("dueAt", dueAt)
                 .query(String.class)
                 .single());
+
+        writeNote(refundNumber, blankToNull(command.reason()), null);
+        return refundNumber;
     }
 
     private void insertItems(String refundNumber, List<Portion> portions) {
@@ -645,6 +645,38 @@ public class RefundService {
     }
 
     /** 아직 처리 안 된 요청. 뒤 둘은 판정에 쓴다 */
+    /**
+     * 사유 글을 { refund_note} 에 남긴다.
+     *
+     * <p><b>5년 표에 안 둔다</b>(`5i-2`). 사람이 쓴 글이라 「집 앞에 두세요, 010-…」 같은 것이
+     * 섞여 들어오고, 그것이 섞이면 거래기록이 5년을 사는 동안 그 연락처도 같이 산다.
+     * 표를 가른 것은 { order_shipping}·{ payment_card} 가 쓴 수단과 같다.
+     *
+     * <p><b>빈 글은 행을 안 만든다.</b> 사유가 선택인 자리가 있어서, 빈 행을 만들면
+     * 파기가 셀 대상만 늘고 「사유가 있었나」에 답이 흐려진다.
+     */
+    private void writeNote(String refundNumber, String requestReason, String decisionReason) {
+        if (requestReason == null && decisionReason == null) {
+            return;
+        }
+
+        jdbc.sql("""
+                        insert into refund_note (refund_id, request_reason, decision_reason)
+                        select refund_id, :requestReason, :decisionReason
+                          from refund where refund_number = :number
+                        on conflict (refund_id) do update
+                           set request_reason  = coalesce(excluded.request_reason,
+                                                          refund_note.request_reason),
+                               decision_reason = coalesce(excluded.decision_reason,
+                                                          refund_note.decision_reason),
+                               updated_at      = now()
+                        """)
+                .param("number", refundNumber)
+                .param("requestReason", requestReason)
+                .param("decisionReason", decisionReason)
+                .update();
+    }
+
     /** 지연배상금 이율. 연 100분의 15(전자상거래법 시행령 제21조의3, `D2` R5) */
     private static final BigDecimal DELAY_RATE = new BigDecimal("0.15");
 

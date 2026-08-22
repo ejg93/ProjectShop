@@ -52,8 +52,8 @@ class RetainedColumnsTest extends PostgresTestBase {
                     "occurred_at", "order_id", "order_status_history_id", "reason",
                     "seller_order_id", "to_status"),
             "refund", List.of("amount", "approved_by_user_id", "created_at", "decided_at",
-                    "decision_reason", "delay_interest", "due_at", "gateway_refund_number", "reason_code",
-                    "refund_id", "refund_number", "request_reason", "requested_by_type",
+                    "delay_interest", "due_at", "gateway_refund_number", "reason_code",
+                    "refund_id", "refund_number", "requested_by_type",
                     "requested_by_user_id", "seller_order_id", "shipping_fee_refund", "status",
                     "updated_at"));
 
