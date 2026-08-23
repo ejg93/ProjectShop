@@ -3,7 +3,26 @@
 ## 현재 상태
 
 - **대상**: 멀티 셀러 쇼핑몰 (Next.js + Spring Boot, RBAC + 리소스 스코프, 로컬 전용)
-- **진행중 청크**: 없음
+- **진행중 청크**: **`43`(+`44` 흡수) 반품 스키마·상태머신 — WIP.** `V63__return_request.sql` 만 있고
+  **빌드가 안 도는 상태다.** 검증을 하나도 못 돌렸다.
+
+  | 남은 것 | 무엇 |
+  |---|---|
+  | 기존 테스트 | `V63` 의 `seller_order_return_status_check` 가 **반품 행 없이 묶음만 옮기는 픽스처를 막는다** — `DefectReturnTest`·`OrderActionTest`·`OrderStatusBatchTest`·`OrderStatusServiceTest`·`StaleBundleBatchTest` 다섯이 걸린다. 막는 것이 이 청크의 목적이라 제약이 아니라 픽스처를 고친다 |
+  | `OrderTransitions.java` | 반품 전이표(`Return` enum)와 묶음 전이 둘 — `RETURN_REQUESTED → DELIVERED`(거절 복귀), `CONFIRMED → RETURN_REQUESTED`(제17조제3항 3개월은 구매확정으로 안 끝난다) |
+  | `TransactionPurgeService.java` | `return_pickup`·`return_note` 파기(거래 종료 + 6개월). **없으면 수집이 파기보다 먼저 나온 위반 구간이다**(`D23`) |
+  | 테스트 신설 | 제약 밟기 — 제18조제9·10항의 부담 주체 둘, 시각 사슬, 열린 반품 유니크, 트리거 양방향 |
+  | 문서 | `D2`(소비자기본법 + 소비자분쟁해결기준 **승격** — 「아직 안 적은 법」 표에서 뺀다), `state-machines.md`(D7), `data-lifecycle.md`(D13), `identifier-rules.md`(반품이 `seller_order_number` 를 쓴다) |
+  | `PLAN.md` | `43`·`44` 를 같이 닫고, **`45`(교환)는 안 하는 근거를 적고 닫는다**(사용자 선택) — 전이가 두 배로 늘고 반품+재주문이 같은 결과를 내며 갈래가 반품·재고·정산·배송비 넷에 하나씩 붙는다. `state-machines.md` 「안 다루는 것」의 교환 행이 **「청크 45 를 닫았다」를 가리키게** 한다 |
+
+  **정한 것 둘**(사용자 선택). ① **묶음은 요약, 반품 표가 진행이다** — `seller_order` 는
+  「반품 중인가/끝났나」에만 답하고 수거·입고·검수는 `return_request` 가 든다.
+  어긋남은 **지연 제약 트리거 둘**이 양방향으로 막되 **상태를 옮기지는 않는다**
+  (옮기면 `order_status_history` 없는 전이가 생긴다). ② 교환은 안 다룬다.
+
+  **제18조제9항·제10항이 처음 코드에 닿았다** — 그전에는 약관 문구(`V21`·`V28`)에만 있어서
+  강제 지점 5순위였다. 이제 `return_request_defect_bearer_check` 가 하자 반품의 배송비를
+  소비자에게 물리는 행을 막는다.
 - **다음에 할 것**: **2026-08-23 세션을 여기서 닫았다.** 커밋 안 된 것 없다.
 
   | 청크 | 무엇 | 성격 |
