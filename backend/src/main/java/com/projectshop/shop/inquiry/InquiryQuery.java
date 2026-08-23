@@ -126,9 +126,9 @@ public class InquiryQuery {
      * 정보통신망법 제50조의7 은 <b>게시 중단</b>을 요구하지 작성자에게서 감추라고 하지 않는다.
      */
     public Page<Entry> findMine(long viewerId, int page, int size) {
-        requireScope(viewerId, Target.ownedBy(viewerId), "자기 문의를 볼 권한이 없다");
+        boolean body = bodyVisibleTo(viewerId, Target.ownedBy(viewerId), "자기 문의를 볼 권한이 없다");
 
-        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), page, size);
+        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), page, size, body);
     }
 
     /**
@@ -144,8 +144,13 @@ public class InquiryQuery {
             throw new ShopException(ErrorCode.INQUIRY_FORBIDDEN, "셀러 문의를 볼 권한이 없다");
         }
 
+        // 셀러는 자기 셀러 하나로 물어도 결과가 같다 — 스코프가 seller 라 어느 셀러를 대든
+        // 같은 규칙이 걸린다. 필드 목록도 그 규칙에서 나온다.
+        boolean body = bodyVisibleTo(viewerId, Target.ofSeller(sellers.iterator().next()),
+                "셀러 문의를 볼 권한이 없다");
+
         return find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
-                Map.of("sellers", sellers.toArray(Long[]::new)), page, size);
+                Map.of("sellers", sellers.toArray(Long[]::new)), page, size, body);
     }
 
     /**
@@ -154,7 +159,8 @@ public class InquiryQuery {
      * <p>조건 문자열은 <b>이 파일 안의 리터럴</b>이라 바깥에서 오는 값이 없다(`D23` 「SQL」).
      * 값은 전부 이름 붙은 파라미터로 간다.
      */
-    private Page<Entry> find(String condition, Map<String, Object> params, int page, int size) {
+    private Page<Entry> find(String condition, Map<String, Object> params, int page, int size,
+            boolean body) {
         Paging paging = Paging.of(page, size);
 
         var listing = jdbc.sql("""
@@ -210,10 +216,14 @@ public class InquiryQuery {
      * <p><b>못 봄이 0건이 아니다</b> — 0건과 못 봄이 갈려야 개수로 정보가 안 샌다
      * ({@code RefundQuery} 와 같은 판단).
      */
-    private void requireScope(long viewerId, Target target, String message) {
-        if (!evaluator.decide(viewerId, RESOURCE, READ, target).allowed()) {
+    private boolean bodyVisibleTo(long viewerId, Target target, String message) {
+        var decision = evaluator.decide(viewerId, RESOURCE, READ, target);
+        if (!decision.allowed()) {
             throw new ShopException(ErrorCode.INQUIRY_FORBIDDEN, message);
         }
+        // **판정이 필드 목록까지 답한다**(`4d`). 화면이 지우면 API 로는 보이고,
+        // 여기서 물으면 **그 규칙이 한 곳**이다 — 감사자가 본문을 못 보는 근거가 `V62` 에 있다.
+        return decision.canSee(InquiryFields.BODY);
     }
 
     /** 소속이면서 조회가 열린 셀러. 소속만으로는 안 되고 판정이 열어 줘야 한다 */

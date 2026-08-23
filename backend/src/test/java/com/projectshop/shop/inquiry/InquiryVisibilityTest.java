@@ -42,6 +42,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
     private long strangerId;
     private long sellerOwnerId;
     private long adminId;
+    private long auditorId;
     private long sellerId;
     private long productId;
     private String bundleNumber;
@@ -58,6 +59,9 @@ class InquiryVisibilityTest extends PostgresTestBase {
 
         adminId = fixture.insertUser("inquiry-admin@test.local", "관리자");
         fixture.grantGlobal(adminId, "admin");
+
+        auditorId = fixture.insertUser("inquiry-auditor@test.local", "감사자");
+        fixture.grantGlobal(auditorId, "auditor");
 
         sellerId = fixture.insertSeller("s-qna", "문의셀러");
         fixture.verifySeller(sellerId);
@@ -298,6 +302,65 @@ class InquiryVisibilityTest extends PostgresTestBase {
      * <b>불만·분쟁처리 기록</b>(3년)이라, 단순 문의까지 거기 쌓이면
      * 「분쟁이 몇 건이었나」에 답을 못 한다.
      */
+    /**
+     * 감사자가 <b>고객이 쓴 글</b>까지 보나(청크 25).
+     *
+     * <p>{@code 59} 가 입구를 열면서 축에 `D16` 을 걸어 뒀는데 <b>본문이 누구에게 나가는지를
+     * 안 봤다</b>(점검 G 가 찾았다). {@code inquiry.question} 은 자유 텍스트 2000자고
+     * 사람이 직접 쓴다 — <b>글 안에 연락처가 섞여 들어온다.</b>
+     *
+     * <p><b>감사는 「누가 언제 무엇을 처리했나」지 고객이 쓴 글이 아니다</b> —
+     * 개인정보보호법 제3조제1항의 최소처리다. {@code V6} 가 감사자에게서 {@code payment} 그룹을
+     * 닫은 것과 같은 논리다.
+     */
+    @Nested
+    @DisplayName("본문은")
+    class Body {
+
+        @Test
+        @DisplayName("감사자에게 안 나간다")
+        void isHiddenFromTheAuditor() {
+            ask(askerId, true);
+
+            assertThat(query.findMine(auditorId, 0, 20).items()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("셀러는 답하려고 읽는다")
+        void staysVisibleToTheSellerWhoAnswers() {
+            ask(askerId, false);
+
+            assertThat(query.findForSeller(sellerOwnerId, 0, 20).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::question)
+                    .as("답을 못 쓰면 문의가 성립을 안 한다")
+                    .isNotNull();
+        }
+
+        @Test
+        @DisplayName("낸 사람은 자기 글을 본다")
+        void staysVisibleToTheAuthor() {
+            ask(askerId, false);
+
+            assertThat(query.findMine(askerId, 0, 20).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::question)
+                    .isNotNull();
+        }
+
+        @Test
+        @DisplayName("공개 Q&A 는 그대로 보인다")
+        void staysVisibleOnThePublicListing() {
+            ask(askerId, true);
+
+            assertThat(query.findPublic(productId, 0, 20).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.PublicEntry::question)
+                    .as("공개로 낸 글이라 가릴 것이 없다")
+                    .isNotNull();
+        }
+    }
+
     @Nested
     @DisplayName("주문 문의는")
     class OrderInquiry {
