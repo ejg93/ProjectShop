@@ -77,7 +77,7 @@ public class InquiryController {
     public ResponseEntity<InquiryCreated> create(@AuthenticationPrincipal ShopUser user,
             @Valid @RequestBody NewInquiryRequest request) {
         String number = inquiries.create(user.id(), new InquiryService.NewInquiry(
-                storedKind(request.kind()),
+                storedEnum(request.kind()),
                 request.productId(),
                 request.question(),
                 request.isPublic() == null || request.isPublic()));
@@ -100,6 +100,28 @@ public class InquiryController {
     public ResponseEntity<Void> answer(@AuthenticationPrincipal ShopUser user,
             @PathVariable String inquiryNumber, @Valid @RequestBody AnswerRequest request) {
         inquiries.answer(user.id(), inquiryNumber, request.answer());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 내릴 사유.
+     *
+     * @param reason {@code ADVERTISEMENT}(정보통신망법 제50조의7) 또는 {@code ABUSE}(약관)
+     */
+    public record BlockRequest(
+            @NotBlank @Pattern(regexp = "ADVERTISEMENT|ABUSE") String reason) {}
+
+    /**
+     * 게시를 중단한다(청크 59-2). <b>관리자만이다</b>(`V58`).
+     *
+     * <p>제50조의7 의 의무자가 운영자라 그 판단도 운영자가 한다 — 셀러에게 열면
+     * <b>불리한 질문을 광고로 몰아 내리는 자리</b>가 같이 생기고, 구매 전 문의라
+     * 그 질문을 못 보게 되는 사람은 살까 말까 하는 사람이다.
+     */
+    @PostMapping("/api/inquiries/{inquiryNumber}/block")
+    public ResponseEntity<Void> block(@AuthenticationPrincipal ShopUser user,
+            @PathVariable String inquiryNumber, @Valid @RequestBody BlockRequest request) {
+        inquiries.block(user.id(), inquiryNumber, storedEnum(request.reason()));
         return ResponseEntity.noContent().build();
     }
 
@@ -132,8 +154,8 @@ public class InquiryController {
         return query.findForSeller(user.id(), page, size);
     }
 
-    /** 열거값은 API 가 대문자고 저장은 소문자다(`D5`) */
-    private static String storedKind(String kind) {
+    /** 열거값은 API 가 대문자고 저장은 소문자다(`D5`). 종류와 사유가 같은 규칙을 쓴다 */
+    private static String storedEnum(String kind) {
         return kind.toLowerCase(java.util.Locale.ROOT);
     }
 }

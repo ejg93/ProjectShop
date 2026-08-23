@@ -210,6 +210,90 @@ class InquiryVisibilityTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * <b>내리는 경로가 있나</b>(청크 59-2).
+     *
+     * <p>1차 마무리(2026-08-23)가 찾은 자리다 — `58` 이 자리를 만들고 `59` 가 조회에서
+     * 빼는 것까지 했는데 <b>그 상태로 옮기는 코드가 없어서 `psql` 로만 내려졌다.</b>
+     * 요건표에는 「내릴 수단이 생겼다」고 적혀 있었다.
+     *
+     * <p><b>여기서 보는 것은 「내린 글이 목록에서 빠지는 것」이 아니다.</b> 그것은
+     * {@link PublicListing#hidesBlockedPosts} 가 이미 고정했고 <b>그래서 이 구멍이
+     * 초록인 채로 남았다</b> — 그 테스트는 SQL 로 상태를 밀어 넣고 시작했다.
+     */
+    @Nested
+    @DisplayName("게시 중단은")
+    class Blocking {
+
+        @Test
+        @DisplayName("관리자가 내린다")
+        void isDoneByAnAdmin() {
+            String number = ask(askerId, true);
+
+            assertThatCode(() -> inquiries.block(adminId, number, "advertisement"))
+                    .doesNotThrowAnyException();
+            assertThat(query.findPublic(productId, 0, 20).items())
+                    .as("제50조의7 이 요구하는 것은 게시 중단이다")
+                    .isEmpty();
+        }
+
+        /**
+         * 조문의 의무자가 운영자라 그 판단도 운영자가 한다(사용자 선택).
+         * 셀러에게 열면 <b>불리한 질문을 광고로 몰아 내리는 자리</b>가 같이 생기고,
+         * 내린 근거가 {@code advertisement} 로만 남아서 사후에 갈라내기도 어렵다.
+         */
+        @Test
+        @DisplayName("셀러는 자기 상품 것도 못 내린다")
+        void refusesTheSellerEvenOnOwnProduct() {
+            String number = ask(askerId, true);
+
+            assertThatThrownBy(() -> inquiries.block(sellerOwnerId, number, "advertisement"))
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("낸 사람은 못 내린다")
+        void refusesTheAuthor() {
+            String number = ask(askerId, true);
+
+            assertThatThrownBy(() -> inquiries.block(askerId, number, "abuse"))
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("답이 나간 글도 내린다")
+        void blocksAnAnsweredPost() {
+            String number = ask(askerId, true);
+            inquiries.answer(sellerOwnerId, number, "내일 발송합니다");
+
+            assertThatCode(() -> inquiries.block(adminId, number, "advertisement"))
+                    .as("광고에 답을 달았다고 그 광고가 남을 이유가 없다")
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("두 번은 못 내린다")
+        void cannotBeBlockedTwice() {
+            String number = ask(askerId, true);
+            inquiries.block(adminId, number, "advertisement");
+
+            assertThatThrownBy(() -> inquiries.block(adminId, number, "abuse"))
+                    .as("조건부 UPDATE 라 상태가 곧 판정이다")
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("낸 사람에게는 그대로 보인다")
+        void staysVisibleToTheAuthor() {
+            String number = ask(askerId, true);
+            inquiries.block(adminId, number, "advertisement");
+
+            assertThat(query.findMine(askerId, 0, 20).items())
+                    .as("제50조의7 은 게시 중단을 요구하지 작성자에게서 감추라고 하지 않는다")
+                    .hasSize(1);
+        }
+    }
+
     @Nested
     @DisplayName("답변은")
     class Answering {

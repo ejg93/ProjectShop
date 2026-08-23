@@ -41,9 +41,14 @@ public class InquiryService {
     static final String STATUS_ANSWERED = "answered";
     static final String STATUS_BLOCKED = "blocked";
 
+    /** {@code inquiry.blocked_reason} 에 들어가는 값(`V53`) */
+    static final String REASON_ADVERTISEMENT = "advertisement";
+    static final String REASON_ABUSE = "abuse";
+
     private static final String RESOURCE = "inquiry";
     private static final String CREATE = "create";
     private static final String ANSWER = "answer";
+    private static final String BLOCK = "block";
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
@@ -135,6 +140,50 @@ public class InquiryService {
         if (updated == 0) {
             throw new ShopException(ErrorCode.INQUIRY_ALREADY_CLOSED,
                     "이미 " + row.status() + " 인 문의다");
+        }
+    }
+
+    /**
+     * 게시를 중단한다(청크 59-2).
+     *
+     * <p><b>정보통신망법 제50조의7 이 요구하는 것은 게시 중단이다</b>(`D2` R34).
+     * {@code 58} 이 자리를 만들고 {@code 59} 가 조회에서 빼는 것까지 했는데,
+     * <b>그 상태로 옮기는 코드가 없어서 `psql` 로만 내려졌다.</b> 여기가 그 자리다.
+     *
+     * <p><b>관리자만 부른다</b>(사용자 선택, `V58`). 조문의 의무자가 운영자라 그 판단도
+     * 운영자가 한다 — 셀러에게 넘기면 우리 의무의 이행 여부를 남이 정하고,
+     * 더 나쁜 것은 <b>불리한 질문을 광고로 몰아 내리는 자리</b>가 같이 생기는 것이다.
+     *
+     * <p><b>낸 사람에게는 그대로 보인다</b>({@code InquiryQuery.findMine}) — 제50조의7 은
+     * 게시 중단을 요구하지 작성자에게서 감추라고 하지 않는다.
+     *
+     * @param reason {@code advertisement}(제50조의7) 또는 {@code abuse}(약관).
+     *               <b>값으로 갈라 둔다</b> — 법이 근거인 것과 우리 판단이 코드에서 안 갈리면
+     *               개정될 때 무엇을 고쳐야 하는지 모른다
+     */
+    @Transactional
+    public void block(long userId, String inquiryNumber, String reason) {
+        Row row = find(inquiryNumber);
+
+        if (!evaluator.decide(userId, RESOURCE, BLOCK, row.target()).allowed()) {
+            throw new ShopException(ErrorCode.INQUIRY_FORBIDDEN, "게시를 중단할 권한이 없다");
+        }
+
+        // 조건부 UPDATE 가 곧 판정이다 — 읽고 나서 쓰는 사이를 우리가 못 잠근다.
+        // 이미 답이 나간 글도 내릴 수 있다: 광고에 답을 달았다고 그 광고가 남을 이유가 없다.
+        int updated = jdbc.sql("""
+                        update inquiry
+                           set status = :blocked, blocked_at = now(), blocked_reason = :reason,
+                               updated_at = now()
+                         where inquiry_number = :number and status <> :blocked
+                        """)
+                .param("blocked", STATUS_BLOCKED)
+                .param("reason", reason)
+                .param("number", inquiryNumber)
+                .update();
+
+        if (updated == 0) {
+            throw new ShopException(ErrorCode.INQUIRY_ALREADY_CLOSED, "이미 내려간 게시물이다");
         }
     }
 
