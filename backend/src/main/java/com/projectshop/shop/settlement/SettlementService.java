@@ -192,6 +192,11 @@ public class SettlementService {
      * <p><b>수수료를 다시 계산하지 않는다</b>(청크 18) — 주문 시점에 박제된
      * {@code order_item.commission_amount} 를 그대로 읽는다. 요율을 조인해서 정산 때 계산하면
      * 요율을 바꾼 순간 과거 주문의 정산액이 같이 바뀐다.
+     *
+     * <p><b>근거도 같이 옮긴다</b>(청크 18). 요율과 기준 금액이 정산 행에 있어야 셀러가
+     * 「무엇에 몇 퍼센트냐」를 정산서만으로 확인한다 — 주문 표를 다시 뒤져 계산하면
+     * 그 계산이 마감 때와 같다는 보장이 없다. {@code settlement_item_commission_amount_check}
+     * 가 셋이 어긋나는 것을 한 행 안에서 막는다(`V55`).
      */
     private void insertSaleLines(long settlementId, long sellerId,
             LocalDate periodStart, LocalDate periodEnd) {
@@ -217,8 +222,10 @@ public class SettlementService {
         // 수수료가 0 인 항목은 줄이 안 선다. 0 원 줄을 제약이 막는데(`V52`) 그것이 맞다 —
         // 안 뗀 수수료를 0 으로 적으면 정산서가 「뗐는데 0 원」과 「안 뗐다」를 못 가른다.
         jdbc.sql("""
-                        insert into settlement_item (settlement_id, kind, amount, order_item_id)
-                        select :settlementId, 'commission', -oi.commission_amount, oi.order_item_id
+                        insert into settlement_item (settlement_id, kind, amount, order_item_id,
+                                                     commission_bp, commission_base_amount)
+                        select :settlementId, 'commission', -oi.commission_amount, oi.order_item_id,
+                               oi.commission_bp, oi.line_amount
                           from order_item oi
                           join seller_order so on so.seller_order_id = oi.seller_order_id
                          where so.seller_id = :sellerId

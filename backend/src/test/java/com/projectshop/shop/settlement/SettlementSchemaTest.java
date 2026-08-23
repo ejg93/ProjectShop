@@ -301,6 +301,81 @@ class SettlementSchemaTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 수수료 줄이 <b>무엇에 몇 퍼센트를 뗐는지</b>를 들고 있나(청크 18).
+     *
+     * <p>금액만 있으면 셀러가 정산서만으로 대사를 못 하고 주문 표를 다시 뒤져야 하는데,
+     * <b>그때 하는 계산이 마감 때와 같다는 보장이 없다</b> — 그것이 곧 박제가 안 된 상태다.
+     */
+    @Nested
+    @DisplayName("수수료 근거는")
+    class CommissionBasis {
+
+        @Test
+        @DisplayName("요율과 기준 금액이 같이 찬다")
+        void comesWithRateAndBase() {
+            long settlementId = insertSettlement(-COMMISSION, -COMMISSION);
+            insertItem(settlementId, "commission", -COMMISSION, "order_item_id", anOrderItem());
+
+            assertThat(basisOf(settlementId)).isEqualTo(COMMISSION_BP + "/" + PRICE);
+        }
+
+        @Test
+        @DisplayName("근거 없이 수수료 줄이 설 수 없다")
+        void cannotStandWithoutBasis() {
+            long settlementId = insertSettlement(-COMMISSION, -COMMISSION);
+
+            assertThatThrownBy(() -> jdbc.sql("""
+                            insert into settlement_item (settlement_id, kind, amount, order_item_id)
+                            values (:id, 'commission', :amount, :orderItemId)
+                            """)
+                    .param("id", settlementId)
+                    .param("amount", -COMMISSION)
+                    .param("orderItemId", anOrderItem())
+                    .update())
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("기준액 × 요율이 금액과 다르면 안 들어간다")
+        void rejectsAnAmountThatDoesNotMatchTheRate() {
+            long settlementId = insertSettlement(-COMMISSION, -COMMISSION);
+
+            // 10,000 × 10% = 1,000 인데 1,001 을 뗀 것으로 적는다.
+            assertThatThrownBy(() -> insertBasisRaw(settlementId, -(COMMISSION + 1),
+                    COMMISSION_BP, PRICE))
+                    .as("앱이 정산 시점에 다시 계산하는 경로를 안 만든다")
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("원 미만은 버린다 — 반올림이 아니다")
+        void truncatesTowardZero() {
+            long settlementId = insertSettlement(-10_000, -10_000);
+
+            // 100,005 × 10% = 10,000.5. 반올림이면 10,001 이고 버림이면 10,000 이다.
+            assertThatCode(() -> insertBasisRaw(settlementId, -10_000, COMMISSION_BP, 100_005))
+                    .as("order_item_commission_amount_check 와 같은 절사 규칙이다(D8)")
+                    .doesNotThrowAnyException();
+        }
+
+        /**
+         * {@code refund_item.commission_refund} 는 원 수수료를 수량으로 나눈 값인데
+         * <b>마지막 수량에 절사 잔액을 몰아 준다</b>(`money-invariants`). 그래서
+         * 「기준액 × 요율」과 안 맞고 등식은 물론 상한으로도 못 쓴다 —
+         * 환급의 근거는 요율 재계산이 아니라 <b>원 수수료 금액</b>이다.
+         */
+        @Test
+        @DisplayName("환급 줄에는 안 붙는다")
+        void isAbsentOnReversals() {
+            long settlementId = insertSettlement(COMMISSION, 0);
+
+            assertThatThrownBy(() ->
+                    insertReversalBasisRaw(settlementId, COMMISSION, COMMISSION_BP, PRICE))
+                    .isInstanceOf(DataAccessException.class);
+        }
+    }
+
     @Nested
     @DisplayName("주기는")
     class Cycles {
@@ -373,15 +448,100 @@ class SettlementSchemaTest extends PostgresTestBase {
      */
     private void insertItem(long settlementId, String kind, long amount,
             String sourceColumn, long sourceId) {
+        // 수수료 줄에만 근거가 붙는다(`V55`). 등식이 한 행 안에서 검사되므로
+        // 기준액 × 요율이 금액과 맞아떨어지는 값을 쓴다 — 틀린 값을 넣는 것은 CommissionBasis 다.
+        boolean commission = "commission".equals(kind);
+
         jdbc.sql("""
-                        insert into settlement_item (settlement_id, kind, amount, %s)
-                        values (:id, :kind, :amount, :sourceId)
+                        insert into settlement_item (settlement_id, kind, amount, %s,
+                                                     commission_bp, commission_base_amount)
+                        values (:id, :kind, :amount, :sourceId, :bp, :base)
                         """.formatted(sourceColumn))
                 .param("id", settlementId)
                 .param("kind", kind)
                 .param("amount", amount)
                 .param("sourceId", sourceId)
+                .param("bp", commission ? COMMISSION_BP : null)
+                .param("base", commission ? PRICE : null)
                 .update();
+    }
+
+    /** 근거를 한 문자열로 읽는다. 둘이 같이 차는지가 관심사라 따로 물을 것이 없다 */
+    private String basisOf(long settlementId) {
+        return jdbc.sql("""
+                        select commission_bp || '/' || commission_base_amount
+                          from settlement_item
+                         where settlement_id = :id and kind = 'commission'
+                        """)
+                .param("id", settlementId)
+                .query(String.class)
+                .single();
+    }
+
+    /** 근거를 손으로 넣는다. 등식을 지켜서 넣는 것은 {@link #insertItem} 이다 */
+    private void insertBasisRaw(long settlementId, long amount, int bp, long base) {
+        jdbc.sql("""
+                        insert into settlement_item (settlement_id, kind, amount, order_item_id,
+                                                     commission_bp, commission_base_amount)
+                        values (:id, 'commission', :amount, :orderItemId, :bp, :base)
+                        """)
+                .param("id", settlementId)
+                .param("amount", amount)
+                .param("orderItemId", anOrderItem())
+                .param("bp", bp)
+                .param("base", base)
+                .update();
+    }
+
+    /** 환급 줄에 근거를 붙여 본다. 제약이 그것을 막는 것이 관심사다 */
+    private void insertReversalBasisRaw(long settlementId, long amount, int bp, long base) {
+        jdbc.sql("""
+                        insert into settlement_item (settlement_id, kind, amount, refund_item_id,
+                                                     commission_bp, commission_base_amount)
+                        values (:id, 'commission_reversal', :amount, :refundItemId, :bp, :base)
+                        """)
+                .param("id", settlementId)
+                .param("amount", amount)
+                .param("refundItemId", aRefundItem())
+                .param("bp", bp)
+                .param("base", base)
+                .update();
+    }
+
+    /** 정산이 가리킬 실제 환불 항목. 부를 때마다 새 주문과 환불이 선다 */
+    private long aRefundItem() {
+        long orderItemId = anOrderItem();
+        long sellerOrderId = jdbc.sql(
+                        "select seller_order_id from order_item where order_item_id = :id")
+                .param("id", orderItemId)
+                .query(Long.class)
+                .single();
+
+        long refundId = jdbc.sql("""
+                        insert into refund (refund_number, seller_order_id, status, reason_code,
+                                            amount, requested_by_type, requested_by_user_id, due_at)
+                        values (:number, :sellerOrderId, 'requested', 'payment_error', :amount,
+                                'system', null, now())
+                        returning refund_id
+                        """)
+                .param("number", "R-" + OrderFixture.sellerOrderNumber().substring(2))
+                .param("sellerOrderId", sellerOrderId)
+                .param("amount", PRICE)
+                .query(Long.class)
+                .single();
+
+        return jdbc.sql("""
+                        insert into refund_item (refund_id, order_item_id, quantity,
+                                                 amount, commission_refund)
+                        values (:refundId, :orderItemId, 1, :amount, :commission)
+                        returning refund_item_id
+                        """)
+                .param("refundId", refundId)
+                .param("orderItemId", orderItemId)
+                .param("amount", PRICE)
+                .param("commission", COMMISSION)
+                .query(Long.class)
+                .single();
     }
 
     /** {@code query(String.class)} 는 null 을 못 받는다. 비어 있는지는 SQL 로 묻는다 */
