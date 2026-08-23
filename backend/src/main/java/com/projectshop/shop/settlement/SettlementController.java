@@ -1,8 +1,10 @@
 package com.projectshop.shop.settlement;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,9 +28,11 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 public class SettlementController {
 
     private final SettlementQuery query;
+    private final SettlementPayoutService payouts;
 
-    SettlementController(SettlementQuery query) {
+    SettlementController(SettlementQuery query, SettlementPayoutService payouts) {
         this.query = query;
+        this.payouts = payouts;
     }
 
     /** 볼 수 있는 정산서. 셀러는 자기 것, 관리자·감사자는 전체다 */
@@ -49,5 +53,34 @@ public class SettlementController {
     public SettlementQuery.Detail one(@AuthenticationPrincipal ShopUser user,
             @PathVariable String settlementNumber) {
         return query.findOne(user.id(), settlementNumber);
+    }
+
+    /**
+     * 지급을 올린다(청크 21). 반려된 것도 이 입구로 다시 온다.
+     *
+     * <p><b>요청과 승인이 다른 권한이다</b>(`V57`). 하나로 두면 올리는 순간 승인이 같이 열리고,
+     * 그때 남는 것은 자기승인 제약뿐인데 그것은 <b>자기 것만</b> 막는다.
+     */
+    @PostMapping("/{settlementNumber}/payout-request")
+    public ResponseEntity<Void> requestPayout(@AuthenticationPrincipal ShopUser user,
+            @PathVariable String settlementNumber) {
+        payouts.request(user.id(), settlementNumber);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 지급을 승인한다. <b>여기서 돈이 나간 것으로 친다</b> */
+    @PostMapping("/{settlementNumber}/payout")
+    public ResponseEntity<Void> approvePayout(@AuthenticationPrincipal ShopUser user,
+            @PathVariable String settlementNumber) {
+        payouts.approve(user.id(), settlementNumber);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 지급을 반려한다. 돈이 안 나가므로 다시 올릴 수 있다 */
+    @PostMapping("/{settlementNumber}/payout-rejection")
+    public ResponseEntity<Void> rejectPayout(@AuthenticationPrincipal ShopUser user,
+            @PathVariable String settlementNumber) {
+        payouts.reject(user.id(), settlementNumber);
+        return ResponseEntity.noContent().build();
     }
 }

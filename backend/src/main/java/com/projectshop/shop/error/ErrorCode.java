@@ -238,6 +238,23 @@ public enum ErrorCode {
     // 빈 목록을 주면 0건과 못 봄이 안 갈린다.
     SETTLEMENT_FORBIDDEN(HttpStatus.FORBIDDEN, "settlement-forbidden", "정산서를 볼 권한이 없다"),
 
+    // 지급(21)
+    //
+    // 409 다. 이미 처리된 지급을 또 다루려는 것이라 대상 자원의 현재 상태와 부딪힌다 —
+    // REFUND_ALREADY_DECIDED 와 같은 기준이다(RFC 9110 §15.5.10).
+    SETTLEMENT_ALREADY_DECIDED(HttpStatus.CONFLICT, "settlement-already-decided",
+            "이미 처리된 지급이다"),
+
+    // 403 이다. 요청 내용이 잘못된 것도(422) 상태와 부딪히는 것도(409) 아니라
+    // <b>이 사람이라서</b> 안 되는 것이고, 다른 관리자가 부르면 같은 요청이 통과한다.
+    SETTLEMENT_SELF_APPROVAL(HttpStatus.FORBIDDEN, "settlement-self-approval",
+            "자기가 올린 지급은 자기가 승인할 수 없다"),
+
+    // 422 다. 줄 돈이 없는 정산서라 언제 다시 와도 답이 같다.
+    // 지급액이 0 이하면 이월로 넘어가지 지급 대상이 아니다.
+    SETTLEMENT_NOTHING_TO_PAY(HttpStatus.UNPROCESSABLE_CONTENT, "settlement-nothing-to-pay",
+            "지급할 금액이 없는 정산서다"),
+
     ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "endpoint-not-found", "그런 경로가 없다");
 
     /**
