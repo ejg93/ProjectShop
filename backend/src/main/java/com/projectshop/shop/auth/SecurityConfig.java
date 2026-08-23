@@ -98,6 +98,12 @@ public class SecurityConfig {
                         // 셀러 신원은 법이 청약 이전에 제공하라고 한 값이라(`D2` R1) 비로그인이 본다.
                         // 여기도 GET 만 연다 — 이 경로에 쓰기가 생기는 날 조용히 같이 열리지 않게.
                         .requestMatchers(HttpMethod.GET, "/api/sellers/*").permitAll()
+                        // 상품의 공개 Q&A(청크 59). 구매 전 문의라 살까 말까 하는 사람이
+                        // 읽는 자리고, 로그인을 요구하면 그 자리가 닫힌다.
+                        //
+                        // **비공개와 내려간 게시물은 이 경로로 아예 안 뽑힌다** — 여는 것이
+                        // 조회 조건이 아니라 인증뿐이라, 조건은 `InquiryQuery.findPublic` 이 쥔다.
+                        .requestMatchers(HttpMethod.GET, "/api/products/*/inquiries").permitAll()
                         .anyRequest().authenticated())
 
                 // 폼 로그인과 HTTP Basic 을 끈다.

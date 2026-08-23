@@ -212,6 +212,22 @@ public enum ErrorCode {
             "그 경로에 쓸 수 없는 메서드다"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported-media-type",
             "다룰 수 없는 미디어 타입이다"),
+    // 문의(59)
+    //
+    // 못 보는 것도 404 다. 403 을 주면 문의번호를 훑어서 실재하는 비공개 문의의 지도를
+    // 그릴 수 있고, 그것이 곧 「어느 상품에 비공개 문의가 몇 건 있나」다
+    // (`RefundQuery` 와 같은 판단, `D5` 의 자원별 표).
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "inquiry-not-found", "그런 문의가 없다"),
+
+    // 403 이다. 답할 권한이 없는 것이라 <b>이 사람이라서</b> 안 되는 것이고,
+    // 다른 사람이 부르면 같은 요청이 통과한다(REFUND_SELF_APPROVAL 과 같은 기준).
+    INQUIRY_FORBIDDEN(HttpStatus.FORBIDDEN, "inquiry-forbidden", "문의를 다룰 권한이 없다"),
+
+    // 409 다. 이미 답한 문의에 또 답하려는 것이라 대상 자원의 현재 상태와 부딪힌다.
+    // 내려간 게시물에 답하려는 것도 여기로 온다 — 답이 안 보이는 자리에 답을 쓰는 것이다.
+    INQUIRY_ALREADY_CLOSED(HttpStatus.CONFLICT, "inquiry-already-closed",
+            "이미 처리된 문의다"),
+
     ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "endpoint-not-found", "그런 경로가 없다");
 
     /**
