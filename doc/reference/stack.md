@@ -553,6 +553,26 @@ SQLSTATE 를 직접 보는 쪽이 확실하다 — `OrderConcurrencyTest` 가 �
 `항목이 없는 셀러 주문` 으로 정리가 통째로 실패한다.
 
 정리를 `TransactionTemplate` 하나로 묶어서 다 지운 뒤에 검사가 돌게 한다.
+### 지연 제약 트리거는 롤백하는 테스트에서 한 번도 안 돈다
+
+`deferrable initially deferred` 는 **커밋 시점에** 검사한다. Spring 테스트는 기본이 롤백이라
+커밋이 없고, 그래서 그 트리거가 도는 순간이 오지 않는다.
+
+`V63` 이 그것을 드러냈다. `seller_order_return_status_check`(반품 행 없이 묶음만 반품 상태로
+옮기는 것을 막는다)를 넣고 빌드를 돌렸는데, **막힐 것이라 예상한 기존 픽스처 다섯이 전부 통과**했다.
+운영 경로는 커밋하므로 막힌다 — **테스트만 그것을 못 본다.**
+
+검사하려면 트랜잭션 안에서 `set constraints all immediate` 를 부른다. 그 자리에서 예외가 난다.
+
+```java
+jdbc.sql("set constraints all immediate").update();
+```
+
+같은 성질인 것이 이미 넷 더 있다 — `refund_requires_rejection_reason`(`V48`),
+`shop_order_amounts_check`·`seller_order_amounts_check`·`order_item_amounts_check`(`V16`),
+`idempotency_key_response_check`(`V17`), `refund_amounts_check`(`V23`).
+**「초록이니까 그 제약이 돈다」가 이 넷에는 성립하지 않는다.**
+
 
 ### 한글이 든 본문을 `curl -d` 로 보내면 400 이 난다
 

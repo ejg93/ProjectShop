@@ -114,13 +114,21 @@ create table return_request (
     --
     -- 앞 단계의 시각이 있어야 다음 상태로 간다는 것만 본다. 뒤 단계의 시각이
     -- 미리 차 있는 것은 아래 return_request_future_timestamps_check 가 막는다.
+    --
+    -- **입고를 요구하는 것은 승인뿐이다.** 환급 기산점이 「반환받은 날」이라(제18조제2항)
+    -- 물건이 안 왔는데 승인하면 그 날이 없는 채로 3영업일이 흐른다.
+    --
+    -- **거절에는 안 건다.** 청약철회 기간이 지난 단순 변심처럼 **물건을 받기 전에 거절하는 것이
+    -- 정상 경로**고, 그때 수거·입고 시각은 없는 것이 사실이다. 제18조제2항은 환급 의무의
+    -- 기산점을 정하는 조문이라 환급이 없는 거절에는 걸릴 자리가 아니다(마무리 대조).
     constraint return_request_timeline_check
         check (case status
                    when 'requested' then true
                    when 'picked_up'  then picked_up_at is not null
                    when 'received'   then received_at is not null
                    when 'inspected'  then received_at is not null and inspected_at is not null
-                   else received_at is not null and decided_at is not null
+                   when 'approved'   then received_at is not null and decided_at is not null
+                   else decided_at is not null
                end),
 
     -- 아직 안 지난 단계의 시각이 차 있으면 막는다.
