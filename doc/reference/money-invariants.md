@@ -78,8 +78,8 @@
 | 등식 | 강제 |
 |---|---|
 | `settlement.payout_amount = sum(settlement_item.amount)` | 지연 트리거(`V52`) |
-| `sum(settlement_item.amount where 종류 = 상품대금) = 구매확정 주문 항목 금액 합` | 테스트 — 청크 19 |
-| `sum(settlement_item.amount where 종류 = 수수료) = 그 항목들의 박제된 수수료 합` | 테스트 — 청크 19 |
+| `sum(settlement_item.amount where 종류 = 상품대금) = 구매확정 주문 항목 금액 합` | `SettlementCloseBatchTest`(청크 19) |
+| `sum(settlement_item.amount where 종류 = 수수료) = 그 항목들의 박제된 수수료 합` | `SettlementCloseBatchTest`(청크 19) |
 | `settlement.carried_over = least(0, payout_amount)` | **`check`**(`V52`) |
 | `(셀러, 정산 주기)` 조합은 하나 | `unique`(`V52`) |
 | **근거 하나는 평생 한 번만 실린다** | 부분 `unique`(`V52`) |

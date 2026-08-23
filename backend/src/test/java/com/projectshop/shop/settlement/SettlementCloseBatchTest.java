@@ -137,6 +137,32 @@ class SettlementCloseBatchTest extends PostgresTestBase {
             assertThat(payoutDate()).isEqualTo(LocalDate.of(2026, 8, 10));
         }
 
+        /**
+         * `money-invariants.md` 가 남겨 둔 등식 둘이다 — 상품대금 줄의 합이 구매확정 주문 항목의
+         * 금액 합과 같고, 수수료 줄의 합이 <b>그 항목들에 박제된 수수료 합</b>과 같다.
+         *
+         * <p>지급액 하나만 보면 두 종류가 서로의 오차를 상쇄해도 초록이 된다.
+         * <b>종류별로 갈라서 원본과 대조해야</b> 어느 쪽이 틀렸는지가 드러난다.
+         *
+         * <p>부호를 감안해서 센다. 우리가 떼는 것은 음수라 절댓값이 박제값과 같다.
+         */
+        @Test
+        @DisplayName("종류별 합이 원본과 같다")
+        void matchesTheSourceAmountsPerKind() {
+            confirmedOrder(PERIOD_END);
+            confirmedOrder(PERIOD_END.minusDays(3));
+            prerequisiteSucceeded(PERIOD_END);
+
+            batch.close(PERIOD_END);
+
+            assertThat(lineSum("sale"))
+                    .as("상품대금 합이 구매확정 주문 항목의 금액 합과 같다")
+                    .isEqualTo(confirmedSourceSum("line_amount"));
+            assertThat(-lineSum("commission"))
+                    .as("수수료를 정산 때 다시 계산하지 않는다 — 박제값 합과 같아야 한다")
+                    .isEqualTo(confirmedSourceSum("commission_amount"));
+        }
+
         @Test
         @DisplayName("구매확정이 아니면 안 담는다")
         void ignoresBundlesThatAreNotConfirmed() {
@@ -294,6 +320,38 @@ class SettlementCloseBatchTest extends PostgresTestBase {
                         """.formatted(column))
                 .param("id", sellerId)
                 .param("periodEnd", periodEnd)
+                .query(Long.class)
+                .single();
+    }
+
+    /** 그 종류의 줄만 더한다. 부호가 들어 있는 값이다 */
+    private long lineSum(String kind) {
+        return jdbc.sql("""
+                        select coalesce(sum(i.amount), 0) from settlement_item i
+                          join settlement s on s.settlement_id = i.settlement_id
+                         where s.seller_id = :id and i.kind = :kind
+                        """)
+                .param("id", sellerId)
+                .param("kind", kind)
+                .query(Long.class)
+                .single();
+    }
+
+    /**
+     * 정산이 읽은 원본을 정산과 <b>다른 경로로</b> 다시 더한다.
+     *
+     * <p>같은 쿼리를 쓰면 그 쿼리가 틀렸을 때 양쪽이 똑같이 틀려서 대조가 성립을 안 한다.
+     *
+     * <p>컬럼 이름은 이 파일 안의 리터럴이다(`D23` 「SQL」).
+     */
+    private long confirmedSourceSum(String column) {
+        return jdbc.sql("""
+                        select coalesce(sum(oi.%s), 0)
+                          from order_item oi
+                          join seller_order so on so.seller_order_id = oi.seller_order_id
+                         where so.seller_id = :id and so.status = 'confirmed'
+                        """.formatted(column))
+                .param("id", sellerId)
                 .query(Long.class)
                 .single();
     }
