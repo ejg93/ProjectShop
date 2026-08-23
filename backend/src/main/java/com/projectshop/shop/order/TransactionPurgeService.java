@@ -43,6 +43,15 @@ public class TransactionPurgeService {
     private static final int AUDIT_YEARS = 3;
 
     /**
+     * 문의를 두는 기간. <b>법이 정한 값이다</b> — 전자상거래법 시행령 제6조의
+     * 「소비자의 불만 또는 분쟁처리에 관한 기록」 3년(`D2` R6).
+     *
+     * <p>{@link #AUDIT_YEARS} 와 값이 같은데 근거가 다르다. 감사 로그의 3년은 우리 판단이고
+     * 이쪽은 법이라, 한쪽이 바뀌어도 다른 쪽을 따라 고치면 안 된다.
+     */
+    private static final int INQUIRY_YEARS = 3;
+
+    /**
      * 배치 회차 이력을 두는 기간(`D19`). <b>개인정보가 아니라 법이 걸리는 파기가 아니다.</b>
      *
      * <p>여기 얹은 이유는 <b>수명이 끝난 행을 치운다는 일이 같아서</b>다 —
@@ -83,10 +92,11 @@ public class TransactionPurgeService {
      * @param notifications     보존 기간이 지나 지운 발송 이력 수
      * @param refundNotes       보존 기간이 지나 지운 환불 사유 글 수. 환불 자체는 남는다
      * @param historyNotes      보존 기간이 지나 지운 전이 사유 글 수. 이력 자체는 남는다
+     * @param inquiries         보존 기간이 지나 지운 문의 수. 질문·답변 글이 같이 사라진다
      */
     public record Purged(int shippingAddresses, int paymentCards, int orders,
             int auditLogs, int batchRuns, int notificationBodies, int notifications,
-            int refundNotes, int historyNotes) {}
+            int refundNotes, int historyNotes, int inquiries) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -112,8 +122,25 @@ public class TransactionPurgeService {
         int notifications = deleteExpiredNotifications(
                 baseline.minusMonths(ADVERTISEMENT_MONTHS), baseline.minusYears(ORDER_YEARS));
 
+        int inquiries = deleteExpiredInquiries(baseline.minusYears(INQUIRY_YEARS));
+
         return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns,
-                notificationBodies, notifications, refundNotes, historyNotes);
+                notificationBodies, notifications, refundNotes, historyNotes, inquiries);
+    }
+
+    /**
+     * 문의를 지운다. <b>질문·답변 글이 행과 같이 사라진다</b>(청크 58).
+     *
+     * <p>표를 안 갈랐다. 다른 자유 텍스트는 <b>5년 표에 섞여 있어서</b> 떼어 냈는데
+     * (`5i-2`) 문의는 그 기록 자체가 3년이라 뗄 자리가 없다 — 갈라도 수명이 같다.
+     *
+     * <p>기준은 <b>문의를 낸 날</b>이다. 답변일로 잡으면 답이 안 나간 문의가 영영 안 지워진다 —
+     * 그 상태가 오래 남는 것이 바로 우리가 답을 안 한 경우다.
+     */
+    private int deleteExpiredInquiries(OffsetDateTime createdBefore) {
+        return jdbc.sql("delete from inquiry where created_at < :createdBefore")
+                .param("createdBefore", createdBefore)
+                .update();
     }
 
     /**
