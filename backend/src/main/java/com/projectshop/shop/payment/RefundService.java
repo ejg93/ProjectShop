@@ -66,6 +66,14 @@ public class RefundService {
     static final String BY_SYSTEM = "system";
 
     /**
+     * {@code refund.approved_by_type} 에 들어가는 값(`V51`).
+     *
+     * <p><b>요청자 목록보다 좁다.</b> 승인·반려는 관리자와 시스템만 한다 —
+     * {@code V24} 의 do 블록이 {@code payment:refund} 를 관리자 밖으로 못 나가게 지킨다(`D2` R5).
+     */
+    static final String BY_ADMIN = "admin";
+
+    /**
      * 사유마다 묶음이 어느 상태여야 하나.
      *
      * <p>안 걸면 배송 중인 묶음에 환불 요청이 붙는다. 상태 축(`11a`)으로는 표현이 안 되는데
@@ -261,6 +269,44 @@ public class RefundService {
         Pending pending = findPending(userId, refundNumber);
         requireNotSelf(userId, pending);
 
+        return settle(refundNumber, pending, userId, BY_ADMIN, blankToNull(reason));
+    }
+
+    /**
+     * 스위퍼가 자기가 만든 요청을 승인한다. <b>판정을 안 지난다.</b>
+     *
+     * <p><b>승인 대기가 법정 기한을 먹기 때문이다</b>(`D2` R5, 전자상거래법 제18조제2항).
+     * {@code due_at} 은 요청이 만들어진 시각이 아니라 사건이 일어난 날에서 세므로, 사람이
+     * 안 누르는 동안 3영업일이 그냥 흐르고 {@code 12a-4} 가 <b>우리에게</b> 연 15%를 물린다.
+     * 법은 요청·승인 2단계를 요구하지 않는다 — 대기는 {@code 12a-1} 이 만든 상태다.
+     *
+     * <p>판정이 없는 이유는 {@link #requestBySystem} 과 같다 — <b>부르는 쪽이 사람이 아니다.</b>
+     * 자기승인 검사도 없다: 낸 것이 시스템이라 지목할 사람이 양쪽 다 없다.
+     *
+     * <p><b>시스템이 만든 요청만 받는다.</b> 스위퍼는 항목을 안 고르므로 그 요청은 전량 환불이고
+     * 사람이 판단할 여지가 애초에 없다. 사람이 낸 요청은 부분 환불일 수 있어 검토가 남는다 —
+     * {@code refund_system_approval_scope_check} 가 그것을 한 층 아래에서 막는다(`D23` 축 2).
+     *
+     * <p>{@code @Transactional} 이 없는 것은 {@link #approve} 와 같은 이유다. PG 를 부른다.
+     */
+    Refund approveBySystem(String refundNumber) {
+        Pending pending = loadPending(refundNumber);
+        requireRequested(pending);
+
+        return settle(refundNumber, pending, null, BY_SYSTEM, null);
+    }
+
+    /**
+     * 돈을 내보내고 결정을 적는다. 사람이 승인하든 시스템이 승인하든 여기가 한 곳이다.
+     *
+     * <p><b>가르면 이자 계산이 두 벌이 된다.</b> 그 둘이 어긋나면 어느 쪽이 법정 금액인지를
+     * 우리가 못 정한다({@link #delayInterest} 가 한 곳인 것과 같은 이유).
+     *
+     * @param approverUserId 시스템이면 {@code null}. {@code refund_approved_by_user_check} 가 짝을 강제한다
+     * @param approverType   {@link #BY_ADMIN} 또는 {@link #BY_SYSTEM}
+     */
+    private Refund settle(String refundNumber, Pending pending, Long approverUserId,
+            String approverType, String decisionReason) {
         // 시각을 한 번 잡아서 이자 계산과 `decided_at` 이 같은 순간을 쓰게 한다.
         // 각자 `now()` 를 부르면 그 사이의 간격만큼 이자와 기록이 어긋난다.
         OffsetDateTime decidedAt = OffsetDateTime.now();
@@ -274,6 +320,7 @@ public class RefundService {
         int updated = jdbc.sql("""
                         update refund
                            set status                = :approved,
+                               approved_by_type      = :approverType,
                                approved_by_user_id   = :userId,
                                decided_at            = :decidedAt,
                                delay_interest        = :delayInterest,
@@ -284,7 +331,8 @@ public class RefundService {
                 .param("approved", APPROVED_CODE)
                 .param("decidedAt", decidedAt)
                 .param("delayInterest", delayInterest)
-                .param("userId", userId)
+                .param("approverType", approverType)
+                .param("userId", approverUserId)
                 .param("gatewayNumber", result.refundNumber())
                 .param("number", refundNumber)
                 .param("requested", REQUESTED_CODE)
@@ -295,7 +343,7 @@ public class RefundService {
         if (updated == 0) {
             throw new ShopException(ErrorCode.REFUND_ALREADY_DECIDED);
         }
-        writeNote(refundNumber, null, blankToNull(reason));
+        writeNote(refundNumber, null, decisionReason);
         return read(refundNumber);
     }
 
@@ -317,12 +365,14 @@ public class RefundService {
         int updated = jdbc.sql("""
                         update refund
                            set status              = :rejected,
+                               approved_by_type    = :approverType,
                                approved_by_user_id = :userId,
                                decided_at          = now(),
                                updated_at          = now()
                          where refund_number = :number and status = :requested
                         """)
                 .param("rejected", REJECTED_CODE)
+                .param("approverType", BY_ADMIN)
                 .param("userId", userId)
                 .param("number", refundNumber)
                 .param("requested", REQUESTED_CODE)
@@ -728,7 +778,25 @@ public class RefundService {
      * 「이미 처리됐다」(409)를 받는데, 그것만으로 <b>그 번호가 실재한다는 것</b>이 드러난다.
      */
     private Pending findPending(long userId, String refundNumber) {
-        Pending pending = jdbc.sql("""
+        Pending pending = loadPending(refundNumber);
+
+        if (!evaluator.decide(userId, RESOURCE, APPROVE,
+                Target.of(pending.buyerUserId(), pending.sellerId())).allowed()) {
+            throw notFound(refundNumber);
+        }
+
+        requireRequested(pending);
+        return pending;
+    }
+
+    /**
+     * 행을 읽기만 한다. <b>판정도 상태 검사도 안 한다.</b>
+     *
+     * <p>갈라 둔 이유는 시스템 승인에 사람이 없어서다({@link #approveBySystem}) —
+     * 판정은 「이 사람이 이것을 해도 되나」를 묻는데 물을 사람이 없다.
+     */
+    private Pending loadPending(String refundNumber) {
+        return jdbc.sql("""
                         select r.requested_by_user_id, r.amount, r.status, so.seller_id,
                                o.user_id as buyer_user_id, r.due_at
                           from refund r
@@ -746,17 +814,14 @@ public class RefundService {
                         rs.getObject("due_at", OffsetDateTime.class)))
                 .optional()
                 .orElseThrow(() -> notFound(refundNumber));
+    }
 
-        if (!evaluator.decide(userId, RESOURCE, APPROVE,
-                Target.of(pending.buyerUserId(), pending.sellerId())).allowed()) {
-            throw notFound(refundNumber);
-        }
-
+    /** 아직 아무도 안 처리한 요청인가. 처리된 것을 다시 처리하면 돈이 두 번 나간다 */
+    private static void requireRequested(Pending pending) {
         if (!REQUESTED_CODE.equals(pending.status())) {
             throw new ShopException(ErrorCode.REFUND_ALREADY_DECIDED,
                     "이미 " + pending.status() + " 인 요청이다");
         }
-        return pending;
     }
 
     private static ShopException notFound(String refundNumber) {

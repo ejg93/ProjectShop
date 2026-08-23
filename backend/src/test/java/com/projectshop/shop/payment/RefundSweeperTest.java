@@ -1,6 +1,7 @@
 package com.projectshop.shop.payment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
@@ -252,14 +254,134 @@ class RefundSweeperTest extends PostgresTestBase {
         }
 
         @Test
-        @DisplayName("승인 대기로 남는다")
-        void waitsForApproval() {
+        @DisplayName("만드는 회차는 요청까지만 한다")
+        void leavesMoneyToTheApprovingPass() {
             close("cancelled", "customer");
             sweeper.sweepClosedBundles();
 
             assertThat(column("status"))
-                    .as("스위퍼는 요청까지만 한다. 돈이 나가는 결정은 사람이 한다(`V24`)")
+                    .as("만드는 것과 돈을 내보내는 것이 갈려 있다. 승인은 approveSystemRequests 가 한다(12a-5)")
                     .isEqualTo("requested");
+        }
+    }
+
+    /**
+     * 시스템이 만든 요청을 시스템이 승인하나(청크 12a-5).
+     *
+     * <p><b>승인 대기가 법정 기한을 먹고 있었다.</b> {@code due_at} 은 요청이 만들어진 시각이
+     * 아니라 사건이 일어난 날에서 세므로, 사람이 안 누르는 동안 3영업일이 그냥 흐르고
+     * {@code 12a-4} 가 우리에게 연 15%를 물린다(제18조제3항, 시행령 제21조의3).
+     *
+     * <p><b>법은 요청·승인 2단계를 요구하지 않는다.</b> 대기는 {@code 12a-1} 이 만든 상태이고
+     * 법은 그 대기를 기한에서 빼 주지 않는다.
+     */
+    @Nested
+    @DisplayName("자동으로 승인할 때")
+    class Approving {
+
+        @Test
+        @DisplayName("한 회차 안에서 만들고 승인한다")
+        void createsAndApprovesInOneRun() {
+            close("cancelled", "customer");
+
+            sweeper.sweep();
+
+            assertThat(column("status"))
+                    .as("5분 뒤로 미루면 그 5분이 그대로 지연이다")
+                    .isEqualTo("approved");
+            assertThat(column("gateway_refund_number"))
+                    .as("돈이 실제로 나갔다. PG 거래번호가 그 증거다")
+                    .isNotBlank();
+        }
+
+        @Test
+        @DisplayName("승인자를 시스템으로 남긴다")
+        void marksTheApproverAsSystem() {
+            close("cancelled", "customer");
+            sweeper.sweep();
+
+            assertThat(column("approved_by_type")).isEqualTo("system");
+            assertThat(approverUserIsNull())
+                    .as("배치는 사람이 아니다. 지목할 사람이 없으므로 비운다(`V51`)")
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("사람이 낸 요청은 안 건드린다")
+        void leavesHumanRequestsAlone() {
+            close("cancelled", "customer");
+            insertRefundBy("customer", buyerId);
+
+            assertThat(sweeper.approveSystemRequests())
+                    .as("사람이 낸 요청은 부분 환불일 수 있어 검토가 남는다")
+                    .isZero();
+        }
+
+        /**
+         * 앱에서 고르는 조건으로만 두면 새 입구가 생길 때 빠뜨린다(`D23` 축 2).
+         * {@code refund_system_approval_scope_check} 가 그것을 한 층 아래에서 막는다.
+         */
+        @Test
+        @DisplayName("사람 요청의 시스템 승인을 제약이 막는다")
+        void isBlockedByTheConstraintOnScope() {
+            close("cancelled", "customer");
+            long refundId = insertRefundBy("customer", buyerId);
+
+            assertThatThrownBy(() -> jdbc.sql("""
+                            update refund
+                               set status = 'approved', approved_by_type = 'system',
+                                   approved_by_user_id = null, decided_at = now(),
+                                   gateway_refund_number = 'GW-forced'
+                             where refund_id = :id
+                            """)
+                    .param("id", refundId)
+                    .update())
+                    .as("조건이 아니라 불가능이어야 한다")
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("두 번 돌아도 한 번만 나간다")
+        void doesNotPayTwice() {
+            close("cancelled", "customer");
+            sweeper.sweep();
+
+            assertThat(sweeper.approveSystemRequests())
+                    .as("승인하고 나면 status 가 바뀌어 다음 회차의 대상에서 빠진다")
+                    .isZero();
+        }
+
+        /**
+         * <b>지연배상금은 승인하는 순간에만 계산된다</b>({@code RefundService.delayInterest}).
+         * 대기 중인 건의 이자는 어느 컬럼에도 안 쌓이므로, 세지 않으면 우리가 무는 돈이
+         * 얼마인지 아무 데도 안 드러난다.
+         */
+        @Test
+        @DisplayName("기한을 넘긴 대기를 센다")
+        void countsOverduePending() {
+            close("cancelled", "customer");
+            long refundId = insertRefundBy("customer", buyerId);
+
+            // 기한을 확실히 과거로 민다. 테스트가 한 트랜잭션 안에서 도는 동안 `now()` 가
+            // 안 움직여서, 요청을 넣을 때의 `now()` 와 세는 쪽의 `now()` 가 같은 값이다.
+            jdbc.sql("update refund set due_at = now() - interval '1 day' where refund_id = :id")
+                    .param("id", refundId)
+                    .update();
+
+            assertThat(sweeper.reportOverdue())
+                    .as("「배치가 돌았나」가 아니라 「넘긴 것이 몇이냐」를 봐야 값이 보인다")
+                    .isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("기한 안이면 안 센다")
+        void ignoresPendingWithinDue() {
+            close("cancelled", "customer");
+            sweeper.sweepClosedBundles();
+
+            assertThat(sweeper.reportOverdue())
+                    .as("스위퍼가 방금 만든 요청은 3영업일이 남아 있다")
+                    .isZero();
         }
     }
 
@@ -356,8 +478,8 @@ class RefundSweeperTest extends PostgresTestBase {
 
         jdbc.sql("""
                         update refund
-                           set status = 'rejected', approved_by_user_id = :userId,
-                               decided_at = now()
+                           set status = 'rejected', approved_by_type = 'admin',
+                               approved_by_user_id = :userId, decided_at = now()
                          where refund_id = :refundId
                         """)
                 .param("userId", fixture.insertUser("sweeper-admin@test.local", "관리자"))
@@ -380,6 +502,17 @@ class RefundSweeperTest extends PostgresTestBase {
                         """.formatted(name))
                 .param("id", sellerOrderId)
                 .query(String.class)
+                .single();
+    }
+
+    /** 승인자에 사람이 안 박혔나(`V51`). 비어 있는지는 {@link #requesterUserIsNull} 과 같은 이유로 SQL 이 묻는다 */
+    private boolean approverUserIsNull() {
+        return jdbc.sql("""
+                        select approved_by_user_id is null from refund
+                         where seller_order_id = :id and requested_by_type = 'system'
+                        """)
+                .param("id", sellerOrderId)
+                .query(Boolean.class)
                 .single();
     }
 

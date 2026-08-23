@@ -12,7 +12,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.Retries;
 
 /**
- * 환불 요청이 없는 채로 닫힌 묶음을 찾아 요청을 만든다.
+ * 환불 요청이 없는 채로 닫힌 묶음을 찾아 요청을 만들고, 자기가 만든 요청을 승인해 돈을 내보낸다.
  *
  * <h2>왜 있나</h2>
  *
@@ -23,6 +23,10 @@ import com.projectshop.shop.support.Retries;
  *
  * <p><b>요청을 누가 낼 수 있나와 요청이 자동으로 나야 하나는 다른 물음</b>이다.
  * 앞은 권한 설계(`V24`)고 뒤가 이 클래스다.
+ *
+ * <p><b>요청만 만드는 것으로는 기한을 못 지킨다</b>(청크 12a-5). 승인이 사람 손에만 있으면
+ * 그 대기가 3영업일을 그대로 먹는다 — 법은 요청·승인 2단계를 요구하지 않고 제18조제2항의
+ * 기한만 본다. 그래서 <b>시스템이 만든 요청은 시스템이 승인한다</b>({@link #approveSystemRequests}).
  *
  * <h2>왜 전이 쪽이 아니라 배치인가</h2>
  *
@@ -64,6 +68,8 @@ public class RefundSweeper {
     @Scheduled(fixedDelayString = "PT5M", initialDelayString = "PT2M")
     public void sweep() {
         sweepClosedBundles();
+        approveSystemRequests();
+        reportOverdue();
     }
 
     /**
@@ -168,6 +174,97 @@ public class RefundSweeper {
             log.error("스위퍼가 실패했다 seller_order_number={}", target.sellerOrderNumber(), e);
             return false;
         }
+    }
+
+    /**
+     * 시스템이 만든 요청을 승인한다. <b>돈이 여기서 나간다</b>(청크 12a-5).
+     *
+     * <p><b>요청을 만드는 것만으로는 기한을 못 지킨다.</b> {@code due_at} 은 요청이 만들어진
+     * 시각이 아니라 사건이 일어난 날에서 세므로(제18조제2항), 승인이 안 오면 3영업일이 그냥 흐르고
+     * {@code 12a-4} 가 우리에게 연 15%를 물린다(시행령 제21조의3).
+     *
+     * <p><b>만드는 회차와 같은 회차에서 승인한다.</b> 5분 뒤로 미루면 그 5분이 그대로 지연이고,
+     * 만들자마자 승인할 수 있는 것을 나눌 이유가 없다 — {@link #findTargets} 가 고른 것이
+     * 곧 여기서 승인될 것이다.
+     *
+     * <p><b>고르는 조건이 곧 처리 조건이다</b>(`D19`). 승인하고 나면 {@code status} 가 바뀌어
+     * 다음 회차의 대상에서 빠진다. 도중에 죽어도 나간 것까지는 커밋돼 있다.
+     *
+     * @return 승인한 요청 수
+     */
+    public int approveSystemRequests() {
+        List<String> pending = jdbc.sql("""
+                        select refund_number
+                          from refund
+                         where status = 'requested' and requested_by_type = 'system'
+                         order by due_at, refund_id
+                        """)
+                .query(String.class)
+                .list();
+
+        if (pending.isEmpty()) {
+            log.debug("환불 자동 승인 — 대상 없음");
+            return 0;
+        }
+
+        int approved = 0;
+        for (String refundNumber : pending) {
+            if (approveOne(refundNumber)) {
+                approved++;
+            }
+        }
+        log.info("환불 자동 승인 끝 대상={}건 승인={}건", pending.size(), approved);
+        return approved;
+    }
+
+    /**
+     * 하나가 실패해도 나머지를 계속한다. 레벨을 가르는 기준은 {@link #create} 와 같다.
+     *
+     * <p><b>PG 무응답이 여기로 온다.</b> {@code RefundService.askGateway} 가 재시도를 다 쓰면
+     * {@code ShopException} 이라 `WARN` 이고, 요청은 {@code requested} 로 남아서
+     * <b>다음 회차가 같은 환불번호로 다시 부른다</b> — 멱등키가 그것을 두 번 안 나가게 한다.
+     */
+    private boolean approveOne(String refundNumber) {
+        try {
+            refunds.approveBySystem(refundNumber);
+            return true;
+        } catch (ShopException e) {
+            log.warn("자동 승인을 건너뛴다 refund_number={} 이유={}", refundNumber, e.code());
+            return false;
+        } catch (RuntimeException e) {
+            log.error("자동 승인이 실패했다 refund_number={}", refundNumber, e);
+            return false;
+        }
+    }
+
+    /**
+     * 기한을 넘긴 채 남아 있는 대기를 센다. <b>회차마다 남긴다</b>(청크 12a-5).
+     *
+     * <p><b>「배치가 돌았나」가 아니라 「넘긴 것이 몇이냐」를 봐야 값이 보인다</b>
+     * (`36a`·`10a-2` 가 같은 판단). 지연배상금은 <b>승인하는 순간에만</b> 계산되므로
+     * ({@code RefundService.delayInterest}) 대기 중인 건의 이자는 어느 컬럼에도 안 쌓인다 —
+     * 세지 않으면 우리가 무는 돈이 얼마인지 아무 데도 안 드러난다.
+     *
+     * <p><b>시스템 요청은 위에서 이미 승인됐다.</b> 그래서 여기 남는 것은 대개 사람이 낸
+     * 요청이고, 그것은 관리자가 눌러야 한다 — 사람이 볼 것이라 `WARN` 이다(`D16`).
+     * 0 이면 안 남긴다. 5분마다 「0건」을 찍으면 하루 288줄이 쌓여서 진짜가 그 사이에 묻힌다.
+     *
+     * @return 기한을 넘긴 대기 건수
+     */
+    public int reportOverdue() {
+        int overdue = jdbc.sql("""
+                        select count(*)
+                          from refund
+                         where status = 'requested' and due_at < now()
+                        """)
+                .query(Integer.class)
+                .single();
+
+        if (overdue > 0) {
+            log.warn("환급 기한을 넘긴 대기 {}건 — 연 15%가 붙는다(전자상거래법 제18조제3항)",
+                    overdue);
+        }
+        return overdue;
     }
 
     /**

@@ -492,7 +492,8 @@ class RefundServiceTest extends PostgresTestBase {
 
             assertThatThrownBy(() -> jdbc.sql("""
                             update refund
-                               set status = 'approved', approved_by_user_id = requested_by_user_id,
+                               set status = 'approved', approved_by_type = 'admin',
+                                   approved_by_user_id = requested_by_user_id,
                                    decided_at = now(), gateway_refund_number = 'MR-forced'
                              where refund_number = :number
                             """)

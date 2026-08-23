@@ -13,7 +13,7 @@
 | 자동 구매확정 | 자동확정 예정일이 지난 셀러 주문을 확정한다 | 매일 04:00 KST | `seller_order.auto_confirm_at` 박제값 | `OrderStatusBatch.confirmDeliveredOrders` |
 | 개인정보 파기 | 탈퇴 유예가 지난 계정 정보·동의 IP·방치된 비로그인 장바구니·만료 멱등키를 지운다 | 매일 04:00 KST | 전날 24시 | `AccountPurgeBatch.purge` |
 | 거래기록 파기 | 보존 기간이 지난 배송지·주문·감사 로그를 지운다 | **매월 1일** 04:00 KST | 전날 24시 | `TransactionPurgeBatch.purge` |
-| 환불 요청 스위퍼 | 닫혔는데 환불 요청이 없는 묶음에 요청을 만든다 | 5분 `fixedDelay` | `seller_order.closed_at` 이 있고 그 묶음에 `refund` 가 없다 | `RefundSweeper.sweep` |
+| 환불 요청 스위퍼 | 닫혔는데 환불 요청이 없는 묶음에 요청을 만들고, 자기가 만든 요청을 승인해 돈을 내보낸다 | 5분 `fixedDelay` | `seller_order.closed_at` 이 있고 그 묶음에 `refund` 가 없다. 승인 대상은 `requested_by_type = 'system'` 인 대기 | `RefundSweeper.sweep` |
 | 거래 통지 스위퍼 | 법이 요구하는 통지 넷을 아직 안 나간 건에 보낸다 | 5분 `fixedDelay` | 청약 접수·대금 지급·공급 곤란·환급의 상태인데 `notification` 이 없다 | `NotificationSweeper.sweep` |
 | 수신동의 확인 | 2년이 지난 광고 수신동의에 확인 통지를 보낸다 | 매일 04:30 KST | `coalesce(reconfirmed_at, acted_at)` 이 2년 전보다 오래됨 | `ConsentReconfirmSweeper.sweep` |
 | 방치 묶음 마감 | 셀러가 손을 놓은 묶음을 닫아 보존 기간이 흐르게 한다 | 매일 04:45 KST | `preparing` 이 발송 기한 + 7일, `shipping` 이 발송 + 30일 | `StaleBundleBatch.close` |
@@ -47,6 +47,10 @@
 
 **셋으로 안 되는 것이 있다.** 금액을 더하는 배치다 — 정산 마감이 두 번 돌면 지급이 두 배가 된다.
 상태나 조건으로 대상에서 빠지지 않으므로, 이력을 보고 막는다. 아래 `batch_run` 이 그 자리다.
+
+**돈을 내보내는 것은 더하는 것과 다르다.** 환불 스위퍼가 승인까지 하는데(`12a-5`) 이력이 필요 없다 —
+승인하면 `status` 가 바뀌어 대상에서 빠지고, 그 갱신이 `status = 'requested'` 를 조건에 달고 있어
+회차가 겹쳐도 하나만 통과한다. PG 에 넘기는 멱등키가 환불번호라 그 한 번도 두 번 안 나간다.
 
 ## 실행 이력 — `batch_run`
 

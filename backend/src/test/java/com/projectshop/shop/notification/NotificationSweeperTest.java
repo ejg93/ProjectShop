@@ -290,9 +290,10 @@ class NotificationSweeperTest extends PostgresTestBase {
                         insert into refund (refund_number, seller_order_id, amount,
                                             shipping_fee_refund, reason_code, requested_by_type,
                                             requested_by_user_id, status, decided_at, due_at,
-                                            approved_by_user_id, gateway_refund_number)
+                                            approved_by_type, approved_by_user_id,
+                                            gateway_refund_number)
                         values (:number, :sellerOrderId, 4000, 0, 'withdrawal', 'customer',
-                                :requester, 'approved', :now, :due, :approver, 'GW-1')
+                                :requester, 'approved', :now, :due, 'admin', :approver, 'GW-1')
                         returning refund_id
                         """)
                 .param("number", "R-" + OrderFixture.sellerOrderNumber().substring(2))
