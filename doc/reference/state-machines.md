@@ -104,6 +104,8 @@ order                        결제가 여기 붙는다
 | `preparing` → `cancelled` | 고객 또는 셀러 |
 | `delivered` → `return_requested` | 고객 |
 | `return_requested` → `returned` | 셀러 |
+| `return_requested` → `delivered` | **관리자만**(청크 43). 반품 거절이다 — 셀러가 부르면 **배송완료를 되돌리는 셈**이고 아래 「배송 후에는 셀러도 못 고친다」가 그대로 뚫린다 |
+| `confirmed` → `return_requested` | 고객(청크 43). **하자 반품만**이다 — 제17조제3항의 3개월. 사유를 가르는 것은 접수 입구다(`43a`) |
 | `delivered` → `confirmed` | 고객 또는 배치 |
 | 그 밖의 모든 전이 | 관리자만. 감사 로그를 남긴다 |
 
