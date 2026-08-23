@@ -35,6 +35,7 @@ public class InquiryService {
 
     /** {@code inquiry.kind} 에 들어가는 값(`V53`) */
     static final String KIND_PRODUCT = "product";
+    static final String KIND_ORDER = "order";
     static final String KIND_PROCESSING_STOP = "processing_stop";
 
     /**
@@ -76,7 +77,8 @@ public class InquiryService {
      * @param productId 상품 문의에만 있다. 계정에 붙는 요구는 {@code null}
      * @param isPublic  상품 문의에만 뜻이 있다. 그 밖에는 무엇을 넣든 비공개가 된다
      */
-    public record NewInquiry(String kind, Long productId, String question, boolean isPublic) {}
+    public record NewInquiry(String kind, Long productId, String sellerOrderNumber,
+            String question, boolean isPublic) {}
 
     /**
      * 문의를 낸다.
@@ -97,13 +99,21 @@ public class InquiryService {
             requireProduct(command.productId());
         }
 
+        // 주문 문의는 **자기 묶음에만** 낼 수 있다(청크 58-2).
+        //
+        // 없는 묶음과 남의 묶음을 **같은 404 로 답한다** — 갈라 주면 묶음 번호를 훑어서
+        // 실재하는 주문의 지도를 그릴 수 있고, 그게 곧 셀러별 거래 건수다(`OrderActionService` 와 같은 판단).
+        Long sellerOrderId = KIND_ORDER.equals(command.kind())
+                ? myBundle(userId, command.sellerOrderNumber())
+                : null;
+
         // 번호가 부딪히면 다시 뽑는다. 재시도가 이 안에 있어서 부르는 쪽이 세지 않는다(`D9`).
         // 기한을 접수하는 순간 박제한다(`58-1`). 답한 날에서 세면 늦게 답할수록 기한이
         // 밀려서 「늦었다」가 성립을 안 한다 — `refund.due_at` 과 같은 판단이다.
         return ExposedNumber.insertWith(NUMBER_PREFIX, "문의번호", number -> jdbc.sql("""
-                        insert into inquiry (inquiry_number, kind, product_id, user_id,
-                                             question, is_public, due_at)
-                        values (:number, :kind, :productId, :userId, :question,
+                        insert into inquiry (inquiry_number, kind, product_id, seller_order_id,
+                                             user_id, question, is_public, due_at)
+                        values (:number, :kind, :productId, :sellerOrderId, :userId, :question,
                                 cast(:kind as text) = 'product' and :isPublic,
                                 case when cast(:kind as text) = 'processing_stop'
                                      then now() + make_interval(days => :dueDays) end)
@@ -113,6 +123,7 @@ public class InquiryService {
                 .param("number", number)
                 .param("kind", command.kind())
                 .param("productId", command.productId())
+                .param("sellerOrderId", sellerOrderId)
                 .param("userId", userId)
                 .param("question", command.question())
                 .param("isPublic", command.isPublic())
@@ -266,9 +277,12 @@ public class InquiryService {
 
     private Row find(String inquiryNumber) {
         return jdbc.sql("""
-                        select i.user_id, p.seller_id, i.status
+                        select i.user_id,
+                               coalesce(p.seller_id, so.seller_id) as seller_id,
+                               i.status
                           from inquiry i
                           left join product p on p.product_id = i.product_id
+                          left join seller_order so on so.seller_order_id = i.seller_order_id
                          where i.inquiry_number = :number
                         """)
                 .param("number", inquiryNumber)
@@ -279,6 +293,29 @@ public class InquiryService {
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.INQUIRY_NOT_FOUND,
                         "그런 문의가 없다: " + inquiryNumber));
+    }
+
+    /**
+     * 내 묶음인가(청크 58-2).
+     *
+     * <p><b>없는 묶음과 남의 묶음이 같은 404 다.</b> 갈라 주면 묶음 번호를 훑어서
+     * 실재하는 주문의 지도를 그릴 수 있고, 그것이 곧 셀러별 거래 건수다.
+     *
+     * <p>주인을 <b>주문에서</b> 읽는다 — 묶음은 셀러가 가진 것이고 산 사람은 주문에 있다(`D7`).
+     */
+    private long myBundle(long userId, String sellerOrderNumber) {
+        return jdbc.sql("""
+                        select so.seller_order_id
+                          from seller_order so
+                          join shop_order o on o.order_id = so.order_id
+                         where so.seller_order_number = :number and o.user_id = :userId
+                        """)
+                .param("number", sellerOrderNumber)
+                .param("userId", userId)
+                .query(Long.class)
+                .optional()
+                .orElseThrow(() -> new ShopException(ErrorCode.SELLER_ORDER_NOT_FOUND,
+                        "그런 셀러 주문이 없다: " + sellerOrderNumber));
     }
 
     private void requireProduct(long productId) {

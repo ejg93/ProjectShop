@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.order.OrderFixture;
 
 /**
  * 비공개 문의가 남에게 안 보이나(청크 59).
@@ -43,6 +44,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
     private long adminId;
     private long sellerId;
     private long productId;
+    private String bundleNumber;
 
     @BeforeEach
     void setUp() {
@@ -64,6 +66,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         fixture.grantOrg(sellerOwnerId, "seller_owner", sellerId);
 
         productId = insertProduct();
+        bundleNumber = makeBundle();
     }
 
     @Nested
@@ -211,17 +214,6 @@ class InquiryVisibilityTest extends PostgresTestBase {
     }
 
     /**
-     * <b>내리는 경로가 있나</b>(청크 59-2).
-     *
-     * <p>1차 마무리(2026-08-23)가 찾은 자리다 — `58` 이 자리를 만들고 `59` 가 조회에서
-     * 빼는 것까지 했는데 <b>그 상태로 옮기는 코드가 없어서 `psql` 로만 내려졌다.</b>
-     * 요건표에는 「내릴 수단이 생겼다」고 적혀 있었다.
-     *
-     * <p><b>여기서 보는 것은 「내린 글이 목록에서 빠지는 것」이 아니다.</b> 그것은
-     * {@link PublicListing#hidesBlockedPosts} 가 이미 고정했고 <b>그래서 이 구멍이
-     * 초록인 채로 남았다</b> — 그 테스트는 SQL 로 상태를 밀어 넣고 시작했다.
-     */
-    /**
      * 법정 요구에 <b>언제까지 답해야 하는지</b>가 박혀 있나(청크 58-1).
      *
      * <p>개인정보 보호법 제37조는 「지체 없이」라고만 하고 <b>일수가 조문에 없다</b> —
@@ -296,6 +288,81 @@ class InquiryVisibilityTest extends PostgresTestBase {
      * <b>옮기는 코드를 안 만들었다</b> — 값이 {@code check} 에 있으면 다음 사람이
      * 그 상태가 도달 가능하다고 읽는다(1차 마무리가 잡았다).
      */
+    /**
+     * 주문에 붙는 문의(청크 58-2).
+     *
+     * <p>없어진 {@code 22} 행이 「대상 자원(<b>주문</b>·상품)」을 적어 뒀는데 {@code 58} 이
+     * 상품과 계정만 담아서 <b>「이 주문 언제 와요?」를 담을 값이 없었다</b>(점검 G 가 찾았다).
+     *
+     * <p><b>{@code dispute} 로 대신하면 안 된다.</b> 그 표는 전자상거래법 시행령 제6조 4호의
+     * <b>불만·분쟁처리 기록</b>(3년)이라, 단순 문의까지 거기 쌓이면
+     * 「분쟁이 몇 건이었나」에 답을 못 한다.
+     */
+    @Nested
+    @DisplayName("주문 문의는")
+    class OrderInquiry {
+
+        @Test
+        @DisplayName("자기 묶음에 낸다")
+        void isFiledOnOwnBundle() {
+            String number = askAboutOrder(askerId, bundleNumber);
+
+            assertThat(kindOf(number)).isEqualTo("order");
+        }
+
+        /**
+         * 없는 묶음과 남의 묶음이 <b>같은 404 다</b> — 갈라 주면 묶음 번호를 훑어서
+         * 실재하는 주문의 지도를 그릴 수 있고, 그것이 곧 셀러별 거래 건수다.
+         */
+        @Test
+        @DisplayName("남의 묶음에는 못 낸다")
+        void refusesAnotherPersonBundle() {
+            assertThatThrownBy(() ->
+                    askAboutOrder(strangerId, bundleNumber))
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("없는 묶음에도 못 낸다")
+        void refusesAMissingBundle() {
+            assertThatThrownBy(() -> askAboutOrder(askerId, "S-20260101-AAAAAB"))
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("공개가 성립하지 않는다")
+        void isNeverPublic() {
+            String number = askAboutOrder(askerId, bundleNumber);
+
+            assertThat(isPublic(number))
+                    .as("남의 주문을 남이 보면 안 된다 — 무엇을 언제 샀는지가 질문에 들어 있다")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("상품 화면에 안 나온다")
+        void neverAppearsOnTheProductPage() {
+            askAboutOrder(askerId, bundleNumber);
+
+            assertThat(query.findPublic(productId, 0, 20).items()).isEmpty();
+        }
+
+        /**
+         * <b>셀러가 상품이 아니라 묶음에서 나온다.</b> 목록 조건이 상품의 셀러만 보면
+         * 주문 문의가 통째로 안 잡히고, 셀러는 <b>자기 주문에 온 질문을 못 본다</b>.
+         */
+        @Test
+        @DisplayName("그 묶음의 셀러가 본다")
+        void isVisibleToTheBundleSeller() {
+            askAboutOrder(askerId, bundleNumber);
+
+            assertThat(query.findForSeller(sellerOwnerId, 0, 20).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::kind)
+                    .isEqualTo("ORDER");
+        }
+    }
+
     @Nested
     @DisplayName("거두기는")
     class Withdrawing {
@@ -344,6 +411,16 @@ class InquiryVisibilityTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * <b>내리는 경로가 있나</b>(청크 59-2).
+     *
+     * <p>1차 마무리(2026-08-23)가 찾은 자리다 — `58` 이 자리를 만들고 `59` 가 조회에서
+     * 빼는 것까지 했는데 <b>그 상태로 옮기는 코드가 없어서 `psql` 로만 내려졌다.</b>
+     *
+     * <p><b>여기서 보는 것은 「내린 글이 목록에서 빠지는 것」이 아니다.</b> 그것은
+     * {@link PublicListing#hidesBlockedPosts} 가 이미 고정했고 <b>그래서 이 구멍이
+     * 초록인 채로 남았다</b> — 그 테스트는 SQL 로 상태를 밀어 넣고 시작했다.
+     */
     @Nested
     @DisplayName("게시 중단은")
     class Blocking {
@@ -474,12 +551,25 @@ class InquiryVisibilityTest extends PostgresTestBase {
 
     private String ask(long userId, boolean isPublic) {
         return inquiries.create(userId, new InquiryService.NewInquiry(
-                "product", productId, "이 상품 언제 오나요", isPublic));
+                "product", productId, null, "이 상품 언제 오나요", isPublic));
     }
 
     private String file(long userId, String kind) {
         return inquiries.create(userId, new InquiryService.NewInquiry(
-                kind, null, "제 정보 처리를 멈춰 주세요", true));
+                kind, null, null, "제 정보 처리를 멈춰 주세요", true));
+    }
+
+    /** 주문 문의. <b>공개로 내도 비공개가 된다</b> — 종류가 그것을 정한다 */
+    private String askAboutOrder(long userId, String sellerOrderNumber) {
+        return inquiries.create(userId, new InquiryService.NewInquiry(
+                "order", null, sellerOrderNumber, "이 주문 언제 오나요", true));
+    }
+
+    private String kindOf(String inquiryNumber) {
+        return jdbc.sql("select kind from inquiry where inquiry_number = :number")
+                .param("number", inquiryNumber)
+                .query(String.class)
+                .single();
     }
 
     private void block(String inquiryNumber) {
@@ -516,6 +606,40 @@ class InquiryVisibilityTest extends PostgresTestBase {
                 .param("number", inquiryNumber)
                 .query(Boolean.class)
                 .single();
+    }
+
+    /**
+     * 주문 문의가 가리킬 실제 묶음. <b>산 사람은 주문에, 셀러는 묶음에 있다</b>(`D7`).
+     *
+     * <p>결제까지 안 간다 — 주문 문의에 필요한 것은 <b>「내 묶음인가」</b>뿐이고
+     * 그 판정은 주문의 주인만 본다.
+     */
+    private String makeBundle() {
+        long orderId = jdbc.sql("""
+                        insert into shop_order (order_number, user_id, total_amount,
+                                                commission_total, shipping_fee_total,
+                                                payable_amount)
+                        values (:number, :userId, 0, 0, 0, 0)
+                        returning order_id
+                        """)
+                .param("number", OrderFixture.sellerOrderNumber().substring(2))
+                .param("userId", askerId)
+                .query(Long.class)
+                .single();
+
+        OrderFixture.attachContractDocuments(jdbc, orderId);
+
+        String bundleNumber = OrderFixture.sellerOrderNumber();
+        jdbc.sql("""
+                        insert into seller_order (seller_order_number, order_id, seller_id)
+                        values (:number, :orderId, :sellerId)
+                        """)
+                .param("number", bundleNumber)
+                .param("orderId", orderId)
+                .param("sellerId", sellerId)
+                .update();
+
+        return bundleNumber;
     }
 
     private long insertProduct() {

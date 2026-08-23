@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "내 문의 · ProjectShop" };
  */
 export type MyInquiry = {
   inquiryNumber: string;
-  kind: "PRODUCT" | "PROCESSING_STOP" | "ACCESS_OBJECTION" | "DISPUTE";
+  kind: "PRODUCT" | "ORDER" | "PROCESSING_STOP" | "ACCESS_OBJECTION" | "DISPUTE";
   productId: number | null;
   productName: string | null;
   question: string;
@@ -33,6 +33,7 @@ type Page = { items: MyInquiry[]; page: number; size: number; total: number };
 /** 종류를 사람 말로. <b>API 는 대문자, 화면은 우리말</b>(`D20`) */
 const KIND_TEXT: Record<MyInquiry["kind"], string> = {
   PRODUCT: "상품 문의",
+  ORDER: "주문 문의",
   PROCESSING_STOP: "처리 정지 요구",
   ACCESS_OBJECTION: "열람·정정 결과에 대한 이의제기",
   DISPUTE: "불만·분쟁 접수",

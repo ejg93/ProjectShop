@@ -15,6 +15,7 @@ import { OrderActions } from "@/components/order-actions";
 import { PolicyBody } from "@/components/policy-document";
 
 import { ORDER_ACTIONS } from "../status";
+import { OrderInquiryForm } from "./order-inquiry-form";
 
 export const metadata: Metadata = { title: "주문 상세 · ProjectShop" };
 
@@ -215,6 +216,8 @@ function SellerBundle({ bundle }: { bundle: SellerOrder }) {
         allowedActions={bundle.allowedActions}
         actions={ORDER_ACTIONS}
       />
+
+      <OrderInquiryForm sellerOrderNumber={bundle.sellerOrderNumber} />
     </section>
   );
 }

@@ -144,7 +144,7 @@ public class InquiryQuery {
             throw new ShopException(ErrorCode.INQUIRY_FORBIDDEN, "셀러 문의를 볼 권한이 없다");
         }
 
-        return find("p.seller_id = any(:sellers)",
+        return find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
                 Map.of("sellers", sellers.toArray(Long[]::new)), page, size);
     }
 
@@ -164,6 +164,7 @@ public class InquiryQuery {
                                (i.status = 'received' and i.due_at < now()) as overdue
                           from inquiry i
                           left join product p on p.product_id = i.product_id
+                          left join seller_order so on so.seller_order_id = i.seller_order_id
                          where %s
                          order by i.created_at desc, i.inquiry_id desc
                          limit :size offset :offset
@@ -175,6 +176,7 @@ public class InquiryQuery {
                         select count(*)
                           from inquiry i
                           left join product p on p.product_id = i.product_id
+                          left join seller_order so on so.seller_order_id = i.seller_order_id
                          where %s
                         """.formatted(condition));
 

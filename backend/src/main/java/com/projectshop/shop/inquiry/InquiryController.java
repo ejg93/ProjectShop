@@ -58,9 +58,10 @@ public class InquiryController {
      * @param isPublic  안 보내면 공개다. 계정에 붙는 요구에는 뜻이 없다
      */
     public record NewInquiryRequest(
-            @NotBlank @Pattern(regexp = "PRODUCT|PROCESSING_STOP|ACCESS_OBJECTION|DISPUTE")
+            @NotBlank @Pattern(regexp = "PRODUCT|ORDER|PROCESSING_STOP|ACCESS_OBJECTION|DISPUTE")
             String kind,
             @Positive Long productId,
+            String sellerOrderNumber,
             @NotBlank @Size(max = 2000) String question,
             Boolean isPublic) {}
 
@@ -79,6 +80,7 @@ public class InquiryController {
         String number = inquiries.create(user.id(), new InquiryService.NewInquiry(
                 storedEnum(request.kind()),
                 request.productId(),
+                request.sellerOrderNumber(),
                 request.question(),
                 request.isPublic() == null || request.isPublic()));
 
