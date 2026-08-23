@@ -210,6 +210,34 @@ class SettlementPayoutTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * <b>지급 상태가 조회 계약에 실려야 한다.</b> {@code 21} 이 상태를 만들었는데
+     * {@code 20} 의 응답이 그것을 안 실으면 <b>셀러가 정산서를 봐도 「내 돈 나갔나」를 모른다.</b>
+     *
+     * <p>1차 마무리(2026-08-23)가 찾은 자리다 — 두 청크가 각각은 초록인 채로 어긋나 있었다.
+     */
+    @Nested
+    @DisplayName("조회 계약은")
+    class Contract {
+
+        @Autowired
+        private SettlementQuery query;
+
+        @Test
+        @DisplayName("지급 상태를 싣는다")
+        void carriesThePayoutStatus() {
+            assertThat(query.findOne(ownerId, settlementNumber).summary().payoutStatus())
+                    .isEqualTo("PENDING");
+
+            payouts.request(staffId, settlementNumber);
+            payouts.approve(approverId, settlementNumber);
+
+            assertThat(query.findOne(ownerId, settlementNumber).summary().payoutStatus())
+                    .as("셀러가 정산서만 보고 돈이 나갔는지 알아야 한다")
+                    .isEqualTo("PAID");
+        }
+    }
+
     @Nested
     @DisplayName("반려는")
     class Rejecting {

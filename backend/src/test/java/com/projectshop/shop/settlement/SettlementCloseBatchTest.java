@@ -259,6 +259,43 @@ class SettlementCloseBatchTest extends PostgresTestBase {
             assertThat(julyPayout).isEqualTo(PRICE - COMMISSION + SHIPPING_FEE);
         }
 
+        /**
+         * <b>지연배상금은 우리가 늦어서 무는 돈이다</b>(`12a-4`, 전자상거래법 제18조제3항).
+         * 셀러 몫에서 빼면 남의 책임을 떠넘기는 것이 된다 — {@code refund.amount} 와
+         * 갈라 둔 이유가 이것이고, 정산은 그 둘을 다르게 다뤄야 한다.
+         *
+         * <p>1차 마무리(2026-08-23)가 세운 그물이다. 그전까지는 <b>주석에만</b> 적혀 있었고,
+         * 주석은 「정산이 `refund` 를 조인해서 이자까지 빼는」 코드를 못 막는다.
+         */
+        @Test
+        @DisplayName("지연배상금을 셀러 몫에서 안 뺀다")
+        void neverChargesDelayInterestToTheSeller() {
+            long sellerOrderId = confirmedOrder(PERIOD_END);
+            prerequisiteSucceeded(PERIOD_END);
+            batch.close(PERIOD_END);
+
+            approveRefund(sellerOrderId, LocalDate.of(2026, 8, 15));
+            // 이자는 기한을 넘긴 건에만 붙는다(`refund_delay_interest_timing_check`).
+            // 기한을 승인일보다 앞으로 밀어야 그 상황이 성립한다.
+            jdbc.sql("""
+                            update refund
+                               set delay_interest = :interest,
+                                   due_at = decided_at - interval '10 days'
+                             where seller_order_id = :id
+                            """)
+                    .param("interest", 500L)
+                    .param("id", sellerOrderId)
+                    .update();
+
+            LocalDate august = LocalDate.of(2026, 8, 31);
+            prerequisiteSucceeded(august);
+            batch.close(august);
+
+            assertThat(payoutAmountFor(august))
+                    .as("회수는 대금과 수수료까지다. 이자는 우리가 문다")
+                    .isEqualTo(-PRICE + COMMISSION);
+        }
+
         @Test
         @DisplayName("넘긴 잔액을 그다음 주기가 받는다")
         void isCarriedIntoTheFollowingCycle() {

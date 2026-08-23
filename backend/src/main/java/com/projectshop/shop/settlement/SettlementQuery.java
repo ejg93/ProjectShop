@@ -56,7 +56,7 @@ public class SettlementQuery {
      */
     public record Summary(String settlementNumber, String sellerCode, LocalDate periodStart,
             LocalDate periodEnd, LocalDate payoutDate, long payoutAmount, long carriedOver,
-            OffsetDateTime createdAt) {}
+            String payoutStatus, OffsetDateTime createdAt) {}
 
     /** 정산서 한 줄의 근거. {@code supplier} 는 부가가치세법이 요구하는 값이다(`D2` R17) */
     public record Line(String kind, String supplier, long amount, Integer commissionBp,
@@ -81,7 +81,7 @@ public class SettlementQuery {
         List<Summary> items = jdbc.sql("""
                         select s.settlement_number, sel.code as seller_code,
                                c.period_start, c.period_end, c.payout_date,
-                               s.payout_amount, s.carried_over, s.created_at
+                               s.payout_amount, s.carried_over, s.payout_status, s.created_at
                           from settlement s
                           join settlement_cycle c on c.settlement_cycle_id = s.settlement_cycle_id
                           join seller sel on sel.seller_id = s.seller_id
@@ -120,7 +120,7 @@ public class SettlementQuery {
         Summary summary = jdbc.sql("""
                         select s.settlement_number, sel.code as seller_code,
                                c.period_start, c.period_end, c.payout_date,
-                               s.payout_amount, s.carried_over, s.created_at
+                               s.payout_amount, s.carried_over, s.payout_status, s.created_at
                           from settlement s
                           join settlement_cycle c on c.settlement_cycle_id = s.settlement_cycle_id
                           join seller sel on sel.seller_id = s.seller_id
@@ -206,6 +206,7 @@ public class SettlementQuery {
                 rs.getObject("payout_date", LocalDate.class),
                 rs.getLong("payout_amount"),
                 rs.getLong("carried_over"),
+                enumValue(rs.getString("payout_status")),
                 rs.getObject("created_at", OffsetDateTime.class));
     }
 
