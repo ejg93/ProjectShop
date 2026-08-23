@@ -247,9 +247,14 @@ class InquirySchemaTest extends PostgresTestBase {
     }
 
     private long insert(String kind, Long productKey) {
+        // 처리정지 요구에는 법정 기한이 박힌다(`V59`, 개인정보 보호법 시행령 제44조제2항).
+        // 그 값이 종류에서 나오므로 여기서도 종류로 정한다 — 앱과 같은 규칙이다.
         return jdbc.sql("""
-                        insert into inquiry (inquiry_number, kind, product_id, user_id, question)
-                        values (:number, :kind, :productId, :userId, '이 상품 언제 오나요')
+                        insert into inquiry (inquiry_number, kind, product_id, user_id,
+                                             question, due_at)
+                        values (:number, :kind, :productId, :userId, '이 상품 언제 오나요',
+                                case when cast(:kind as text) = 'processing_stop'
+                                     then now() + interval '10 days' end)
                         returning inquiry_id
                         """)
                 .param("number", inquiryNumber())

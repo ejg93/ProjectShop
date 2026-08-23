@@ -66,7 +66,8 @@ public class InquiryQuery {
     /** 자기 것이거나 자기 셀러 것을 볼 때 쓰는 한 줄. 대상과 공개 여부가 같이 나간다 */
     public record Entry(String inquiryNumber, String kind, Long productId, String productName,
             String question, String answer, String status, boolean isPublic,
-            OffsetDateTime createdAt, OffsetDateTime answeredAt) {}
+            OffsetDateTime createdAt, OffsetDateTime answeredAt,
+            OffsetDateTime dueAt, boolean overdue) {}
 
     /** 목록 규약(`D5`). 셋 다 같은 봉투를 쓴다 */
     public record Page<T>(List<T> items, int page, int size, long total) {}
@@ -159,7 +160,8 @@ public class InquiryQuery {
         var listing = jdbc.sql("""
                         select i.inquiry_number, i.kind, i.product_id, p.name as product_name,
                                i.question, i.answer, i.status, i.is_public,
-                               i.created_at, i.answered_at
+                               i.created_at, i.answered_at, i.due_at,
+                               (i.status = 'received' and i.due_at < now()) as overdue
                           from inquiry i
                           left join product p on p.product_id = i.product_id
                          where %s
@@ -192,7 +194,9 @@ public class InquiryQuery {
                         enumValue(rs.getString("status")),
                         rs.getBoolean("is_public"),
                         rs.getObject("created_at", OffsetDateTime.class),
-                        rs.getObject("answered_at", OffsetDateTime.class)))
+                        rs.getObject("answered_at", OffsetDateTime.class),
+                        rs.getObject("due_at", OffsetDateTime.class),
+                        rs.getBoolean("overdue")))
                 .list();
 
         return new Page<>(items, paging.page(), paging.size(), counting.query(Long.class).single());

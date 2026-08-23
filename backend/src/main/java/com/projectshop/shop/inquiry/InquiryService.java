@@ -35,6 +35,16 @@ public class InquiryService {
 
     /** {@code inquiry.kind} 에 들어가는 값(`V53`) */
     static final String KIND_PRODUCT = "product";
+    static final String KIND_PROCESSING_STOP = "processing_stop";
+
+    /**
+     * 처리정지 요구에 답할 기한. <b>개인정보 보호법 시행령 제44조제2항</b>(`D2` R28).
+     *
+     * <p>법 제37조는 「지체 없이」라고만 하고 <b>일수가 조문에 없다</b> — 시행령이
+     * 「요구서를 받은 날부터 10일 이내」로 정한다. <b>달력일이다</b>: 「영업일」이라고
+     * 안 적혀 있어서 {@code BusinessCalendar} 가 안 걸린다(`D10`).
+     */
+    private static final int PROCESSING_STOP_DUE_DAYS = 10;
 
     /** {@code inquiry.status} 에 들어가는 값(`V53`) */
     static final String STATUS_RECEIVED = "received";
@@ -86,13 +96,18 @@ public class InquiryService {
         }
 
         // 번호가 부딪히면 다시 뽑는다. 재시도가 이 안에 있어서 부르는 쪽이 세지 않는다(`D9`).
+        // 기한을 접수하는 순간 박제한다(`58-1`). 답한 날에서 세면 늦게 답할수록 기한이
+        // 밀려서 「늦었다」가 성립을 안 한다 — `refund.due_at` 과 같은 판단이다.
         return ExposedNumber.insertWith(NUMBER_PREFIX, "문의번호", number -> jdbc.sql("""
                         insert into inquiry (inquiry_number, kind, product_id, user_id,
-                                             question, is_public)
+                                             question, is_public, due_at)
                         values (:number, :kind, :productId, :userId, :question,
-                                cast(:kind as text) = 'product' and :isPublic)
+                                cast(:kind as text) = 'product' and :isPublic,
+                                case when cast(:kind as text) = 'processing_stop'
+                                     then now() + make_interval(days => :dueDays) end)
                         returning inquiry_number
                         """)
+                .param("dueDays", PROCESSING_STOP_DUE_DAYS)
                 .param("number", number)
                 .param("kind", command.kind())
                 .param("productId", command.productId())

@@ -221,6 +221,74 @@ class InquiryVisibilityTest extends PostgresTestBase {
      * {@link PublicListing#hidesBlockedPosts} 가 이미 고정했고 <b>그래서 이 구멍이
      * 초록인 채로 남았다</b> — 그 테스트는 SQL 로 상태를 밀어 넣고 시작했다.
      */
+    /**
+     * 법정 요구에 <b>언제까지 답해야 하는지</b>가 박혀 있나(청크 58-1).
+     *
+     * <p>개인정보 보호법 제37조는 「지체 없이」라고만 하고 <b>일수가 조문에 없다</b> —
+     * 시행령 제44조제2항이 「요구서를 받은 날부터 <b>10일 이내</b>」로 정한다.
+     * <b>달력일이다</b>: 「영업일」이라고 안 적혀 있다.
+     *
+     * <p><b>「기한 안에 답」은 `check` 로 못 건다</b> — 막으면 늦은 답이 영영 안 나간다.
+     * 강제는 「넘긴 것이 조회로 드러난다」가 천장이고 그 위는 사람이 본다(`R5` 와 같은 자리).
+     */
+    @Nested
+    @DisplayName("처리 기한은")
+    class LegalDue {
+
+        @Test
+        @DisplayName("처리정지 요구에 열흘로 박힌다")
+        void isTenDaysForProcessingStop() {
+            String number = file(askerId, "processing_stop");
+
+            assertThat(dueDaysOf(number))
+                    .as("개인정보 보호법 시행령 제44조제2항 — 받은 날부터 10일 이내")
+                    .isEqualTo(10);
+        }
+
+        /**
+         * <b>모르는 것을 지어서 박느니 비워 둔다.</b> 제38조제5항(이의제기)과 전자상거래법
+         * 제20조(분쟁)는 <b>기한 조문을 못 찾았다</b> — 후자는 「신속히」라고만 한다.
+         * 틀린 날짜가 박히면 그것이 지켜야 할 값이 된다.
+         */
+        @Test
+        @DisplayName("기한을 못 찾은 종류에는 안 박힌다")
+        void isAbsentWhereTheArticleGivesNoDeadline() {
+            assertThat(dueIsNull(file(askerId, "access_objection"))).isTrue();
+            assertThat(dueIsNull(file(askerId, "dispute"))).isTrue();
+            assertThat(dueIsNull(ask(askerId, true))).isTrue();
+        }
+
+        @Test
+        @DisplayName("제약이 빈 기한을 막는다")
+        void isRequiredByTheConstraint() {
+            String number = file(askerId, "processing_stop");
+
+            assertThatThrownBy(() -> jdbc.sql(
+                            "update inquiry set due_at = null where inquiry_number = :number")
+                    .param("number", number)
+                    .update())
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("넘긴 것이 조회로 드러난다")
+        void surfacesWhatIsOverdue() {
+            String number = file(askerId, "processing_stop");
+            jdbc.sql("""
+                            update inquiry set due_at = now() - interval '1 day'
+                             where inquiry_number = :number
+                            """)
+                    .param("number", number)
+                    .update();
+
+            assertThat(query.findMine(askerId, 0, 20).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::overdue)
+                    .as("「기한 안에 답」은 check 로 못 건다 — 막으면 늦은 답이 영영 안 나간다")
+                    .isEqualTo(true);
+        }
+    }
+
     @Nested
     @DisplayName("게시 중단은")
     class Blocking {
@@ -368,6 +436,24 @@ class InquiryVisibilityTest extends PostgresTestBase {
                         """)
                 .param("number", inquiryNumber)
                 .update();
+    }
+
+    /** 접수일과 기한 사이의 날수. 달력일이라 그대로 뺀다 */
+    private int dueDaysOf(String inquiryNumber) {
+        return jdbc.sql("""
+                        select (due_at::date - created_at::date) from inquiry
+                         where inquiry_number = :number
+                        """)
+                .param("number", inquiryNumber)
+                .query(Integer.class)
+                .single();
+    }
+
+    private boolean dueIsNull(String inquiryNumber) {
+        return jdbc.sql("select due_at is null from inquiry where inquiry_number = :number")
+                .param("number", inquiryNumber)
+                .query(Boolean.class)
+                .single();
     }
 
     private boolean isPublic(String inquiryNumber) {
