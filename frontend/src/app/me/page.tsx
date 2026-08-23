@@ -100,20 +100,32 @@ export default async function MyPage() {
           인정하고 거절은 제2항 각 호에 해당할 때만 되는데, 「탈퇴해 주십시오」라고만 하면
           요구를 받을 자리가 없는 상태에서 탈퇴를 유일한 길로 제시하는 것이 된다.
 
-          접수 창구를 화면 안에 내는 것은 Q&A 축(`58`·`59`) 뒤다. 그때까지는 **권리가 있다는
-          사실과 지금 닿을 수 있는 창구**를 같이 말한다.
+          **접수 창구가 화면 안에 섰다**(`59-1`). 제38조제4항이 열람등요구의 방법을 **수집보다
+          어렵지 않게** 하라고 하는데, 가입은 화면이고 이쪽은 API 뿐이었다 — 그 자리가 여기서 닫힌다.
         */}
         <p className="text-sm text-text-muted">
-          처리 정지를 요구하실 수 있습니다(개인정보 보호법 제37조). 지금은 접수 창구가 따로 없어
-          <PolicyLink>개인정보처리방침 제9절</PolicyLink>
-          의 고객센터로 알려 주시면 처리해 드립니다.
+          처리 정지를 요구하실 수 있습니다(개인정보 보호법 제37조). 요구하신 날부터 열흘 안에
+          답변해 드립니다.
+          <br />
+          열람·정정 결과에 이의가 있으실 때, 거래에서 불만이나 분쟁이 생기셨을 때도 같은 자리로
+          알려 주시면 됩니다.
           <br />
           탈퇴하시면 이후의 처리가 함께 멈춥니다.
-          <br />
-          열람·정정 결과에 이의가 있으실 때도 같은 창구로 알려 주시기 바랍니다.
         </p>
 
         <div className="flex flex-wrap items-center gap-4">
+          <Link
+            href="/me/inquiries"
+            className="
+              rounded-ui bg-accent px-4 py-2.5 text-sm font-semibold text-surface
+              transition-colors duration-200
+              hover:bg-accent-strong
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
+            "
+          >
+            권리 행사 요구·문의
+          </Link>
+
           <Link
             href="/me/withdraw"
             className="

@@ -3,6 +3,8 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { ApiError, apiPublic } from "@/lib/api";
+
+import { ProductInquiries } from "./product-inquiries";
 import {
   BrokerageNotice,
   SellerIdentityTable,
@@ -122,6 +124,8 @@ export default async function ProductDetailPage({
         </h2>
         <SellerIdentityTable seller={seller} />
       </section>
+
+      <ProductInquiries productId={product.productId} />
     </div>
   );
 }

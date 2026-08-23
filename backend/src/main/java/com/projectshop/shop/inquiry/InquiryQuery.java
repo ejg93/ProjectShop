@@ -90,7 +90,7 @@ public class InquiryQuery {
                           from inquiry i
                          where i.product_id = :productId
                            and i.is_public
-                           and i.status <> 'blocked'
+                           and i.status in ('received', 'answered')
                          order by i.created_at desc, i.inquiry_id desc
                          limit :size offset :offset
                         """)
@@ -110,7 +110,7 @@ public class InquiryQuery {
                         select count(*) from inquiry i
                          where i.product_id = :productId
                            and i.is_public
-                           and i.status <> 'blocked'
+                           and i.status in ('received', 'answered')
                         """)
                 .param("productId", productId)
                 .query(Long.class)

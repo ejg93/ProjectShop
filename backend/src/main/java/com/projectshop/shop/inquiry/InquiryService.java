@@ -50,6 +50,7 @@ public class InquiryService {
     static final String STATUS_RECEIVED = "received";
     static final String STATUS_ANSWERED = "answered";
     static final String STATUS_BLOCKED = "blocked";
+    static final String STATUS_WITHDRAWN = "withdrawn";
 
     /** {@code inquiry.blocked_reason} 에 들어가는 값(`V53`) */
     static final String REASON_ADVERTISEMENT = "advertisement";
@@ -59,6 +60,7 @@ public class InquiryService {
     private static final String CREATE = "create";
     private static final String ANSWER = "answer";
     private static final String BLOCK = "block";
+    private static final String READ = "read";
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
@@ -148,6 +150,52 @@ public class InquiryService {
                         """)
                 .param("answered", STATUS_ANSWERED)
                 .param("answer", answer)
+                .param("number", inquiryNumber)
+                .param("received", STATUS_RECEIVED)
+                .update();
+
+        if (updated == 0) {
+            throw new ShopException(ErrorCode.INQUIRY_ALREADY_CLOSED,
+                    "이미 " + row.status() + " 인 문의다");
+        }
+    }
+
+    /**
+     * 낸 사람이 문의를 거둔다(청크 59-1).
+     *
+     * <p>{@code 58} 이 상태 목록에 {@code withdrawn} 을 넣었는데 {@code 59} 가 입구를 열면서
+     * <b>옮기는 코드를 안 만들었다</b> — 값이 {@code check} 에 있으면 다음 사람이
+     * 그 상태가 도달 가능하다고 읽는다(1차 마무리가 잡았다).
+     *
+     * <p><b>낸 사람만 거둔다.</b> 판정 대상이 자기 자신이라 {@code own} 스코프가 걸리고,
+     * 관리자는 {@code all} 이라 대신 거둘 수 있다 — 그래도 <b>내리는 것과는 다른 자리</b>다:
+     * 거두기는 「안 물어본 것으로 한다」고 내리기는 「게시를 중단한다」(제50조의7)다.
+     *
+     * <p><b>답이 나간 것은 못 거둔다.</b> 셀러가 이미 답을 썼는데 질문이 사라지면
+     * 그 답이 무엇에 대한 것인지가 없어진다.
+     */
+    @Transactional
+    public void withdraw(long userId, String inquiryNumber) {
+        Row row = find(inquiryNumber);
+
+        // **대상이 낸 사람뿐이다.** `row.target()` 을 그대로 쓰면 셀러가 실려서
+        // `seller` 스코프가 걸리고, 그 순간 **셀러가 남의 문의를 거둔다** —
+        // 자기 상품에 달린 불리한 질문을 지우는 자리가 된다.
+        //
+        // 동작은 `read` 를 쓴다. 새 권한을 파지 않는 이유는 **거두기가 자기 것을 다루는
+        // 일이라 볼 수 있는 범위와 정확히 같아서**다 — 관리자는 `all` 이라 대신 거둘 수 있다.
+        if (!evaluator.decide(userId, RESOURCE, READ, Target.ownedBy(row.ownerUserId()))
+                .allowed()) {
+            throw new ShopException(ErrorCode.INQUIRY_NOT_FOUND,
+                    "그런 문의가 없다: " + inquiryNumber);
+        }
+
+        int updated = jdbc.sql("""
+                        update inquiry
+                           set status = :withdrawn, updated_at = now()
+                         where inquiry_number = :number and status = :received
+                        """)
+                .param("withdrawn", STATUS_WITHDRAWN)
                 .param("number", inquiryNumber)
                 .param("received", STATUS_RECEIVED)
                 .update();

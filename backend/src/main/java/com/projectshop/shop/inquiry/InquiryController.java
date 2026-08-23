@@ -126,6 +126,17 @@ public class InquiryController {
     }
 
     /**
+     * 낸 문의를 거둔다(청크 59-1). <b>답이 나간 것은 못 거둔다</b> —
+     * 셀러가 이미 답을 썼는데 질문이 사라지면 그 답이 무엇에 대한 것인지가 없어진다.
+     */
+    @PostMapping("/api/inquiries/{inquiryNumber}/withdrawal")
+    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal ShopUser user,
+            @PathVariable String inquiryNumber) {
+        inquiries.withdraw(user.id(), inquiryNumber);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * 상품 하나의 공개 문의. <b>로그인이 필요 없다.</b>
      *
      * <p>구매 전 문의라 살까 말까 하는 사람이 읽는 자리다 — 로그인을 요구하면

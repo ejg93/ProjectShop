@@ -289,6 +289,61 @@ class InquiryVisibilityTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 낸 사람이 거둘 수 있나(청크 59-1).
+     *
+     * <p>{@code 58} 이 상태 목록에 {@code withdrawn} 을 넣었는데 {@code 59} 가 입구를 열면서
+     * <b>옮기는 코드를 안 만들었다</b> — 값이 {@code check} 에 있으면 다음 사람이
+     * 그 상태가 도달 가능하다고 읽는다(1차 마무리가 잡았다).
+     */
+    @Nested
+    @DisplayName("거두기는")
+    class Withdrawing {
+
+        @Test
+        @DisplayName("낸 사람이 거둔다")
+        void isDoneByTheAuthor() {
+            String number = ask(askerId, true);
+
+            assertThatCode(() -> inquiries.withdraw(askerId, number)).doesNotThrowAnyException();
+            assertThat(query.findPublic(productId, 0, 20).items()).isEmpty();
+        }
+
+        /**
+         * 판정 대상을 문의 그대로 쓰면 셀러가 실려서 {@code seller} 스코프가 걸리고,
+         * 그 순간 <b>셀러가 자기 상품에 달린 불리한 질문을 지우는 자리</b>가 된다.
+         * 대상을 낸 사람으로 좁힌 이유다.
+         */
+        @Test
+        @DisplayName("셀러는 남의 문의를 못 거둔다")
+        void refusesTheSeller() {
+            String number = ask(askerId, true);
+
+            assertThatThrownBy(() -> inquiries.withdraw(sellerOwnerId, number))
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("남은 못 거둔다")
+        void refusesAStranger() {
+            String number = ask(askerId, true);
+
+            assertThatThrownBy(() -> inquiries.withdraw(strangerId, number))
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("답이 나간 것은 못 거둔다")
+        void refusesAnAnsweredInquiry() {
+            String number = ask(askerId, true);
+            inquiries.answer(sellerOwnerId, number, "내일 발송합니다");
+
+            assertThatThrownBy(() -> inquiries.withdraw(askerId, number))
+                    .as("질문이 사라지면 그 답이 무엇에 대한 것인지가 없어진다")
+                    .isInstanceOf(ShopException.class);
+        }
+    }
+
     @Nested
     @DisplayName("게시 중단은")
     class Blocking {

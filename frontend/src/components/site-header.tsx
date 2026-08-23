@@ -91,6 +91,13 @@ export async function SiteHeader() {
           {me && canManageProducts(me) ? (
             <HeaderLink href="/seller/products">내 상품</HeaderLink>
           ) : null}
+          {/*
+            받은 문의는 상품을 다루는 사람이 답한다(`59-1`). 판정이 `inquiry:answer` 를
+            `seller_owner` 에게 `seller` 스코프로 열었고(`V54`), 그 사람이 곧 상품을 관리하는 사람이다.
+          */}
+          {me && canManageProducts(me) ? (
+            <HeaderLink href="/seller/inquiries">받은 문의</HeaderLink>
+          ) : null}
         </nav>
 
         <div className="flex items-center gap-5">
