@@ -278,6 +278,22 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Proce
 
 이 환경의 문제다. `CLAUDE.md` 의 검증 절에 명령이 있다.
 
+### Windows 에서 만든 실행 파일은 실행 비트가 없다
+
+**로컬에서는 영원히 안 드러난다.** Windows 에 그 개념이 없어서 `./gradlew` 가 잘 돌고,
+git 은 `100644`(실행 불가)로 들고 있다. **리눅스 러너에서만 `Permission denied`(exit 126)** 가 난다.
+
+`2026-08-23` 에 CI 가 처음 돌면서 44초 만에 죽은 자리다. 그전까지 `./gradlew build` 를
+수십 번 돌렸는데 한 번도 안 나왔다.
+
+```
+git ls-files -s backend/gradlew        # 100644 이면 실행 비트가 없다
+git update-index --chmod=+x backend/gradlew
+```
+
+**새 실행 파일을 저장소에 넣을 때 같이 본다.** 지금 걸릴 만한 것은 `gradlew` 하나뿐이지만,
+셸 스크립트를 더하는 청크는 그 자리에서 모드를 확인한다 — **CI 가 잡아 주지만 한 번 빨개진 뒤다.**
+
 ### `set_updated_at` 트리거 때문에 시각을 되돌릴 수 없다
 
 파기·만료를 테스트하려면 "오래된 행" 을 만들어야 하는데, `update` 로 `updated_at` 을 과거로 넣으면
