@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.projectshop.shop.support.BusinessCalendar;
+import com.projectshop.shop.support.ExposedNumber;
 
 /**
  * 한 달치 거래를 셀러별 정산서로 묶어 지급액을 확정한다(청크 19).
@@ -49,6 +50,9 @@ public class SettlementService {
 
     /** 지급일. 대상 기간이 끝난 다음 달 10일이고 쉬는 날이면 다음 영업일이다(`D3`·`D10`) */
     private static final int PAYOUT_DAY = 10;
+
+    /** 정산서 노출 번호의 접두어(`D9`). P- 는 결제가 예약돼 있어서 T- 다 */
+    private static final String NUMBER_PREFIX = "T-";
 
     private final JdbcClient jdbc;
     private final BusinessCalendar calendar;
@@ -173,17 +177,24 @@ public class SettlementService {
         settleAmount(settlementId);
     }
 
-    /** 지급액은 줄이 다 들어간 뒤에 채운다. 그전에는 0 이고 그 값은 커밋 전에 사라진다 */
+    /**
+     * 지급액은 줄이 다 들어간 뒤에 채운다. 그전에는 0 이고 그 값은 커밋 전에 사라진다.
+     *
+     * <p>노출 번호가 부딪히면 다시 뽑는다(`D9`). 재시도가 {@code insertWith} 안에 있어서
+     * 부르는 쪽이 세지 않는다.
+     */
     private long insertStatement(long cycleId, long sellerId) {
-        return jdbc.sql("""
-                        insert into settlement (settlement_cycle_id, seller_id, payout_amount)
-                        values (:cycleId, :sellerId, 0)
+        return ExposedNumber.insertWith(NUMBER_PREFIX, "정산서 번호", number -> jdbc.sql("""
+                        insert into settlement (settlement_number, settlement_cycle_id,
+                                                seller_id, payout_amount)
+                        values (:number, :cycleId, :sellerId, 0)
                         returning settlement_id
                         """)
+                .param("number", number)
                 .param("cycleId", cycleId)
                 .param("sellerId", sellerId)
                 .query(Long.class)
-                .single();
+                .single());
     }
 
     /**

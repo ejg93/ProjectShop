@@ -228,6 +228,16 @@ public enum ErrorCode {
     INQUIRY_ALREADY_CLOSED(HttpStatus.CONFLICT, "inquiry-already-closed",
             "이미 처리된 문의다"),
 
+    // 정산(20)
+    //
+    // 못 보는 것도 404 다. 403 을 주면 번호를 훑어서 실재하는 정산서를 셀 수 있고,
+    // 그 수가 곧 셀러 수 × 개월이다 — 매출 추정에 쓰인다(`D9`).
+    SETTLEMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "settlement-not-found", "그런 정산서가 없다"),
+
+    // 403 이다. 볼 수 있는 셀러가 하나도 없는 것이라 <b>이 사람이라서</b> 안 되는 것이고,
+    // 빈 목록을 주면 0건과 못 봄이 안 갈린다.
+    SETTLEMENT_FORBIDDEN(HttpStatus.FORBIDDEN, "settlement-forbidden", "정산서를 볼 권한이 없다"),
+
     ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "endpoint-not-found", "그런 경로가 없다");
 
     /**

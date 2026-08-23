@@ -413,6 +413,20 @@ class SettlementSchemaTest extends PostgresTestBase {
         jdbc.sql("set constraints all immediate").update();
     }
 
+    /** {@code T-20260801-K3M9P7} 꼴(`D9`·`V56`). 부를 때마다 다른 값이 나온다 */
+    private static String settlementNumber() {
+        char[] alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ".toCharArray();
+        int sequence = numbers++;
+
+        StringBuilder tail = new StringBuilder(6);
+        for (int i = 0; i < 6; i++) {
+            tail.append(alphabet[(sequence >> (i * 5)) & 0x1F]);
+        }
+        return "T-20260801-" + tail;
+    }
+
+    private static int numbers = 1;
+
     /** 줄까지 갖춘 정산서. 다음 정산서가 이월의 출처로 쓴다 */
     private long aCompleteSettlement(long cycle, long payout) {
         long settlementId = insertSettlementIn(cycle, payout, Math.min(0, payout));
@@ -427,11 +441,12 @@ class SettlementSchemaTest extends PostgresTestBase {
 
     private long insertSettlementIn(long cycle, long payout, long carriedOver) {
         return jdbc.sql("""
-                        insert into settlement (settlement_cycle_id, seller_id,
+                        insert into settlement (settlement_number, settlement_cycle_id, seller_id,
                                                 payout_amount, carried_over)
-                        values (:cycleId, :sellerId, :payout, :carriedOver)
+                        values (:number, :cycleId, :sellerId, :payout, :carriedOver)
                         returning settlement_id
                         """)
+                .param("number", settlementNumber())
                 .param("cycleId", cycle)
                 .param("sellerId", sellerId)
                 .param("payout", payout)
