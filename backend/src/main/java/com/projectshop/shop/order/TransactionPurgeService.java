@@ -93,10 +93,13 @@ public class TransactionPurgeService {
      * @param refundNotes       보존 기간이 지나 지운 환불 사유 글 수. 환불 자체는 남는다
      * @param historyNotes      보존 기간이 지나 지운 전이 사유 글 수. 이력 자체는 남는다
      * @param inquiries         보존 기간이 지나 지운 문의 수. 질문·답변 글이 같이 사라진다
+     * @param returnPickups     보존 기간이 지나 지운 반품 수거지 수. 반품 행은 남는다
+     * @param returnNotes       보존 기간이 지나 지운 반품 사유 글 수. 반품 행은 남는다
      */
     public record Purged(int shippingAddresses, int paymentCards, int orders,
             int auditLogs, int batchRuns, int notificationBodies, int notifications,
-            int refundNotes, int historyNotes, int inquiries) {}
+            int refundNotes, int historyNotes, int inquiries,
+            int returnPickups, int returnNotes) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -123,9 +126,67 @@ public class TransactionPurgeService {
                 baseline.minusMonths(ADVERTISEMENT_MONTHS), baseline.minusYears(ORDER_YEARS));
 
         int inquiries = deleteExpiredInquiries(baseline.minusYears(INQUIRY_YEARS));
+        int returnPickups = deleteExpiredReturnPickups(baseline.minusMonths(SHIPPING_MONTHS));
+        int returnNotes = deleteExpiredReturnNotes(baseline.minusMonths(SHIPPING_MONTHS));
 
         return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns,
-                notificationBodies, notifications, refundNotes, historyNotes, inquiries);
+                notificationBodies, notifications, refundNotes, historyNotes, inquiries,
+                returnPickups, returnNotes);
+    }
+
+    /**
+     * 수거지를 지운다. <b>반품 행은 그대로 남는다</b> — {@code order_shipping} 과 같은 모양이다.
+     *
+     * <p>보내는 사람 이름·연락처·주소라 <b>배송지와 같은 성질</b>이고 수명도 같다(거래 종료 + 6개월).
+     * 반품 사실(언제 접수했고 누가 배송비를 무나)은 5년을 채우고 사람 정보만 먼저 사라진다.
+     *
+     * <p><b>넣는 코드보다 먼저 든다</b>(청크 43). 접수 입구는 {@code 43a} 라 지금 이 표가 비어
+     * 있는데, 그 순서를 뒤집으면 <b>수집과 파기 사이가 위반 구간</b>이 된다(`D23`) —
+     * {@code user_consent.acted_ip} 가 그렇게 됐다.
+     */
+    private int deleteExpiredReturnPickups(OffsetDateTime closedBefore) {
+        List<Long> orderIds = closedOrderIds(closedBefore);
+        if (orderIds.isEmpty()) {
+            return 0;
+        }
+
+        return jdbc.sql("""
+                        delete from return_pickup
+                         where return_request_id in (
+                             select rr.return_request_id from return_request rr
+                               join seller_order so on so.seller_order_id = rr.seller_order_id
+                              where so.order_id in (:ids)
+                         )
+                        """)
+                .param("ids", orderIds)
+                .update();
+    }
+
+    /**
+     * 반품 사유 글을 지운다. <b>반품 행은 그대로 남는다</b>({@code refund_note} 와 같은 자리).
+     *
+     * <p>사람이 쓴 글이라 <b>글 안에 연락처가 섞여 들어온다</b> — 「집 앞에 두고 가셨는데 010-…」
+     * 같은 것이고, 그것이 5년 표에서 사유 글을 뗀 이유다(`5i-2`).
+     *
+     * <p><b>{@code reason_code} 는 안 지운다.</b> 그쪽은 {@code check} 로 닫힌 열거값이라
+     * 사람 글이 안 들어오고, 「무슨 사유로 몇 건」은 그 값이 답한다.
+     */
+    private int deleteExpiredReturnNotes(OffsetDateTime closedBefore) {
+        List<Long> orderIds = closedOrderIds(closedBefore);
+        if (orderIds.isEmpty()) {
+            return 0;
+        }
+
+        return jdbc.sql("""
+                        delete from return_note
+                         where return_request_id in (
+                             select rr.return_request_id from return_request rr
+                               join seller_order so on so.seller_order_id = rr.seller_order_id
+                              where so.order_id in (:ids)
+                         )
+                        """)
+                .param("ids", orderIds)
+                .update();
     }
 
     /**

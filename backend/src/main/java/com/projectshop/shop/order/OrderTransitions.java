@@ -74,14 +74,24 @@ final class OrderTransitions {
      * 청약철회 기산점을 옮길 수 있고, 그건 소비자의 기간을 줄이는 일이다(`D7`).
      *
      * <p>배송 중 취소는 없다. 물건이 이미 떠났으면 취소가 아니라 반품이다(`glossary.md`).
+     *
+     * <p><b>{@code RETURN_REQUESTED} 에서 둘로 갈린다</b>(청크 43). 반품이 승인되면
+     * {@code RETURNED}, <b>거절되면 {@code DELIVERED} 로 돌아간다</b> — 물건은 소비자에게
+     * 있고 거래는 살아 있으므로 배송이 끝난 상태가 사실이다. 되돌아가도 청약철회 기산점은
+     * 안 움직인다: 그 값은 {@code delivered} 로 갈 때 <b>박제된 것</b>이라 다시 안 센다.
+     *
+     * <p><b>{@code CONFIRMED} 에서 반품이 열린다</b>(청크 43). 제17조제3항의 하자 반품은
+     * <b>공급받은 날부터 3개월</b>이라 구매확정으로 안 끝난다 — 확정은 우리가 정한 기한이고
+     * 그 조항은 법이 준 기한이다. <b>단순 변심은 여기로 못 온다</b>: 그쪽은 제17조제1항의
+     * 7일이고 확정 시점에 이미 지났다. 사유를 가르는 것은 접수 입구가 한다(`43a`).
      */
     private static final Map<Shipment, Set<Shipment>> SHIPMENT = new EnumMap<>(Map.of(
             Shipment.PREPARING, EnumSet.of(Shipment.SHIPPING, Shipment.CANCELLED),
             Shipment.SHIPPING, EnumSet.of(Shipment.DELIVERED),
             Shipment.DELIVERED, EnumSet.of(Shipment.CONFIRMED, Shipment.RETURN_REQUESTED),
-            Shipment.RETURN_REQUESTED, EnumSet.of(Shipment.RETURNED),
+            Shipment.RETURN_REQUESTED, EnumSet.of(Shipment.RETURNED, Shipment.DELIVERED),
+            Shipment.CONFIRMED, EnumSet.of(Shipment.RETURN_REQUESTED),
 
-            Shipment.CONFIRMED, EnumSet.noneOf(Shipment.class),
             Shipment.CANCELLED, EnumSet.noneOf(Shipment.class),
             Shipment.RETURNED, EnumSet.noneOf(Shipment.class)));
 
