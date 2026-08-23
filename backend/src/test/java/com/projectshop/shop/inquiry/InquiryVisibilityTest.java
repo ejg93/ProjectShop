@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderFixture;
 
@@ -36,6 +37,9 @@ class InquiryVisibilityTest extends PostgresTestBase {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    private PermissionEvaluator evaluator;
 
     private AuthFixture fixture;
     private long askerId;
@@ -317,12 +321,37 @@ class InquiryVisibilityTest extends PostgresTestBase {
     @DisplayName("본문은")
     class Body {
 
+        /**
+         * <b>마무리(2026-08-23)가 이 테스트를 두 번 고쳤다.</b>
+         *
+         * <p>처음에는 {@code findMine(auditorId)} 가 빈 목록을 주는 것으로 통과했는데,
+         * 그건 <b>감사자에게 자기 문의가 없어서</b>지 본문이 가려져서가 아니었다 —
+         * <b>마스킹 코드가 아예 없는데도 초록이었다.</b>
+         *
+         * <p>그다음 감사자를 셀러에 넣어 봤더니 이번엔 본문이 <b>그대로 나왔다.</b>
+         * 역할을 겹쳐 주면 {@code seller_owner} 의 <b>연결 없는 규칙</b>이 「제한 없음」이라
+         * 전부 열어 버린다(`V6`) — 판정이 허용 규칙을 다 모으기 때문이다(`4d`).
+         *
+         * <p><b>감사자만으로 남의 문의를 보는 경로가 아직 없다.</b> 관리자·감사자용 목록이
+         * 서는 청크가 그 경로를 만들고, 마스킹은 <b>그때 처음 실제로 걸린다.</b>
+         * 지금 고정할 수 있는 것은 <b>판정이 그 그룹을 안 열어 준다</b>는 사실이고,
+         * 그것이 이 규칙의 유일한 출처다.
+         */
         @Test
-        @DisplayName("감사자에게 안 나간다")
-        void isHiddenFromTheAuditor() {
-            ask(askerId, true);
+        @DisplayName("판정이 감사자에게 글을 안 연다")
+        void isNotGrantedToTheAuditorByTheEvaluator() {
+            var decision = evaluator.decide(auditorId, "inquiry", "read",
+                    PermissionEvaluator.Target.ownedBy(askerId));
 
-            assertThat(query.findMine(auditorId, 0, 20).items()).isEmpty();
+            assertThat(decision.allowed())
+                    .as("감사자는 문의를 본다 — 가리는 것은 글뿐이다")
+                    .isTrue();
+            assertThat(decision.canSee(InquiryFields.BODY))
+                    .as("감사는 처리 이력이지 고객이 쓴 글이 아니다(제3조제1항 최소처리)")
+                    .isFalse();
+            assertThat(decision.canSee(InquiryFields.BASIC))
+                    .as("메타는 열려 있다")
+                    .isTrue();
         }
 
         @Test

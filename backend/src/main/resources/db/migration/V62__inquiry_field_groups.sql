@@ -11,7 +11,7 @@
 -- **메타와 글을 가르는 것이 이 청크의 전부다.** 하나로 두면 「무슨 문의가 몇 건인가」를 보려는
 -- 사람에게 글까지 같이 나가고, 그 글에 무엇이 들어 있는지는 우리가 모른다.
 insert into permission_field_group (resource, code, description) values
-    ('inquiry', 'basic', '문의 번호, 종류, 상태, 대상, 일시'),
+    ('inquiry', 'basic', '문의 번호, 종류, 상태, 대상, 일시, 법정 처리 기한'),
     ('inquiry', 'body',  '고객이 쓴 질문과 답변 글');
 
 

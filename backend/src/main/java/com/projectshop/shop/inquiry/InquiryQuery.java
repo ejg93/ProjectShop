@@ -65,6 +65,7 @@ public class InquiryQuery {
 
     /** 자기 것이거나 자기 셀러 것을 볼 때 쓰는 한 줄. 대상과 공개 여부가 같이 나간다 */
     public record Entry(String inquiryNumber, String kind, Long productId, String productName,
+            String sellerOrderNumber,
             String question, String answer, String status, boolean isPublic,
             OffsetDateTime createdAt, OffsetDateTime answeredAt,
             OffsetDateTime dueAt, boolean overdue) {}
@@ -165,6 +166,7 @@ public class InquiryQuery {
 
         var listing = jdbc.sql("""
                         select i.inquiry_number, i.kind, i.product_id, p.name as product_name,
+                               so.seller_order_number,
                                i.question, i.answer, i.status, i.is_public,
                                i.created_at, i.answered_at, i.due_at,
                                (i.status = 'received' and i.due_at < now()) as overdue
@@ -197,8 +199,9 @@ public class InquiryQuery {
                         enumValue(rs.getString("kind")),
                         (Long) rs.getObject("product_id"),
                         rs.getString("product_name"),
-                        rs.getString("question"),
-                        rs.getString("answer"),
+                        rs.getString("seller_order_number"),
+                        body ? rs.getString("question") : null,
+                        body ? rs.getString("answer") : null,
                         enumValue(rs.getString("status")),
                         rs.getBoolean("is_public"),
                         rs.getObject("created_at", OffsetDateTime.class),
