@@ -98,11 +98,44 @@ public class BatchRuns {
     }
 
     /**
+     * 선행 배치가 그날 성공했을 때만 회차를 돌린다(`D19` 3층 — 체인).
+     *
+     * <p><b>안 돌면 스킵을 남긴다.</b> 아무것도 안 하고 끝내면 「선행이 막아서 안 돈 것」과
+     * 「스케줄이 안 걸린 것」이 이력에서 안 갈린다 — 다음 회차가 다시 시도할지도 그 값으로 정한다.
+     *
+     * <p>판정은 <b>같은 기준일</b>로 한다. 그래서 후행의 기준일은 <b>선행이 그 데이터를 만든 날</b>
+     * 이어야 한다 — 실행일로 잡으면 지나간 날의 선행 실패를 못 본다.
+     *
+     * @param requiredBatch 이 배치가 같은 기준일에 성공해 있어야 한다
+     * @return 실제로 돌았으면 그 수. 스킵했거나 이미 성공했거나 실패했으면 빈 값
+     */
+    public Optional<Counts> recordAfter(String batchName, String requiredBatch,
+            LocalDate baselineDate, Supplier<Counts> body) {
+        if (!succeeded(requiredBatch, baselineDate)) {
+            // 사람이 볼 것이라 `WARN` 이다(`D16`). 재시도 창(10분 3회) 안에서 선행이 성공하면 이어진다.
+            log.warn("{} 건너뜀 기준일={} — 선행 {} 이 그날 성공하지 않았다",
+                    batchName, baselineDate, requiredBatch);
+            insert(batchName, baselineDate, OffsetDateTime.now(), "skipped", null, null, null);
+            return Optional.empty();
+        }
+        return record(batchName, baselineDate, body);
+    }
+
+    /** 그 배치가 그 기준일에 성공한 회차를 남겼나 */
+    public boolean succeeded(String batchName, LocalDate baselineDate) {
+        return alreadySucceeded(batchName, baselineDate);
+    }
+
+    /**
      * 그 회차를 다시 돌려야 하나(`D19` 2층).
      *
-     * <p>셋을 다 만족해야 한다 — <b>아직 성공한 적이 없고</b>, <b>마지막 실패가 일시적</b>이고,
+     * <p>셋을 다 만족해야 한다 — <b>아직 성공한 적이 없고</b>, <b>마지막 회차가 다시 해 볼 것</b>이고,
      * <b>시도 수가 상한 밑</b>이다. 한 번도 안 돈 회차는 여기 안 걸린다: 그건 스케줄이 할 일이지
      * 재시도가 아니고, 실패한 적이 없으니 「다시」가 성립하지 않는다.
+     *
+     * <p><b>다시 해 볼 것이 둘이다.</b> 일시적 실패(2층)와 <b>선행이 막아서 스킵된 것</b>(3층)이다.
+     * 스킵을 빼면 체인이 성립을 안 한다 — `D19` 가 「스킵된 후행은 재시도 창 안에서 다시 시도한다」고
+     * 정한 자리가 여기고, 그 사이에 선행이 재시도로 성공하면 이어진다.
      *
      * @param maxAttempts 이 수를 채우면 포기한다. 시도마다 한 행이 남아서 그 수가 곧 시도 수다
      */
@@ -111,7 +144,8 @@ public class BatchRuns {
                         select count(*) filter (where status = 'succeeded') = 0
                            and count(*) > 0
                            and count(*) < :maxAttempts
-                           and (array_agg(failure_kind order by batch_run_id desc))[1] = 'transient'
+                           and ((array_agg(failure_kind order by batch_run_id desc))[1] = 'transient'
+                                or (array_agg(status order by batch_run_id desc))[1] = 'skipped')
                           from batch_run
                          where batch_name = :name and baseline_date = :baselineDate
                         """)
