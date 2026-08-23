@@ -20,6 +20,7 @@
 | **마무리** | 「마무리」(그 안에 처분 표가 있다) | 「예열」·「재개 프로토콜」 |
 | 청크를 여럿 친 뒤 | **먼저 「마무리」를 한다** — 세션이 길면 중간에도 한다 | |
 | 청크를 치는 중 | 「코드를 쓸 때 항상 지키는 것」·「드러난 것의 처분」·「검증」 | |
+| 푸시했을 때 | 「검증 > CI」 — **빨가면 다음 청크보다 먼저 친다** | |
 | 무엇을 먼저 칠지 갈릴 때 | 「청크 규칙 — 어떻게 자르나 > 잡을 수 있는 청크가 여럿일 때 무엇부터」 | |
 | **판단이 갈릴 때** | **「대전제」** — 아래 규칙이 전부 여기서 나왔다 | |
 
@@ -159,7 +160,7 @@
 
 | 무엇 | 안 하면 |
 |---|---|
-| **「검증」 표의 명령을 실제로 돌렸다** | 스키마·서비스를 건드렸으면 **전체 테스트**, 화면만이면 `build`·`lint`·`test`. **못 돌렸으면 못 돌렸다고 밝힌다** |
+| **「검증」 표의 명령을 실제로 돌렸다** | **무엇을 건드렸는지가 무엇을 돌릴지 정한다** — 그 표의 「언제」 칸이 답이다. **못 돌렸으면 못 돌렸다고 밝힌다** |
 | **이 청크가 남긴 강제 지점을 한 줄로 적는다** | 제약·트리거·테스트 중 무엇이 생겼나. **없으면 왜 없는지** |
 | **드러난 것을 처분했다** | 위 「드러난 것의 처분」. 어느 청크가 볼 것인지까지 |
 | **커밋했다** | 청크 하나 = 커밋 하나. 미완이어도 WIP |
@@ -323,35 +324,42 @@
 
 ## 검증
 
-코드가 생기는 청크에서 이 절에 그 구역의 빌드·테스트 명령을 적고,
-이후 작업은 끝내기 전에 그 명령을 실제로 돌린다.
+**무엇을 건드렸는지가 무엇을 돌릴지 정한다.** 아래 표의 「언제」 칸이 그 답이고,
+청크를 닫기 전에 걸리는 줄을 **전부** 돌린다.
 
-| 구역 | 명령 | 통과 기준 |
+**backend 명령은 앞에 이것을 붙인다** — 이 환경의 `JAVA_HOME` 이 JDK 11 을 가리켜서 Gradle 이 안 뜬다.
+
+```
+JAVA_HOME="C:/Program Files/Java/jdk-25"
+```
+
+| 언제 | 명령 | 통과 기준 |
 |---|---|---|
-| DB 컨테이너 | `docker compose config --quiet` | 종료 코드 0 |
-| 컨테이너 | `docker compose up -d` 후 `docker compose ps` | `shop-db`·`shop-redis` 가 `healthy` |
-| backend | `cd backend && ./gradlew build` | `BUILD SUCCESSFUL` |
-| backend | `./gradlew test` | 실패 0. 테스트가 Postgres 컨테이너를 스스로 띄운다. `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
-| backend | `./gradlew bootRun` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 마이그레이션 파일 수와 같음 |
-| backend (데모 데이터) | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. 계정 6·셀러 2, 비밀번호는 전부 `demo-password-1234`. **`local` 없이 뜨면 시드가 안 들어간다** |
-| backend (로그) | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
+| **코드를 건드렸으면 항상** | `cd backend && ./gradlew build` | `BUILD SUCCESSFUL`. 테스트가 여기 같이 돈다 |
+| **화면을 건드렸으면** | `cd frontend && npm run build` | `Compiled successfully` + `Finished TypeScript`. 타입 검사가 같이 돈다 |
+| 〃 | `npm run lint` | 출력 없음. **접근성 규칙이 포함돼 있다**(`D20`) |
+| 〃 | `npm test` | 실패 0 |
+| **푸시했으면** | 아래 「CI」 | 초록. **빨가면 다음 청크보다 먼저 친다** |
+| 스키마·서비스만 볼 때 | `./gradlew test` | 실패 0. 테스트가 Postgres 컨테이너를 스스로 띄운다. `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
+| **마이그레이션을 더했으면** | `./gradlew bootRun` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 마이그레이션 파일 수와 같음. **테스트만으로는 기동 경로를 안 지난다** |
+| 컨테이너 설정을 건드렸으면 | `docker compose config --quiet` 후 `docker compose up -d` | 종료 코드 0, `shop-db`·`shop-redis` 가 `healthy` |
+| 프록시·라우팅을 건드렸으면 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |
+| 시드·데모 데이터를 건드렸으면 | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. 계정 6·셀러 2, 비밀번호는 전부 `demo-password-1234`. **`local` 없이 뜨면 시드가 안 들어간다** |
+| 로그·추적을 건드렸으면 | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
 
 프론트 명령은 전부 `frontend/` 안에서 돌린다.
 
-| 구역 | 명령 | 통과 기준 |
-|---|---|---|
-| frontend | `cd frontend && npm run build` | `Compiled successfully` + `Finished TypeScript`. 타입 검사가 여기 같이 돈다 |
-| frontend | `npm run lint` | 출력 없음. **접근성 규칙이 포함돼 있다**(`D20`) |
-| frontend (프록시) | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |
+**새 구역이 생기면 그 명령을 이 표에 더한다.** 지금 도는 것은 위가 전부다.
 
-이 환경의 `JAVA_HOME` 은 JDK 11을 가리켜서 Gradle이 안 뜬다.
-`JAVA_HOME="C:/Program Files/Java/jdk-25"` 를 앞에 붙여서 돌린다.
+### CI
 
-**커밋마다 CI 가 같은 명령을 돌린다**(`.github/workflows/ci.yml`, 청크 `2c`).
+**커밋마다 CI 가 같은 명령을 돌린다**(`.github/workflows/ci.yml`, 청크 `2c`) —
 backend 는 `./gradlew build`, frontend 는 `npm ci` 뒤 `build`·`lint`·`test` 다.
-**푸시해야 돈다** — 원격에 안 올린 커밋은 CI 가 못 보므로, 청크를 닫을 때 돌리는 것은 여전히 위 표다.
+**푸시해야 돈다.**
 
-### CI 는 위 표가 못 잡는 것을 잡는다
+**그래도 위 표를 먼저 돌린다.** CI 는 푸시한 뒤에야 답하고, 그때는 이미 커밋이 남아 있다.
+
+#### CI 는 위 표가 못 잡는 것을 잡는다
 
 **다른 환경이라서다.** 리눅스 러너, 깨끗한 체크아웃, `npm ci`.
 로컬은 Windows 에 이미 받아 둔 의존성이라 **여기서만 드러나는 종류가 있다.**
@@ -369,8 +377,7 @@ backend 는 `./gradlew build`, frontend 는 `npm ci` 뒤 `build`·`lint`·`test`
 **`gh` 가 `PATH` 에 없으면** 전체 경로로 부른다 — `"/c/Program Files/GitHub CLI/gh.exe"`.
 설치 후에 뜬 셸이라야 `PATH` 가 잡힌다.
 
-**빨간 CI 는 「지금 깨져 있는 것」이라 우선순위 1번이다**(위 「무엇부터」).
-푸시했으면 결과를 보고, 빨가면 다음 청크보다 먼저 친다.
+**빨간 CI 는 「지금 깨져 있는 것」이라 우선순위 1번이다**(「무엇부터」).
 
 돌리지 못했으면 못 돌렸다고 밝힌다. 안 돌려보고 "동작한다"·"빌드 통과"라고 쓰지 않는다.
 
