@@ -77,11 +77,26 @@
 
 | 등식 | 강제 |
 |---|---|
-| `settlement.payout_amount = sum(settlement_item.amount)` | 지연 트리거 |
-| `sum(settlement_item.amount where 종류 = 상품대금) = 구매확정 주문 항목 금액 합` | 테스트 |
-| `sum(settlement_item.amount where 종류 = 수수료) = 그 항목들의 박제된 수수료 합` | 테스트 |
-| `settlement.carried_over = min(0, 지급액)` | 테스트 |
-| `(셀러, 정산 주기)` 조합은 하나 | `unique` |
+| `settlement.payout_amount = sum(settlement_item.amount)` | 지연 트리거(`V52`) |
+| `sum(settlement_item.amount where 종류 = 상품대금) = 구매확정 주문 항목 금액 합` | 테스트 — 청크 19 |
+| `sum(settlement_item.amount where 종류 = 수수료) = 그 항목들의 박제된 수수료 합` | 테스트 — 청크 19 |
+| `settlement.carried_over = least(0, payout_amount)` | **`check`**(`V52`) |
+| `(셀러, 정산 주기)` 조합은 하나 | `unique`(`V52`) |
+| **근거 하나는 평생 한 번만 실린다** | 부분 `unique`(`V52`) |
+
+**넷째가 테스트에서 `check` 로 내려갔다**(청크 17). 한 행 안에서 결정되는 값이라
+더 낮은 자리에 걸 수 있었다 — `D23` 축 2 는 걸 수 있는 자리가 여럿이면 아래를 고르라고 한다.
+
+**여섯째는 청크 17 에서 나왔다.** 위의 유일성은 같은 주기를 두 번 마감하는 것만 막는다.
+같은 주문 항목이 **다른 주기의 정산서에** 실리면 두 정산서 각각은 합이 맞고 셀러는 돈을 두 번 받는다.
+그래서 근거 참조(`order_item_id`·`seller_order_id`·`refund_item_id`·`carried_from_settlement_id`)마다
+**정산서를 넘어선 전역 유니크**를 건다.
+
+### 부호를 종류가 정한다
+
+셀러에게 주는 것이 양수, 우리가 떼거나 물리는 것이 음수다(`settlement_item_amount_sign_check`).
+수수료를 양수로 담고 뺄셈을 앱이 하면 **「합이 곧 지급액」이 성립을 안 하고**, 그 순간 첫째 줄의
+지연 트리거가 아무것도 못 막는다. 위 표의 둘째·셋째 줄을 셀 때는 그 부호를 감안한다.
 
 지급액 공식 자체(`구매확정 합 - 수수료 - 회수 - 이월`)는 `business-model.md` 에 있다.
 **여기서 고정하는 것은 구한 값이 맞는지 아는 방법**이라 공식을 옮겨 적지 않는다.
@@ -148,7 +163,7 @@ commission_refund = 마지막 수량이면  commission_amount - 이미 나간 �
 
 | 등식 | 왜 | 언제 |
 |---|---|---|
-| 정산 축 다섯 | `settlement` 테이블이 없다 | 청크 17 |
+| ~~정산 축 다섯~~ | ~~`settlement` 테이블이 없다~~ | **완료 — 청크 17.** 표 셋이 서면서 넷이 제약·트리거로 내려갔고, 둘(합계 대조)은 마감 배치가 값을 만들기 시작하는 청크 19 가 건다 |
 
 **적어 두는 것과 거는 것을 가른다.** 등식을 지금 고정해 두면 그 스키마를 만드는 청크가
 "무엇을 강제할 수 있는 모양이어야 하나" 를 알고 시작한다. 이 문서가 `17` 앞에 온 이유와 같다.
