@@ -77,10 +77,12 @@ public class OrderStatusService {
 
     private final JdbcClient jdbc;
     private final BusinessCalendar calendar;
+    private final ReturnRequestService returns;
 
-    OrderStatusService(JdbcClient jdbc, BusinessCalendar calendar) {
+    OrderStatusService(JdbcClient jdbc, BusinessCalendar calendar, ReturnRequestService returns) {
         this.jdbc = jdbc;
         this.calendar = calendar;
+        this.returns = returns;
     }
 
     /**
@@ -240,6 +242,10 @@ public class OrderStatusService {
 
             requireWithdrawable(sellerOrderId, reason);
             recordReturnReason(sellerOrderId, reason);
+
+            // 반품 행을 같은 트랜잭션에서 연다. 묶음만 옮기면 `V63` 의 지연 트리거가
+            // 커밋에서 거부하고, 그때는 이 요청이 무엇을 하려던 것인지가 오류에 안 남는다.
+            returns.open(sellerOrderId, actor, reason);
         }
 
         if (to == Shipment.CANCELLED) {

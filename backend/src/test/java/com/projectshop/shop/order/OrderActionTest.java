@@ -195,6 +195,43 @@ class OrderActionTest extends PostgresTestBase {
         }
 
         /**
+         * <b>`43` 이 표를 세우고 넣는 코드를 안 만들어서 반품이 통째로 막혀 있었다.</b>
+         * 묶음만 옮기면 `V63` 의 지연 트리거가 커밋에서 거부한다 — 접수가 되는 것처럼 보이다가
+         * 트랜잭션이 끝날 때 통째로 사라진다.
+         *
+         * <p><b>{@code set constraints all immediate} 를 지나야 이 테스트가 값을 한다.</b>
+         * 테스트는 롤백이라 그냥 두면 지연 검사가 한 번도 안 돈다(`ReturnRequestSchemaTest`).
+         */
+        @Test
+        @DisplayName("접수하면 반품 행이 생겨서 커밋 검사를 지난다")
+        void opensReturnRequestRow() {
+            String number = deliveredShipment();
+
+            actions.run(buyer, number, Action.REQUEST_RETURN, null);
+
+            assertThatCode(() -> jdbc.sql("set constraints all immediate").update())
+                    .as("묶음만 return_requested 로 가면 V63 의 지연 트리거가 커밋에서 거부한다")
+                    .doesNotThrowAnyException();
+
+            assertThat(returnStatusOf(number)).isEqualTo("requested");
+            assertThat(returnItemCountOf(number))
+                    .as("반품은 묶음 통째라 주문 항목이 그대로 담겨야 한다(`D7`)")
+                    .isEqualTo(1);
+        }
+
+        /** 사유가 이 행에도 남는다. 묶음의 사유는 거절되면 비워진다(`V63`) */
+        @Test
+        @DisplayName("하자 반품은 사유가 반품 행에 남는다")
+        void keepsDefectReasonOnRow() {
+            String number = deliveredShipment();
+
+            actions.run(buyer, number, Action.REQUEST_RETURN, null,
+                    OrderStatusService.ReturnReason.DEFECT);
+
+            assertThat(returnReasonOf(number)).isEqualTo("defect");
+        }
+
+        /**
          * 전자상거래법 제17조제2항(`D2` R4).
          *
          * <p><b>주문 시점에 성립한 제한만 막는다</b>(`Q5`·`Q6`). 디지털콘텐츠는 제공 개시가 요건인데
@@ -469,6 +506,41 @@ class OrderActionTest extends PostgresTestBase {
         return jdbc.sql("select status from seller_order where seller_order_number = :number")
                 .param("number", sellerOrderNumber)
                 .query(String.class)
+                .single();
+    }
+
+    private String returnStatusOf(String sellerOrderNumber) {
+        return jdbc.sql("""
+                        select rr.status from return_request rr
+                          join seller_order so on so.seller_order_id = rr.seller_order_id
+                         where so.seller_order_number = :number
+                        """)
+                .param("number", sellerOrderNumber)
+                .query(String.class)
+                .single();
+    }
+
+    private String returnReasonOf(String sellerOrderNumber) {
+        return jdbc.sql("""
+                        select rr.reason_code from return_request rr
+                          join seller_order so on so.seller_order_id = rr.seller_order_id
+                         where so.seller_order_number = :number
+                        """)
+                .param("number", sellerOrderNumber)
+                .query(String.class)
+                .single();
+    }
+
+    private int returnItemCountOf(String sellerOrderNumber) {
+        return jdbc.sql("""
+                        select count(*) from return_request_item rri
+                          join return_request rr
+                            on rr.return_request_id = rri.return_request_id
+                          join seller_order so on so.seller_order_id = rr.seller_order_id
+                         where so.seller_order_number = :number
+                        """)
+                .param("number", sellerOrderNumber)
+                .query(Integer.class)
                 .single();
     }
 
