@@ -368,8 +368,10 @@ class OrderActionTest extends PostgresTestBase {
         }
 
         /**
-         * 권한만 보면 셋(`SHIP`·`DELIVER`·`COMPLETE_RETURN`)이 다 열린다 —
-         * 셀러가 `update_status` 하나로 셋을 쓴다. 전이표가 갈라야 「배송 전인데 배송완료」가 안 뜬다.
+         * 권한만 보면 둘(`SHIP`·`DELIVER`)이 다 열린다 — 셀러가 `update_status` 하나로 쓴다.
+         * 전이표가 갈라야 「배송 전인데 배송완료」가 안 뜬다.
+         *
+         * <p>반품완료는 `43a-2` 가 `approve_return` 으로 떼어 냈다.
          */
         @Test
         @DisplayName("전이표에 없는 화살표는 안 뜬다")
@@ -377,8 +379,8 @@ class OrderActionTest extends PostgresTestBase {
             String number = paidShipment();
 
             assertThat(allowedFor(alphaOwner, number))
-                    .as("권한만 보면 배송완료·반품완료까지 열린다. 전이표가 그것을 자른다")
-                    .doesNotContain("DELIVER", "COMPLETE_RETURN");
+                    .as("권한만 보면 배송완료까지 열린다. 전이표가 그것을 자른다")
+                    .doesNotContain("DELIVER", "APPROVE_RETURN");
         }
 
         @Test

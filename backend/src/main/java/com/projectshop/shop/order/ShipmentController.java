@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
@@ -65,6 +66,36 @@ public class ShipmentController {
             OrderStatusService.ReturnReason returnReason) {
     }
 
+    /**
+     * 반품 승인 요청(`43a-2`).
+     *
+     * <p><b>본문이 필수다.</b> 다른 동작과 다른 이유는 {@code restock} 이 판단이라서다 —
+     * 빈 요청을 허용하면 그 판단이 기본값으로 대체된다.
+     *
+     * @param restock 돌아온 물건을 다시 팔 수 있나
+     * @param reason  관리자 전이의 근거(`D7`). 판정 사유가 아니다
+     */
+    public record ApproveReturnRequest(
+            @NotNull Boolean restock,
+            @Size(max = 500) String reason) {
+    }
+
+    /**
+     * 반품 거절 요청(`43a-2`).
+     *
+     * <p><b>{@code decisionReason} 에 {@code @NotBlank} 를 안 건다.</b> 걸면 빈 사유가
+     * 400 으로 떨어지는데, 형식은 맞고 값이 규칙에 안 맞는 것이라 422 다(`D5`).
+     * 막는 것은 {@link ReturnRequestService} 고 그쪽이 {@code RETURN_DECISION_REASON_REQUIRED} 를 던진다 —
+     * <b>새 입구가 생겨도 같은 자리를 지난다.</b>
+     *
+     * @param decisionReason 왜 인정하지 않았나. {@code return_note} 에 남는다(6개월, `D13`)
+     * @param reason         관리자 전이의 근거(`D7`)
+     */
+    public record RejectReturnRequest(
+            @Size(max = 500) String decisionReason,
+            @Size(max = 500) String reason) {
+    }
+
     /** 셀러가 물건을 보냈다 */
     @PostMapping("/{sellerOrderNumber}/ship")
     public ResponseEntity<Void> ship(
@@ -85,14 +116,46 @@ public class ShipmentController {
         return run(user, sellerOrderNumber, Action.DELIVER, request);
     }
 
-    /** 셀러가 돌아온 물건을 확인했다 */
-    @PostMapping("/{sellerOrderNumber}/complete-return")
-    public ResponseEntity<Void> completeReturn(
+    /**
+     * 반품을 인정한다. 묶음이 닫힌다(`43a-2`).
+     *
+     * <p><b>관리자만 부른다.</b> 제17조제5항이 훼손 책임의 입증을 통신판매업자에게 지워서,
+     * 물건을 받아 본 셀러가 소견을 내도 그것이 곧 결론이 되면 안 된다(`D2` R37).
+     *
+     * <p><b>부담 주체를 안 받는다.</b> 판정과 사유에서 계산된다(`D2` R36) —
+     * 하자 승인은 판매자, 그 밖은 소비자다. 칸을 두면 법이 정한 값을 고를 수 있게 된다.
+     *
+     * <p><b>{@code restock} 은 필수다.</b> 다시 팔 수 있는지는 검수 결과라 계산이 안 되고,
+     * 기본값을 두면 그 값이 곧 거짓이 된다(`V63` 의 {@code return_request_restock_check}).
+     */
+    @PostMapping("/{sellerOrderNumber}/approve-return")
+    public ResponseEntity<Void> approveReturn(
             @AuthenticationPrincipal ShopUser user,
             @PathVariable String sellerOrderNumber,
-            @Valid @RequestBody(required = false) ActionRequest request) {
+            @Valid @RequestBody ApproveReturnRequest request) {
 
-        return run(user, sellerOrderNumber, Action.COMPLETE_RETURN, request);
+        actions.run(user.id(), sellerOrderNumber, Action.APPROVE_RETURN, request.reason(), null,
+                new ReturnRequestService.Decision.Approve(request.restock()));
+
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 반품을 인정하지 않는다. 묶음이 배송완료로 돌아간다(`43a-2`).
+     *
+     * <p><b>사유가 필수다.</b> `V63` 의 {@code return_requires_rejection_reason} 이 커밋에서
+     * 같은 것을 보지만 그것은 지연이라 500 으로 나간다 — 여기서 받아야 422 가 된다.
+     */
+    @PostMapping("/{sellerOrderNumber}/reject-return")
+    public ResponseEntity<Void> rejectReturn(
+            @AuthenticationPrincipal ShopUser user,
+            @PathVariable String sellerOrderNumber,
+            @Valid @RequestBody RejectReturnRequest request) {
+
+        actions.run(user.id(), sellerOrderNumber, Action.REJECT_RETURN, request.reason(), null,
+                new ReturnRequestService.Decision.Reject(request.decisionReason()));
+
+        return ResponseEntity.noContent().build();
     }
 
     /** 배송 전에 접는다. 고객과 셀러 둘 다 부른다(`D7`) */

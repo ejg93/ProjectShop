@@ -131,6 +131,21 @@ public enum ErrorCode {
     WITHDRAWAL_RESTRICTED(HttpStatus.UNPROCESSABLE_CONTENT, "withdrawal-restricted",
             "청약철회가 제한된 상품이다"),
 
+    // 물건이 안 왔는데 반품을 승인했다(`D2` R5, 전자상거래법 제18조제2항 1호).
+    //
+    // 409 다. 반품 행의 현재 상태와의 충돌이고, 입고되면 같은 요청이 통과한다.
+    //
+    // **막는 것은 `V63` 의 `return_request_timeline_check` 다.** 이 코드는 말을 붙이는 자리다 —
+    // 그 제약은 지연이라 커밋에서야 터지고, 그때 나가는 것은 500 이다.
+    RETURN_NOT_RECEIVED(HttpStatus.CONFLICT, "return-not-received",
+            "반품 물건이 아직 입고되지 않았다"),
+
+    // 반품 거절에는 사유가 필요하다(`V63` 의 `return_requires_rejection_reason`).
+    //
+    // 422 다. 언제 다시 와도 사유 없는 거절은 같은 답이라 상태와의 충돌이 아니다.
+    RETURN_DECISION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT,
+            "return-decision-reason-required", "반품 거절에는 사유가 필요하다"),
+
     // 관리자가 옮길 때는 사유가 남아야 한다(`D7`). 정상 경로가 아니라서 왜 그랬는지가 없으면
     // 나중에 데이터가 왜 이 모양인지 아무도 모른다.
     TRANSITION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "transition-reason-required",

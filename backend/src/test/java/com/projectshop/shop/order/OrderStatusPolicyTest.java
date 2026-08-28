@@ -21,11 +21,38 @@ class OrderStatusPolicyTest {
     }
 
     @Test
-    @DisplayName("상태를 옮기는 동작은 배송 전 구간과 반품 접수에서만 열린다")
+    @DisplayName("상태를 옮기는 동작은 배송 전 구간에서만 열린다")
     void updateStatusOpenBeforeDelivery() {
         assertThat(updateStatus().covers("preparing")).isTrue();
         assertThat(updateStatus().covers("shipping")).isTrue();
-        assertThat(updateStatus().covers("return_requested")).isTrue();
+    }
+
+    /**
+     * <b>`43a-2` 가 뺐다.</b> 열려 있으면 셀러가 {@code DELIVER} 로
+     * {@code return_requested → delivered} 를 미는데 그것이 반품 거절이고,
+     * `D7` 은 그 전이를 관리자만이라고 정했다 — 셀러가 부르면 배송완료를 되돌리는 셈이다.
+     *
+     * <p>이 표가 역할을 못 보므로 「승인은 셀러, 거절은 관리자」를 한 동작으로는 못 가른다.
+     */
+    @Test
+    @DisplayName("반품 접수 상태는 update_status 에 없다")
+    void updateStatusClosedOnReturn() {
+        assertThat(updateStatus().covers("return_requested"))
+                .as("열려 있으면 DELIVER 가 곧 반품 거절이 된다")
+                .isFalse();
+    }
+
+    /** 반품 셋만 그 상태에서 열린다. 판정 둘은 권한이 관리자에게만 있다(`V64`) */
+    @Test
+    @DisplayName("반품 동작 셋은 접수 상태에서만 열린다")
+    void returnActionsOpenOnlyWhenRequested() {
+        for (String action : new String[] {"receive_return", "approve_return", "reject_return"}) {
+            Allowed<String> allowed = policy.allowedStatuses("order", action);
+
+            assertThat(allowed.covers("return_requested")).as(action).isTrue();
+            assertThat(allowed.covers("delivered")).as(action).isFalse();
+            assertThat(allowed.covers("returned")).as(action).isFalse();
+        }
     }
 
     /**

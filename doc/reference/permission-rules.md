@@ -143,6 +143,9 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `order:cancel` | A/own | A/seller | A/all | D/all |
 | `order:confirm` | A/own | | A/all | D/all |
 | `order:request_return` | A/own | | A/all | D/all |
+| `order:receive_return` | | A/seller | A/all | D/all |
+| `order:approve_return` | | | A/all | D/all |
+| `order:reject_return` | | | A/all | D/all |
 | `payment:read` | A/own | A/seller | A/all | A/all |
 | `payment:refund` | | | A/all | D/all |
 | `user:read` | A/own | A/own | A/all | A/all |
@@ -297,10 +300,21 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 
 | 동작 | 열리는 상태 | 누가 |
 |---|---|---|
-| `update_status` | `preparing`·`shipping`·`return_requested` | 셀러 |
+| `update_status` | `preparing`·`shipping` | 셀러 |
 | `cancel` | `preparing` | 고객·셀러 |
 | `confirm` | `delivered` | 고객 |
 | `request_return` | `delivered` | 고객 |
+| `receive_return` | `return_requested` | 셀러 |
+| `approve_return` | `return_requested` | **관리자** |
+| `reject_return` | `return_requested` | **관리자** |
+
+**반품 셋이 `V64` 에서 늘었다**(`43a-2`). 같은 이유가 한 번 더 걸린 자리다 —
+`update_status` 가 `return_requested` 를 들고 있는 동안 **셀러가 `DELIVER` 로 거절 복귀를 밀 수 있었다.**
+「관리자만」은 `state-machines.md` 에 적혀 있었을 뿐 막는 것이 없었고(강제 지점 5순위),
+**역할을 못 보는 축에서 그것을 가르는 방법은 동작을 나누는 것뿐**이다.
+
+판정을 관리자에게 몰아 둔 근거는 법이다 — 제17조제5항이 훼손 책임의 입증을 우리에게 지웠다(`D2` R37).
+셀러는 입고(`receive_return`)까지 하고 멈춘다.
 
 **강제 지점은 3위(앱 검증)다**(`D23` 「축 2」). 더 못 내렸다 — 상태별 허용은 행 하나를 만질 때
 정해지는 것이라 타입으로도 DB 제약으로도 표현이 안 된다. 대신 **빠뜨렸을 때 거부로 떨어지게** 해서

@@ -46,7 +46,26 @@ public class OrderActionService {
 
         SHIP("update_status", Shipment.SHIPPING),
         DELIVER("update_status", Shipment.DELIVERED),
-        COMPLETE_RETURN("update_status", Shipment.RETURNED),
+
+        /**
+         * 반품을 인정한다. 묶음이 닫힌다.
+         *
+         * <p><b>{@code update_status} 에서 떼어 냈다</b>(`43a-2`). 그전에는 셀러의 그 권한이
+         * {@code return_requested} 에서 열려 있었는데, 같은 권한으로 {@link #DELIVER} 를 부르면
+         * <b>반품 거절이 된다</b> — `D7` 이 관리자만이라고 적어 둔 전이다.
+         *
+         * <p>승인까지 관리자인 근거는 제17조제5항이다(`D2` R37) — 훼손 책임의 입증이
+         * 우리에게 있으므로 셀러의 소견이 곧 결론이 되면 안 된다.
+         */
+        APPROVE_RETURN("approve_return", Shipment.RETURNED),
+
+        /**
+         * 반품을 인정하지 않는다. 물건이 소비자에게 돌아가고 묶음은 배송완료로 되돌아간다.
+         *
+         * <p><b>기산점은 안 움직인다</b>(`D7`) — {@code delivered} 로 갈 때 박제한 값이라
+         * 다시 안 센다. {@link OrderStatusService} 가 이 복귀에서 기한을 다시 안 박는다.
+         */
+        REJECT_RETURN("reject_return", Shipment.DELIVERED),
 
         /**
          * 자기 주문을 스스로 무른다.
@@ -86,11 +105,15 @@ public class OrderActionService {
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
     private final OrderStatusService statuses;
+    private final ReturnRequestService returns;
 
-    OrderActionService(JdbcClient jdbc, PermissionEvaluator evaluator, OrderStatusService statuses) {
+    OrderActionService(JdbcClient jdbc, PermissionEvaluator evaluator, OrderStatusService statuses,
+            ReturnRequestService returns) {
+
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.statuses = statuses;
+        this.returns = returns;
     }
 
     /**
@@ -121,6 +144,22 @@ public class OrderActionService {
     public void run(long userId, String sellerOrderNumber, Action action, String reason,
             OrderStatusService.ReturnReason returnReason) {
 
+        run(userId, sellerOrderNumber, action, reason, returnReason, null);
+    }
+
+    /**
+     * 반품 판정을 실어 부른다(`43a-2`).
+     *
+     * <p><b>{@link Action#APPROVE_RETURN}·{@link Action#REJECT_RETURN} 에만 쓴다.</b>
+     * 판정과 묶음 이동이 한 트랜잭션이어야 `V63` 의 지연 트리거를 지난다.
+     *
+     * @param decision 승인이면 재고 복구 여부, 거절이면 사유
+     */
+    @Transactional
+    public void run(long userId, String sellerOrderNumber, Action action, String reason,
+            OrderStatusService.ReturnReason returnReason,
+            ReturnRequestService.Decision decision) {
+
         Row row = find(sellerOrderNumber);
 
         Target target = Target.of(row.buyerUserId(), row.sellerId()).inStatus(row.status());
@@ -129,7 +168,31 @@ public class OrderActionService {
         }
 
         statuses.moveShipment(row.sellerOrderId(), action.to(), actorOf(userId, row, reason),
-                returnReason);
+                returnReason, decision);
+    }
+
+    /**
+     * 돌아온 물건이 들어왔다고 적는다(`43a-2`).
+     *
+     * <p><b>{@link Action} 이 아니다.</b> 입고는 반품 표 안의 진행이고 묶음을 안 옮긴다 —
+     * {@code Action} 은 옮겨 놓을 상태를 들고 있어야 해서 여기 안 들어온다.
+     * 그래서 {@code allowed_actions} 에도 안 실린다(`43a-3` 이 반품 진행 화면에서 답한다).
+     *
+     * <p>대신 <b>판정과 행위자 결정은 같은 자리를 지난다</b>. 갈라 두면 이 경로만
+     * 스코프를 안 보게 되는 날이 온다.
+     *
+     * <p><b>입고 시각이 환급 기산점이다</b> — 제18조제2항 1호(`D2` R5).
+     */
+    @Transactional
+    public void receiveReturn(long userId, String sellerOrderNumber, String reason) {
+        Row row = find(sellerOrderNumber);
+
+        Target target = Target.of(row.buyerUserId(), row.sellerId()).inStatus(row.status());
+        if (!evaluator.decide(userId, "order", "receive_return", target).allowed()) {
+            throw notFound(sellerOrderNumber);
+        }
+
+        returns.receive(row.sellerOrderId(), actorOf(userId, row, reason));
     }
 
     /**

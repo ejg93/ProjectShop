@@ -32,8 +32,17 @@ class OrderStatusPolicy implements StatusPolicy {
      *
      * <p>{@code update_status} 는 셀러 몫이다. <b>{@code delivered} 를 지나면 닫힌다</b> —
      * 배송완료 뒤의 전이는 소비자가 일으키는 사건이고, 셀러가 그걸 밀 수 있으면
-     * 청약철회 기산점을 조작할 수 있다(`D7`). {@code return_requested} 만 열어 둔다:
-     * 반품 완료 처리는 물건을 받아 본 셀러가 한다.
+     * 청약철회 기산점을 조작할 수 있다(`D7`).
+     *
+     * <p><b>{@code return_requested} 를 뺐다</b>(`43a-2`). 그전에는 「반품 완료는 물건을 받아 본
+     * 셀러가 한다」는 이유로 열어 뒀는데, 그 상태가 열려 있으면 셀러가 {@code DELIVER} 로
+     * {@code return_requested → delivered} 를 민다 — <b>그것이 반품 거절이고 `D7` 은 관리자만이라고
+     * 적어 뒀다.</b> 이 표가 역할을 못 보므로 한 동작으로는 「승인은 셀러, 거절은 관리자」를 못 가른다.
+     *
+     * <p>그래서 반품 셋을 동작으로 갈랐다({@code receive_return}·{@code approve_return}·
+     * {@code reject_return}, `V64`). 판정 둘이 관리자인 근거는 제17조제5항이 훼손 책임의
+     * <b>입증을 우리에게</b> 지운 것이다(`D2` R37) — 셀러의 소견이 곧 결론이 되면
+     * 입증책임이 우리에게 있다는 사실이 데이터에서 사라진다.
      *
      * <p>{@code confirm}·{@code request_return} 은 {@code delivered} 에서만 열린다.
      * {@code cancel} 은 {@code preparing} 에서만 — 물건이 떠난 뒤의 되돌림은 취소가 아니라
@@ -46,12 +55,15 @@ class OrderStatusPolicy implements StatusPolicy {
     private static final Map<String, Allowed<String>> BY_ACTION = Map.of(
             "update_status", Allowed.only(Set.of(
                     Shipment.PREPARING.code(),
-                    Shipment.SHIPPING.code(),
-                    Shipment.RETURN_REQUESTED.code())),
+                    Shipment.SHIPPING.code())),
 
             "cancel", Allowed.only(Set.of(Shipment.PREPARING.code())),
             "confirm", Allowed.only(Set.of(Shipment.DELIVERED.code())),
-            "request_return", Allowed.only(Set.of(Shipment.DELIVERED.code())));
+            "request_return", Allowed.only(Set.of(Shipment.DELIVERED.code())),
+
+            "receive_return", Allowed.only(Set.of(Shipment.RETURN_REQUESTED.code())),
+            "approve_return", Allowed.only(Set.of(Shipment.RETURN_REQUESTED.code())),
+            "reject_return", Allowed.only(Set.of(Shipment.RETURN_REQUESTED.code())));
 
     /**
      * <b>관리자도 같이 걸린다.</b> 축은 규칙 위에 있어서 스코프로 비켜 갈 수 없다.

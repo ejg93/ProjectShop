@@ -692,6 +692,28 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen |
     ForEach-Object { Stop-Process -Id $_ -Force }
 ```
 
+### 시드를 한 번 넣은 로컬 DB 는 다음 마이그레이션에서 기동을 막는다
+
+`local` 프로필의 시드가 `V900`·`V901`·`V902` 라 **번호가 실제 마이그레이션보다 위**다.
+그 DB 에 `V64` 를 더하면 Flyway 가 순서를 어긴 것으로 보고 기동 전에 멈춘다.
+
+```
+Detected resolved migration not applied to database: 64.
+```
+
+**코드 문제처럼 보인다.** 실패가 마이그레이션 내용이 아니라 번호 배치에서 나오는데,
+메시지는 그 파일 번호만 말한다 — 방금 쓴 SQL 을 의심하며 시간을 쓰게 된다.
+
+새 마이그레이션을 손으로 확인할 때는 **빈 데이터베이스에 처음부터 올린다.**
+쓰던 것을 지우지 않아도 되고, 시드까지 한 번에 밟히므로 지연 트리거도 같이 돈다.
+
+```bash
+docker exec shop-db psql -U shop -d postgres -c "create database shop_check owner shop;"
+POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+`applied_migrations` 는 **마이그레이션 파일 수 + 시드 3** 이다(`43a-2` 기준 61+3=64).
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고

@@ -226,14 +226,30 @@ public class OrderStatusService {
     public void moveShipment(long sellerOrderId, Shipment to, Actor actor,
             ReturnReason returnReason) {
 
+        moveShipment(sellerOrderId, to, actor, returnReason, null);
+    }
+
+    /**
+     * 반품 판정을 실어 옮긴다(`43a-2`).
+     *
+     * <p><b>{@code RETURNED} 와 {@code return_requested → delivered} 에만 쓴다.</b>
+     * 앞이 승인이고 뒤가 거절이다 — 둘 다 반품 행을 닫아야 묶음이 움직일 수 있다
+     * (`V63` 의 지연 트리거).
+     *
+     * @param decision 판정. 없으면 반품 행을 안 건드린다
+     */
+    @Transactional
+    public void moveShipment(long sellerOrderId, Shipment to, Actor actor,
+            ReturnReason returnReason, ReturnRequestService.Decision decision) {
+
         Shipment from = Shipment.of(currentShipmentStatus(sellerOrderId));
         require(OrderTransitions.allows(from, to), from.code(), to.code(), actor);
 
-        applyShipment(sellerOrderId, from, to, actor, returnReason);
+        applyShipment(sellerOrderId, from, to, actor, returnReason, decision);
     }
 
     private void applyShipment(long sellerOrderId, Shipment from, Shipment to, Actor actor,
-            ReturnReason returnReason) {
+            ReturnReason returnReason, ReturnRequestService.Decision decision) {
 
         if (to == Shipment.RETURN_REQUESTED) {
             // 사유를 안 주면 단순 변심이다. 하자 반품은 요청이 그렇다고 말해야 열린다 —
@@ -248,19 +264,40 @@ public class OrderStatusService {
             returns.open(sellerOrderId, actor, reason);
         }
 
+        // 반품 판정도 같은 자리에서 부른다(`43a-2`). 승인이면 묶음이 `returned` 로,
+        // 거절이면 `delivered` 로 돌아가는데 **둘 다 반품 행이 닫혀 있어야 커밋을 지난다**.
+        //
+        // 입구에서 부르지 않는 이유는 `43a-1` 과 같다 — 새 입구가 생기면 빠뜨리고,
+        // 빠뜨린 경로는 지연 트리거라 커밋에서야 터진다(`D23` 축 2).
+        boolean restock = false;
+        if (decision != null) {
+            restock = returns.decide(sellerOrderId, actor, decision);
+        }
+
         if (to == Shipment.CANCELLED) {
             // 되돌리기 전에 옮긴다. 상태가 먼저 바뀌어야 같은 셀러 주문을 두 번 취소하는 요청이
             // 두 번째에 전이표에 걸린다 — 안 그러면 재고가 두 번 늘어난다.
             updateShipmentStatus(sellerOrderId, to);
-            restoreStock(sellerOrderId);
+            restoreStock(sellerOrderId, "order_cancelled");
         } else {
             updateShipmentStatus(sellerOrderId, to);
+
+            // 반품으로 돌아온 물건 중 다시 팔 수 있는 것만 되돌린다(`V63` 의 `restock`).
+            // **사유를 갈라 적는다** — 취소는 안 나간 것이고 반품은 나갔다 돌아온 것이라
+            // 한 값으로 뭉치면 「왜 재고가 다시 늘었나」에 답이 안 나온다(`V64`).
+            if (restock) {
+                restoreStock(sellerOrderId, "return_restocked");
+            }
         }
 
         if (to == Shipment.SHIPPING) {
             markShipped(sellerOrderId);
         }
-        if (to == Shipment.DELIVERED) {
+
+        // **거절 복귀에서는 안 박는다**(`43a-2`). `return_requested → delivered` 도 여기 오는데
+        // 다시 박으면 청약철회 기산점이 오늘로 밀린다 — `D7` 이 「기산점은 안 움직인다」고 정했고,
+        // 그러면 셀러·관리자가 거절을 반복해서 소비자의 7일을 늘였다 줄일 수 있다.
+        if (to == Shipment.DELIVERED && from == Shipment.SHIPPING) {
             freezeDeadlines(sellerOrderId);
         }
         if (to == Shipment.CONFIRMED || to == Shipment.CANCELLED || to == Shipment.RETURNED) {
@@ -289,7 +326,7 @@ public class OrderStatusService {
 
         for (long sellerOrderId : pending) {
             applyShipment(sellerOrderId, Shipment.PREPARING, Shipment.CANCELLED,
-                    Actor.system("결제가 %s 로 끝나 자동 취소".formatted(reason.code())), null);
+                    Actor.system("결제가 %s 로 끝나 자동 취소".formatted(reason.code())), null, null);
         }
     }
 
@@ -440,10 +477,13 @@ public class OrderStatusService {
      *
      * <p><b>`sku_id` 오름차순이다</b>(`D11`). 주문 생성이 같은 순서로 잠그므로 순환이 안 생긴다.
      *
-     * <p>반품(`RETURNED`)은 여기 없다. 물건이 돌아와 다시 팔 수 있는지는 검수 결과라
-     * 상태 전이만으로 못 정한다 — 반품 축(청크 43·44)이 그것을 다룬다.
+     * <p><b>반품도 여기를 지난다</b>(`43a-2`). 다만 상태 전이가 아니라 <b>판정의
+     * {@code restock} 이 부른다</b> — 물건이 돌아와 다시 팔 수 있는지는 검수 결과라
+     * 같은 {@code approved} 라도 답이 갈린다(`V63`).
+     *
+     * @param reason 이동 사유({@code V41}·{@code V64} 의 닫힌 목록). 취소와 반품을 갈라 적는다
      */
-    private void restoreStock(long sellerOrderId) {
+    private void restoreStock(long sellerOrderId, String reason) {
         List<Long[]> items = jdbc.sql("""
                         select sku_id, quantity from order_item
                          where seller_order_id = :sellerOrderId
@@ -461,9 +501,10 @@ public class OrderStatusService {
         for (Long[] item : items) {
             // 되돌리는 것도 이동이다(`53`). 이력을 보면 「나갔다가 돌아왔다」가 두 줄로 남는다 —
             // 차감을 지우면 그 사이에 재고가 잡혀 있었다는 사실이 사라진다.
-            jdbc.sql("select move_stock(:skuId, :quantity, 'order_cancelled', :orderId)")
+            jdbc.sql("select move_stock(:skuId, :quantity, :reason, :orderId)")
                     .param("skuId", item[0])
                     .param("quantity", item[1].intValue())
+                    .param("reason", reason)
                     .param("orderId", orderId)
                     .query(Boolean.class)
                     .single();
