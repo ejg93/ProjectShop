@@ -199,6 +199,28 @@ class ResponseEnumCaseTest extends PostgresTestBase {
     }
 
     /**
+     * {@link OrderTransitions#statusName} 이 서 있는 전제를 지킨다(1차 마무리).
+     *
+     * <p>그 함수는 상태 이력의 한 줄이 어느 층인지 모르는 채로 <b>결제 층부터 찾아보고</b>
+     * 없으면 배송 층으로 간다. <b>두 층의 값이 안 겹친다는 것이 그 순서의 근거다</b> —
+     * 겹치는 값이 생기면 조용히 결제 층으로 판정되고, 터지지도 않아서 아무도 모른다.
+     *
+     * <p>전제가 코드 어디에도 안 걸려 있어서 여기에 건다. 상태를 하나 늘렸을 때
+     * <b>이름이 겹치면 이 테스트가 먼저 깨진다.</b>
+     */
+    @Test
+    @DisplayName("결제 층과 배송 층의 상태 코드는 안 겹친다")
+    void statusLayersDoNotOverlap() {
+        Set<String> paymentCodes = Arrays.stream(Payment.values())
+                .map(Payment::code)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        assertThat(Arrays.stream(Shipment.values()).map(Shipment::code))
+                .as("겹치면 statusName 이 이력 한 줄을 잘못된 층으로 읽는다")
+                .noneMatch(paymentCodes::contains);
+    }
+
+    /**
      * 이 테스트가 진짜로 잡는지 확인하는 자리다. <b>저장값을 일부러 실어 보고 걸리는지 본다</b> —
      * 안 그러면 「훑었는데 아무것도 안 나왔다」와 「훑는 코드가 죽어 있다」가 안 갈린다.
      */
