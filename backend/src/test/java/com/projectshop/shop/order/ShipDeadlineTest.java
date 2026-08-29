@@ -281,7 +281,7 @@ class ShipDeadlineTest extends PostgresTestBase {
 
     private void ship(long orderId) {
         statuses.moveShipment(bundleId(orderId), OrderTransitions.Shipment.SHIPPING,
-                OrderStatusService.Actor.person("seller", buyerId));
+                OrderStatusService.Actor.seller(buyerId));
     }
 
     /** 묶음에 박제된 약정 날수. 약정이 없었으면 {@code null} 이다 */

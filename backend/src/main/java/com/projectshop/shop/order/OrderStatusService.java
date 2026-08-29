@@ -107,24 +107,35 @@ public class OrderStatusService {
     /**
      * 누가 옮겼나. 이력에 그대로 들어간다(`V18`).
      *
-     * @param userId 사람이 옮겼으면 누구인지. {@code system} 은 지목할 사람이 없어 {@code null} 이다
+     * <p><b>주체마다 팩터리가 따로다</b>(`43a-15`). 그전에는 {@code person(String, long)} 이
+     * 문자열을 받아서 {@code Actor.customer(id)} 처럼 불렀는데, <b>오타를 컴파일러가 못 잡고</b>
+     * 역할 코드({@code seller_owner})와 전이 주체({@code seller})가 같은 자리에 들어갈 수 있었다.
+     * 팩터리를 가르면 <b>문자열 인자가 아예 없어진다</b> — {@code system}·{@code admin} 은
+     * 이미 그 모양이었고 나머지 둘만 뭉쳐 있었다.
+     *
+     * @param userId 사람이 옮겼으면 누구인지. {@link ActorType#SYSTEM} 은 지목할 사람이 없어
+     *               {@code null} 이다({@code V18} 이 그 짝을 강제한다)
      * @param reason 관리자 강제 전이의 근거. 관리자면 필수다(`D7`)
      */
-    public record Actor(String type, Long userId, String reason) {
-
-        public static final String SYSTEM = "system";
+    public record Actor(ActorType type, Long userId, String reason) {
 
         /** 배치와 결제 모듈이 쓴다 */
         public static Actor system(String reason) {
-            return new Actor(SYSTEM, null, reason);
+            return new Actor(ActorType.SYSTEM, null, reason);
         }
 
-        public static Actor person(String type, long userId) {
-            return new Actor(type, userId, null);
+        /** 산 사람이 스스로 옮겼다 */
+        public static Actor customer(long userId) {
+            return new Actor(ActorType.CUSTOMER, userId, null);
+        }
+
+        /** 셀러가 옮겼다. <b>누구인지는 {@code userId} 가 답한다</b> — 이력에는 역할만 남는다 */
+        public static Actor seller(long userId) {
+            return new Actor(ActorType.SELLER, userId, null);
         }
 
         public static Actor admin(long userId, String reason) {
-            return new Actor("admin", userId, reason);
+            return new Actor(ActorType.ADMIN, userId, reason);
         }
     }
 
@@ -612,7 +623,7 @@ public class OrderStatusService {
         if (allowed) {
             return;
         }
-        boolean forcedByAdmin = "admin".equals(actor.type())
+        boolean forcedByAdmin = actor.type() == ActorType.ADMIN
                 && actor.reason() != null && !actor.reason().isBlank();
 
         if (!forcedByAdmin) {
@@ -656,7 +667,7 @@ public class OrderStatusService {
                 .param("sellerOrderId", sellerOrderId)
                 .param("from", from)
                 .param("to", to)
-                .param("actorType", actor.type())
+                .param("actorType", actor.type().code())
                 .param("actorUserId", actor.userId())
                 .query(Long.class)
                 .single();

@@ -135,10 +135,10 @@ class ResponseEnumCaseTest extends PostgresTestBase {
                 .query(String.class)
                 .single();
 
-        statuses.moveShipment(bundleId, Shipment.SHIPPING, Actor.person("seller", sellerOwner));
-        statuses.moveShipment(bundleId, Shipment.DELIVERED, Actor.person("seller", sellerOwner));
+        statuses.moveShipment(bundleId, Shipment.SHIPPING, Actor.seller(sellerOwner));
+        statuses.moveShipment(bundleId, Shipment.DELIVERED, Actor.seller(sellerOwner));
         statuses.moveShipment(bundleId, Shipment.RETURN_REQUESTED,
-                Actor.person("customer", buyer), ReturnReason.DEFECT);
+                Actor.customer(buyer), ReturnReason.DEFECT);
     }
 
     /**

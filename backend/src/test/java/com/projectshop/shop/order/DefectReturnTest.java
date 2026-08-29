@@ -185,7 +185,7 @@ class DefectReturnTest extends PostgresTestBase {
         void defaultsToChangeOfMind() {
             long bundleId = deliveredBundle(false);
             statuses.moveShipment(bundleId, Shipment.RETURN_REQUESTED,
-                    Actor.person("customer", buyerId));
+                    Actor.customer(buyerId));
 
             assertThat(returnReasonOf(bundleId)).isEqualTo("change_of_mind");
         }
@@ -196,7 +196,7 @@ class DefectReturnTest extends PostgresTestBase {
             long bundleId = deliveredBundle(false);
             requestReturn(bundleId, ReturnReason.DEFECT);
 
-            statuses.moveShipment(bundleId, Shipment.RETURNED, Actor.person("seller", buyerId));
+            statuses.moveShipment(bundleId, Shipment.RETURNED, Actor.seller(buyerId));
 
             assertThat(returnReasonOf(bundleId))
                     .as("정산과 셀러 평가가 하자율을 읽는다")
@@ -206,7 +206,7 @@ class DefectReturnTest extends PostgresTestBase {
 
     private void requestReturn(long bundleId, ReturnReason reason) {
         statuses.moveShipment(bundleId, Shipment.RETURN_REQUESTED,
-                Actor.person("customer", buyerId), reason);
+                Actor.customer(buyerId), reason);
     }
 
     /** 7일 기한을 지난 것으로 민다. 하루 전으로 당기면 지금이 이미 넘긴 시점이다 */
@@ -283,8 +283,8 @@ class DefectReturnTest extends PostgresTestBase {
                 .query(Long.class)
                 .single();
 
-        statuses.moveShipment(bundleId, Shipment.SHIPPING, Actor.person("seller", buyerId));
-        statuses.moveShipment(bundleId, Shipment.DELIVERED, Actor.person("seller", buyerId));
+        statuses.moveShipment(bundleId, Shipment.SHIPPING, Actor.seller(buyerId));
+        statuses.moveShipment(bundleId, Shipment.DELIVERED, Actor.seller(buyerId));
 
         return bundleId;
     }

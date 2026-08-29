@@ -75,7 +75,7 @@ class OrderStatusServiceTest extends PostgresTestBase {
         @DisplayName("막힌다")
         void isRejected() {
             assertThatThrownBy(() -> statuses.moveShipment(sellerOrderId, Shipment.DELIVERED,
-                    Actor.person("seller", userId)))
+                    Actor.seller(userId)))
                     .as("준비 중인 것이 배송을 건너뛰고 완료가 되면 기산점이 실제와 달라진다")
                     .isInstanceOfSatisfying(ShopException.class, e ->
                             assertThat(e.code()).isEqualTo(ErrorCode.ORDER_TRANSITION_NOT_ALLOWED));
@@ -87,7 +87,7 @@ class OrderStatusServiceTest extends PostgresTestBase {
             deliver();
 
             assertThatThrownBy(() -> statuses.moveShipment(sellerOrderId, Shipment.SHIPPING,
-                    Actor.person("seller", userId)))
+                    Actor.seller(userId)))
                     .as("되돌릴 수 있으면 셀러가 청약철회 기산점을 옮긴다(`D7`)")
                     .isInstanceOf(ShopException.class);
         }
@@ -105,7 +105,7 @@ class OrderStatusServiceTest extends PostgresTestBase {
         @DisplayName("관리자여도 사유가 없으면 막힌다")
         void adminWithoutReasonIsRejected() {
             assertThatThrownBy(() -> statuses.moveShipment(sellerOrderId, Shipment.RETURNED,
-                    Actor.person("admin", userId)))
+                    Actor.admin(userId, null)))
                     .as("사유가 없으면 남는 것이 '관리자가 바꿨다' 뿐이다")
                     .isInstanceOf(ShopException.class);
         }
@@ -193,7 +193,7 @@ class OrderStatusServiceTest extends PostgresTestBase {
         @DisplayName("구매확정이 기산점을 채운다")
         void confirmSetsClosedAt() {
             deliver();
-            statuses.moveShipment(sellerOrderId, Shipment.CONFIRMED, Actor.person("customer", userId));
+            statuses.moveShipment(sellerOrderId, Shipment.CONFIRMED, Actor.customer(userId));
 
             assertThat(timeOf("closed_at"))
                     .as("보존 기간이 여기서부터 흐른다. 없으면 파기 대상으로 안 잡힌다(`D13`)")
@@ -203,7 +203,7 @@ class OrderStatusServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("취소도 기산점을 채운다")
         void cancelSetsClosedAt() {
-            statuses.moveShipment(sellerOrderId, Shipment.CANCELLED, Actor.person("customer", userId));
+            statuses.moveShipment(sellerOrderId, Shipment.CANCELLED, Actor.customer(userId));
 
             assertThat(timeOf("closed_at")).isNotNull();
         }
@@ -218,7 +218,7 @@ class OrderStatusServiceTest extends PostgresTestBase {
         void restoresStock() {
             assertThat(stock()).isEqualTo(STOCK - ORDERED);
 
-            statuses.moveShipment(sellerOrderId, Shipment.CANCELLED, Actor.person("customer", userId));
+            statuses.moveShipment(sellerOrderId, Shipment.CANCELLED, Actor.customer(userId));
 
             assertThat(stock())
                     .as("안 되돌리면 취소될 때마다 팔 수 있는 수량이 줄어서 재고가 있는데 품절로 보인다")
@@ -228,10 +228,10 @@ class OrderStatusServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("두 번 해도 재고가 두 번 늘지 않는다")
         void doesNotRestoreTwice() {
-            statuses.moveShipment(sellerOrderId, Shipment.CANCELLED, Actor.person("customer", userId));
+            statuses.moveShipment(sellerOrderId, Shipment.CANCELLED, Actor.customer(userId));
 
             assertThatThrownBy(() -> statuses.moveShipment(sellerOrderId, Shipment.CANCELLED,
-                    Actor.person("customer", userId)))
+                    Actor.customer(userId)))
                     .isInstanceOf(ShopException.class);
 
             assertThat(stock()).isEqualTo(STOCK);
@@ -286,7 +286,7 @@ class OrderStatusServiceTest extends PostgresTestBase {
         @DisplayName("이력에 한 줄씩 쌓인다")
         void leavesOneRowEach() {
             statuses.movePayment(orderId, Payment.PAID, Actor.system("결제 승인"));
-            statuses.moveShipment(sellerOrderId, Shipment.SHIPPING, Actor.person("seller", userId));
+            statuses.moveShipment(sellerOrderId, Shipment.SHIPPING, Actor.seller(userId));
             deliverFromShipping();
 
             assertThat(historyCount())
@@ -306,12 +306,12 @@ class OrderStatusServiceTest extends PostgresTestBase {
     }
 
     private void deliver() {
-        statuses.moveShipment(sellerOrderId, Shipment.SHIPPING, Actor.person("seller", userId));
+        statuses.moveShipment(sellerOrderId, Shipment.SHIPPING, Actor.seller(userId));
         deliverFromShipping();
     }
 
     private void deliverFromShipping() {
-        statuses.moveShipment(sellerOrderId, Shipment.DELIVERED, Actor.person("seller", userId));
+        statuses.moveShipment(sellerOrderId, Shipment.DELIVERED, Actor.seller(userId));
     }
 
     private long placeOrder() {

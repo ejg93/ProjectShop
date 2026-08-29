@@ -260,10 +260,10 @@ public class OrderActionService {
      */
     private Actor actorOf(long userId, Row row, String reason) {
         if (userId == row.buyerUserId()) {
-            return Actor.person("customer", userId);
+            return Actor.customer(userId);
         }
         if (isMemberOf(userId, row.sellerId())) {
-            return Actor.person("seller", userId);
+            return Actor.seller(userId);
         }
         if (reason == null || reason.isBlank()) {
             throw new ShopException(ErrorCode.TRANSITION_REASON_REQUIRED);

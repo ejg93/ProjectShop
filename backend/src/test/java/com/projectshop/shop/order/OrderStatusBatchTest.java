@@ -165,7 +165,7 @@ class OrderStatusBatchTest extends PostgresTestBase {
             deliver();
             OffsetDateTime afterDeadline = autoConfirmAt().plusSeconds(1);
             statuses.moveShipment(sellerOrderId, Shipment.RETURN_REQUESTED,
-                    Actor.person("customer", userId));
+                    Actor.customer(userId));
 
             assertThat(batch.confirmDeliveredOrders(afterDeadline))
                     .as("확정되면 정산 대상이 된다. 반품 중인 것이 들어가면 되돌릴 것이 늘어난다(`D7`)")
@@ -175,7 +175,7 @@ class OrderStatusBatchTest extends PostgresTestBase {
         @Test
         @DisplayName("배송 중인 것은 대상이 아니다")
         void skipsUndelivered() {
-            statuses.moveShipment(sellerOrderId, Shipment.SHIPPING, Actor.person("seller", userId));
+            statuses.moveShipment(sellerOrderId, Shipment.SHIPPING, Actor.seller(userId));
 
             assertThat(batch.confirmDeliveredOrders(OffsetDateTime.now().plusYears(1))).isZero();
         }
@@ -193,8 +193,8 @@ class OrderStatusBatchTest extends PostgresTestBase {
     }
 
     private void deliver() {
-        statuses.moveShipment(sellerOrderId, Shipment.SHIPPING, Actor.person("seller", userId));
-        statuses.moveShipment(sellerOrderId, Shipment.DELIVERED, Actor.person("seller", userId));
+        statuses.moveShipment(sellerOrderId, Shipment.SHIPPING, Actor.seller(userId));
+        statuses.moveShipment(sellerOrderId, Shipment.DELIVERED, Actor.seller(userId));
     }
 
     private OffsetDateTime autoConfirmAt() {
