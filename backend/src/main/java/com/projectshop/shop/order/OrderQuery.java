@@ -215,7 +215,7 @@ public class OrderQuery {
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Summary(
                         rs.getString("order_number"),
-                        enumValue(rs.getString("status")),
+                        paymentStatus(rs.getString("status")),
                         rs.getLong("payable_amount"),
                         rs.getInt("item_count"),
                         rs.getObject("created_at", OffsetDateTime.class)))
@@ -264,7 +264,7 @@ public class OrderQuery {
 
         return new Detail(
                 order.orderNumber(),
-                enumValue(order.status()),
+                paymentStatus(order.status()),
                 order.totalAmount(),
                 order.shippingFeeTotal(),
                 order.payableAmount(),
@@ -326,7 +326,7 @@ public class OrderQuery {
                 .query((rs, rowNum) -> new SellerOrder(
                         rs.getString("seller_order_number"),
                         rs.getString("seller_name"),
-                        enumValue(rs.getString("status")),
+                        shipmentStatus(rs.getString("status")),
                         rs.getLong("shipping_fee"),
                         rs.getObject("delivered_at", OffsetDateTime.class),
                         rs.getObject("withdrawal_expire_at", OffsetDateTime.class),
@@ -361,8 +361,8 @@ public class OrderQuery {
                 .param("orderId", orderId)
                 .query((rs, rowNum) -> new HistoryEntry(
                         rs.getString("seller_name"),
-                        enumValue(rs.getString("from_status")),
-                        enumValue(rs.getString("to_status")),
+                        OrderTransitions.statusName(rs.getString("from_status")),
+                        OrderTransitions.statusName(rs.getString("to_status")),
                         enumValue(rs.getString("actor_type")),
                         rs.getObject("occurred_at", OffsetDateTime.class)))
                 .list();
@@ -580,8 +580,29 @@ public class OrderQuery {
      *
      * <p>{@code Locale.ROOT} 를 쓴다. 기본 로케일이면 터키어에서 {@code i} 가 {@code İ} 가 돼서
      * 같은 코드가 서버 설정에 따라 다르게 나간다.
+     *
+     * <p><b>이건 검증을 안 한다.</b> 표기만 바꾸므로 DB 에 모르는 값이 들어와 있으면
+     * 그대로 대문자로 올려 보낸다 — 화면이 처음 보는 값을 받는다.
+     * 상태 셋은 {@link #paymentStatus}·{@link #shipmentStatus}·
+     * {@link OrderTransitions#statusName} 으로 옮겼고(`43a-7`), <b>여기 남은 넷</b>은
+     * {@code actor_type}·{@code clause}·{@code reason_code}·{@code method} 다.
+     *
+     * <p>넷이 남은 이유는 <b>Java 열거형이 아직 없어서</b>지 안 필요해서가 아니다 —
+     * `D23` 「Java 표현」이 생 문자열을 금지하고 넷 다 코드가 값마다 분기한다
+     * ({@code "admin".equals(actor.type())}, {@code "card".equals(command.method())}).
+     * 열거형을 세우는 것은 {@code Actor} 레코드와 호출자까지 번져서 `43a-8` 로 갈랐다.
      */
     private static String enumValue(String storedCode) {
         return storedCode == null ? null : storedCode.toUpperCase(Locale.ROOT);
+    }
+
+    /** 결제 층의 상태({@code shop_order.status}). 열거형을 지나 모르는 값에 터진다 */
+    private static String paymentStatus(String storedCode) {
+        return storedCode == null ? null : OrderTransitions.Payment.of(storedCode).name();
+    }
+
+    /** 배송 층의 상태({@code seller_order.status}) */
+    private static String shipmentStatus(String storedCode) {
+        return storedCode == null ? null : OrderTransitions.Shipment.of(storedCode).name();
     }
 }

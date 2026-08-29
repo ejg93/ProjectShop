@@ -102,4 +102,27 @@ final class OrderTransitions {
     static boolean allows(Shipment from, Shipment to) {
         return SHIPMENT.get(from).contains(to);
     }
+
+    /**
+     * 저장된 상태 코드를 응답 표기로 바꾼다. <b>어느 층인지 안 물어도 된다</b>(`43a-7`).
+     *
+     * <p>상태 이력({@code order_status_history})은 <b>두 층이 한 목록에 섞여 들어온다</b> —
+     * 한 줄만 봐서는 결제 층인지 배송 층인지 모른다. 두 층의 값이 안 겹치므로 둘 다 찾아본다.
+     *
+     * <p><b>열거형을 지나는 것이 요점이다.</b> 문자열을 그냥 대문자로 올리면 DB 에 모르는 값이
+     * 들어와 있어도 그대로 응답에 실려 나가고, 화면이 처음 보는 값을 받는다.
+     * 여기서 터지면 <b>마이그레이션과 코드가 어긋난 순간</b> 알게 된다
+     * (`ProductQuery` 가 같은 판단이고 `D23` 「Java 표현」이 그 규칙이다).
+     */
+    static String statusName(String storedCode) {
+        if (storedCode == null) {
+            return null;
+        }
+
+        return Arrays.stream(Payment.values())
+                .filter(status -> status.code().equals(storedCode))
+                .map(Enum::name)
+                .findFirst()
+                .orElseGet(() -> Shipment.of(storedCode).name());
+    }
 }

@@ -1,6 +1,7 @@
 package com.projectshop.shop.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -164,6 +165,37 @@ class ResponseEnumCaseTest extends PostgresTestBase {
     @DisplayName("고객 응답에 저장값이 그대로 실린 칸이 없다")
     void buyerDetailLeaksNothing() {
         assertThat(leakedValues(json(orders.findByNumber(buyer, orderNumber)))).isEmpty();
+    }
+
+    /**
+     * 표기를 바꾸는 자리가 <b>열거형을 지나간다</b>(`43a-7`).
+     *
+     * <p>그전에는 {@code toUpperCase()} 뿐이라 DB 에 모르는 값이 들어와 있으면 그대로 올려서
+     * 내보냈다 — 화면이 처음 보는 값을 받고 서버는 아무 말도 안 한다.
+     * <b>마이그레이션이 값을 늘렸는데 코드가 안 따라온 순간</b>이 그 자리다.
+     *
+     * <p>제약을 잠깐 떼고 넣는다. {@code check} 가 평소에 막는 것이 맞고,
+     * 여기서 보는 것은 <b>그 제약이 뚫렸을 때 응답이 어떻게 되나</b>다.
+     *
+     * <p><b>지연 검사를 먼저 흘려보낸다.</b> {@code V63} 의 지연 트리거가 걸려 있는 동안에는
+     * {@code alter table} 이 {@code pending trigger events} 로 거부된다.
+     */
+    @Test
+    @DisplayName("모르는 저장 상태는 응답으로 안 나가고 터진다")
+    void unknownStoredStatusThrows() {
+        jdbc.sql("set constraints all immediate").update();
+        jdbc.sql("alter table seller_order drop constraint seller_order_status_check").update();
+        jdbc.sql("""
+                        update seller_order set status = 'teleported'
+                         where seller_order_number = :number
+                        """)
+                .param("number", sellerOrderNumber)
+                .update();
+
+        assertThatThrownBy(() -> sellerOrders.findByNumber(sellerOwner, sellerOrderNumber))
+                .as("모르는 값을 조용히 대문자로 올려 보내면 화면이 처음 보는 값을 받는다")
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("teleported");
     }
 
     /**
