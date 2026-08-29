@@ -20,6 +20,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
+import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
 
@@ -141,7 +142,7 @@ public class SellerOrderQuery {
                 .query((rs, rowNum) -> new Summary(
                         rs.getString("seller_order_number"),
                         rs.getString("order_number"),
-                        enumValue(rs.getString("status")),
+                        EnumValue.of(rs.getString("status"), Shipment::of),
                         rs.getInt("item_count"),
                         rs.getLong("shipping_fee"),
                         rs.getObject("ship_due_at", OffsetDateTime.class),
@@ -214,7 +215,7 @@ public class SellerOrderQuery {
         return new Detail(
                 row.sellerOrderNumber(),
                 row.orderNumber(),
-                enumValue(row.status()),
+                EnumValue.of(row.status(), Shipment::of),
                 row.shippingFee(),
                 row.deliveredAt(),
                 row.withdrawalExpireAt(),
@@ -303,19 +304,5 @@ public class SellerOrderQuery {
             throw new ShopException(ErrorCode.ORDER_FORBIDDEN);
         }
         return Allowed.only(visible);
-    }
-
-    /**
-     * 저장값을 응답 표기로 바꾼다. <b>열거값은 대문자 스네이크다</b>(`D5` 「형식」).
-     *
-     * <p><b>{@link Shipment} 를 지나간다</b>(`43a-7`). 문자열을 그냥 대문자로 올리면 DB 에
-     * 모르는 값이 들어와 있어도 그대로 실려 나가고 화면이 처음 보는 값을 받는다 —
-     * 열거형을 지나면 <b>마이그레이션과 코드가 어긋난 순간 여기서 터진다</b>.
-     *
-     * <p>이 표에는 배송 상태밖에 없어서 층을 안 가른다. 두 층이 섞이는 곳은
-     * 상태 이력이고 {@link OrderTransitions#statusName} 이 받는다.
-     */
-    private static String enumValue(String storedCode) {
-        return storedCode == null ? null : Shipment.of(storedCode).name();
     }
 }

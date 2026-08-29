@@ -23,6 +23,7 @@ import com.projectshop.shop.payment.PaymentMethod;
 import com.projectshop.shop.payment.RefundReason;
 import com.projectshop.shop.payment.RefundStatus;
 import com.projectshop.shop.payment.PaymentStatus;
+import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
 
@@ -33,6 +34,11 @@ import com.projectshop.shop.support.ListQuery.Paging;
  * 이쪽은 {@code user_id = 나} 하나로 끝나고 셀러 쪽은 소속과 미결제 여부를 같이 봐야 한다.
  * 한 쿼리로 합치면 {@code or} 하나가 틀렸을 때 <b>남의 주문이 목록에 섞이고 오류는 안 난다</b>
  * (`ProductQuery` 가 같은 이유로 갈라져 있다).
+ *
+ * <p><b>응답의 열거값은 전부 {@link EnumValue} 를 지난다</b>(`43a-10`). 부르는 쪽이 어느 열거형인지
+ * 적으므로({@code EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of)}) <b>같은 이름의
+ * 다른 값이 타입으로 갈린다</b> — {@code shop_order.status}(주문이 어디까지 왔나)와
+ * {@code payment.status}(승인 시도 한 건의 결과)가 그 짝이다(`43a-9`).
  *
  * <p><b>상세가 상태 이력을 같이 내린다.</b> 전자상거래법 제6조 제3항이 소비자에게 거래기록을
  * 열람할 방법을 요구한다(`D2` R6). 화면이 따로 요청해서 붙이는 방식이면
@@ -219,7 +225,7 @@ public class OrderQuery {
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Summary(
                         rs.getString("order_number"),
-                        orderPaymentStatus(rs.getString("status")),
+                        EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of),
                         rs.getLong("payable_amount"),
                         rs.getInt("item_count"),
                         rs.getObject("created_at", OffsetDateTime.class)))
@@ -268,7 +274,7 @@ public class OrderQuery {
 
         return new Detail(
                 order.orderNumber(),
-                orderPaymentStatus(order.status()),
+                EnumValue.of(order.status(), OrderTransitions.Payment::of),
                 order.totalAmount(),
                 order.shippingFeeTotal(),
                 order.payableAmount(),
@@ -330,7 +336,7 @@ public class OrderQuery {
                 .query((rs, rowNum) -> new SellerOrder(
                         rs.getString("seller_order_number"),
                         rs.getString("seller_name"),
-                        shipmentStatus(rs.getString("status")),
+                        EnumValue.of(rs.getString("status"), OrderTransitions.Shipment::of),
                         rs.getLong("shipping_fee"),
                         rs.getObject("delivered_at", OffsetDateTime.class),
                         rs.getObject("withdrawal_expire_at", OffsetDateTime.class),
@@ -367,7 +373,7 @@ public class OrderQuery {
                         rs.getString("seller_name"),
                         OrderTransitions.statusName(rs.getString("from_status")),
                         OrderTransitions.statusName(rs.getString("to_status")),
-                        actorType(rs.getString("actor_type")),
+                        EnumValue.of(rs.getString("actor_type"), ActorType::of),
                         rs.getObject("occurred_at", OffsetDateTime.class)))
                 .list();
     }
@@ -433,7 +439,7 @@ public class OrderQuery {
                         """)
                 .param("orderId", orderId)
                 .query((rs, rowNum) -> new ContractDocument(
-                        contractClause(rs.getString("clause")),
+                        EnumValue.of(rs.getString("clause"), ContractClause::of),
                         rs.getString("code"),
                         rs.getString("title"),
                         rs.getInt("version"),
@@ -477,7 +483,7 @@ public class OrderQuery {
                 .param("orderId", orderId)
                 .param("clause", clause.toLowerCase(Locale.ROOT))
                 .query((rs, rowNum) -> new ContractDocumentBody(
-                        contractClause(rs.getString("clause")),
+                        EnumValue.of(rs.getString("clause"), ContractClause::of),
                         rs.getString("code"),
                         rs.getString("title"),
                         rs.getInt("version"),
@@ -544,8 +550,8 @@ public class OrderQuery {
                 .query((rs, rowNum) -> new Refund(
                         rs.getString("refund_number"),
                         rs.getString("seller_order_number"),
-                        refundStatus(rs.getString("status")),
-                        refundReason(rs.getString("reason_code")),
+                        EnumValue.of(rs.getString("status"), RefundStatus::of),
+                        EnumValue.of(rs.getString("reason_code"), RefundReason::of),
                         rs.getLong("amount"),
                         rs.getObject("due_at", OffsetDateTime.class),
                         rs.getBoolean("overdue"),
@@ -568,8 +574,8 @@ public class OrderQuery {
                         """)
                 .param("orderId", orderId)
                 .query((rs, rowNum) -> new Payment(
-                        paymentStatus(rs.getString("status")),
-                        paymentMethod(rs.getString("method")),
+                        EnumValue.of(rs.getString("status"), PaymentStatus::of),
+                        EnumValue.of(rs.getString("method"), PaymentMethod::of),
                         rs.getString("approval_number"),
                         rs.getString("card_issuer"),
                         rs.getString("card_last4"),
@@ -577,64 +583,5 @@ public class OrderQuery {
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .optional()
                 .orElse(null);
-    }
-
-    /**
-     * 저장값을 응답 표기로 바꾸는 자리는 <b>전부 열거형을 지난다</b>(`D5` 「형식」).
-     *
-     * <p>아홉이다 — 주문 상태 셋은 {@link #orderPaymentStatus}·{@link #shipmentStatus}·
-     * {@link OrderTransitions#statusName}(`43a-7`), 주체와 조항은 {@link #actorType}·
-     * {@link #contractClause}(`43a-8`), 결제는 {@link #paymentStatus}·{@link #paymentMethod}
-     * (`43a-9`), 환불은 {@link #refundStatus}·{@link #refundReason}(`43a-11`).
-     *
-     * <p><b>검증 없이 대문자로만 올리던 {@code enumValue} 는 지웠다.</b> 호출자가 0이 됐는데도
-     * 남겨 두면 다음에 열거 칸을 더하는 사람이 <b>그것을 베낀다</b> — 이 사슬이 막으려던 것이
-     * 정확히 그 일이다(`43a-6` 이 그렇게 새어 나간 칸 하나를 잡았다).
-     */
-    /** 환불 요청 한 건이 어디까지 왔나({@code refund.status}) */
-    private static String refundStatus(String storedCode) {
-        return storedCode == null ? null : RefundStatus.of(storedCode).name();
-    }
-
-    /** 왜 돌려주나({@code refund.reason_code}). <b>환급 기한의 기산점이 이 값으로 갈린다</b> */
-    private static String refundReason(String storedCode) {
-        return storedCode == null ? null : RefundReason.of(storedCode).name();
-    }
-
-    /** 결제 시도 한 건의 결과({@code payment.status}). 주문의 결제 층 상태와 다른 값이다 */
-    private static String paymentStatus(String storedCode) {
-        return storedCode == null ? null : PaymentStatus.of(storedCode).name();
-    }
-
-    /** 무엇으로 냈나({@code payment.method}) */
-    private static String paymentMethod(String storedCode) {
-        return storedCode == null ? null : PaymentMethod.of(storedCode).name();
-    }
-
-    /** 이력 한 줄을 누가 일으켰나({@code order_status_history.actor_type}) */
-    private static String actorType(String storedCode) {
-        return storedCode == null ? null : ActorType.of(storedCode).name();
-    }
-
-    /** 제13조제2항의 호({@code order_contract_document.clause}) */
-    private static String contractClause(String storedCode) {
-        return storedCode == null ? null : ContractClause.of(storedCode).name();
-    }
-
-    /**
-     * 주문의 결제 층 상태({@code shop_order.status}). 열거형을 지나 모르는 값에 터진다.
-     *
-     * <p><b>{@link #paymentStatus} 와 다른 값이다.</b> 이쪽은 주문이 어디까지 왔나
-     * ({@code payment_pending}·{@code paid})고, 저쪽은 승인 시도 한 건의 결과
-     * ({@code approved}·{@code failed})다. 이름이 부딪쳐서 갈랐다 —
-     * <b>부딪쳤다는 것 자체가 둘이 헷갈린다는 증거다</b>(`43a-9`).
-     */
-    private static String orderPaymentStatus(String storedCode) {
-        return storedCode == null ? null : OrderTransitions.Payment.of(storedCode).name();
-    }
-
-    /** 배송 층의 상태({@code seller_order.status}) */
-    private static String shipmentStatus(String storedCode) {
-        return storedCode == null ? null : OrderTransitions.Shipment.of(storedCode).name();
     }
 }

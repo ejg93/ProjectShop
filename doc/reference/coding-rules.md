@@ -318,6 +318,20 @@ enum Shipment {
 DB 에서 읽어 응답으로 내보내는 자리도 enum 을 지난다. 문자열을 그냥 대문자로 올리면
 **모르는 값이 그대로 실려 나가서** 화면이 처음 보는 값을 받는다.
 
+**그 자리는 `EnumValue` 하나다**(`43a-10`). 부르는 쪽이 어느 enum 인지 적는다.
+
+```java
+EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of)
+```
+
+한 곳으로 모은 이유가 **null 가드**다. 그전에는 `code == null ? null : X.of(code).name()` 이
+**여섯 파일에 열여덟 벌** 있었고, 사본이 그만큼이면 **한 벌이 패턴을 안 따라도 아무도 모른다** —
+`SellerOrderQuery` 의 `return_reason` 한 칸이 실제로 그렇게 새어 나갔다(`43a-6`).
+
+**타입 이름이 호출부에 드러나는 것이 덤이다.** 같은 글자의 다른 값이 그 자리에서 갈린다 —
+`shop_order.status`(주문이 어디까지 왔나)와 `payment.status`(승인 시도 한 건의 결과)가
+둘 다 `paymentStatus` 라는 헬퍼 이름을 쓰다가 **컴파일이 막아서** 발견됐다(`43a-9`).
+
 ### 목록이 둘로 갈리는 것을 테스트가 막는다
 
 `check` 와 enum 이 두 사본이라 어긋날 수 있다. **어긋나는 방향마다 증상이 다르고 둘 다 늦게 드러난다.**
