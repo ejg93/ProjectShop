@@ -70,6 +70,40 @@ class OrderStatusPolicyTest {
         assertThat(updateStatus().covers("returned")).isFalse();
     }
 
+    /**
+     * 전자상거래법 제17조제3항(`D2` R3). <b>공급받은 날부터 3개월</b>이라 구매확정으로 안 끝난다 —
+     * 확정은 우리가 정한 기한이고 그 조항은 법이 준 기한이다.
+     *
+     * <p>`43` 이 전이표에 화살표를 냈는데 이 표가 {@code delivered} 만 들고 있어서
+     * <b>길은 났고 문이 잠겨 있었다</b>(`43a-3`).
+     */
+    @Test
+    @DisplayName("반품 접수는 구매확정 뒤에도 열린다")
+    void requestReturnOpenAfterConfirm() {
+        Allowed<String> allowed = policy.allowedStatuses("order", "request_return");
+
+        assertThat(allowed.covers("delivered")).isTrue();
+        assertThat(allowed.covers("confirmed"))
+                .as("제17조제3항의 3개월은 구매확정으로 안 끝난다")
+                .isTrue();
+
+        assertThat(allowed.covers("returned")).isFalse();
+        assertThat(allowed.covers("cancelled")).isFalse();
+        assertThat(allowed.covers("preparing")).isFalse();
+    }
+
+    /**
+     * 확정 뒤에 열리는 것은 반품뿐이다. {@code confirm} 까지 같이 열면 확정된 것을 또 확정한다.
+     */
+    @Test
+    @DisplayName("구매확정은 확정된 것에 다시 안 열린다")
+    void confirmClosedAfterConfirm() {
+        Allowed<String> allowed = policy.allowedStatuses("order", "confirm");
+
+        assertThat(allowed.covers("delivered")).isTrue();
+        assertThat(allowed.covers("confirmed")).isFalse();
+    }
+
     @Test
     @DisplayName("조회는 상태 축이 안 걸린다")
     void readIsUnrestricted() {

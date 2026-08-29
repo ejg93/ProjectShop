@@ -312,6 +312,98 @@ class OrderActionTest extends PostgresTestBase {
     }
 
     /**
+     * 구매확정 뒤의 반품(`43a-3`).
+     *
+     * <p>{@link OrderStatusPolicy} 가 {@code confirmed} 를 열고 사유 판정은
+     * {@code requireWithdrawable} 이 한다. <b>강제 지점이 앱 검증(3위)이라 경계를 여기서 못박는다</b> —
+     * 상태 축으로 못 내린 이유는 사는 사람이 7일 안에 손으로 확정할 수 있어서다.
+     * 그때 제17조제1항의 권리는 아직 살아 있고, 축으로 닫으면 우리가 만든 장치로 법이 준 기간을 자른다.
+     *
+     * <p>넷이 두 축으로 갈린다 — <b>사유</b>(변심/하자) × <b>기한</b>(안/밖).
+     */
+    @Nested
+    @DisplayName("구매확정 뒤 반품")
+    class ReturnAfterConfirm {
+
+        /**
+         * <b>이 줄이 상태 축으로 안 내린 이유다.</b> 자동확정은 8일이라 7일이 확실히 지났지만,
+         * 손으로 확정하면 3일차에도 {@code confirmed} 가 된다 — 제17조제1항의 권리가 5일 남아 있다.
+         */
+        @Test
+        @DisplayName("기한 안이면 손으로 확정했어도 단순 변심이 열린다")
+        void changeOfMindWithinPeriodPasses() {
+            String number = confirmedShipment();
+
+            actions.run(buyer, number, Action.REQUEST_RETURN, null);
+
+            assertThat(statusOf(number))
+                    .as("구매확정은 우리가 만든 장치라 제17조제1항의 7일을 못 자른다")
+                    .isEqualTo("return_requested");
+        }
+
+        /** 확정이 아니라 <b>기한</b>이 막는다. 상태 축이 아니라 박제된 값이 판단 근거다 */
+        @Test
+        @DisplayName("기한이 지나면 단순 변심이 막힌다")
+        void changeOfMindAfterPeriodBlocked() {
+            String number = confirmedShipment();
+            expireWithdrawal(number);
+
+            assertThatThrownBy(() -> actions.run(buyer, number, Action.REQUEST_RETURN, null))
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.WITHDRAWAL_PERIOD_EXPIRED));
+        }
+
+        /**
+         * <b>이것이 이 청크가 연 구멍이다.</b> 그전에는 상태 축이 {@code delivered} 만 들고 있어서
+         * 확정한 사람의 하자 신고가 통째로 거부됐다 — 제17조제3항이 준 3개월이 남아 있는데도.
+         */
+        @Test
+        @DisplayName("확정 두 달 뒤여도 하자는 접수된다")
+        void defectWithinThreeMonthsPasses() {
+            String number = confirmedShipment();
+            deliverBackDated(number, 2);
+
+            actions.run(buyer, number, Action.REQUEST_RETURN, null,
+                    OrderStatusService.ReturnReason.DEFECT);
+
+            assertThat(statusOf(number))
+                    .as("제17조제3항 — 공급받은 날부터 3개월이라 구매확정으로 안 끝난다")
+                    .isEqualTo("return_requested");
+
+            assertThatCode(() -> jdbc.sql("set constraints all immediate").update())
+                    .as("확정 경로도 `V63` 의 지연 트리거를 지난다. 테스트는 롤백이라 안 부르면 한 번도 안 돈다")
+                    .doesNotThrowAnyException();
+            assertThat(returnStatusOf(number)).isEqualTo("requested");
+        }
+
+        /** 3개월은 역일이라 {@code delivered_at} 에서 세면 언제 계산해도 같다 */
+        @Test
+        @DisplayName("확정 넉 달 뒤면 하자도 막힌다")
+        void defectAfterThreeMonthsBlocked() {
+            String number = confirmedShipment();
+            deliverBackDated(number, 4);
+
+            assertThatThrownBy(() -> actions.run(buyer, number, Action.REQUEST_RETURN, null,
+                    OrderStatusService.ReturnReason.DEFECT))
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.WITHDRAWAL_PERIOD_EXPIRED));
+        }
+
+        /**
+         * 접수까지만 열린 것이지 확정이 되돌아간 것이 아니다. 승인되면 {@code returned} 로 가고
+         * 거절되면 {@code delivered} 로 돌아간다(`OrderTransitions`) — 확정으로는 안 돌아간다.
+         */
+        @Test
+        @DisplayName("확정된 것을 또 확정하지는 못한다")
+        void confirmStaysClosed() {
+            String number = confirmedShipment();
+
+            assertThatThrownBy(() -> actions.run(buyer, number, Action.CONFIRM, null))
+                    .isInstanceOf(ShopException.class);
+        }
+    }
+
+    /**
      * 상세가 내리는 `allowed_actions`.
      *
      * <p><b>목록이 실제 판정과 어긋나면 안 된다.</b> 어긋나는 쪽이 어느 쪽이든 나쁘다 —
@@ -383,11 +475,30 @@ class OrderActionTest extends PostgresTestBase {
                     .doesNotContain("DELIVER", "APPROVE_RETURN");
         }
 
+        /**
+         * <b>구매확정은 종착이 아니다</b>(`43a-3`). 제17조제3항의 하자 반품이 공급받은 날부터
+         * 3개월이라 확정으로 안 끝난다 — 여기서 목록이 비면 화면에 반품 버튼이 안 뜬다.
+         *
+         * <p>기한이 남았는지는 이 목록이 안 본다. 그 판단은 사유를 알아야 갈리는데
+         * 목록은 사유를 안 받는다 — 청약철회 제한 상품을 여기서 안 보는 것과 같은 이유다.
+         */
+        @Test
+        @DisplayName("구매확정 뒤에는 반품 접수만 열린다")
+        void buyerAtConfirmed() {
+            String number = deliveredShipment();
+            actions.run(buyer, number, Action.CONFIRM, null);
+
+            assertThat(allowedForBuyer(number)).containsExactly("REQUEST_RETURN");
+            assertThat(allowedFor(alphaOwner, number))
+                    .as("확정 뒤 반품은 사는 사람이 여는 것이다")
+                    .isEmpty();
+        }
+
         @Test
         @DisplayName("종착 상태에서는 아무것도 안 열린다")
         void terminalIsEmpty() {
-            String number = deliveredShipment();
-            actions.run(buyer, number, Action.CONFIRM, null);
+            String number = paidShipment();
+            actions.run(buyer, number, Action.CANCEL, null);
 
             assertThat(allowedForBuyer(number)).isEmpty();
             assertThat(allowedFor(alphaOwner, number)).isEmpty();
@@ -491,6 +602,31 @@ class OrderActionTest extends PostgresTestBase {
         actions.run(alphaOwner, number, Action.SHIP, null);
         actions.run(alphaOwner, number, Action.DELIVER, null);
         return number;
+    }
+
+    /** 사는 사람이 손으로 확정한 묶음. 기한은 아직 남아 있다 */
+    private String confirmedShipment(long... skuIds) {
+        String number = deliveredShipment(skuIds);
+        actions.run(buyer, number, Action.CONFIRM, null);
+        return number;
+    }
+
+    /**
+     * 배송완료 시각을 과거로 민다. 3개월을 실제로 기다릴 수 없어서다.
+     *
+     * <p>청약철회 기한도 같이 민다 — 안 밀면 단순 변심 기한이 미래로 남아서
+     * 하자 기한만 보는 것인지 둘 다 보는 것인지가 안 갈린다.
+     */
+    private void deliverBackDated(String sellerOrderNumber, int monthsAgo) {
+        jdbc.sql("""
+                        update seller_order
+                           set delivered_at = now() - make_interval(months => :months),
+                               withdrawal_expire_at = now() - make_interval(months => :months)
+                         where seller_order_number = :number
+                        """)
+                .param("months", monthsAgo)
+                .param("number", sellerOrderNumber)
+                .update();
     }
 
     /** 기한을 손으로 넘긴다. 7일을 실제로 기다릴 수 없어서다 */

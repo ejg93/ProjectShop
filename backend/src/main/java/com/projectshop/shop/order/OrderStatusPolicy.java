@@ -44,13 +44,25 @@ class OrderStatusPolicy implements StatusPolicy {
      * <b>입증을 우리에게</b> 지운 것이다(`D2` R37) — 셀러의 소견이 곧 결론이 되면
      * 입증책임이 우리에게 있다는 사실이 데이터에서 사라진다.
      *
-     * <p>{@code confirm}·{@code request_return} 은 {@code delivered} 에서만 열린다.
+     * <p>{@code confirm} 은 {@code delivered} 에서만 열린다.
      * {@code cancel} 은 {@code preparing} 에서만 — 물건이 떠난 뒤의 되돌림은 취소가 아니라
      * 반품이다(`glossary.md`).
      *
-     * <p>종착 상태({@code confirmed}·{@code cancelled}·{@code returned})는 어느 동작에도 없다.
-     * 전이표가 이미 막지만 권한도 같이 닫는다 — 그래야 시도가 감사 로그에 남는다.
-     * 도메인 예외로만 막으면 누가 종착 주문을 계속 두드리는지 세는 자리가 없다.
+     * <p><b>{@code request_return} 은 {@code confirmed} 에서도 열린다</b>(`43a-3`).
+     * {@link OrderTransitions} 가 그 화살표를 냈는데 이 표가 {@code delivered} 만 들고 있어서
+     * <b>길은 났고 문이 잠겨 있었다.</b> 제17조제3항의 하자 반품은 공급받은 날부터 3개월이라
+     * 구매확정으로 안 끝난다 — 확정은 우리가 정한 기한이고 그 조항은 법이 준 기한이다(`D2` R3).
+     *
+     * <p><b>여기서 사유를 안 가른다.</b> 이 메서드가 {@code resource}·{@code action} 만 받아서
+     * 무엇으로 접수하는지를 못 본다. 확정 뒤 단순 변심을 막는 것은
+     * {@code OrderStatusService.requireWithdrawable} 이고, 그쪽이 배송완료 때 박제한
+     * {@code withdrawal_expire_at} 을 읽는다. <b>동작을 갈라 상태 축으로 막지 않은 이유가 있다</b> —
+     * 사는 사람이 7일 안에 손으로 확정할 수 있고, 그때 제17조제1항의 권리는 아직 살아 있다.
+     * 축으로 닫으면 우리가 만든 장치로 법이 준 기간을 자른다.
+     *
+     * <p>{@code cancelled}·{@code returned} 는 어느 동작에도 없다. 전이표가 이미 막지만 권한도
+     * 같이 닫는다 — 그래야 시도가 감사 로그에 남는다. 도메인 예외로만 막으면 누가 끝난 주문을
+     * 계속 두드리는지 세는 자리가 없다.
      */
     private static final Map<String, Allowed<String>> BY_ACTION = Map.of(
             "update_status", Allowed.only(Set.of(
@@ -59,7 +71,9 @@ class OrderStatusPolicy implements StatusPolicy {
 
             "cancel", Allowed.only(Set.of(Shipment.PREPARING.code())),
             "confirm", Allowed.only(Set.of(Shipment.DELIVERED.code())),
-            "request_return", Allowed.only(Set.of(Shipment.DELIVERED.code())),
+            "request_return", Allowed.only(Set.of(
+                    Shipment.DELIVERED.code(),
+                    Shipment.CONFIRMED.code())),
 
             "receive_return", Allowed.only(Set.of(Shipment.RETURN_REQUESTED.code())),
             "approve_return", Allowed.only(Set.of(Shipment.RETURN_REQUESTED.code())),
