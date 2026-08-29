@@ -33,11 +33,6 @@ public class InquiryService {
     /** 문의 노출 번호의 접두어(`D9`). 주문·묶음·환불과 형식이 같아서 이것이 종류를 가른다 */
     private static final String NUMBER_PREFIX = "Q-";
 
-    /** {@code inquiry.kind} 에 들어가는 값(`V53`) */
-    static final String KIND_PRODUCT = "product";
-    static final String KIND_ORDER = "order";
-    static final String KIND_PROCESSING_STOP = "processing_stop";
-
     /**
      * 처리정지 요구에 답할 기한. <b>개인정보 보호법 시행령 제44조제2항</b>(`D2` R28).
      *
@@ -46,12 +41,6 @@ public class InquiryService {
      * 안 적혀 있어서 {@code BusinessCalendar} 가 안 걸린다(`D10`).
      */
     private static final int PROCESSING_STOP_DUE_DAYS = 10;
-
-    /** {@code inquiry.status} 에 들어가는 값(`V53`) */
-    static final String STATUS_RECEIVED = "received";
-    static final String STATUS_ANSWERED = "answered";
-    static final String STATUS_BLOCKED = "blocked";
-    static final String STATUS_WITHDRAWN = "withdrawn";
 
     /** {@code inquiry.blocked_reason} 에 들어가는 값(`V53`) */
     static final String REASON_ADVERTISEMENT = "advertisement";
@@ -95,7 +84,7 @@ public class InquiryService {
             throw new ShopException(ErrorCode.INQUIRY_FORBIDDEN, "문의를 낼 권한이 없다");
         }
 
-        if (KIND_PRODUCT.equals(command.kind())) {
+        if (InquiryKind.PRODUCT.code().equals(command.kind())) {
             requireProduct(command.productId());
         }
 
@@ -103,7 +92,7 @@ public class InquiryService {
         //
         // 없는 묶음과 남의 묶음을 **같은 404 로 답한다** — 갈라 주면 묶음 번호를 훑어서
         // 실재하는 주문의 지도를 그릴 수 있고, 그게 곧 셀러별 거래 건수다(`OrderActionService` 와 같은 판단).
-        Long sellerOrderId = KIND_ORDER.equals(command.kind())
+        Long sellerOrderId = InquiryKind.ORDER.code().equals(command.kind())
                 ? myBundle(userId, command.sellerOrderNumber())
                 : null;
 
@@ -159,10 +148,10 @@ public class InquiryService {
                                updated_at = now()
                          where inquiry_number = :number and status = :received
                         """)
-                .param("answered", STATUS_ANSWERED)
+                .param("answered", InquiryStatus.ANSWERED.code())
                 .param("answer", answer)
                 .param("number", inquiryNumber)
-                .param("received", STATUS_RECEIVED)
+                .param("received", InquiryStatus.RECEIVED.code())
                 .update();
 
         if (updated == 0) {
@@ -206,9 +195,9 @@ public class InquiryService {
                            set status = :withdrawn, updated_at = now()
                          where inquiry_number = :number and status = :received
                         """)
-                .param("withdrawn", STATUS_WITHDRAWN)
+                .param("withdrawn", InquiryStatus.WITHDRAWN.code())
                 .param("number", inquiryNumber)
-                .param("received", STATUS_RECEIVED)
+                .param("received", InquiryStatus.RECEIVED.code())
                 .update();
 
         if (updated == 0) {
@@ -251,7 +240,7 @@ public class InquiryService {
                                updated_at = now()
                          where inquiry_number = :number and status <> :blocked
                         """)
-                .param("blocked", STATUS_BLOCKED)
+                .param("blocked", InquiryStatus.BLOCKED.code())
                 .param("reason", reason)
                 .param("number", inquiryNumber)
                 .update();
