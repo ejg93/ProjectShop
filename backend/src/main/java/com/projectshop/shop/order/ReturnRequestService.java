@@ -188,7 +188,9 @@ public class ReturnRequestService {
      * <b>막히는 것과 고를 수 없는 것은 다르다</b> — 「계약에 칸이 없다」가 강제 지점 1순위다.
      */
     private static String bearerOf(String status, String reasonCode) {
-        return "approved".equals(status) && "defect".equals(reasonCode) ? "seller" : "consumer";
+        return "approved".equals(status)
+                && OrderStatusService.ReturnReason.DEFECT.code().equals(reasonCode)
+                ? "seller" : "consumer";
     }
 
     private void close(long returnRequestId, Actor actor, String status, String bearer,
