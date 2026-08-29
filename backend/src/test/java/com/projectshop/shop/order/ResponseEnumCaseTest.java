@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -168,6 +169,34 @@ class ResponseEnumCaseTest extends PostgresTestBase {
     }
 
     /**
+     * 위 훑기가 <b>빈 응답을 훑고 통과한 것이 아님</b>을 못박는다(`43a-8`).
+     *
+     * <p>「걸려 있다」와 「돈다」는 다르다. 값 집합에 {@link ActorType}·{@link ContractClause} 를
+     * 더해도 <b>그 칸이 응답에 없으면</b> 훑기는 아무것도 안 보고 초록이 된다 —
+     * 이 프로젝트가 이미 한 번 밟은 함정이다(`V63` 의 지연 트리거가 걸린 채 0회 돌았다).
+     */
+    @Test
+    @DisplayName("이력과 계약 조항이 실제로 응답에 실린다")
+    void detailActuallyCarriesScannedFields() {
+        JsonNode detail = json(orders.findByNumber(buyer, orderNumber));
+
+        assertThat(detail.get("history").isEmpty())
+                .as("이력이 비면 actor_type 표기를 훑을 것이 없다")
+                .isFalse();
+        assertThat(detail.get("history").valueStream()
+                .map(entry -> entry.get("actor_type").stringValue()))
+                .as("`D5` 「값의 형식」 — 열거값은 대문자 스네이크다")
+                .isNotEmpty()
+                .allMatch(type -> type.equals(type.toUpperCase(Locale.ROOT)));
+
+        assertThat(detail.get("contract_documents").valueStream()
+                .map(document -> document.get("clause").stringValue()))
+                .as("제13조제2항의 호. 비면 clause 표기를 훑을 것이 없다")
+                .isNotEmpty()
+                .allMatch(clause -> clause.equals(clause.toUpperCase(Locale.ROOT)));
+    }
+
+    /**
      * 표기를 바꾸는 자리가 <b>열거형을 지나간다</b>(`43a-7`).
      *
      * <p>그전에는 {@code toUpperCase()} 뿐이라 DB 에 모르는 값이 들어와 있으면 그대로 올려서
@@ -245,6 +274,8 @@ class ResponseEnumCaseTest extends PostgresTestBase {
         Arrays.stream(Shipment.values()).map(Shipment::code).forEach(storedCodes::add);
         Arrays.stream(Payment.values()).map(Payment::code).forEach(storedCodes::add);
         Arrays.stream(ReturnReason.values()).map(ReturnReason::code).forEach(storedCodes::add);
+        Arrays.stream(ActorType.values()).map(ActorType::code).forEach(storedCodes::add);
+        Arrays.stream(ContractClause.values()).map(ContractClause::code).forEach(storedCodes::add);
 
         List<String> found = new ArrayList<>();
         collectStrings(node, found);

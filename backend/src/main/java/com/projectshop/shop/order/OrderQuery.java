@@ -363,7 +363,7 @@ public class OrderQuery {
                         rs.getString("seller_name"),
                         OrderTransitions.statusName(rs.getString("from_status")),
                         OrderTransitions.statusName(rs.getString("to_status")),
-                        enumValue(rs.getString("actor_type")),
+                        actorType(rs.getString("actor_type")),
                         rs.getObject("occurred_at", OffsetDateTime.class)))
                 .list();
     }
@@ -429,7 +429,7 @@ public class OrderQuery {
                         """)
                 .param("orderId", orderId)
                 .query((rs, rowNum) -> new ContractDocument(
-                        enumValue(rs.getString("clause")),
+                        contractClause(rs.getString("clause")),
                         rs.getString("code"),
                         rs.getString("title"),
                         rs.getInt("version"),
@@ -473,7 +473,7 @@ public class OrderQuery {
                 .param("orderId", orderId)
                 .param("clause", clause.toLowerCase(Locale.ROOT))
                 .query((rs, rowNum) -> new ContractDocumentBody(
-                        enumValue(rs.getString("clause")),
+                        contractClause(rs.getString("clause")),
                         rs.getString("code"),
                         rs.getString("title"),
                         rs.getInt("version"),
@@ -583,17 +583,28 @@ public class OrderQuery {
      *
      * <p><b>이건 검증을 안 한다.</b> 표기만 바꾸므로 DB 에 모르는 값이 들어와 있으면
      * 그대로 대문자로 올려 보낸다 — 화면이 처음 보는 값을 받는다.
-     * 상태 셋은 {@link #paymentStatus}·{@link #shipmentStatus}·
-     * {@link OrderTransitions#statusName} 으로 옮겼고(`43a-7`), <b>여기 남은 넷</b>은
-     * {@code actor_type}·{@code clause}·{@code reason_code}·{@code method} 다.
      *
-     * <p>넷이 남은 이유는 <b>Java 열거형이 아직 없어서</b>지 안 필요해서가 아니다 —
-     * `D23` 「Java 표현」이 생 문자열을 금지하고 넷 다 코드가 값마다 분기한다
-     * ({@code "admin".equals(actor.type())}, {@code "card".equals(command.method())}).
-     * 열거형을 세우는 것은 {@code Actor} 레코드와 호출자까지 번져서 `43a-8` 로 갈랐다.
+     * <p>옮긴 것이 다섯이다 — 상태 셋은 {@link #paymentStatus}·{@link #shipmentStatus}·
+     * {@link OrderTransitions#statusName}(`43a-7`), 주체와 조항은 {@link #actorType}·
+     * {@link #contractClause}(`43a-8`).
+     *
+     * <p><b>여기 남은 둘</b>은 {@code reason_code}·{@code method} 다. 열거형이 아직 없어서지
+     * 안 필요해서가 아니다 — `D23` 「Java 표현」이 생 문자열을 금지하고 둘 다 코드가 값마다
+     * 분기한다({@code "card".equals(command.method())}). 결제·환불 쪽이라
+     * {@link com.projectshop.shop.payment.RefundQuery} 와 같이 봐야 해서 `43a-9` 로 갈랐다.
      */
     private static String enumValue(String storedCode) {
         return storedCode == null ? null : storedCode.toUpperCase(Locale.ROOT);
+    }
+
+    /** 이력 한 줄을 누가 일으켰나({@code order_status_history.actor_type}) */
+    private static String actorType(String storedCode) {
+        return storedCode == null ? null : ActorType.of(storedCode).name();
+    }
+
+    /** 제13조제2항의 호({@code order_contract_document.clause}) */
+    private static String contractClause(String storedCode) {
+        return storedCode == null ? null : ContractClause.of(storedCode).name();
     }
 
     /** 결제 층의 상태({@code shop_order.status}). 열거형을 지나 모르는 값에 터진다 */
