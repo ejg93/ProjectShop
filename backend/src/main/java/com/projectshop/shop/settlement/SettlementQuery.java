@@ -3,7 +3,6 @@ package com.projectshop.shop.settlement;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -164,8 +163,8 @@ public class SettlementQuery {
                         """)
                 .param("number", settlementNumber)
                 .query((rs, rowNum) -> new Line(
-                        enumValue(rs.getString("kind")),
-                        enumValue(rs.getString("supplier")),
+                        itemKind(rs.getString("kind")),
+                        supplier(rs.getString("supplier")),
                         rs.getLong("amount"),
                         (Integer) rs.getObject("commission_bp"),
                         (Long) rs.getObject("commission_base_amount"),
@@ -206,12 +205,27 @@ public class SettlementQuery {
                 rs.getObject("payout_date", LocalDate.class),
                 rs.getLong("payout_amount"),
                 rs.getLong("carried_over"),
-                enumValue(rs.getString("payout_status")),
+                payoutStatus(rs.getString("payout_status")),
                 rs.getObject("created_at", OffsetDateTime.class));
     }
 
-    /** 열거값은 대문자 스네이크로 올린다(`D5`). 저장값과 다르다 */
-    private static String enumValue(String stored) {
-        return stored == null ? null : stored.toUpperCase(Locale.ROOT);
+    /**
+     * 열거값은 대문자 스네이크로 올린다(`D5` 「형식」). 저장값과 다르다.
+     *
+     * <p><b>열거형을 지나간다</b>(`43a-13`). 문자열을 그냥 대문자로 올리면 DB 에 모르는 값이
+     * 들어와 있어도 그대로 실려 나가고 화면이 처음 보는 값을 받는다.
+     */
+    private static String itemKind(String storedCode) {
+        return storedCode == null ? null : SettlementItemKind.of(storedCode).name();
+    }
+
+    /** 부가가치세법이 요구하는 공급자(`D2` R17). <b>이월은 공급이 아니라 비어 있다</b> */
+    private static String supplier(String storedCode) {
+        return storedCode == null ? null : SettlementSupplier.of(storedCode).name();
+    }
+
+    /** 지급이 어디까지 왔나 */
+    private static String payoutStatus(String storedCode) {
+        return storedCode == null ? null : PayoutStatus.of(storedCode).name();
     }
 }

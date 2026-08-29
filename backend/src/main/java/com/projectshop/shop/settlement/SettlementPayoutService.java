@@ -33,12 +33,6 @@ import com.projectshop.shop.error.ShopException;
 @Service
 public class SettlementPayoutService {
 
-    /** {@code settlement.payout_status} 에 들어가는 값(`V57`) */
-    static final String PENDING = "pending";
-    static final String REQUESTED = "requested";
-    static final String PAID = "paid";
-    static final String REJECTED = "rejected";
-
     private static final String RESOURCE = "settlement";
     private static final String REQUEST = "request_payout";
     private static final String DECIDE = "payout";
@@ -82,11 +76,11 @@ public class SettlementPayoutService {
                          where settlement_number = :number
                            and payout_status in (:pending, :rejected)
                         """)
-                .param("requested", REQUESTED)
+                .param("requested", PayoutStatus.REQUESTED.code())
                 .param("userId", userId)
                 .param("number", settlementNumber)
-                .param("pending", PENDING)
-                .param("rejected", REJECTED)
+                .param("pending", PayoutStatus.PENDING.code())
+                .param("rejected", PayoutStatus.REJECTED.code())
                 .update();
 
         if (updated == 0) {
@@ -104,13 +98,13 @@ public class SettlementPayoutService {
      */
     @Transactional
     public void approve(long userId, String settlementNumber) {
-        decide(userId, settlementNumber, PAID);
+        decide(userId, settlementNumber, PayoutStatus.PAID.code());
     }
 
     /** 지급을 반려한다. 돈이 안 나가므로 다시 올릴 수 있다 */
     @Transactional
     public void reject(long userId, String settlementNumber) {
-        decide(userId, settlementNumber, REJECTED);
+        decide(userId, settlementNumber, PayoutStatus.REJECTED.code());
     }
 
     private void decide(long userId, String settlementNumber, String decision) {
@@ -131,7 +125,7 @@ public class SettlementPayoutService {
                 .param("decision", decision)
                 .param("userId", userId)
                 .param("number", settlementNumber)
-                .param("requested", REQUESTED)
+                .param("requested", PayoutStatus.REQUESTED.code())
                 .update();
 
         if (updated == 0) {
