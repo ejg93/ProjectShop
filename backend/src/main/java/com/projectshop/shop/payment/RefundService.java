@@ -50,17 +50,24 @@ public class RefundService {
     /** 환급 기한. 전자상거래법 제18조제2항(`D2` R5) */
     private static final int DUE_BUSINESS_DAYS = 3;
 
-    /** {@code refund.status} 에 들어가는 값(`V23`) */
-    static final String REQUESTED_CODE = "requested";
-    static final String APPROVED_CODE = "approved";
-    static final String REJECTED_CODE = "rejected";
+    /**
+     * {@code refund.status} 에 들어가는 값(`V23`).
+     *
+     * <p><b>목록의 정본은 {@link RefundStatus} 다</b>(`43a-11`). 여기서 리터럴을 다시 적으면
+     * 값이 하나 늘 때 두 곳을 고쳐야 하고, 한쪽만 고친 날 <b>컴파일도 테스트도 초록</b>이다.
+     * 상수를 남겨 둔 것은 부르는 자리가 서른 곳이라 한 청크에 안 들어가서다 —
+     * 하나씩 없애는 것은 나중에 열려 있다.
+     */
+    static final String REQUESTED_CODE = RefundStatus.REQUESTED.code();
+    static final String APPROVED_CODE = RefundStatus.APPROVED.code();
+    static final String REJECTED_CODE = RefundStatus.REJECTED.code();
 
-    /** {@code refund.reason_code} 에 들어가는 값(`V23`·`V25`) */
-    static final String REASON_CANCELLED = "cancelled";
-    static final String REASON_SUPPLY_FAILED = "supply_failed";
-    static final String REASON_ADMIN_CANCELLED = "admin_cancelled";
-    static final String REASON_WITHDRAWAL = "withdrawal";
-    static final String REASON_PAYMENT_ERROR = "payment_error";
+    /** {@code refund.reason_code} 에 들어가는 값(`V23`·`V25`). 정본은 {@link RefundReason} 이다 */
+    static final String REASON_CANCELLED = RefundReason.CANCELLED.code();
+    static final String REASON_SUPPLY_FAILED = RefundReason.SUPPLY_FAILED.code();
+    static final String REASON_ADMIN_CANCELLED = RefundReason.ADMIN_CANCELLED.code();
+    static final String REASON_WITHDRAWAL = RefundReason.WITHDRAWAL.code();
+    static final String REASON_PAYMENT_ERROR = RefundReason.PAYMENT_ERROR.code();
 
     /** {@code refund.requested_by_type} 에 들어가는 값(`V25`) */
     static final String BY_SYSTEM = "system";

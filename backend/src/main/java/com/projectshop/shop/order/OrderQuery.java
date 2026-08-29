@@ -20,6 +20,8 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.payment.PaymentMethod;
+import com.projectshop.shop.payment.RefundReason;
+import com.projectshop.shop.payment.RefundStatus;
 import com.projectshop.shop.payment.PaymentStatus;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
@@ -542,8 +544,8 @@ public class OrderQuery {
                 .query((rs, rowNum) -> new Refund(
                         rs.getString("refund_number"),
                         rs.getString("seller_order_number"),
-                        enumValue(rs.getString("status")),
-                        enumValue(rs.getString("reason_code")),
+                        refundStatus(rs.getString("status")),
+                        refundReason(rs.getString("reason_code")),
                         rs.getLong("amount"),
                         rs.getObject("due_at", OffsetDateTime.class),
                         rs.getBoolean("overdue"),
@@ -578,25 +580,25 @@ public class OrderQuery {
     }
 
     /**
-     * 저장값을 응답 표기로 바꾼다. <b>열거값은 대문자 스네이크다</b>(`D5` 「형식」).
+     * 저장값을 응답 표기로 바꾸는 자리는 <b>전부 열거형을 지난다</b>(`D5` 「형식」).
      *
-     * <p>{@code Locale.ROOT} 를 쓴다. 기본 로케일이면 터키어에서 {@code i} 가 {@code İ} 가 돼서
-     * 같은 코드가 서버 설정에 따라 다르게 나간다.
-     *
-     * <p><b>이건 검증을 안 한다.</b> 표기만 바꾸므로 DB 에 모르는 값이 들어와 있으면
-     * 그대로 대문자로 올려 보낸다 — 화면이 처음 보는 값을 받는다.
-     *
-     * <p>옮긴 것이 일곱이다 — 주문 상태 셋은 {@link #orderPaymentStatus}·{@link #shipmentStatus}·
+     * <p>아홉이다 — 주문 상태 셋은 {@link #orderPaymentStatus}·{@link #shipmentStatus}·
      * {@link OrderTransitions#statusName}(`43a-7`), 주체와 조항은 {@link #actorType}·
-     * {@link #contractClause}(`43a-8`), 결제는 {@link #paymentStatus}·{@link #paymentMethod}(`43a-9`).
+     * {@link #contractClause}(`43a-8`), 결제는 {@link #paymentStatus}·{@link #paymentMethod}
+     * (`43a-9`), 환불은 {@link #refundStatus}·{@link #refundReason}(`43a-11`).
      *
-     * <p><b>여기 남은 둘</b>은 환불의 {@code status}·{@code reason_code} 다. 열거형이 아직
-     * 없어서지 안 필요해서가 아니다 — `D23` 「Java 표현」이 생 문자열을 금지하고 둘 다 코드가
-     * 값마다 분기한다({@code RefundService.APPROVED_CODE} 가 그 분기다).
-     * {@link com.projectshop.shop.payment.RefundQuery} 가 같은 둘을 읽어서 `43a-11` 로 갈랐다.
+     * <p><b>검증 없이 대문자로만 올리던 {@code enumValue} 는 지웠다.</b> 호출자가 0이 됐는데도
+     * 남겨 두면 다음에 열거 칸을 더하는 사람이 <b>그것을 베낀다</b> — 이 사슬이 막으려던 것이
+     * 정확히 그 일이다(`43a-6` 이 그렇게 새어 나간 칸 하나를 잡았다).
      */
-    private static String enumValue(String storedCode) {
-        return storedCode == null ? null : storedCode.toUpperCase(Locale.ROOT);
+    /** 환불 요청 한 건이 어디까지 왔나({@code refund.status}) */
+    private static String refundStatus(String storedCode) {
+        return storedCode == null ? null : RefundStatus.of(storedCode).name();
+    }
+
+    /** 왜 돌려주나({@code refund.reason_code}). <b>환급 기한의 기산점이 이 값으로 갈린다</b> */
+    private static String refundReason(String storedCode) {
+        return storedCode == null ? null : RefundReason.of(storedCode).name();
     }
 
     /** 결제 시도 한 건의 결과({@code payment.status}). 주문의 결제 층 상태와 다른 값이다 */
