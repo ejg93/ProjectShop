@@ -104,7 +104,7 @@ export function CheckoutForm({
     return api<PaymentResult>("/api/payments", {
       method: "POST",
       idempotencyKey: paymentKey.current,
-      body: { orderNumber, method: "card", cardNumber },
+      body: { orderNumber, method: "CARD", cardNumber },
     });
   }
 

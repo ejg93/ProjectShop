@@ -50,24 +50,6 @@ public class RefundService {
     /** 환급 기한. 전자상거래법 제18조제2항(`D2` R5) */
     private static final int DUE_BUSINESS_DAYS = 3;
 
-    /**
-     * {@code refund.status} 에 들어가는 값(`V23`).
-     *
-     * <p><b>목록의 정본은 {@link RefundStatus} 다</b>(`43a-11`). 여기서 리터럴을 다시 적으면
-     * 값이 하나 늘 때 두 곳을 고쳐야 하고, 한쪽만 고친 날 <b>컴파일도 테스트도 초록</b>이다.
-     * 상수를 남겨 둔 것은 부르는 자리가 서른 곳이라 한 청크에 안 들어가서다 —
-     * 하나씩 없애는 것은 나중에 열려 있다.
-     */
-    static final String REQUESTED_CODE = RefundStatus.REQUESTED.code();
-    static final String APPROVED_CODE = RefundStatus.APPROVED.code();
-    static final String REJECTED_CODE = RefundStatus.REJECTED.code();
-
-    /** {@code refund.reason_code} 에 들어가는 값(`V23`·`V25`). 정본은 {@link RefundReason} 이다 */
-    static final String REASON_CANCELLED = RefundReason.CANCELLED.code();
-    static final String REASON_SUPPLY_FAILED = RefundReason.SUPPLY_FAILED.code();
-    static final String REASON_ADMIN_CANCELLED = RefundReason.ADMIN_CANCELLED.code();
-    static final String REASON_WITHDRAWAL = RefundReason.WITHDRAWAL.code();
-    static final String REASON_PAYMENT_ERROR = RefundReason.PAYMENT_ERROR.code();
 
     /** {@code refund.requested_by_type} 에 들어가는 값(`V25`) */
     static final String BY_SYSTEM = "system";
@@ -90,10 +72,10 @@ public class RefundService {
      * <b>상태와 결제가 어긋난 것을 고치는 것</b>이라 맞는 상태를 요구하면 쓸 수가 없다.
      */
     private static final Map<String, String> REQUIRED_BUNDLE_STATUS = Map.of(
-            REASON_CANCELLED, "cancelled",
-            REASON_SUPPLY_FAILED, "cancelled",
-            REASON_ADMIN_CANCELLED, "cancelled",
-            REASON_WITHDRAWAL, "returned");
+            RefundReason.CANCELLED.code(), "cancelled",
+            RefundReason.SUPPLY_FAILED.code(), "cancelled",
+            RefundReason.ADMIN_CANCELLED.code(), "cancelled",
+            RefundReason.WITHDRAWAL.code(), "returned");
 
     /**
      * 기산점이 <b>묶음이 닫힌 날</b>인 사유.
@@ -113,7 +95,7 @@ public class RefundService {
      * </table>
      */
     private static final Set<String> DUE_FROM_CLOSED_AT =
-            Set.of(REASON_CANCELLED, REASON_WITHDRAWAL);
+            Set.of(RefundReason.CANCELLED.code(), RefundReason.WITHDRAWAL.code());
 
     /**
      * 판정에 쓰는 자원 이름과 동작 이름(`V3`·`V24`).
@@ -335,14 +317,14 @@ public class RefundService {
                                updated_at            = now()
                          where refund_number = :number and status = :requested
                         """)
-                .param("approved", APPROVED_CODE)
+                .param("approved", RefundStatus.APPROVED.code())
                 .param("decidedAt", decidedAt)
                 .param("delayInterest", delayInterest)
                 .param("approverType", approverType)
                 .param("userId", approverUserId)
                 .param("gatewayNumber", result.refundNumber())
                 .param("number", refundNumber)
-                .param("requested", REQUESTED_CODE)
+                .param("requested", RefundStatus.REQUESTED.code())
                 .update();
 
         // 0 이면 그 사이에 남이 처리했다. 조건부 UPDATE 라 둘이 동시에 와도 하나만 통과한다 —
@@ -378,11 +360,11 @@ public class RefundService {
                                updated_at          = now()
                          where refund_number = :number and status = :requested
                         """)
-                .param("rejected", REJECTED_CODE)
+                .param("rejected", RefundStatus.REJECTED.code())
                 .param("approverType", BY_ADMIN)
                 .param("userId", userId)
                 .param("number", refundNumber)
-                .param("requested", REQUESTED_CODE)
+                .param("requested", RefundStatus.REQUESTED.code())
                 .update();
 
         if (updated == 0) {
@@ -493,7 +475,7 @@ public class RefundService {
                          where oi.seller_order_id = :sellerOrderId
                          order by oi.order_item_id
                         """)
-                .param("rejected", REJECTED_CODE)
+                .param("rejected", RefundStatus.REJECTED.code())
                 .param("sellerOrderId", sellerOrderId)
                 .query((rs, rowNum) -> new Item(
                         rs.getLong("order_item_id"),
@@ -601,7 +583,7 @@ public class RefundService {
                          where seller_order_id = :sellerOrderId and status <> :rejected
                         """)
                 .param("sellerOrderId", bundle.sellerOrderId())
-                .param("rejected", REJECTED_CODE)
+                .param("rejected", RefundStatus.REJECTED.code())
                 .query(Long.class)
                 .single();
 
@@ -669,7 +651,7 @@ public class RefundService {
                                 """)
                 .param("number", number)
                 .param("sellerOrderId", bundle.sellerOrderId())
-                .param("status", REQUESTED_CODE)
+                .param("status", RefundStatus.REQUESTED.code())
                 .param("reasonCode", command.reasonCode())
                 .param("amount", amount)
                 .param("shippingRefund", shippingRefund)
@@ -775,7 +757,7 @@ public class RefundService {
                 .longValueExact();
     }
 
-    private record Pending(long requestedByUserId, long amount, String status,
+    private record Pending(long requestedByUserId, long amount, RefundStatus status,
             long buyerUserId, long sellerId, OffsetDateTime dueAt) {}
 
     /**
@@ -815,7 +797,7 @@ public class RefundService {
                 .query((rs, rowNum) -> new Pending(
                         rs.getLong("requested_by_user_id"),
                         rs.getLong("amount"),
-                        rs.getString("status"),
+                        RefundStatus.of(rs.getString("status")),
                         rs.getLong("buyer_user_id"),
                         rs.getLong("seller_id"),
                         rs.getObject("due_at", OffsetDateTime.class)))
@@ -823,11 +805,17 @@ public class RefundService {
                 .orElseThrow(() -> notFound(refundNumber));
     }
 
-    /** 아직 아무도 안 처리한 요청인가. 처리된 것을 다시 처리하면 돈이 두 번 나간다 */
+    /**
+     * 아직 아무도 안 처리한 요청인가. 처리된 것을 다시 처리하면 돈이 두 번 나간다.
+     *
+     * <p><b>{@link Pending} 이 상태를 열거형으로 든다</b>(`43a-16`). 문자열이던 동안에는
+     * {@code RefundStatus.APPROVED} 와 {@code PaymentStatus.APPROVED} 가 <b>글자가 같아서</b>
+     * 한쪽 값을 다른 쪽 자리에 넣어도 컴파일이 통과했다.
+     */
     private static void requireRequested(Pending pending) {
-        if (!REQUESTED_CODE.equals(pending.status())) {
+        if (pending.status() != RefundStatus.REQUESTED) {
             throw new ShopException(ErrorCode.REFUND_ALREADY_DECIDED,
-                    "이미 " + pending.status() + " 인 요청이다");
+                    "이미 " + pending.status().code() + " 인 요청이다");
         }
     }
 

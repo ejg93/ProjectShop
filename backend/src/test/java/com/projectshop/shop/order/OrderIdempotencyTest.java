@@ -118,7 +118,7 @@ class OrderIdempotencyTest extends PostgresTestBase {
     private String bodyFor(String path) {
         return "/api/payments".equals(path)
                 ? """
-                {"order_number": "20260101-2222AA", "method": "card",
+                {"order_number": "20260101-2222AA", "method": "CARD",
                  "card_number": "4242424242424242"}
                 """
                 : body();

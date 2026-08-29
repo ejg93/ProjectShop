@@ -122,7 +122,7 @@ class ResponseEnumCaseTest extends PostgresTestBase {
         orderNumber = created.orderNumber();
 
         payments.pay(buyer, UUID.randomUUID().toString(),
-                new PaymentService.Command(orderNumber, "card", GOOD_CARD));
+                new PaymentService.Command(orderNumber, PaymentMethod.CARD, GOOD_CARD));
 
         long bundleId = jdbc.sql("select seller_order_id from seller_order where order_id = :id")
                 .param("id", created.orderId())

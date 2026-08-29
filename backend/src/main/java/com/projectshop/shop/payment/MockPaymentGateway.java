@@ -70,7 +70,7 @@ public class MockPaymentGateway {
      * <p><b>카드번호가 여기까지만 온다.</b> 이 record 는 저장되지 않고 우리 표 어디에도 안 닿는다
      * (`D2` R18). 남는 것은 {@link Result} 가 돌려주는 뒷 4자리뿐이다.
      */
-    public record Request(String idempotencyKey, long amount, String method, String cardNumber) {}
+    public record Request(String idempotencyKey, long amount, PaymentMethod method, String cardNumber) {}
 
     /**
      * 결제사가 준 것.
@@ -159,7 +159,7 @@ public class MockPaymentGateway {
     }
 
     private Result judge(Request request) {
-        if (!"card".equals(request.method())) {
+        if (request.method() != PaymentMethod.CARD) {
             // 계좌이체는 카드정보가 없다. 실패를 유도할 자리도 없어서 늘 승인이다
             return new Result(issueApprovalNumber(), null, null, null);
         }

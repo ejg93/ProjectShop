@@ -18,6 +18,7 @@ import com.projectshop.shop.cart.CartService;
 import com.projectshop.shop.order.OrderActionService;
 import com.projectshop.shop.order.OrderService;
 import com.projectshop.shop.order.OrderStatusService;
+import com.projectshop.shop.payment.PaymentMethod;
 import com.projectshop.shop.payment.PaymentService;
 
 /**
@@ -173,7 +174,7 @@ public class DemoOrderSeeder implements ApplicationRunner {
                 new OrderService.Command(cartItemIds, SHIPPING, restrictionAgreed));
 
         payments.pay(buyerId, UUID.randomUUID().toString(),
-                new PaymentService.Command(created.orderNumber(), "card", GOOD_CARD));
+                new PaymentService.Command(created.orderNumber(), PaymentMethod.CARD, GOOD_CARD));
 
         return created;
     }

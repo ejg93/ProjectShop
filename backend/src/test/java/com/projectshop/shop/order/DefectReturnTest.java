@@ -20,6 +20,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderStatusService.Actor;
 import com.projectshop.shop.order.OrderStatusService.ReturnReason;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
+import com.projectshop.shop.payment.PaymentMethod;
 import com.projectshop.shop.payment.PaymentService;
 
 /**
@@ -276,7 +277,7 @@ class DefectReturnTest extends PostgresTestBase {
                                 "서울시 강남구", "101호", null)));
 
         payments.pay(buyerId, UUID.randomUUID().toString(),
-                new PaymentService.Command(created.orderNumber(), "card", GOOD_CARD));
+                new PaymentService.Command(created.orderNumber(), PaymentMethod.CARD, GOOD_CARD));
 
         long bundleId = jdbc.sql("select seller_order_id from seller_order where order_id = :id")
                 .param("id", created.orderId())

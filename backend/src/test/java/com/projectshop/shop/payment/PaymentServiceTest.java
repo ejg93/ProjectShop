@@ -235,7 +235,7 @@ class PaymentServiceTest extends PostgresTestBase {
             long stranger = fixture.insertUser("pay-stranger@test.local", "남");
 
             assertThatThrownBy(() -> payments.pay(stranger, UUID.randomUUID().toString(),
-                    new PaymentService.Command(orderNumber, "card", GOOD_CARD)))
+                    new PaymentService.Command(orderNumber, PaymentMethod.CARD, GOOD_CARD)))
                     .as("가르면 번호를 두드려서 주문이 몇 개인지 셀 수 있다(`D5`)")
                     .isInstanceOfSatisfying(ShopException.class, e ->
                             assertThat(e.code()).isEqualTo(ErrorCode.ORDER_NOT_FOUND));
@@ -291,7 +291,7 @@ class PaymentServiceTest extends PostgresTestBase {
 
     private PaymentService.Result pay(String idempotencyKey, String cardNumber) {
         return payments.pay(userId, idempotencyKey,
-                new PaymentService.Command(orderNumber, "card", cardNumber));
+                new PaymentService.Command(orderNumber, PaymentMethod.CARD, cardNumber));
     }
 
     /** 승인 하나를 직접 적는다. 카드 정보는 갈라진 표라 여기서 안 넣는다(`D2` R9) */

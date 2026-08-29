@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -50,11 +51,15 @@ public class PaymentController {
      * (`D2` R18). 형식 검사도 여기서 끝낸다 — 게이트웨이 쪽 검사는 그 뒤의 방벽이라
      * 거기까지 가면 우리 코드가 틀린 것이다.
      *
+     * <p><b>{@code method} 는 열거형으로 받는다</b>(`43a-16`). 정규식으로 받으면 값 목록이
+     * {@code check}·enum·정규식 셋이 되고, 모르는 값은 <b>역직렬화에서 걸려 400 이다</b>
+     * (`D5` 「열거값이 목록 밖이면 422 가 아니라 400 이다」).
+     *
      * @param cardNumber 하이픈과 공백을 허용한다. 사람이 화면에 입력한 모양 그대로 받는다
      */
     public record PayRequest(
             @NotBlank @Size(max = 20) String orderNumber,
-            @NotBlank @Pattern(regexp = "card|transfer") String method,
+            @NotNull PaymentMethod method,
             @Pattern(regexp = "[0-9][0-9 -]{10,23}[0-9]") String cardNumber) {
     }
 

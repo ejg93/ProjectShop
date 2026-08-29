@@ -96,7 +96,7 @@ class RefundServiceTest extends PostgresTestBase {
         orderId = created.orderId();
 
         payments.pay(buyerId, UUID.randomUUID().toString(),
-                new PaymentService.Command(created.orderNumber(), "card", GOOD_CARD));
+                new PaymentService.Command(created.orderNumber(), PaymentMethod.CARD, GOOD_CARD));
 
         readBundle();
     }

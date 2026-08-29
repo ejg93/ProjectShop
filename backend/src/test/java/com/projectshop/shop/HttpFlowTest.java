@@ -594,7 +594,7 @@ class HttpFlowTest extends HttpTestBase {
      */
     private Response pay(Session session, String orderNumber, String cardNumber) {
         return session.postWithIdempotencyKey("/api/payments", """
-                {"order_number": "%s", "method": "card", "card_number": "%s"}
+                {"order_number": "%s", "method": "CARD", "card_number": "%s"}
                 """.formatted(orderNumber, cardNumber), "http-test-pay-" + orderNumber);
     }
 

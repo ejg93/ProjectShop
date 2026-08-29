@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.payment.PaymentMethod;
 import com.projectshop.shop.payment.PaymentService;
 import com.projectshop.shop.support.BusinessCalendar;
 
@@ -357,7 +358,7 @@ class ShipDeadlineTest extends PostgresTestBase {
                 .single();
 
         payments.pay(buyerId, UUID.randomUUID().toString(),
-                new PaymentService.Command(orderNumber, "card", GOOD_CARD));
+                new PaymentService.Command(orderNumber, PaymentMethod.CARD, GOOD_CARD));
     }
 
     private long place(long skuId) {

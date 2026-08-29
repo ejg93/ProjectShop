@@ -55,7 +55,7 @@ public class PaymentService {
      * <p><b>금액이 없다.</b> 낼 돈은 주문에 이미 박제돼 있어서 클라이언트가 정할 것이 아니다 —
      * 받으면 그 값이 맞는지 검사하는 코드가 따로 필요해지고, 빠뜨리면 원하는 금액으로 결제된다.
      */
-    public record Command(String orderNumber, String method, String cardNumber) {}
+    public record Command(String orderNumber, PaymentMethod method, String cardNumber) {}
 
     /**
      * 결제 결과.
@@ -102,7 +102,7 @@ public class PaymentService {
         // 재시도가 멱등 바깥이다(`D11`). PG 는 이미 답했고 그 답은 키에 묶여 있어서
         // 다시 돌아도 같은 승인이 재생된다 — 두 번 청구되지 않는다.
         return Retries.onConflict(() -> idempotency.run(userId, idempotencyKey, fingerprint,
-                Result.class, () -> settle(payable, command.method(), verdict)));
+                Result.class, () -> settle(payable, command.method().code(), verdict)));
     }
 
     /**
@@ -115,7 +115,7 @@ public class PaymentService {
      * 사용자 잘못이 서버 오류로 나가고, 그 응답에는 무엇을 고쳐야 하는지가 없다.
      */
     private static void requireCardNumberForCard(Command command) {
-        if ("card".equals(command.method())
+        if (command.method() == PaymentMethod.CARD
                 && (command.cardNumber() == null || command.cardNumber().isBlank())) {
             throw new ShopException(ErrorCode.PAYMENT_CARD_REQUIRED);
         }
@@ -247,7 +247,9 @@ public class PaymentService {
      * 두 번 청구되지 않는다. 막을 것은 이미 막힌다.
      */
     private static Fingerprint fingerprint(Command command) {
-        return new Fingerprint(command.orderNumber(), command.method());
+        // 저장값을 넣는다. 열거값 이름을 넣으면 이미 보관 중인 지문과 안 맞아서
+        // 같은 요청이 다른 것으로 보인다(`43a-16`).
+        return new Fingerprint(command.orderNumber(), command.method().code());
     }
 
     private record Fingerprint(String orderNumber, String method) {}

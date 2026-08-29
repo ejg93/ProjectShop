@@ -284,14 +284,14 @@ public class RefundSweeper {
      */
     private static String reasonOf(RefundService.Bundle bundle, String actorType) {
         if ("returned".equals(bundle.status())) {
-            return RefundService.REASON_WITHDRAWAL;
+            return RefundReason.WITHDRAWAL.code();
         }
         if ("customer".equals(actorType)) {
-            return RefundService.REASON_CANCELLED;
+            return RefundReason.CANCELLED.code();
         }
         if ("seller".equals(actorType)) {
-            return RefundService.REASON_SUPPLY_FAILED;
+            return RefundReason.SUPPLY_FAILED.code();
         }
-        return RefundService.REASON_ADMIN_CANCELLED;
+        return RefundReason.ADMIN_CANCELLED.code();
     }
 }

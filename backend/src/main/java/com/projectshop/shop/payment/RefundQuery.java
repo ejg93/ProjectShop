@@ -290,8 +290,8 @@ public class RefundQuery {
         }
 
         String stored = status.toLowerCase(Locale.ROOT);
-        if (!Set.of(RefundService.REQUESTED_CODE, RefundService.APPROVED_CODE,
-                RefundService.REJECTED_CODE).contains(stored)) {
+        if (!Set.of(RefundStatus.REQUESTED.code(), RefundStatus.APPROVED.code(),
+                RefundStatus.REJECTED.code()).contains(stored)) {
             throw new ShopException(ErrorCode.VALIDATION_FAILED, "그런 환불 상태가 없다: " + status);
         }
         return stored;

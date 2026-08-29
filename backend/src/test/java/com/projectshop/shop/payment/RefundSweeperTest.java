@@ -568,7 +568,7 @@ class RefundSweeperTest extends PostgresTestBase {
                                 "서울시 강남구", "101호", null)));
 
         payments.pay(buyerId, UUID.randomUUID().toString(),
-                new PaymentService.Command(created.orderNumber(), "card", GOOD_CARD));
+                new PaymentService.Command(created.orderNumber(), PaymentMethod.CARD, GOOD_CARD));
 
         return created.orderId();
     }

@@ -90,7 +90,7 @@ class RefundApiTest extends PostgresTestBase {
         orderId = created.orderId();
 
         payments.pay(buyerId, UUID.randomUUID().toString(),
-                new PaymentService.Command(created.orderNumber(), "card", GOOD_CARD));
+                new PaymentService.Command(created.orderNumber(), PaymentMethod.CARD, GOOD_CARD));
 
         sellerOrderNumber = jdbc.sql(
                         "select seller_order_number from seller_order where order_id = :orderId")
