@@ -42,8 +42,8 @@ const SHIPMENT_STATUS: Record<string, string> = {
  * 단순 변심으로 보고 거절하는 일이 안 생긴다.
  */
 const RETURN_REASON: Record<string, string> = {
-  change_of_mind: "단순 변심",
-  defect: "표시·광고와 다름",
+  CHANGE_OF_MIND: "단순 변심",
+  DEFECT: "표시·광고와 다름",
 };
 
 export function paymentStatusText(status: string): string {

@@ -75,14 +75,17 @@ public class SellerOrderQuery {
      * @param returnReason   반품이 무엇으로 들어왔나(`V29`). 반품이 아니면 {@code null} 이다.
      *                       <b>셀러가 알아야 갈리는 것이 둘</b>이다 — 하자 반품은 기한이 3개월이고
      *                       반환 비용을 셀러가 진다(전자상거래법 제17조제3항·제18조제9항, `D2` R3).
-     *                       단순 변심으로 보고 거절하면 그 자리에서 법을 어긴다
+     *                       단순 변심으로 보고 거절하면 그 자리에서 법을 어긴다.
+     *                       <b>{@code String} 이 아니라 열거값이다</b>(`43a-6`) — 이 칸이 문자열이던 동안
+     *                       {@link #enumValue} 를 안 지나서 저장값이 소문자로 새 나갔다.
+     *                       타입으로 두면 표기를 고르는 자리가 없어서 빠뜨림이 성립하지 않는다
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Detail(String sellerOrderNumber, String orderNumber, String status,
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
             OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue,
-            String returnReason,
+            OrderStatusService.ReturnReason returnReason,
             List<OrderQuery.Item> items, List<String> allowedActions, OrderQuery.Shipping shipping,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
     }
@@ -220,7 +223,7 @@ public class SellerOrderQuery {
                 row.shipDueAt(),
                 row.shippedAt(),
                 row.shipOverdue(),
-                row.returnReason(),
+                OrderStatusService.ReturnReason.of(row.returnReason()),
                 itemsOf(row.sellerOrderId()),
                 actions.allowedActions(viewerId, row.buyerUserId(), row.sellerId(), row.status()),
                 decision.canSee(OrderFields.SHIPPING) ? shippingOf(row.orderId()) : null,

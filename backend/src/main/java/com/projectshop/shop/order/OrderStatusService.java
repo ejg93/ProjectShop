@@ -2,6 +2,7 @@ package com.projectshop.shop.order;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -72,6 +73,24 @@ public class OrderStatusService {
 
         public String code() {
             return code;
+        }
+
+        /**
+         * 저장값을 열거값으로 바꾼다. 없는 것은 {@code null} 이다 — 반품이 아닌 묶음은 사유가 빈다.
+         *
+         * <p><b>응답이 이것을 지나간다</b>(`43a-6`). 문자열을 그냥 대문자로 올리면 DB 에 모르는
+         * 값이 들어와 있어도 그대로 실려 나가고 화면이 처음 보는 값을 받는다.
+         * enum 을 지나면 <b>마이그레이션과 코드가 어긋난 순간 여기서 터진다</b>
+         * (`ProductQuery` 가 같은 판단이다).
+         */
+        public static ReturnReason of(String storedCode) {
+            if (storedCode == null) {
+                return null;
+            }
+            return Arrays.stream(values())
+                    .filter(reason -> reason.code.equals(storedCode))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("모르는 반품 사유다: " + storedCode));
         }
     }
 
