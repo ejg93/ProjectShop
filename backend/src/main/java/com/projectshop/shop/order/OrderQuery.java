@@ -19,6 +19,8 @@ import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.payment.PaymentMethod;
+import com.projectshop.shop.payment.PaymentStatus;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
 
@@ -215,7 +217,7 @@ public class OrderQuery {
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Summary(
                         rs.getString("order_number"),
-                        paymentStatus(rs.getString("status")),
+                        orderPaymentStatus(rs.getString("status")),
                         rs.getLong("payable_amount"),
                         rs.getInt("item_count"),
                         rs.getObject("created_at", OffsetDateTime.class)))
@@ -264,7 +266,7 @@ public class OrderQuery {
 
         return new Detail(
                 order.orderNumber(),
-                paymentStatus(order.status()),
+                orderPaymentStatus(order.status()),
                 order.totalAmount(),
                 order.shippingFeeTotal(),
                 order.payableAmount(),
@@ -564,8 +566,8 @@ public class OrderQuery {
                         """)
                 .param("orderId", orderId)
                 .query((rs, rowNum) -> new Payment(
-                        enumValue(rs.getString("status")),
-                        enumValue(rs.getString("method")),
+                        paymentStatus(rs.getString("status")),
+                        paymentMethod(rs.getString("method")),
                         rs.getString("approval_number"),
                         rs.getString("card_issuer"),
                         rs.getString("card_last4"),
@@ -584,17 +586,27 @@ public class OrderQuery {
      * <p><b>이건 검증을 안 한다.</b> 표기만 바꾸므로 DB 에 모르는 값이 들어와 있으면
      * 그대로 대문자로 올려 보낸다 — 화면이 처음 보는 값을 받는다.
      *
-     * <p>옮긴 것이 다섯이다 — 상태 셋은 {@link #paymentStatus}·{@link #shipmentStatus}·
+     * <p>옮긴 것이 일곱이다 — 주문 상태 셋은 {@link #orderPaymentStatus}·{@link #shipmentStatus}·
      * {@link OrderTransitions#statusName}(`43a-7`), 주체와 조항은 {@link #actorType}·
-     * {@link #contractClause}(`43a-8`).
+     * {@link #contractClause}(`43a-8`), 결제는 {@link #paymentStatus}·{@link #paymentMethod}(`43a-9`).
      *
-     * <p><b>여기 남은 둘</b>은 {@code reason_code}·{@code method} 다. 열거형이 아직 없어서지
-     * 안 필요해서가 아니다 — `D23` 「Java 표현」이 생 문자열을 금지하고 둘 다 코드가 값마다
-     * 분기한다({@code "card".equals(command.method())}). 결제·환불 쪽이라
-     * {@link com.projectshop.shop.payment.RefundQuery} 와 같이 봐야 해서 `43a-9` 로 갈랐다.
+     * <p><b>여기 남은 둘</b>은 환불의 {@code status}·{@code reason_code} 다. 열거형이 아직
+     * 없어서지 안 필요해서가 아니다 — `D23` 「Java 표현」이 생 문자열을 금지하고 둘 다 코드가
+     * 값마다 분기한다({@code RefundService.APPROVED_CODE} 가 그 분기다).
+     * {@link com.projectshop.shop.payment.RefundQuery} 가 같은 둘을 읽어서 `43a-11` 로 갈랐다.
      */
     private static String enumValue(String storedCode) {
         return storedCode == null ? null : storedCode.toUpperCase(Locale.ROOT);
+    }
+
+    /** 결제 시도 한 건의 결과({@code payment.status}). 주문의 결제 층 상태와 다른 값이다 */
+    private static String paymentStatus(String storedCode) {
+        return storedCode == null ? null : PaymentStatus.of(storedCode).name();
+    }
+
+    /** 무엇으로 냈나({@code payment.method}) */
+    private static String paymentMethod(String storedCode) {
+        return storedCode == null ? null : PaymentMethod.of(storedCode).name();
     }
 
     /** 이력 한 줄을 누가 일으켰나({@code order_status_history.actor_type}) */
@@ -607,8 +619,15 @@ public class OrderQuery {
         return storedCode == null ? null : ContractClause.of(storedCode).name();
     }
 
-    /** 결제 층의 상태({@code shop_order.status}). 열거형을 지나 모르는 값에 터진다 */
-    private static String paymentStatus(String storedCode) {
+    /**
+     * 주문의 결제 층 상태({@code shop_order.status}). 열거형을 지나 모르는 값에 터진다.
+     *
+     * <p><b>{@link #paymentStatus} 와 다른 값이다.</b> 이쪽은 주문이 어디까지 왔나
+     * ({@code payment_pending}·{@code paid})고, 저쪽은 승인 시도 한 건의 결과
+     * ({@code approved}·{@code failed})다. 이름이 부딪쳐서 갈랐다 —
+     * <b>부딪쳤다는 것 자체가 둘이 헷갈린다는 증거다</b>(`43a-9`).
+     */
+    private static String orderPaymentStatus(String storedCode) {
         return storedCode == null ? null : OrderTransitions.Payment.of(storedCode).name();
     }
 

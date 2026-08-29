@@ -24,7 +24,9 @@ import com.projectshop.shop.order.OrderStatusService.Actor;
 import com.projectshop.shop.order.OrderStatusService.ReturnReason;
 import com.projectshop.shop.order.OrderTransitions.Payment;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
+import com.projectshop.shop.payment.PaymentMethod;
 import com.projectshop.shop.payment.PaymentService;
+import com.projectshop.shop.payment.PaymentStatus;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -276,6 +278,8 @@ class ResponseEnumCaseTest extends PostgresTestBase {
         Arrays.stream(ReturnReason.values()).map(ReturnReason::code).forEach(storedCodes::add);
         Arrays.stream(ActorType.values()).map(ActorType::code).forEach(storedCodes::add);
         Arrays.stream(ContractClause.values()).map(ContractClause::code).forEach(storedCodes::add);
+        Arrays.stream(PaymentStatus.values()).map(PaymentStatus::code).forEach(storedCodes::add);
+        Arrays.stream(PaymentMethod.values()).map(PaymentMethod::code).forEach(storedCodes::add);
 
         List<String> found = new ArrayList<>();
         collectStrings(node, found);
