@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.projectshop.shop.auth.Allowed;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
+import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery;
@@ -220,7 +221,7 @@ public class ProductQuery {
                         rs.getLong("product_id"),
                         rs.getLong("seller_id"),
                         rs.getString("name"),
-                        enumValue(rs.getString("status")),
+                        EnumValue.of(rs.getString("status"), ProductStatus::of),
                         rs.getObject("commission_bp", Integer.class),
                         rs.getLong("min_price_incl_vat"),
                         rs.getLong("total_stock"),
@@ -274,7 +275,7 @@ public class ProductQuery {
                         rs.getString("name"),
                         rs.getString("description"),
                         rs.getBoolean("is_withdrawal_restricted"),
-                        reasonValue(rs.getString("withdrawal_restriction_reason")),
+                        EnumValue.of(rs.getString("withdrawal_restriction_reason"), WithdrawalRestrictionReason::of),
                         rs.getLong("default_shipping_fee"),
                         // 바깥 조인이 아니라도 null 이 오는 컬럼은 getObject 로 받는다 —
                         // getInt 는 null 을 0 으로 돌려줘서 「약정 없음」이 「당일 발송」이 된다(`D23`).
@@ -408,22 +409,5 @@ public class ProductQuery {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
         return Allowed.only(visible);
-    }
-
-    /**
-     * 저장값을 응답 표기로 바꾼다. <b>열거값은 대문자 스네이크다</b>(`D5` 「형식」).
-     *
-     * <p><b>{@link ProductStatus} 를 지나간다.</b> 문자열을 그냥 대문자로 올리면
-     * DB 에 모르는 값이 들어와 있어도 그대로 응답에 실려 나가고, 화면이 처음 보는 값을 받는다.
-     * enum 을 지나면 <b>마이그레이션과 코드가 어긋난 순간 여기서 터진다.</b>
-     */
-    private static String enumValue(String storedCode) {
-        return storedCode == null ? null : ProductStatus.of(storedCode).name();
-    }
-
-    /** 같은 이유로 사유도 enum 을 지난다. 제한이 없으면 null 이 그대로 나간다 */
-    private static String reasonValue(String storedCode) {
-        WithdrawalRestrictionReason reason = WithdrawalRestrictionReason.of(storedCode);
-        return reason == null ? null : reason.name();
     }
 }

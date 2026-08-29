@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
+import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 
@@ -101,7 +102,7 @@ public class InquiryQuery {
                         rs.getString("inquiry_number"),
                         rs.getString("question"),
                         rs.getString("answer"),
-                        inquiryStatus(rs.getString("status")),
+                        EnumValue.of(rs.getString("status"), InquiryStatus::of),
                         rs.getObject("created_at", OffsetDateTime.class),
                         rs.getObject("answered_at", OffsetDateTime.class)))
                 .list();
@@ -195,13 +196,13 @@ public class InquiryQuery {
         List<Entry> items = listing
                 .query((rs, rowNum) -> new Entry(
                         rs.getString("inquiry_number"),
-                        inquiryKind(rs.getString("kind")),
+                        EnumValue.of(rs.getString("kind"), InquiryKind::of),
                         (Long) rs.getObject("product_id"),
                         rs.getString("product_name"),
                         rs.getString("seller_order_number"),
                         body ? rs.getString("question") : null,
                         body ? rs.getString("answer") : null,
-                        inquiryStatus(rs.getString("status")),
+                        EnumValue.of(rs.getString("status"), InquiryStatus::of),
                         rs.getBoolean("is_public"),
                         rs.getObject("created_at", OffsetDateTime.class),
                         rs.getObject("answered_at", OffsetDateTime.class),
@@ -242,19 +243,4 @@ public class InquiryQuery {
     }
 
     /** 열거값은 대문자 스네이크로 올린다(`D5`). 저장값과 다르다 */
-    /**
-     * 응답의 열거값은 대문자 스네이크다(`D5` 「형식」).
-     *
-     * <p><b>열거형을 지나간다</b>(`43a-12`). 문자열을 그냥 대문자로 올리면 DB 에 모르는 값이
-     * 들어와 있어도 그대로 실려 나가고 화면이 처음 보는 값을 받는다 — 여기서 터지면
-     * <b>마이그레이션과 코드가 어긋난 순간</b> 알게 된다.
-     */
-    private static String inquiryStatus(String storedCode) {
-        return storedCode == null ? null : InquiryStatus.of(storedCode).name();
-    }
-
-    /** 무엇에 대한 문의인가. <b>대상·기한·보존 기간이 이 값으로 갈린다</b> */
-    private static String inquiryKind(String storedCode) {
-        return storedCode == null ? null : InquiryKind.of(storedCode).name();
-    }
 }

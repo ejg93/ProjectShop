@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
+import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery;
@@ -129,8 +130,8 @@ public class RefundQuery {
                         rs.getString("refund_number"),
                         rs.getString("seller_order_number"),
                         rs.getString("order_number"),
-                        refundStatus(rs.getString("status")),
-                        refundReason(rs.getString("reason_code")),
+                        EnumValue.of(rs.getString("status"), RefundStatus::of),
+                        EnumValue.of(rs.getString("reason_code"), RefundReason::of),
                         rs.getLong("amount"),
                         rs.getObject("due_at", OffsetDateTime.class),
                         rs.getBoolean("overdue"),
@@ -187,8 +188,8 @@ public class RefundQuery {
                                 rs.getString("refund_number"),
                                 rs.getString("seller_order_number"),
                                 rs.getString("order_number"),
-                                refundStatus(rs.getString("status")),
-                                refundReason(rs.getString("reason_code")),
+                                EnumValue.of(rs.getString("status"), RefundStatus::of),
+                                EnumValue.of(rs.getString("reason_code"), RefundReason::of),
                                 rs.getLong("amount"),
                                 rs.getLong("delay_interest"),
                                 rs.getLong("shipping_fee_refund"),
@@ -296,23 +297,7 @@ public class RefundQuery {
         return stored;
     }
 
-    /**
-     * 응답의 열거값은 대문자 스네이크다(`D5` 「형식」).
-     *
-     * <p><b>열거형을 지나간다</b>(`43a-11`). 문자열을 그냥 대문자로 올리면 DB 에 모르는 값이
-     * 들어와 있어도 그대로 실려 나가고 화면이 처음 보는 값을 받는다 — 여기서 터지면
-     * <b>마이그레이션과 코드가 어긋난 순간</b> 알게 된다.
-     *
-     * <p>이 표가 내리는 열거값이 이 둘뿐이라 {@code enumValue} 를 안 남긴다.
-     */
-    private static String refundStatus(String storedCode) {
-        return storedCode == null ? null : RefundStatus.of(storedCode).name();
-    }
 
-    /** 왜 돌려주나. <b>환급 기한의 기산점이 이 값으로 갈린다</b>(`D2` R5) */
-    private static String refundReason(String storedCode) {
-        return storedCode == null ? null : RefundReason.of(storedCode).name();
-    }
 
     private static ShopException notFound(String refundNumber) {
         return new ShopException(ErrorCode.REFUND_NOT_FOUND, "그런 환불 요청이 없다: " + refundNumber);

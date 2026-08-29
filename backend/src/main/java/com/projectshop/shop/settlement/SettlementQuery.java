@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
+import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery.Paging;
@@ -163,8 +164,8 @@ public class SettlementQuery {
                         """)
                 .param("number", settlementNumber)
                 .query((rs, rowNum) -> new Line(
-                        itemKind(rs.getString("kind")),
-                        supplier(rs.getString("supplier")),
+                        EnumValue.of(rs.getString("kind"), SettlementItemKind::of),
+                        EnumValue.of(rs.getString("supplier"), SettlementSupplier::of),
                         rs.getLong("amount"),
                         (Integer) rs.getObject("commission_bp"),
                         (Long) rs.getObject("commission_base_amount"),
@@ -205,27 +206,7 @@ public class SettlementQuery {
                 rs.getObject("payout_date", LocalDate.class),
                 rs.getLong("payout_amount"),
                 rs.getLong("carried_over"),
-                payoutStatus(rs.getString("payout_status")),
+                EnumValue.of(rs.getString("payout_status"), PayoutStatus::of),
                 rs.getObject("created_at", OffsetDateTime.class));
-    }
-
-    /**
-     * 열거값은 대문자 스네이크로 올린다(`D5` 「형식」). 저장값과 다르다.
-     *
-     * <p><b>열거형을 지나간다</b>(`43a-13`). 문자열을 그냥 대문자로 올리면 DB 에 모르는 값이
-     * 들어와 있어도 그대로 실려 나가고 화면이 처음 보는 값을 받는다.
-     */
-    private static String itemKind(String storedCode) {
-        return storedCode == null ? null : SettlementItemKind.of(storedCode).name();
-    }
-
-    /** 부가가치세법이 요구하는 공급자(`D2` R17). <b>이월은 공급이 아니라 비어 있다</b> */
-    private static String supplier(String storedCode) {
-        return storedCode == null ? null : SettlementSupplier.of(storedCode).name();
-    }
-
-    /** 지급이 어디까지 왔나 */
-    private static String payoutStatus(String storedCode) {
-        return storedCode == null ? null : PayoutStatus.of(storedCode).name();
     }
 }
