@@ -196,7 +196,7 @@ spring:
 
 ```json
 {
-  "type": "urn:shop:error:validation-failed",
+  "type": "tag:projectshop.example,2026:error:validation-failed",
   "status": 400,
   "errors": [{"field": "display_name", "message": "공백일 수 없습니다"}]
 }
