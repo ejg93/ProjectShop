@@ -39,7 +39,7 @@ public class NotificationTemplates {
      * @param subject 자리표시자가 남아 있는 제목
      * @param body    자리표시자가 남아 있는 본문
      */
-    public record Version(long id, String kind, String subject, String body) {}
+    public record Version(long id, NotificationKind kind, String subject, String body) {}
 
     /** 완성된 글자 */
     public record Rendered(String subject, String body) {}
@@ -60,7 +60,13 @@ public class NotificationTemplates {
                         """)
                 .param("code", code)
                 .param("now", now)
-                .query(Version.class)
+                // 자동 매핑을 안 쓴다. 저장값이 소문자라 `valueOf` 가 못 읽고,
+                // 읽더라도 모르는 값에 조용히 실패한다 — `of` 를 지나야 그 자리에서 터진다.
+                .query((rs, rowNum) -> new Version(
+                        rs.getLong("id"),
+                        NotificationKind.of(rs.getString("kind")),
+                        rs.getString("subject"),
+                        rs.getString("body")))
                 .optional();
     }
 
