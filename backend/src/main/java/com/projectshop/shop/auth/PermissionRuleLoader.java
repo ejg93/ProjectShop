@@ -66,8 +66,8 @@ public class PermissionRuleLoader {
                 .query((rs, rowNum) -> new Rule(
                         rs.getString("role_code"),
                         rs.getObject("grant_seller_id", Long.class),
-                        rs.getString("scope"),
-                        rs.getString("effect"),
+                        Scope.of(rs.getString("scope")),
+                        Effect.of(rs.getString("effect")),
                         splitGroups(rs.getString("field_groups"))))
                 .list();
     }
@@ -106,8 +106,8 @@ public class PermissionRuleLoader {
                         new Rule(
                                 rs.getString("role_code"),
                                 rs.getObject("grant_seller_id", Long.class),
-                                rs.getString("scope"),
-                                rs.getString("effect"),
+                                Scope.of(rs.getString("scope")),
+                                Effect.of(rs.getString("effect")),
                                 splitGroups(rs.getString("field_groups")))))
                 .list()
                 .stream()

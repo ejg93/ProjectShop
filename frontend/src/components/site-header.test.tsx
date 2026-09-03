@@ -44,7 +44,7 @@ describe("셸의 머리", () => {
   it("셀러 화면 링크는 그 권한이 있어야 보인다", async () => {
     apiSessionOptional.mockResolvedValue({
       userId: 7,
-      permissions: [{ resource: "order", action: "update_status", scopes: ["seller"] }],
+      permissions: [{ resource: "order", action: "update_status", scopes: ["SELLER"] }],
     });
 
     render(await SiteHeader());
@@ -57,7 +57,7 @@ describe("셸의 머리", () => {
   it("사는 사람에게는 셀러 화면 링크가 없다", async () => {
     apiSessionOptional.mockResolvedValue({
       userId: 7,
-      permissions: [{ resource: "order", action: "read", scopes: ["own"] }],
+      permissions: [{ resource: "order", action: "read", scopes: ["OWN"] }],
     });
 
     render(await SiteHeader());

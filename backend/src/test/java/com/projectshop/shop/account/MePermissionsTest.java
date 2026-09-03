@@ -21,6 +21,7 @@ import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.auth.PermissionCatalog;
 import com.projectshop.shop.auth.PermissionCatalog.Entry;
+import com.projectshop.shop.auth.Scope;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 
 /**
@@ -68,7 +69,7 @@ class MePermissionsTest extends PostgresTestBase {
         void customerSeesOwnOrdersOnly() {
             assertThat(scopesOf(catalog.listFor(customer), "order", "read"))
                     .as("all 이 열리면 남의 주문이 보인다")
-                    .containsExactly("own");
+                    .containsExactly(Scope.OWN);
         }
 
         @Test
@@ -76,15 +77,15 @@ class MePermissionsTest extends PostgresTestBase {
         void productCatalogIsOpenToCustomers() {
             assertThat(scopesOf(catalog.listFor(customer), "product", "read"))
                     .as("여기서 own 만 나오면 남의 상품을 못 사게 된다")
-                    .contains("all");
+                    .contains(Scope.ALL);
         }
 
         @Test
         @DisplayName("셀러 사장은 자기 셀러 범위를 갖는다")
         void sellerOwnerGetsSellerScope() {
-            List<String> scopes = scopesOf(catalog.listFor(owner), "order", "read");
+            List<Scope> scopes = scopesOf(catalog.listFor(owner), "order", "read");
 
-            assertThat(scopes).contains("seller");
+            assertThat(scopes).contains(Scope.SELLER);
         }
 
         @Test
@@ -100,11 +101,11 @@ class MePermissionsTest extends PostgresTestBase {
         void denyRemovesTheScope() {
             // V5 가 판매자의 order:read 에 deny/own 을 걸어 뒀다.
             // 사장이 자기 계정으로 낸 주문은 셀러 권한으로 못 본다.
-            List<String> scopes = scopesOf(catalog.listFor(owner), "order", "read");
+            List<Scope> scopes = scopesOf(catalog.listFor(owner), "order", "read");
 
             assertThat(scopes)
                     .as("deny/own 이 걸린 자리라 own 이 열리면 거부 규칙이 안 도는 것이다")
-                    .doesNotContain("own");
+                    .doesNotContain(Scope.OWN);
         }
 
         @Test
@@ -170,7 +171,7 @@ class MePermissionsTest extends PostgresTestBase {
                 .orElseThrow(() -> new AssertionError(resource + ":" + action + " 이 목록에 없다"));
     }
 
-    private static List<String> scopesOf(List<Entry> entries, String resource, String action) {
+    private static List<Scope> scopesOf(List<Entry> entries, String resource, String action) {
         return entryOf(entries, resource, action).scopes();
     }
 }

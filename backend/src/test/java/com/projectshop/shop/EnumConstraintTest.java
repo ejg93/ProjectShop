@@ -123,6 +123,8 @@ class EnumConstraintTest extends PostgresTestBase {
     private static Map<String, List<String>> pairs() {
         Map<String, List<String>> pairs = new LinkedHashMap<>();
         pairs.put("auth.UserStatus", List.of("app_user_status_check"));
+        pairs.put("auth.Effect", List.of("role_permission_effect_check"));
+        pairs.put("auth.Scope", List.of("role_permission_scope_check"));
         pairs.put("seller.MailOrderExemption", List.of("seller_exempt_reason_check"));
         pairs.put("product.ProductStatus", List.of("product_status_check"));
         pairs.put("product.SkuStatus", List.of("sku_status_check"));

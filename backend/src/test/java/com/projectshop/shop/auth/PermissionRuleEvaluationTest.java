@@ -30,16 +30,16 @@ class PermissionRuleEvaluationTest {
     static final long ALPHA = 1L;
     static final long BETA = 2L;
 
-    static Rule allow(String role, String scope) {
-        return new Rule(role, null, scope, "allow", Set.of());
+    static Rule allow(String role, Scope scope) {
+        return new Rule(role, null, scope, Effect.ALLOW, Set.of());
     }
 
-    static Rule deny(String role, String scope) {
-        return new Rule(role, null, scope, "deny", Set.of());
+    static Rule deny(String role, Scope scope) {
+        return new Rule(role, null, scope, Effect.DENY, Set.of());
     }
 
-    static Rule orgAllow(String role, long sellerId, String scope) {
-        return new Rule(role, sellerId, scope, "allow", Set.of());
+    static Rule orgAllow(String role, long sellerId, Scope scope) {
+        return new Rule(role, sellerId, scope, Effect.ALLOW, Set.of());
     }
 
     static Decision decide(List<Rule> rules, Target target) {
@@ -53,7 +53,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("own 은 내가 주인일 때만 덮는다")
         void ownCoversMineOnly() {
-            List<Rule> rules = List.of(allow("customer", "own"));
+            List<Rule> rules = List.of(allow("customer", Scope.OWN));
 
             assertThat(decide(rules, Target.ownedBy(ME)).allowed()).isTrue();
             assertThat(decide(rules, Target.ownedBy(OTHER)).allowed()).isFalse();
@@ -62,7 +62,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("all 은 주인도 셀러도 안 본다")
         void allCoversEverything() {
-            List<Rule> rules = List.of(allow("admin", "all"));
+            List<Rule> rules = List.of(allow("admin", Scope.ALL));
 
             assertThat(decide(rules, Target.ownedBy(OTHER)).allowed()).isTrue();
             assertThat(decide(rules, Target.ofSeller(BETA)).allowed()).isTrue();
@@ -72,7 +72,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("전역 부여의 seller 는 내가 속한 모든 셀러를 덮는다")
         void globalSellerScopeUsesMembership() {
-            List<Rule> rules = List.of(allow("seller_owner", "seller"));
+            List<Rule> rules = List.of(allow("seller_owner", Scope.SELLER));
 
             assertThat(decide(rules, Target.ofSeller(ALPHA)).allowed()).isTrue();
             assertThat(decide(rules, Target.ofSeller(BETA)).allowed()).isFalse();
@@ -81,7 +81,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("조직 부여의 seller 는 받은 그 셀러만 덮는다")
         void orgSellerScopeUsesGrant() {
-            List<Rule> rules = List.of(orgAllow("seller_owner", BETA, "seller"));
+            List<Rule> rules = List.of(orgAllow("seller_owner", BETA, Scope.SELLER));
 
             assertThat(decide(rules, Target.ofSeller(BETA)).allowed())
                     .as("소속이 아닌 셀러라도 그 셀러 역할을 받았으면 덮는다")
@@ -94,18 +94,18 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("셀러가 없는 대상은 seller 스코프가 못 덮는다")
         void sellerScopeNeedsSeller() {
-            assertThat(decide(List.of(allow("seller_owner", "seller")), Target.ownedBy(ME)).allowed()).isFalse();
+            assertThat(decide(List.of(allow("seller_owner", Scope.SELLER)), Target.ownedBy(ME)).allowed()).isFalse();
         }
     }
 
     @Nested
     @DisplayName("효과 우선순위")
-    class Effect {
+    class EffectPriority {
 
         @Test
         @DisplayName("좁은 deny 가 넓은 allow 를 이긴다")
         void denyBeatsWiderAllow() {
-            List<Rule> rules = List.of(allow("seller_owner", "seller"), deny("seller_owner", "own"));
+            List<Rule> rules = List.of(allow("seller_owner", Scope.SELLER), deny("seller_owner", Scope.OWN));
 
             Decision mine = decide(rules, Target.of(ME, ALPHA));
             assertThat(mine.allowed()).isFalse();
@@ -121,8 +121,8 @@ class PermissionRuleEvaluationTest {
         void orderDoesNotMatter() {
             Target mine = Target.of(ME, ALPHA);
 
-            Decision denyFirst = decide(List.of(deny("seller_owner", "own"), allow("seller_owner", "seller")), mine);
-            Decision allowFirst = decide(List.of(allow("seller_owner", "seller"), deny("seller_owner", "own")), mine);
+            Decision denyFirst = decide(List.of(deny("seller_owner", Scope.OWN), allow("seller_owner", Scope.SELLER)), mine);
+            Decision allowFirst = decide(List.of(allow("seller_owner", Scope.SELLER), deny("seller_owner", Scope.OWN)), mine);
 
             assertThat(denyFirst.allowed()).isEqualTo(allowFirst.allowed()).isFalse();
         }
@@ -130,7 +130,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("대상을 안 덮는 deny 는 무시된다")
         void irrelevantDenyIsIgnored() {
-            List<Rule> rules = List.of(allow("admin", "all"), deny("auditor", "own"));
+            List<Rule> rules = List.of(allow("admin", Scope.ALL), deny("auditor", Scope.OWN));
 
             assertThat(decide(rules, Target.ownedBy(OTHER)).allowed()).isTrue();
         }
@@ -143,7 +143,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("여러 allow 가 걸리면 넓은 쪽이 근거가 된다")
         void widestBecomesReason() {
-            List<Rule> rules = List.of(allow("customer", "own"), allow("admin", "all"));
+            List<Rule> rules = List.of(allow("customer", Scope.OWN), allow("admin", Scope.ALL));
 
             assertThat(decide(rules, Target.ownedBy(ME)).reason()).contains("allow/all");
         }
@@ -151,7 +151,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("넓은 규칙이 대상을 못 덮으면 좁은 쪽이 근거가 된다")
         void narrowWinsWhenWideDoesNotCover() {
-            List<Rule> rules = List.of(allow("customer", "own"), allow("seller_owner", "seller"));
+            List<Rule> rules = List.of(allow("customer", Scope.OWN), allow("seller_owner", Scope.SELLER));
 
             assertThat(decide(rules, Target.ownedBy(ME)).reason())
                     .as("셀러가 없는 대상이라 seller 스코프가 안 걸린다")
@@ -163,16 +163,16 @@ class PermissionRuleEvaluationTest {
     @DisplayName("필드 그룹")
     class Fields {
 
-        static Rule allowWith(String role, String scope, String... groups) {
-            return new Rule(role, null, scope, "allow", Set.of(groups));
+        static Rule allowWith(String role, Scope scope, String... groups) {
+            return new Rule(role, null, scope, Effect.ALLOW, Set.of(groups));
         }
 
         @Test
         @DisplayName("걸린 allow 의 그룹을 합친다")
         void unionOfGroups() {
             List<Rule> rules = List.of(
-                    allowWith("customer", "own", "basic", "payment"),
-                    allowWith("seller_owner", "seller", "basic", "shipping"));
+                    allowWith("customer", Scope.OWN, "basic", "payment"),
+                    allowWith("seller_owner", Scope.SELLER, "basic", "shipping"));
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.of(ME, ALPHA));
 
@@ -183,8 +183,8 @@ class PermissionRuleEvaluationTest {
         @DisplayName("제한 없는 규칙이 하나라도 걸리면 제한이 풀린다")
         void unrestrictedWins() {
             List<Rule> rules = List.of(
-                    allowWith("seller_owner", "seller", "basic"),
-                    allow("admin", "all"));
+                    allowWith("seller_owner", Scope.SELLER, "basic"),
+                    allow("admin", Scope.ALL));
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.of(ME, ALPHA));
 
@@ -196,8 +196,8 @@ class PermissionRuleEvaluationTest {
         @DisplayName("안 걸린 규칙의 그룹은 안 합쳐진다")
         void uncoveredRuleContributesNothing() {
             List<Rule> rules = List.of(
-                    allowWith("customer", "own", "basic"),
-                    allowWith("seller_owner", "seller", "payment"));
+                    allowWith("customer", Scope.OWN, "basic"),
+                    allowWith("seller_owner", Scope.SELLER, "payment"));
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.ownedBy(ME));
 
@@ -209,7 +209,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("거부된 판정은 아무 필드도 못 본다")
         void deniedSeesNothing() {
-            List<Rule> rules = List.of(allowWith("customer", "own", "basic"), deny("auditor", "all"));
+            List<Rule> rules = List.of(allowWith("customer", Scope.OWN, "basic"), deny("auditor", Scope.ALL));
 
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.ownedBy(ME));
 
@@ -224,7 +224,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("덮는 allow 가 없으면 거부다")
         void noCoveringAllow() {
-            Decision decision = decide(List.of(allow("customer", "own")), Target.ownedBy(OTHER));
+            Decision decision = decide(List.of(allow("customer", Scope.OWN)), Target.ownedBy(OTHER));
 
             assertThat(decision.allowed()).isFalse();
             assertThat(decision.reason()).contains("범위 밖");
@@ -233,7 +233,7 @@ class PermissionRuleEvaluationTest {
         @Test
         @DisplayName("deny 만 있으면 거부다")
         void denyOnly() {
-            Decision decision = decide(List.of(deny("auditor", "all")), Target.ownedBy(ME));
+            Decision decision = decide(List.of(deny("auditor", Scope.ALL)), Target.ownedBy(ME));
 
             assertThat(decision.allowed()).isFalse();
             assertThat(decision.reason()).contains("deny/all");

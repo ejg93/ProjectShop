@@ -98,10 +98,10 @@ class PermissionMatrixTest {
         appendHeader(out, List.of("부여", "스코프", "효과"));
 
         for (String grant : List.of("전역", "조직")) {
-            for (String effect : List.of("allow", "deny")) {
-                for (String scope : List.of("own", "seller", "all")) {
+            for (Effect effect : Effect.values()) {
+                for (Scope scope : Scope.values()) {
                     Rule rule = rule(grant, scope, effect);
-                    appendRow(out, List.of(rule), List.of(grant, scope, effect));
+                    appendRow(out, List.of(rule), List.of(grant, scope.code(), effect.code()));
                 }
             }
         }
@@ -130,11 +130,11 @@ class PermissionMatrixTest {
 
         List<List<Rule>> samples = List.of(
                 List.of(),
-                List.of(rule("전역", "own", "allow")),
-                List.of(rule("전역", "seller", "allow")),
-                List.of(rule("조직", "seller", "allow")),
-                List.of(rule("전역", "all", "allow"), rule("전역", "own", "deny")),
-                List.of(rule("전역", "seller", "allow"), rule("전역", "own", "deny")));
+                List.of(rule("전역", Scope.OWN, Effect.ALLOW)),
+                List.of(rule("전역", Scope.SELLER, Effect.ALLOW)),
+                List.of(rule("조직", Scope.SELLER, Effect.ALLOW)),
+                List.of(rule("전역", Scope.ALL, Effect.ALLOW), rule("전역", Scope.OWN, Effect.DENY)),
+                List.of(rule("전역", Scope.SELLER, Effect.ALLOW), rule("전역", Scope.OWN, Effect.DENY)));
 
         for (List<Rule> rules : samples) {
             for (Column column : COLUMNS) {
@@ -151,21 +151,21 @@ class PermissionMatrixTest {
     private List<Combination> combinations() {
         return List.of(
                 combo("전역 allow/all", "전역 deny/own",
-                        rule("전역", "all", "allow"), rule("전역", "own", "deny")),
+                        rule("전역", Scope.ALL, Effect.ALLOW), rule("전역", Scope.OWN, Effect.DENY)),
                 combo("전역 deny/own", "전역 allow/all",
-                        rule("전역", "own", "deny"), rule("전역", "all", "allow")),
+                        rule("전역", Scope.OWN, Effect.DENY), rule("전역", Scope.ALL, Effect.ALLOW)),
                 combo("전역 allow/seller", "전역 deny/own",
-                        rule("전역", "seller", "allow"), rule("전역", "own", "deny")),
+                        rule("전역", Scope.SELLER, Effect.ALLOW), rule("전역", Scope.OWN, Effect.DENY)),
                 combo("조직 allow/seller", "전역 deny/own",
-                        rule("조직", "seller", "allow"), rule("전역", "own", "deny")),
+                        rule("조직", Scope.SELLER, Effect.ALLOW), rule("전역", Scope.OWN, Effect.DENY)),
                 combo("전역 allow/own", "조직 allow/seller",
-                        rule("전역", "own", "allow"), rule("조직", "seller", "allow")),
+                        rule("전역", Scope.OWN, Effect.ALLOW), rule("조직", Scope.SELLER, Effect.ALLOW)),
                 combo("조직 allow/seller", "전역 allow/own",
-                        rule("조직", "seller", "allow"), rule("전역", "own", "allow")),
+                        rule("조직", Scope.SELLER, Effect.ALLOW), rule("전역", Scope.OWN, Effect.ALLOW)),
                 combo("전역 allow/all", "조직 deny/seller",
-                        rule("전역", "all", "allow"), rule("조직", "seller", "deny")),
+                        rule("전역", Scope.ALL, Effect.ALLOW), rule("조직", Scope.SELLER, Effect.DENY)),
                 combo("전역 allow/own", "전역 allow/all",
-                        rule("전역", "own", "allow"), rule("전역", "all", "allow")));
+                        rule("전역", Scope.OWN, Effect.ALLOW), rule("전역", Scope.ALL, Effect.ALLOW)));
     }
 
     private Combination combo(String first, String second, Rule a, Rule b) {
@@ -197,7 +197,7 @@ class PermissionMatrixTest {
      * <p>{@code grantSellerId} 는 {@code seller} 스코프에서만 뜻이 있는데 다른 스코프에도 채운다.
      * 안 채우면 "own 인데 조직 부여" 같은 조합이 표에서 빠져서, 뜻이 없다는 것 자체가 안 드러난다.
      */
-    private Rule rule(String grant, String scope, String effect) {
+    private Rule rule(String grant, Scope scope, Effect effect) {
         Long grantSellerId = "조직".equals(grant) ? ALPHA : null;
         return new Rule("role", grantSellerId, scope, effect, Set.of());
     }
