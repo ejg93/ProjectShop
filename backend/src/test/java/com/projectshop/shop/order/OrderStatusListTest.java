@@ -28,6 +28,11 @@ import com.projectshop.shop.support.ConstraintValues;
  *
  * <p>상품 축은 `7e` 가 이 방벽을 세웠는데 주문 축에는 없었다. 지금은 안 갈렸지만
  * <b>갈리는 것을 막는 것이 아무것도 없는 상태</b>였다 — 그것이 이 청크(`11-5`)의 이유다.
+ *
+ * <p><b>가운데 둘은 {@code EnumConstraintTest} 로 옮겼다</b>(`43a-19`) —
+ * {@code shop_order_status_check}·{@code seller_order_status_check} 와의 대조다.
+ * 여기 남은 것은 <b>그 파일이 못 보는 것</b> 둘이다: 갈래로 쪼개야 보이는 이력 제약과,
+ * 제약 둘 사이의 관계인 겹침.
  */
 @DisplayName("주문 축 상태 목록")
 class OrderStatusListTest extends PostgresTestBase {
@@ -35,36 +40,19 @@ class OrderStatusListTest extends PostgresTestBase {
     @Autowired
     private JdbcClient jdbc;
 
-    @Nested
-    @DisplayName("층마다의 제약")
-    class PerLayer {
-
-        @Test
-        @DisplayName("결제 상태가 DB 제약과 같다")
-        void paymentMatchesConstraint() {
-            assertThat(ConstraintValues.of(jdbc, "shop_order_status_check"))
-                    .as("`check` 와 `Payment` 가 갈리면 한쪽에만 있는 상태가 생긴다")
-                    .containsExactlyInAnyOrderElementsOf(paymentCodes());
-        }
-
-        @Test
-        @DisplayName("배송 상태가 DB 제약과 같다")
-        void shipmentMatchesConstraint() {
-            assertThat(ConstraintValues.of(jdbc, "seller_order_status_check"))
-                    .containsExactlyInAnyOrderElementsOf(shipmentCodes());
-        }
-
-        /**
-         * 두 목록이 안 겹친다. <b>그래서 타입을 갈랐다</b> —
-         * 하나로 두면 {@code seller_order} 자리에 {@code PAID} 를 넣어도 컴파일이 통과한다.
-         */
-        @Test
-        @DisplayName("결제 상태와 배송 상태는 겹치지 않는다")
-        void twoListsDoNotOverlap() {
-            assertThat(paymentCodes())
-                    .as("겹치면 이력 한 줄만 보고 어느 층의 전이인지 못 가른다")
-                    .doesNotContainAnyElementsOf(shipmentCodes());
-        }
+    /**
+     * 두 목록이 안 겹친다. <b>그래서 타입을 갈랐다</b> —
+     * 하나로 두면 {@code seller_order} 자리에 {@code PAID} 를 넣어도 컴파일이 통과한다.
+     *
+     * <p><b>이 관계는 DB 가 안 든다.</b> 제약 둘이 따로 서 있을 뿐이라 겹침이 생기는 것은
+     * 여기서만 걸린다 — {@code EnumConstraintTest} 의 대조를 둘 다 통과하면서도 무너질 수 있다.
+     */
+    @Test
+    @DisplayName("결제 상태와 배송 상태는 겹치지 않는다")
+    void twoListsDoNotOverlap() {
+        assertThat(paymentCodes())
+                .as("겹치면 이력 한 줄만 보고 어느 층의 전이인지 못 가른다")
+                .doesNotContainAnyElementsOf(shipmentCodes());
     }
 
     /**
