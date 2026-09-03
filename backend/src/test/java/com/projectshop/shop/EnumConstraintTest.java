@@ -41,9 +41,13 @@ import com.projectshop.shop.support.ConstraintValues;
  * <p><b>목록을 여기 손으로 적지 않는다.</b> DB 쪽은 제약 정의에서 뽑고({@link ConstraintValues})
  * 코드 쪽은 {@code values()} 에서 뽑는다. 적으면 세 번째 사본이 생겨서, 이 테스트가 막으려는 것이 된다.
  *
- * <p>열거형이 {@code package-private} 이라 <b>{@code code()} 를 리플렉션으로 부른다.</b>
- * 대안은 대조 하나 때문에 열여덟 개의 접근 범위를 넓히는 것인데, 그러면
+ * <p>열거형이 <b>대개</b> {@code package-private} 이라 {@code code()} 를 리플렉션으로 부른다.
+ * 대안은 대조 하나 때문에 접근 범위를 넓히는 것인데, 그러면
  * 「이 열거형을 어디까지 쓰나」를 정한 결정들(`43a-15` 의 {@code ActorType} 등)이 테스트 때문에 풀린다.
+ *
+ * <p><b>공개인 것도 있고 그건 이 테스트와 무관한 이유다</b> — {@code Scope} 는 응답 record 에
+ * 실려서 열렸다(`43a-20`). 여기서 리플렉션을 쓰는 근거는 「전부 닫혀 있다」가 아니라
+ * <b>「접근 범위를 이 테스트가 정하지 않는다」</b>이므로, 몇 개가 열려 있든 방식은 그대로다.
  */
 @DisplayName("열거형과 DB 목록의 대조")
 class EnumConstraintTest extends PostgresTestBase {

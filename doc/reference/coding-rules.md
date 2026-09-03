@@ -363,8 +363,20 @@ EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of)
 | DB 에만 있다 | 그 값을 읽는 순간 `of()` 가 터진다. 조회 하나가 통째로 500 |
 | 코드에만 있다 | `update` 가 `check` 에 걸린다. 표에는 있는데 **절대 성공하지 않는 전이** |
 
-그래서 **제약 정의를 읽어 enum 과 대조하는 테스트를 둔다**(`ProductStatusTest`).
+그래서 **제약 정의를 읽어 enum 과 대조하는 테스트를 둔다**(`EnumConstraintTest`).
 목록을 테스트에 손으로 또 적지 않는다 — 그러면 세 번째 사본이 생긴다.
+
+**대조는 한 파일에 모으고, 빠진 것을 같은 파일이 감시한다**(`43a-19`).
+열거형마다 옆에 두면 **새 열거형이 대조를 안 받는 것을 막는 것이 아무것도 없다** —
+이 규칙이 여기 적혀 있던 동안 적용은 **열여덟 중 일곱**이었고, 그것을 찾은 것은
+이 문서를 읽은 사람이 아니라 `점검 H` 였다. `everyEnumIsAccountedFor` 가 `main` 의
+열거형을 전부 걷어서 **대조하든(`PAIRS`·`GENERATED`) 안 하든(`EXEMPT`) 적히지 않으면
+빌드를 세운다.** 안 하기로 정한 것은 **이유를 같이 적는다** — 안 적으면 다음 사람이
+빠뜨린 것과 못 가른다.
+
+**`check` 가 아닌 출처도 있다.** 값 목록이 생성 열의 식 안에 있으면
+(`settlement_item.supplier`) 제약이 아니라 `generation_expression` 에서 뽑고,
+표의 행이 출처면 그 표와 대조한다(`FieldGroupTest`).
 
 **제약 정의를 뽑는 헬퍼는 한 벌이다** — `test` 쪽 `support/ConstraintValues`(`11-5`).
 두 벌이던 시절 **정규식이 서로 달랐다**: 한쪽은 소문자만 훑어서 `under_50_transactions` 의
