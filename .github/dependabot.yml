@@ -45,5 +45,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # **제한이 생태계별이라 셋이면 상한이 3배다.** 여기에 안 걸어서 첫 회차가
+    # 열한 개로 왔다(액션 다섯·npm 넷·gradle 둘). 쌓인 PR 은 안 읽는다.
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "ci"
