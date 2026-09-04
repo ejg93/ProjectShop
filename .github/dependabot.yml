@@ -1,0 +1,49 @@
+# 의존성 갱신을 주 1회 연다(청크 `2f`).
+#
+# **매일이 아닌 이유**: 매일이면 PR 이 쌓이고, 쌓인 PR 은 안 읽는다.
+# 이 저장소는 활동일이 33일 중 24일이고 4~5일씩 비는 구간이 있다.
+#
+# **갱신 자체는 강제 지점이 아니다** — 여는 것뿐이고, 막는 것은 `ci.yml` 이다.
+# 초록이 아니면 머지가 안 된다.
+version: 2
+
+updates:
+  # Gradle 을 먼저 적는다. Boot·Testcontainers 가 여기 있고, 이 둘이 올라갈 때
+  # `stack.md` 의 항목이 실제로 흔들린다(Boot 4 스타터 이름, Testcontainers BOM).
+  - package-ecosystem: gradle
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # 메이저는 따로 온다. 마이너와 한 PR 에 묶이면 「올려도 되나」의 답이 갈리는데
+    # PR 은 하나라 **한쪽 판단으로 둘 다 들어간다.**
+    groups:
+      backend-minor:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      frontend-minor:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "deps"
+
+  # 워크플로가 부르는 액션도 의존성이다. `checkout@v4`·`setup-java@v4` 가 그대로
+  # 굳으면 러너 쪽 변화에 먼저 깨지는 것이 CI 다.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "ci"
