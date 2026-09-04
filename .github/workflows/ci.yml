@@ -51,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # Next 16 이 요구하는 하한(20.9)보다 위의 LTS 다.
           node-version: '22'
