@@ -65,3 +65,21 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm test
+
+  # 시크릿이 커밋에 들어갔나(청크 `2e`). backend·frontend 와 독립이라 같이 돈다.
+  #
+  # **이건 두 번째 그물이다.** 첫째는 GitHub 의 push protection 인데 그건 저장소 설정이라
+  # 코드가 아니고, 아는 제공자의 토큰 모양만 본다. gitleaks 는 더 넓게 보지만
+  # **푸시된 뒤에야 답한다** — 이미 원격에 남은 것을 알려 주는 것이지 막는 것이 아니다.
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 이력 전체를 본다. 얕게 받으면 **예전 커밋에 박힌 것**을 못 찾는다.
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
