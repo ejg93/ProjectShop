@@ -1,0 +1,80 @@
+# PR 마다 리뷰를 돌린다. `ci.yml` 이 「돌렸나」를 사람 기억에서 걷어냈다면
+# 이쪽은 「규약대로 쳤나」를 걷어낸다.
+#
+# **리뷰는 게이트가 아니다.** 조언이라 아무것도 못 막는다 — 막는 것은 `ci.yml` 이고,
+# 이 워크플로의 산출물은 **리뷰가 반복해서 잡는 것**이다. 그 목록이 테스트·`doc-lint.sh` 로
+# 내려갈 후보고, 무엇을 내릴지는 `D25`(품질 게이트 기준)가 정한다.
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+# 앞 회차를 접는다. 청크 하나를 여러 번 밀 때 리뷰가 겹쳐 돌 이유가 없다.
+concurrency:
+  group: review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # `ci.yml` 과 같이 읽기만 준다(`D14`). 리뷰는 코멘트만 달고 코드를 안 고친다.
+      # **아직 한 번도 안 돌았다** — 액션 문서의 예시는 `contents: write` 다.
+      # 첫 PR 에서 권한으로 죽으면 그때 넓히고 왜 넓혔는지를 여기 적는다.
+      contents: read
+      pull-requests: write
+      issues: write
+      # OIDC 토큰을 받는 자리다. 액션 문서가 필수로 적었다.
+      id-token: write
+    # 시크릿이 아직 없으면 조용히 건너뛴다. 없다고 PR 마다 빨간 것이 하나 뜨면
+    # 그 빨강이 진짜 실패를 가린다 — 「지금 깨져 있는 것」이 우선순위 1번인 이유다.
+    env:
+      REVIEW_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.REVIEW_TOKEN != ''
+        with:
+          # 리뷰가 「이 청크가 무엇을 바꿨나」를 보려면 갈라진 자리까지 필요하다.
+          # 얕게 받으면 base 와 비교할 것이 없다.
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        if: env.REVIEW_TOKEN != ''
+        with:
+          # 구독 토큰을 쓴다. 이 저장소의 전제가 「주간 토큰이 남을 때 태운다」라
+          # 별도 과금(`ANTHROPIC_API_KEY`)을 새로 여는 것이 앞뒤가 안 맞는다.
+          # 발급은 로컬에서 `claude setup-token`.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # 한 PR 에 코멘트가 쌓이지 않게 한 덩어리로 갱신한다.
+          # 청크 하나를 여러 번 밀면 회차마다 새 코멘트가 붙는다.
+          use_sticky_comment: true
+
+          claude_args: |
+            --model claude-sonnet-5
+
+          # **일반 리뷰는 이 저장소의 규약을 모른다.** 무엇을 볼지 여기서 정한다.
+          # 아래 넷은 「마무리」의 일곱 대조 중 **기계가 못 잡고 사람이 놓치는 것**들이다.
+          prompt: |
+            이 저장소의 `CLAUDE.md` 와 `doc/reference/` 규약을 기준으로 이 PR 을 검토한다.
+            먼저 `CLAUDE.md` 를 읽고, 이 PR 이 실제로 건드리는 D 문서만 편다.
+            통짜로 읽지 않는다.
+
+            아래 넷을 본다. 이 넷은 빌드·테스트가 초록이어도 안 걸리는 것들이다.
+
+            1. **말한 축과 편 축이 같나** — PR 설명이 「법을 편다」고 해 놓고 조문을 안 봤거나,
+               「제약으로 내린다」고 해 놓고 테스트로 끝냈나.
+            2. **강제 지점을 더 아래로 내릴 수 있었나** — `coding-rules.md` 「축 2」의 순서다
+               (타입·스키마 > DB 제약 > 앱 검증 > 테스트 > 문서).
+               테스트로 막은 것이 제약으로 내려갈 수 있으면 그것을 짚는다.
+            3. **이 PR 안의 결정끼리 부딪치나** — 한 자리에 넣은 규칙을 짝이 되는 자리에
+               안 넣었나(예: `create` 에만 넣고 `replace` 에 안 넣은 저장).
+            4. **문서가 부르는 것이 실물과 맞나** — 바뀐 문서가 가리키는 청크 번호·클래스·
+               테스트 이름·마이그레이션 번호가 실재하나.
+
+            찾은 것마다 **어느 규칙의 어느 절**에서 왔는지를 적는다. 출처를 못 대면 적지 않는다.
+            칭찬은 안 쓴다. 문제가 없으면 「없다」한 줄이면 된다.
+
+            글은 평서형으로 쓴다(`CLAUDE.md` 「글 작성 규칙」 4번). `~습니다`·`~합니다` 를 안 쓴다.
