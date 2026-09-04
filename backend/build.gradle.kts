@@ -29,7 +29,7 @@ repositories {
 // testcontainers-java#11212, #11235
 dependencyManagement {
 	imports {
-		mavenBom("org.testcontainers:testcontainers-bom:1.21.4")
+		mavenBom("org.testcontainers:testcontainers-bom:2.0.5")
 	}
 }
 
