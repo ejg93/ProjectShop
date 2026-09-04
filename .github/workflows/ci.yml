@@ -83,3 +83,18 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 프롬프트 역할 문서가 구조적으로 부서졌나(청크 `2c-1`).
+  #
+  # **「검증」 표가 이미 이 명령을 정해 뒀다** — 여기서 새로 정하는 것이 없고 **도는 자리만 옮긴다.**
+  # 로컬에서만 돌던 동안은 사람이 기억해야 걸려서 강제 지점 5위였다.
+  #
+  # backend·frontend 와 독립이라 같이 돈다. 스크립트가 순수 bash·awk 라 러너에 이미 있다.
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # 얕게 받는다. 파일 내용만 보고 이력은 안 본다.
+      - uses: actions/checkout@v4
+
+      - run: bash scripts/doc-lint.sh

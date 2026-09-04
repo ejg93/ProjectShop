@@ -17,6 +17,10 @@ concurrency:
 
 jobs:
   review:
+    # **dependabot 이 연 PR 은 안 본다.** 바뀌는 것이 버전 숫자 하나라
+    # 이 리뷰가 묻는 넷(말한 축·강제 지점·결정 충돌·문서 참조)에 물을 것이 없다.
+    # 그 PR 을 판정하는 것은 CI 고, 실제로 첫 회차에서 넷을 빨갛게 잡았다.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -52,8 +56,9 @@ jobs:
           # 청크 하나를 여러 번 밀면 회차마다 새 코멘트가 붙는다.
           use_sticky_comment: true
 
-          claude_args: |
-            --model claude-sonnet-5
+          # **모델을 안 고정한다.** `claude-sonnet-5` 를 박았더니 초기화 직후 `is_error` 로 죽었다 —
+          # `num_turns: 1`·`modelUsage: {}` 라 **첫 호출이 거부된 것**이고, 실제 메시지는
+          # 액션이 가린다(`full output hidden for security`). 액션이 고르는 기본값을 쓴다.
 
           # **일반 리뷰는 이 저장소의 규약을 모른다.** 무엇을 볼지 여기서 정한다.
           # 아래 넷은 「마무리」의 일곱 대조 중 **기계가 못 잡고 사람이 놓치는 것**들이다.
