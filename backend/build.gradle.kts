@@ -103,10 +103,14 @@ tasks.withType<JavaCompile> {
 tasks.withType<Test> {
 	useJUnitPlatform()
 
-	// 두 문서를 입력으로 신고한다. 안 하면 문서만 고친 청크에서 Gradle 이 `test` 를
-	// `UP-TO-DATE` 로 건너뛰고, `PlanProgressConsistencyTest` 의 대조가 한 번도 안 돈다.
-	inputs.files(file("../PLAN.md"), file("../PROGRESS.md"))
-		.withPropertyName("planDocs")
+	// 대조하는 문서를 입력으로 신고한다. 안 하면 문서만 고친 청크에서 Gradle 이 `test` 를
+	// `UP-TO-DATE` 로 건너뛰고, 그 대조가 한 번도 안 돈다.
+	//
+	// **`stack.md` 는 청크 `2f` 에서 뒤늦게 붙었다.** `StackVersionConsistencyTest` 를
+	// 세우고 표를 일부러 틀리게 고쳐 봤는데 빌드가 초록이었다 —
+	// **걸려 있는 것과 도는 것은 다르다.**
+	inputs.files(file("../PLAN.md"), file("../PROGRESS.md"), file("../doc/reference/stack.md"))
+		.withPropertyName("comparedDocs")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
 
 	// 스냅샷은 명시적으로 갱신한다. 자동으로 덮으면 diff 를 안 보고 넘어간다.
