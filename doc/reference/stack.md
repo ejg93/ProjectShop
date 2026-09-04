@@ -298,6 +298,38 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Proce
 
 이 환경의 문제다. `CLAUDE.md` 의 검증 절에 명령이 있다.
 
+### SpotBugs 는 리포트를 안 켜면 파일을 안 남긴다
+
+`spotbugsMain` 이 검출을 **콘솔에는 찍는데** `build/reports/` 에는 아무것도 안 만든다.
+플러그인 6.x 의 기본값이 그렇다 — 리포트를 명시적으로 만들어야 한다.
+
+```kotlin
+tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
+	reports.create("xml") { required = true }
+	reports.create("html") { required = true }
+}
+```
+
+**증상이 「빌드는 실패하는데 볼 것이 없다」라 원인이 안 드러난다.** 콘솔 출력을 세는 것으로는
+유형별 분포를 못 뽑고, 분포를 모르면 무엇을 제외할지 정할 수가 없다.
+
+### ErrorProne 을 안 골랐다
+
+둘 다 버그 패턴 검출기인데 **붙는 자리가 다르다.**
+
+| | SpotBugs | ErrorProne |
+|---|---|---|
+| 읽는 것 | 바이트코드 | 소스(javac 플러그인) |
+| JDK 를 올리면 | 클래스 파일 버전만 맞으면 된다 | **javac 내부 API 를 써서 같이 막힌다** |
+
+이 저장소는 툴체인이 JDK 25 다. ErrorProne 은 새 JDK 마다 `--add-exports` 를 붙여야 하는
+구간이 생기고, 그 구간에는 **검출기를 끄는 것 말고 할 수 있는 것이 없다.**
+SpotBugs 6.5.11 은 JDK 25 바이트코드에서 그냥 돌았다(청크 `2e` 에서 확인).
+
+**성능이나 검출 폭으로 고른 것이 아니다** — 위 표의 두 번째 줄 하나로 갈렸다.
+SpotBugs 의 기본 검출기는 실제로 신호가 얇다(첫 측정 100건 중 96건이 구조적 오탐).
+넓히려면 `find-sec-bugs` 를 얹는데 그건 청크 `2e-1` 이 다룬다.
+
 ### Windows 에서 만든 실행 파일은 실행 비트가 없다
 
 **로컬에서는 영원히 안 드러난다.** Windows 에 그 개념이 없어서 `./gradlew` 가 잘 돌고,

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  검출에서 뺄 것. **한 줄이 늘 때마다 왜 뺐는지를 같이 적는다** —
+  근거 없는 제외가 쌓이면 게이트가 무엇을 막는지 아무도 모르게 된다.
+
+  아래 넷은 첫 측정(2026-08-29 기준 코드, 검출 100건)에서 나온 전부다.
+  **고칠 것이 0건이라 기준선 파일을 안 만들었다** — 청크 `2e` 의 예보는
+  「기준선으로 눌러 두고 새 것만 막는다」였는데, 누를 것이 없어서 게이트를 바로 켰다.
+
+  범위를 될 수 있는 대로 좁게 잡았다. 유형 하나를 통째로 빼면 **앞으로 생길 것까지**
+  같이 숨는다. 구조적으로 나오는 첫째만 전역이고 나머지 셋은 메서드까지 좁혔다.
+-->
+<FindBugsFilter>
+
+    <!--
+      record 가 `List` 를 들면 구조적으로 나온다. 100건 중 96건이 이것이고 등급은 최하(15-20)다.
+
+      이 저장소는 요청·응답 DTO 를 record 로 쓴다(`D5`·`D23`). 방어적 복사를 넣으면
+      record 가 「값 묶음」이라는 뜻이 사라지고, Jackson 이 만든 목록을 한 번 더 복사하는
+      코드가 DTO 마다 는다. **바깥으로 나가는 것을 막는 자리는 계약 칸이지 복사가 아니다**
+      (`coding-rules.md` 「안 나가게 하는 것도 강제 지점이 있다」).
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!--
+      오탐이다. 텍스트 블록에 담은 SQL 이라 `\n` 이 콘솔 출력이 아니다.
+      `%n` 으로 바꾸면 줄바꿈이 플랫폼마다 달라져서 **SQL 문자열 자체가 환경마다 갈린다**.
+    -->
+    <Match>
+        <Class name="com.projectshop.shop.inquiry.InquiryQuery"/>
+        <Method name="find"/>
+        <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE"/>
+    </Match>
+
+    <!--
+      오탐이다. `seller_order.delivered_at` 은 nullable 이라 `.single()` 이 null 을 준다.
+      SpotBugs 가 Spring 의 애너테이션을 non-null 로 읽었다.
+      **이 검사를 지우면 배송 전 주문에서 진짜 NPE 가 난다.**
+    -->
+    <Match>
+        <Class name="com.projectshop.shop.order.OrderStatusService"/>
+        <Method name="requireWithinDefectPeriod"/>
+        <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/>
+    </Match>
+
+    <!--
+      `authenticationManager.authenticate()` 가 성공한 뒤의 `getPrincipal()` 이라
+      null 이 될 경로가 없다. 방어 코드를 넣으면 **절대 안 도는 분기**가 생긴다.
+    -->
+    <Match>
+        <Class name="com.projectshop.shop.auth.AuthController"/>
+        <Method name="logIn"/>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+</FindBugsFilter>

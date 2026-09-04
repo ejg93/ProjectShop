@@ -1,6 +1,9 @@
 plugins {
 	java
 	jacoco
+	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — ErrorProne 은 javac
+	// 플러그인이라 JDK 를 올릴 때마다 같이 막힌다(`stack.md`).
+	id("com.github.spotbugs") version "6.5.11"
 	id("org.springframework.boot") version "4.1.0"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -64,6 +67,28 @@ dependencies {
 	testImplementation("org.testcontainers:postgresql")
 	testImplementation("org.testcontainers:junit-jupiter")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+// 버그 패턴 검출을 어떻게 돌리나.
+//
+// **`test` 소스는 안 본다.** 테스트는 픽스처를 만드느라 일부러 이상한 코드를 쓰고,
+// 거기서 나온 검출은 고칠 대상이 아니라 노이즈다. 노이즈가 섞이면 목록 전체를 안 읽는다.
+spotbugs {
+	ignoreFailures = false
+	// 낮은 신뢰도까지 켜면 오탐이 는다. 기본값이 신뢰도 중간 이상만 본다.
+	effort = com.github.spotbugs.snom.Effort.MAX
+	reportLevel = com.github.spotbugs.snom.Confidence.DEFAULT
+	// 제외 목록을 파일로 둔다. 이 파일 안에 적으면 왜 뺐는지를 못 적는다.
+	excludeFilter = file("config/spotbugs/exclude.xml")
+}
+
+tasks.spotbugsTest {
+	enabled = false
+}
+
+tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
+	reports.create("xml") { required = true }
+	reports.create("html") { required = true }
 }
 
 // 무엇이 경고인지 이름을 대게 한다. 기본 설정은 "deprecated API 를 쓴다" 까지만 말하고
