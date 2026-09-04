@@ -56,6 +56,14 @@ jobs:
           # 청크 하나를 여러 번 밀면 회차마다 새 코멘트가 붙는다.
           use_sticky_comment: true
 
+          # **진단용이라 곧 되돌린다.** 리뷰가 세 번 죽었는데 실제 메시지를 액션이 가린다
+          # (`full output hidden for security`). 남은 단서가 `num_turns: 1`·`total_cost_usd: 0`·
+          # `modelUsage: {}` 뿐이라 **첫 호출이 거부된 것**까지만 알고 이유를 모른다.
+          #
+          # **이 저장소는 public 이라 로그가 공개된다** — 프롬프트와 응답이 그대로 남는다.
+          # 토큰은 액션이 가린다. 원인을 잡으면 이 줄을 지운다(청크 `2g-2`).
+          show_full_output: true
+
           # **모델을 안 고정한다.** `claude-sonnet-5` 를 박았더니 초기화 직후 `is_error` 로 죽었다 —
           # `num_turns: 1`·`modelUsage: {}` 라 **첫 호출이 거부된 것**이고, 실제 메시지는
           # 액션이 가린다(`full output hidden for security`). 액션이 고르는 기본값을 쓴다.
