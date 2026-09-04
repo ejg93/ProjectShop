@@ -14,6 +14,13 @@ import { LogoutButton } from "./logout-button";
  */
 type Me = { userId: number; permissions: Permission[] };
 
+/**
+ * <p>{@code scopes} 는 <b>대문자 스네이크다</b>(`D5` 「값의 형식」, `43a-20`) — `OWN`·`SELLER`·`ALL`.
+ *
+ * <p><b>합집합 타입으로 안 적는다.</b> 머리는 {@code resource}·{@code action} 으로만 고르고
+ * 범위 값을 비교하는 자리가 없어서, 여기 목록을 적으면 <b>서버와 안 맞춰지는 사본</b>만 는다.
+ * 비교하는 자리가 생기면 그때 판다.
+ */
 type Permission = { resource: string; action: string; scopes: string[] };
 
 /**

@@ -81,26 +81,21 @@ public class PermissionEvaluator {
      *
      * @param grantSellerId 이 역할을 어느 셀러에서 받았나. 전역 부여면 null
      */
-    record Rule(String roleCode, Long grantSellerId, String scope, String effect, Set<String> fieldGroups) {
+    record Rule(String roleCode, Long grantSellerId, Scope scope, Effect effect, Set<String> fieldGroups) {
 
         boolean isDeny() {
-            return "deny".equals(effect);
+            return effect == Effect.DENY;
         }
 
         /** 넓을수록 크다. 같은 동작에 규칙이 여럿 걸릴 때 어느 허용이 이기는지를 정한다 */
         int scopeWidth() {
-            return switch (scope) {
-                case "all" -> 3;
-                case "seller" -> 2;
-                case "own" -> 1;
-                default -> 0;
-            };
+            return scope.width();
         }
 
         @Override
         public String toString() {
             String where = grantSellerId == null ? "전역" : "셀러 " + grantSellerId;
-            return "%s(%s) %s/%s".formatted(roleCode, where, effect, scope);
+            return "%s(%s) %s/%s".formatted(roleCode, where, effect.code(), scope.code());
         }
     }
 
@@ -326,12 +321,16 @@ public class PermissionEvaluator {
      * <p>{@code seller} 스코프의 뜻이 부여 방식에 따라 갈린다.
      * 조직 역할로 받았으면 받은 그 셀러만 덮고, 전역으로 받았으면 사용자가 속한 모든 셀러를 덮는다.
      * 이걸 구분하지 않으면 A셀러의 CS 담당이 B셀러의 주문을 보게 된다.
+     *
+     * <p><b>{@code default} 가 없다</b>(`43a-20`). {@link Scope} 에 값이 하나 늘면 이 {@code switch}
+     * 가 컴파일이 안 된다 — 덮는 조건은 값마다 따로라 <b>빠뜨리면 아무것도 안 덮는 범위</b>가 되고,
+     * 권한을 준 사람은 줬다고 믿는데 오류도 로그도 안 남는다. 그 자리를 타입으로 내렸다(`D23` 축 2 의 1위).
      */
     private static boolean covers(Rule rule, long userId, Set<Long> memberOf, Target target) {
         return switch (rule.scope()) {
-            case "all" -> true;
-            case "own" -> target.ownerUserId() != null && target.ownerUserId() == userId;
-            case "seller" -> {
+            case ALL -> true;
+            case OWN -> target.ownerUserId() != null && target.ownerUserId() == userId;
+            case SELLER -> {
                 if (target.sellerId() == null) {
                     yield false;
                 }
@@ -340,7 +339,6 @@ public class PermissionEvaluator {
                 }
                 yield memberOf.contains(target.sellerId());
             }
-            default -> false;
         };
     }
 

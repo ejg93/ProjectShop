@@ -25,7 +25,7 @@ class StatusAxisTest {
     private static final long ALPHA = 1L;
 
     private static final List<Rule> SELLER_CAN =
-            List.of(new Rule("seller_owner", null, "seller", "allow", Set.of()));
+            List.of(new Rule("seller_owner", null, Scope.SELLER, Effect.ALLOW, Set.of()));
 
     /** 표에 걸린 동작이라고 가정한 것 */
     private static final Allowed<String> ONLY_PREPARING = Allowed.only(Set.of("preparing"));

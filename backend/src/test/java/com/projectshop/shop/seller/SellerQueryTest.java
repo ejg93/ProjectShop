@@ -6,7 +6,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +21,6 @@ import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
-import com.projectshop.shop.support.ConstraintValues;
 
 /**
  * 셀러 신원 공개 조회(`14a`). <b>법이 표시를 요구하는 값이라 안 나가는 것이 곧 위반이다</b>(`D2` R1).
@@ -189,20 +187,13 @@ class SellerQueryTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * <b>{@code seller_exempt_reason_check} 와의 대조는 {@code EnumConstraintTest} 로 옮겼다</b>
+     * (`43a-19`). 열거형마다 옆에 두면 새 열거형이 대조를 안 받는 것을 막는 것이 아무것도 없다.
+     */
     @Nested
     @DisplayName("면제 사유 목록")
     class Exemption {
-
-        @Test
-        @DisplayName("DB 제약과 같다")
-        void matchesConstraint() {
-            assertThat(ConstraintValues.of(jdbc, "seller_exempt_reason_check"))
-                    .as("한쪽에만 있는 사유가 생기면 조회가 통째로 500 이 되거나 못 쓰는 값이 남는다")
-                    .containsExactlyInAnyOrderElementsOf(
-                            Arrays.stream(MailOrderExemption.values())
-                                    .map(MailOrderExemption::code)
-                                    .toList());
-        }
 
         @Test
         @DisplayName("모르는 값은 조용히 통과하지 않는다")

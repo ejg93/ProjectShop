@@ -227,6 +227,26 @@ MockMvc 쪽 테스트는 상태 코드를 못박지 말고 `is4xxClientError()` 
 .query((rs, rowNum) -> new Row(rs.getObject("created_at", OffsetDateTime.class)))
 ```
 
+### `query(레코드.class)` 는 소문자 저장값을 열거형으로 못 읽는다
+
+`JdbcClient` 의 자동 매핑은 `String` → `enum` 을 `Enum.valueOf` 로 한다. 우리 저장값은
+**소문자**고 상수 이름은 대문자라(`D5` 「값의 형식」) 그 자리에서 못 찾는다.
+
+**컴파일은 통과한다.** 레코드 컴포넌트를 `String` 에서 열거형으로 바꾸는 순간
+조회하는 코드는 그대로인데 **읽을 때만 터진다.**
+
+```java
+// 안 한다 — 저장값이 'transactional' 이라 valueOf 가 못 찾는다
+.query(Version.class)
+
+// 한다 — of 가 모르는 값에도 그 자리에서 터진다
+.query((rs, rowNum) -> new Version(..., NotificationKind.of(rs.getString("kind")), ...))
+```
+
+`valueOf` 가 우연히 맞는 자리를 만들어도 안 쓴다 — **모르는 값에 `IllegalArgumentException`
+을 던지는 것과 `of` 가 던지는 것은 메시지가 다르고**, 어긋난 것이 마이그레이션인지
+요청인지가 안 드러난다(`43a-25`).
+
 ### `@Cacheable` 은 private 메서드와 자기 호출에 안 먹는다
 
 프록시가 메서드 호출을 가로채는 방식이라 **같은 객체 안에서 부른 것은 프록시를 안 거친다.**

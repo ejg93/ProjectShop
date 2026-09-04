@@ -30,9 +30,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class NotificationService {
 
-    private static final String PENDING = "pending";
-    private static final String SUCCEEDED = "succeeded";
-    private static final String FAILED = "failed";
 
     /** 주소가 없는 계정. 파기된 계정에 보내려 할 때다 — 다시 보내도 같은 답이라 결정적 실패다 */
     private static final String NO_ADDRESS = "no_address";
@@ -100,7 +97,7 @@ public class NotificationService {
      */
     public Optional<Long> send(String eventType, Target target, long userId,
             Map<String, String> values) {
-        return send(eventType, eventType, target, userId, values);
+        return send(eventType, eventType, NotificationKind.TRANSACTIONAL, target, userId, values);
     }
 
     /**
@@ -109,12 +106,25 @@ public class NotificationService {
      *
      * <p>패키지 밖에 안 연다. 광고를 보내는 입구는 {@link AdvertisingNotifications} 하나여야
      * 관문을 건너뛸 자리가 안 생긴다.
+     *
+     * @param expectedKind 부르는 쪽이 무엇을 보낸다고 믿는가. <b>판의 종류와 다르면 안 보낸다</b>
      */
-    Optional<Long> send(String eventType, String templateCode, Target target, long userId,
-            Map<String, String> values) {
+    Optional<Long> send(String eventType, String templateCode, NotificationKind expectedKind,
+            Target target, long userId, Map<String, String> values) {
         NotificationTemplates.Version version = templates.current(templateCode, OffsetDateTime.now())
                 .orElseThrow(() -> new IllegalStateException(
                         "시행 중인 알림 템플릿이 없다: " + templateCode));
+
+        // 부르는 쪽이 믿는 종류와 판의 종류가 같아야 한다(정보통신망법 제50조, `D2`).
+        //
+        // 접근 범위만으로는 이 자리가 안 막힌다 — 위의 공개 입구는 누구나 부르고,
+        // 거기 광고 판의 코드가 들어오면 **관문을 안 지난 광고**가 나간다.
+        // 종류가 타입이 되기 전에는 비교할 것 자체가 없었다(`43a-25`).
+        if (version.kind() != expectedKind) {
+            throw new IllegalStateException(
+                    "판의 종류가 부르는 쪽과 다르다: 판=%s 부르는쪽=%s 코드=%s"
+                            .formatted(version.kind(), expectedKind, templateCode));
+        }
 
         // 꽂는 것이 남기는 것보다 먼저다. 안 채워진 자리가 있으면 여기서 던져서
         // 이력도 안 남는다 — 보낼 수 없는 것을 「보내는 중」으로 남기면 재시도가 그것을 집는다.
@@ -162,15 +172,16 @@ public class NotificationService {
                                                   notification_template_id, channel, status,
                                                   order_id, seller_order_id, refund_id,
                                                   user_consent_id)
-                        values (:userId, :eventType, :kind, :templateId, 'email', :status,
+                        values (:userId, :eventType, :kind, :templateId, :channel, :status,
                                 :orderId, :sellerOrderId, :refundId, :userConsentId)
                         returning notification_id
                         """)
                 .param("userId", userId)
                 .param("eventType", eventType)
-                .param("kind", version.kind())
+                .param("kind", version.kind().code())
+                .param("channel", NotificationChannel.EMAIL.code())
                 .param("templateId", version.id())
-                .param("status", PENDING)
+                .param("status", NotificationStatus.PENDING.code())
                 .param("orderId", target.orderId())
                 .param("sellerOrderId", target.sellerOrderId())
                 .param("refundId", target.refundId())
@@ -205,7 +216,8 @@ public class NotificationService {
                          where notification_id = :id
                         """)
                 .param("id", notificationId)
-                .param("status", result.succeeded() ? SUCCEEDED : FAILED)
+                .param("status",
+                        (result.succeeded() ? NotificationStatus.SUCCEEDED : NotificationStatus.FAILED).code())
                 .param("sentAt", result.succeeded() ? OffsetDateTime.now() : null)
                 .param("failureReason", result.failureReason())
                 .update();

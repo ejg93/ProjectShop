@@ -76,8 +76,8 @@ public class AdvertisingNotifications {
         }
 
         requireLegalPlaceholders(templateCode);
-        return notifications.send(EVENT, templateCode, NotificationService.Target.none(),
-                userId, values);
+        return notifications.send(EVENT, templateCode, NotificationKind.ADVERTISING,
+                NotificationService.Target.none(), userId, values);
     }
 
     /**

@@ -178,18 +178,72 @@ class NotificationSendTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 거래 통지 입구로 광고 판이 나가지 않는다(정보통신망법 제50조, `D2`).
+     *
+     * <p><b>접근 범위만으로는 이 자리가 안 막힌다.</b> 광고를 보내는 입구는 패키지 안에만
+     * 있지만 {@link NotificationService#send(String, NotificationService.Target, long, java.util.Map)}
+     * 는 공개라, 거기 광고 판의 코드가 들어오면 <b>{@link AdvertisingGate} 를 안 지난 광고</b>가 나간다.
+     *
+     * <p>종류가 타입이 되기 전에는 비교할 것 자체가 없었다(`43a-25`).
+     */
+    @Nested
+    @DisplayName("판의 종류")
+    class Kind {
+
+        @Test
+        @DisplayName("거래 통지 입구로 광고 판을 보내면 터진다")
+        void refusesAdvertisingTemplateThroughTransactionalEntry() {
+            insertTemplate("주문 {{order_number}}", "{{order_number}}", OffsetDateTime.now(),
+                    NotificationKind.ADVERTISING);
+
+            assertThatThrownBy(() -> notifications.send(
+                    EVENT, NotificationService.Target.order(orderId), userId,
+                    Map.of("order_number", "20260903-AAAAAA")))
+                    .as("관문을 안 지난 광고가 나가면 제50조제1항이다 — 조용히 나가는 것이 최악이다")
+                    .isInstanceOf(IllegalStateException.class)
+                    // 판이 없을 때도 같은 예외라, 종류 때문에 막힌 것인지를 확인한다.
+                    .hasMessageContaining("판의 종류가 부르는 쪽과 다르다");
+
+            assertThat(sentCount())
+                    .as("터지기 전에 이력이 남으면 재시도가 그것을 집는다")
+                    .isZero();
+        }
+
+        @Test
+        @DisplayName("모르는 종류는 조용히 통과하지 않는다")
+        void unknownKindThrows() {
+            assertThatThrownBy(() -> NotificationKind.of("marketing"))
+                    .as("여기서 통과시키면 동의를 봐야 하는 통지가 안 보고 나갈 수 있다")
+                    .isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    private long sentCount() {
+        return jdbc.sql("select count(*) from notification where user_id = :id")
+                .param("id", userId)
+                .query(Long.class)
+                .single();
+    }
+
     private void insertTemplate(String subject, String body, OffsetDateTime effectiveAt) {
+        insertTemplate(subject, body, effectiveAt, NotificationKind.TRANSACTIONAL);
+    }
+
+    private void insertTemplate(String subject, String body, OffsetDateTime effectiveAt,
+            NotificationKind kind) {
         jdbc.sql("""
                         insert into notification_template (code, version, subject, body, kind,
                                                            effective_at)
                         values (:code,
                                 (select coalesce(max(version), 0) + 1 from notification_template
                                   where code = :code),
-                                :subject, :body, 'transactional', :effectiveAt)
+                                :subject, :body, :kind, :effectiveAt)
                         """)
                 .param("code", EVENT)
                 .param("subject", subject)
                 .param("body", body)
+                .param("kind", kind.code())
                 .param("effectiveAt", effectiveAt)
                 .update();
     }

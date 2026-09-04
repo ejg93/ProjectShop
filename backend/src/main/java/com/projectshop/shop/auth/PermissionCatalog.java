@@ -1,7 +1,8 @@
 package com.projectshop.shop.auth;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,13 +47,15 @@ public class PermissionCatalog {
     }
 
     /**
-     * @param scopes             이 동작이 열리는 범위. 비어 있으면 목록에 안 들어간다
+     * @param scopes             이 동작이 열리는 범위. 비어 있으면 목록에 안 들어간다.
+     *        <b>{@link Scope} 라 응답에 대문자로 나간다</b>(`D5` 「값의 형식」, `43a-20`) —
+     *        그전에는 {@code String} 이라 저장값이 그대로 실렸다
      * @param visibleFieldGroups 가장 넓은 허용에서 볼 수 있는 필드 그룹.
      *        <b>비어 있으면 아무것도 못 본다는 뜻이다</b>(`13b`) — 제한이 없으면 그 자원의
      *        그룹이 전부 실린다. 그 전에는 빈 목록이 「제한 없음」이어서
      *        <b>「전부 보임」과 「아무것도 안 보임」이 같은 값</b>이었다
      */
-    public record Entry(String resource, String action, List<String> scopes,
+    public record Entry(String resource, String action, List<Scope> scopes,
             List<String> visibleFieldGroups) {
     }
 
@@ -95,11 +98,11 @@ public class PermissionCatalog {
     private Optional<Entry> toEntry(ResourceAction permission, List<Rule> rules,
             Set<Long> memberOf, long userId, Map<String, List<String>> allGroups) {
 
-        Set<String> scopes = new TreeSet<>();
+        Set<Scope> scopes = EnumSet.noneOf(Scope.class);
         Set<String> fieldGroups = new TreeSet<>();
         boolean unrestricted = false;
 
-        for (Map.Entry<String, Target> probe : probes(memberOf, userId).entrySet()) {
+        for (Map.Entry<Scope, Target> probe : probes(memberOf, userId).entrySet()) {
             Decision decision = PermissionEvaluator.evaluate(rules, memberOf, userId, probe.getValue());
             if (!decision.allowed()) {
                 continue;
@@ -129,12 +132,12 @@ public class PermissionCatalog {
      * <p>셀러 소속이 여럿이면 하나만 넣는다. 소속별로 권한이 갈리는 것은 조직 역할인데,
      * 그건 <b>어느 셀러냐</b>를 화면이 이미 알고 물어보는 자리라 목록의 관심사가 아니다.
      */
-    private static Map<String, Target> probes(Set<Long> memberOf, long userId) {
-        Map<String, Target> probes = new LinkedHashMap<>();
-        probes.put("own", Target.ownedBy(userId));
+    private static Map<Scope, Target> probes(Set<Long> memberOf, long userId) {
+        Map<Scope, Target> probes = new EnumMap<>(Scope.class);
+        probes.put(Scope.OWN, Target.ownedBy(userId));
         memberOf.stream().findFirst()
-                .ifPresent(sellerId -> probes.put("seller", Target.ofSeller(sellerId)));
-        probes.put("all", SOMEONE_ELSES);
+                .ifPresent(sellerId -> probes.put(Scope.SELLER, Target.ofSeller(sellerId)));
+        probes.put(Scope.ALL, SOMEONE_ELSES);
         return probes;
     }
 }
