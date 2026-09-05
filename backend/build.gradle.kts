@@ -142,6 +142,16 @@ tasks.test {
 	inputs.files(file("../PLAN.md"), file("../PROGRESS.md"), file("../doc/reference/stack.md"))
 		.withPropertyName("comparedDocs")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
+
+	// **화면 소스도 입력이다**(`Q16`). 두 테스트가 프론트 파일을 읽어서 대조한다 —
+	// `ErrorSlugScreenTest`(오류 슬러그)와 `OrderRecordTextTest`(상태 문구).
+	//
+	// **안 걸면 화면만 고친 청크에서 `test` 가 `UP-TO-DATE` 로 건너뛴다.** 문서에서 두 번
+	// 겪은 것과 같은 함정인데, `OrderRecordTextTest` 는 그동안 이 상태로 있었다 —
+	// **대조가 걸려 있는 것과 도는 것은 다르다.**
+	inputs.files(fileTree("../frontend/src") { include("**/*.ts", "**/*.tsx") })
+		.withPropertyName("comparedScreens")
+		.withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // `build` 는 두 레인을 다 돈다. **가른 것은 도는 자리지 무엇을 검증하나가 아니다** —
