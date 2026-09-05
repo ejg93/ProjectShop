@@ -14,6 +14,7 @@ title_check_files=(
   CLAUDE.md
   PLAN.md
   PROGRESS.md
+  doc/process/*.md
   doc/reference/*.md
 )
 
@@ -23,6 +24,7 @@ dup_check_files=(
   PROGRESS.md
   frontend/CLAUDE.md
   frontend/AGENTS.md
+  doc/process/*.md
   doc/reference/*.md
 )
 
