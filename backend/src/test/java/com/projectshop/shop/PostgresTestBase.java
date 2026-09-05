@@ -17,7 +17,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * DB 가 필요한 테스트의 바탕. 컨테이너를 테스트가 직접 띄운다.
@@ -113,8 +113,8 @@ public abstract class PostgresTestBase {
         @Bean
         @ServiceConnection
         @SuppressWarnings("resource")
-        PostgreSQLContainer<?> postgres() {
-            return new PostgreSQLContainer<>("postgres:17-alpine")
+        PostgreSQLContainer postgres() {
+            return new PostgreSQLContainer("postgres:17-alpine")
                     .withReuse(true);
         }
 
