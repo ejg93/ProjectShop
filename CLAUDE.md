@@ -328,7 +328,7 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | 프록시·라우팅을 건드렸으면 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |
 | 시드·데모 데이터를 건드렸으면 | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. 계정 6·셀러 2, 비밀번호는 전부 `demo-password-1234`. **`local` 없이 뜨면 시드가 안 들어간다** |
 | 로그·추적을 건드렸으면 | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
-| **`CLAUDE.md`·`doc/reference/*` 를 고쳤으면** | **안 돌려도 된다** — `.claude/settings.json` 의 훅이 편집 직후에 돌린다(`2j`). 손으로 돌리려면 `bash scripts/doc-lint.sh` | 통과하면 아무 말이 없고, 깨지면 **편집한 그 자리에서 막힌다.** 제목 파편(`batch-catalog.md`·`state-machines.md`·`PLAN.md` 가 실제로 이렇게 부서졌었다)과 완전 중복 문장(`frontend-rules.md` 사례)을 기계로 잡는다 |
+| **`CLAUDE.md`·`doc/reference/*` 를 고쳤으면** | **안 돌려도 된다** — `.claude/settings.json` 의 훅이 편집 직후에 돌린다(`2j`). 손으로 돌리려면 `bash scripts/doc-lint.sh` | 통과하면 아무 말이 없고, 깨지면 **편집한 그 자리에서 막힌다.** 잡는 것이 셋이다 — 제목 파편(`batch-catalog.md`·`state-machines.md`·`PLAN.md` 가 실제로 이렇게 부서졌었다), 완전 중복 문장(`frontend-rules.md` 사례), **존댓말**(`2k-1`) |
 
 프론트 명령은 전부 `frontend/` 안에서 돌린다.
 
@@ -398,6 +398,9 @@ backend 는 `./gradlew build`, frontend 는 `npm ci` 뒤 `build`·`lint`·`test`
 3. **늘어지지 않게** — 분량을 채우려고 미사여구로 늘리지 말 것. 필요한 만큼만 쓰고 끝낼 것.
 4. **존댓말 금지** — `~습니다` `~합니다` `~하세요` `~입니다` 금지. 평서형으로 쓴다.
    **화면 문구는 예외다** — 사용자가 읽는 것이라 존댓말을 쓴다(`screen-rules.md`).
+   **일곱 중 이것만 기계가 잡는다**(`2k-1`) — 금지어가 문자열로 정해져 있어서다.
+   나머지 여섯은 뜻을 읽어야 판정돼서 **5위에 둔 것이지 못 내린 것이 아니다.**
+   **인용은 안 걸린다** — 백틱·`「」`·큰따옴표 안은 걷어내고 본다.
 5. **자기 기능만 설명** — 어떤 항목의 설명란에는 그 항목이 하는 일만 쓴다. 남을 기준으로 자기를 정의하지 말 것.
 6. **설명은 6하원칙** — 설명란 첫 문장에 `무엇을` `무엇으로` `어떻게` 가 다 들어가야 한다.
 7. **줄바꿈은 렌더된 화면 기준** — HTML은 소스 개행이 화면에서 사라진다. 끊으려면 `<br>` 을 쓴다.
