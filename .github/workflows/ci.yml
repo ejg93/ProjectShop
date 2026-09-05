@@ -80,7 +80,7 @@ jobs:
           # 이력 전체를 본다. 얕게 받으면 **예전 커밋에 박힌 것**을 못 찾는다.
           fetch-depth: 0
 
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
