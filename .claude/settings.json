@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(sed -n 's/.*\"file_path\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p'); case \"$f\" in *CLAUDE.md|*AGENTS.md|*PLAN.md|*PROGRESS.md|*doc*reference*.md) out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/doc-lint.sh\") || { echo \"$out\" >&2; exit 2; } ;; esac",
+            "command": "f=$(sed -n 's/.*\"file_path\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p'); case \"$f\" in *CLAUDE.md|*AGENTS.md|*PLAN.md|*PROGRESS.md|*doc*reference*.md|*doc*process*.md) out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/doc-lint.sh\") || { echo \"$out\" >&2; exit 2; } ;; esac",
             "timeout": 60,
             "statusMessage": "문서 린트"
           }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "j=$(cat); case \"$j\" in *doc-lint*) exit 0 ;; esac; if echo \"$j\" | grep -qE 'sed -i|tee |>>?[^&]*\\.md|cp |mv ' && echo \"$j\" | grep -qE 'CLAUDE\\.md|AGENTS\\.md|PLAN\\.md|PROGRESS\\.md|doc.{0,4}reference'; then out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/doc-lint.sh\") || { echo \"$out\" >&2; exit 2; }; fi",
+            "command": "j=$(cat); case \"$j\" in *doc-lint*) exit 0 ;; esac; if echo \"$j\" | grep -qE 'sed -i|tee |>>?[^&]*\\.md|cp |mv ' && echo \"$j\" | grep -qE 'CLAUDE\\.md|AGENTS\\.md|PLAN\\.md|PROGRESS\\.md|doc.{0,4}(reference|process)'; then out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/doc-lint.sh\") || { echo \"$out\" >&2; exit 2; }; fi",
             "timeout": 60,
             "statusMessage": "문서 린트"
           }
