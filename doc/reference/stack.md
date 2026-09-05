@@ -15,9 +15,9 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 
 | 대상 | 버전 | 어디에 박혀 있나 |
 |---|---|---|
-| Spring Boot | 4.1.0 | `backend/build.gradle.kts` |
+| Spring Boot | 4.1.1 | `backend/build.gradle.kts` |
 | Java | 25 | 같은 파일의 toolchain |
-| Gradle | 9.5.1 | `gradle/wrapper/gradle-wrapper.properties` |
+| Gradle | 9.7.1 | `gradle/wrapper/gradle-wrapper.properties` |
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
 | Testcontainers | 1.21.4 | `build.gradle.kts` 의 BOM |

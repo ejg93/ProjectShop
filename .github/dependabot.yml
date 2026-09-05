@@ -22,6 +22,15 @@ updates:
       backend-minor:
         patterns: ["*"]
         update-types: [minor, patch]
+    # **상류가 못 받는 메이저를 여기서 막는다.** 안 막으면 주마다 같은 빨간 PR 이
+    # 다시 열리고, 빨간 PR 이 쌓이면 「초록이 아니면 머지가 안 된다」가 신호를 잃는다.
+    # 푸는 조건을 같이 적는다 — 조건 없이 막으면 영영 안 올라간다.
+    ignore:
+      # BOM 2.x 가 `postgresql`·`junit-jupiter` 좌표를 재편해서 BOM 만 올리면
+      # `Could not find org.testcontainers:postgresql:` 로 죽는다(PR #11).
+      # 이관은 청크 `2f-2` 가 한다. 그 청크가 이 줄을 지운다.
+      - dependency-name: "org.testcontainers:testcontainers-bom"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "deps"
 
@@ -35,6 +44,18 @@ updates:
       frontend-minor:
         patterns: ["*"]
         update-types: [minor, patch]
+    # 둘 다 **린트 쪽 상류가 아직 안 받는다.** 우리가 고쳐서 뚫을 수 있는 것이 아니라
+    # 기다리는 것뿐이라, 매주 여는 대신 막아 두고 아래 조건으로 다시 연다.
+    ignore:
+      # `typescript-eslint does not support TS 7.0.` 으로 `npm run lint` 가 죽는다(PR #13).
+      # typescript-eslint 가 TS 7 을 지원하면 이 줄을 지운다.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # `eslint-plugin-jsx-a11y` 의 peer 가 eslint 10 을 안 받아서 `npm ci` 가 ERESOLVE 로
+      # 죽는다(PR #14). **접근성 규칙이 그 플러그인에 있다**(`D20`) — 빼고 올리는 선택지가
+      # 없다. 플러그인이 eslint 10 을 받으면 이 줄을 지운다.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "deps"
 

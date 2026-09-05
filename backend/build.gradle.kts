@@ -4,7 +4,7 @@ plugins {
 	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — ErrorProne 은 javac
 	// 플러그인이라 JDK 를 올릴 때마다 같이 막힌다(`stack.md`).
 	id("com.github.spotbugs") version "6.5.11"
-	id("org.springframework.boot") version "4.1.0"
+	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
