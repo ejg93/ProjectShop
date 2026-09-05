@@ -2,6 +2,7 @@ package com.projectshop.shop;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -29,9 +30,20 @@ import org.testcontainers.containers.PostgreSQLContainer;
  *
  * <p>마이그레이션은 Flyway 가 컨테이너에 적용한다. 그래서 이 바탕을 쓰는 테스트는
  * 스키마 제약(트리거·기본키·체크)까지 실제로 검증한다.
+ *
+ * <h2>{@code db} 태그가 레인을 가른다</h2>
+ *
+ * <p>이 바탕을 상속하면 태그가 따라오고, 그 순간 <b>느린 레인({@code integrationTest})</b>으로 간다.
+ * 빠른 레인({@code test})은 이 태그를 제외해서 컨테이너를 한 번도 안 띄운다 —
+ * 검증 한 번이 2분에서 초 단위로 줄고, 그만큼 고치고 다시 돌리는 주기가 짧아진다.
+ *
+ * <p><b>붙이는 것을 빠뜨릴 자리가 없다.</b> 컨테이너가 이 바탕과 {@link HttpTestBase} 에만 있어서
+ * DB 를 쓰려면 둘 중 하나를 상속해야 하고, 상속하면 태그가 같이 온다.
+ * 상속하지 않고 DB 를 쓰면 빠른 레인에서 곧바로 실패한다.
  */
 @SpringBootTest
 @Transactional
+@Tag("db")
 @Import(PostgresTestBase.Containers.class)
 public abstract class PostgresTestBase {
 
