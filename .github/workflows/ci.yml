@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           # build.gradle.kts 의 툴체인과 같은 값이다. 여기만 올리면 툴체인이 JDK 를 따로 받는다.
