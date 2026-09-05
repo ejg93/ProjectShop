@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
@@ -36,8 +37,12 @@ import com.projectshop.shop.auth.AuthFixture;
  *
  * <p>이 제약 때문에 여기 둘 것을 고른다. <b>관통하는 흐름</b>만 여기서 보고,
  * 규칙 하나하나는 롤백이 도는 통합 층({@link PostgresTestBase})에 둔다.
+ *
+ * <p>{@code db} 태그를 다는 이유는 {@link PostgresTestBase} 와 같다 — 컨테이너를 띄우므로
+ * 느린 레인({@code integrationTest})으로 간다.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+@Tag("db")
 @Import(PostgresTestBase.Containers.class)
 public abstract class HttpTestBase {
 

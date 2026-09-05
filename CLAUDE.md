@@ -523,12 +523,13 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 
 | 언제 | 명령 | 통과 기준 |
 |---|---|---|
-| **코드를 건드렸으면 항상** | `cd backend && ./gradlew build` | `BUILD SUCCESSFUL`. 테스트가 여기 같이 돈다 |
+| **코드를 건드렸으면 항상** | `cd backend && ./gradlew build` | `BUILD SUCCESSFUL`. **테스트 두 레인이 여기서 다 돈다** — `test`(빠른 것)와 `integrationTest`(컨테이너) |
 | **화면을 건드렸으면** | `cd frontend && npm run build` | `Compiled successfully` + `Finished TypeScript`. 타입 검사가 같이 돈다 |
 | 〃 | `npm run lint` | 출력 없음. **접근성 규칙이 포함돼 있다**(`D20`) |
 | 〃 | `npm test` | 실패 0 |
 | **푸시했으면** | 아래 「CI」 | 초록. **빨가면 다음 청크보다 먼저 친다** |
-| 스키마·서비스만 볼 때 | `./gradlew test` | 실패 0. 테스트가 Postgres 컨테이너를 스스로 띄운다. `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
+| **고치는 중에 빨리 확인할 때** | `./gradlew test` | 실패 0. **컨테이너를 안 띄우는 레인이라 7초에 답한다**(69개). 대신 **DB 를 타는 931개는 여기서 안 돈다** — 닫기 전에는 `build` 를 돌린다 |
+| 스키마·서비스만 볼 때 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(931개, 3분대). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
 | **마이그레이션을 더했으면** | **빈 DB 를 만들어** `POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 **마이그레이션 파일 수 + 시드 3**. **테스트만으로는 기동 경로를 안 지난다**. 쓰던 DB 에 그냥 올리면 시드가 `V900+` 라 Flyway 가 순서를 어긴 것으로 보고 멈춘다(`stack.md`) |
 | 컨테이너 설정을 건드렸으면 | `docker compose config --quiet` 후 `docker compose up -d` | 종료 코드 0, `shop-db`·`shop-redis` 가 `healthy` |
 | 프록시·라우팅을 건드렸으면 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |

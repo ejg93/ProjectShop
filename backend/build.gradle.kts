@@ -100,8 +100,34 @@ tasks.withType<JavaCompile> {
 	options.compilerArgs.addAll(listOf("-Xlint:deprecation", "-Xlint:unchecked"))
 }
 
+// 테스트를 두 레인으로 가른다.
+//
+// **되먹임 속도가 자율 실행의 상한을 정한다.** 검증 한 번에 2분 27초를 태우면 고치고
+// 다시 돌리는 주기가 그 값에 묶인다. 컨테이너를 안 타는 테스트는 초 단위로 답할 수 있는데
+// 한 태스크에 섞여 있어서 **전부 느린 쪽 속도로 돌고 있었다.**
+//
+// **소스셋이 아니라 태그로 가른다.** 소스셋은 빠른 쪽에 testcontainers 의존성을 안 줘서
+// 컴파일로 막는 1위 강제 지점이지만, 지금 옮길 파일이 78개라 diff 를 아무도 못 읽는다.
+// 태그는 그보다 약한 대신 **표식을 빠뜨릴 자리가 없다** — 컨테이너가 `PostgresTestBase`·
+// `HttpTestBase` 에만 있어서 DB 를 쓰려면 상속해야 하고, 상속하면 태그가 따라온다.
+// 상속하지 않고 DB 를 쓰면 빠른 레인에서 곧바로 빨개진다.
+val integrationTest = tasks.register<Test>("integrationTest") {
+	description = "컨테이너를 띄우는 테스트만 돌린다."
+	group = "verification"
+	testClassesDirs = sourceSets.test.get().output.classesDirs
+	classpath = sourceSets.test.get().runtimeClasspath
+	useJUnitPlatform { includeTags("db") }
+	shouldRunAfter(tasks.test)
+}
+
 tasks.withType<Test> {
-	useJUnitPlatform()
+	// 스냅샷은 명시적으로 갱신한다. 자동으로 덮으면 diff 를 안 보고 넘어간다.
+	systemProperty("snapshot.update", System.getProperty("snapshot.update") ?: "false")
+}
+
+tasks.test {
+	description = "컨테이너를 안 타는 테스트만 돌린다."
+	useJUnitPlatform { excludeTags("db") }
 
 	// 대조하는 문서를 입력으로 신고한다. 안 하면 문서만 고친 청크에서 Gradle 이 `test` 를
 	// `UP-TO-DATE` 로 건너뛰고, 그 대조가 한 번도 안 돈다.
@@ -109,18 +135,29 @@ tasks.withType<Test> {
 	// **`stack.md` 는 청크 `2f` 에서 뒤늦게 붙었다.** `StackVersionConsistencyTest` 를
 	// 세우고 표를 일부러 틀리게 고쳐 봤는데 빌드가 초록이었다 —
 	// **걸려 있는 것과 도는 것은 다르다.**
+	//
+	// 대조 테스트 셋은 컨테이너를 안 타서 이 레인에 있다. 그래서 신고도 여기에만 건다.
 	inputs.files(file("../PLAN.md"), file("../PROGRESS.md"), file("../doc/reference/stack.md"))
 		.withPropertyName("comparedDocs")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
+}
 
-	// 스냅샷은 명시적으로 갱신한다. 자동으로 덮으면 diff 를 안 보고 넘어간다.
-	systemProperty("snapshot.update", System.getProperty("snapshot.update") ?: "false")
-	finalizedBy(tasks.jacocoTestReport)
+// `build` 는 두 레인을 다 돈다. **가른 것은 도는 자리지 무엇을 검증하나가 아니다** —
+// 「검증」 표의 통과 기준(`BUILD SUCCESSFUL`)이 뜻하는 범위가 좁아지면 안 된다.
+tasks.check {
+	dependsOn(integrationTest, tasks.jacocoTestReport)
 }
 
 // 커버리지는 측정만 하고 목표를 두지 않는다. 수치를 채우려는 테스트가 생기기 때문이다.
+//
+// **`finalizedBy` 를 안 쓴다.** 그러면 빠른 레인만 돌려도 리포트가 딸려 오고,
+// 리포트가 느린 레인에 매달려 있어서 **`test` 하나가 결국 컨테이너를 띄운다.**
 tasks.jacocoTestReport {
-	dependsOn(tasks.test)
+	dependsOn(tasks.test, integrationTest)
+	// 두 레인이 각자 exec 를 남긴다. 하나만 읽으면 커버리지가 레인 하나 몫으로 줄어든다.
+	executionData.setFrom(layout.buildDirectory.dir("jacoco").map { dir ->
+		fileTree(dir) { include("*.exec") }
+	})
 	reports {
 		xml.required = true
 		html.required = true
