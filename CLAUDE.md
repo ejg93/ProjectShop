@@ -535,7 +535,7 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | 프록시·라우팅을 건드렸으면 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |
 | 시드·데모 데이터를 건드렸으면 | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. 계정 6·셀러 2, 비밀번호는 전부 `demo-password-1234`. **`local` 없이 뜨면 시드가 안 들어간다** |
 | 로그·추적을 건드렸으면 | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
-| **`CLAUDE.md`·`doc/reference/*` 를 고쳤으면** | `bash scripts/doc-lint.sh` | `이상 없음` 한 줄. 제목 파편(`batch-catalog.md`·`state-machines.md`·`PLAN.md` 가 실제로 이렇게 부서졌었다)과 완전 중복 문장(`frontend-rules.md` 사례)을 기계로 잡는다 |
+| **`CLAUDE.md`·`doc/reference/*` 를 고쳤으면** | **안 돌려도 된다** — `.claude/settings.json` 의 훅이 편집 직후에 돌린다(`2j`). 손으로 돌리려면 `bash scripts/doc-lint.sh` | 통과하면 아무 말이 없고, 깨지면 **편집한 그 자리에서 막힌다.** 제목 파편(`batch-catalog.md`·`state-machines.md`·`PLAN.md` 가 실제로 이렇게 부서졌었다)과 완전 중복 문장(`frontend-rules.md` 사례)을 기계로 잡는다 |
 
 프론트 명령은 전부 `frontend/` 안에서 돌린다.
 
