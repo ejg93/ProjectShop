@@ -34,7 +34,7 @@ jobs:
           java-version: '25'
 
       # Gradle 캐시와 래퍼 검증을 같이 한다. 래퍼 jar 이 바뀌면 실패시키는 것이 이 액션의 기본값이다.
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # Postgres 를 service 컨테이너로 안 띄운다. 테스트가 Testcontainers 로 스스로 띄우고
       # (`PostgresTestBase`) 러너에는 Docker 가 이미 있다. 두 군데서 띄우면 어느 DB 에
