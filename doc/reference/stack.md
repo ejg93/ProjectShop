@@ -20,7 +20,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | Gradle | 9.7.1 | `gradle/wrapper/gradle-wrapper.properties` |
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
-| Testcontainers | 1.21.4 | `build.gradle.kts` 의 BOM |
+| Testcontainers | 2.0.5 | `build.gradle.kts` 의 BOM |
 | Caffeine | 3.2.4 | 안 적는다. **Boot BOM 이 관리한다** |
 | Jackson | 3.1.4 | 안 적는다. `starter-webmvc` 가 딸려 온다 |
 | Spring Security | 7.1.0 | 아직 의존성에 없다. 청크 5 에서 들어온다 |
@@ -75,6 +75,26 @@ relation "flyway_schema_history" does not exist
 ```powershell
 Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```
+
+### Testcontainers 2.x 는 좌표와 클래스가 같이 움직였다
+
+BOM 만 올리면 **`Could not find org.testcontainers:postgresql:`** 로 죽는다. 버전 자리가 비어서
+「없는 모듈」처럼 보이는데, 실제로는 **2.x 부터 모듈에 `testcontainers-` 접두어가 붙은 것**이다.
+
+| 1.x | 2.x |
+|---|---|
+| `org.testcontainers:postgresql` | `org.testcontainers:testcontainers-postgresql` |
+| `org.testcontainers:junit-jupiter` | `org.testcontainers:testcontainers-junit-jupiter` |
+| `org.testcontainers.containers.PostgreSQLContainer` | `org.testcontainers.postgresql.PostgreSQLContainer` |
+
+**새 클래스는 제네릭이 아니다.** `PostgreSQLContainer<?>` 를 그대로 두면
+`does not take parameters` 로 컴파일이 막힌다. 옛 클래스는 남아 있고 **deprecated 경고만** 뜬다 —
+경고를 오류로 안 올려 뒀으므로(`build.gradle.kts`) **안 고쳐도 빌드는 지나간다.**
+
+`GenericContainer` 는 자리도 제네릭도 그대로다.
+
+**버전과 좌표는 검색 API 말고 저장소에서 본다.** Maven Central 검색 API 는 색인이 늦어서
+2.0.5 를 0건으로 답했다. `repo1.maven.org` 의 `maven-metadata.xml` 과 BOM POM 이 실물이다.
 
 ### 뷰는 표에 컬럼이 늘어도 안 따라온다
 

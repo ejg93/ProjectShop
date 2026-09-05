@@ -23,13 +23,15 @@ repositories {
 
 // Boot 의 BOM 이 Testcontainers 버전을 관리하지 않아서 직접 넣는다.
 //
-// 1.21.4 미만은 Docker Engine 29 에서 안 뜬다. docker-java 가 API 버전을 1.32 로 잡는데
-// Docker 29 의 최소 지원이 1.44 라서 /info 가 빈 응답과 400 을 준다.
-// 오류 메시지는 "Could not find a valid Docker environment" 라 원인이 안 드러난다.
-// testcontainers-java#11212, #11235
+// **2.x 는 모듈 좌표에 `testcontainers-` 접두어가 붙는다**(`org.testcontainers:postgresql` →
+// `testcontainers-postgresql`). BOM 만 올리면 `Could not find org.testcontainers:postgresql:` 로
+// `compileTestJava` 가 죽는다 — 버전이 안 붙는 것이라 오류가 「없는 모듈」처럼 보인다.
+//
+// 1.x 를 쓸 때 1.21.4 미만이 Docker Engine 29 에서 안 뜨던 문제는 2.x 에는 없다.
+// docker-java 가 API 버전을 1.32 로 잡던 것이 원인이었다(testcontainers-java#11212, #11235).
 dependencyManagement {
 	imports {
-		mavenBom("org.testcontainers:testcontainers-bom:1.21.4")
+		mavenBom("org.testcontainers:testcontainers-bom:2.0.5")
 	}
 }
 
@@ -64,8 +66,8 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
-	testImplementation("org.testcontainers:postgresql")
-	testImplementation("org.testcontainers:junit-jupiter")
+	testImplementation("org.testcontainers:testcontainers-postgresql")
+	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

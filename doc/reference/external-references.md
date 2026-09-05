@@ -68,10 +68,12 @@ XACML 자체를 도입하지 않는다. XML 정책 언어라 이 규모에 과�
   Mike Cohn 의 원래 피라미드를 실무용으로 풀었고, **예제가 Java + Spring Boot 다**
 - 층은 단위 → 통합 → 계약 → UI → 종단이다. 원칙은 "작고 빠른 단위 테스트를 많이,
   거친 테스트를 조금, 종단 테스트는 아주 적게"
-- Spring Boot 공식 문서가 **4.1.0** 을 다룬다. 우리가 쓰는 버전과 같다
+- Spring Boot 공식 문서가 **4.1.x** 를 다룬다. 우리가 쓰는 버전과 같다
 - Spring Boot 테스트 장에 **Testcontainers 절이 따로 있다.** 청크 35 가 이걸 쓴다
-- Testcontainers 는 **1.21.4** 를 쓴다. Maven Central 기준 `org.testcontainers:postgresql` 의 최신이다.
-  문서 사이트에 보이는 숫자를 아티팩트 버전으로 읽으면 안 된다 — 한 번 틀렸다
+- Testcontainers 는 **2.0.5** 를 쓴다(`2f-2`). 모듈 좌표가 `org.testcontainers:testcontainers-postgresql` 로
+  바뀌었다 — **2.x 부터 접두어가 붙는다.** 문서 사이트에 보이는 숫자를 아티팩트 버전으로 읽으면
+  안 된다(한 번 틀렸다). **버전과 좌표는 `repo1.maven.org` 의 `maven-metadata.xml` 과 BOM POM 에서 확인한다** —
+  Maven Central 검색 API 는 색인이 늦어서 2.x 를 0건으로 답했다
 
 ### Docker Engine 29 와의 비호환
 

@@ -113,15 +113,24 @@ Spring 컨텍스트 캐싱과 맞물려서 기동 비용이 전체 실행에 한
 
 이미지는 `docker-compose.yml` 과 같은 `postgres:17-alpine` 이다. 버전이 갈리면 테스트가 통과해도 운영에서 깨진다.
 
-### Testcontainers 버전을 고정한 이유
-
-`1.21.4` 미만은 Docker Engine 29 에서 안 뜬다. docker-java 가 API 버전을 1.32 로 잡는데
-Docker 29 의 최소 지원이 1.44 라서 `/info` 가 빈 응답과 400 을 준다.
-
-오류 메시지가 `Could not find a valid Docker environment` 라 원인이 안 드러난다.
-`DOCKER_HOST` 나 `DOCKER_API_VERSION` 을 만져도 안 고쳐지고, 버전을 올려야 풀린다.
+### Testcontainers 버전을 왜 직접 적나
 
 Boot 의 BOM 이 Testcontainers 를 관리하지 않으므로 `build.gradle.kts` 에서 BOM 을 직접 넣는다.
+지금은 `2.0.5` 다.
+
+**2.x 로 올릴 때 셋이 걸렸다**(`2f-2`). 셋 다 **BOM 한 줄로는 안 끝난다.**
+
+| 무엇 | 어떻게 드러나나 |
+|---|---|
+| 모듈 좌표에 `testcontainers-` 접두어가 붙었다 | `Could not find org.testcontainers:postgresql:` — **버전이 안 붙어서 「없는 모듈」처럼 보인다** |
+| `org.testcontainers.containers.PostgreSQLContainer` 가 deprecated 다 | 새 자리는 `org.testcontainers.postgresql` 이다 |
+| 새 클래스는 **제네릭이 아니다** | `<?>`·`<>` 를 그대로 두면 `does not take parameters` |
+
+**Boot 의 `@ServiceConnection` 은 새 클래스로도 붙는다** — 문서로 확인한 것이 아니라 돌려서 봤다.
+
+1.x 를 쓰던 동안에는 `1.21.4` 미만이 Docker Engine 29 에서 안 떴다. docker-java 가 API 버전을
+1.32 로 잡는데 Docker 29 의 최소 지원이 1.44 라서 `/info` 가 빈 응답과 400 을 줬고,
+오류 메시지가 `Could not find a valid Docker environment` 라 원인이 안 드러났다.
 
 ## 격리
 
