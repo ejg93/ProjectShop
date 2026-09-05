@@ -6,9 +6,9 @@
 - **진행중 청크**: 없음
 - **다음에 할 것**: **개발 파이프라인 넷과 `D25` 를 다 쳤고, 갱신 첫 회차도 닫았다**(2026-09-05).
 
-  **dependabot PR 이 하나 남아 있다** — [#15](https://github.com/ejg93/ProjectShop/pull/15)
-  `@types/node`. `#12` 를 먼저 머지해서 `package-lock.json` 이 충돌했고 `@dependabot rebase` 를
-  걸어 뒀다. **초록으로 돌아오면 머지하면 된다** — 판단할 것이 없다.
+  **열린 dependabot PR 은 없다.** 마지막 하나였던 `#15`(`@types/node`)는 `#12` 를 먼저
+  머지한 탓에 `package-lock.json` 이 충돌해서 `@dependabot rebase` 를 걸었고,
+  초록으로 돌아와 머지했다(26.4.1 로 올라갔다). **초록 일곱이 전부 들어갔다.**
 
   **`2f-2` 가 새로 섰다** — Testcontainers 2.x 이관. `2f-1` 이 갈랐다.
 
