@@ -340,6 +340,12 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 backend 는 `./gradlew build`, frontend 는 `npm ci` 뒤 `build`·`lint`·`test` 다.
 **푸시해야 돈다.**
 
+**`main` 은 가지 보호가 걸려 있다**(`2g-3`). PR 없이는 못 밀고, `backend`·`frontend`·
+`secrets`·`docs` 가 초록이 아니면 머지가 안 된다. **`review` 는 필수가 아니다** —
+워크플로 파일을 고치는 PR 에서 그 잡이 `skipping` 이라 필수로 걸면 그런 PR 이 영영 안 닫힌다.
+**관리자는 아직 뚫을 수 있다**(`enforce_admins=false`) — CI 설정 자체가 깨졌을 때
+저장소가 잠기지 않게 남겨 둔 구멍이다.
+
 **그래도 위 표를 먼저 돌린다.** CI 는 푸시한 뒤에야 답하고, 그때는 이미 커밋이 남아 있다.
 
 #### PR 마다 리뷰가 같이 돈다
