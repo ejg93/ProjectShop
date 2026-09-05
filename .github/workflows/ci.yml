@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-java@v6
         with:
@@ -49,7 +49,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # 이력 전체를 본다. 얕게 받으면 **예전 커밋에 박힌 것**을 못 찾는다.
           fetch-depth: 0
@@ -95,6 +95,6 @@ jobs:
     timeout-minutes: 5
     steps:
       # 얕게 받는다. 파일 내용만 보고 이력은 안 본다.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - run: bash scripts/doc-lint.sh

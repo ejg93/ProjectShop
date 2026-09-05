@@ -37,7 +37,7 @@ jobs:
     env:
       REVIEW_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.REVIEW_TOKEN != ''
         with:
           # 리뷰가 「이 청크가 무엇을 바꿨나」를 보려면 갈라진 자리까지 필요하다.
