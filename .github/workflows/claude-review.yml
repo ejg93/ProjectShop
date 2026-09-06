@@ -44,7 +44,8 @@ jobs:
           # 얕게 받으면 base 와 비교할 것이 없다.
           fetch-depth: 0
 
-      - uses: anthropics/claude-code-action@v1
+      - id: review
+        uses: anthropics/claude-code-action@v1
         if: env.REVIEW_TOKEN != ''
         with:
           # 구독 토큰을 쓴다. 이 저장소의 전제가 「주간 토큰이 남을 때 태운다」라
@@ -111,11 +112,28 @@ jobs:
       # 게이트도 조언도 아니고, 그것을 알아채는 데 PR 여섯이 걸렸다.
       #
       # 마커로 센다. 작성자 이름은 토큰 종류에 따라 `claude[bot]`·`github-actions[bot]` 로 갈린다.
+      # **리뷰가 아무것도 안 내놓으면 여기서 빨개진다**(`2g-5`).
+      #
+      # 리뷰 내용은 여전히 조언이라 아무것도 못 막는다 — 이 step 이 보는 것은 **출력이 있나** 하나다.
+      # 그전에는 PR 열하나에서 코멘트가 0개인데 잡이 초록이었다: 아무것도 안 내놓는 5~7분은
+      # 게이트도 조언도 아니고, 그것을 알아채는 데 PR 여섯이 걸렸다.
+      #
+      # **액션이 안 돌았으면 요구하지 않는다.** 이 워크플로 파일을 고치는 PR 에서는
+      # 액션이 자기 파일을 `main` 과 대조하고 **조용히 건너뛴다**(`2g-3`) — 그런데 step 자체는
+      # `success` 라 겉에서는 안 갈린다. 실제로 PR #30 에서 이 step 이 그것을 「코멘트 없음」으로
+      # 읽고 빨개졌다. **`execution_file` 이 비어 있으면 안 돈 것**이라 그때는 통과시킨다.
+      #
+      # 마커로 센다. 작성자 이름은 토큰 종류에 따라 `claude[bot]`·`github-actions[bot]` 로 갈린다.
       - name: 리뷰가 코멘트를 남겼나
         if: env.REVIEW_TOKEN != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          EXECUTION_FILE: ${{ steps.review.outputs.execution_file }}
         run: |
+          if [ -z "$EXECUTION_FILE" ]; then
+            echo '리뷰가 안 돌았다. 이 워크플로를 고치는 PR 이면 정상이다(2g-3) — 액션이 자기 파일을 main 과 대조해 건너뛴다'
+            exit 0
+          fi
           n=$(gh pr view ${{ github.event.pull_request.number }} --json comments \
                 --jq '[.comments[].body | select(startswith("<!-- claude-review -->"))] | length')
           [ "$n" -ge 1 ] || { echo '리뷰가 코멘트를 안 남겼다(2g-5). 로그의 permission_denials_count 를 본다'; exit 1; }
