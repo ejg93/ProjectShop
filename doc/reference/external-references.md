@@ -379,6 +379,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | NIST SP 800-63B | 미국 정부 저작물 — 저작권 없음 | 요건을 근거로 인용 |
 | RFC 9457 · W3C Trace Context | IETF Trust / W3C 문서 라이선스 | 형식을 따랐다 |
 | Zalando RESTful API Guidelines | MIT | 규칙을 따르고 벗어난 둘을 명시했다 |
+| `design-taste-frontend` 스킬 (Leonxlnx/taste-skill) | **MIT** | 사본이 `.agents/skills/design-taste-frontend/` 에 있다. **고지를 그 옆 `LICENSE` 에 뒀다**(`2l-1`) — MIT 는 사본에 저작권 고지가 있어야 성립한다 |
 
 ### 의존성
 
