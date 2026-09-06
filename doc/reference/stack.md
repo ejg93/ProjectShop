@@ -786,6 +786,31 @@ POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'
 
 `applied_migrations` 는 **마이그레이션 파일 수 + 시드 3** 이다(`43a-2` 기준 61+3=64).
 
+### `claude-code-action` 은 Bash 를 기본으로 안 준다
+
+프롬프트로 `gh pr comment` 를 시켜도 안 돈다. 공식 문서가 그렇게 적었다 —
+「By default, Claude cannot execute Bash commands unless explicitly allowed」.
+열려면 `claude_args` 에 `--allowedTools "Bash(gh pr comment:*)"` 처럼 명령마다 적는다.
+
+**거부는 실패로 안 보인다.** 잡은 초록이고 `is_error: false` 다.
+신호는 결과 JSON 의 **`permission_denials_count`** 하나뿐이고, 무엇이 거부됐는지는
+`show_full_output: true` 를 켜야 나온다. 그 값이 12~22 인 채로 PR 여섯이 지나갔다.
+
+### 액션은 `CLAUDE.md`·`.claude` 를 `origin/main` 에서 되살린다
+
+로그에 「Restoring .claude, .mcp.json, .claude.json, ..., CLAUDE.md from origin/main (PR head is untrusted)」
+가 찍힌다. PR 이 들고 온 규칙 파일을 안 믿는다는 뜻이라 보안상 맞는 동작이다.
+
+**그래서 규칙을 고친 PR 은 옛 규칙으로 검토된다.** `CLAUDE.md` 나 `doc/reference/*` 를
+바꾸는 묶음에서 리뷰가 「문서가 부르는 것이 실물과 맞나」를 물을 때, 리뷰가 읽는 규칙은
+그 PR 의 판이 아니라 `main` 의 판이다. 그 PR 의 지적을 읽을 때 이 차이를 먼저 본다.
+
+### 리뷰 한 번이 약 $1.1 에 5분이다
+
+`total_cost_usd` 1.1158 · `duration_ms` 315118 · `num_turns` 47 이 실측값이다(PR #26).
+CI 중 제일 길고 제일 비싸다. **PR 을 마무리 때만 여는 근거가 이 수치다**(`2g-4`) —
+청크마다 열면 이 값이 청크 수만큼 곱해지는데, 그렇게 연 PR 열하나에서 지적이 0개였다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
