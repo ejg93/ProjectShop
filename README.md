@@ -65,3 +65,9 @@ testcontainers.reuse.enable=true
 
 **저장소가 아니라 기계에 붙는 설정이다.** 안 넣어도 테스트는 통과하고 경고만 나간다.
 CI 러너에서는 효과가 없다 — 매번 새 기계라 재사용할 컨테이너가 없다.
+
+## 라이선스
+
+Apache-2.0 이다. 루트의 `LICENSE` 가 원문이다.
+
+인용한 바깥 자료의 라이선스는 `doc/reference/external-references.md` 「라이선스」 표에 있다.
