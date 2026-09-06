@@ -71,3 +71,4 @@ CI 러너에서는 효과가 없다 — 매번 새 기계라 재사용할 컨테
 Apache-2.0 이다. 루트의 `LICENSE` 가 원문이다.
 
 인용한 바깥 자료의 라이선스는 `doc/reference/external-references.md` 「라이선스」 표에 있다.
+**그중 `naming-rules.md` 의 SQL 절 하나만 CC BY-SA 4.0 이고** 그 절 첫머리에 적혀 있다(`2l-2`).
