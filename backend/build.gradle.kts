@@ -8,6 +8,8 @@ plugins {
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
+// 저장소와 같은 선언이다(`2l`). 배포는 안 하지만 갈리면 안 된다 — 루트 `LICENSE` 가 원문이다.
+description = "ProjectShop backend (Apache-2.0)"
 group = "com.projectshop"
 version = "0.0.1-SNAPSHOT"
 

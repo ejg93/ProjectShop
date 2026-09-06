@@ -137,13 +137,11 @@ class OrderStatusServiceTest extends PostgresTestBase {
                     .isAfter(timeOf("withdrawal_expire_at"));
         }
 
-        /**
-         * <b>이 자리에 있던 「말일 보정이 두 기한을 붙여도」 테스트는 단위 층으로 옮겼다</b>(`Q19`).
-         *
-         * <p>날짜를 고정한 순수 계산이라 컨테이너가 필요 없었다 —
-         * {@code OrderDeadlinesTest.keepsAutoConfirmAfterWithdrawal} 이 같은 날짜(2026-08-10)를 본다.
-         * 여기 남은 것은 <b>그 계산이 DB 를 왕복해도 살아남나</b>뿐이다.
-         */
+        // 이 자리에 있던 「말일 보정이 두 기한을 붙여도」 테스트는 단위 층으로 옮겼다(`Q19`).
+        // 날짜를 고정한 순수 계산이라 컨테이너가 필요 없었다 —
+        // OrderDeadlinesTest.keepsAutoConfirmAfterWithdrawal 이 같은 날짜(2026-08-10)를 본다.
+        // 여기 남은 것은 그 계산이 DB 를 왕복해도 살아남나뿐이다.
+
         /**
          * <b>저장하고 다시 읽어도 날짜가 안 밀리는 것</b>을 고정한다.
          *

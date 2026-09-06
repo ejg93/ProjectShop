@@ -1,6 +1,5 @@
 package com.projectshop.shop;
 
-import static com.tngtech.archunit.base.DescribedPredicate.not;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
@@ -19,8 +18,13 @@ import com.tngtech.archunit.lang.ArchRule;
  * <p><b>컨테이너를 안 탄다.</b> 바이트코드만 읽으므로 빠른 레인({@code test})에서 돈다.
  *
  * <p><b>{@code FreezingArchRule} 을 안 쓴다.</b> 기준선 파일로 눌러 두면 예외마다
- * <b>왜 뺐는지를 못 적는다.</b> 지금 예외가 둘뿐이고 둘 다 문서에 이유가 있어서,
+ * <b>왜 뺐는지를 못 적는다.</b> 지금 예외가 넷이고(컨트롤러 하나·허용 순환 셋) 넷 다 문서에 이유가 있어서,
  * 코드에 이름을 붙여 적는 쪽이 낫다. {@code 2e} 가 SpotBugs 기준선을 안 만든 것과 같은 판단이다.
+ *
+ * <p><b>아무 클래스도 안 보는 규칙은 조용히 통과한다.</b> 이름 규칙이 바뀌면 그렇게 된다 —
+ * {@code archunit.properties} 의 {@code archRule.failOnEmptyShould=true} 가 그때 실패시킨다.
+ * <b>코드에서 {@code System.setProperty} 로 켜면 안 된다</b> — 규칙이 {@code static final} 이라
+ * 필드 초기화가 {@code static} 블록보다 먼저 돌 수 있다.
  *
  * <p><b>못 보는 것</b> — 이건 의존 방향만 본다. 트랜잭션 경계가 서비스에 있나,
  * 판정을 서비스에서 부르나 같은 것은 여전히 문서와 사람이 든다.
@@ -125,28 +129,15 @@ class ArchitectureTest {
             noClasses()
                     .that().resideInAPackage("..support..")
                     .should().dependOnClassesThat()
-                    .resideInAnyPackage("..order..", "..product..", "..seller..", "..settlement..",
-                            "..payment..", "..cart..", "..account..", "..inquiry..")
+                    .resideOutsideOfPackages("java..", "javax..", "jakarta..",
+                            "org.springframework..", "org.slf4j..", "com.fasterxml..", "tools.jackson..",
+                            "com.projectshop.shop.support..", "com.projectshop.shop.error..")
                     .because("support 가 자원을 부르면 공용이 아니라 그 자원의 일부가 된다"
-                            + " (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)");
-
-    /** 위 규칙들이 실수로 아무 클래스도 안 보는 상태가 되는 것을 막는다. */
-    @ArchTest
-    static final ArchRule 컨트롤러가_실제로_있다 =
-            noClasses().that().haveSimpleNameEndingWith("Controller")
-                    .should().resideInAPackage("..nowhere..")
-                    .because("이름 규칙이 바뀌어 규칙이 빈 집합을 보면 조용히 통과한다."
-                            + " 이 줄이 「컨트롤러가 하나라도 있나」를 대신 센다");
+                            + " (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)."
+                            + " 자원을 열거하지 않고 허용을 적는다 — 열거하면 새 자원 패키지가 생길 때마다 샌다."
+                            + " accessClassesThat 은 호출만 보고 필드 선언을 안 봐서 dependOnClassesThat 이다");
 
     private ArchitectureTest() {
     }
 
-    static {
-        // 아무 클래스도 안 보는 규칙은 조용히 통과한다. ArchUnit 이 그럴 때 실패하게 둔다.
-        System.setProperty("archRule.failOnEmptyShould", "true");
-    }
-
-    /** {@code not} 을 import 해 두고 안 쓰면 컴파일 경고가 난다. 앞으로 예외를 더할 때 쓴다. */
-    @SuppressWarnings("unused")
-    private static final Object UNUSED = not(resideInAPackage("..nowhere.."));
 }

@@ -147,7 +147,7 @@ public class BusinessCalendar {
      *
      * <p><b>표 전체를 안 읽는다.</b> 임시공휴일이 계속 쌓이는 표라 전체를 들면 해가 갈수록 커진다.
      */
-    /** 밖에서 순수 계산을 부를 때 쓸 휴일 집합. {@link OrderDeadlines} 가 이것을 받는다(`Q19`) */
+    /** 밖에서 순수 계산을 부를 때 쓸 휴일 집합. 기한 계산이 이것을 받는다(`Q19`) */
     public Set<LocalDate> holidaysNear(LocalDate date) {
         return holidaysAround(date, 0);
     }
