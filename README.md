@@ -39,6 +39,14 @@ docker compose down
 데이터까지 지우려면 `docker compose down -v` 를 쓴다.
 스키마가 꼬였을 때 처음부터 다시 만드는 용도다.
 
+**`pg_stat_statements` 가 켜져 있다**(`42-0`). 느린 쿼리가 쌓여서 청크 `42`(성능 측정)가
+올 때 읽을 것이 이미 있다. **이 저장소를 예전에 띄워 본 기계라면 한 번은 `down -v` 가 필요하다** —
+확장을 만드는 스크립트가 **볼륨이 비었을 때만** 돌기 때문이다(`stack.md`).
+
+```bash
+docker exec shop-db psql -U shop -d shop -c "select count(*) from pg_stat_statements"
+```
+
 ## 백엔드 띄우기
 
 DB가 뜬 뒤에 실행한다. 자세한 건 `backend/README.md`.

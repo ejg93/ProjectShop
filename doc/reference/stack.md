@@ -811,6 +811,28 @@ To enable reuse of containers, you must set 'testcontainers.reuse.enable=true' i
 재사용을 켜면 그 셋이 같은 컨테이너에 붙어서 기동 비용이 사라진다.
 **대신 격리도 같이 사라진다** — fork 를 늘리면 롤백 안 하는 테스트가 서로를 밟는다(`D15`).
 
+### `initdb.d` 는 볼륨이 비었을 때만 돈다
+
+`docker-compose.yml` 의 `/docker-entrypoint-initdb.d` 마운트는 **데이터 디렉터리가 비어 있을 때 한 번**만 실행된다.
+이미 `db-data` 가 있는 기계에서는 파일을 넣어도 **아무 일이 안 일어나고 오류도 안 난다.**
+
+```
+docker compose down -v && docker compose up -d --wait
+```
+
+**`-v` 가 핵심이다.** 그냥 `down` 하면 볼륨이 남아서 다음 기동에도 안 돈다.
+지우고 올리면 마이그레이션이 처음부터 다시 적용된다 — 로컬 데이터가 사라지는 것이 정상이다.
+
+**Testcontainers 는 이 경로를 안 태운다.** 테스트 DB 는 그대로라, 여기서 켠 확장은 테스트에 안 보인다.
+
+### `shared_preload_libraries` 는 기동 인자라야 먹는다
+
+`pg_stat_statements` 는 `create extension` 만으로는 안 된다. 확장은 만들어지는데
+**뷰를 읽는 순간 「must be loaded via shared_preload_libraries」로 터진다.**
+
+그래서 `docker-compose.yml` 의 `db` 에 `command` 로 준다(`42-0`).
+`postgresql.conf` 를 따로 두지 않은 것은 **파일이 하나 더 늘고 이미지 기본값과 갈리기 쉬워서**다.
+
 ### `claude-code-action` 은 Bash 를 기본으로 안 준다
 
 프롬프트로 `gh pr comment` 를 시켜도 안 돈다. 공식 문서가 그렇게 적었다 —
