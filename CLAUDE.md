@@ -320,6 +320,7 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | **화면을 건드렸으면** | `cd frontend && npm run build` | `Compiled successfully` + `Finished TypeScript`. 타입 검사가 같이 돈다 |
 | 〃 | `npm run lint` | 출력 없음. **접근성 규칙이 포함돼 있다**(`D20`) |
 | 〃 | `npm test` | 실패 0 |
+| **로그인·상품·장바구니 화면을 건드렸으면** | 백엔드를 `local` 로 띄운 뒤 `cd frontend && npm run build && npm run e2e` | 통과. CI 는 `gh workflow run e2e.yml --ref <가지>` 로 건다(`Q18-1`) |
 | **푸시했으면** | 아래 「CI」 | 초록. **빨가면 다음 청크보다 먼저 친다** |
 | **고치는 중에 빨리 확인할 때** | `./gradlew test` | 실패 0. **컨테이너를 안 띄우는 레인이라 7초에 답한다**(69개). 대신 **DB 를 타는 931개는 여기서 안 돈다** — 닫기 전에는 `build` 를 돌린다 |
 | 스키마·서비스만 볼 때 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(931개, **72~78초**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |

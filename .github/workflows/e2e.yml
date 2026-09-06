@@ -1,0 +1,80 @@
+# 화면까지 관통하는 층을 CI 에서 돌린다(청크 `Q18-1`).
+#
+# **`ci.yml` 에 안 넣는다.** 청크마다 4~6분이 붙는데 이 층이 잡는 것은 프록시·세션·CSRF 셋뿐이고
+# 그 셋은 청크마다 바뀌지 않는다. **PR 이 마무리 때 한 번뿐이라**(`2g-4`) 리뷰와 같은 리듬이 된다.
+#
+# **필수 상태 검사로는 아직 안 건다.** 첫 달 안정성을 보고 `D25` 가 정한다 —
+# 브라우저를 띄우는 층이라 흔들리면 그 빨강이 진짜 실패를 가린다.
+name: E2E
+
+on:
+  pull_request:
+  # 손으로도 건다. 가지에서 확인하고 싶을 때 PR 을 안 열어도 된다.
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # DB·Redis 를 먼저 올린다. `--wait` 가 healthcheck 를 기다린다.
+      - run: docker compose up -d --wait db redis
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v6
+
+      # **백엔드를 배경으로 띄운다.** Playwright 의 `webServer` 는 Next 만 띄운다 —
+      # Gradle 기동이 느려서 그쪽 타임아웃에 맡기면 실행마다 흔들린다.
+      # `local` 프로필이라야 시드가 들어가고, 스모크가 그 계정으로 로그인한다.
+      - name: 백엔드 기동
+        working-directory: backend
+        run: nohup ./gradlew bootRun --args='--spring.profiles.active=local' > /tmp/backend.log 2>&1 &
+
+      - name: 백엔드가 답할 때까지 기다린다
+        run: |
+          curl --retry 40 --retry-delay 3 --retry-connrefused -sf localhost:8080/api/health \
+            || { echo '2분 안에 안 떴다'; tail -50 /tmp/backend.log; exit 1; }
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - working-directory: frontend
+        run: npm ci
+
+      # `start` 로 띄우므로 빌드가 먼저다.
+      - working-directory: frontend
+        run: npm run build
+
+      # 브라우저는 러너에 없다. `--with-deps` 가 리눅스 라이브러리까지 깐다.
+      - working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - working-directory: frontend
+        run: npm run e2e
+
+      # **실패했을 때만 남긴다.** 초록일 때도 올리면 아무도 안 보는 파일이 쌓인다.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
+      # 화면이 아니라 서버에서 죽었을 때 원인을 여기서 본다.
+      - if: failure()
+        run: tail -100 /tmp/backend.log
