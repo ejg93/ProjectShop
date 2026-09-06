@@ -43,6 +43,18 @@ honorific_check_files=(
   doc/reference/*.md
 )
 
+# 기준 문서 제목에 날짜가 박히는 것을 막는다(`2c-2`).
+#
+# `doc/README.md` 가 「지나간 작업 이력은 문서에 안 쓴다 — PROGRESS.md 와 git log 가 답한다」고
+# 정했는데, 「2026-08-20 규약 대조 — 처분 완료」 같은 제목이 열 파일에 눌어붙어 있었다(260줄).
+# **제목에 날짜가 있으면 그 절은 규칙이 아니라 그날의 기록이다.**
+#
+# `stack.md` 의 절 제목들은 날짜가 없어서 안 걸린다 — 「기억으로 쓰면 틀리는 자리」는
+# 언제 알았든 지금도 유효한 사실이라 날짜를 안 단다.
+dated_title_files=(
+  doc/reference/*.md
+)
+
 fail=0
 
 for f in "${title_check_files[@]}"; do
@@ -69,6 +81,21 @@ for f in "${dup_check_files[@]}"; do
   if [ -n "$dups" ]; then
     echo "[중복 문장] $f:"
     echo "$dups" | sed 's/^/    /'
+    fail=1
+  fi
+done
+
+for f in "${dated_title_files[@]}"; do
+  [ -f "$f" ] || continue
+  # `external-references.md` 는 뺀다. **거기는 날짜가 내용이다** — 인용 자료를 언제 원문으로
+  # 확인했는지가 그 문서의 값이고(`document-map.md`), 낡았는지는 그 날짜로만 판정한다.
+  case "$f" in doc/reference/external-references.md) continue ;; esac
+
+
+  dated=$(grep -nE '^#+[[:space:]].*[12][0-9]{3}-[0-9]{2}-[0-9]{2}' "$f")
+  if [ -n "$dated" ]; then
+    echo "[제목에 날짜] $f — 기준 문서는 「지금 무엇이 맞나」만 답한다. 이력은 PROGRESS.md 로(doc/README.md):"
+    echo "$dated" | sed 's/^/    /'
     fail=1
   fi
 done
