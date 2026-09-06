@@ -786,6 +786,30 @@ POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'
 
 `applied_migrations` 는 **마이그레이션 파일 수 + 시드 3** 이다(`43a-2` 기준 61+3=64).
 
+### 컨테이너 재사용은 코드가 아니라 로컬 파일이 켠다
+
+`.withReuse(true)` 가 코드에 있어도 **그것만으로는 안 돈다.** 기계마다
+`~/.testcontainers.properties` 에 `testcontainers.reuse.enable=true` 가 있어야 한다.
+
+**안 켜져 있어도 실패하지 않는다.** 경고 한 줄이 나가고 컨테이너를 새로 띄운다.
+
+```
+WARN tc.postgres:17-alpine : Reuse was requested but the environment does not support the reuse of containers
+To enable reuse of containers, you must set 'testcontainers.reuse.enable=true' in a file located at C:\Users\...\.testcontainers.properties
+```
+
+**CI 러너에서는 효과가 없다** — 매번 새 기계라 재사용할 컨테이너가 없다. 로컬 되먹임 전용이다.
+켠 뒤에는 `docker ps` 에 이름 없는 컨테이너 둘이 남아 있는 것이 정상이다.
+
+### `@ServiceConnection` 컨테이너는 Spring 컨텍스트마다 뜬다
+
+`Containers` 가 `@TestConfiguration` 이라 **컨텍스트가 갈리면 컨테이너도 따로 뜬다.**
+`PostgresTestBase`(MOCK)와 `HttpTestBase`(RANDOM_PORT)가 다른 컨텍스트라
+느린 레인 한 번에 postgres 가 셋 뜬다(`--info` 의 `Container postgres:17-alpine started` 를 센다).
+
+재사용을 켜면 그 셋이 같은 컨테이너에 붙어서 기동 비용이 사라진다.
+**대신 격리도 같이 사라진다** — fork 를 늘리면 롤백 안 하는 테스트가 서로를 밟는다(`D15`).
+
 ### `claude-code-action` 은 Bash 를 기본으로 안 준다
 
 프롬프트로 `gh pr comment` 를 시켜도 안 돈다. 공식 문서가 그렇게 적었다 —

@@ -47,10 +47,42 @@
 **층은 「무엇을 검증하나」로 가르고 레인은 「얼마나 자주 돌 수 있나」로 가른다.**
 축이 달라서 표를 따로 둔다.
 
-| 레인 | Gradle 태스크 | 무엇이 도나 | 2026-09-05 |
+| 레인 | Gradle 태스크 | 무엇이 도나 | 2026-09-06 |
 |---|---|---|---|
 | 빠른 것 | `test` | 컨테이너를 안 타는 것 — 단위 층과 문서 대조 | 69개 / 7.3초 |
-| 느린 것 | `integrationTest` | 통합 층 + HTTP 층 | 931개 / 3분대(3:02·3:20) |
+| 느린 것 | `integrationTest` | 통합 층 + HTTP 층 | 931개 / **72~78초** |
+
+### 느린 레인을 무엇으로 줄였나
+
+**재고 나서 켰다**(`2i-1`). 스위트 263개의 시간 합이 76초인데 벽시계가 그보다 한참 길었다 —
+**차이가 컨테이너·Spring 컨텍스트·JVM 기동**이고, 그 자리를 하나씩 잰 것이 아래다.
+
+| 단계 | 벽시계 | 델타 | 무엇을 했나 |
+|---|---|---|---|
+| 기준선 | 103초 | — | 컨테이너를 매번 새로 띄운다 |
+| 컨테이너 재사용 | 87~91초 | **−14초** | `~/.testcontainers.properties` 에 `testcontainers.reuse.enable=true` |
+| 테스트 bcrypt 4 | 72~78초 | **−13초** | `PostgresTestBase.Containers` 의 `@Primary PasswordEncoder` |
+| 컨텍스트 합치기 | — | 0 | **할 것이 없었다.** `BackendApplicationTests` 가 이미 `PostgresTestBase` 를 상속한다 |
+| fork 2 | 58~72초 | **되돌렸다** | 아래 |
+
+**`.withReuse(true)` 는 코드에 이미 있었다.** 안 걸린 것은 로컬 파일의 스위치였고, 로그가
+「Reuse was requested but the environment does not support the reuse of containers」로 말하고 있었다.
+**켜져 있다고 도는 게 아니다** — 이 저장소가 같은 함정을 밟은 자리가 또 늘었다.
+
+**bcrypt 는 테스트만 4 다.** 운영은 `SecurityConfig` 의 10 그대로고(`D14`), 시드가 심은 해시는
+비용이 해시 안에 있어서 여전히 10 으로 검증된다. 빨라지는 것은 픽스처를 만드는 `encode` 뿐이다.
+
+### fork 를 못 늘리는 이유 — 롤백 안 하는 테스트가 DB 를 나눠 쓴다
+
+`maxParallelForks = 2` 로 세 번 돌려 **두 번이 빨갰다.** 깨진 것은 `AuditLogTest` 다.
+
+시도 기록은 `REQUIRES_NEW` 라 **테스트 롤백에 안 쓸린다**(`4b-2` 의 목적이다). 그래서
+`PostgresTestBase.purgeCommittedAuditLogs` 가 매 테스트 앞에서 그 표를 비우는데,
+**fork 둘이 컨테이너 하나를 나눠 쓰면 한쪽의 비우기가 다른 쪽이 방금 쓴 행을 지운다.**
+「허용은 남기지 않는다」가 1을 세고 「거부는 업무가 롤백돼도 남는다」가 0을 센다.
+
+컨테이너를 fork 마다 따로 띄우면 격리는 되지만 재사용이 죽어서 −14초를 도로 내놓는다.
+**고치려면 fork 마다 스키마를 나눠야 하고, 그건 이 청크의 범위가 아니다.**
 
 **표식은 `@Tag("db")` 고 `PostgresTestBase`·`HttpTestBase` 에 달려 있다.**
 컨테이너가 그 둘에만 있어서 DB 를 쓰려면 상속해야 하고, **상속하면 태그가 따라온다** —

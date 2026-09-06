@@ -10,11 +10,17 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
+import java.util.Map;
+
 import org.springframework.security.test.context.TestSecurityContextHolder;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -135,6 +141,27 @@ public abstract class PostgresTestBase {
             return new GenericContainer<>("redis:7-alpine")
                     .withExposedPorts(6379)
                     .withReuse(true);
+        }
+
+        /**
+         * 테스트에서만 bcrypt 비용을 4 로 낮춘다(`2i-1`).
+         *
+         * <p><b>운영은 그대로 10 이다</b> — `SecurityConfig` 의
+         * {@code PasswordEncoderFactories.createDelegatingPasswordEncoder()} 를 안 건드린다.
+         * `D14` 가 정한 값이고 여기서 바꾸는 것은 픽스처를 만드는 비용뿐이다.
+         *
+         * <p><b>이미 저장된 해시는 여전히 10 으로 검증된다.</b> bcrypt 는 비용을 해시 문자열
+         * 안에 담아서, 시드가 {@code gen_salt('bf', 10)} 로 만든 값은 그 10 으로 대조된다.
+         * 빨라지는 것은 테스트가 새로 만드는 계정의 {@code encode} 뿐이다.
+         *
+         * <p>{@code DelegatingPasswordEncoder} 를 그대로 쓴다 — 저장값에 {@code {bcrypt}}
+         * 접두가 붙어 있어서 접두를 안 읽는 인코더로 바꾸면 시드 계정 로그인이 통째로 깨진다.
+         */
+        @Bean
+        @Primary
+        PasswordEncoder testPasswordEncoder() {
+            return new DelegatingPasswordEncoder("bcrypt",
+                    Map.of("bcrypt", new BCryptPasswordEncoder(4)));
         }
     }
 }

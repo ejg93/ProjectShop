@@ -54,3 +54,14 @@ curl localhost:8080/api/health
 - Docker Desktop
 - JDK 25. `JAVA_HOME` 이 JDK 17 미만이면 Gradle이 안 뜬다
 - Node.js 20 이상 (청크 13부터)
+
+### 한 번만 켜는 것 — 컨테이너 재사용
+
+`~/.testcontainers.properties` 에 아래 한 줄을 넣으면 느린 레인이 14초 줄어든다.
+
+```
+testcontainers.reuse.enable=true
+```
+
+**저장소가 아니라 기계에 붙는 설정이다.** 안 넣어도 테스트는 통과하고 경고만 나간다.
+CI 러너에서는 효과가 없다 — 매번 새 기계라 재사용할 컨테이너가 없다.
