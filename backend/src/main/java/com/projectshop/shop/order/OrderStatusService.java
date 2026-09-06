@@ -31,17 +31,6 @@ import com.projectshop.shop.support.BusinessCalendar;
 @Service
 public class OrderStatusService {
 
-    /** 청약철회 기간. 배송완료 다음날부터 센다(`D2` R3·`D10`) */
-    private static final int WITHDRAWAL_DAYS = 7;
-
-    /**
-     * 자동 구매확정까지의 기간(`D7`).
-     *
-     * <p>청약철회 7일 바로 다음날이다. <b>더 짧으면 반품할 수 있는 주문이 확정</b>돼서
-     * 정산 대상에 들어간다(`D10`).
-     */
-    private static final int AUTO_CONFIRM_DAYS = 8;
-
     /**
      * 하자 반품의 기간(`D2` R3, 전자상거래법 제17조제3항).
      *
@@ -549,9 +538,7 @@ public class OrderStatusService {
      */
     private void freezeDeadlines(long sellerOrderId) {
         LocalDate deliveredOn = LocalDate.now(BusinessCalendar.ZONE);
-
-        LocalDate withdrawalLastDay = calendar.nextBusinessDay(deliveredOn.plusDays(WITHDRAWAL_DAYS));
-        LocalDate autoConfirmLastDay = autoConfirmLastDay(deliveredOn, withdrawalLastDay);
+        OrderDeadlines deadlines = OrderDeadlines.of(deliveredOn, calendar.holidaysNear(deliveredOn));
 
         jdbc.sql("""
                         update seller_order
@@ -560,27 +547,10 @@ public class OrderStatusService {
                                auto_confirm_at      = :autoConfirm
                          where seller_order_id = :sellerOrderId
                         """)
-                .param("withdrawal", BusinessCalendar.endOfDay(withdrawalLastDay))
-                .param("autoConfirm", BusinessCalendar.endOfDay(autoConfirmLastDay))
+                .param("withdrawal", BusinessCalendar.endOfDay(deadlines.withdrawalLastDay()))
+                .param("autoConfirm", BusinessCalendar.endOfDay(deadlines.autoConfirmLastDay()))
                 .param("sellerOrderId", sellerOrderId)
                 .update();
-    }
-
-    /**
-     * 자동확정일.
-     *
-     * <p>기본은 배송완료 다음날부터 8일째다. 다만 <b>말일 보정이 두 기한을 같은 날로 붙일 수 있다</b> —
-     * 청약철회 말일이 쉬는 날이라 하루 밀리면 8일째와 겹친다. 그러면 청약철회가 살아 있는 날
-     * 자정에 자동확정 배치가 돌아서, 아직 반품할 수 있는 주문이 확정된다.
-     *
-     * <p>그래서 <b>청약철회 만료 다음날보다 앞설 수 없다</b>. `D10` 이 정한 것은 8일이라는 날수가 아니라
-     * "청약철회 기간보다 짧으면 안 된다" 는 제약이고, 겹치는 날은 그 제약이 이긴다.
-     */
-    LocalDate autoConfirmLastDay(LocalDate deliveredOn, LocalDate withdrawalLastDay) {
-        LocalDate byCount = deliveredOn.plusDays(AUTO_CONFIRM_DAYS);
-        LocalDate afterWithdrawal = withdrawalLastDay.plusDays(1);
-
-        return calendar.nextBusinessDay(byCount.isAfter(afterWithdrawal) ? byCount : afterWithdrawal);
     }
 
     /**

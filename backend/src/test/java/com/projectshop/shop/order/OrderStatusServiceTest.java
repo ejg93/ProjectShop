@@ -138,23 +138,12 @@ class OrderStatusServiceTest extends PostgresTestBase {
         }
 
         /**
-         * 오늘 날짜에 안 흔들리게 고정한다. 위 테스트들은 실행하는 날에 따라
-         * 두 기한이 벌어져서, 붙는 날에만 나는 결함을 못 잡는다.
+         * <b>이 자리에 있던 「말일 보정이 두 기한을 붙여도」 테스트는 단위 층으로 옮겼다</b>(`Q19`).
+         *
+         * <p>날짜를 고정한 순수 계산이라 컨테이너가 필요 없었다 —
+         * {@code OrderDeadlinesTest.keepsAutoConfirmAfterWithdrawal} 이 같은 날짜(2026-08-10)를 본다.
+         * 여기 남은 것은 <b>그 계산이 DB 를 왕복해도 살아남나</b>뿐이다.
          */
-        @Test
-        @DisplayName("말일 보정이 두 기한을 붙여도 자동확정이 뒤로 밀린다")
-        void keepsAutoConfirmAfterWithdrawalWhenShifted() {
-            // 2026-08-10 배송완료 → 7일째가 8/17 인데 광복절 대체공휴일이라 8/18 로 밀린다.
-            // 8일째도 8/18 이라 보정 없이 계산하면 두 기한이 같은 날이 된다.
-            LocalDate deliveredOn = LocalDate.of(2026, 8, 10);
-            LocalDate withdrawalLastDay = calendar.nextBusinessDay(deliveredOn.plusDays(7));
-
-            assertThat(withdrawalLastDay).isEqualTo(LocalDate.of(2026, 8, 18));
-            assertThat(statuses.autoConfirmLastDay(deliveredOn, withdrawalLastDay))
-                    .as("같은 날이면 청약철회가 살아 있는 자정에 확정 배치가 돈다(`D10`)")
-                    .isEqualTo(LocalDate.of(2026, 8, 19));
-        }
-
         /**
          * <b>저장하고 다시 읽어도 날짜가 안 밀리는 것</b>을 고정한다.
          *

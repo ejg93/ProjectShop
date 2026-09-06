@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Set;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
@@ -48,10 +49,21 @@ public class BusinessCalendar {
 
     /** 그날이 영업일이면 그대로, 아니면 다음 영업일까지 민다 */
     public LocalDate nextBusinessDay(LocalDate date) {
+        return nextBusinessDay(date, holidaysAround(date, 0));
+    }
+
+    /**
+     * 위와 같은 계산인데 <b>휴일 집합을 받는다</b>(`Q19`). DB 를 모른다.
+     *
+     * <p>이 자리가 순수 계산이라 <b>단위 층에서 검증한다</b>(`D15`) — 컨테이너를 안 띄우므로
+     * 법 기한(`D2` R3·R5)을 확인하는 되먹임이 3분에서 초 단위로 온다.
+     * 인스턴스 메서드는 표에서 집합을 읽어 이것을 부르는 껍데기다.
+     */
+    public static LocalDate nextBusinessDay(LocalDate date, Set<LocalDate> holidays) {
         LocalDate moved = date;
 
         for (int shifted = 0; shifted <= MAX_SHIFT_DAYS; shifted++) {
-            if (isBusinessDay(moved)) {
+            if (isBusinessDay(moved, holidays)) {
                 return moved;
             }
             moved = moved.plusDays(1);
@@ -70,12 +82,17 @@ public class BusinessCalendar {
      * 이쪽은 <b>영업일만 세는 것</b>이다 — 3영업일은 주말이 끼면 역일로 닷새가 된다.
      */
     public LocalDate plusBusinessDays(LocalDate from, int days) {
+        return plusBusinessDays(from, days, holidaysAround(from, days));
+    }
+
+    /** 위와 같은 계산인데 휴일 집합을 받는다(`Q19`). DB 를 모른다. */
+    public static LocalDate plusBusinessDays(LocalDate from, int days, Set<LocalDate> holidays) {
         LocalDate moved = from;
 
         for (int counted = 0; counted < days; counted++) {
             moved = moved.plusDays(1);
 
-            for (int shifted = 0; !isBusinessDay(moved); shifted++) {
+            for (int shifted = 0; !isBusinessDay(moved, holidays); shifted++) {
                 if (shifted > MAX_SHIFT_DAYS) {
                     throw new IllegalStateException(
                             "%s 부터 %d일을 밀어도 영업일이 없다. holiday 표를 본다"
@@ -88,10 +105,19 @@ public class BusinessCalendar {
     }
 
     public boolean isBusinessDay(LocalDate date) {
+        return isBusinessDay(date, holidaysAround(date, 0));
+    }
+
+    /**
+     * 토·일이 아니고 휴일 집합에도 없으면 영업일이다.
+     *
+     * <p><b>토·일을 집합에 안 담는다</b> — 요일은 날짜에서 나온다. 담으면 같은 사실이 두 곳에 있다.
+     */
+    public static boolean isBusinessDay(LocalDate date, Set<LocalDate> holidays) {
         if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) {
             return false;
         }
-        return !isHoliday(date);
+        return !holidays.contains(date);
     }
 
     /**
@@ -111,10 +137,27 @@ public class BusinessCalendar {
         return lastDay.atTime(END_OF_DAY).atZone(ZONE).toOffsetDateTime();
     }
 
-    private boolean isHoliday(LocalDate date) {
-        return jdbc.sql("select exists (select 1 from holiday where holiday_date = :date)")
-                .param("date", date)
-                .query(Boolean.class)
-                .single();
+    /**
+     * 계산이 훑을 구간의 휴일만 읽는다(`Q19`).
+     *
+     * <p>{@link #MAX_SHIFT_DAYS} 를 넘어 밀지 않으므로 그만큼만 있으면 된다.
+     * 앞쪽으로도 조금 잡는 것은 부르는 쪽이 이미 며칠 더한 날짜를 넘길 수 있어서다.
+     * {@code extraDays} 는 {@link #plusBusinessDays} 처럼 <b>세면서 나아가는</b> 계산이 쓴다 —
+     * 한 걸음마다 최대 {@code MAX_SHIFT_DAYS} 를 더 밀 수 있다.
+     *
+     * <p><b>표 전체를 안 읽는다.</b> 임시공휴일이 계속 쌓이는 표라 전체를 들면 해가 갈수록 커진다.
+     */
+    /** 밖에서 순수 계산을 부를 때 쓸 휴일 집합. {@link OrderDeadlines} 가 이것을 받는다(`Q19`) */
+    public Set<LocalDate> holidaysNear(LocalDate date) {
+        return holidaysAround(date, 0);
+    }
+
+    private Set<LocalDate> holidaysAround(LocalDate date, int extraDays) {
+        return Set.copyOf(jdbc.sql(
+                        "select holiday_date from holiday where holiday_date between :from and :to")
+                .param("from", date.minusDays(MAX_SHIFT_DAYS))
+                .param("to", date.plusDays(MAX_SHIFT_DAYS * 2L + extraDays * (MAX_SHIFT_DAYS + 1L)))
+                .query(LocalDate.class)
+                .list());
     }
 }
