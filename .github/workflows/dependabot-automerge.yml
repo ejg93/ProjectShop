@@ -1,0 +1,39 @@
+# minor·patch 갱신은 CI 가 초록이면 사람 없이 머지한다(청크 `2f-3`).
+#
+# **첫 회차가 근거다**(2026-09-05). PR 열 개 중 초록 일곱을 전부 머지했고 메이저 셋은 닫았다.
+# 사람이 한 것은 **초록을 보고 누른 것뿐**이라 그 손을 뺀다.
+#
+# **막는 것은 그대로 CI 다.** 이 워크플로는 판정을 안 한다 — 가지 보호의 필수 검사 넷이
+# 초록이 되기를 기다렸다가 머지할 뿐이고, 빨가면 자동 머지가 그냥 안 일어난다.
+name: Dependabot auto-merge
+
+# **`pull_request_target` 이라야 토큰에 쓰기가 붙는다.** dependabot 이 연 PR 에서
+# 보통의 `pull_request` 는 읽기 토큰만 준다.
+#
+# **PR 의 코드를 체크아웃하지 않는다.** 이 이벤트에서 남의 코드를 받아 실행하면
+# 쓰기 토큰이 그 코드에 넘어간다. 여기서 하는 것은 메타데이터를 읽고 머지를 거는 것뿐이다.
+on: pull_request_target
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  automerge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v3
+
+      # 메이저는 안 건다. 사람이 본다 — 첫 회차에서 닫은 셋이 전부 메이저였다.
+      # `gh pr merge --auto` 는 **지금 머지하는 것이 아니라 예약**이다.
+      # 필수 검사가 초록이 되는 순간 GitHub 이 머지한다. 빨간 채로는 안 한다.
+      #
+      # `--merge` 다. squash 를 쓰면 갱신 하나를 되돌릴 때 묶음이 통째로 딸려 온다(`2g-4`).
+      - if: steps.meta.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
