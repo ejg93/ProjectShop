@@ -16,6 +16,9 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 | **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test | **Stop hook** — 청크를 닫을 때 |
 | **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(느린 레인 930개) · frontend `next build`·lint·test | **push hook** — 미는 것은 마무리 앞 한 번 |
 
+**full 은 Docker 를 먼저 본다**(`2z-3`). 안 떠 있으면 한 줄로 끝낸다 — 그전에는 930개가 전부 FAILED 로 뜨고
+진짜 원인은 XML 리포트를 파야 나왔다.
+
 DB 를 타는 결함은 그래서 청크 여럿 뒤에 드러날 수 있다 — 청크가 커밋 하나라 `git bisect` 가 답한다.
 아래 표의 첫 네 줄이 그 두 레인이다. **나머지 줄은 손이고 도장이 안 본다** — 걸리면 돌리고 이력에 적는다.
 

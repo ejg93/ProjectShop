@@ -33,6 +33,14 @@ ran=0; ok=1
 if changed backend; then
   ran=1
   if [ "$level" = full ]; then
+    # Docker 를 먼저 본다(`2z-3`). 안 떠 있으면 느린 레인 930개가 **전부 FAILED** 로 뜨고,
+    # 진짜 원인(`Could not find a valid Docker environment`)은 XML 리포트를 파야 나온다 —
+    # 로그만 보면 코드가 깨진 것처럼 보인다. 2026-09-10 에 `2i-2` 를 치다 실제로 그랬다.
+    if ! docker info >/dev/null 2>&1; then
+      echo "Docker 가 안 떴다. 느린 레인은 컨테이너를 띄운다 — Docker Desktop 을 켜고 다시 돌린다."
+      echo "  (청크를 닫을 때만이면 --full 없이 돌린다. 빠른 레인은 컨테이너를 안 탄다)"
+      exit 1
+    fi
     echo "== backend 지문이 origin/main 과 다르다 → ./gradlew build (두 레인)"
     (cd backend && ./gradlew build -q) || ok=0
   else
