@@ -266,8 +266,11 @@ public abstract class PostgresTestBase {
          * 그 비우기가 남의 fork 가 방금 쓴 키를 지운다.</b> 게다가 {@code HttpTestBase} 의
          * 계정 일련번호가 JVM 마다 1부터라 fork 끼리 <b>같은 이메일</b>을 만든다 — 키까지 겹친다.
          *
-         * <p>번호는 {@link #workerId()} 를 그대로 쓴다. Redis 기본값 16 으로는 빌드가 길어지면
-         * 넘쳐서 {@link #REDIS_DATABASES} 로 늘렸다. 0 번은 손으로 들여다볼 때 쓰라고 비워 둔다.
+         * <p><b>여기만 번호를 접는다.</b> Postgres 는 DB 이름에 {@link #workerId()} 를 그대로 넣지만
+         * Redis 는 논리 DB 가 번호라 상한이 있다. 기본값 16 으로는 빌드가 길어지면 넘쳐서
+         * {@link #REDIS_DATABASES} 로 늘리고 그 수로 접는다 — <b>겹치려면 worker 번호가 255 차이나야 하고
+         * 한 빌드에서 그럴 수가 없다.</b> {@code workerId()} 가 「접지 마라」고 적은 것은
+         * <b>fork 수(2~4)로 접는 것</b>을 말한다. 0 번은 손으로 들여다볼 때 쓰라고 비워 둔다.
          *
          * <p><b>작업트리 사이는 이것으로 안 갈린다.</b> 병렬 줄 둘이 재사용 컨테이너를 나눠 쓰면
          * worker 번호가 줄마다 1부터라 같은 논리 DB 를 잡는다. 그래서 `CLAUDE.md` 「병렬 줄」의

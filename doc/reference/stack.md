@@ -813,7 +813,7 @@ To enable reuse of containers, you must set 'testcontainers.reuse.enable=true' i
 
 **재사용 컨테이너는 fork 사이에서 안 갈린다**(`2i-2`). 컨테이너가 하나라 fork 넷이 같은 Postgres DB,
 같은 Redis 논리 DB 를 잡는다 — 롤백에 안 쓸리는 정리 코드가 남의 fork 를 지운다.
-`PostgresTestBase` 가 fork 마다 DB 를 만들어 그것을 가른다. **`` 을 쓰면 못 가른다** —
+`PostgresTestBase` 가 fork 마다 DB 를 만들어 그것을 가른다. **`@ServiceConnection` 을 쓰면 못 가른다** —
 그 표시가 컨테이너의 기본 DB 로 연결을 고정해서, `JdbcConnectionDetails`·`DataRedisConnectionDetails` 를 직접 만든다.
 
 **Redis 논리 DB 는 기본이 16개다.** Gradle 의 `org.gradle.test.worker` 는 빌드 내내 커지는 번호라

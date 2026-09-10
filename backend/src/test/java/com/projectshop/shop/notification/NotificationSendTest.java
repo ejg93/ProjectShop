@@ -183,7 +183,7 @@ class NotificationSendTest extends PostgresTestBase {
      *
      * <p><b>접근 범위만으로는 이 자리가 안 막힌다.</b> 광고를 보내는 입구는 패키지 안에만
      * 있지만 {@link NotificationService#send(NotificationEventType, NotificationService.Target, long, java.util.Map)}
-     * 는 공개라, 거기 광고 판의 코드가 들어오면 <b>{@link AdvertisingGate} 를 안 지난 광고</b>가 나간다.
+     * 는 공개고 — 사건 타입은 `43a-27` 이 패키지로 좁혔지만 이 메서드 자체는 열려 있어서 —, 거기 광고 판의 코드가 들어오면 <b>{@link AdvertisingGate} 를 안 지난 광고</b>가 나간다.
      *
      * <p>종류가 타입이 되기 전에는 비교할 것 자체가 없었다(`43a-25`).
      */
