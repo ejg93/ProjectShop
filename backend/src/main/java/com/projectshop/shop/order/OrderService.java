@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.product.StockReason;
 import com.projectshop.shop.support.ExposedNumber;
 
 /**
@@ -254,7 +255,8 @@ public class OrderService {
             // 재고는 `move_stock()` 으로만 옮긴다(`53`). 이력을 같이 남기려고 두 문장으로 나누면
             // 한쪽만 도는 자리가 생기고, 직접 UPDATE 는 트리거가 거부한다.
             boolean moved = Boolean.TRUE.equals(jdbc.sql(
-                            "select move_stock(:skuId, :quantity, 'order_placed', :orderId)")
+                            "select move_stock(:skuId, :quantity, :reason, :orderId)")
+                    .param("reason", StockReason.ORDER_PLACED.code())
                     .param("skuId", line.skuId())
                     .param("quantity", -line.quantity())
                     .param("orderId", orderId)
