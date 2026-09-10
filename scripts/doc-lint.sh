@@ -156,6 +156,14 @@ elif [ "$plan_open_incomplete" -lt "$plan_open_incomplete_baseline" ]; then
   echo "[기준선 내릴 것] PLAN.md — 칸 빠진 행이 ${plan_open_incomplete}개로 줄었다. scripts/doc-lint.sh 의 plan_open_incomplete_baseline 을 그 수로 내린다"
 fi
 
+# 「현재 상태」는 표다(`2u`). 서사가 붙기 시작하면 세션마다 hook 이 그것을 통째로 주입한다(`2q`) —
+# 2026-09-06 에 119줄이었다. 상한을 넘으면 빨갛다.
+state_lines=$(awk '/^## 현재 상태$/{on=1; next} /^## /{on=0} on' PROGRESS.md | wc -l)
+if [ "$state_lines" -gt 25 ]; then
+  echo "[현재 상태 비대] PROGRESS.md — 「현재 상태」가 ${state_lines}줄이다(상한 25). 표만 남기고 서사는 이력으로(PROGRESS.md 「기록 규칙」)"
+  fail=1
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "이상 없음 — 검사한 파일 전부 통과"
 fi
