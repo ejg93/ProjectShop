@@ -79,7 +79,7 @@ class EnumConstraintTest extends PostgresTestBase {
             "order.OrderFields", "〃",
             "audit.AuditLog$Kind", "커밋 방식을 가르는 구분이다. 저장 안 한다 — `audit_log` 에 그 열이 없다",
             "notification.AdvertisingGate$Verdict", "발송 판정의 결과다. 안 보낸 이유는 저장 안 하고 로그로 간다",
-            "order.OrderActionService$Action", "닫힌 목록이 `permission` 표의 행이지 `check` 가 아니다. 대조가 없는 것은 맞고 모양이 달라서 `43a-21` 로 세웠다");
+            "order.OrderActionService$Action", "닫힌 목록이 `permission` 표의 행이지 `check` 가 아니다. `ActionPermissionTest` 가 대조한다(`43a-21`)");
 
     @Autowired
     private JdbcClient jdbc;

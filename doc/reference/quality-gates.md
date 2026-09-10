@@ -26,6 +26,7 @@
 | 마이그레이션 제약 | 2 제약 | 기동·테스트 | 61개 파일의 `check`·`not null`·`references` | **테스트 아홉이 매번 부순다**(`2m-1`) |
 | `EnumConstraintTest` | 4 테스트 | `./gradlew build` | 열거형과 `check` 목록이 갈리는 것 | `43a-19` 2026-08-29 |
 | `PlanProgressConsistencyTest` | 4 테스트 | 〃 | 이력이 완료인데 분할표가 안 닫힌 청크 | `2m-1` 2026-09-06 |
+| `ActionPermissionTest` | 4 테스트 | 〃 | 주문 동작이 넘기는 권한 이름이 `permission` 표에 없는 것(`43a-21`). 없으면 그 동작이 **언제나 거부**인데 초록이다 | `43a-21` 2026-09-10 |
 | `StackVersionConsistencyTest` | 4 테스트 | 〃 | `stack.md` 버전 표가 실제 파일과 갈리는 것(`2f`) | `2f` 2026-09-04 |
 | 나머지 테스트 | 4 테스트 | 〃 | backend 972, frontend 29 | — |
 | 화면 대조 둘 | 4 테스트 | 〃 | 오류 슬러그·상태 문구가 층 사이에서 갈리는 것 | `Q16` 2026-09-05 |
