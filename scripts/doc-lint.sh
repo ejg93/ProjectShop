@@ -18,6 +18,7 @@ done
 
 title_check_files=(
   CLAUDE.md
+  backend/CLAUDE.md
   PLAN.md
   PROGRESS.md
   "${skill_files[@]}"
@@ -29,6 +30,7 @@ dup_check_files=(
   PLAN.md
   PROGRESS.md
   frontend/CLAUDE.md
+  backend/CLAUDE.md
   frontend/AGENTS.md
   "${skill_files[@]}"
   doc/reference/*.md
@@ -44,6 +46,7 @@ honorific_check_files=(
   PLAN.md
   PROGRESS.md
   frontend/CLAUDE.md
+  backend/CLAUDE.md
   frontend/AGENTS.md
   "${skill_files[@]}"
   doc/reference/*.md
