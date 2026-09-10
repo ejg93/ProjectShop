@@ -9,8 +9,8 @@
 | 진행중 청크 | 없음 | |
 | 다음 청크 | **마무리** — `2q`~`2w` 일곱이 `work/2026-09-10` 에 있다. #30 이 머지돼야 PR 을 연다(훅이 둘째 PR 을 막는다) | `/wrapup` |
 | PR #30 (`work/2026-09-06`, 커밋 스물다섯) | 잡 전부 초록, **머지 대기** | 사람이 `gh pr merge 30 --merge` |
-| Dependabot | #31 `frontend-minor` 초록인데 자동 머지 예약이 안 걸렸다 — `2f-3` 워크플로가 아직 `main` 에 없다(#30). #32 vitest 5 는 메이저 | #30 머지 뒤 `@dependabot rebase` |
-| 증거 대기 | `2g-5`(나) 리뷰 probe · `2w` 리뷰가 표를 내나 · `2f-3` 첫 자동 머지 · `2p` 첫 합치기 · `2e-3` SBOM 에 Gradle 좌표 | 다음 마무리 PR·월요일 회차 |
+| Dependabot | #31 을 `github-actions` 가 머지했다(`2f-3` 첫 실물, 2026-09-10). #32 vitest 5 는 메이저 | 메이저는 사람이 본다 |
+| 증거 대기 | `2g-5`(나) 리뷰 probe · `2w` 리뷰가 표를 내나 · `2p` 첫 합치기 · `2e-3` SBOM 에 Gradle 좌표 | 다음 마무리 PR·월요일 회차 |
 | 그다음 코드 청크 | `43a-22`~`43a-27`(닫힌 목록·열거형) · `Q` 계열 화면 테스트(`login-form`·`signup-form`·`purchase-panel`·`cart-line`) | |
 | 다음 점검 | 세로 · 앱 검증 또는 테스트 — 한 번도 안 봤다 | 아래 「점검 — 어디까지 봤나」 |
 | 테스트가 안 부르는 R | 13/37(`req-coverage.sh`, 2026-09-10) — 구멍인지 제약인지 안 갈랐다 | 다음 가로·법 점검 |
@@ -402,6 +402,8 @@
 | 2026-09-10 | 2y. 슬래시 기본 + `.gitattributes` | 완료 — `CLAUDE.md`·스킬 설명문 셋·`doc/README.md`·`.gitattributes`(신설). **텍스트 `예열` 은 내가 설명문을 보고 매칭하는 것이라 판단이 한 번 끼고, 슬래시는 하네스가 직접 로드한다**(사용자 지적) — 강제 지점을 한 칸 내리는 것과 같은 방향. 줄 끝은 오늘 `ci.yml` 앵커가 세 번 헛돈 자리다. `git add --renormalize` 로 인덱스를 한 번에 LF 로 | |
 | 2026-09-10 | 2z. 「검증」 스킬 + 도장 훅 | 완료 — `verify` 스킬(신설)·`scripts/verify.sh`(신설)·`settings.json`·`CLAUDE.md`·`backend/CLAUDE.md`·`quality-gates.md`. **매 세션 실리던 95줄이 청크 끝에만 실린다.** 빼면 안 부른다는 위험을 **도장**으로 막았다(사용자 선택) — 「읽으라고 적은 것」을 hook 으로 내린 `2q` 와 같은 꼴. 서브트리 해시를 쓴 이유: 전체 트리 해시면 `PLAN`·`PROGRESS` 를 고칠 때마다 도장이 깨진다. **`origin/main` 이 기준이라 #30 이 안 머지된 지금은 두 레인이 다 「다르다」로 나온다** — 머지되면 좁아진다. **검증**: `verify.sh` 초록, 훅 세 경로 | |
 | 2026-09-10 | 2z-1. 도장 지문을 코드·빌드 파일로 | 완료 — `verify-fingerprint.sh`(신설)·`verify.sh`·`settings.json`·`verify` 스킬·`quality-gates.md`. **`2z` 가 세운 훅이 `2z` 의 커밋을 막았다** — 서브트리 해시는 `backend/CLAUDE.md` 도 코드로 센다. 부순 증거가 저절로 온 셋째 사례다(`2x` 첫 판·`npm audit`·이것). 경로 목록을 스크립트 한 곳에 둬서 훅과 `verify.sh` 가 같은 지문을 본다. **검증**: 훅 세 경로, `verify.sh` 초록 | |
+| 2026-09-10 | 2f-3. 자동 머지 — 증거 | 완료 — `PLAN.md`·`quality-gates.md`·`PROGRESS.md`. #30 이 머지되자 워크플로가 `main` 에 올랐고, 뒤처진 #31 에 `@dependabot rebase` 를 달자 **`github-actions` 가 05:55Z 에 머지했다**(`autoMergeRequest` 있음, 사람 클릭 0). 규칙을 세운 지 나흘 만의 첫 실물이고, 사람이 한 rebase 한 번이 `2h` 가 세기로 한 그 구멍이다 | |
+| 2026-09-10 | 2t-1. 곧 잡을 행에 닫힘을 채운다(설계) | 완료 — `PLAN.md`·`doc-lint.sh`·`quality-gates.md`·`external-references.md`. 열다섯에 채우고 셋을 새로 세웠다(`2x-1`·`Q20`·`Q21`). **닫힘은 테스트 클래스·메서드 이름**이고 점검·CI 처럼 테스트가 없는 행은 무엇을 보고 닫는지를 적었다. 갈림길 둘을 물었다 — `W3` 는 과거 이력을 옮긴다(예외 목록은 낡는다), `2h` 는 `SessionStart` 훅이 주입한다(파일만 남기면 「읽으라고 적은 것」). **`W2`·`W4` 는 이미 된 것이었다** — `2r` 이 스킬 둘을, Dependabot 이 액션 넷을. `W2` 가 들고 있던 `law.go.kr` 조회법만 `external-references.md` 로 옮겼다. 래칫 74 → 56. **검증**: `doc-lint.sh`·`PlanProgressConsistencyTest` 통과 | |
 
 ## 기록 규칙
 

@@ -295,7 +295,8 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 
 ## D2 법·정책 (완료)
 
-- 국가법령정보센터: https://law.go.kr — 법령 원문의 정본
+- 국가법령정보센터: https://law.go.kr — 법령 원문의 정본.
+  **평문 URL 은 제목만 준다 — `print=print` 판을 받아야 조문이 온다**(`W2` 가 남긴 사실, 2026-09-10 에 적었다)
 - 상세는 `commerce-compliance.md`
 
 ### 조문 대조 (2026-08-08)
