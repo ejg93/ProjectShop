@@ -136,6 +136,26 @@ for f in "${honorific_check_files[@]}"; do
   fi
 done
 
+# 분할표의 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
+# 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
+# 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
+#
+# 행 판정은 `PlanProgressConsistencyTest` 와 같다 — 번호 칸이나 이름 칸의 취소선, 선행 칸의 `완료`.
+# `#`·`칸` 은 표 머리다(분할표와 그 앞의 칸 설명 표).
+plan_open_incomplete_baseline=74
+plan_open_incomplete=$(awk '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
+    n=split($0,c,"|"); id=c[2]; gsub(/^ +| +$/,"",id); nm=c[3]; gsub(/^ +/,"",nm);
+    last=c[n-1]; gsub(/^ +| +$/,"",last);
+    if (id=="#" || id=="칸" || id ~ /^~~/ || nm ~ /^~~/ || last=="완료") next;
+    if ($0 !~ /\*\*축\*\*/ || $0 !~ /\*\*강제 지점\*\*/ || $0 !~ /\*\*닫힘\*\*/) k++
+  } END{print k+0}' PLAN.md)
+if [ "$plan_open_incomplete" -gt "$plan_open_incomplete_baseline" ]; then
+  echo "[분할표 칸 누락] PLAN.md — 안 닫힌 행 중 축·강제 지점·닫힘이 빠진 것이 ${plan_open_incomplete}개 (기준선 ${plan_open_incomplete_baseline}). 새 행에는 넷을 다 적는다(PLAN.md 「청크 분할표」)"
+  fail=1
+elif [ "$plan_open_incomplete" -lt "$plan_open_incomplete_baseline" ]; then
+  echo "[기준선 내릴 것] PLAN.md — 칸 빠진 행이 ${plan_open_incomplete}개로 줄었다. scripts/doc-lint.sh 의 plan_open_incomplete_baseline 을 그 수로 내린다"
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "이상 없음 — 검사한 파일 전부 통과"
 fi
