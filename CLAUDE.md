@@ -104,6 +104,7 @@
 | **허브 파일은 더하기만** | `quality-gates.md`·`stack.md`·`CLAUDE.md`·`testing-strategy.md` 는 두 줄이 다 고친다. 행·절을 더하기만 하고 남의 절을 안 옮긴다 |
 | **마이그레이션 번호를 예약한다** | 새 `V` 가 필요한 청크는 분할표 행에 번호를 미리 적는다. 나누기 전에 안 겹치는지 본다 |
 | **8080·3000·컴포즈 DB 는 한 줄만** | `bootRun`·`npm run e2e`·`docker compose down -v` 를 쓰는 청크를 한 줄에 몬다 |
+| **느린 레인도 한 줄만** | Testcontainers 재사용 컨테이너가 하나라 두 줄이 같이 `integrationTest`·`verify.sh --full`(backend) 을 돌리면 서로 밟는다. `2i-2` 가 DB 이름에 worktree 를 넣으면 풀린다 |
 
 **줄 배정은 여기 안 적는다.** 그날 무엇을 어느 줄에 두는지는 `PROGRESS.md` 「현재 상태」가 든다.
 
