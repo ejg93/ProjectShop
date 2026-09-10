@@ -61,6 +61,13 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-micrometer-tracing-brave")
 	implementation("io.micrometer:micrometer-tracing-bridge-brave")
 	runtimeOnly("org.postgresql:postgresql")
+	// API 스펙을 코드에서 뽑는다(`2a`). **UI 스타터를 안 들인다** — 행이 연 것은 스펙 하나고,
+	// Swagger UI 는 정적 자원과 경로를 더 열어서 노출면만 넓힌다.
+	//
+	// **3.x 가 Boot 4 판이다.** 2.x 는 Boot 3 모듈 배치(`spring-boot-starter-*`)를 부르고
+	// 3.x 가 쪼개진 배치(`spring-boot-webmvc`·`spring-boot-tomcat`)를 부른다 — 2.x 를 얹으면
+	// 없는 좌표를 찾다가 죽는다. Boot BOM 이 관리 안 해서 버전을 직접 적는다.
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.1.1")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")

@@ -63,6 +63,12 @@ public class SecurityConfig {
      */
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/health",
+            // API 스펙(`2a`). 코드에서 뽑은 계약이라 비밀이 아니고, 막으면 프론트가 못 읽는다.
+            // UI 는 안 들였으므로 이 둘이 전부다.
+            "/api/docs",
+            "/api/docs/**",
+            // YAML 판은 형제 경로라 위 패턴에 안 걸린다. 같은 스펙이라 같이 연다.
+            "/api/docs.yaml",
             "/actuator/health",
             "/actuator/health/**",
             // 가입과 로그인은 계정이 없거나 아직 인증되지 않은 사람이 부른다.

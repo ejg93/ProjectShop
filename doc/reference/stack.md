@@ -21,6 +21,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
 | Testcontainers | 2.0.5 | `build.gradle.kts` 의 BOM |
+| springdoc-openapi | 3.1.1 | `build.gradle.kts`. **3.x 가 Boot 4 판이다** — 2.x 는 Boot 3 모듈 배치를 부른다 |
 | ArchUnit | 1.5.0 | `build.gradle.kts`. **`archunit-junit6`** 다 — 이 저장소가 JUnit 6 이다 |
 | Caffeine | 3.2.4 | 안 적는다. **Boot BOM 이 관리한다** |
 | Jackson | 3.1.4 | 안 적는다. `starter-webmvc` 가 딸려 온다 |
