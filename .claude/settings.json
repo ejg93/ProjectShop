@@ -11,6 +11,28 @@
             "statusMessage": "PR 순서 검사"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*git push([[:space:]]+-[-A-Za-z=]+)*([[:space:]]+[A-Za-z0-9_./-]+)?[[:space:]]+([A-Za-z0-9_./-]+:)?main([[:space:]]|$)'; then echo 'main 에 직접 안 민다(CLAUDE.md 「재개 프로토콜」 7번). work/<날짜> 가지에 밀고 마무리가 PR 을 연다.' >&2; exit 2; fi; if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*git push([[:space:]]+-[-A-Za-z=]+)*[[:space:]]*($|[;&|])' && [ \"$(git rev-parse --abbrev-ref HEAD 2>/dev/null)\" = main ]; then echo '현재 가지가 main 이다. work/<날짜> 가지를 따고 민다(CLAUDE.md 「재개 프로토콜」 7번).' >&2; exit 2; fi; exit 0",
+            "timeout": 10,
+            "statusMessage": "main 직접 push 검사"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*(\\./)?gradlew([[:space:]]|$)' && ! printf '%s' \"$c\" | grep -qE 'JAVA_HOME='; then echo 'backend 명령 앞에 JAVA_HOME=\"C:/Program Files/Java/jdk-25\" 를 붙인다(CLAUDE.md 「검증」). 이 환경의 기본은 JDK 11 이라 Gradle 이 안 뜬다.' >&2; exit 2; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "JAVA_HOME 검사"
+          }
+        ]
       }
     ],
     "PostToolUse": [
