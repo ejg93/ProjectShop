@@ -25,7 +25,7 @@ import jakarta.servlet.http.HttpSession;
  * 우리가 따로 심지 않는다 — 심으면 그 값을 넣는 자리를 빠뜨릴 수 있고,
  * <b>로그인할 때 세션 ID 를 재발급하므로</b>(세션 고정 방어) 그 시점에 시각도 새로 시작한다.
  */
-public class AbsoluteSessionTimeoutFilter extends OncePerRequestFilter {
+class AbsoluteSessionTimeoutFilter extends OncePerRequestFilter {
 
     static final Duration MAX_AGE = Duration.ofHours(12);
 

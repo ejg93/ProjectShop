@@ -19,7 +19,7 @@ import java.util.Set;
  * @param withdrawalLastDay 청약철회 말일. 이날 24시까지 철회할 수 있다
  * @param autoConfirmLastDay 자동 구매확정일. 이날 24시가 지나면 배치가 확정한다
  */
-public record OrderDeadlines(LocalDate withdrawalLastDay, LocalDate autoConfirmLastDay) {
+record OrderDeadlines(LocalDate withdrawalLastDay, LocalDate autoConfirmLastDay) {
 
     /** 청약철회 기간. 배송완료 다음날부터 센다(`D2` R3·`D10`) */
     private static final int WITHDRAWAL_DAYS = 7;

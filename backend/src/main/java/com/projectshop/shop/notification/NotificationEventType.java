@@ -19,7 +19,7 @@ import java.util.Arrays;
  * 사건은 {@link #ADVERTISEMENT} 하나인데 문안이 캠페인마다 달라서
  * {@link AdvertisingNotifications} 가 코드를 따로 넘긴다.
  */
-public enum NotificationEventType {
+enum NotificationEventType {
 
     /** 주문이 들어왔다 */
     ORDER_PLACED,
@@ -49,7 +49,7 @@ public enum NotificationEventType {
     CONSENT_RECONFIRM;
 
     /** 저장값. DB 는 소문자다 */
-    public String code() {
+    String code() {
         return name().toLowerCase();
     }
 
@@ -59,7 +59,7 @@ public enum NotificationEventType {
      * <p><b>모르는 값이면 터진다.</b> {@code notification_event_type_check} 가 이미 막고 있으므로
      * 여기 오는 모르는 값은 <b>마이그레이션과 이 enum 이 어긋났다</b>는 뜻이다.
      */
-    public static NotificationEventType of(String code) {
+    static NotificationEventType of(String code) {
         return Arrays.stream(values())
                 .filter(event -> event.code().equals(code))
                 .findFirst()
