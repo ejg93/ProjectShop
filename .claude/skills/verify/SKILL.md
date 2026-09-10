@@ -9,7 +9,14 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 청크를 닫기 전에 걸리는 줄을 **전부** 돌린다.
 
 **먼저 `bash scripts/verify.sh`**(`2z`). `origin/main` 대비 레인 지문(코드·빌드 파일만 — `scripts/verify-fingerprint.sh`, `2z-1`)이 다르면 그 레인을 돌리고,
-초록이면 `.git/verify-stamp` 에 지문을 찍는다. **Stop hook 이 `HEAD` 와 대조한다** — 도장 없이 코드 커밋을 남기고는 못 멈춘다.
+초록이면 `.git/verify-stamp` 에 지문을 찍는다. **도장이 두 단계다**(`2z-2`):
+
+| 단계 | 명령 | 무엇이 도나 | 누가 요구하나 |
+|---|---|---|---|
+| **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test | **Stop hook** — 청크를 닫을 때 |
+| **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(느린 레인 930개) · frontend `next build`·lint·test | **push hook** — 미는 것은 마무리 앞 한 번 |
+
+DB 를 타는 결함은 그래서 청크 여럿 뒤에 드러날 수 있다 — 청크가 커밋 하나라 `git bisect` 가 답한다.
 아래 표의 첫 네 줄이 그 두 레인이다. **나머지 줄은 손이고 도장이 안 본다** — 걸리면 돌리고 이력에 적는다.
 
 ## 실제로 돌려본 것만 됐다고 한다
@@ -24,13 +31,13 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 
 | 언제 | 명령 | 통과 기준 |
 |---|---|---|
-| **코드를 건드렸으면 항상** | `cd backend && ./gradlew build` | `BUILD SUCCESSFUL`. **테스트 두 레인이 여기서 다 돈다** — `test`(빠른 것)와 `integrationTest`(컨테이너) |
-| **화면을 건드렸으면** | `cd frontend && npm run build` | `Compiled successfully` + `Finished TypeScript`. 타입 검사가 같이 돈다 |
+| **backend 를 건드렸으면, push 앞에** | `cd backend && ./gradlew build`(= `verify.sh --full`) | `BUILD SUCCESSFUL`. **테스트 두 레인이 여기서 다 돈다** — `test`(빠른 것)와 `integrationTest`(컨테이너) |
+| **화면을 건드렸으면, push 앞에** | `cd frontend && npm run build`(= `verify.sh --full`) | `Compiled successfully` + `Finished TypeScript`. 청크를 닫을 땐 `tsc --noEmit` 으로 타입만 본다(`2z-2`) |
 | 〃 | `npm run lint` | 출력 없음. **접근성 규칙이 포함돼 있다**(`D20`) |
 | 〃 | `npm test` | 실패 0 |
 | **로그인·상품·장바구니 화면을 건드렸으면** | 백엔드를 `local` 로 띄운 뒤 `cd frontend && npm run build && npm run e2e` | 통과. CI 는 PR 에서 자동으로 돈다(`Q18-1`). 손으로 걸려면 `gh workflow run e2e.yml --ref <가지>` — **`e2e.yml` 이 `main` 에 있어야 뜬다** |
 | **푸시했으면** | 아래 「CI」 | 초록. **빨가면 다음 청크보다 먼저 친다** |
-| **고치는 중에 빨리 확인할 때** | `./gradlew test` | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**(87개). 대신 **DB 를 타는 930개는 여기서 안 돈다** — 닫기 전에는 `build` 를 돌린다 |
+| **고치는 중·청크를 닫을 때** | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**(87개). 대신 **DB 를 타는 930개는 여기서 안 돈다** — 닫기 전에는 `build` 를 돌린다 |
 | 스키마·서비스만 볼 때 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(930개, **72~78초**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
 | **마이그레이션을 더했으면** | **빈 DB 를 만들어** `POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 **마이그레이션 파일 수 + 시드 3**. **테스트만으로는 기동 경로를 안 지난다**. 쓰던 DB 에 그냥 올리면 시드가 `V900+` 라 Flyway 가 순서를 어긴 것으로 보고 멈춘다(`stack.md`) |
 | 컨테이너 설정을 건드렸으면 | `docker compose config --quiet` 후 `docker compose up -d` | 종료 코드 0, `shop-db`·`shop-redis` 가 `healthy` |

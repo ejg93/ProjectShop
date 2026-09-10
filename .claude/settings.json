@@ -17,9 +17,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*git push([[:space:]]+-[-A-Za-z=]+)*([[:space:]]+[A-Za-z0-9_./-]+)?[[:space:]]+([A-Za-z0-9_./-]+:)?main([[:space:]]|$)'; then echo 'main 에 직접 안 민다(CLAUDE.md 「재개 프로토콜」 7번). work/<날짜> 가지에 밀고 마무리가 PR 을 연다.' >&2; exit 2; fi; if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*git push([[:space:]]+-[-A-Za-z=]+)*[[:space:]]*($|[;&|])' && [ \"$(git rev-parse --abbrev-ref HEAD 2>/dev/null)\" = main ]; then echo '현재 가지가 main 이다. work/<날짜> 가지를 따고 민다(CLAUDE.md 「재개 프로토콜」 7번).' >&2; exit 2; fi; exit 0",
+            "command": "c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*git push([[:space:]]+-[-A-Za-z=]+)*([[:space:]]+[A-Za-z0-9_./-]+)?[[:space:]]+([A-Za-z0-9_./-]+:)?main([[:space:]]|$)'; then echo 'main 에 직접 안 민다(CLAUDE.md 「재개 프로토콜」 7번). work/<날짜> 가지에 밀고 마무리가 PR 을 연다.' >&2; exit 2; fi; if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*git push([[:space:]]|$)'; then if [ \"$(git rev-parse --abbrev-ref HEAD 2>/dev/null)\" = main ]; then echo '현재 가지가 main 이다. work/<날짜> 가지를 따고 민다(CLAUDE.md 「재개 프로토콜」 7번).' >&2; exit 2; fi; cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 0; git rev-parse -q --verify origin/main >/dev/null 2>&1 || exit 0; st=\"$(git rev-parse --git-dir)/verify-stamp\"; head=$(bash scripts/verify-fingerprint.sh HEAD); main=$(bash scripts/verify-fingerprint.sh origin/main); fail=''; for d in backend frontend; do h=$(echo \"$head\" | grep \"^$d \"); [ \"$h\" = \"$(echo \"$main\" | grep \"^$d \")\" ] && continue; grep -qx \"$h full\" \"$st\" 2>/dev/null || fail=\"$fail $d\"; done; if [ -n \"$fail\" ]; then echo \"full 도장이 없다:$fail — push 앞엔 bash scripts/verify.sh --full (느린 레인·next build) 이 HEAD 에서 초록이어야 한다(2z-2).\" >&2; exit 2; fi; fi; exit 0",
             "timeout": 10,
-            "statusMessage": "main 직접 push 검사"
+            "statusMessage": "push 검사 — main 금지·full 도장"
           }
         ]
       },
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*(\\./)?gradlew([[:space:]]|$)' && ! printf '%s' \"$c\" | grep -qE 'JAVA_HOME='; then echo 'backend 명령 앞에 JAVA_HOME=\"C:/Program Files/Java/jdk-25\" 를 붙인다(CLAUDE.md 「검증」). 이 환경의 기본은 JDK 11 이라 Gradle 이 안 뜬다.' >&2; exit 2; fi; exit 0",
+            "command": "c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); if printf '%s\\n' \"$c\" | perl -CS -ne 'print unless /\\p{Hangul}/' | grep -qE '(^|[;&|])[[:space:]]*(\\./)?gradlew([[:space:]]|$)' && ! printf '%s' \"$c\" | grep -qE 'JAVA_HOME='; then echo 'backend 명령 앞에 JAVA_HOME=\"C:/Program Files/Java/jdk-25\" 를 붙인다(CLAUDE.md 「검증」). 이 환경의 기본은 JDK 11 이라 Gradle 이 안 뜬다.' >&2; exit 2; fi; exit 0",
             "timeout": 5,
             "statusMessage": "JAVA_HOME 검사"
           }
@@ -86,7 +86,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "j=$(cat); echo \"$j\" | grep -qE '\"stop_hook_active\"[[:space:]]*:[[:space:]]*true' && exit 0; cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 0; git rev-parse -q --verify origin/main >/dev/null 2>&1 || exit 0; st=\"$(git rev-parse --git-dir)/verify-stamp\"; head=$(bash scripts/verify-fingerprint.sh HEAD); main=$(bash scripts/verify-fingerprint.sh origin/main); fail=''; for d in backend frontend; do h=$(echo \"$head\" | grep \"^$d \"); [ \"$h\" = \"$(echo \"$main\" | grep \"^$d \")\" ] && continue; [ \"$h\" = \"$(grep \"^$d \" \"$st\" 2>/dev/null)\" ] || fail=\"$fail $d\"; done; [ -z \"$fail\" ] && exit 0; echo \"검증 도장이 없다:$fail — HEAD 의 코드·빌드 파일이 origin/main 과 다른데 bash scripts/verify.sh 가 그 상태에서 돈 적이 없다(/verify). 돌리고 나서 멈춘다.\" >&2; exit 2",
+            "command": "j=$(cat); echo \"$j\" | grep -qE '\"stop_hook_active\"[[:space:]]*:[[:space:]]*true' && exit 0; cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 0; git rev-parse -q --verify origin/main >/dev/null 2>&1 || exit 0; st=\"$(git rev-parse --git-dir)/verify-stamp\"; head=$(bash scripts/verify-fingerprint.sh HEAD); main=$(bash scripts/verify-fingerprint.sh origin/main); fail=''; for d in backend frontend; do h=$(echo \"$head\" | grep \"^$d \"); [ \"$h\" = \"$(echo \"$main\" | grep \"^$d \")\" ] && continue; [ \"$h\" = \"$(grep \"^$d \" \"$st\" 2>/dev/null | cut -d' ' -f1,2)\" ] || fail=\"$fail $d\"; done; [ -z \"$fail\" ] && exit 0; echo \"검증 도장이 없다:$fail — HEAD 의 코드·빌드 파일이 origin/main 과 다른데 bash scripts/verify.sh 가 그 상태에서 돈 적이 없다(/verify). 돌리고 나서 멈춘다.\" >&2; exit 2",
             "timeout": 15,
             "statusMessage": "검증 도장 검사"
           }

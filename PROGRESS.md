@@ -11,7 +11,7 @@
 | PR #30 (`work/2026-09-06`, 커밋 스물다섯) | 잡 전부 초록, **머지 대기** | 사람이 `gh pr merge 30 --merge` |
 | Dependabot | #31 을 `github-actions` 가 머지했다(`2f-3` 첫 실물, 2026-09-10). #32 vitest 5 는 메이저 | 메이저는 사람이 본다 |
 | 증거 대기 | `2g-5`(나) 리뷰 probe · `2w` 리뷰가 표를 내나 · `2p` 첫 합치기 · `2e-3` SBOM 에 Gradle 좌표 | 다음 마무리 PR·월요일 회차 |
-| 그다음 코드 청크 | `43a-22`~`43a-27`(닫힌 목록·열거형) · `Q` 계열 화면 테스트(`login-form`·`signup-form`·`purchase-panel`·`cart-line`) | |
+| 그다음 코드 청크 | **`2i-2`**(느린 레인 병렬, 75초 → 30초대 목표) · `43a-22`~`43a-27`(닫힌 목록·열거형) · `Q20`·`Q21`(화면 테스트 넷·`vitest-axe`) · `2x-1` | 실행 세션(Opus) |
 | 다음 점검 | 세로 · 앱 검증 또는 테스트 — 한 번도 안 봤다 | 아래 「점검 — 어디까지 봤나」 |
 | 테스트가 안 부르는 R | 13/37(`req-coverage.sh`, 2026-09-10) — 구멍인지 제약인지 안 갈랐다 | 다음 가로·법 점검 |
 | 조건 미달 기준 문서 | `D12`(이벤트 0개)·`D17`(업로드 0개)·`D21`(선행 `42` 미착수) | 차면 코드보다 먼저 |
@@ -404,6 +404,7 @@
 | 2026-09-10 | 2z-1. 도장 지문을 코드·빌드 파일로 | 완료 — `verify-fingerprint.sh`(신설)·`verify.sh`·`settings.json`·`verify` 스킬·`quality-gates.md`. **`2z` 가 세운 훅이 `2z` 의 커밋을 막았다** — 서브트리 해시는 `backend/CLAUDE.md` 도 코드로 센다. 부순 증거가 저절로 온 셋째 사례다(`2x` 첫 판·`npm audit`·이것). 경로 목록을 스크립트 한 곳에 둬서 훅과 `verify.sh` 가 같은 지문을 본다. **검증**: 훅 세 경로, `verify.sh` 초록 | |
 | 2026-09-10 | 2f-3. 자동 머지 — 증거 | 완료 — `PLAN.md`·`quality-gates.md`·`PROGRESS.md`. #30 이 머지되자 워크플로가 `main` 에 올랐고, 뒤처진 #31 에 `@dependabot rebase` 를 달자 **`github-actions` 가 05:55Z 에 머지했다**(`autoMergeRequest` 있음, 사람 클릭 0). 규칙을 세운 지 나흘 만의 첫 실물이고, 사람이 한 rebase 한 번이 `2h` 가 세기로 한 그 구멍이다 | |
 | 2026-09-10 | 2t-1. 곧 잡을 행에 닫힘을 채운다(설계) | 완료 — `PLAN.md`·`doc-lint.sh`·`quality-gates.md`·`external-references.md`. 열다섯에 채우고 셋을 새로 세웠다(`2x-1`·`Q20`·`Q21`). **닫힘은 테스트 클래스·메서드 이름**이고 점검·CI 처럼 테스트가 없는 행은 무엇을 보고 닫는지를 적었다. 갈림길 둘을 물었다 — `W3` 는 과거 이력을 옮긴다(예외 목록은 낡는다), `2h` 는 `SessionStart` 훅이 주입한다(파일만 남기면 「읽으라고 적은 것」). **`W2`·`W4` 는 이미 된 것이었다** — `2r` 이 스킬 둘을, Dependabot 이 액션 넷을. `W2` 가 들고 있던 `law.go.kr` 조회법만 `external-references.md` 로 옮겼다. 래칫 74 → 56. **검증**: `doc-lint.sh`·`PlanProgressConsistencyTest` 통과 | |
+| 2026-09-10 | 2z-2. 도장 두 단계 + push 훅이 full 요구 | 완료 — `verify.sh`·`settings.json`·`verify` 스킬·`CLAUDE.md`·`quality-gates.md`·`testing-strategy.md`. **병목의 실체를 실측으로 갈랐다**: 오늘의 20분은 청크마다 CI 를 기다린 내 선택이었고, 코드 청크의 75초(느린 레인)가 다음이다. 청크를 닫을 땐 빠른 레인(10초), push 앞엔 full — **「push 앞 한 번」을 push 훅이 요구하게 해서 기억에서 뺐다**(사용자 선택 A+C). `tsc --noEmit` 은 22초라 `next build` 대비 이득이 작다 — 그래도 넣었다(두 번째부터 incremental). DB 결함이 청크 뒤로 밀리는 대가는 `git bisect` 로 받는다. 느린 레인 자체를 줄이는 것은 `2i-2` 로 세웠다(사용자 선택 B). **검증**: `--full` 초록, 훅 세 경로 | |
 
 ## 기록 규칙
 
