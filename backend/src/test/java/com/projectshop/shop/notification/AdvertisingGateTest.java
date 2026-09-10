@@ -144,7 +144,7 @@ class AdvertisingGateTest extends PostgresTestBase {
             insertTemplate("order_placed", "제목", "본문", "transactional");
             long orderId = insertOrder();
 
-            Optional<Long> id = notifications.send("order_placed",
+            Optional<Long> id = notifications.send(NotificationEventType.ORDER_PLACED,
                     NotificationService.Target.order(orderId), userId, Map.of());
 
             // 안 보내면 우리가 위반이고, 사용자가 껐다는 사실이 그 위반을 안 덮는다(`D18`).
@@ -158,7 +158,7 @@ class AdvertisingGateTest extends PostgresTestBase {
             insertTemplate("payment_completed", "제목", "본문", "transactional");
             long orderId = insertOrder();
 
-            Optional<Long> id = notifications.send("payment_completed",
+            Optional<Long> id = notifications.send(NotificationEventType.PAYMENT_COMPLETED,
                     NotificationService.Target.order(orderId), userId, Map.of());
 
             assertThat(id).isPresent();

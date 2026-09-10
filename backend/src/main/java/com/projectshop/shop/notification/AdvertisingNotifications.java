@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 public class AdvertisingNotifications {
 
     /** 광고는 사건이 하나다. 문안은 캠페인마다 갈리지만 법이 보는 눈은 같다 */
-    private static final String EVENT = "advertisement";
+    private static final NotificationEventType EVENT = NotificationEventType.ADVERTISEMENT;
 
     /**
      * 광고 본문이 반드시 들고 있어야 하는 자리.

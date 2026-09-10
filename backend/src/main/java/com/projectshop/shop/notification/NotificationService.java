@@ -95,9 +95,9 @@ public class NotificationService {
      * @return 남긴 발송 id. 이미 보낸 사건이면 빈 값
      * @throws NotificationTemplates.MissingTemplateValueException 판이 부르는 값을 안 넘겼으면
      */
-    public Optional<Long> send(String eventType, Target target, long userId,
+    public Optional<Long> send(NotificationEventType eventType, Target target, long userId,
             Map<String, String> values) {
-        return send(eventType, eventType, NotificationKind.TRANSACTIONAL, target, userId, values);
+        return send(eventType, eventType.code(), NotificationKind.TRANSACTIONAL, target, userId, values);
     }
 
     /**
@@ -109,7 +109,7 @@ public class NotificationService {
      *
      * @param expectedKind 부르는 쪽이 무엇을 보낸다고 믿는가. <b>판의 종류와 다르면 안 보낸다</b>
      */
-    Optional<Long> send(String eventType, String templateCode, NotificationKind expectedKind,
+    Optional<Long> send(NotificationEventType eventType, String templateCode, NotificationKind expectedKind,
             Target target, long userId, Map<String, String> values) {
         NotificationTemplates.Version version = templates.current(templateCode, OffsetDateTime.now())
                 .orElseThrow(() -> new IllegalStateException(
@@ -151,7 +151,7 @@ public class NotificationService {
      *
      * @return 남긴 id. 같은 사건이 이미 있으면 빈 값
      */
-    private Optional<Long> record(String eventType, Target target, long userId,
+    private Optional<Long> record(NotificationEventType eventType, Target target, long userId,
             NotificationTemplates.Version version, NotificationTemplates.Rendered rendered) {
         try {
             return Optional.ofNullable(tx.execute(status -> {
@@ -165,7 +165,7 @@ public class NotificationService {
         }
     }
 
-    private long insertNotification(String eventType, Target target, long userId,
+    private long insertNotification(NotificationEventType eventType, Target target, long userId,
             NotificationTemplates.Version version) {
         return jdbc.sql("""
                         insert into notification (user_id, event_type, kind,
@@ -177,7 +177,7 @@ public class NotificationService {
                         returning notification_id
                         """)
                 .param("userId", userId)
-                .param("eventType", eventType)
+                .param("eventType", eventType.code())
                 .param("kind", version.kind().code())
                 .param("channel", NotificationChannel.EMAIL.code())
                 .param("templateId", version.id())

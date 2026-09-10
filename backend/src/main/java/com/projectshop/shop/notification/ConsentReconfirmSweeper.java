@@ -67,7 +67,7 @@ public class ConsentReconfirmSweeper {
         int sent = 0;
 
         for (Overdue target : findOverdue(due)) {
-            if (notifications.send("consent_reconfirm",
+            if (notifications.send(NotificationEventType.CONSENT_RECONFIRM,
                     NotificationService.Target.consent(target.userConsentId()),
                     target.userId(),
                     Map.of("item_title", target.itemTitle(), "acted_at", target.actedOn()))

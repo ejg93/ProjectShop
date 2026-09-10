@@ -28,7 +28,7 @@ import com.projectshop.shop.order.OrderFixture;
 @DisplayName("거래 통지 발송")
 class NotificationSendTest extends PostgresTestBase {
 
-    private static final String EVENT = "order_placed";
+    private static final NotificationEventType EVENT = NotificationEventType.ORDER_PLACED;
 
     @Autowired
     private NotificationService notifications;
@@ -182,7 +182,7 @@ class NotificationSendTest extends PostgresTestBase {
      * 거래 통지 입구로 광고 판이 나가지 않는다(정보통신망법 제50조, `D2`).
      *
      * <p><b>접근 범위만으로는 이 자리가 안 막힌다.</b> 광고를 보내는 입구는 패키지 안에만
-     * 있지만 {@link NotificationService#send(String, NotificationService.Target, long, java.util.Map)}
+     * 있지만 {@link NotificationService#send(NotificationEventType, NotificationService.Target, long, java.util.Map)}
      * 는 공개라, 거기 광고 판의 코드가 들어오면 <b>{@link AdvertisingGate} 를 안 지난 광고</b>가 나간다.
      *
      * <p>종류가 타입이 되기 전에는 비교할 것 자체가 없었다(`43a-25`).
@@ -240,7 +240,7 @@ class NotificationSendTest extends PostgresTestBase {
                                   where code = :code),
                                 :subject, :body, :kind, :effectiveAt)
                         """)
-                .param("code", EVENT)
+                .param("code", EVENT.code())
                 .param("subject", subject)
                 .param("body", body)
                 .param("kind", kind.code())
