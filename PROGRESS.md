@@ -400,6 +400,7 @@
 | 2026-09-10 | `npm audit` 게이트가 첫 실물을 잡았다 | 완료 — `frontend/package-lock.json`·`quality-gates.md`. `work/2026-09-10` 첫 푸시에서 `frontend` 잡이 빨갰다 — `js-yaml` 4.3.1 high(GHSA-2883-xcg3-v3hh, 이날 공개). 전이 의존성이라 `npm audit fix` 로 4.3.2. **이 묶음은 프론트를 안 건드렸는데 걸렸다** — `2e-3` 이 세운 게이트가 부수기가 아니라 실물로 처음 울렸다. **검증**: audit 0, `npm run lint` 통과, `npm test` 45 | |
 | 2026-09-10 | 2x. `main` push·`JAVA_HOME` 훅 | 완료 — `.claude/settings.json`·`CLAUDE.md`·`quality-gates.md`. 둘 다 「매번 잊는 자리」였다 — 하나는 가지 보호가 서버에서 잡지만 푸시가 나간 뒤고, 하나는 Gradle 이 안 떠서 시간만 잃는다. **세 판 걸렸다.** 첫 판은 JSON 원문을 grep 해서 **산문의 「git push 가 main 을」에 자기 기록 커밋이 막혔다**(부순 증거가 저절로 왔다). 둘째 판은 명령 위치로 좁혔더니 JSON 의 따옴표 때문에 **하나도 안 걸렸다.** 셋째 판이 `node` 로 `tool_input.command` 를 꺼내 실제 명령에 건다 — 기존 훅 둘(PR 순서·doc-lint)도 원문 grep 이라 같은 구멍이 있을 수 있다(`2x-1` 후보, 지금은 안 건드렸다). **검증**: 열두 경로 손으로 | |
 | 2026-09-10 | 2y. 슬래시 기본 + `.gitattributes` | 완료 — `CLAUDE.md`·스킬 설명문 셋·`doc/README.md`·`.gitattributes`(신설). **텍스트 `예열` 은 내가 설명문을 보고 매칭하는 것이라 판단이 한 번 끼고, 슬래시는 하네스가 직접 로드한다**(사용자 지적) — 강제 지점을 한 칸 내리는 것과 같은 방향. 줄 끝은 오늘 `ci.yml` 앵커가 세 번 헛돈 자리다. `git add --renormalize` 로 인덱스를 한 번에 LF 로 | |
+| 2026-09-10 | 2z. 「검증」 스킬 + 도장 훅 | 완료 — `verify` 스킬(신설)·`scripts/verify.sh`(신설)·`settings.json`·`CLAUDE.md`·`backend/CLAUDE.md`·`quality-gates.md`. **매 세션 실리던 95줄이 청크 끝에만 실린다.** 빼면 안 부른다는 위험을 **도장**으로 막았다(사용자 선택) — 「읽으라고 적은 것」을 hook 으로 내린 `2q` 와 같은 꼴. 서브트리 해시를 쓴 이유: 전체 트리 해시면 `PLAN`·`PROGRESS` 를 고칠 때마다 도장이 깨진다. **`origin/main` 이 기준이라 #30 이 안 머지된 지금은 두 레인이 다 「다르다」로 나온다** — 머지되면 좁아진다. **검증**: `verify.sh` 초록, 훅 세 경로 | |
 
 ## 기록 규칙
 

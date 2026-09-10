@@ -81,6 +81,16 @@
             "statusMessage": "커밋 안 된 작업물 검사"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "j=$(cat); echo \"$j\" | grep -qE '\"stop_hook_active\"[[:space:]]*:[[:space:]]*true' && exit 0; cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 0; git rev-parse -q --verify origin/main >/dev/null 2>&1 || exit 0; st=\"$(git rev-parse --git-dir)/verify-stamp\"; fail=''; for d in backend frontend; do h=$(git rev-parse -q --verify \"HEAD:$d\" 2>/dev/null) || continue; m=$(git rev-parse -q --verify \"origin/main:$d\" 2>/dev/null); [ \"$h\" = \"$m\" ] && continue; s=$(grep -E \"^$d \" \"$st\" 2>/dev/null | cut -d' ' -f2); [ \"$h\" = \"$s\" ] || fail=\"$fail $d\"; done; [ -z \"$fail\" ] && exit 0; echo \"검증 도장이 없다:$fail — HEAD 의 그 디렉터리가 origin/main 과 다른데 bash scripts/verify.sh 가 그 상태에서 돈 적이 없다(/verify). 돌리고 나서 멈춘다.\" >&2; exit 2",
+            "timeout": 15,
+            "statusMessage": "검증 도장 검사"
+          }
+        ]
       }
     ]
   }
