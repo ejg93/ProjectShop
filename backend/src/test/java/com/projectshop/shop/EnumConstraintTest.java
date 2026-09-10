@@ -150,6 +150,8 @@ class EnumConstraintTest extends PostgresTestBase {
                                                           "notification_template_kind_check"));
         pairs.put("notification.NotificationChannel", List.of("notification_channel_check"));
         pairs.put("notification.NotificationStatus", List.of("notification_status_check"));
+        pairs.put("support.BatchRunStatus", List.of("batch_run_status_check"));
+        pairs.put("support.FailureKind", List.of("batch_run_failure_kind_values_check"));
         pairs.put("settlement.PayoutStatus", List.of("settlement_payout_status_check"));
         pairs.put("settlement.SettlementItemKind", List.of("settlement_item_kind_check"));
         return Map.copyOf(pairs);

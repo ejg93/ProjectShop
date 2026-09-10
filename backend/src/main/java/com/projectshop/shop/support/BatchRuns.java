@@ -30,11 +30,6 @@ public class BatchRuns {
 
     private static final Logger log = LoggerFactory.getLogger(BatchRuns.class);
 
-    /** 10분 뒤에 다시 해 볼 실패 */
-    static final String TRANSIENT = "transient";
-    /** 다시 해도 같은 자리에서 죽는 실패 */
-    static final String PERMANENT = "permanent";
-
     /** 직렬화 충돌과 교착 희생. 연결 끊김(`08*`)은 앞 두 자리로 본다 */
     private static final Set<String> TRANSIENT_STATES = Set.of("40001", "40P01");
 
@@ -79,15 +74,15 @@ public class BatchRuns {
         } catch (RuntimeException e) {
             // 예외 종류만 남긴다. 메시지에는 값이 실려 오고 그 값이 개인정보일 수 있다(`D16`).
             // 종류 판단은 지금 한다 — 나중에 이력만 보고 다시 가르면 판단이 두 벌이 된다(`36a`).
-            String kind = failureKindOf(e);
-            insert(batchName, baselineDate, startedAt, "failed", null,
+            FailureKind kind = failureKindOf(e);
+            insert(batchName, baselineDate, startedAt, BatchRunStatus.FAILED, null,
                     e.getClass().getSimpleName(), kind);
             log.error("{} 실패 기준일={} 종류={}", batchName, baselineDate, kind, e);
             return Optional.empty();
         }
 
         try {
-            insert(batchName, baselineDate, startedAt, "succeeded", counts, null, null);
+            insert(batchName, baselineDate, startedAt, BatchRunStatus.SUCCEEDED, counts, null, null);
         } catch (DuplicateKeyException e) {
             // 부분 유니크가 거부한 것이다. 인스턴스가 둘이면 같은 회차가 동시에 뜬다(`D19`).
             // 파기·전이 배치는 두 번 돌아도 결과가 같아서 여기서 끝내도 되지만,
@@ -115,7 +110,7 @@ public class BatchRuns {
             // 사람이 볼 것이라 `WARN` 이다(`D16`). 재시도 창(10분 3회) 안에서 선행이 성공하면 이어진다.
             log.warn("{} 건너뜀 기준일={} — 선행 {} 이 그날 성공하지 않았다",
                     batchName, baselineDate, requiredBatch);
-            insert(batchName, baselineDate, OffsetDateTime.now(), "skipped", null, null, null);
+            insert(batchName, baselineDate, OffsetDateTime.now(), BatchRunStatus.SKIPPED, null, null, null);
             return Optional.empty();
         }
         return record(batchName, baselineDate, body);
@@ -141,17 +136,20 @@ public class BatchRuns {
      */
     public boolean shouldRetry(String batchName, LocalDate baselineDate, int maxAttempts) {
         return Boolean.TRUE.equals(jdbc.sql("""
-                        select count(*) filter (where status = 'succeeded') = 0
+                        select count(*) filter (where status = :succeeded) = 0
                            and count(*) > 0
                            and count(*) < :maxAttempts
-                           and ((array_agg(failure_kind order by batch_run_id desc))[1] = 'transient'
-                                or (array_agg(status order by batch_run_id desc))[1] = 'skipped')
+                           and ((array_agg(failure_kind order by batch_run_id desc))[1] = :transient
+                                or (array_agg(status order by batch_run_id desc))[1] = :skipped)
                           from batch_run
                          where batch_name = :name and baseline_date = :baselineDate
                         """)
                 .param("name", batchName)
                 .param("baselineDate", baselineDate)
                 .param("maxAttempts", maxAttempts)
+                .param("succeeded", BatchRunStatus.SUCCEEDED.code())
+                .param("transient", FailureKind.TRANSIENT.code())
+                .param("skipped", BatchRunStatus.SKIPPED.code())
                 .query(Boolean.class)
                 .single());
     }
@@ -161,16 +159,17 @@ public class BatchRuns {
                         select exists (
                             select 1 from batch_run
                              where batch_name = :name and baseline_date = :baselineDate
-                               and status = 'succeeded')
+                               and status = :succeeded)
                         """)
                 .param("name", batchName)
                 .param("baselineDate", baselineDate)
+                .param("succeeded", BatchRunStatus.SUCCEEDED.code())
                 .query(Boolean.class)
                 .single();
     }
 
     private void insert(String batchName, LocalDate baselineDate, OffsetDateTime startedAt,
-            String status, Counts counts, String failureReason, String failureKind) {
+            BatchRunStatus status, Counts counts, String failureReason, FailureKind failureKind) {
         jdbc.sql("""
                         insert into batch_run (batch_name, baseline_date, started_at, finished_at,
                                                target_count, processed_count, status,
@@ -185,9 +184,9 @@ public class BatchRuns {
                 .param("finishedAt", OffsetDateTime.now())
                 .param("targetCount", counts == null ? null : counts.target())
                 .param("processedCount", counts == null ? null : counts.processed())
-                .param("status", status)
+                .param("status", status.code())
                 .param("failureReason", failureReason)
-                .param("failureKind", failureKind)
+                .param("failureKind", failureKind == null ? null : failureKind.code())
                 .update();
     }
 
@@ -201,16 +200,16 @@ public class BatchRuns {
      * 교착으로 희생된 것(`40P01`). <b>나머지는 전부 결정적으로 본다</b> —
      * 모르는 것을 재시도로 두면 같은 자리에서 세 번 죽고 로그가 세 배가 된다.
      */
-    static String failureKindOf(Throwable thrown) {
+    static FailureKind failureKindOf(Throwable thrown) {
         for (Throwable cause = thrown; cause != null; cause = cause.getCause()) {
             if (cause instanceof SQLException sql) {
                 String state = sql.getSQLState();
                 if (state != null
                         && (state.startsWith("08") || TRANSIENT_STATES.contains(state))) {
-                    return TRANSIENT;
+                    return FailureKind.TRANSIENT;
                 }
             }
         }
-        return PERMANENT;
+        return FailureKind.PERMANENT;
     }
 }

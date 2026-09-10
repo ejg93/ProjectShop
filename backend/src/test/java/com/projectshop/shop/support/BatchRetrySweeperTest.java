@@ -68,7 +68,7 @@ class BatchRetrySweeperTest extends PostgresTestBase {
         @Test
         @DisplayName("일시적으로 실패한 회차는 다시 돌아서 성공으로 닫힌다")
         void retriesTransientFailure() {
-            insertFailure(BatchRuns.TRANSIENT);
+            insertFailure(FailureKind.TRANSIENT.code());
 
             assertThat(sweeper.sweep(BASELINE))
                     .describedAs("연결이 끊긴 것은 10분 뒤에 다시 해 보면 된다(`D19` 2층)")
@@ -79,8 +79,8 @@ class BatchRetrySweeperTest extends PostgresTestBase {
         @Test
         @DisplayName("두 번째 실패까지는 다시 돈다")
         void retriesUntilAttemptCap() {
-            insertFailure(BatchRuns.TRANSIENT);
-            insertFailure(BatchRuns.TRANSIENT);
+            insertFailure(FailureKind.TRANSIENT.code());
+            insertFailure(FailureKind.TRANSIENT.code());
 
             assertThat(sweeper.sweep(BASELINE))
                     .describedAs("첫 실행을 포함해 셋까지다")
@@ -95,7 +95,7 @@ class BatchRetrySweeperTest extends PostgresTestBase {
         @Test
         @DisplayName("결정적 실패는 다시 안 돈다")
         void skipsPermanentFailure() {
-            insertFailure(BatchRuns.PERMANENT);
+            insertFailure(FailureKind.PERMANENT.code());
 
             assertThat(sweeper.sweep(BASELINE))
                     .describedAs("데이터가 틀린 것은 다시 해도 같은 자리에서 죽는다")
@@ -106,9 +106,9 @@ class BatchRetrySweeperTest extends PostgresTestBase {
         @Test
         @DisplayName("세 번 시도했으면 포기한다")
         void givesUpAfterThreeAttempts() {
-            insertFailure(BatchRuns.TRANSIENT);
-            insertFailure(BatchRuns.TRANSIENT);
-            insertFailure(BatchRuns.TRANSIENT);
+            insertFailure(FailureKind.TRANSIENT.code());
+            insertFailure(FailureKind.TRANSIENT.code());
+            insertFailure(FailureKind.TRANSIENT.code());
 
             assertThat(sweeper.sweep(BASELINE))
                     .describedAs("창을 넘기면 사람이 손으로 건다(`D19`)")
@@ -118,7 +118,7 @@ class BatchRetrySweeperTest extends PostgresTestBase {
         @Test
         @DisplayName("이미 성공한 회차는 안 건드린다")
         void skipsSucceededRun() {
-            insertFailure(BatchRuns.TRANSIENT);
+            insertFailure(FailureKind.TRANSIENT.code());
             sweeper.sweep(BASELINE);
 
             assertThat(sweeper.sweep(BASELINE))

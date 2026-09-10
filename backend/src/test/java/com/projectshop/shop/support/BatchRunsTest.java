@@ -188,7 +188,7 @@ class BatchRunsTest extends PostgresTestBase {
                     .param("count", "succeeded".equals(status) ? 1 : null)
                     .param("status", status)
                     .param("reason", failed ? "IllegalStateException" : null)
-                    .param("kind", failed ? BatchRuns.PERMANENT : null)
+                    .param("kind", failed ? FailureKind.PERMANENT.code() : null)
                     .update();
         }
     }
