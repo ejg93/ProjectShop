@@ -10,11 +10,17 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
+# 절차 스킬(`2r`)도 프롬프트 역할 문서다. `design-taste-frontend` 는 바깥 스킬이라 뺀다.
+skill_files=()
+for f in .claude/skills/*/SKILL.md; do
+  case "$f" in *design-taste-frontend*) ;; *) skill_files+=("$f") ;; esac
+done
+
 title_check_files=(
   CLAUDE.md
   PLAN.md
   PROGRESS.md
-  doc/process/*.md
+  "${skill_files[@]}"
   doc/reference/*.md
 )
 
@@ -24,7 +30,7 @@ dup_check_files=(
   PROGRESS.md
   frontend/CLAUDE.md
   frontend/AGENTS.md
-  doc/process/*.md
+  "${skill_files[@]}"
   doc/reference/*.md
 )
 
@@ -39,7 +45,7 @@ honorific_check_files=(
   PROGRESS.md
   frontend/CLAUDE.md
   frontend/AGENTS.md
-  doc/process/*.md
+  "${skill_files[@]}"
   doc/reference/*.md
 )
 
@@ -60,6 +66,10 @@ fail=0
 for f in "${title_check_files[@]}"; do
   [ -f "$f" ] || continue
   first_line=$(head -n 1 "$f")
+  # 스킬 파일은 frontmatter 가 먼저다 — 닫는 `---` 다음의 첫 줄을 본다.
+  if [ "$first_line" = "---" ]; then
+    first_line=$(awk 'NR>1 && /^---$/{f=1; next} f && NF{print; exit}' "$f")
+  fi
   case "$first_line" in
     "#"*) ;;
     *)
