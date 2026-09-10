@@ -5,8 +5,10 @@
 name: CI
 
 on:
+  # **모든 가지에서 돈다**(`2g-4`). PR 은 이제 마무리 때 한 번만 열어서, 가지 제한을 두면
+  # 청크 다섯을 리눅스 검증 없이 치게 된다 — `2c` 가 세운 값(로컬 Windows 가 못 잡는 종류)이
+  # 통째로 사라진다. 아래 `concurrency` 가 같은 가지의 앞 실행을 취소해서 낭비를 막는다.
   push:
-    branches: [main]
   pull_request:
   # 손으로도 걸 수 있게 둔다. 실패를 재현할 때 커밋을 새로 만들지 않아도 된다.
   workflow_dispatch:
@@ -60,6 +62,16 @@ jobs:
 
       # install 이 아니라 ci 다. 잠금 파일과 어긋나면 조용히 맞추지 않고 실패해야 한다.
       - run: npm ci
+
+      # 들여온 것에 알려진 취약점이 있나(청크 `2e-3`). **high 이상이면 빨강.**
+      #
+      # 문턱의 근거는 2026-09-06 측정이다 — 그날 `npm audit` 이 info 부터 critical 까지 전부 0이었다.
+      # **누를 기준선이 없어서 처음 나오는 것부터 처분한다**(`D25`). SpotBugs·CodeQL 과 같은 꼴이다.
+      #
+      # **Gradle 쪽은 여기서 안 본다.** 잠금 파일이 없어 같은 방식이 안 되고,
+      # 대신 `dependency-submission.yml` 이 그래프에 올려 Dependabot 경보가 본다 —
+      # 그쪽은 알려 주기만 하고 막지는 않는다.
+      - run: npm audit --audit-level=high
 
       # 셋 다 CLAUDE.md 「검증」 표에 있는 명령이다. build 에 타입 검사가 같이 돈다.
       - run: npm run build

@@ -1,0 +1,67 @@
+# 보안 결함 패턴을 코드에서 찾는다(청크 `2e-2`).
+#
+# `ci.yml` 이 「돌렸나」를, `claude-review.yml` 이 「규약대로 쳤나」를 걷어냈다면
+# 이쪽은 **「우리가 쓴 코드에 알려진 취약 모양이 있나」**를 본다.
+#
+# **SpotBugs 와 다른 것을 본다.** 그쪽은 버그 패턴이고 여기는 데이터 흐름이다 —
+# 「사용자 입력이 셸 명령까지 가나」처럼 파일을 넘어가는 경로를 따라간다.
+# `2e` 가 SpotBugs 기본 검출기로 100건 중 실물 0을 재고 「신호가 얇다」고 적은 자리다.
+#
+# **저장소가 public 이라 무료다**(`2l` 이 그 사실을 확인했다). 비공개로 돌리면 유료가 된다.
+name: CodeQL
+
+on:
+  # `ci.yml` 과 같이 모든 가지에서 돈다. PR 은 마무리 때 한 번뿐이라(`2g-4`)
+  # 가지 제한을 두면 청크 다섯을 검사 없이 치고 마무리 PR 에서 처음 빨개진다.
+  push:
+  pull_request:
+  # 주 1회. 새 커밋이 없어도 **질의 묶음이 갱신되면 답이 달라진다** —
+  # 우리 코드가 그대로여도 새로 알려진 패턴이 잡힌다.
+  # 월요일 05시 KST. dependabot(같은 날)보다 앞에 둬서 갱신 PR 과 안 겹친다.
+  schedule:
+    - cron: '0 20 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # 결과를 Security 탭에 올리는 자리다. 이것만 쓰기다.
+      security-events: write
+      contents: read
+      actions: read
+      packages: read
+    strategy:
+      # 하나가 죽어도 나머지 언어는 본다. 셋이 서로 독립이다.
+      fail-fast: false
+      matrix:
+        include:
+          # **워크플로 파일도 대상이다.** 이 저장소는 워크플로가 셋이고
+          # 거기서 권한·시크릿·`pull_request_target` 을 다룬다.
+          - language: actions
+            build-mode: none
+          # **`none` 으로 둔다.** Gradle 을 안 돌려서 빠르고,
+          # `ci.yml` 이 이미 `./gradlew build` 를 따로 돈다 — 같은 빌드를 두 번 할 이유가 없다.
+          # 대신 빌드가 만들어 내는 코드(생성 소스)는 못 본다. 이 저장소엔 그런 것이 없다.
+          - language: java-kotlin
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # **질의 묶음을 안 넓힌다.** 기본값으로 첫 측정을 하고, 그 수가
+          # `D25` 의 문턱을 정한다. 재기 전에 넓히면 무엇이 늘어난 것인지 안 갈린다.
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

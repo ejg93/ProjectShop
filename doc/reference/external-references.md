@@ -374,11 +374,12 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 
 | 자료 | 라이선스 | 우리가 한 것 |
 |---|---|---|
-| SQL Style Guide (Simon Holywell) | **CC BY-SA 4.0** | 규칙을 골라 쓰고 벗어난 것을 따로 적었다. **인용에 가깝지만 파생물 판단은 안 했다** — 공개하기로 하면 이 줄을 먼저 다시 본다(`D23`) |
+| SQL Style Guide (Simon Holywell) | **CC BY-SA 4.0** | 규칙을 골라 쓰고 벗어난 것을 따로 적었다. **`2l-2` 가 그 절을 CC BY-SA 4.0 으로 표시했다**(2026-09-06) — 파생물인지 인용인지는 여전히 판단 안 했고, **표시로 어느 쪽이든 성립한다** |
 | OWASP (Top 10 · Cheat Sheet) | CC BY-SA 4.0 | 항목 이름을 청크에 매핑했다 |
 | NIST SP 800-63B | 미국 정부 저작물 — 저작권 없음 | 요건을 근거로 인용 |
 | RFC 9457 · W3C Trace Context | IETF Trust / W3C 문서 라이선스 | 형식을 따랐다 |
 | Zalando RESTful API Guidelines | MIT | 규칙을 따르고 벗어난 둘을 명시했다 |
+| `design-taste-frontend` 스킬 (Leonxlnx/taste-skill) | **MIT** | 사본이 `.agents/skills/design-taste-frontend/` 에 있다. **고지를 그 옆 `LICENSE` 에 뒀다**(`2l-1`) — MIT 는 사본에 저작권 고지가 있어야 성립한다 |
 
 ### 의존성
 

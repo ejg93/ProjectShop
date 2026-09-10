@@ -1,0 +1,39 @@
+# Gradle 의존성을 GitHub 의 의존 그래프에 올린다(청크 `2e-3`).
+#
+# **npm 과 Gradle 이 다르다.** npm 은 `package-lock.json` 을 GitHub 이 알아서 읽는데,
+# **Gradle 은 잠금 파일이 없어서 아무도 안 읽는다** — 이 워크플로가 빌드를 열어 좌표를
+# 뽑아 제출 API 로 올려야 Dependabot 경보가 백엔드 쪽도 본다.
+#
+# **버전 갱신과 다른 기능이다.** `dependabot.yml` 은 새 버전이 나오면 PR 을 열고,
+# 경보는 **취약점이 공개되면** 알린다. 스위치가 둘이고 경보 쪽이 꺼져 있었다(`2e-3` 이 켰다).
+name: Dependency Submission
+
+on:
+  # **`main` 만이다.** 의존 그래프는 기본 가지 기준이라 작업 가지에서 올리면
+  # 머지도 안 된 좌표가 그래프에 남는다.
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  # **`D14` 의 「읽기만 준다」에 대한 예외다.** 제출 API 가 의존 그래프에 쓴다.
+  # 다른 워크플로에는 안 준다 — 여기만 쓰기가 필요하고 여기서만 준다.
+  contents: write
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          # `build.gradle.kts` 의 툴체인과 같은 값이다.
+          java-version: '25'
+
+      # 테스트를 안 돌린다. 의존성 해석만 한다.
+      - uses: gradle/actions/dependency-submission@v6
+        with:
+          build-root-directory: backend

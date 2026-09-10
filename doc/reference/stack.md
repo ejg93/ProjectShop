@@ -21,6 +21,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
 | Testcontainers | 2.0.5 | `build.gradle.kts` 의 BOM |
+| ArchUnit | 1.5.0 | `build.gradle.kts`. **`archunit-junit6`** 다 — 이 저장소가 JUnit 6 이다 |
 | Caffeine | 3.2.4 | 안 적는다. **Boot BOM 이 관리한다** |
 | Jackson | 3.1.4 | 안 적는다. `starter-webmvc` 가 딸려 온다 |
 | Spring Security | 7.1.0 | 아직 의존성에 없다. 청크 5 에서 들어온다 |
@@ -786,6 +787,77 @@ POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'
 
 `applied_migrations` 는 **마이그레이션 파일 수 + 시드 3** 이다(`43a-2` 기준 61+3=64).
 
+### 컨테이너 재사용은 코드가 아니라 로컬 파일이 켠다
+
+`.withReuse(true)` 가 코드에 있어도 **그것만으로는 안 돈다.** 기계마다
+`~/.testcontainers.properties` 에 `testcontainers.reuse.enable=true` 가 있어야 한다.
+
+**안 켜져 있어도 실패하지 않는다.** 경고 한 줄이 나가고 컨테이너를 새로 띄운다.
+
+```
+WARN tc.postgres:17-alpine : Reuse was requested but the environment does not support the reuse of containers
+To enable reuse of containers, you must set 'testcontainers.reuse.enable=true' in a file located at C:\Users\...\.testcontainers.properties
+```
+
+**CI 러너에서는 효과가 없다** — 매번 새 기계라 재사용할 컨테이너가 없다. 로컬 되먹임 전용이다.
+켠 뒤에는 `docker ps` 에 이름 없는 컨테이너 둘이 남아 있는 것이 정상이다.
+
+### `@ServiceConnection` 컨테이너는 Spring 컨텍스트마다 뜬다
+
+`Containers` 가 `@TestConfiguration` 이라 **컨텍스트가 갈리면 컨테이너도 따로 뜬다.**
+`PostgresTestBase`(MOCK)와 `HttpTestBase`(RANDOM_PORT)가 다른 컨텍스트라
+느린 레인 한 번에 postgres 가 셋 뜬다(`--info` 의 `Container postgres:17-alpine started` 를 센다).
+
+재사용을 켜면 그 셋이 같은 컨테이너에 붙어서 기동 비용이 사라진다.
+**대신 격리도 같이 사라진다** — fork 를 늘리면 롤백 안 하는 테스트가 서로를 밟는다(`D15`).
+
+### `initdb.d` 는 볼륨이 비었을 때만 돈다
+
+`docker-compose.yml` 의 `/docker-entrypoint-initdb.d` 마운트는 **데이터 디렉터리가 비어 있을 때 한 번**만 실행된다.
+이미 `db-data` 가 있는 기계에서는 파일을 넣어도 **아무 일이 안 일어나고 오류도 안 난다.**
+
+```
+docker compose down -v && docker compose up -d --wait
+```
+
+**`-v` 가 핵심이다.** 그냥 `down` 하면 볼륨이 남아서 다음 기동에도 안 돈다.
+지우고 올리면 마이그레이션이 처음부터 다시 적용된다 — 로컬 데이터가 사라지는 것이 정상이다.
+
+**Testcontainers 는 이 경로를 안 태운다.** 테스트 DB 는 그대로라, 여기서 켠 확장은 테스트에 안 보인다.
+
+### `shared_preload_libraries` 는 기동 인자라야 먹는다
+
+`pg_stat_statements` 는 `create extension` 만으로는 안 된다. 확장은 만들어지는데
+**뷰를 읽는 순간 「must be loaded via shared_preload_libraries」로 터진다.**
+
+그래서 `docker-compose.yml` 의 `db` 에 `command` 로 준다(`42-0`).
+`postgresql.conf` 를 따로 두지 않은 것은 **파일이 하나 더 늘고 이미지 기본값과 갈리기 쉬워서**다.
+
+### `claude-code-action` 은 Bash 를 기본으로 안 준다
+
+프롬프트로 `gh pr comment` 를 시켜도 안 돈다. 공식 문서가 그렇게 적었다 —
+「By default, Claude cannot execute Bash commands unless explicitly allowed」.
+열려면 `claude_args` 에 `--allowedTools "Bash(gh pr comment:*)"` 처럼 명령마다 적는다.
+
+**거부는 실패로 안 보인다.** 잡은 초록이고 `is_error: false` 다.
+신호는 결과 JSON 의 **`permission_denials_count`** 하나뿐이고, 무엇이 거부됐는지는
+`show_full_output: true` 를 켜야 나온다. 그 값이 12~22 인 채로 PR 여섯이 지나갔다.
+
+### 액션은 `CLAUDE.md`·`.claude` 를 `origin/main` 에서 되살린다
+
+로그에 「Restoring .claude, .mcp.json, .claude.json, ..., CLAUDE.md from origin/main (PR head is untrusted)」
+가 찍힌다. PR 이 들고 온 규칙 파일을 안 믿는다는 뜻이라 보안상 맞는 동작이다.
+
+**그래서 규칙을 고친 PR 은 옛 규칙으로 검토된다.** `CLAUDE.md` 나 `doc/reference/*` 를
+바꾸는 묶음에서 리뷰가 「문서가 부르는 것이 실물과 맞나」를 물을 때, 리뷰가 읽는 규칙은
+그 PR 의 판이 아니라 `main` 의 판이다. 그 PR 의 지적을 읽을 때 이 차이를 먼저 본다.
+
+### 리뷰 한 번이 약 $1.1 에 5분이다
+
+`total_cost_usd` 1.1158 · `duration_ms` 315118 · `num_turns` 47 이 실측값이다(PR #26).
+CI 중 제일 길고 제일 비싸다. **PR 을 마무리 때만 여는 근거가 이 수치다**(`2g-4`) —
+청크마다 열면 이 값이 청크 수만큼 곱해지는데, 그렇게 연 PR 열하나에서 지적이 0개였다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
@@ -812,33 +884,6 @@ POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'
 
 **넷 다 값이 오르면 다시 본다.** 화면이 늘어 같은 데이터를 여러 곳에서 부르기 시작하거나,
 칸이 많은 폼이 생기거나, 로케일이 둘이 되면 그때가 그 시점이다.
-
-## 2026-08-20 관례 대조 — 처분 완료
-
-축 1 에서 업계 관례는 4순위고 **근거만 대면 버린다.** 그래서 이 축의 판정은 하나였다 —
-**따랐든 버렸든 근거가 적혀 있나.**
-
-**셋이 나왔고 같은 날 다 쳤다.**
-
-| # | 무엇이 틀렸었나 | 무엇으로 닫았나 |
-|---|---|---|
-| C1 | 「넣었지만 안 쓰는 것」이 **「청크 6 에서 정한다」에 멈춰 있었다** | `Q15` — `starter-jdbc` 로 바꾸고 위 「데이터 접근」으로 결론을 적었다 |
-| C2 | 프론트가 관례 넷을 안 쓰는데 **근거가 한 줄도 없었다** | `Q14` — 위 「프론트에서 안 쓰는 것」 |
-| C3 | `RefundSweeper` 가 배치 카탈로그에 없었다 | `Q14` — `batch-catalog.md` 에 행을 더했다 |
-
-**`C1` 과 `C2` 는 성격이 다르다.** `C1` 은 판단이 끝났는데 문서가 안 따라온 것이고,
-`C2` 는 판단이 코드에만 있고 문장으로 나온 적이 없는 것이다. 뒤엣것이 더 조용하다 —
-**아무도 틀렸다고 말할 수 없어서** 다음 사람이 반대로 해도 근거를 댈 수 없다.
-
-**`C1` 과 같은 모양이 `D15` 에도 있었다**(`P2`, 화면 테스트). 「그때 정한다」가 지나간 자리가
-둘이었고, 둘 다 지나쳤다는 사실이 어디에도 안 남아 있었다.
-
-### 대조해서 맞았던 것
-
-`window.confirm`·직접 만든 토스트·번호 페이징·`picsum` 자리표시·`next/image`·
-`react-markdown` 의 원시 HTML 차단 — 전부 근거를 달고 있다.
-`eslint.config.mjs` 는 `eslint-config-next` 기본값을 **부분집합이라고 밝히고**
-접근성 규칙을 얹은 이유를 주석에 적어 뒀다 — 관례를 항목마다 재는 모양이 그것이다.
 
 ## 아직 안 정한 것
 

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright 산출물(`Q18`). 실패했을 때만 생기고 다음 실행이 덮는다
+/playwright-report/
+/test-results/

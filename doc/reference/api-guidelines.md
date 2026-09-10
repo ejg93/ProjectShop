@@ -446,41 +446,6 @@ header field** containing at least one challenge」라고 한다. **예외가 �
 **버린 길 셋**을 적어 둔다. 등록된 스킴(팝업이 뜬다), 403 으로 바꾸기(「인증이 없다」와
 「권한이 없다」가 뭉치고 화면의 401 처리를 다시 짜야 한다), 그냥 두기(MUST 위반이 근거 없이 남는다).
 
-## 2026-08-20 표준 대조 — 처분 완료
-
-RFC 원문(`rfc-editor.org`·`httpwg.org`)과 IETF 초안으로 3일치 작업을 대조했다.
-**여기 적힌 것은 우리가 고칠 수 없는 쪽**이다 — 축 1에서 표준은 2순위고 어기면 남의 시스템과 안 붙는다.
-
-**여섯이 나왔고 같은 날 다 쳤다.** 무엇이 규칙이 됐는지는 위 본문에 있고, 여기는
-**무엇이 틀렸었는지**만 남긴다.
-
-| # | 무엇이 틀렸었나 | 무엇으로 닫았나 |
-|---|---|---|
-| S1 | 401 에 `WWW-Authenticate` 가 없었다(RFC 9110 제15.5.2절 **MUST**) | `Q12` — 미등록 스킴 이름. 버린 길 셋을 위 「인증」에 적었다 |
-| S2 | `urn:shop:` 이 **등록되지 않은 NID** 였다(RFC 8141) | `Q1` — `tag:` URI(RFC 4151). 화면은 접두어를 모른다 |
-| S3 | `PATCH` 가 패치 문서 형식을 안 밝혔다(RFC 5789) | `Q11` — `application/merge-patch+json`(RFC 7396) |
-| S4 | 우편번호·전화번호에 **형식 강제가 어느 층에도 없었다** | `Q7` — DB 제약·앱 검증·화면. 둘이 갈리는 것은 `ShippingFormatTest` 가 막는다 |
-| S5 | **프레임워크 오류가 전부 `validation-failed` 하나로 뭉쳤다** | `Q1` — 상태 코드로 가른다 |
-| S6 | `POST /api/orders` 의 201 에 `Location` 이 없었다 | `Q11` |
-
-### `S5` 는 처음에 반대로 적었다
-
-점검할 때 「프레임워크 오류의 `type` 이 `about:blank` 로 나간다」고 적었는데 **사실이 아니었다.**
-`ApiExceptionHandler.createResponseEntity` 가 이미 Spring 이 만든 본문을 우리 것으로 갈아 끼우고 있었다.
-
-**진짜 문제는 반대쪽이었다** — 갈아 끼우면서 **전부 `validation-failed` 를 줬다.**
-405·415·깨진 JSON·헤더 누락이 같은 `type` 으로 나가서, **상태 코드보다 `type` 이 더 뭉쳤다.**
-「상태 코드가 아니라 `type` 으로 분기한다」는 이 문서의 근거가 그 경로에서만 뒤집혀 있던 셈이다.
-
-**고친 자리는 같고 방향만 정확해졌다.** 코드를 안 읽고 요건표만 보고 판정하면 이렇게 된다 —
-점검이 무엇을 봤는지도 같이 적어야 다음 사람이 그 판정을 다시 잴 수 있다.
-
-### 대조해서 맞았던 것
-
-멱등키의 409·422 가 IETF 초안(`draft-ietf-httpapi-idempotency-key-header`)과 일치,
-`traceparent`(W3C Trace Context), RFC 3339 시각과 오프셋, `instance` 를 채우는 것,
-`application/problem+json`, 쿠키의 `HttpOnly`+`SameSite=Lax`.
-
 ## 이 문서를 고칠 때
 
 새 규칙이 필요해지면 여기 추가하고, Zalando 에 이미 있는 규칙이면 **적지 말고 따른다.**

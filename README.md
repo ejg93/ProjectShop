@@ -39,6 +39,14 @@ docker compose down
 데이터까지 지우려면 `docker compose down -v` 를 쓴다.
 스키마가 꼬였을 때 처음부터 다시 만드는 용도다.
 
+**`pg_stat_statements` 가 켜져 있다**(`42-0`). 느린 쿼리가 쌓여서 청크 `42`(성능 측정)가
+올 때 읽을 것이 이미 있다. **이 저장소를 예전에 띄워 본 기계라면 한 번은 `down -v` 가 필요하다** —
+확장을 만드는 스크립트가 **볼륨이 비었을 때만** 돌기 때문이다(`stack.md`).
+
+```bash
+docker exec shop-db psql -U shop -d shop -c "select count(*) from pg_stat_statements"
+```
+
 ## 백엔드 띄우기
 
 DB가 뜬 뒤에 실행한다. 자세한 건 `backend/README.md`.
@@ -54,3 +62,21 @@ curl localhost:8080/api/health
 - Docker Desktop
 - JDK 25. `JAVA_HOME` 이 JDK 17 미만이면 Gradle이 안 뜬다
 - Node.js 20 이상 (청크 13부터)
+
+### 한 번만 켜는 것 — 컨테이너 재사용
+
+`~/.testcontainers.properties` 에 아래 한 줄을 넣으면 느린 레인이 14초 줄어든다.
+
+```
+testcontainers.reuse.enable=true
+```
+
+**저장소가 아니라 기계에 붙는 설정이다.** 안 넣어도 테스트는 통과하고 경고만 나간다.
+CI 러너에서는 효과가 없다 — 매번 새 기계라 재사용할 컨테이너가 없다.
+
+## 라이선스
+
+Apache-2.0 이다. 루트의 `LICENSE` 가 원문이다.
+
+인용한 바깥 자료의 라이선스는 `doc/reference/external-references.md` 「라이선스」 표에 있다.
+**그중 `naming-rules.md` 의 SQL 절 하나만 CC BY-SA 4.0 이고** 그 절 첫머리에 적혀 있다(`2l-2`).

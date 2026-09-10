@@ -8,6 +8,8 @@ plugins {
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
+// 저장소와 같은 선언이다(`2l`). 배포는 안 하지만 갈리면 안 된다 — 루트 `LICENSE` 가 원문이다.
+description = "ProjectShop backend (Apache-2.0)"
 group = "com.projectshop"
 version = "0.0.1-SNAPSHOT"
 
@@ -68,6 +70,8 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.testcontainers:testcontainers-postgresql")
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+	// 계층 규칙을 문서에서 테스트로 내린다(`2n`). JUnit 6 아티팩트다 — 이 저장소가 6.0.3 이다.
+	testImplementation("com.tngtech.archunit:archunit-junit6:1.5.0")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
