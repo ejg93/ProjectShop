@@ -315,6 +315,7 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | 시드·데모 데이터를 건드렸으면 | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. 계정 6·셀러 2, 비밀번호는 전부 `demo-password-1234`. **`local` 없이 뜨면 시드가 안 들어간다** |
 | 로그·추적을 건드렸으면 | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
 | **`CLAUDE.md`·`doc/reference/*` 를 고쳤으면** | **안 돌려도 된다** — `.claude/settings.json` 의 훅이 편집 직후에 돌린다(`2j`). 손으로 돌리려면 `bash scripts/doc-lint.sh` | 통과하면 아무 말이 없고, 깨지면 **편집한 그 자리에서 막힌다.** 잡는 것이 셋이다 — 제목 파편(`batch-catalog.md`·`state-machines.md`·`PLAN.md` 가 실제로 이렇게 부서졌었다), 완전 중복 문장(`frontend-rules.md` 사례), **존댓말**(`2k-1`), **기준 문서 제목의 날짜**(`2c-2`. `external-references.md` 는 날짜가 내용이라 뺀다) |
+| **요건표(`D2`)에 R 을 더했으면** | `bash scripts/req-coverage.sh` | 리포트라 안 빨개진다(`2v`). 새 R 이 「언급하지 않는 요건」에 뜨면 테스트를 세우거나 요건표 「강제 지점」 칸이 왜 없는지를 답한다 |
 
 프론트 명령은 전부 `frontend/` 안에서 돌린다.
 

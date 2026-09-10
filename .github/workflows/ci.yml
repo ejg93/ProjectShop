@@ -110,3 +110,6 @@ jobs:
       - uses: actions/checkout@v7
 
       - run: bash scripts/doc-lint.sh
+
+      # 리포트다. 안 빨개진다(`2v`) — 테스트가 안 부르는 R 목록을 로그에 남긴다.
+      - run: bash scripts/req-coverage.sh

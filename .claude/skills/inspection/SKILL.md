@@ -97,7 +97,7 @@ description: 저장소 전체를 한 축으로 훑는 절차. 사용자가 「�
 
 | 줄 | 시작 파일 | 세는 단위 | 2026-08-23 기준 |
 |---|---|---|---|
-| 가로 · 법 | `commerce-compliance.md` 요건표 | 요건 `R번호` | 37 |
+| 가로 · 법 | `commerce-compliance.md` 요건표. **`bash scripts/req-coverage.sh` 를 먼저 돌린다**(`2v`) — 테스트가 안 부르는 R 이 나온다 | 요건 `R번호` | 37 |
 | 가로 · 표준 | `external-references.md` | 인용한 RFC·W3C | |
 | 가로 · 규약 | `document-map.md` 의 D 목록 | 문서가 정한 것 | 26 문서 |
 | 가로 · 관례 | `stack.md`·`coding-rules.md` | 따르거나 버린 항목 | |
