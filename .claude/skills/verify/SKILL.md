@@ -8,8 +8,8 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 **무엇을 건드렸는지가 무엇을 돌릴지 정한다.** 아래 표의 「언제」 칸이 그 답이고,
 청크를 닫기 전에 걸리는 줄을 **전부** 돌린다.
 
-**먼저 `bash scripts/verify.sh`**(`2z`). `origin/main` 대비 `backend/`·`frontend/` 서브트리가 다르면 그 레인을 돌리고,
-초록이면 `.git/verify-stamp` 에 해시를 찍는다. **Stop hook 이 `HEAD` 와 대조한다** — 도장 없이 코드 커밋을 남기고는 못 멈춘다.
+**먼저 `bash scripts/verify.sh`**(`2z`). `origin/main` 대비 레인 지문(코드·빌드 파일만 — `scripts/verify-fingerprint.sh`, `2z-1`)이 다르면 그 레인을 돌리고,
+초록이면 `.git/verify-stamp` 에 지문을 찍는다. **Stop hook 이 `HEAD` 와 대조한다** — 도장 없이 코드 커밋을 남기고는 못 멈춘다.
 아래 표의 첫 네 줄이 그 두 레인이다. **나머지 줄은 손이고 도장이 안 본다** — 걸리면 돌리고 이력에 적는다.
 
 ## 실제로 돌려본 것만 됐다고 한다
