@@ -36,6 +36,30 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && sed -n '/^## 현재 상태/,/^## 이력/p' PROGRESS.md | sed '$d'",
+            "timeout": 10,
+            "statusMessage": "현재 상태 주입"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "j=$(cat); echo \"$j\" | grep -qE '\"stop_hook_active\"[[:space:]]*:[[:space:]]*true' && exit 0; cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 0; s=$(git status --porcelain 2>/dev/null); [ -z \"$s\" ] && exit 0; printf '커밋 안 된 작업물이 있다 — 청크 하나 = 커밋 하나, 미완이면 WIP 커밋을 남긴다(CLAUDE.md 「청크 규칙」). 버릴 것이면 git stash 로 치운다.\n%s\n' \"$s\" >&2; exit 2",
+            "timeout": 15,
+            "statusMessage": "커밋 안 된 작업물 검사"
+          }
+        ]
+      }
     ]
   }
 }
