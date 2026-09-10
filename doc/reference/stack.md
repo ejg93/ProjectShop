@@ -809,6 +809,15 @@ To enable reuse of containers, you must set 'testcontainers.reuse.enable=true' i
 느린 레인 한 번에 postgres 가 셋 뜬다(`--info` 의 `Container postgres:17-alpine started` 를 센다).
 
 재사용을 켜면 그 셋이 같은 컨테이너에 붙어서 기동 비용이 사라진다.
+
+**재사용 컨테이너는 fork 사이에서 안 갈린다**(`2i-2`). 컨테이너가 하나라 fork 넷이 같은 Postgres DB,
+같은 Redis 논리 DB 를 잡는다 — 롤백에 안 쓸리는 정리 코드가 남의 fork 를 지운다.
+`PostgresTestBase` 가 fork 마다 DB 를 만들어 그것을 가른다. **`` 을 쓰면 못 가른다** —
+그 표시가 컨테이너의 기본 DB 로 연결을 고정해서, `JdbcConnectionDetails`·`DataRedisConnectionDetails` 를 직접 만든다.
+
+**Redis 논리 DB 는 기본이 16개다.** Gradle 의 `org.gradle.test.worker` 는 빌드 내내 커지는 번호라
+그대로 쓰면 넘친다. 컨테이너를 `redis-server --databases 256` 으로 띄워서 받는다 —
+**번호를 접으면 안 된다**: 중간이 비는 번호(1, 2, 3, 5)를 fork 수로 접으면 1, 2, 3, 1 로 겹친다.
 **대신 격리도 같이 사라진다** — fork 를 늘리면 롤백 안 하는 테스트가 서로를 밟는다(`D15`).
 
 ### `initdb.d` 는 볼륨이 비었을 때만 돈다

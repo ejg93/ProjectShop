@@ -124,6 +124,17 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 	classpath = sourceSets.test.get().runtimeClasspath
 	useJUnitPlatform { includeTags("db") }
 	shouldRunAfter(tasks.test)
+
+	// fork 를 둘로 늘린다(`2i-2`). 그전에는 하나였다 — `maxParallelForks = 2` 로 세 번 돌려
+	// 두 번이 빨갰고, 원인은 **fork 둘이 컨테이너 하나의 DB 하나를 나눠 쓴 것**이었다(`D15`).
+	// `PostgresTestBase.forkDatabase`·`forkRedis` 가 fork 마다 DB 를 갈라서 그 이유가 사라졌다.
+	//
+	// **컨테이너는 여전히 하나다.** fork 마다 띄우면 재사용이 죽어서 `2i-1` 이 줄인 14초를 도로 낸다.
+	//
+	// **넷이 아니라 둘인 것은 재서 정했다**(중앙값 1↦93초 · 2↦81초 · 4↦84초, `D15`).
+	// fork 마다 Spring 컨텍스트를 새로 띄우는 값이 붙어서 **늘린 만큼 빨라지지 않고 넷은 되레 는다.**
+	// 기계마다 갈리는 값이라 `-PintegrationForks=N` 으로 다시 재고 이 기본값을 고친다.
+	maxParallelForks = (findProperty("integrationForks") as String?)?.toInt() ?: 2
 }
 
 tasks.withType<Test> {
