@@ -59,6 +59,12 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          # **싱크 목록을 늘린다**(`2e-5`). 질의는 기본값 그대로고 `JdbcClient` 만 더한다 —
+          # `2e-4` 가 그것이 없어서 SQL 주입이 안 보이는 것을 probe 다섯 판으로 쟀다.
+          config: |
+            packs:
+              java:
+                - ./.github/codeql/extensions/projectshop-java
           # **질의 묶음을 안 넓힌다.** 기본값으로 첫 측정을 하고, 그 수가
           # `D25` 의 문턱을 정한다. 재기 전에 넓히면 무엇이 늘어난 것인지 안 갈린다.
 
