@@ -178,8 +178,10 @@ tasks.test {
 		.withPropertyName("comparedDocs")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
 
-	// **화면 소스도 입력이다**(`Q16`). 두 테스트가 프론트 파일을 읽어서 대조한다 —
-	// `ErrorSlugScreenTest`(오류 슬러그)와 `OrderRecordTextTest`(상태 문구).
+	// **화면 소스도 입력이다**(`Q16`). 대조 넷이 프론트 파일을 읽는다 —
+	// `ErrorSlugScreenTest`(오류 슬러그)·`OrderRecordTextTest`(상태 문구)·
+	// `WithdrawalNoticeScreenTest`(제한 사유)·`PasswordHintScreenTest`(비밀번호 길이). 뒤 둘은 `Q20-2` 다.
+	// **수를 적는 자리는 여기 하나가 아니다** — `testing-strategy.md` 의 대조 표가 실물 목록이다.
 	//
 	// **안 걸면 화면만 고친 청크에서 `test` 가 `UP-TO-DATE` 로 건너뛴다.** 문서에서 두 번
 	// 겪은 것과 같은 함정인데, `OrderRecordTextTest` 는 그동안 이 상태로 있었다 —

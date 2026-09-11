@@ -19,7 +19,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 
 import com.projectshop.shop.PostgresTestBase;
 

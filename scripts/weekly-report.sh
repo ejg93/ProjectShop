@@ -9,6 +9,11 @@
 #
 # **싼 것만 센다.** 훅이 부르므로 느리면 세션 여는 것이 느려진다. 테스트를 돌리지 않고
 # 소스를 세며, 망 호출은 전부 짧은 시한을 걸고 실패해도 그 줄만 비운다.
+#
+# **길이도 예산이다.** `2u` 가 「현재 상태」를 25줄로 막은 것과 같은 주입 자리다(`2q` hook).
+# 여기는 lint 가 못 본다 — 파일이 아니라 **만들어지는 출력**이라서다. 그래서 스스로 막는다:
+# 목록 둘(`BEHIND` PR·빨간 CI)만 다섯 줄에서 끊고, 나머지는 점검표 크기에 이미 묶여 있다.
+# **끊는 자리를 신호가 아닌 쪽으로 고른다** — 오래 안 본 줄 목록은 안 끊는다. 그게 이 리포트의 요지다.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,7 +22,9 @@ today_days=$(( $(date +%s) / 86400 ))
 
 # `gh` 가 없거나 느릴 때 그 줄만 비우고 넘어간다. 리포트가 통째로 안 나오는 것보다 낫다.
 gh_or_blank() {
-  timeout 10 gh "$@" 2>/dev/null || true
+  # **5초다.** 이 함수를 넷 부르므로 합이 훅 예산 안에 들어가야 한다 —
+  # 10초씩이면 최악 40초라 `SessionStart` 가 죽고 **「현재 상태」 주입까지 같이 날아간다.**
+  timeout 5 gh "$@" 2>/dev/null || true
 }
 
 echo "## 주간 리포트 ($TODAY)"
@@ -63,7 +70,8 @@ echo "### 멈춘 Dependabot PR"
 echo
 behind=$(gh_or_blank pr list --author "app/dependabot" --state open \
   --json number,title,mergeStateStatus \
-  --jq '.[] | select(.mergeStateStatus == "BEHIND") | "- #\(.number) \(.title) — `@dependabot rebase` 를 단다"')
+  --jq '.[] | select(.mergeStateStatus == "BEHIND") | "- #\(.number) \(.title) — `@dependabot rebase` 를 단다"') 
+behind=$(printf '%s' "$behind" | head -5)
 echo "${behind:-- 없다}"
 echo
 
@@ -72,7 +80,8 @@ echo '### `main` 의 마지막 CI'
 echo
 ci=$(gh_or_blank run list --branch main --limit 5 \
   --json name,conclusion,createdAt \
-  --jq '.[] | select(.conclusion == "failure") | "- **\(.name)** 이 빨갛다 (\(.createdAt[0:10]))"')
+  --jq '.[] | select(.conclusion == "failure") | "- **\(.name)** 이 빨갛다 (\(.createdAt[0:10]))"') 
+ci=$(printf '%s' "$ci" | head -5)
 echo "${ci:-- 초록이다}"
 echo
 
@@ -90,8 +99,11 @@ echo
 # 파일뿐이라(`D15`), 상속 여부로 센다. 실제 케이스 수가 아니라 **파일 수의 비율**이다.
 echo "### 레인"
 echo
-slow=$(grep -rlE "extends (PostgresTestBase|HttpTestBase)" backend/src/test --include='*.java' 2>/dev/null | wc -l)
-all=$(find backend/src/test -name '*Test.java' 2>/dev/null | wc -l)
+# **같은 집합에서 센다.** 분자를 `*.java` 로, 분모를 `*Test.java` 로 세면
+# `BackendApplicationTests.java` 처럼 `Tests` 로 끝나는 것이 분자에만 들어 비율이 틀어진다.
+all_files=$(find backend/src/test -name '*Test.java' -o -name '*Tests.java' 2>/dev/null)
+all=$(echo "$all_files" | grep -c . )
+slow=$(echo "$all_files" | xargs grep -lE "extends (PostgresTestBase|HttpTestBase)" 2>/dev/null | wc -l)
 fast=$(( all - slow ))
 if [ "$all" -gt 0 ]; then
   echo "- 백엔드 테스트 파일 ${all}개 중 빠른 레인 ${fast}개 ($(( fast * 100 / all ))%)"

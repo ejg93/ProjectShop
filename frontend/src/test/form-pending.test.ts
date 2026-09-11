@@ -24,6 +24,12 @@ const SRC = join(process.cwd(), "src");
 /** `<form ... action={` — 사이에 `ref=` 같은 것이 끼어도 잡는다 */
 const FORM_ACTION = /<form[^>]*\saction=\{/;
 
+/** `<form ... onSubmit={` — 반대쪽 꼴이다 */
+const FORM_ONSUBMIT = /<form[^>]*\sonSubmit=\{/;
+
+/** 공용 제출 버튼을 쓰는가 */
+const SUBMIT_BUTTON = /\bSubmitButton\b/;
+
 /** `const [pending, setPending] = useState(` — 이름이 제출 중을 뜻하는 것만 */
 const PENDING_STATE =
   /const\s*\[\s*(pending|sending|submitting|saving|posting)\s*,[^\]]*\]\s*=\s*useState\s*\(/i;
@@ -53,6 +59,28 @@ describe("폼이 제출 중인지를 손으로 들지 않는다", () => {
     // 이것이 0이 되면 위 규칙이 아무 파일에도 안 걸린다 — 그때는 이 테스트가 뜻을 잃는다.
     const forms = files.filter((f) => FORM_ACTION.test(readFileSync(f, "utf8")));
     expect(forms.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * **반대 방향이다**(`D24` 표의 둘째 줄). `useFormStatus` 는 `action` 이 건 제출만 알아서,
+   * `onSubmit` 폼에 `SubmitButton` 을 끼우면 **언제나 `false`** 를 받아 **버튼이 한 번도 안 잠긴다** —
+   * `Q20-1` 이 고친 결함이 그대로 돌아온다.
+   *
+   * <p>같은 표의 두 줄인데 한쪽만 기계가 보고 있었다(9차 마무리의 독립 리뷰가 짚었다).
+   */
+  it("`<form onSubmit={}>` 파일이 `SubmitButton` 을 쓰지 않는다", () => {
+    const offenders = files.filter((path) => {
+      const source = readFileSync(path, "utf8");
+      // **`action=` 이 같이 있으면 넘어간다** — 규칙은 폼 단위인데 검사는 파일 단위라,
+      // 한 파일에 두 꼴이 섞이면 정당한 쪽을 오탐한다. 그때는 사람이 본다.
+      return FORM_ONSUBMIT.test(source) && !FORM_ACTION.test(source) && SUBMIT_BUTTON.test(source);
+    });
+
+    expect(
+      offenders.map((p) => p.slice(SRC.length)),
+      "`useFormStatus` 는 `action` 이 건 제출만 안다 — `onSubmit` 폼에서는 언제나 false 라 " +
+        "버튼이 한 번도 안 잠긴다. 거기서는 `useState` 로 든다(`D24`)",
+    ).toEqual([]);
   });
 
   it("그 파일들이 pending 을 `useState` 로 들지 않는다", () => {
