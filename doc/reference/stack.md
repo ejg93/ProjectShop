@@ -884,6 +884,23 @@ CI 중 제일 길고 제일 비싸다. **PR 을 마무리 때만 여는 근거�
 **`JAVA_HOME` 훅은 다른 길을 썼다** — 한글이 든 줄을 `perl` 로 통째로 걷는다. 산문이 한국어라
 통하는 수고, **한글이 든 진짜 명령은 놓친다.** 새 훅은 앵커 쪽을 쓴다.
 
+### 필수 검사는 이름으로 붙지 이벤트를 안 가린다
+
+가지 보호의 필수 검사는 `{context, app_id}` 로 맞춘다 — `gh api repos/…/branches/main/protection` 이
+`{"app_id": 15368, "context": "backend"}` 꼴로 낸다(15368 이 GitHub Actions). **어느 이벤트가 그 결과를
+만들었는지는 안 본다** — 같은 커밋에 같은 이름으로 붙기만 하면 된다.
+
+**그래서 `push` 와 `pull_request` 를 둘 다 걸면 같은 커밋을 두 번 검사한다**(`2c-3`).
+PR #37 의 커밋 하나에 `ci.yml` 2건·`codeql.yml` 2건이 실측됐다. `concurrency` 가 못 막는다:
+그룹 키가 `github.ref` 인데 push 는 `refs/heads/…`, PR 은 `refs/pull/N/merge` 라 **다른 그룹**이다.
+
+**`pull_request:` 를 빼도 필수 검사는 찬다** — push 실행이 같은 이름을 붙인다.
+**다만 fork 에서 온 PR 은 base 저장소에 push 가 안 돈다.** 바깥에서 PR 을 받기 시작하면
+그 줄을 되돌려야 한다. 이 저장소는 지금 fork 가 없다.
+
+**필수 검사 넷이 전부 `ci.yml` 에 있다**(`backend`·`frontend`·`secrets`·`docs`) — 그 파일의
+트리거를 건드릴 때는 이 문단을 같이 본다.
+
 ### hook `matcher` 는 터미널이 아니라 도구 이름이다
 
 `"matcher": "Bash"` 는 **Claude Code 의 `Bash` 도구**에만 걸린다. 같은 셸 명령을
