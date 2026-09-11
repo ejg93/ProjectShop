@@ -49,6 +49,12 @@ enum ReturnShippingFeeBearer {
      * 고를 수 없는 것은 다르다.</b>
      */
     static ReturnShippingFeeBearer of(ReturnStatus status, OrderStatusService.ReturnReason reason) {
+        // **판정이 아닌 상태를 받으면 여기서 터진다.** 안 막으면 조용히 CONSUMER 를 내는데,
+        // 그 값은 `return_request_bearer_decided_check` 가 거부하는 조합이라 **커밋에서야** 터진다 —
+        // 축 2 에서 1위가 막을 수 있는 것을 2위로 내려보내는 자리다.
+        if (!status.isDecided()) {
+            throw new IllegalStateException("판정이 끝나야 부담 주체가 정해진다: " + status.code());
+        }
         return status == ReturnStatus.APPROVED && reason == OrderStatusService.ReturnReason.DEFECT
                 ? SELLER
                 : CONSUMER;
@@ -56,6 +62,10 @@ enum ReturnShippingFeeBearer {
 
     /**
      * 저장값을 부담 주체로 되돌린다.
+     *
+     * <p><b>아직 부르는 데가 없다</b>(마무리의 독립 리뷰가 짚었다). {@link #code} 와 짝이라
+     * 한쪽만 두면 되돌리는 길이 없는 타입이 된다 — 반품 조회가 부담 주체를 화면에 내보내기
+     * 시작하면 그때 쓴다.
      *
      * <p><b>모르는 값이면 터진다.</b> {@code check} 가 이미 막고 있으므로 여기 오는 모르는 값은
      * <b>마이그레이션과 이 enum 이 어긋났다</b>는 뜻이고, 그 자리는 법이 부담을 가르는 자리다.

@@ -22,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.support.ConstraintValues;
-import com.projectshop.shop.support.ActorType;
 
 /**
  * 열거형의 값 목록과 DB 가 닫아 둔 목록을 전부 대조한다
@@ -44,7 +43,9 @@ import com.projectshop.shop.support.ActorType;
  *
  * <p>열거형이 <b>대개</b> {@code package-private} 이라 {@code code()} 를 리플렉션으로 부른다.
  * 대안은 대조 하나 때문에 접근 범위를 넓히는 것인데, 그러면
- * 「이 열거형을 어디까지 쓰나」를 정한 결정들(`43a-15` 의 {@code ActorType} 등)이 테스트 때문에 풀린다.
+ * 「이 열거형을 어디까지 쓰나」를 정한 결정들이 테스트 때문에 풀린다.
+ * <b>{@code ActorType} 을 그 예로 들던 자리다</b> — `43a-17` 이 소비자가 둘이 되면서
+ * {@code support} 로 옮기고 {@code public} 으로 열어서 **예가 죽었다.**
  *
  * <p><b>공개인 것도 있고 그건 이 테스트와 무관한 이유다</b> — {@code Scope} 는 응답 record 에
  * 실려서 열렸다(`43a-20`). 여기서 리플렉션을 쓰는 근거는 「전부 닫혀 있다」가 아니라

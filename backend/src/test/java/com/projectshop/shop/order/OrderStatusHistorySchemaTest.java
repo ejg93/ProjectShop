@@ -14,7 +14,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
-import com.projectshop.shop.support.ActorType;
 
 /**
  * 상태 이력이 잘못된 행을 막는가(`V18`).

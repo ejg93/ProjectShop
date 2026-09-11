@@ -142,7 +142,7 @@ done
 #
 # 행 판정은 `PlanProgressConsistencyTest` 와 같다 — 번호 칸이나 이름 칸의 취소선, 선행 칸의 `완료`.
 # `#`·`칸` 은 표 머리다(분할표와 그 앞의 칸 설명 표).
-plan_open_incomplete_baseline=56
+plan_open_incomplete_baseline=53
 plan_open_incomplete=$(awk '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
     n=split($0,c,"|"); id=c[2]; gsub(/^ +| +$/,"",id); nm=c[3]; gsub(/^ +/,"",nm);
     last=c[n-1]; gsub(/^ +| +$/,"",last);

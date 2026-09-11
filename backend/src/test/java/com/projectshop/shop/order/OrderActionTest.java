@@ -21,7 +21,6 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderActionService.Action;
 import com.projectshop.shop.order.OrderStatusService.Actor;
 import com.projectshop.shop.order.OrderTransitions.Payment;
-import com.projectshop.shop.support.ActorType;
 
 /**
  * 사람이 주문을 옮기는 경로.

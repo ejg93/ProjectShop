@@ -11,7 +11,7 @@ import java.util.Arrays;
  * 둘 다 건너뛸 수 있다. 끝은 {@link #APPROVED} 아니면 {@link #REJECTED} 둘뿐이다.
  *
  * <p><b>끝 둘이 제약 셋을 동시에 건다</b>(`V63`) — 판정 시각이 차고
- * ({@code return_request_decided_check}), 반환 비용 부담 주체가 정해지고
+ * ({@code return_request_decision_check}), 반환 비용 부담 주체가 정해지고
  * ({@code return_request_bearer_decided_check}), 하자면 소비자에게 못 물린다
  * ({@code return_request_defect_bearer_check}, 제18조제10항). 그래서 이 둘은
  * <b>값 하나가 아니라 판정 사건</b>이다.
@@ -52,6 +52,11 @@ enum ReturnStatus {
 
     /**
      * 저장값을 상태로 되돌린다.
+     *
+     * <p><b>아직 부르는 데가 없다</b>(마무리의 독립 리뷰가 짚었다). 읽는 쪽이 상태를 타입으로
+     * 받기 시작하면 그때 쓴다 — {@code ReturnRequestQuery} 가 아직 문자열을 그대로 내보낸다.
+     * <b>대전제의 「세어 보고 하나뿐이면 안 만든다」에 걸리는 자리</b>지만,
+     * {@link #code} 와 짝이라 한쪽만 두면 <b>되돌리는 길이 없는 타입</b>이 된다.
      *
      * <p><b>모르는 값이면 터진다.</b> {@code check} 가 이미 막고 있으므로 여기 오는 모르는 값은
      * <b>마이그레이션과 이 enum 이 어긋났다</b>는 뜻이다.

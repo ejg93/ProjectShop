@@ -70,7 +70,7 @@ const WITHDRAWAL_REASON_TEXT: Record<WithdrawalReason, string> = {
 };
 
 /** 사유를 모를 때. <b>안 그리지 않는다</b> — 표시가 없으면 제한이 성립하지 않는다(제17조제2항 단서) */
-const WITHDRAWAL_FALLBACK_TEXT = "이 상품은 청약철회가 제한됩니다.";
+const WITHDRAWAL_FALLBACK_TEXT = "이 상품은 청약철회가 제한될 수 있습니다.";
 
 /** 신고번호가 없는 이유. 빈 칸으로 두면 「아직 안 넣은 것」과 구분이 안 된다(`14a`) */
 /**

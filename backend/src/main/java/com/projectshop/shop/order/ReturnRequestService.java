@@ -33,7 +33,7 @@ public class ReturnRequestService {
      * 한 record 에 담으면 반대쪽 칸이 늘 비고, <b>빈 값에 뜻을 싣게 된다</b>(`D23`).
      *
      * <p><b>부담 주체는 여기 없다.</b> 세 경우가 전부 결정적이라 입력이 아니라 계산이다 —
-     * {@link #bearerOf} 를 본다. 칸을 두면 `V63` 의 {@code check} 가 막긴 해도
+     * {@link ReturnShippingFeeBearer#of(ReturnStatus, OrderStatusService.ReturnReason)} 를 본다. 칸을 두면 `V63` 의 {@code check} 가 막긴 해도
      * <b>고를 수는 있게 되고</b>, 「계약에 칸이 없다」가 강제 지점 1순위다.
      */
     public sealed interface Decision {
@@ -125,10 +125,15 @@ public class ReturnRequestService {
 
         int moved = jdbc.sql("""
                         update return_request
-                           set status = 'received', received_at = now()
+                           set status = :received, received_at = now()
                          where return_request_id = :id
-                           and status in ('requested', 'picked_up')
+                           and status in (:requested, :pickedUp)
                         """)
+                // **열거형이 값을 댄다**(`43a-18`). 리터럴로 두면 타입을 고쳐도 이 쓸이
+                // 옛 글자를 물고 **조용히 아무도 안 걸린다**.
+                .param("received", ReturnStatus.RECEIVED.code())
+                .param("requested", ReturnStatus.REQUESTED.code())
+                .param("pickedUp", ReturnStatus.PICKED_UP.code())
                 .param("id", returnRequestId)
                 .update();
 
@@ -239,9 +244,11 @@ public class ReturnRequestService {
         return jdbc.sql("""
                         select return_request_id from return_request
                          where seller_order_id = :sellerOrderId
-                           and status not in ('approved', 'rejected')
+                           and status not in (:approved, :rejected)
                         """)
                 .param("sellerOrderId", sellerOrderId)
+                .param("approved", ReturnStatus.APPROVED.code())
+                .param("rejected", ReturnStatus.REJECTED.code())
                 .query(Long.class)
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.ORDER_TRANSITION_NOT_ALLOWED,
