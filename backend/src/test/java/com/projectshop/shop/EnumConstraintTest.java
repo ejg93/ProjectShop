@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.support.ConstraintValues;
+import com.projectshop.shop.support.ActorType;
 
 /**
  * 열거형의 값 목록과 DB 가 닫아 둔 목록을 전부 대조한다
@@ -136,7 +137,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("product.StockReason", List.of("sku_stock_movement_reason_check"));
         pairs.put("order.OrderTransitions$Payment", List.of("shop_order_status_check"));
         pairs.put("order.OrderTransitions$Shipment", List.of("seller_order_status_check"));
-        pairs.put("order.ActorType", List.of("order_status_history_actor_type_check",
+        pairs.put("support.ActorType", List.of("order_status_history_actor_type_check",
                                              "refund_requested_by_type_check"));
         pairs.put("order.ContractClause", List.of("order_contract_document_clause_check"));
         pairs.put("order.OrderStatusService$ReturnReason", List.of("seller_order_return_reason_check",

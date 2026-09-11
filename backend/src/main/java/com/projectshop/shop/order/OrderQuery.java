@@ -26,6 +26,7 @@ import com.projectshop.shop.payment.PaymentStatus;
 import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.support.ActorType;
 
 /**
  * 산 사람이 자기 주문을 찾아 본다.

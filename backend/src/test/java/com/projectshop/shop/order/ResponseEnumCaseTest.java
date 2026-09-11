@@ -29,6 +29,7 @@ import com.projectshop.shop.payment.PaymentService;
 import com.projectshop.shop.payment.PaymentStatus;
 import com.projectshop.shop.payment.RefundReason;
 import com.projectshop.shop.payment.RefundStatus;
+import com.projectshop.shop.support.ActorType;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;

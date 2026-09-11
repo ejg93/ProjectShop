@@ -24,6 +24,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.BusinessCalendar;
 import com.projectshop.shop.support.ExposedNumber;
 import com.projectshop.shop.support.Retries;
+import com.projectshop.shop.support.ActorType;
 
 /**
  * 셀러 묶음 하나의 대금을 돌려준다. <b>요청과 승인이 갈려 있다.</b>
@@ -51,7 +52,13 @@ public class RefundService {
     private static final int DUE_BUSINESS_DAYS = 3;
 
 
-    /** {@code refund.requested_by_type} 에 들어가는 값(`V25`) */
+    /**
+     * {@code refund.approved_by_type} 쪽이 쓰는 「시스템」.
+     *
+     * <p><b>요청자({@code requested_by_type})는 이것을 안 쓴다</b>(`43a-17`) —
+     * 그쪽은 {@link ActorType} 이 값을 댄다. 승인자는 목록이 {@code admin}·{@code system} 둘이라
+     * <b>요청자와 값 집합이 달라</b> 같은 타입으로 못 묶는다(`V51`).
+     */
     static final String BY_SYSTEM = "system";
 
     /**
@@ -179,7 +186,7 @@ public class RefundService {
      */
     private Requester requesterOf(long userId, Bundle bundle) {
         if (userId == bundle.buyerUserId()) {
-            return new Requester("customer", userId);
+            return new Requester(ActorType.CUSTOMER, userId);
         }
 
         boolean member = jdbc.sql("""
@@ -191,7 +198,7 @@ public class RefundService {
                 .query(Boolean.class)
                 .single();
 
-        return new Requester(member ? "seller" : "admin", userId);
+        return new Requester(member ? ActorType.SELLER : ActorType.ADMIN, userId);
     }
 
     /**
@@ -238,10 +245,10 @@ public class RefundService {
      *
      * @param userId 시스템이면 {@code null}. 제약이 그 짝을 강제한다
      */
-    record Requester(String type, Long userId) {
+    record Requester(ActorType type, Long userId) {
 
         static Requester system() {
-            return new Requester(BY_SYSTEM, null);
+            return new Requester(ActorType.SYSTEM, null);
         }
     }
 
@@ -655,7 +662,7 @@ public class RefundService {
                 .param("reasonCode", command.reasonCode())
                 .param("amount", amount)
                 .param("shippingRefund", shippingRefund)
-                .param("byType", requester.type())
+                .param("byType", requester.type().code())
                 .param("userId", requester.userId())
                 .param("dueAt", dueAt)
                 .query(String.class)
