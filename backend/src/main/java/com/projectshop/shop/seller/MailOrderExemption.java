@@ -13,7 +13,7 @@ import java.util.Arrays;
  * <p>표가 아니라 {@code check} 인 이유는 <b>값이 늘면 화면 문구가 따라와야 해서</b>다(`D23`).
  * 사유가 하나 생기면 그것을 뭐라고 적을지 정하는 것이 곧 배포다.
  */
-public enum MailOrderExemption {
+enum MailOrderExemption {
 
     /** 직전연도 통신판매 거래 횟수가 50회 미만 */
     UNDER_50_TRANSACTIONS,

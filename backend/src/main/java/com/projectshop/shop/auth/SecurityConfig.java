@@ -94,6 +94,12 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
                         // 상품 상세는 읽기만 연다(청크 8b). 별 하나라 /{id} 까지만 걸리고
                         // /{id}/approve 같은 검수 경로는 안 걸린다 — 둘 다 필요한 조건이다.
+                        // API 스펙(`2a`). 코드에서 뽑은 계약이라 비밀이 아니고, 막으면 프론트가 못 읽는다.
+                        // **읽기만 연다** — 아래 경로들과 같은 이유다: 이 경로에 쓰기가 생기는 날
+                        // 조용히 같이 열리지 않게 한다. 셋인 것은 스펙 본문·하위 경로·YAML 판이라서고,
+                        // UI 를 안 들여서 정적 자원 경로가 없다.
+                        .requestMatchers(HttpMethod.GET, "/api/docs", "/api/docs/**", "/api/docs.yaml")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products/*").permitAll()
                         // 셀러 신원은 법이 청약 이전에 제공하라고 한 값이라(`D2` R1) 비로그인이 본다.
                         // 여기도 GET 만 연다 — 이 경로에 쓰기가 생기는 날 조용히 같이 열리지 않게.

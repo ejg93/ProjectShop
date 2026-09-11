@@ -79,7 +79,7 @@ class EnumConstraintTest extends PostgresTestBase {
             "order.OrderFields", "〃",
             "audit.AuditLog$Kind", "커밋 방식을 가르는 구분이다. 저장 안 한다 — `audit_log` 에 그 열이 없다",
             "notification.AdvertisingGate$Verdict", "발송 판정의 결과다. 안 보낸 이유는 저장 안 하고 로그로 간다",
-            "order.OrderActionService$Action", "닫힌 목록이 `permission` 표의 행이지 `check` 가 아니다. 대조가 없는 것은 맞고 모양이 달라서 `43a-21` 로 세웠다");
+            "order.OrderActionService$Action", "닫힌 목록이 `permission` 표의 행이지 `check` 가 아니다. `ActionPermissionTest` 가 대조한다(`43a-21`)");
 
     @Autowired
     private JdbcClient jdbc;
@@ -133,6 +133,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("product.ProductStatus", List.of("product_status_check"));
         pairs.put("product.SkuStatus", List.of("sku_status_check"));
         pairs.put("product.WithdrawalRestrictionReason", List.of("product_withdrawal_reason_check"));
+        pairs.put("product.StockReason", List.of("sku_stock_movement_reason_check"));
         pairs.put("order.OrderTransitions$Payment", List.of("shop_order_status_check"));
         pairs.put("order.OrderTransitions$Shipment", List.of("seller_order_status_check"));
         pairs.put("order.ActorType", List.of("order_status_history_actor_type_check",
@@ -148,8 +149,11 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("inquiry.InquiryStatus", List.of("inquiry_status_check"));
         pairs.put("notification.NotificationKind", List.of("notification_kind_check",
                                                           "notification_template_kind_check"));
+        pairs.put("notification.NotificationEventType", List.of("notification_event_type_check"));
         pairs.put("notification.NotificationChannel", List.of("notification_channel_check"));
         pairs.put("notification.NotificationStatus", List.of("notification_status_check"));
+        pairs.put("support.BatchRunStatus", List.of("batch_run_status_check"));
+        pairs.put("support.FailureKind", List.of("batch_run_failure_kind_values_check"));
         pairs.put("settlement.PayoutStatus", List.of("settlement_payout_status_check"));
         pairs.put("settlement.SettlementItemKind", List.of("settlement_item_kind_check"));
         return Map.copyOf(pairs);

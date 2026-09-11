@@ -10,11 +10,18 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
+# 절차 스킬(`2r`)도 프롬프트 역할 문서다. `design-taste-frontend` 는 바깥 스킬이라 뺀다.
+skill_files=()
+for f in .claude/skills/*/SKILL.md; do
+  case "$f" in *design-taste-frontend*) ;; *) skill_files+=("$f") ;; esac
+done
+
 title_check_files=(
   CLAUDE.md
+  backend/CLAUDE.md
   PLAN.md
   PROGRESS.md
-  doc/process/*.md
+  "${skill_files[@]}"
   doc/reference/*.md
 )
 
@@ -23,8 +30,9 @@ dup_check_files=(
   PLAN.md
   PROGRESS.md
   frontend/CLAUDE.md
+  backend/CLAUDE.md
   frontend/AGENTS.md
-  doc/process/*.md
+  "${skill_files[@]}"
   doc/reference/*.md
 )
 
@@ -38,8 +46,9 @@ honorific_check_files=(
   PLAN.md
   PROGRESS.md
   frontend/CLAUDE.md
+  backend/CLAUDE.md
   frontend/AGENTS.md
-  doc/process/*.md
+  "${skill_files[@]}"
   doc/reference/*.md
 )
 
@@ -60,6 +69,10 @@ fail=0
 for f in "${title_check_files[@]}"; do
   [ -f "$f" ] || continue
   first_line=$(head -n 1 "$f")
+  # 스킬 파일은 frontmatter 가 먼저다 — 닫는 `---` 다음의 첫 줄을 본다.
+  if [ "$first_line" = "---" ]; then
+    first_line=$(awk 'NR>1 && /^---$/{f=1; next} f && NF{print; exit}' "$f")
+  fi
   case "$first_line" in
     "#"*) ;;
     *)
@@ -122,6 +135,34 @@ for f in "${honorific_check_files[@]}"; do
     fail=1
   fi
 done
+
+# 분할표의 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
+# 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
+# 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
+#
+# 행 판정은 `PlanProgressConsistencyTest` 와 같다 — 번호 칸이나 이름 칸의 취소선, 선행 칸의 `완료`.
+# `#`·`칸` 은 표 머리다(분할표와 그 앞의 칸 설명 표).
+plan_open_incomplete_baseline=56
+plan_open_incomplete=$(awk '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
+    n=split($0,c,"|"); id=c[2]; gsub(/^ +| +$/,"",id); nm=c[3]; gsub(/^ +/,"",nm);
+    last=c[n-1]; gsub(/^ +| +$/,"",last);
+    if (id=="#" || id=="칸" || id ~ /^~~/ || nm ~ /^~~/ || last=="완료") next;
+    if ($0 !~ /\*\*축\*\*/ || $0 !~ /\*\*강제 지점\*\*/ || $0 !~ /\*\*닫힘\*\*/) k++
+  } END{print k+0}' PLAN.md)
+if [ "$plan_open_incomplete" -gt "$plan_open_incomplete_baseline" ]; then
+  echo "[분할표 칸 누락] PLAN.md — 안 닫힌 행 중 축·강제 지점·닫힘이 빠진 것이 ${plan_open_incomplete}개 (기준선 ${plan_open_incomplete_baseline}). 새 행에는 넷을 다 적는다(PLAN.md 「청크 분할표」)"
+  fail=1
+elif [ "$plan_open_incomplete" -lt "$plan_open_incomplete_baseline" ]; then
+  echo "[기준선 내릴 것] PLAN.md — 칸 빠진 행이 ${plan_open_incomplete}개로 줄었다. scripts/doc-lint.sh 의 plan_open_incomplete_baseline 을 그 수로 내린다"
+fi
+
+# 「현재 상태」는 표다(`2u`). 서사가 붙기 시작하면 세션마다 hook 이 그것을 통째로 주입한다(`2q`) —
+# 2026-09-06 에 119줄이었다. 상한을 넘으면 빨갛다.
+state_lines=$(awk '/^## 현재 상태$/{on=1; next} /^## /{on=0} on' PROGRESS.md | wc -l)
+if [ "$state_lines" -gt 25 ]; then
+  echo "[현재 상태 비대] PROGRESS.md — 「현재 상태」가 ${state_lines}줄이다(상한 25). 표만 남기고 서사는 이력으로(PROGRESS.md 「기록 규칙」)"
+  fail=1
+fi
 
 if [ "$fail" -eq 0 ]; then
   echo "이상 없음 — 검사한 파일 전부 통과"

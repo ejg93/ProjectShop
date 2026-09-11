@@ -61,6 +61,13 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-micrometer-tracing-brave")
 	implementation("io.micrometer:micrometer-tracing-bridge-brave")
 	runtimeOnly("org.postgresql:postgresql")
+	// API 스펙을 코드에서 뽑는다(`2a`). **UI 스타터를 안 들인다** — 행이 연 것은 스펙 하나고,
+	// Swagger UI 는 정적 자원과 경로를 더 열어서 노출면만 넓힌다.
+	//
+	// **3.x 가 Boot 4 판이다.** 2.x 는 Boot 3 모듈 배치(`spring-boot-starter-*`)를 부르고
+	// 3.x 가 쪼개진 배치(`spring-boot-webmvc`·`spring-boot-tomcat`)를 부른다 — 2.x 를 얹으면
+	// 없는 좌표를 찾다가 죽는다. Boot BOM 이 관리 안 해서 버전을 직접 적는다.
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.1.1")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
@@ -124,6 +131,17 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 	classpath = sourceSets.test.get().runtimeClasspath
 	useJUnitPlatform { includeTags("db") }
 	shouldRunAfter(tasks.test)
+
+	// fork 를 둘로 늘린다(`2i-2`). 그전에는 하나였다 — `maxParallelForks = 2` 로 세 번 돌려
+	// 두 번이 빨갰고, 원인은 **fork 둘이 컨테이너 하나의 DB 하나를 나눠 쓴 것**이었다(`D15`).
+	// `PostgresTestBase.forkDatabase`·`forkRedis` 가 fork 마다 DB 를 갈라서 그 이유가 사라졌다.
+	//
+	// **컨테이너는 여전히 하나다.** fork 마다 띄우면 재사용이 죽어서 `2i-1` 이 줄인 14초를 도로 낸다.
+	//
+	// **넷이 아니라 둘인 것은 재서 정했다**(중앙값 1↦93초 · 2↦81초 · 4↦84초, `D15`).
+	// fork 마다 Spring 컨텍스트를 새로 띄우는 값이 붙어서 **늘린 만큼 빨라지지 않고 넷은 되레 는다.**
+	// 기계마다 갈리는 값이라 `-PintegrationForks=N` 으로 다시 재고 이 기본값을 고친다.
+	maxParallelForks = (findProperty("integrationForks") as String?)?.toInt() ?: 2
 }
 
 tasks.withType<Test> {

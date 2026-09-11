@@ -25,3 +25,6 @@ logs/
 
 # IntelliJ 설정. SDK 이름·경로가 기계마다 달라서 공유하면 남의 환경을 덮어쓴다.
 .idea/
+# 절차 스킬(예열·마무리·점검)도 저장소의 규칙이다(청크 2r). 디렉터리를 열고 심볼릭 링크만 다시 막는다.
+!.claude/skills/
+.claude/skills/design-taste-frontend

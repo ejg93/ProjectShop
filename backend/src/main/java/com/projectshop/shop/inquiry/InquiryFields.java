@@ -15,7 +15,7 @@ import com.projectshop.shop.auth.FieldGroup;
  * <p>누구에게도 안 나가는 값은 여기 오지 않고 <b>애초에 응답 record 에 칸이 없다</b>
  * (`D23` 축 2) — 공개 목록의 {@code PublicEntry} 에 낸 사람 칸이 없는 것이 그 자리다.
  */
-public enum InquiryFields implements FieldGroup {
+enum InquiryFields implements FieldGroup {
 
     /** 번호, 종류, 상태, 대상, 일시. 볼 수 있는 사람은 다 본다 */
     BASIC,

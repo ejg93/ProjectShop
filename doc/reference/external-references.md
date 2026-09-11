@@ -293,9 +293,17 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 애그리거트 개념은 D4 가 쓴다. 무엇이 같이 태어나고 같이 죽는지를 정하면
 `on delete cascade` 를 어디에 걸지가 따라 나온다.
 
+## D5 API 규약 (완료)
+
+- OpenAPI Specification 3.1.1: https://spec.openapis.org/oas/v3.1.1.html — 스펙 형식의 정본
+- springdoc-openapi: https://springdoc.org — 코드에서 스펙을 뽑는 도구(`2a`).
+  **관례(4순위)라 기본값을 그대로 안 받는다** — 경로를 `/v3/api-docs` 에서 `/api/docs` 로 옮긴 근거는
+  `application.yml` 에 적었다
+
 ## D2 법·정책 (완료)
 
-- 국가법령정보센터: https://law.go.kr — 법령 원문의 정본
+- 국가법령정보센터: https://law.go.kr — 법령 원문의 정본.
+  **평문 URL 은 제목만 준다 — `print=print` 판을 받아야 조문이 온다**(`W2` 가 남긴 사실, 2026-09-10 에 적었다)
 - 상세는 `commerce-compliance.md`
 
 ### 조문 대조 (2026-08-08)

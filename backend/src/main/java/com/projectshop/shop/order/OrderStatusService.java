@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.product.StockReason;
 import com.projectshop.shop.order.OrderTransitions.Payment;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
 import com.projectshop.shop.support.BusinessCalendar;
@@ -297,7 +298,7 @@ public class OrderStatusService {
             // 되돌리기 전에 옮긴다. 상태가 먼저 바뀌어야 같은 셀러 주문을 두 번 취소하는 요청이
             // 두 번째에 전이표에 걸린다 — 안 그러면 재고가 두 번 늘어난다.
             updateShipmentStatus(sellerOrderId, to);
-            restoreStock(sellerOrderId, "order_cancelled");
+            restoreStock(sellerOrderId, StockReason.ORDER_CANCELLED);
         } else {
             updateShipmentStatus(sellerOrderId, to);
 
@@ -305,7 +306,7 @@ public class OrderStatusService {
             // **사유를 갈라 적는다** — 취소는 안 나간 것이고 반품은 나갔다 돌아온 것이라
             // 한 값으로 뭉치면 「왜 재고가 다시 늘었나」에 답이 안 나온다(`V64`).
             if (restock) {
-                restoreStock(sellerOrderId, "return_restocked");
+                restoreStock(sellerOrderId, StockReason.RETURN_RESTOCKED);
             }
         }
 
@@ -502,7 +503,7 @@ public class OrderStatusService {
      *
      * @param reason 이동 사유({@code V41}·{@code V64} 의 닫힌 목록). 취소와 반품을 갈라 적는다
      */
-    private void restoreStock(long sellerOrderId, String reason) {
+    private void restoreStock(long sellerOrderId, StockReason reason) {
         List<Long[]> items = jdbc.sql("""
                         select sku_id, quantity from order_item
                          where seller_order_id = :sellerOrderId
@@ -523,7 +524,7 @@ public class OrderStatusService {
             jdbc.sql("select move_stock(:skuId, :quantity, :reason, :orderId)")
                     .param("skuId", item[0])
                     .param("quantity", item[1].intValue())
-                    .param("reason", reason)
+                    .param("reason", reason.code())
                     .param("orderId", orderId)
                     .query(Boolean.class)
                     .single();

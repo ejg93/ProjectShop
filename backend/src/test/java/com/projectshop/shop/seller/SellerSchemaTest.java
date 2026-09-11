@@ -11,6 +11,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
+import com.projectshop.shop.support.ConstraintValues;
 
 /**
  * 셀러 신원정보 제약(`D2` R1).
@@ -184,6 +185,30 @@ class SellerSchemaTest extends PostgresTestBase {
                         """)
                 .param("id", sellerId)
                 .update();
+    }
+
+    /**
+     * 셀러 상태 목록이 <b>SQL 두 곳이 매달린 값</b>을 그대로 들고 있는지 본다(`43a-22`).
+     *
+     * <p><b>이 값에는 Java 열거형이 없다.</b> `D23` 「가르는 물음」의 답이 「값이 늘어도 코드를
+     * 안 고친다」라서다 — 셀러 상태는 Java 로도 화면으로도 안 나가고, {@code active} 를 묻는 자리가
+     * SQL 안에만 둘 있다: {@code SellerQuery.findPublicIdentity} 의 {@code where} 와
+     * {@code V13} 의 판매 시작 트리거.
+     *
+     * <p><b>그래서 이름이 갈리면 조용하다.</b> {@code check} 는 새 이름을 막지 않고(제약도 같이 고치므로),
+     * 앞의 둘은 <b>아무것도 안 걸리는 조건</b>이 된다 — 공개 신원이 통째로 빈 값이 되고
+     * 신원 미확인 셀러의 판매를 막던 트리거가 <b>모두를 막게</b> 된다. 오류도 로그도 없다.
+     *
+     * <p>열거형 대조({@code EnumConstraintTest})가 못 하는 자리다 — 대조할 Java 쪽이 없다.
+     * 목록을 여기 적는 것이 사본을 하나 만드는 일이지만, <b>그 사본이 곧 「SQL 이 매달린 값」의 목록</b>이라
+     * 값을 늘릴 때 이 줄을 같이 고치는 것이 그 두 자리를 보게 만든다.
+     */
+    @Test
+    @DisplayName("상태 목록이 SQL 이 매달린 값을 들고 있다")
+    void statusValuesMatchWhatSqlDependsOn() {
+        assertThat(ConstraintValues.of(jdbc, "seller_status_check"))
+                .as("`active` 가 갈리면 공개 신원 조회와 V13 판매 시작 트리거가 조용히 아무도 못 통과시킨다")
+                .containsExactlyInAnyOrder("pending", "active", "suspended");
     }
 
     private void activate(long sellerId) {

@@ -98,14 +98,15 @@ public class NotificationSweeper {
                                null as second_value
                           from shop_order o
                           left join notification n
-                            on n.order_id = o.order_id and n.event_type = 'order_placed'
+                            on n.order_id = o.order_id and n.event_type = :eventType
                          where o.created_at >= :floor and n.notification_id is null
                         """)
                 .param("floor", floor)
+                .param("eventType", NotificationEventType.ORDER_PLACED.code())
                 .query(Pending.class)
                 .list();
 
-        return send(targets, "order_placed", NotificationService.Target::order,
+        return send(targets, NotificationEventType.ORDER_PLACED, NotificationService.Target::order,
                 target -> Map.of("order_number", target.firstValue()));
     }
 
@@ -117,15 +118,16 @@ public class NotificationSweeper {
                           from payment p
                           join shop_order o on o.order_id = p.order_id
                           left join notification n
-                            on n.order_id = p.order_id and n.event_type = 'payment_completed'
+                            on n.order_id = p.order_id and n.event_type = :eventType
                          where p.status = 'approved' and p.created_at >= :floor
                            and n.notification_id is null
                         """)
                 .param("floor", floor)
+                .param("eventType", NotificationEventType.PAYMENT_COMPLETED.code())
                 .query(Pending.class)
                 .list();
 
-        return send(targets, "payment_completed", NotificationService.Target::order,
+        return send(targets, NotificationEventType.PAYMENT_COMPLETED, NotificationService.Target::order,
                 target -> Map.of("order_number", target.firstValue(),
                         "amount", target.secondValue()));
     }
@@ -147,15 +149,16 @@ public class NotificationSweeper {
                           join shop_order o on o.order_id = v.order_id
                           left join notification n
                             on n.seller_order_id = v.seller_order_id
-                           and n.event_type = 'supply_delayed'
+                           and n.event_type = :eventType
                          where v.is_ship_overdue and v.shipped_at is null
                            and v.ship_due_at >= :floor and n.notification_id is null
                         """)
                 .param("floor", floor)
+                .param("eventType", NotificationEventType.SUPPLY_DELAYED.code())
                 .query(Pending.class)
                 .list();
 
-        return send(targets, "supply_delayed", NotificationService.Target::sellerOrder,
+        return send(targets, NotificationEventType.SUPPLY_DELAYED, NotificationService.Target::sellerOrder,
                 target -> Map.of("seller_order_number", target.firstValue(),
                         "ship_due_at", target.secondValue()));
     }
@@ -169,15 +172,16 @@ public class NotificationSweeper {
                           join seller_order so on so.seller_order_id = r.seller_order_id
                           join shop_order o on o.order_id = so.order_id
                           left join notification n
-                            on n.refund_id = r.refund_id and n.event_type = 'refund_completed'
+                            on n.refund_id = r.refund_id and n.event_type = :eventType
                          where r.status = 'approved' and r.decided_at >= :floor
                            and n.notification_id is null
                         """)
                 .param("floor", floor)
+                .param("eventType", NotificationEventType.REFUND_COMPLETED.code())
                 .query(Pending.class)
                 .list();
 
-        return send(targets, "refund_completed", NotificationService.Target::refund,
+        return send(targets, NotificationEventType.REFUND_COMPLETED, NotificationService.Target::refund,
                 target -> Map.of("refund_number", target.firstValue(),
                         "amount", target.secondValue()));
     }
@@ -205,15 +209,16 @@ public class NotificationSweeper {
                           join consent_item ci on ci.consent_item_id = uc.consent_item_id
                           left join notification n
                             on n.user_consent_id = uc.user_consent_id
-                           and n.event_type = 'consent_result'
+                           and n.event_type = :eventType
                          where ci.code in ('marketing_email', 'marketing_sms', 'marketing_night')
                            and uc.acted_at >= :floor and n.notification_id is null
                         """)
                 .param("floor", floor)
+                .param("eventType", NotificationEventType.CONSENT_RESULT.code())
                 .query(Pending.class)
                 .list();
 
-        return send(targets, "consent_result", NotificationService.Target::consent,
+        return send(targets, NotificationEventType.CONSENT_RESULT, NotificationService.Target::consent,
                 target -> consentValues(target));
     }
 
@@ -247,7 +252,7 @@ public class NotificationSweeper {
      */
     private record Pending(long userId, long targetId, String firstValue, String secondValue) {}
 
-    private int send(List<Pending> targets, String eventType,
+    private int send(List<Pending> targets, NotificationEventType eventType,
             java.util.function.LongFunction<NotificationService.Target> target,
             java.util.function.Function<Pending, Map<String, String>> values) {
         int sent = 0;

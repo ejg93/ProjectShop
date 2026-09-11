@@ -44,7 +44,7 @@ import com.projectshop.shop.auth.AuthFixture;
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @Tag("db")
 @Import(PostgresTestBase.Containers.class)
-public abstract class HttpTestBase {
+abstract class HttpTestBase {
 
     /** 이 층이 만든 계정임을 알아보는 표시. 정리가 이것만 지운다. */
     protected static final String EMAIL_PREFIX = "http-test-";

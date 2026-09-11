@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# 트리 하나(HEAD·origin/main·임시 트리)의 레인별 지문을 낸다(`2z-1`). 출력: `backend <sha>` / `frontend <sha>`.
+#
+# 서브트리 해시를 쓰면 `backend/CLAUDE.md` 같은 문서도 코드로 센다 — `2z` 가 그 자리에서 자기 훅에 막혔다.
+# 그래서 빌드·테스트 결과를 바꾸는 경로만 고른다. 경로를 더할 때 여기 한 곳만 고친다.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+tree=${1:-HEAD}
+lane() {
+  local name=$1; shift
+  for p in "$@"; do printf '%s %s\n' "$p" "$(git rev-parse -q --verify "$tree:$p" 2>/dev/null || echo -)"; done \
+    | git hash-object --stdin | sed "s/^/$name /"
+}
+lane backend  backend/src backend/build.gradle.kts backend/settings.gradle.kts backend/gradle backend/gradlew backend/gradle.properties
+lane frontend frontend/src frontend/e2e frontend/package.json frontend/package-lock.json frontend/tsconfig.json \
+              frontend/next.config.ts frontend/eslint.config.mjs frontend/vitest.config.ts frontend/vitest.setup.ts \
+              frontend/playwright.config.ts frontend/postcss.config.mjs
