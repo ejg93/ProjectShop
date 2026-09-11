@@ -27,9 +27,15 @@
 |---|---|
 | `ErrorSlugScreenTest` | 화면의 `switch (error.slug)` 가짓수 ⊆ `ErrorCode` 의 슬러그 |
 | `OrderRecordTextTest.StatusLabels` | Java 상태 코드 표 = `order-text.ts` 의 표 |
+| `WithdrawalNoticeScreenTest` | 화면의 제한 사유 문구 표 = `WithdrawalRestrictionReason`(`D2` R4) |
+| `PasswordHintScreenTest` | 화면의 비밀번호 길이 문구 = `@Password` 의 `@Size` |
 
-**한쪽만 본다.** 화면이 쓰는 것이 서버에 있어야 하고 그 반대는 아니다 — 서버 오류를 화면이
+**대개 한쪽만 본다.** 화면이 쓰는 것이 서버에 있어야 하고 그 반대는 아니다 — 서버 오류를 화면이
 다 나눠 적을 이유가 없고, 안 적은 것은 `default` 로 간다.
+
+**`R4` 만 양쪽을 본다**(`Q20-2`). 화면에만 있는 키는 죽은 가지지만, **실물에만 있는 사유는
+고지가 없는 상품**이다 — 제17조제2항 단서가 표시를 제한의 성립 요건으로 두므로 그 자리는
+「안 적어도 되는 것」이 아니다. **법이 걸린 대조는 부분집합이 아니라 같음으로 잰다.**
 
 **이 대조들은 화면 소스를 읽으므로 `build.gradle.kts` 의 `comparedScreens` 입력에 걸려 있다.**
 안 걸면 화면만 고친 청크에서 `test` 가 `UP-TO-DATE` 로 건너뛴다 — `Q16` 이 그것을 실제로 밟았고,

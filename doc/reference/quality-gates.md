@@ -44,6 +44,7 @@
 | AI 리뷰 | 5 문서 | **PR 만** | 아래 「리뷰」 | 게이트가 아니다 |
 | 요건 커버리지 리포트 | 5 문서 | 로컬·CI | 테스트가 언급하지 않는 R 목록(`2v`, `scripts/req-coverage.sh`). 알려 주기만 한다 — 첫 실행 13/37 | 게이트가 아니다 |
 | 리뷰 코멘트 확인 | 4 테스트 | 〃 | **리뷰가 아무것도 안 내놓는 것**(`2g-5`). 내용이 아니라 출력 유무다 | `2g-5`(나) 대기 |
+| 층간 문자열 대조 | 4 테스트 | 로컬·CI | 화면이 든 값이 백엔드 실물과 갈리는 것. `ErrorSlugScreenTest`(오류 슬러그)·`OrderRecordTextTest`(상태 문구)·**`WithdrawalNoticeScreenTest`(제한 사유, `D2` R4)**·**`PasswordHintScreenTest`(비밀번호 길이)**(`Q20-2`). **화면 테스트로는 못 잡는다** — 같은 틀린 값을 쓰면 초록이다 | `Q16` 2026-09-05. `Q20-2` 2026-09-11 — **실물이 갈려 있었다**: 화면이 `PERISHABLE`·`SEALED_COPYRIGHT`, 실물은 `COPYABLE_MEDIA`·`DIGITAL_CONTENT` |
 | `axe-core` | 4 테스트 | 로컬·CI | 그려진 DOM 의 접근성 위반(`Q21`, `src/test/axe.ts`). **`jsx-a11y` 가 못 보는 자리만** — 조건부로 생긴 DOM. 건 자리는 `signup-form` 하나 | `Q21` 2026-09-11 — 라벨 연결을 떼니 `label(critical)`·`label-title-only(serious)` 둘이 떴다 |
 | `doc-lint.sh` | 4 테스트 | 로컬·CI | 제목 파편·중복 문장·존댓말·**기준 문서 제목의 날짜**(`2c-2`)·**분할표 칸 누락**(`2t`, 기준선은 `doc-lint.sh` 의 값이고 줄기만 한다)·**「현재 상태」 25줄 초과**(`2u`) | `2c-2` 2026-09-06. `2x-1` 2026-09-11 — 부르는 훅이 JSON 을 파싱하고 명령 위치를 본다 |
 | Stop hook | 4 테스트 | 로컬 세션 | 커밋 안 된 작업물을 남긴 채 세션이 끝나는 것(`2q`). `stop_hook_active` 면 통과 — 안 그러면 커밋 뒤에도 또 막는다 | `2q` 2026-09-10 |
