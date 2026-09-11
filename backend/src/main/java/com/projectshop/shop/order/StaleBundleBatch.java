@@ -58,7 +58,17 @@ public class StaleBundleBatch implements RetryableBatch {
      */
     private static final int SHIPPING_STALE_DAYS = 30;
 
-    /** 방치된 반품 요청을 「오래됐다」고 보는 선. 처리는 안 하고 세기만 한다 */
+    /**
+     * 방치된 반품 요청을 「오래됐다」고 보는 선. 처리는 안 하고 세기만 한다.
+     *
+     * <p><b>법도 고시도 이 수를 안 정한다</b>(`43a-4` 에서 원문을 열었다). 소비자분쟁해결기준
+     * 별표2 「인터넷쇼핑몰업」이 정하는 기한은 <b>환급 3일 하나뿐</b>이고, 그건 {@code RefundService}
+     * 쪽이다(`D2` R5·R40). <b>반품을 며칠 안에 판정하라는 기준은 없다.</b>
+     *
+     * <p>그래서 위 {@link #SHIPPING_STALE_DAYS} 와 같이 <b>우리가 정한 값이다.</b>
+     * 근거를 찾다가 못 찾은 것이 아니라 <b>찾아보고 없는 것을 확인했다</b> —
+     * 다음 사람이 같은 자리를 다시 파지 않게 적어 둔다.
+     */
     private static final int RETURN_STALE_DAYS = 30;
 
     /** 업무 판단은 KST 다(`D10`) */

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.Retries;
+import com.projectshop.shop.support.ActorType;
 
 /**
  * 환불 요청이 없는 채로 닫힌 묶음을 찾아 요청을 만들고, 자기가 만든 요청을 승인해 돈을 내보낸다.
@@ -196,9 +197,12 @@ public class RefundSweeper {
         List<String> pending = jdbc.sql("""
                         select refund_number
                           from refund
-                         where status = 'requested' and requested_by_type = 'system'
+                         where status = 'requested' and requested_by_type = :byType
                          order by due_at, refund_id
                         """)
+                // **열거형이 값을 댄다**(`43a-17`). 리터럴로 두면 타입을 고쳐도 이 쓸이
+                // 옛 글자를 물고 **조용히 아무도 안 걸린다**.
+                .param("byType", ActorType.SYSTEM.code())
                 .query(String.class)
                 .list();
 
@@ -286,10 +290,11 @@ public class RefundSweeper {
         if ("returned".equals(bundle.status())) {
             return RefundReason.WITHDRAWAL.code();
         }
-        if ("customer".equals(actorType)) {
+        ActorType actor = ActorType.of(actorType);
+        if (actor == ActorType.CUSTOMER) {
             return RefundReason.CANCELLED.code();
         }
-        if ("seller".equals(actorType)) {
+        if (actor == ActorType.SELLER) {
             return RefundReason.SUPPLY_FAILED.code();
         }
         return RefundReason.ADMIN_CANCELLED.code();

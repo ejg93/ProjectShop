@@ -142,7 +142,7 @@ done
 #
 # 행 판정은 `PlanProgressConsistencyTest` 와 같다 — 번호 칸이나 이름 칸의 취소선, 선행 칸의 `완료`.
 # `#`·`칸` 은 표 머리다(분할표와 그 앞의 칸 설명 표).
-plan_open_incomplete_baseline=56
+plan_open_incomplete_baseline=53
 plan_open_incomplete=$(awk '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
     n=split($0,c,"|"); id=c[2]; gsub(/^ +| +$/,"",id); nm=c[3]; gsub(/^ +/,"",nm);
     last=c[n-1]; gsub(/^ +| +$/,"",last);
@@ -154,6 +154,27 @@ if [ "$plan_open_incomplete" -gt "$plan_open_incomplete_baseline" ]; then
   fail=1
 elif [ "$plan_open_incomplete" -lt "$plan_open_incomplete_baseline" ]; then
   echo "[기준선 내릴 것] PLAN.md — 칸 빠진 행이 ${plan_open_incomplete}개로 줄었다. scripts/doc-lint.sh 의 plan_open_incomplete_baseline 을 그 수로 내린다"
+fi
+
+# 이력이 날짜순인가(`W3`). 앞줄보다 이른 날짜가 오면 센다 — 그 수가 기준선을 넘으면 빨갛다.
+# **기준선은 내리기만 한다.** 2026-09-11 에 이미 일곱이었고(299~393줄이 통째로 역순이다)
+# 그것을 되돌리면 diff 가 95줄 이동이라 아무도 못 읽는다. **새 줄이 그 수를 늘리는 것만 막는다.**
+#
+# **막으려는 사고가 무엇인지**: 이력 줄을 줄 번호로 끼워 넣다가 엉뚱한 날짜 사이에 넣는 것이다.
+# 1차 마무리가 **하루에 세 번** 했고 둘은 커밋까지 갔다. 그러면 **같은 날짜가 표의 두 자리로
+# 흩어지고** 「그날 뭐 했나」를 찾는 사람이 한쪽만 보고 만다. 지금 `08-12`·`08-18` 이 그 상태다.
+#
+# **주제로 묶는 것은 이력이 아니라 분할표가 한다**(「분할표와 이력의 분업」) —
+# 이력은 시간순이고 분할표가 청크순이다. 섞으면 「같은 말을 두 번 안 쓴다」가 깨진다.
+history_unsorted_baseline=7
+history_unsorted=$(awk '/^## 이력/{on=1; next} on && /^## /{on=0} on && /^\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|/{
+    d=substr($0,3,10); if (prev != "" && d < prev) k++; prev=d
+  } END{print k+0}' PROGRESS.md)
+if [ "$history_unsorted" -gt "$history_unsorted_baseline" ]; then
+  echo "[이력 순서] PROGRESS.md — 앞줄보다 이른 날짜가 ${history_unsorted}곳 (기준선 ${history_unsorted_baseline}). 새 줄은 표 맨 아래에 붙인다(PROGRESS.md 「기록 규칙」)"
+  fail=1
+elif [ "$history_unsorted" -lt "$history_unsorted_baseline" ]; then
+  echo "[기준선 내릴 것] PROGRESS.md — 이력 어긋남이 ${history_unsorted}곳으로 줄었다. scripts/doc-lint.sh 의 history_unsorted_baseline 을 그 수로 내린다"
 fi
 
 # 「현재 상태」는 표다(`2u`). 서사가 붙기 시작하면 세션마다 hook 이 그것을 통째로 주입한다(`2q`) —

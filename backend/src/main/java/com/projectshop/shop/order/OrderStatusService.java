@@ -15,6 +15,7 @@ import com.projectshop.shop.product.StockReason;
 import com.projectshop.shop.order.OrderTransitions.Payment;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
 import com.projectshop.shop.support.BusinessCalendar;
+import com.projectshop.shop.support.ActorType;
 
 /**
  * 주문의 상태를 옮기는 유일한 자리(`D7`).
