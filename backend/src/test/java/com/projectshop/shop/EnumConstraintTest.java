@@ -140,6 +140,8 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("support.ActorType", List.of("order_status_history_actor_type_check",
                                              "refund_requested_by_type_check"));
         pairs.put("order.ContractClause", List.of("order_contract_document_clause_check"));
+        pairs.put("order.ReturnStatus", List.of("return_request_status_check"));
+        pairs.put("order.ReturnShippingFeeBearer", List.of("return_shipping_fee_bearer_check"));
         pairs.put("order.OrderStatusService$ReturnReason", List.of("seller_order_return_reason_check",
                                                                   "return_request_reason_code_check"));
         pairs.put("payment.PaymentMethod", List.of("payment_method_check"));

@@ -159,42 +159,26 @@ public class ReturnRequestService {
 
         if (decision instanceof Decision.Reject reject) {
             writeDecisionReason(returnRequestId, reject.reason());
-            close(returnRequestId, actor, "rejected", bearerOf("rejected", reasonCode), null);
+            close(returnRequestId, actor, ReturnStatus.REJECTED, reasonCode, null);
             return false;
         }
 
         Decision.Approve approve = (Decision.Approve) decision;
         requireReceived(returnRequestId);
-        close(returnRequestId, actor, "approved", bearerOf("approved", reasonCode),
-                approve.restock());
+        close(returnRequestId, actor, ReturnStatus.APPROVED, reasonCode, approve.restock());
         return approve.restock();
     }
 
     /**
-     * 반품 배송비를 누가 무나. <b>입력이 아니라 계산이다</b>(`D2` R36).
-     *
-     * <p>세 경우가 전부 결정적이다.
-     *
-     * <table><caption>부담 주체</caption>
-     *   <tr><td>{@code approved} + {@code defect}</td><td>{@code seller}</td>
-     *       <td>제18조제10항 — 제17조제3항의 경우</td></tr>
-     *   <tr><td>{@code approved} + {@code change_of_mind}</td><td>{@code consumer}</td>
-     *       <td>제18조제9항 원칙. 예외 사유가 없다</td></tr>
-     *   <tr><td>{@code rejected}</td><td>{@code consumer}</td>
-     *       <td>제18조제9항 — 제17조제3항의 경우가 <b>아니라고 판정한 것</b></td></tr>
-     * </table>
-     *
-     * <p>그래서 요청에 칸을 안 만든다. `V63` 의 {@code check} 셋이 같은 것을 막지만,
-     * <b>막히는 것과 고를 수 없는 것은 다르다</b> — 「계약에 칸이 없다」가 강제 지점 1순위다.
+     * 판정을 적는다. <b>부담 주체를 인자로 안 받는다</b>(`43a-18`) —
+     * {@link ReturnShippingFeeBearer#of} 가 판정과 사유에서 내므로 <b>고를 자리가 없다.</b>
+     * 법이 정하는 값이라 부르는 쪽이 넘기게 두면 그 자리가 선택지가 된다(`D2` R36).
      */
-    private static String bearerOf(String status, String reasonCode) {
-        return "approved".equals(status)
-                && OrderStatusService.ReturnReason.DEFECT.code().equals(reasonCode)
-                ? "seller" : "consumer";
-    }
-
-    private void close(long returnRequestId, Actor actor, String status, String bearer,
+    private void close(long returnRequestId, Actor actor, ReturnStatus status, String reasonCode,
             Boolean restock) {
+
+        ReturnShippingFeeBearer bearer =
+                ReturnShippingFeeBearer.of(status, OrderStatusService.ReturnReason.of(reasonCode));
 
         jdbc.sql("""
                         update return_request
@@ -205,9 +189,9 @@ public class ReturnRequestService {
                                restock                    = :restock
                          where return_request_id = :id
                         """)
-                .param("status", status)
+                .param("status", status.code())
                 .param("userId", actor.userId())
-                .param("bearer", bearer)
+                .param("bearer", bearer.code())
                 .param("restock", restock)
                 .param("id", returnRequestId)
                 .update();
