@@ -33,7 +33,6 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  *
  * <p><b>새 경로를 만들면 {@link #IDEMPOTENT_PATHS} 에 넣는다.</b> 청크 12 의 결제가 다음 차례다.
  */
-@AutoConfigureMockMvc
 @DisplayName("멱등 커버리지")
 class OrderIdempotencyTest extends PostgresTestBase {
 

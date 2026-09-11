@@ -31,7 +31,6 @@ import tools.jackson.databind.ObjectMapper;
  * <p>여기서 잡으려는 실패는 계정만 생기고 동의가 빠지는 쪽이다.
  * 그 상태는 화면에 아무 증상이 없고, 나중에 "동의받았느냐" 를 물었을 때만 드러난다.
  */
-@AutoConfigureMockMvc
 class AuthSignupTest extends PostgresTestBase {
 
     @Autowired

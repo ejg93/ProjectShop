@@ -36,7 +36,6 @@ import ch.qos.logback.core.read.ListAppender;
  * 여기서 문자열을 고정하면 형식을 바꿀 때마다 테스트가 깨진다. 여기서 보는 것은
  * <b>MDC 에 값이 실려 있는가</b>와 <b>그 값이 응답과 이어지는가</b>다.
  */
-@AutoConfigureMockMvc
 @DisplayName("요청 추적")
 class RequestTraceTest extends PostgresTestBase {
 

@@ -152,6 +152,14 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 tasks.withType<Test> {
 	// 스냅샷은 명시적으로 갱신한다. 자동으로 덮으면 diff 를 안 보고 넘어간다.
 	systemProperty("snapshot.update", System.getProperty("snapshot.update") ?: "false")
+
+	// **컨텍스트 캐시를 세려면 테스트 JVM 에 걸어야 한다**(`2i-3`). `-D` 는 Gradle JVM 에만 가서,
+	// 그대로 주면 로그가 한 줄도 안 나오고 **세는 데 실패한 것이 성공처럼 보인다.**
+	System.getProperty("contextCacheLog")?.let {
+		systemProperty("logging.level.org.springframework.test.context.cache", "DEBUG")
+		// Gradle 이 테스트 JVM 의 표준 출력을 삼킨다. 열지 않으면 DEBUG 를 켜도 아무것도 안 보인다.
+		testLogging { showStandardStreams = true }
+	}
 }
 
 tasks.test {

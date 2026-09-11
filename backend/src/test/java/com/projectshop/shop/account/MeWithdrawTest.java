@@ -30,7 +30,6 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  *
  * <p>탈퇴가 곧 삭제가 아니다(`D13`). 여기서 보는 것은 <b>수명이 끊겼다는 사실이 즉시 먹는가</b>다.
  */
-@AutoConfigureMockMvc
 class MeWithdrawTest extends PostgresTestBase {
 
     private static final String PASSWORD = "hunter2-and-then-some";

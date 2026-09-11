@@ -23,7 +23,6 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  * <p>로그인할 때만 계정 상태를 보면 <b>이미 로그인한 다른 기기가 안 막힌다.</b>
  * 그 상태는 화면에 아무 증상이 없다 — 탈퇴한 사람이 계속 쓰고 있어도 아무도 모른다.
  */
-@AutoConfigureMockMvc
 class AccountLivenessTest extends PostgresTestBase {
 
     @Autowired

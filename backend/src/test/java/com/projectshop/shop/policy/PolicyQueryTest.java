@@ -28,7 +28,6 @@ import com.projectshop.shop.error.ShopException;
  * <p>그래서 <b>본문에 무엇이 들어 있는지까지 고정한다.</b> 조회가 도는 것만 보면
  * 문안에서 법이 요구한 절이 빠져도 초록이다.
  */
-@AutoConfigureMockMvc
 @DisplayName("정책 문서 조회")
 class PolicyQueryTest extends PostgresTestBase {
 

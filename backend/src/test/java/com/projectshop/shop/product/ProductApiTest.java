@@ -29,7 +29,6 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  * <p>{@code ProductServiceTest} 는 서비스를 직접 부르므로 요청 본문이 record 로 바뀌는 구간을 안 밟는다.
  * 중첩 배열이 들어간 첫 요청이라 그 구간이 실제로 도는지 여기서 본다.
  */
-@AutoConfigureMockMvc
 @DisplayName("상품 API")
 class ProductApiTest extends PostgresTestBase {
 
