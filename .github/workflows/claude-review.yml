@@ -57,6 +57,15 @@ jobs:
           # 청크 하나를 여러 번 밀면 회차마다 새 코멘트가 붙는다.
           use_sticky_comment: true
 
+          # **거부 목록을 읽으려고 켠다**(`2g-5` 판정표). PR #36 에서 `claude_args` 로 도구 셋을
+          # 열었는데도 `permission_denials_count` 가 **다시 12** 였고 코멘트는 0개였다 —
+          # `is_error: false` 라 실행은 성공으로 보인다. **무엇이 거부됐는지를 액션이 가려서**
+          # (`full output hidden for security`) 무엇을 더 열어야 하는지 추측할 수밖에 없었다.
+          #
+          # **추측으로 도구를 더 열지 않는다** — 재고 고친다(`2e-1`·`Q21` 과 같은 방법).
+          # 목록을 읽고 나면 이 줄을 도로 끈다: 켜 두면 리뷰 본문이 로그에 통째로 남는다.
+          show_full_output: true
+
           # **액션은 Bash 를 기본으로 안 준다**(`2g-5`). 공식 문서: 「By default, Claude cannot
           # execute Bash commands unless explicitly allowed」. 그래서 프롬프트가 시킨 `gh pr comment`
           # 가 **PR 여섯에서 매번 거부됐다** — 로그의 `permission_denials_count` 가 12~22 였고
