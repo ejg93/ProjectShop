@@ -7,12 +7,3 @@
  */
 import "@testing-library/jest-dom/vitest";
 
-/**
- * axe 단언을 들인다(`Q21`). `jsx-a11y` 는 정적이라 <b>JSX 에 적힌 것</b>만 본다 —
- * 조건부로 생긴 DOM, 상태에 따라 바뀌는 `aria-*`, 실제로 이어진 이름은 못 본다.
- * 그 자리를 실행해서 보는 것이 axe 다.
- */
-import { expect } from "vitest";
-import * as matchers from "vitest-axe/matchers";
-
-expect.extend(matchers);

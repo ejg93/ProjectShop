@@ -937,6 +937,20 @@ PR 을 안 거치니 CI·AI 리뷰·마무리 대조를 **전부** 건너뛴다.
 **모양을 보는 것이 아니라 오염을 본다.** `InquiryQuery.find` 의 `.formatted(condition)` 이
 안 잡히는 것은 결함이 아니다 — `private` 이고 호출자 둘 다 파일 안 리터럴이라 바깥 값이 없다.
 
+### `vitest-axe` 를 안 쓰고 `axe-core` 를 직접 쓴다
+
+`vitest-axe` 는 **정식 판이 없다** — 최신이 `1.0.0-pre.5` 고 2025-01 이후 안 움직인다.
+`@vitest/pretty-format` 을 **한 메이저 뒤진 것**(`^3`)으로 물어서, 설치하면 그 패키지가 두 벌 깔리고
+**매처 타입이 vitest 4 에 안 붙는다**(`toHaveNoViolations does not exist on type Assertion`).
+Dependabot 이 vitest 5 를 이미 올려 두고 있어서 다음 범프에 깨질 자리였다.
+
+**axe 본체는 살아 있다** — `axe-core` 4.13.0(2026-09-10). 그 위의 열 줄은 우리 것이다:
+`frontend/src/test/axe.ts` 의 `expectNoAxeViolations` 가 `axe.run` 을 부르고 어긴 마디와
+고치는 법을 붙여 던진다.
+
+**axe 가 잎사귀 컴포넌트에서 도는 비율은 8~14% 다**(`Q21` 측정). 무엇을 못 잡는지는
+`testing-strategy.md` 「axe 가 무엇을 잡고 무엇을 못 잡나」가 든다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고

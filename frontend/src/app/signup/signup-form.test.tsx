@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { axe } from "vitest-axe";
+
+import { expectNoAxeViolations } from "@/test/axe";
 
 import { api } from "@/lib/api";
 
@@ -168,12 +169,12 @@ describe("가입 화면", () => {
     const { container } = renderForm();
 
     // 처음 판: 종속 항목이 잠겨 있고 이유가 붙어 있다.
-    expect(await axe(container)).toHaveNoViolations();
+    await expectNoAxeViolations(container);
 
     check(/광고성 정보 수신/);
 
     // 부모를 켠 판: 잠금이 풀리고 이유 문단이 사라진다. **사라진 쪽도 본다**(`D15`).
-    expect(await axe(container)).toHaveNoViolations();
+    await expectNoAxeViolations(container);
   });
 
   it("비밀번호 규칙을 입력칸 옆에서 말한다", () => {
