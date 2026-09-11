@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { axe } from "vitest-axe";
 
 import { api } from "@/lib/api";
 
@@ -156,6 +157,23 @@ describe("가입 화면", () => {
       // **`reason` 이름이 갈리면 로그인 화면이 가입한 사람에게 아무 말도 안 한다**(`13e` 가 밟았다).
       await waitFor(() => expect(replace).toHaveBeenCalledWith("/login?reason=signed-up"));
     });
+  });
+
+  /**
+   * <b>`jsx-a11y` 가 못 보는 자리를 본다</b>(`Q21`). 그쪽은 정적이라 JSX 에 적힌 것만 읽고,
+   * 여기서 검사하는 것은 <b>켜고 끄면서 생겨난 DOM</b> 이다 — 잠긴 체크상자와 그 이유가
+   * `aria-describedby` 로 실제로 이어졌는지는 그리고 나서야 알 수 있다.
+   */
+  it("켜고 끄는 사이에도 접근성 위반이 없다", async () => {
+    const { container } = renderForm();
+
+    // 처음 판: 종속 항목이 잠겨 있고 이유가 붙어 있다.
+    expect(await axe(container)).toHaveNoViolations();
+
+    check(/광고성 정보 수신/);
+
+    // 부모를 켠 판: 잠금이 풀리고 이유 문단이 사라진다. **사라진 쪽도 본다**(`D15`).
+    expect(await axe(container)).toHaveNoViolations();
   });
 
   it("비밀번호 규칙을 입력칸 옆에서 말한다", () => {
