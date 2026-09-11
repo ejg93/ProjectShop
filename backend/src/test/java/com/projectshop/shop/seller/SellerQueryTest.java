@@ -13,7 +13,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -29,7 +28,6 @@ import com.projectshop.shop.error.ShopException;
  * 여기서는 <b>안 나가는 것</b>도 사고다 — 전자상거래법 제20조제2항이 청약 이전에 제공하라고 했다.
  * 그래서 양쪽을 다 고정한다: 신원 일곱 칸이 나가는 것과, 우리와 셀러 사이의 조건이 안 나가는 것.
  */
-@AutoConfigureMockMvc
 @DisplayName("셀러 신원 공개 조회")
 class SellerQueryTest extends PostgresTestBase {
 

@@ -39,7 +39,14 @@ type ProductDetail = {
 };
 
 /** 법이 인정한 셋뿐이다(전자상거래법 제17조제2항, `D2` R4) */
-type WithdrawalReason = "MADE_TO_ORDER" | "PERISHABLE" | "SEALED_COPYRIGHT";
+/**
+ * 청약철회를 제한할 수 있는 사유.
+ *
+ * <p><b>백엔드 `WithdrawalRestrictionReason` 이 실물이다</b> — 여기가 그것과 갈리면
+ * 서버가 보낸 값이 아래 표에 없어서 <b>고지가 빈 채로 그려진다.</b>
+ * `WithdrawalNoticeScreenTest` 가 그 어긋남을 잡는다(`Q20-2`).
+ */
+type WithdrawalReason = "COPYABLE_MEDIA" | "DIGITAL_CONTENT" | "MADE_TO_ORDER";
 
 /**
  * 청약철회를 제한하는 사유를 사람이 읽는 말로.
@@ -48,10 +55,13 @@ type WithdrawalReason = "MADE_TO_ORDER" | "PERISHABLE" | "SEALED_COPYRIGHT";
  * 저장값은 열거값이라 화면 문구가 아니다.
  */
 const WITHDRAWAL_REASON_TEXT: Record<WithdrawalReason, string> = {
+  COPYABLE_MEDIA: "포장을 뜯으면 복제가 가능한 상품이라 청약철회가 제한됩니다.",
+  DIGITAL_CONTENT: "제공이 시작된 디지털 콘텐츠라 청약철회가 제한됩니다.",
   MADE_TO_ORDER: "주문을 받고 만드는 상품이라 청약철회가 제한됩니다.",
-  PERISHABLE: "쉽게 상하는 상품이라 청약철회가 제한됩니다.",
-  SEALED_COPYRIGHT: "포장을 뜯으면 복제가 가능한 상품이라 청약철회가 제한됩니다.",
 };
+
+/** 사유를 모를 때. <b>안 그리지 않는다</b> — 표시가 없으면 제한이 성립하지 않는다(제17조제2항 단서) */
+const WITHDRAWAL_FALLBACK_TEXT = "이 상품은 청약철회가 제한됩니다.";
 
 /** 신고번호가 없는 이유. 빈 칸으로 두면 「아직 안 넣은 것」과 구분이 안 된다(`14a`) */
 /**
@@ -182,9 +192,13 @@ function Withdrawal({ reason }: { reason: WithdrawalReason | null }) {
         청약철회 제한 안내
       </h2>
       <p className="text-sm text-text-muted">
-        {reason
-          ? WITHDRAWAL_REASON_TEXT[reason]
-          : "이 상품은 청약철회가 제한됩니다."}
+        {/*
+          **표에 없는 값이 와도 빈 문단이 되면 안 된다.** 타입은 union 이지만 값은 서버에서
+          오므로 그 약속이 런타임에는 없다 — 백엔드가 사유를 하나 늘리고 이 표를 안 고치면
+          `undefined` 가 그대로 그려진다. 그것이 **고지가 없는 것**이고, 제17조제2항 단서상
+          제한 자체가 성립하지 않는다. 어긋남 자체는 `WithdrawalNoticeScreenTest` 가 잡는다.
+        */}
+        {(reason && WITHDRAWAL_REASON_TEXT[reason]) || WITHDRAWAL_FALLBACK_TEXT}
       </p>
     </section>
   );

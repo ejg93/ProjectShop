@@ -16,7 +16,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -31,7 +30,6 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  * <p>`5-0` 이 동의를 append-only 로 만든 이유가 철회인데 부를 경로가 없었다.
  * <b>스키마가 표현할 수 있는 것을 앱이 못 하면 그 설계는 쓰인 적이 없는 것이다</b>(`D2` R7).
  */
-@AutoConfigureMockMvc
 class MeConsentTest extends PostgresTestBase {
 
     @Autowired

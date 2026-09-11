@@ -1,9 +1,19 @@
+import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 
 const eslintConfig = defineConfig([
+  // **기본 묶음을 깐다**(`Q20-4`). `eslint-config-next` 는 이것을 안 포함해서
+  // `no-empty`·`no-unused-private-class-members` 같은 것이 꺼져 있었다 —
+  // 빈 `finally { }` 가 조용히 남아 있던 것을 9차 마무리의 독립 리뷰가 찾았다.
+  //
+  // **켜기 전에 쟀다**: 기존 코드에서 검출 0건이라 기준선을 안 만들었다(`2e` 와 같은 수).
+  //
+  // **버전을 eslint 와 맞춰 박는다** — `@eslint/js@latest` 는 eslint 10 을 peer 로 부르는데
+  // 이 저장소는 9.39.5 다. 전이 의존으로만 두면 그 버전이 조용히 갈린다.
+  js.configs.recommended,
   ...nextVitals,
   ...nextTs,
 

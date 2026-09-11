@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,7 +32,6 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  *
  * <p><b>새 경로를 만들면 {@link #IDEMPOTENT_PATHS} 에 넣는다.</b> 청크 12 의 결제가 다음 차례다.
  */
-@AutoConfigureMockMvc
 @DisplayName("멱등 커버리지")
 class OrderIdempotencyTest extends PostgresTestBase {
 

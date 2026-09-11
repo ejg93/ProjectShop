@@ -152,6 +152,14 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 tasks.withType<Test> {
 	// 스냅샷은 명시적으로 갱신한다. 자동으로 덮으면 diff 를 안 보고 넘어간다.
 	systemProperty("snapshot.update", System.getProperty("snapshot.update") ?: "false")
+
+	// **컨텍스트 캐시를 세려면 테스트 JVM 에 걸어야 한다**(`2i-3`). `-D` 는 Gradle JVM 에만 가서,
+	// 그대로 주면 로그가 한 줄도 안 나오고 **세는 데 실패한 것이 성공처럼 보인다.**
+	System.getProperty("contextCacheLog")?.let {
+		systemProperty("logging.level.org.springframework.test.context.cache", "DEBUG")
+		// Gradle 이 테스트 JVM 의 표준 출력을 삼킨다. 열지 않으면 DEBUG 를 켜도 아무것도 안 보인다.
+		testLogging { showStandardStreams = true }
+	}
 }
 
 tasks.test {
@@ -170,8 +178,10 @@ tasks.test {
 		.withPropertyName("comparedDocs")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
 
-	// **화면 소스도 입력이다**(`Q16`). 두 테스트가 프론트 파일을 읽어서 대조한다 —
-	// `ErrorSlugScreenTest`(오류 슬러그)와 `OrderRecordTextTest`(상태 문구).
+	// **화면 소스도 입력이다**(`Q16`). 대조 넷이 프론트 파일을 읽는다 —
+	// `ErrorSlugScreenTest`(오류 슬러그)·`OrderRecordTextTest`(상태 문구)·
+	// `WithdrawalNoticeScreenTest`(제한 사유)·`PasswordHintScreenTest`(비밀번호 길이). 뒤 둘은 `Q20-2` 다.
+	// **수를 적는 자리는 여기 하나가 아니다** — `testing-strategy.md` 의 대조 표가 실물 목록이다.
 	//
 	// **안 걸면 화면만 고친 청크에서 `test` 가 `UP-TO-DATE` 로 건너뛴다.** 문서에서 두 번
 	// 겪은 것과 같은 함정인데, `OrderRecordTextTest` 는 그동안 이 상태로 있었다 —

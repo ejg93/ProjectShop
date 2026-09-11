@@ -14,7 +14,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpSession;
@@ -36,7 +35,6 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  * 하나를 빠뜨리면 로그인 응답은 200 인데 다음 요청에서 인증이 사라진다 —
  * 로그인만 눌러 보면 정상으로 보인다.
  */
-@AutoConfigureMockMvc
 class AuthLoginTest extends PostgresTestBase {
 
     private static final String PASSWORD = "hunter2-and-then-some";

@@ -14,7 +14,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,7 +29,6 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  * <p>지금까지 판정은 허용 여부만 쓰였다. 여기서부터 {@code visibleFieldGroups} 가
  * 응답 모양을 바꾼다 — 못 보는 필드는 null 이 아니라 <b>키 자체가 없다</b>.
  */
-@AutoConfigureMockMvc
 class MeAccountTest extends PostgresTestBase {
 
     private static final String PASSWORD = "hunter2-and-then-some";

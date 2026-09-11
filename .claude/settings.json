@@ -64,8 +64,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && sed -n '/^## 현재 상태/,/^## 이력/p' PROGRESS.md | sed '$d'",
-            "timeout": 10,
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 0; sed -n '/^## 현재 상태/,/^## 이력/p' PROGRESS.md | sed '$d'; st=\"$(git rev-parse --git-dir 2>/dev/null)/weekly-report-stamp\"; last=$(cat \"$st\" 2>/dev/null || echo 0); now=$(( $(date +%s) / 86400 )); if [ $(( now - last )) -ge 7 ]; then echo \"$now\" > \"$st\"; echo; timeout 25 bash scripts/weekly-report.sh 2>/dev/null; fi; exit 0",
+            "timeout": 45,
             "statusMessage": "현재 상태 주입"
           }
         ]

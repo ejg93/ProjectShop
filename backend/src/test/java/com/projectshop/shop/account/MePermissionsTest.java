@@ -13,7 +13,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -30,7 +29,6 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  * <p>지금까지 판정은 테스트가 직접 불렀다. 여기서부터는 로그인한 사용자의 요청이 판정을 지나간다.
  * 1차 점검이 최대 리스크로 짚은 지점이라, 목록이 <b>실제 초기 데이터 위에서</b> 맞는지를 본다.
  */
-@AutoConfigureMockMvc
 class MePermissionsTest extends PostgresTestBase {
 
     @Autowired

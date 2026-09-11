@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.server.Cookie.SameSite;
 import org.springframework.boot.web.server.autoconfigure.ServerProperties;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -25,7 +24,6 @@ import com.projectshop.shop.PostgresTestBase;
  * 다른 하나는 <b>인증 실패가 401 이 아닌 형태로 나가는 것</b>이다.
  * 뒤쪽은 화면 없이 보면 증상이 "응답 파싱 실패" 로 보여서 원인이 안 드러난다.
  */
-@AutoConfigureMockMvc
 class SecurityConfigTest extends PostgresTestBase {
 
     @Autowired

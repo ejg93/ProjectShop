@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -57,6 +58,18 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * 상속하지 않고 DB 를 쓰면 빠른 레인에서 곧바로 실패한다.
  */
 @SpringBootTest
+/*
+ * **여기 있는 이유는 캐시다**(`2i-3`). 이 표시는 컨텍스트 캐시 키의 일부라, 테스트 클래스마다
+ * 붙이면 **같은 설정인데 컨텍스트가 둘로 갈린다** — 재 보니 느린 레인의 컨텍스트가 셋이었고
+ * 그중 하나가 이것 때문이었다(78개 중 15개만 붙이고 있었다).
+ *
+ * <p>fork 마다 컨텍스트를 새로 띄우므로 **가짓수가 곧 기동 횟수**다. 바탕으로 올리면
+ * MockMvc 를 안 쓰는 테스트도 그 자동설정을 지고 가지만, **컨텍스트 하나를 통째로 아끼는 값이 더 크다.**
+ *
+ * <p><b>MockMvc 를 권하는 것이 아니다</b>(`D15`) — 서블릿 컨테이너를 안 띄워서 실제 HTTP 와
+ * 갈리는 자리가 세 번 나왔고, 관통하는 흐름은 {@link HttpTestBase} 가 든다.
+ */
+@AutoConfigureMockMvc
 @Transactional
 @Tag("db")
 @Import(PostgresTestBase.Containers.class)

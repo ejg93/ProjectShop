@@ -16,7 +16,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,7 +33,6 @@ import com.projectshop.shop.order.OrderService;
  * <b>기한 넘긴 것이 조회로 드러나는가</b>(`D2` R5)다. 뒤쪽은 법 요건의 강제 지점이라
  * 이 테스트가 없으면 「드러난다」를 아무것도 안 지킨다.
  */
-@AutoConfigureMockMvc
 @DisplayName("환불 API")
 class RefundApiTest extends PostgresTestBase {
 

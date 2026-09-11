@@ -12,7 +12,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -24,7 +23,6 @@ import com.projectshop.shop.PostgresTestBase;
  * <p><b>{@code type} 은 계약이다.</b> `D5` 가 "프론트는 상태 코드가 아니라 {@code type} 으로 분기한다"
  * 고 정했으므로 이 값이 바뀌면 화면이 깨진다. 여기서 못박아 두면 슬러그를 고칠 때 테스트가 알려 준다.
  */
-@AutoConfigureMockMvc
 @DisplayName("오류 응답")
 class ProblemResponseTest extends PostgresTestBase {
 

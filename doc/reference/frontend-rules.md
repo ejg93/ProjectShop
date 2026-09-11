@@ -208,8 +208,19 @@
 | `<form action={fn}>` | **React** (`useFormStatus`) | `SubmitButton` |
 | `<form onSubmit={fn}>` | **폼이 `useState` 로** | 자기 버튼에 `disabled` |
 
-**`SubmitButton` 이 그 조건을 못 막는다**(`Q20-3` 이 그 자리다) — 끼워도 컴파일되고 린트도 통과한다.
-지금은 이 표가 유일한 방어다.
+**`SubmitButton` 이 그 조건을 스스로 못 막는다** — `onSubmit` 폼에 끼워도 컴파일되고 린트도 통과한다.
+
+**그래서 두 방향 다 기계가 본다**(`Q20-3`, `src/test/form-pending.test.ts`).
+
+| 어긴 꼴 | 무엇이 잡나 |
+|---|---|
+| `<form action={fn}>` 파일에 pending `useState` | 「그 파일들이 pending 을 `useState` 로 들지 않는다」 |
+| `<form onSubmit={fn}>` 파일에 `SubmitButton` | 「`<form onSubmit={}>` 파일이 `SubmitButton` 을 쓰지 않는다」 |
+
+**린트로는 못 막는다** — ESLint 선택자가 노드 단위라 「파일에 둘이 같이 있다」를 표현 못 한다.
+
+**규칙은 폼 단위인데 검사는 파일 단위다.** 한 파일에 두 꼴이 섞이면 정당한 쪽을 오탐하므로
+`action=` 이 같이 있는 파일은 둘째 검사에서 넘어간다 — 그때는 사람이 본다. 지금 그런 파일은 없다.
 
 ## 캐시 — 실수하면 남의 것이 보인다
 
