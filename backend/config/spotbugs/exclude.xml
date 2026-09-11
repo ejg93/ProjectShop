@@ -55,4 +55,20 @@
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     </Match>
 
+    <!--
+      오탐이다(`2e-1`, find-sec-bugs 를 얹고 나온 둘). 이 검출기가 막으려는 것은
+      **공격자가 못 만드는 값과의 비교**다 — 서명·토큰·비밀번호 해시를 `equals` 로 재면
+      한 바이트씩 맞춰 가며 시간차로 알아낼 수 있다.
+
+      여기 비교하는 것은 **그 사용자가 방금 보낸 요청 본문의 SHA-256** 이다. 자기가 보낸
+      것이라 해시를 스스로 계산할 수 있고, 알아낼 비밀이 없다. `findStored` 가 `user_id`
+      로 걸러서 남의 해시가 오지도 않는다. 판정 결과도 「재생이냐 409 냐」뿐이다.
+
+      상수 시간 비교로 바꾸면 **지키는 것 없이 읽기만 어려워진다.**
+    -->
+    <Match>
+        <Class name="com.projectshop.shop.order.IdempotencyService"/>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+    </Match>
+
 </FindBugsFilter>

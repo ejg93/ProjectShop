@@ -890,6 +890,24 @@ GitHub 기본값이다. `gh api repos/<소유자>/<이름>/branches/main/protect
 **`false` 인 동안 `main` 을 지킨 것은 로컬 훅 하나였다**(`2x`) — Claude Code 밖에서 민 커밋은
 PR 을 안 거치니 CI·AI 리뷰·마무리 대조를 **전부** 건너뛴다. 2026-09-11 에 `true` 로 올렸다(`2x-2`).
 
+### find-sec-bugs 의 SQL 검출기는 `JdbcClient` 를 모른다
+
+`spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0")` 는 SpotBugs 4.10.4 에서
+**돈다**(`2e-1`) — 얹자마자 `UNSAFE_HASH_EQUALS` 둘이 나왔고 그건 핵심 SpotBugs 에 없는 검출기다.
+
+**다만 SQL 주입은 안 본다.** `JdbcTemplate`·`PreparedStatement`·Hibernate 는 알지만
+**`JdbcClient`**(Spring 6.1+ fluent API)를 모른다. 이 저장소의 데이터 접근이 전부 그것이다.
+
+**부순 증거**(2026-09-11): `InquiryQuery` 에 진짜 오염 경로를 심었는데 안 잡혔다 —
+`find("i.question like '%" + keyword + "%'", …)`, `keyword` 는 `public` 메서드 인자다.
+되돌렸다.
+
+**그래서 SQL 조립을 자동으로 보는 눈이 지금 없다.** CodeQL Java 도 경보 0이고(76규칙),
+같은 자리를 보는지 안 재 봤다. 사람이 보는 자리는 `D23` 「SQL」과 리뷰뿐이다.
+
+**모양을 보는 것이 아니라 오염을 본다.** `InquiryQuery.find` 의 `.formatted(condition)` 이
+안 잡히는 것은 결함이 아니다 — `private` 이고 호출자 둘 다 파일 안 리터럴이라 바깥 값이 없다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
