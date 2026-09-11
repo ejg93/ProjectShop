@@ -902,8 +902,21 @@ PR 을 안 거치니 CI·AI 리뷰·마무리 대조를 **전부** 건너뛴다.
 `find("i.question like '%" + keyword + "%'", …)`, `keyword` 는 `public` 메서드 인자다.
 되돌렸다.
 
-**그래서 SQL 조립을 자동으로 보는 눈이 지금 없다.** CodeQL Java 도 경보 0이고(76규칙),
-같은 자리를 보는지 안 재 봤다. 사람이 보는 자리는 `D23` 「SQL」과 리뷰뿐이다.
+**CodeQL 도 못 본다 — 재 봤다**(`2e-4`, probe 다섯 판). **CodeQL 자체는 멀쩡하다**:
+같은 실행에서 `JdbcTemplate` 주입을 `java/sql-injection` HIGH 로 잡고 `JdbcClient` 주입은 안 잡는다.
+**`build-mode` 는 상관없다** — `none` 에서도 `JdbcTemplate` 를 잡는다. `SqlTainted.qlx` 는 기본
+묶음(80개)에 들어 있고 실제로 돈다.
+
+**`JdbcClient` 가 CodeQL 의 SQL 싱크 모델에 없다.** 검출기 둘이 같은 이유로 눈을 감는다 —
+이 API 가 Spring 6.1(2023-11)에 들어왔고 모델이 안 따라왔다.
+
+**그래서 SQL 조립을 자동으로 보는 눈이 지금 없다.** 사람이 보는 자리는 `D23` 「SQL」과 리뷰뿐이다.
+**조립 자리는 하나다**(2026-09-11): `InquiryQuery.find` 의 `condition`. `jdbc.sql(` 에 변수가
+직접 드는 곳은 0건이고 나머지 `.formatted` 는 전부 예외 메시지다.
+
+**probe 를 다시 칠 때 주의**: 오염원(`@RequestParam`)에서 싱크까지 **경로가 실제로 이어져야 한다.**
+`public` 메서드 인자만으로는 안 잡힌다 — `java/sql-injection` 은 원격 오염원에서 출발하는 흐름을 찾는다.
+2·3회차를 그것 때문에 버렸다.
 
 **모양을 보는 것이 아니라 오염을 본다.** `InquiryQuery.find` 의 `.formatted(condition)` 이
 안 잡히는 것은 결함이 아니다 — `private` 이고 호출자 둘 다 파일 안 리터럴이라 바깥 값이 없다.
