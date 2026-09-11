@@ -918,6 +918,22 @@ PR 을 안 거치니 CI·AI 리뷰·마무리 대조를 **전부** 건너뛴다.
 `public` 메서드 인자만으로는 안 잡힌다 — `java/sql-injection` 은 원격 오염원에서 출발하는 흐름을 찾는다.
 2·3회차를 그것 때문에 버렸다.
 
+**`2e-5` 가 풀었다** — 싱크 목록에 `JdbcClient.sql` 을 더하니 같은 probe 가 **2건 HIGH** 로 잡혔다.
+두 `jdbc.sql(...)` 호출을 각각 짚어서, 오염이 `find` 를 지나 실행 지점까지 닿는 것을 다 추적했다.
+
+### CodeQL 싱크 목록은 늘릴 수 있다 — 질의를 복사하지 않는다
+
+`.github/codeql/extensions/projectshop-java/` 가 그 팩이다(`2e-5`). `qlpack.yml` 이
+`extensionTargets: codeql/java-all` 로 붙고, `models/*.model.yml` 이 `sinkModel` 에 행을 더한다.
+`codeql.yml` 의 `init` 에 `config: packs: java: - ./경로` 로 건다 — **상대 경로가 먹는다.**
+따로 게시할 필요가 없다.
+
+**모델 한 줄의 칸**: 패키지 · 타입 · 하위타입까지 · 메서드 · 시그니처 · 확장 · 어느 인자 · 종류 · 출처.
+`JdbcClient` 는 인터페이스라 **하위타입 칸이 `true` 여야 한다** — 실제 객체가 구현체다.
+
+**질의를 복사하는 대신 목록을 늘린 이유**: 사본을 두면 원본이 좋아질 때 우리 것만 낡는다.
+목록은 CodeQL 이 올라가도 그대로 얹힌다.
+
 **모양을 보는 것이 아니라 오염을 본다.** `InquiryQuery.find` 의 `.formatted(condition)` 이
 안 잡히는 것은 결함이 아니다 — `private` 이고 호출자 둘 다 파일 안 리터럴이라 바깥 값이 없다.
 
