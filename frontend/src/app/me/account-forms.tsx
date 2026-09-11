@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
 import { Field } from "@/components/field";
+import { SubmitButton } from "@/components/submit-button";
 import { ApiError, api } from "@/lib/api";
 
 /** 비밀번호 규칙의 유일한 출처는 서버다(`Password.java`). 여기는 그것을 사람 말로 옮긴 것뿐이다 */
@@ -44,13 +45,11 @@ export function AccountForms({ displayName, email }: { displayName?: string; ema
 function EmailForm({ email }: { email: string }) {
   const router = useRouter();
   const form = useRef<HTMLFormElement>(null);
-  const [sending, setSending] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const [notice, setNotice] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   async function submit(data: FormData) {
-    setSending(true);
     setNotice(null);
     setFailure(null);
 
@@ -65,8 +64,6 @@ function EmailForm({ email }: { email: string }) {
       startRefresh(() => router.refresh());
     } catch (thrown) {
       setFailure(messageOf(thrown));
-    } finally {
-      setSending(false);
     }
   }
 
@@ -85,20 +82,18 @@ function EmailForm({ email }: { email: string }) {
 
       <Result notice={notice} failure={failure} />
 
-      <SubmitButton pending={sending || refreshing} label="이메일 바꾸기" pendingLabel="바꾸는 중" />
+      <SubmitButton busy={refreshing} label="이메일 바꾸기" pendingLabel="바꾸는 중" />
     </form>
   );
 }
 
 function NameForm({ displayName }: { displayName: string }) {
   const router = useRouter();
-  const [sending, setSending] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const [notice, setNotice] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   async function submit(form: FormData) {
-    setSending(true);
     setNotice(null);
     setFailure(null);
 
@@ -108,8 +103,6 @@ function NameForm({ displayName }: { displayName: string }) {
       startRefresh(() => router.refresh());
     } catch (thrown) {
       setFailure(messageOf(thrown));
-    } finally {
-      setSending(false);
     }
   }
 
@@ -128,7 +121,7 @@ function NameForm({ displayName }: { displayName: string }) {
 
       <Result notice={notice} failure={failure} />
 
-      <SubmitButton pending={sending || refreshing} label="이름 바꾸기" pendingLabel="바꾸는 중" />
+      <SubmitButton busy={refreshing} label="이름 바꾸기" pendingLabel="바꾸는 중" />
     </form>
   );
 }
@@ -144,12 +137,10 @@ function NameForm({ displayName }: { displayName: string }) {
  */
 function PasswordForm() {
   const form = useRef<HTMLFormElement>(null);
-  const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   async function submit(data: FormData) {
-    setSending(true);
     setNotice(null);
     setFailure(null);
 
@@ -166,8 +157,6 @@ function PasswordForm() {
       setNotice("비밀번호를 바꿨습니다. 다른 기기의 로그인은 그대로 유지됩니다.");
     } catch (thrown) {
       setFailure(messageOf(thrown));
-    } finally {
-      setSending(false);
     }
   }
 
@@ -191,7 +180,7 @@ function PasswordForm() {
 
       <Result notice={notice} failure={failure} />
 
-      <SubmitButton pending={sending} label="비밀번호 바꾸기" pendingLabel="바꾸는 중" />
+      <SubmitButton label="비밀번호 바꾸기" pendingLabel="바꾸는 중" />
     </form>
   );
 }
@@ -214,32 +203,6 @@ function Result({ notice, failure }: { notice: string | null; failure: string | 
   );
 }
 
-function SubmitButton({
-  pending,
-  label,
-  pendingLabel,
-}: {
-  pending: boolean;
-  label: string;
-  pendingLabel: string;
-}) {
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="
-        justify-self-start rounded-ui bg-accent px-4 py-2.5 text-sm font-semibold text-accent-on
-        transition-[background-color,transform,opacity] duration-200
-        hover:bg-accent-hover
-        motion-safe:active:translate-y-px
-        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
-        disabled:cursor-not-allowed disabled:opacity-60
-      "
-    >
-      {pending ? pendingLabel : label}
-    </button>
-  );
-}
 
 /** 서버가 준 오류를 화면 문구로. <b>`slug` 로 갈린다</b>(`D5`·`D20`) */
 function messageOf(error: unknown): string {

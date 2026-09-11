@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Field } from "@/components/field";
+import { SubmitButton } from "@/components/submit-button";
 import { ApiError, api } from "@/lib/api";
 
 /**
@@ -23,11 +24,10 @@ import { ApiError, api } from "@/lib/api";
  * 돌아오면 이미 없는 계정으로 탈퇴를 한 번 더 누르게 된다.
  */
 export function WithdrawForm() {
-  const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
+  // **제출 중인지를 여기서 안 든다**(`Q20-1`). `SubmitButton` 이 `useFormStatus` 로 읽는다.
   async function submit(form: FormData) {
-    setSending(true);
     setFailure(null);
 
     try {
@@ -35,7 +35,6 @@ export function WithdrawForm() {
       window.location.replace("/login?reason=withdrawn");
     } catch (thrown) {
       setFailure(messageOf(thrown));
-      setSending(false);
     }
   }
 
@@ -56,19 +55,12 @@ export function WithdrawForm() {
         {failure}
       </p>
 
-      <button
-        type="submit"
-        disabled={sending}
-        className="
-          justify-self-start rounded-ui bg-danger-text px-4 py-2.5 text-sm font-semibold text-surface
-          transition-[background-color,transform,opacity] duration-200
-          motion-safe:active:translate-y-px
-          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-text
-          disabled:cursor-not-allowed disabled:opacity-60
-        "
-      >
-        {sending ? "탈퇴하는 중" : "탈퇴하기"}
-      </button>
+      <SubmitButton
+        label="탈퇴하기"
+        pendingLabel="탈퇴하는 중"
+        tone="danger"
+        className="justify-self-start"
+      />
     </form>
   );
 }

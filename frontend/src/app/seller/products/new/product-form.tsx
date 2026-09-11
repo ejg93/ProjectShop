@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { SubmitButton } from "@/components/submit-button";
 import { api } from "@/lib/api";
 
 /**
@@ -21,11 +22,9 @@ import { api } from "@/lib/api";
  */
 export function ProductForm({ sellerId }: { sellerId: number }) {
   const router = useRouter();
-  const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
   async function submit(form: FormData) {
-    setSending(true);
     setFailure(null);
 
     try {
@@ -54,7 +53,6 @@ export function ProductForm({ sellerId }: { sellerId: number }) {
       // 무엇이 틀렸는지는 서버가 말한다(`D5`). 화면이 다시 판정하면 둘이 갈린다.
       setFailure(e instanceof Error ? e.message : "등록하지 못했습니다.");
     } finally {
-      setSending(false);
     }
   }
 
@@ -88,17 +86,7 @@ export function ProductForm({ sellerId }: { sellerId: number }) {
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={sending}
-        className="
-          justify-self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground
-          disabled:opacity-60
-          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
-        "
-      >
-        {sending ? "등록하는 중…" : "등록"}
-      </button>
+      <SubmitButton label="등록" pendingLabel="등록하는 중…" className="justify-self-start" />
     </form>
   );
 }
