@@ -868,6 +868,28 @@ docker compose down -v && docker compose up -d --wait
 CI 중 제일 길고 제일 비싸다. **PR 을 마무리 때만 여는 근거가 이 수치다**(`2g-4`) —
 청크마다 열면 이 값이 청크 수만큼 곱해지는데, 그렇게 연 PR 열하나에서 지적이 0개였다.
 
+### hook `matcher` 는 터미널이 아니라 도구 이름이다
+
+`"matcher": "Bash"` 는 **Claude Code 의 `Bash` 도구**에만 걸린다. 같은 셸 명령을
+`PowerShell` 도구로 보내면 그 훅은 안 돈다 — 어느 터미널에서 CLI 를 띄웠는지와는 무관하다.
+
+**2026-09-11 에 한 세션에서 두 번 샜다**(`2x-2`). `git merge` 가 막혀 PowerShell 로 우회한 뒤
+`git push` 와 `gh pr merge` 가 그 도구로 나갔고, **push 검사(`2z-2` 도장)와 PR 순서 검사(`2g-1`)가
+둘 다 안 돌았다.** 결과는 멀쩡했지만 그건 손으로 같은 확인을 했기 때문이고 게이트가 판정한 것이 아니다.
+
+**세울 때 도구를 하나만 적으면 그 게이트는 반쪽이다.** matcher 는 `Bash|PowerShell` 로 적고,
+명령 패턴도 양쪽 도구의 어휘를 같이 든다 — `sed -i`·`tee` 옆에 `Set-Content`·`Out-File` 이 서야
+문서 린트가 PowerShell 편집에도 걸린다.
+
+### `main` 가지 보호는 admin 을 기본으로 안 막는다
+
+`required_pull_request_reviews` 를 켜도 `enforce_admins` 가 `false` 면 **저장소 주인은 그대로 민다.**
+GitHub 기본값이다. `gh api repos/<소유자>/<이름>/branches/main/protection` 로 읽고,
+`-X POST .../protection/enforce_admins` 로 켠다(끄는 것은 `-X DELETE`).
+
+**`false` 인 동안 `main` 을 지킨 것은 로컬 훅 하나였다**(`2x`) — Claude Code 밖에서 민 커밋은
+PR 을 안 거치니 CI·AI 리뷰·마무리 대조를 **전부** 건너뛴다. 2026-09-11 에 `true` 로 올렸다(`2x-2`).
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
