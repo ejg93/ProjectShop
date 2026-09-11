@@ -723,6 +723,20 @@ const { default: puppeteer } = await import(
 **경로를 `file://` URL 로 준다.** Git Bash 의 POSIX 경로(`/c/Users/...`)를 그대로 넘기면
 Node 가 `C:\c\Users\...` 로 읽어서 못 찾는다.
 
+### 브라우저로 밟을 때 헛것을 세는 자리가 셋이다
+
+`점검 D-2` 가 1차에서 **지적 50건을 냈는데 전부 오탐**이었다. 재는 법이 틀렸던 것이라 적어 둔다.
+
+| 헛것 | 왜 | 어떻게 |
+|---|---|---|
+| **이름 없는 `<input>`** | `aria-label`·`textContent` 만 읽으면 `<label for>` 로 이어진 이름을 못 본다 | `page.accessibility.snapshot()` 으로 **브라우저에게 묻는다** |
+| **`<nextjs-portal>`** | Next.js **개발 오버레이**다(shadow root). 초점 대상으로 세면 「크기 0」·「초점 역행」이 화면마다 뜬다 | `e.closest("nextjs-portal")` 로 걷어낸다 |
+| **로그인이 안 된다** | 개발 빌드가 `TEST_ACCOUNT` 로 칸을 미리 채운다(`login-form.tsx`) — 그냥 치면 값이 두 벌이 된다 | `type` 전에 `input.value = ""` |
+
+**셋 다 「화면이 틀린 것」이 아니라 「재는 쪽이 틀린 것」이다.** `/inspection` 의
+「코드를 안 읽고 요건표만 보고 판정하지 않는다」가 브라우저 쪽에서도 그대로 걸린다 —
+**판정을 뒤집기 전에 재는 도구부터 의심한다.**
+
 ### `notFound()` 는 404 가 아니라 200 으로 나간다
 
 화면 안에서 `notFound()` 를 부르면 **없는 쪽 UI 는 그려지는데 HTTP 상태는 200** 이다.
