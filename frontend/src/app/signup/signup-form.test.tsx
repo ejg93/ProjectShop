@@ -181,7 +181,7 @@ describe("가입 화면", () => {
     renderForm();
 
     // 규칙을 안 적고 422 로 알리면, 사용자가 무엇을 고쳐야 하는지 모른 채 되돌아온다.
-    // **값이 `@Password` 와 같은지는 백엔드가 대조한다**(`PasswordHintScreenTest`) —
+    // **값이 `@Password` 와 같은지는 여기서 안 본다** — 그 대조는 백엔드 몫이고(`Q20-2` 가 세운다)
     // 실물 목록이 거기 있어서 화면 테스트로는 **같은 틀린 값을 쓰면 초록**이다(`D15`).
     expect(screen.getByText(/15자 이상 64자 이하/)).toBeInTheDocument();
   });
