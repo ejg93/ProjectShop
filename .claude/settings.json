@@ -2,18 +2,18 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
-            "command": "export PATH=\"$PATH:/c/Program Files/GitHub CLI\"; j=$(cat); if echo \"$j\" | grep -qE '(^|[;&|\"]|\\\\n)[[:space:]]*gh pr create'; then b=$(echo \"$j\" | sed -n 's/.*--base[= ][= ]*\\([A-Za-z0-9._/-][A-Za-z0-9._/-]*\\).*/\\1/p' | head -1); if [ -n \"$b\" ] && [ \"$b\" != main ]; then echo 'PR 의 base 는 언제나 main 이다(2g-1). 쌓아 올리면 아래가 머지될 때 GitHub 이 base 없는 PR 을 닫고, 닫힌 PR 은 reopen 도 base 변경도 안 된다.' >&2; exit 2; fi; o=$(gh pr list --state open --json headRefName --jq '[.[]|select(.headRefName|startswith(\"chunk/\") or startswith(\"work/\"))]|length' 2>/dev/null || echo 0); if [ \"${o:-0}\" -gt 0 ]; then echo \"열린 작업 PR 이 ${o} 개 있다. 직렬로 간다(2g-1) — 앞 PR 을 머지하고 다음 묶음을 연다.\" >&2; exit 2; fi; elif echo \"$j\" | grep -qE '(^|[;&|\"]|\\\\n)[[:space:]]*gh pr merge'; then n=$(echo \"$j\" | sed -n 's/.*gh pr merge[^0-9]*\\([0-9][0-9]*\\).*/\\1/p'); gh pr checks $n > /dev/null 2>&1; rc=$?; if [ $rc -eq 8 ]; then echo '체크가 아직 돈다. review 잡까지 초록이 된 뒤에 머지한다(2g-1) — 머지한 뒤에는 그 지적을 그 PR 에서 못 고친다.' >&2; exit 2; fi; if [ $rc -eq 1 ]; then echo '빨간 체크가 있다. 머지 전에 고친다.' >&2; exit 2; fi; fi; exit 0",
+            "command": "export PATH=\"$PATH:/c/Program Files/GitHub CLI\"; c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*gh pr create'; then b=$(printf '%s\\n' \"$c\" | sed -n 's/.*--base[= ][= ]*\\([A-Za-z0-9._/-][A-Za-z0-9._/-]*\\).*/\\1/p' | head -1); if [ -n \"$b\" ] && [ \"$b\" != main ]; then echo 'PR 의 base 는 언제나 main 이다(2g-1). 쌓아 올리면 아래가 머지될 때 GitHub 이 base 없는 PR 을 닫고, 닫힌 PR 은 reopen 도 base 변경도 안 된다.' >&2; exit 2; fi; o=$(gh pr list --state open --json headRefName --jq '[.[]|select(.headRefName|startswith(\"chunk/\") or startswith(\"work/\"))]|length' 2>/dev/null || echo 0); if [ \"${o:-0}\" -gt 0 ]; then echo \"열린 작업 PR 이 ${o} 개 있다. 직렬로 간다(2g-1) — 앞 PR 을 머지하고 다음 묶음을 연다.\" >&2; exit 2; fi; elif printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*gh pr merge'; then n=$(printf '%s\\n' \"$c\" | sed -n 's/.*gh pr merge[^0-9]*\\([0-9][0-9]*\\).*/\\1/p'); gh pr checks $n > /dev/null 2>&1; rc=$?; if [ $rc -eq 8 ]; then echo '체크가 아직 돈다. review 잡까지 초록이 된 뒤에 머지한다(2g-1) — 머지한 뒤에는 그 지적을 그 PR 에서 못 고친다.' >&2; exit 2; fi; if [ $rc -eq 1 ]; then echo '빨간 체크가 있다. 머지 전에 고친다.' >&2; exit 2; fi; fi; exit 0",
             "timeout": 30,
             "statusMessage": "PR 순서 검사"
           }
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -24,11 +24,11 @@
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
-            "command": "c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); if printf '%s\\n' \"$c\" | perl -CS -ne 'print unless /\\p{Hangul}/' | grep -qE '(^|[;&|])[[:space:]]*(\\./)?gradlew([[:space:]]|$)' && ! printf '%s' \"$c\" | grep -qE 'JAVA_HOME='; then echo 'backend 명령 앞에 JAVA_HOME=\"C:/Program Files/Java/jdk-25\" 를 붙인다(CLAUDE.md 「검증」). 이 환경의 기본은 JDK 11 이라 Gradle 이 안 뜬다.' >&2; exit 2; fi; exit 0",
+            "command": "c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); if printf '%s\\n' \"$c\" | perl -CS -ne 'print unless /\\p{Hangul}/' | grep -qE '(^|[;&|])[[:space:]]*(\\./)?gradlew([[:space:]]|$)' && ! printf '%s' \"$c\" | grep -qE 'JAVA_HOME[[:space:]]*=|\\\\$env:JAVA_HOME'; then echo 'backend 명령 앞에 JDK 를 지정한다(CLAUDE.md 「검증」). 이 환경의 기본은 JDK 11 이라 Gradle 이 안 뜬다. Bash 는 JAVA_HOME=\"C:/Program Files/Java/jdk-25\" 를 앞에 붙이고, PowerShell 은 $env:JAVA_HOME = \"C:/Program Files/Java/jdk-25\"; 를 앞에 둔다.' >&2; exit 2; fi; exit 0",
             "timeout": 5,
             "statusMessage": "JAVA_HOME 검사"
           }
@@ -41,18 +41,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(sed -n 's/.*\"file_path\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p'); case \"$f\" in *CLAUDE.md|*AGENTS.md|*PLAN.md|*PROGRESS.md|*doc*reference*.md|*skills*SKILL.md) out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/doc-lint.sh\") || { echo \"$out\" >&2; exit 2; } ;; esac",
+            "command": "f=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.file_path||\"\"))}catch(e){}})' 2>/dev/null); case \"$f\" in *CLAUDE.md|*AGENTS.md|*PLAN.md|*PROGRESS.md|*doc*reference*.md|*skills*SKILL.md) out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/doc-lint.sh\") || { echo \"$out\" >&2; exit 2; } ;; esac; exit 0",
             "timeout": 60,
             "statusMessage": "문서 린트"
           }
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
-            "command": "j=$(cat); case \"$j\" in *doc-lint*) exit 0 ;; esac; if echo \"$j\" | grep -qE 'sed -i|tee |>>?[^&]*\\.md|cp |mv ' && echo \"$j\" | grep -qE 'CLAUDE\\.md|AGENTS\\.md|PLAN\\.md|PROGRESS\\.md|doc.{0,4}reference|skills.{0,4}[a-z-]+.{0,4}SKILL'; then out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/doc-lint.sh\") || { echo \"$out\" >&2; exit 2; }; fi",
+            "command": "c=$(node -e 'let d=\"\";process.stdin.on(\"data\",x=>d+=x).on(\"end\",()=>{try{process.stdout.write(String(JSON.parse(d).tool_input.command||\"\"))}catch(e){}})' 2>/dev/null); case \"$c\" in *doc-lint*) exit 0 ;; esac; if printf '%s\\n' \"$c\" | grep -qE '(^|[;&|])[[:space:]]*(sed -i|tee |cp |mv |Set-Content|Add-Content|Out-File|Copy-Item|Move-Item)|(^|[;&|])[^;&|\"]*>>?[[:space:]]*[^&|;[:space:]]*\\.md' && printf '%s\\n' \"$c\" | grep -qE 'CLAUDE\\.md|AGENTS\\.md|PLAN\\.md|PROGRESS\\.md|doc.{0,4}reference|skills.{0,4}[a-z-]+.{0,4}SKILL'; then out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/doc-lint.sh\") || { echo \"$out\" >&2; exit 2; }; fi; exit 0",
             "timeout": 60,
             "statusMessage": "문서 린트"
           }

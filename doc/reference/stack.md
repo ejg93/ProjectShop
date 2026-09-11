@@ -868,6 +868,105 @@ docker compose down -v && docker compose up -d --wait
 CI 중 제일 길고 제일 비싸다. **PR 을 마무리 때만 여는 근거가 이 수치다**(`2g-4`) —
 청크마다 열면 이 값이 청크 수만큼 곱해지는데, 그렇게 연 PR 열하나에서 지적이 0개였다.
 
+### 훅이 산문을 명령으로 읽는 자리가 둘이다
+
+**① 입력이 JSON 이다.** 훅에 들어오는 것은 명령 문자열이 아니라 `{"tool_input":{"command":"…"}}` 라,
+`grep` 을 원문에 걸면 **파일 경로·설명문·앞선 필드까지 같이 읽힌다.** 명령만 꺼내고 본다 —
+`node -e` 한 줄로 `tool_input.command` 를 뽑는 구절이 훅 넷에 같은 모양으로 들어 있다(`2x`·`2x-1`).
+
+**② 꺼낸 뒤에도 산문이 남는다.** 커밋 메시지가 인자로 실리므로 `git commit -m "sed -i 로 PLAN.md 를
+고치던 것을 걷었다"` 의 `sed -i` 와 `PLAN.md` 는 **명령 문자열 안에 진짜로 있다.** 파싱으로는 안 걷힌다.
+
+**그래서 명령 위치에 앵커를 건다** — `(^|[;&|])[[:space:]]*`. 줄머리나 `;`·`&`·`|` 뒤에 붙은 것만
+명령으로 본다. `2x-1` 이 문서 린트 훅에서 그것을 실측했다: 앵커 전에는 산문 케이스도 린트를 돌렸고
+앵커 뒤에는 진짜 편집에서만 돈다.
+
+**`JAVA_HOME` 훅은 다른 길을 썼다** — 한글이 든 줄을 `perl` 로 통째로 걷는다. 산문이 한국어라
+통하는 수고, **한글이 든 진짜 명령은 놓친다.** 새 훅은 앵커 쪽을 쓴다.
+
+### hook `matcher` 는 터미널이 아니라 도구 이름이다
+
+`"matcher": "Bash"` 는 **Claude Code 의 `Bash` 도구**에만 걸린다. 같은 셸 명령을
+`PowerShell` 도구로 보내면 그 훅은 안 돈다 — 어느 터미널에서 CLI 를 띄웠는지와는 무관하다.
+
+**2026-09-11 에 한 세션에서 두 번 샜다**(`2x-2`). `git merge` 가 막혀 PowerShell 로 우회한 뒤
+`git push` 와 `gh pr merge` 가 그 도구로 나갔고, **push 검사(`2z-2` 도장)와 PR 순서 검사(`2g-1`)가
+둘 다 안 돌았다.** 결과는 멀쩡했지만 그건 손으로 같은 확인을 했기 때문이고 게이트가 판정한 것이 아니다.
+
+**세울 때 도구를 하나만 적으면 그 게이트는 반쪽이다.** matcher 는 `Bash|PowerShell` 로 적고,
+명령 패턴도 양쪽 도구의 어휘를 같이 든다 — `sed -i`·`tee` 옆에 `Set-Content`·`Out-File` 이 서야
+문서 린트가 PowerShell 편집에도 걸린다.
+
+### `main` 가지 보호는 admin 을 기본으로 안 막는다
+
+`required_pull_request_reviews` 를 켜도 `enforce_admins` 가 `false` 면 **저장소 주인은 그대로 민다.**
+GitHub 기본값이다. `gh api repos/<소유자>/<이름>/branches/main/protection` 로 읽고,
+`-X POST .../protection/enforce_admins` 로 켠다(끄는 것은 `-X DELETE`).
+
+**`false` 인 동안 `main` 을 지킨 것은 로컬 훅 하나였다**(`2x`) — Claude Code 밖에서 민 커밋은
+PR 을 안 거치니 CI·AI 리뷰·마무리 대조를 **전부** 건너뛴다. 2026-09-11 에 `true` 로 올렸다(`2x-2`).
+
+### find-sec-bugs 의 SQL 검출기는 `JdbcClient` 를 모른다
+
+`spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0")` 는 SpotBugs 4.10.4 에서
+**돈다**(`2e-1`) — 얹자마자 `UNSAFE_HASH_EQUALS` 둘이 나왔고 그건 핵심 SpotBugs 에 없는 검출기다.
+
+**다만 SQL 주입은 안 본다.** `JdbcTemplate`·`PreparedStatement`·Hibernate 는 알지만
+**`JdbcClient`**(Spring 6.1+ fluent API)를 모른다. 이 저장소의 데이터 접근이 전부 그것이다.
+
+**부순 증거**(2026-09-11): `InquiryQuery` 에 진짜 오염 경로를 심었는데 안 잡혔다 —
+`find("i.question like '%" + keyword + "%'", …)`, `keyword` 는 `public` 메서드 인자다.
+되돌렸다.
+
+**CodeQL 도 못 본다 — 재 봤다**(`2e-4`, probe 다섯 판). **CodeQL 자체는 멀쩡하다**:
+같은 실행에서 `JdbcTemplate` 주입을 `java/sql-injection` HIGH 로 잡고 `JdbcClient` 주입은 안 잡는다.
+**`build-mode` 는 상관없다** — `none` 에서도 `JdbcTemplate` 를 잡는다. `SqlTainted.qlx` 는 기본
+묶음(80개)에 들어 있고 실제로 돈다.
+
+**`JdbcClient` 가 CodeQL 의 SQL 싱크 모델에 없다.** 검출기 둘이 같은 이유로 눈을 감는다 —
+이 API 가 Spring 6.1(2023-11)에 들어왔고 모델이 안 따라왔다.
+
+**그래서 SQL 조립을 자동으로 보는 눈이 지금 없다.** 사람이 보는 자리는 `D23` 「SQL」과 리뷰뿐이다.
+**조립 자리는 하나다**(2026-09-11): `InquiryQuery.find` 의 `condition`. `jdbc.sql(` 에 변수가
+직접 드는 곳은 0건이고 나머지 `.formatted` 는 전부 예외 메시지다.
+
+**probe 를 다시 칠 때 주의**: 오염원(`@RequestParam`)에서 싱크까지 **경로가 실제로 이어져야 한다.**
+`public` 메서드 인자만으로는 안 잡힌다 — `java/sql-injection` 은 원격 오염원에서 출발하는 흐름을 찾는다.
+2·3회차를 그것 때문에 버렸다.
+
+**`2e-5` 가 풀었다** — 싱크 목록에 `JdbcClient.sql` 을 더하니 같은 probe 가 **2건 HIGH** 로 잡혔다.
+두 `jdbc.sql(...)` 호출을 각각 짚어서, 오염이 `find` 를 지나 실행 지점까지 닿는 것을 다 추적했다.
+
+### CodeQL 싱크 목록은 늘릴 수 있다 — 질의를 복사하지 않는다
+
+`.github/codeql/extensions/projectshop-java/` 가 그 팩이다(`2e-5`). `qlpack.yml` 이
+`extensionTargets: codeql/java-all` 로 붙고, `models/*.model.yml` 이 `sinkModel` 에 행을 더한다.
+`codeql.yml` 의 `init` 에 `config: packs: java: - ./경로` 로 건다 — **상대 경로가 먹는다.**
+따로 게시할 필요가 없다.
+
+**모델 한 줄의 칸**: 패키지 · 타입 · 하위타입까지 · 메서드 · 시그니처 · 확장 · 어느 인자 · 종류 · 출처.
+`JdbcClient` 는 인터페이스라 **하위타입 칸이 `true` 여야 한다** — 실제 객체가 구현체다.
+
+**질의를 복사하는 대신 목록을 늘린 이유**: 사본을 두면 원본이 좋아질 때 우리 것만 낡는다.
+목록은 CodeQL 이 올라가도 그대로 얹힌다.
+
+**모양을 보는 것이 아니라 오염을 본다.** `InquiryQuery.find` 의 `.formatted(condition)` 이
+안 잡히는 것은 결함이 아니다 — `private` 이고 호출자 둘 다 파일 안 리터럴이라 바깥 값이 없다.
+
+### `vitest-axe` 를 안 쓰고 `axe-core` 를 직접 쓴다
+
+`vitest-axe` 는 **정식 판이 없다** — 최신이 `1.0.0-pre.5` 고 2025-01 이후 안 움직인다.
+`@vitest/pretty-format` 을 **한 메이저 뒤진 것**(`^3`)으로 물어서, 설치하면 그 패키지가 두 벌 깔리고
+**매처 타입이 vitest 4 에 안 붙는다**(`toHaveNoViolations does not exist on type Assertion`).
+Dependabot 이 vitest 5 를 이미 올려 두고 있어서 다음 범프에 깨질 자리였다.
+
+**axe 본체는 살아 있다** — `axe-core` 4.13.0(2026-09-10). 그 위의 열 줄은 우리 것이다:
+`frontend/src/test/axe.ts` 의 `expectNoAxeViolations` 가 `axe.run` 을 부르고 어긴 마디와
+고치는 법을 붙여 던진다.
+
+**axe 가 잎사귀 컴포넌트에서 도는 비율은 8~14% 다**(`Q21` 측정). 무엇을 못 잡는지는
+`testing-strategy.md` 「axe 가 무엇을 잡고 무엇을 못 잡나」가 든다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고

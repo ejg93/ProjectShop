@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Field } from "@/components/field";
+import { SubmitButton } from "@/components/submit-button";
 import { ApiError, api } from "@/lib/api";
 
 /**
@@ -47,11 +48,11 @@ function messageOf(error: unknown): string {
 }
 
 export function LoginForm() {
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // **제출 중인지를 여기서 안 든다**(`Q20-1`). `SubmitButton` 이 `useFormStatus` 로 읽는다 —
+  // 폼 `action` 은 전환 안에서 돌아서 여기서 `setState` 를 해도 액션이 끝날 때까지 안 비친다.
   async function submit(form: FormData) {
-    setPending(true);
     setError(null);
 
     try {
@@ -76,7 +77,6 @@ export function LoginForm() {
       window.location.replace("/");
     } catch (thrown) {
       setError(messageOf(thrown));
-      setPending(false);
     }
   }
 
@@ -105,20 +105,7 @@ export function LoginForm() {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="
-          rounded-ui bg-accent px-4 py-2.5 text-sm font-semibold text-accent-on
-          transition-[background-color,transform,opacity] duration-200
-          hover:bg-accent-hover
-          motion-safe:active:translate-y-px
-          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
-          disabled:cursor-not-allowed disabled:opacity-60
-        "
-      >
-        {pending ? "확인하는 중" : "로그인"}
-      </button>
+      <SubmitButton label="로그인" pendingLabel="확인하는 중" />
     </form>
   );
 }

@@ -80,6 +80,11 @@ dependencies {
 	// 계층 규칙을 문서에서 테스트로 내린다(`2n`). JUnit 6 아티팩트다 — 이 저장소가 6.0.3 이다.
 	testImplementation("com.tngtech.archunit:archunit-junit6:1.5.0")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+	// **SpotBugs 기본 검출기가 보안을 거의 안 본다**(`2e-1`). CodeQL Java 76규칙이
+	// 경보 0이라 SQL 조립·암호·역직렬화를 지금 아무도 안 보고 있다.
+	// 게이트를 새로 안 만들고 위 SpotBugs 의 **눈만 넓힌다.**
+	spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0")
 }
 
 // 버그 패턴 검출을 어떻게 돌리나.

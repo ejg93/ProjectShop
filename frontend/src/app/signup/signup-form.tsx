@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 
 import { Field } from "@/components/field";
+import { SubmitButton } from "@/components/submit-button";
 import { ApiError, api } from "@/lib/api";
 
 /** 동의받을 항목 하나(`13d-1`). 본문은 여기 없고 서버가 그려서 넘긴다 */
@@ -42,7 +43,6 @@ export function SignupForm({
   bodies: Record<string, ReactNode>;
 }) {
   const [granted, setGranted] = useState<Record<string, boolean>>({});
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -65,8 +65,8 @@ export function SignupForm({
 
   const missingRequired = items.filter((item) => item.isRequired && !granted[item.code]);
 
+  // **제출 중인지를 여기서 안 든다**(`Q20-1`). `SubmitButton` 이 `useFormStatus` 로 읽는다.
   async function submit(form: FormData) {
-    setPending(true);
     setError(null);
 
     try {
@@ -89,7 +89,6 @@ export function SignupForm({
       window.location.replace("/login?reason=signed-up");
     } catch (thrown) {
       setError(messageOf(thrown));
-      setPending(false);
     }
   }
 
@@ -144,21 +143,13 @@ export function SignupForm({
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        // 필수 미동의면 못 누른다. 누를 수 있게 두고 422 를 받게 하면 왕복이 헛돈다.
-        disabled={pending || missingRequired.length > 0}
-        className="
-          justify-self-start rounded-ui bg-accent px-4 py-2.5 text-sm font-semibold text-accent-on
-          transition-[background-color,transform,opacity] duration-200
-          hover:bg-accent-hover
-          motion-safe:active:translate-y-px
-          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
-          disabled:cursor-not-allowed disabled:opacity-60
-        "
-      >
-        {pending ? "가입하는 중" : "가입하기"}
-      </button>
+      {/* 필수 미동의면 못 누른다. 누를 수 있게 두고 422 를 받게 하면 왕복이 헛돈다. */}
+      <SubmitButton
+        label="가입하기"
+        pendingLabel="가입하는 중"
+        blocked={missingRequired.length > 0}
+        className="justify-self-start"
+      />
     </form>
   );
 }
