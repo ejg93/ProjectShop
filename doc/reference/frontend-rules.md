@@ -164,6 +164,9 @@
 
 ## 폼이 제출 중인지를 손으로 들지 않는다
 
+**걸리는 범위는 `<form action={fn}>` 뿐이다.** `onSubmit={fn}` 폼은 아래가 통째로 안 걸린다 —
+왜인지는 이 절 끝의 「`onSubmit` 폼은 반대다」가 든다. **먼저 어느 쪽인지부터 본다.**
+
 **`<form action={fn}>` 은 `fn` 을 전환 안에서 돌리고, `fn` 이 끝날 때까지 그 안의 상태 갱신을
 커밋하지 않는다.** 그래서 액션 첫 줄의 `setPending(true)` 가 화면에 못 닿는다 —
 버튼이 안 잠기고, 문구도 안 바뀐다.
@@ -171,7 +174,7 @@
 **막는 것이 아무것도 없다**(`Q20-1` 실측): 비행 중에 세 번 제출하면 **세 번 다 나간다.**
 타입 검사도 린트도 통과하고, 브라우저로 눌러 봐도 **빠르면 안 보인다.**
 
-| 하지 않는다 | 한다 |
+| `<form action={fn}>` 에서 하지 않는다 | 한다 |
 |---|---|
 | `const [pending, setPending] = useState(false)` 로 폼이 직접 든다 | `components/submit-button.tsx` 를 쓴다 |
 | 액션 안에서 `setPending(true/false)` | 아무것도 안 한다 — React 가 준다 |
@@ -189,6 +192,24 @@
 
 **`13-2a` 가 이 결함의 반대편을 실물로 밟았다** — 성공 경로가 `pending` 을 안 되돌려서,
 액션이 끝난 뒤 갱신이 커밋되며 버튼이 「확인하는 중」에 **멈춰** 있었다. 같은 기제다.
+
+### `onSubmit` 폼은 반대다 — `SubmitButton` 을 끼우면 안 잠긴다
+
+**`useFormStatus` 는 `action` 이 건 제출만 안다.** `onSubmit={fn}` 으로 막고
+`event.preventDefault()` 로 직접 부르는 폼에서는 **언제나 `false` 를 준다** —
+거기에 `SubmitButton` 을 끼우면 버튼이 **한 번도 안 잠기고**, `Q20-1` 이 고친 결함이 그대로 돌아온다.
+
+이 저장소의 `onSubmit` 폼은 다섯이다 — `checkout-form`·`inquiry-form`·`order-inquiry-form`·
+`ask-form`·`answer-form`. **거기서는 `useState` 로 드는 것이 맞다.** 전환이 아니라 보통 핸들러라
+상태 갱신이 그 자리에서 화면에 닿는다.
+
+| 폼의 꼴 | 제출 중인지를 누가 드나 | 버튼 |
+|---|---|---|
+| `<form action={fn}>` | **React** (`useFormStatus`) | `SubmitButton` |
+| `<form onSubmit={fn}>` | **폼이 `useState` 로** | 자기 버튼에 `disabled` |
+
+**`SubmitButton` 이 그 조건을 못 막는다**(`Q20-3` 이 그 자리다) — 끼워도 컴파일되고 린트도 통과한다.
+지금은 이 표가 유일한 방어다.
 
 ## 캐시 — 실수하면 남의 것이 보인다
 

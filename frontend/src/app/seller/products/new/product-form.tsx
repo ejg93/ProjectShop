@@ -52,7 +52,6 @@ export function ProductForm({ sellerId }: { sellerId: number }) {
     } catch (e) {
       // 무엇이 틀렸는지는 서버가 말한다(`D5`). 화면이 다시 판정하면 둘이 갈린다.
       setFailure(e instanceof Error ? e.message : "등록하지 못했습니다.");
-    } finally {
     }
   }
 
