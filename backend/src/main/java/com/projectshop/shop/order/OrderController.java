@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -131,7 +132,7 @@ public class OrderController {
     public OrderQuery.Page list(
             @AuthenticationPrincipal ShopUser user,
             @RequestParam(required = false) String sort,
-            Paging paging) {
+            @ParameterObject Paging paging) {
 
         return orderQuery.findMine(user.id(), sort, paging);
     }

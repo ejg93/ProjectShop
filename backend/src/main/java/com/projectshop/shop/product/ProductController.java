@@ -3,6 +3,7 @@ package com.projectshop.shop.product;
 import java.net.URI;
 import java.util.List;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -60,7 +61,7 @@ public class ProductController {
     public ProductQuery.PublicPage list(
             @RequestParam(name = "seller_id", required = false) Long sellerId,
             @RequestParam(required = false) String sort,
-            Paging paging) {
+            @ParameterObject Paging paging) {
 
         return productQuery.findPublic(sellerId, sort, paging);
     }

@@ -2,6 +2,7 @@ package com.projectshop.shop.inquiry;
 
 import java.net.URI;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -146,21 +147,21 @@ public class InquiryController {
      */
     @GetMapping("/api/products/{productId}/inquiries")
     public InquiryQuery.Page<InquiryQuery.PublicEntry> ofProduct(@PathVariable long productId,
-            Paging paging) {
+            @ParameterObject Paging paging) {
         return query.findPublic(productId, paging);
     }
 
     /** 내가 낸 문의 전부. 비공개도 내려간 것도 보인다 */
     @GetMapping("/api/me/inquiries")
     public InquiryQuery.Page<InquiryQuery.Entry> mine(@AuthenticationPrincipal ShopUser user,
-            Paging paging) {
+            @ParameterObject Paging paging) {
         return query.findMine(user.id(), paging);
     }
 
     /** 내 셀러 상품에 달린 문의. 계정에 붙는 요구는 여기 안 나온다 */
     @GetMapping("/api/seller/inquiries")
     public InquiryQuery.Page<InquiryQuery.Entry> forSeller(@AuthenticationPrincipal ShopUser user,
-            Paging paging) {
+            @ParameterObject Paging paging) {
         return query.findForSeller(user.id(), paging);
     }
 

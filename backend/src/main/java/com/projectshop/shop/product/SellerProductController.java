@@ -1,5 +1,6 @@
 package com.projectshop.shop.product;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,7 +39,7 @@ public class SellerProductController {
             @AuthenticationPrincipal ShopUser user,
             @RequestParam(name = "seller_id", required = false) Long sellerId,
             @RequestParam(required = false) String sort,
-            Paging paging) {
+            @ParameterObject Paging paging) {
 
         return productQuery.findForSeller(user.id(), sellerId, sort, paging);
     }

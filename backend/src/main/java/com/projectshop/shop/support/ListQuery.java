@@ -96,6 +96,10 @@ public final class ListQuery {
      * <b>이 타입은 「거쳤다」를 뜻하지 「거칠 수밖에 없다」를 뜻하지 않는다.</b>
      * 그래서 위 규칙이 짝으로 필요하다.
      *
+     * <p><b>{@code toString} 을 안 고친다.</b> 고쳐서 절을 그대로 돌려주면
+     * {@code " order by " + orderBy} 가 컴파일도 동작도 돼서, <b>이 타입이 결합 자리에서 주는
+     * 신호가 사라진다</b> — {@code clause()} 를 쓸 때만 남게 된다.
+     *
      * @param clause {@code 컬럼식 방향} 꼴. 컬럼식은 {@code sortable} 의 값이라 요청이 안 닿는다
      */
     public record OrderBy(String clause) {
@@ -104,11 +108,6 @@ public final class ListQuery {
             if (clause == null || clause.isBlank()) {
                 throw new IllegalArgumentException("정렬 절이 비어 있다");
             }
-        }
-
-        @Override
-        public String toString() {
-            return clause;
         }
     }
 }

@@ -3,6 +3,7 @@ package com.projectshop.shop.payment;
 import java.net.URI;
 import java.util.List;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -150,7 +151,7 @@ public class RefundController {
             @AuthenticationPrincipal ShopUser user,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String sort,
-            Paging paging) {
+            @ParameterObject Paging paging) {
 
         return query.find(user.id(), status, sort, paging);
     }

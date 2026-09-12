@@ -26,8 +26,9 @@ import jakarta.validation.constraints.Size;
  * 가입 254, 변경 320(`점검 L` 에서 나왔다). 가입으로 못 만드는 주소를 변경으로는 넣을 수 있었다.
  * {@link Password} 가 같은 함정을 먼저 겪고 하나로 모은 자리라 <b>그 꼴을 그대로 따른다.</b>
  *
- * <p><b>DB 에는 아직 대응 제약이 없다.</b> 앱 검증은 3위라 새 입구가 생기면 빠뜨린다 —
- * 배치·시드·{@code psql} 로 들어오면 길이가 안 걸린다. 그것을 2위로 내리는 것은 따로 선다.
+ * <p><b>DB 제약이 같은 값을 든다</b>({@code app_user_email_length_check}, {@code V65}).
+ * 앱 검증은 3위라 배치·시드·{@code psql} 로 들어오면 안 걸려서 {@code Q22} 가 2위로 내렸다.
+ * <b>두 곳의 254 가 갈리는 것은 {@code LengthConstraintTest} 가 막는다.</b>
  */
 @Email
 @Size(max = 254)

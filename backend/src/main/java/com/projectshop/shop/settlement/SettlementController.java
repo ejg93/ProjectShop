@@ -1,5 +1,6 @@
 package com.projectshop.shop.settlement;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,7 +39,7 @@ public class SettlementController {
     /** 볼 수 있는 정산서. 셀러는 자기 것, 관리자·감사자는 전체다 */
     @GetMapping
     public SettlementQuery.Page list(@AuthenticationPrincipal ShopUser user,
-            Paging paging) {
+            @ParameterObject Paging paging) {
         return query.find(user.id(), paging);
     }
 

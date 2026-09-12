@@ -194,7 +194,11 @@ class ArchitectureTest {
      * <p><b>오탐이 나는 쪽으로 틀어 뒀다.</b> 정렬이 없는데 {@code String} 을 받는 목록이 생기면
      * 여기가 빨개진다 — 그때는 예외를 이유와 함께 적는다. 놓치는 쪽으로 틀면
      * <b>SQL 결합 자리가 조용히 하나 늘어난다.</b>
-     */
+     *
+     * <p><b>못 보는 것 — 흐름이 아니라 호출 유무를 잰다.</b> {@code orderBy} 를 부르고도
+     * 그 결과를 버린 뒤 {@code " order by " + sort} 로 요청 문자열을 잇는 코드는 이 규칙을 통과한다.
+     * 그 자리까지 보려면 데이터 흐름 분석이 필요하고 ArchUnit 이 그것을 안 준다 —
+     * <b>거기는 CodeQL 이 보는 자리다</b>({@code 2e-5} 가 {@code JdbcClient.sql} 을 싱크로 등록했다).
     @ArchTest
     static final ArchRule 정렬을_받는_조회는_허용_목록을_거친다 =
             methods()

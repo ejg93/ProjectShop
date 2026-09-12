@@ -2,6 +2,7 @@ package com.projectshop.shop.audit;
 
 import java.time.OffsetDateTime;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,7 +49,7 @@ public class AuditLogController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
-            Paging paging) {
+            @ParameterObject Paging paging) {
 
         return auditLogQuery.find(viewer.id(),
                 new Criteria(actorUserId, targetType, targetId, from, to), paging);

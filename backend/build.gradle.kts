@@ -164,8 +164,8 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 	// `data-lifecycle.md` 를 읽어 DB 의 표 목록과 맞춰 보는데, **신고가 여기 하나도 없어서
 	// 그 문서만 고친 청크에서 통째로 `UP-TO-DATE` 로 건너뛴다.** 실측으로 확인했다.
 	//
-	// **같은 함정을 저장소가 세 번 밟았다** — `2f`(`stack.md`)·`Q16`(화면 소스)·여기.
-	// 세 번이면 기록이 아니라 강제 지점이 필요하다(`Q25`).
+	// **같은 함정을 저장소가 네 번 밟았다** — `2f`(`stack.md`)·`Q16`(화면 소스)·여기·`docker-compose.yml`.
+	// 네 번이면 기록이 아니라 강제 지점이 필요하다(`Q25`).
 	inputs.files(file("../doc/reference/data-lifecycle.md"))
 		.withPropertyName("comparedDocsInSlowLane")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
