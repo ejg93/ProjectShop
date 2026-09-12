@@ -20,6 +20,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | Gradle | 9.7.1 | `gradle/wrapper/gradle-wrapper.properties` |
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
+| Tomcat | 11.0.25 | `backend/build.gradle.kts` 의 `tomcat.version`. **BOM 값을 덮었다** — 아래 「Boot BOM 의 Tomcat 이 보안 패치보다 낮을 수 있다」 |
 | Testcontainers | 2.0.5 | `build.gradle.kts` 의 BOM |
 | springdoc-openapi | 3.1.1 | `build.gradle.kts`. **3.x 가 Boot 4 판이다** — 2.x 는 Boot 3 모듈 배치를 부른다 |
 | ArchUnit | 1.5.0 | `build.gradle.kts`. **`archunit-junit6`** 다 — 이 저장소가 JUnit 6 이다 |
@@ -297,6 +298,26 @@ Spring 은 그 표시를 **테스트 클래스의 상속 계층**에서 찾는�
 
 버전을 직접 지정한다. 이유와 Docker 29 함정은 `build.gradle.kts` 주석에 있다.
 요약하면 **1.21.4 미만은 Docker 29 에서 안 뜨고, 오류 메시지에 원인이 안 드러난다.**
+
+### Boot BOM 의 Tomcat 이 보안 패치보다 낮을 수 있다
+
+**Boot 를 올려서 닫히는 경보가 아니다.** 2026-09-12 에 `tomcat-embed-core` critical 셋이
+열렸을 때 BOM 값이 `11.0.24` 고 패치가 `11.0.25` 였는데, **Boot 는 `4.1.1` 이 이미 최신이라**
+올릴 자리가 없었다(`4.1.2`·`4.2.0` 이 `repo1.maven.org` 에서 둘 다 404). Tomcat 은 Boot 와
+릴리스 주기가 따로라 **그 사이에 패치만 나온 구간이 생긴다.**
+
+```kotlin
+extra["tomcat.version"] = "11.0.25"
+```
+
+`io.spring.dependency-management` 가 이 속성을 읽어서 BOM 값을 덮는다. 한 줄이
+`tomcat-embed-core`·`-el`·`-websocket` 셋을 다 움직인다 — `gradlew dependencies` 에
+`11.0.24 -> 11.0.25` 로 뜬다.
+
+**BOM 이 검증한 조합에서 벗어나는 것이라 되돌릴 조건을 같이 건다.** 되돌려도 되는지는
+`TomcatVersionTest` 가 판정한다 — 클래스패스에 실제로 올라온 판을
+`ServerInfo.getServerNumber()` 로 읽어서 `11.0.25` 미만이면 빨개진다. **그 줄만 있고
+테스트가 없으면 다음 Boot 업그레이드가 조용히 되돌린다** — 지워도 빌드가 초록이다.
 
 ### `bootRun` 을 멈춰도 java 프로세스가 남는다
 

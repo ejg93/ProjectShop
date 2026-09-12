@@ -23,6 +23,18 @@ repositories {
 	mavenCentral()
 }
 
+// Tomcat 을 BOM 이 주는 값보다 올린다(`2e-6`).
+//
+// **Boot 를 올려서는 못 닫는다.** BOM 이 `11.0.24` 를 주는데 그 판에 critical 셋이 열려 있고
+// (`CVE-2026-68525`·`CVE-2026-65905`·`CVE-2026-65182`), 패치는 `11.0.25` 다.
+// Boot 는 `4.1.1` 이 최신이라(`4.1.2`·`4.2.0` 이 둘 다 404) 올릴 자리가 없다.
+//
+// **BOM 이 검증한 조합에서 벗어나는 것이다.** Boot 가 `11.0.25` 이상을 주는 판을 내면
+// 이 줄을 지우고 BOM 값으로 돌린다 — 지워도 되는지는 `TomcatVersionTest` 가 판정한다.
+//
+// 한 줄이 `tomcat-embed-core`·`-el`·`-websocket` 셋을 다 덮는다.
+extra["tomcat.version"] = "11.0.25"
+
 // Boot 의 BOM 이 Testcontainers 버전을 관리하지 않아서 직접 넣는다.
 //
 // **2.x 는 모듈 좌표에 `testcontainers-` 접두어가 붙는다**(`org.testcontainers:postgresql` →
