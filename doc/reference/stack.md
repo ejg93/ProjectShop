@@ -801,6 +801,31 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen |
     ForEach-Object { Stop-Process -Id $_ -Force }
 ```
 
+### `@Size` 는 record component 에 안 남는다
+
+리플렉션으로 요청 record 의 검증 규칙을 읽을 때 걸린다(`Q22`).
+
+```java
+component.getAnnotation(Size.class)   // null 이다
+```
+
+`jakarta.validation.constraints.Size` 의 `@Target` 에 **`RECORD_COMPONENT` 가 없어서**
+컴파일러가 그 애너테이션을 필드로 보낸다. 칸에는 아무것도 안 남는다.
+
+**증상이 「규칙이 없다」로 보인다.** `LengthConstraintTest` 를 처음 돌렸을 때 열한 칸 중
+**열이 「@Size 가 없다」로 빨갰고**, 유일하게 통과한 것이 `@EmailAddress` 였다 —
+그건 우리가 만든 애너테이션이라 `@Target` 에 `RECORD_COMPONENT` 를 넣어 뒀다.
+**남의 애너테이션과 우리 애너테이션이 다르게 동작한 것**이라 원인이 더 안 보인다.
+
+칸과 **그 칸이 만든 필드**를 같이 본다.
+
+```java
+component.getDeclaringRecord().getDeclaredField(component.getName()).getAnnotations()
+```
+
+**메타 애너테이션도 같이 본다.** 규칙을 하나로 모으면(`@Password`·`@EmailAddress`)
+`@Size` 가 그 안에 들어가므로, 직접 붙은 것만 훑으면 모은 칸이 통째로 빠진다.
+
 ### 시드를 한 번 넣은 로컬 DB 는 다음 마이그레이션에서 기동을 막는다
 
 `local` 프로필의 시드가 `V900`·`V901`·`V902` 라 **번호가 실제 마이그레이션보다 위**다.
