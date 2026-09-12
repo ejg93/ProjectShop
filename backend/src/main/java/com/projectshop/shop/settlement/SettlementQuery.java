@@ -74,9 +74,8 @@ public class SettlementQuery {
      */
     private record Visible(boolean everything, Long[] sellers) {}
 
-    public Page find(long viewerId, int page, int size) {
+    public Page find(long viewerId, Paging paging) {
         Visible visible = visibleFor(viewerId);
-        Paging paging = Paging.of(page, size);
 
         List<Summary> items = jdbc.sql("""
                         select s.settlement_number, sel.code as seller_code,

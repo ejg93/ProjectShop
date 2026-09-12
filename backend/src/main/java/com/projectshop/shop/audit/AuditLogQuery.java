@@ -48,7 +48,7 @@ public class AuditLogQuery {
      * @param to          이 시각 이전(제외). null 이면 끝까지
      */
     public record Criteria(Long actorUserId, String targetType, Long targetId,
-            OffsetDateTime from, OffsetDateTime to, int page, int size) {
+            OffsetDateTime from, OffsetDateTime to) {
     }
 
     /**
@@ -94,10 +94,8 @@ public class AuditLogQuery {
 
     private static final String SELECT_TOTAL = "select count(*) from audit_log" + WHERE;
 
-    public Page find(long viewerId, Criteria criteria) {
+    public Page find(long viewerId, Criteria criteria, Paging paging) {
         authorize(viewerId, criteria);
-
-        Paging paging = Paging.of(criteria.page(), criteria.size());
 
         List<Row> items = bind(jdbc.sql(SELECT_ITEMS), criteria)
                 .param("size", paging.size())

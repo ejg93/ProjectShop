@@ -17,6 +17,7 @@ import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery;
+import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
@@ -128,9 +129,8 @@ public class ProductQuery {
      *
      * @param sellerId 이 셀러 것만. null 이면 전체
      */
-    public PublicPage findPublic(Long sellerId, String sort, int page, int size) {
-        Paging paging = Paging.of(page, size);
-        String orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
+    public PublicPage findPublic(Long sellerId, String sort, Paging paging) {
+        OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
         List<PublicItem> items = jdbc.sql("""
                         select p.product_id, p.seller_id, s.name as seller_name, p.name,
@@ -148,7 +148,7 @@ public class ProductQuery {
                         """
                 // 텍스트 블록은 줄 끝 공백을 지운다. 블록 안에서 이으면 "order by" 와
                 // 컬럼이 붙어 버려서, 공백을 이 문자열에 직접 넣는다.
-                + " order by " + orderBy + ", p.product_id desc"
+                + " order by " + orderBy.clause() + ", p.product_id desc"
                 + " limit :size offset :offset")
                 .param("sellerId", sellerId)
                 .param("size", paging.size())
@@ -185,7 +185,7 @@ public class ProductQuery {
      * <p>그래서 <b>판정 결과에서 범위를 읽어 조건으로 옮긴다.</b> 판정 로직을 다시 쓰지 않는다.
      * {@code all} 이 열리면 전체, {@code seller} 면 소속 셀러, 둘 다 아니면 거부다.
      */
-    public SellerPage findForSeller(long viewerId, Long sellerId, String sort, int page, int size) {
+    public SellerPage findForSeller(long viewerId, Long sellerId, String sort, Paging paging) {
         Allowed<Long> visible = visibleSellersFor(viewerId);
 
         // 조건을 만드는 자리는 여기 하나다. switch 가 두 경우를 다 다루게 강제한다 —
@@ -193,8 +193,7 @@ public class ProductQuery {
         boolean seesEverything = !visible.restricted();
         Long[] sellers = visible.values().toArray(Long[]::new);
 
-        Paging paging = Paging.of(page, size);
-        String orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
+        OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
         List<SellerItem> items = jdbc.sql("""
                         select p.product_id, p.seller_id, p.name, p.status, p.commission_bp,
@@ -210,7 +209,7 @@ public class ProductQuery {
                                 or p.seller_id = cast(:sellerId as bigint))
                          group by p.product_id
                         """
-                + " order by " + orderBy + ", p.product_id desc"
+                + " order by " + orderBy.clause() + ", p.product_id desc"
                 + " limit :size offset :offset")
                 .param("seesEverything", seesEverything)
                 .param("sellers", sellers)

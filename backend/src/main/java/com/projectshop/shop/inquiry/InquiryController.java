@@ -2,13 +2,13 @@ package com.projectshop.shop.inquiry;
 
 import java.net.URI;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
@@ -18,6 +18,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 문의를 내고 읽고 답하는 입구(청크 59).
@@ -146,25 +147,22 @@ public class InquiryController {
      */
     @GetMapping("/api/products/{productId}/inquiries")
     public InquiryQuery.Page<InquiryQuery.PublicEntry> ofProduct(@PathVariable long productId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return query.findPublic(productId, page, size);
+            @ParameterObject Paging paging) {
+        return query.findPublic(productId, paging);
     }
 
     /** 내가 낸 문의 전부. 비공개도 내려간 것도 보인다 */
     @GetMapping("/api/me/inquiries")
     public InquiryQuery.Page<InquiryQuery.Entry> mine(@AuthenticationPrincipal ShopUser user,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return query.findMine(user.id(), page, size);
+            @ParameterObject Paging paging) {
+        return query.findMine(user.id(), paging);
     }
 
     /** 내 셀러 상품에 달린 문의. 계정에 붙는 요구는 여기 안 나온다 */
     @GetMapping("/api/seller/inquiries")
     public InquiryQuery.Page<InquiryQuery.Entry> forSeller(@AuthenticationPrincipal ShopUser user,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return query.findForSeller(user.id(), page, size);
+            @ParameterObject Paging paging) {
+        return query.findForSeller(user.id(), paging);
     }
 
     /** 열거값은 API 가 대문자고 저장은 소문자다(`D5`). 종류와 사유가 같은 규칙을 쓴다 */

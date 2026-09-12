@@ -1,5 +1,6 @@
 package com.projectshop.shop.product;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -7,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 셀러가 자기 상품을 보는 입구.
@@ -37,9 +39,8 @@ public class SellerProductController {
             @AuthenticationPrincipal ShopUser user,
             @RequestParam(name = "seller_id", required = false) Long sellerId,
             @RequestParam(required = false) String sort,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @ParameterObject Paging paging) {
 
-        return productQuery.findForSeller(user.id(), sellerId, sort, page, size);
+        return productQuery.findForSeller(user.id(), sellerId, sort, paging);
     }
 }

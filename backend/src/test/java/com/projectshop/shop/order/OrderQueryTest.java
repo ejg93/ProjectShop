@@ -19,6 +19,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderStatusService.Actor;
 import com.projectshop.shop.order.OrderTransitions.Payment;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 산 사람이 자기 주문을 보는 경로.
@@ -75,7 +76,7 @@ class OrderQueryTest extends PostgresTestBase {
         void onlyMine() {
             placeOrder(other);
 
-            List<OrderQuery.Summary> mine = orders.findMine(buyer, null, 0, 20).items();
+            List<OrderQuery.Summary> mine = orders.findMine(buyer, null, new Paging(0, 20)).items();
 
             assertThat(mine)
                     .as("남의 주문이 한 건이라도 섞이면 목록 조건이 스코프를 안 자른 것이다")
@@ -86,7 +87,7 @@ class OrderQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("상태는 대문자로 나간다")
         void statusIsUpperCase() {
-            OrderQuery.Summary summary = orders.findMine(buyer, null, 0, 20).items().getFirst();
+            OrderQuery.Summary summary = orders.findMine(buyer, null, new Paging(0, 20)).items().getFirst();
 
             assertThat(summary.status()).isEqualTo("PAYMENT_PENDING");
         }
@@ -94,7 +95,7 @@ class OrderQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("산 것의 수가 같이 온다")
         void itemCountComesAlong() {
-            OrderQuery.Summary summary = orders.findMine(buyer, null, 0, 20).items().getFirst();
+            OrderQuery.Summary summary = orders.findMine(buyer, null, new Paging(0, 20)).items().getFirst();
 
             assertThat(summary.itemCount()).isEqualTo(1);
         }
@@ -108,7 +109,7 @@ class OrderQueryTest extends PostgresTestBase {
         void noPermissionGivesEmptyPage() {
             long stranger = fixture.insertUser("query-stranger@test.local", "역할없음");
 
-            OrderQuery.Page page = orders.findMine(stranger, null, 0, 20);
+            OrderQuery.Page page = orders.findMine(stranger, null, new Paging(0, 20));
 
             assertThat(page.items()).isEmpty();
             assertThat(page.total()).isZero();

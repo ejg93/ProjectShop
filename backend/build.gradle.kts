@@ -23,6 +23,18 @@ repositories {
 	mavenCentral()
 }
 
+// Tomcat 을 BOM 이 주는 값보다 올린다(`2e-6`).
+//
+// **Boot 를 올려서는 못 닫는다.** BOM 이 `11.0.24` 를 주는데 그 판에 critical 셋이 열려 있고
+// (`CVE-2026-68525`·`CVE-2026-65905`·`CVE-2026-65182`), 패치는 `11.0.25` 다.
+// Boot 는 `4.1.1` 이 최신이라(`4.1.2`·`4.2.0` 이 둘 다 404) 올릴 자리가 없다.
+//
+// **BOM 이 검증한 조합에서 벗어나는 것이다.** Boot 가 `11.0.25` 이상을 주는 판을 내면
+// 이 줄을 지우고 BOM 값으로 돌린다 — 지워도 되는지는 `TomcatVersionTest` 가 판정한다.
+//
+// 한 줄이 `tomcat-embed-core`·`-el`·`-websocket` 셋을 다 덮는다.
+extra["tomcat.version"] = "11.0.25"
+
 // Boot 의 BOM 이 Testcontainers 버전을 관리하지 않아서 직접 넣는다.
 //
 // **2.x 는 모듈 좌표에 `testcontainers-` 접두어가 붙는다**(`org.testcontainers:postgresql` →
@@ -147,6 +159,16 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 	// fork 마다 Spring 컨텍스트를 새로 띄우는 값이 붙어서 **늘린 만큼 빨라지지 않고 넷은 되레 는다.**
 	// 기계마다 갈리는 값이라 `-PintegrationForks=N` 으로 다시 재고 이 기본값을 고친다.
 	maxParallelForks = (findProperty("integrationForks") as String?)?.toInt() ?: 2
+
+	// **이 레인에도 문서를 읽는 대조가 있다**(`점검 M`). `DataLifecycleCoverageTest` 가
+	// `data-lifecycle.md` 를 읽어 DB 의 표 목록과 맞춰 보는데, **신고가 여기 하나도 없어서
+	// 그 문서만 고친 청크에서 통째로 `UP-TO-DATE` 로 건너뛴다.** 실측으로 확인했다.
+	//
+	// **같은 함정을 저장소가 네 번 밟았다** — `2f`(`stack.md`)·`Q16`(화면 소스)·여기·`docker-compose.yml`.
+	// 네 번이면 기록이 아니라 강제 지점이 필요하다(`Q25`).
+	inputs.files(file("../doc/reference/data-lifecycle.md"))
+		.withPropertyName("comparedDocsInSlowLane")
+		.withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 tasks.withType<Test> {
@@ -174,7 +196,13 @@ tasks.test {
 	// **걸려 있는 것과 도는 것은 다르다.**
 	//
 	// 대조 테스트 셋은 컨테이너를 안 타서 이 레인에 있다. 그래서 신고도 여기에만 건다.
-	inputs.files(file("../PLAN.md"), file("../PROGRESS.md"), file("../doc/reference/stack.md"))
+	//
+	// **`docker-compose.yml` 이 셋째 구멍이었다**(`점검 M`). `StackVersionConsistencyTest` 는
+	// `stack.md` 만 읽는 것이 아니라 **표의 세 번째 칸이 가리키는 파일까지** 읽는데,
+	// Postgres·Redis 이미지 태그가 거기 있다. 실측으로 확인했다 — 그 파일을 고치고
+	// `test` 를 돌리니 `UP-TO-DATE` 였다.
+	inputs.files(file("../PLAN.md"), file("../PROGRESS.md"), file("../doc/reference/stack.md"),
+			file("../docker-compose.yml"))
 		.withPropertyName("comparedDocs")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
 

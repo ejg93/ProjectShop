@@ -3,6 +3,7 @@ package com.projectshop.shop.product;
 import java.net.URI;
 import java.util.List;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +28,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 상품을 등록하고 고치는 입구.
@@ -59,10 +61,9 @@ public class ProductController {
     public ProductQuery.PublicPage list(
             @RequestParam(name = "seller_id", required = false) Long sellerId,
             @RequestParam(required = false) String sort,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @ParameterObject Paging paging) {
 
-        return productQuery.findPublic(sellerId, sort, page, size);
+        return productQuery.findPublic(sellerId, sort, paging);
     }
 
     /**
@@ -210,7 +211,7 @@ public class ProductController {
      */
     public record ProductRequest(
             @NotNull Long sellerId,
-            @NotBlank @Size(max = 200) String name,
+            @NotBlank @Size(max = 100) String name,
             String description,
             Integer commissionBp,
             Boolean withdrawalRestricted,

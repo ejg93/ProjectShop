@@ -60,7 +60,8 @@ export function ProductForm({ sellerId }: { sellerId: number }) {
       <fieldset className="grid gap-4">
         <legend className="text-sm font-medium">상품</legend>
 
-        <Field label="상품명" name="name" required maxLength={200} />
+        {/* 100 은 서버의 `@Size` 와 같아야 한다(`Q22`). 갈리면 화면이 받은 것을 서버가 400 으로 막는다 */}
+        <Field label="상품명" name="name" required maxLength={100} />
         <Field label="설명" name="description" multiline />
         <Field label="판매가 (부가세 포함)" name="priceInclVat" required type="number" min={0} />
         <Field label="재고" name="stockCount" required type="number" min={0} />

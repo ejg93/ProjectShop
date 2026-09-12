@@ -42,6 +42,12 @@ class OpenApiSpecTest extends HttpTestBase {
     /** springdoc 이 자기 자신은 안 그린다. 스펙에 없어도 맞다 */
     private static final Set<String> NOT_IN_SPEC = Set.of("/api/docs", "/api/docs.yaml");
 
+    /** 페이지를 내주는 경로. 하나라도 빠뜨리면 그 경로만 문서가 조용히 틀린다 */
+    private static final List<String> PAGED_ROUTES = List.of(
+            "/api/products", "/api/seller/products", "/api/orders", "/api/seller/orders",
+            "/api/audit-logs", "/api/settlements", "/api/refunds",
+            "/api/me/inquiries", "/api/seller/inquiries");
+
     private static final ObjectMapper JSON = new ObjectMapper();
 
     /**
@@ -61,6 +67,39 @@ class OpenApiSpecTest extends HttpTestBase {
         assertThat(routeShapes())
                 .as("스펙에 없는 라우트는 부르는 쪽이 문서를 보고는 못 찾는다")
                 .allSatisfy(shape -> assertThat(specPaths).contains(shape));
+    }
+
+    /**
+     * 목록 경로가 {@code page}·{@code size} 를 스펙에 싣는다.
+     *
+     * <p><b>이 자리가 실제로 깨졌다</b>(마무리 12차). {@code Q23} 이 {@code @RequestParam int page}
+     * 를 커스텀 {@code HandlerMethodArgumentResolver} 로 옮기면서 springdoc 이 그 둘을 놓쳤고,
+     * 스펙에는 <b>존재하지도 않는 {@code paging} 파라미터</b>가 실렸다 —
+     * 문서를 보고 부르는 쪽은 {@code ?paging=...} 을 보내게 된다.
+     *
+     * <p><b>경로만 보던 것이 이 검사가 없던 이유다.</b> 위 대조는 라우트가 스펙에 있나만 보므로
+     * <b>파라미터가 통째로 틀려도 초록</b>이었다. 이 클래스의 전제(스펙을 코드에서 뽑으면
+     * 손으로 쓴 문서가 어긋나는 자리가 사라진다)가 그만큼 비어 있었다.
+     *
+     * <p>고친 방법은 {@code @ParameterObject} 다. {@code Paging} 자체에는 안 붙인다 —
+     * 그 record 는 {@code support} 에 살고 <b>거기서 springdoc 을 부르면
+     * {@code ArchitectureTest} 의 「공용 도구는 자원을 모른다」가 막는다.</b>
+     */
+    @Test
+    @DisplayName("목록 경로가 page·size 를 스펙에 싣는다")
+    void listRoutesDocumentPaging() {
+        JsonNode paths = spec().path("paths");
+
+        for (String route : PAGED_ROUTES) {
+            Set<String> names = new java.util.TreeSet<>();
+            paths.path(route).path("get").path("parameters")
+                    .forEach(parameter -> names.add(parameter.path("name").asString()));
+
+            assertThat(names)
+                    .as("%s 가 page·size 를 안 싣는다. 부르는 쪽이 문서만 보고는 페이지를 못 넘긴다"
+                            + " (api-guidelines.md 「목록 조회」). 실린 것: %s", route, names)
+                    .contains("page", "size");
+        }
     }
 
     @Test

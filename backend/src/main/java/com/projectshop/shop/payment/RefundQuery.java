@@ -16,6 +16,7 @@ import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery;
+import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
@@ -97,11 +98,10 @@ public class RefundQuery {
      *
      * @param status 이 상태만. null 이면 전부. 승인 대기만 보는 것이 이 필터의 주 용도다
      */
-    public Page find(long viewerId, String status, String sort, int page, int size) {
+    public Page find(long viewerId, String status, String sort, Paging paging) {
         Visible visible = visibleFor(viewerId);
 
-        Paging paging = Paging.of(page, size);
-        String orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
+        OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
         String storedStatus = storedStatus(status);
 
         List<Summary> items = jdbc.sql("""
@@ -117,7 +117,7 @@ public class RefundQuery {
                            and (cast(:status as text) is null or r.status = cast(:status as text))
                         """
                 // 텍스트 블록이 줄 끝 공백을 지워서 "order by" 와 컬럼이 붙는다. 공백을 직접 넣는다.
-                + " order by " + orderBy + ", r.refund_id desc"
+                + " order by " + orderBy.clause() + ", r.refund_id desc"
                 + " limit :size offset :offset")
                 .param("seesEverything", visible.everything())
                 .param("seesOwn", visible.own())

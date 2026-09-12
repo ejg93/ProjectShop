@@ -25,6 +25,7 @@ import com.projectshop.shop.payment.RefundStatus;
 import com.projectshop.shop.payment.PaymentStatus;
 import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ListQuery;
+import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.ActorType;
 
@@ -201,9 +202,8 @@ public class OrderQuery {
      * "내가 볼 수 있는 것이 무엇인가" 라서다 — 볼 수 있는 것이 없으면 답은 0건이다.
      * 조용히 넘어가지도 않는다. 판정이 거부를 감사 로그에 남긴다(`4b`).
      */
-    public Page findMine(long userId, String sort, int page, int size) {
-        Paging paging = Paging.of(page, size);
-        String orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
+    public Page findMine(long userId, String sort, Paging paging) {
+        OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
         if (!evaluator.decide(userId, "order", "read", Target.ownedBy(userId)).allowed()) {
             return new Page(List.of(), paging.page(), paging.size(), 0);
@@ -219,7 +219,7 @@ public class OrderQuery {
                          where o.user_id = :userId
                         """
                 // 텍스트 블록이 줄 끝 공백을 지워서 "order by" 와 컬럼이 붙는다. 공백을 직접 넣는다.
-                + " order by " + orderBy + ", o.order_id desc"
+                + " order by " + orderBy.clause() + ", o.order_id desc"
                 + " limit :size offset :offset")
                 .param("userId", userId)
                 .param("size", paging.size())

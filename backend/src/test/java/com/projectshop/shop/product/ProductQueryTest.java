@@ -16,6 +16,7 @@ import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 상품 조회(`8`). <b>「알려진 구멍 3」(목록 스코프 누출)을 밟는 자리다.</b>
@@ -87,7 +88,7 @@ class ProductQueryTest extends PostgresTestBase {
         void listCarriesShippingFee() {
             long productId = createAndPutOnSale(ownerA, sellerA, "배송비 붙는 티셔츠");
 
-            ProductQuery.PublicItem item = productQuery.findPublic(null, null, 0, 20).items()
+            ProductQuery.PublicItem item = productQuery.findPublic(null, null, new Paging(0, 20)).items()
                     .stream()
                     .filter(each -> each.productId() == productId)
                     .findFirst()
@@ -125,7 +126,7 @@ class ProductQueryTest extends PostgresTestBase {
             long onSale = createAndPutOnSale(ownerA, sellerA, "파는 티셔츠");
             long draft = create(ownerA, sellerA, "준비 중인 티셔츠");
 
-            List<Long> ids = productQuery.findPublic(null, null, 0, 20).items().stream()
+            List<Long> ids = productQuery.findPublic(null, null, new Paging(0, 20)).items().stream()
                     .map(ProductQuery.PublicItem::productId)
                     .toList();
 
@@ -149,7 +150,7 @@ class ProductQueryTest extends PostgresTestBase {
         void includesMinPrice() {
             long productId = createAndPutOnSale(ownerA, sellerA, "가격 여럿");
 
-            ProductQuery.PublicItem item = productQuery.findPublic(sellerA, null, 0, 20).items()
+            ProductQuery.PublicItem item = productQuery.findPublic(sellerA, null, new Paging(0, 20)).items()
                     .stream()
                     .filter(i -> i.productId() == productId)
                     .findFirst()
@@ -166,7 +167,7 @@ class ProductQueryTest extends PostgresTestBase {
             createAndPutOnSale(ownerA, sellerA, "A 상품");
             createAndPutOnSale(ownerB, sellerB, "B 상품");
 
-            assertThat(productQuery.findPublic(sellerA, null, 0, 20).items())
+            assertThat(productQuery.findPublic(sellerA, null, new Paging(0, 20)).items())
                     .allSatisfy(item -> assertThat(item.sellerId()).isEqualTo(sellerA));
         }
     }
@@ -212,7 +213,7 @@ class ProductQueryTest extends PostgresTestBase {
         void customerIsForbidden() {
             create(ownerA, sellerA, "A 상품");
 
-            assertThatThrownBy(() -> productQuery.findForSeller(customer, null, null, 0, 20))
+            assertThatThrownBy(() -> productQuery.findForSeller(customer, null, null, new Paging(0, 20)))
                     .as("0건과 못 봄이 갈려야 개수로 정보가 새지 않는다")
                     .isInstanceOfSatisfying(ShopException.class, e ->
                             assertThat(e.code()).isEqualTo(ErrorCode.PRODUCT_FORBIDDEN));
@@ -223,7 +224,7 @@ class ProductQueryTest extends PostgresTestBase {
         void includesSellerOnlyFields() {
             long productId = create(ownerA, sellerA, "A 상품");
 
-            ProductQuery.SellerItem item = productQuery.findForSeller(ownerA, sellerA, null, 0, 20)
+            ProductQuery.SellerItem item = productQuery.findForSeller(ownerA, sellerA, null, new Paging(0, 20))
                     .items().stream()
                     .filter(i -> i.productId() == productId)
                     .findFirst()
@@ -243,7 +244,7 @@ class ProductQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("허용 목록에 없는 필드는 거부된다")
         void rejectsUnknownSortField() {
-            assertThatThrownBy(() -> productQuery.findPublic(null, "price,asc", 0, 20))
+            assertThatThrownBy(() -> productQuery.findPublic(null, "price,asc", new Paging(0, 20)))
                     .as("컬럼명은 바인딩이 안 되는 자리라 우리가 값을 정해야 한다(`D14`)")
                     .isInstanceOfSatisfying(ShopException.class, e ->
                             assertThat(e.code()).isEqualTo(ErrorCode.SORT_NOT_ALLOWED));
@@ -253,7 +254,7 @@ class ProductQueryTest extends PostgresTestBase {
         @DisplayName("SQL 을 섞어 보내도 거부된다")
         void rejectsInjectionAttempt() {
             assertThatThrownBy(() ->
-                    productQuery.findPublic(null, "created_at; drop table product--,asc", 0, 20))
+                    productQuery.findPublic(null, "created_at; drop table product--,asc", new Paging(0, 20)))
                     .isInstanceOf(ShopException.class);
         }
 
@@ -263,7 +264,7 @@ class ProductQueryTest extends PostgresTestBase {
             createAndPutOnSale(ownerA, sellerA, "가나다");
             createAndPutOnSale(ownerA, sellerA, "하하하");
 
-            List<String> names = productQuery.findPublic(sellerA, "name,asc", 0, 20).items().stream()
+            List<String> names = productQuery.findPublic(sellerA, "name,asc", new Paging(0, 20)).items().stream()
                     .map(ProductQuery.PublicItem::name)
                     .toList();
 
@@ -273,18 +274,18 @@ class ProductQueryTest extends PostgresTestBase {
 
     @Nested
     @DisplayName("페이징")
-    class Paging {
+    class PagingCases {
 
         @Test
         @DisplayName("크기를 100 으로 막는다")
         void capsSize() {
-            assertThat(productQuery.findPublic(null, null, 0, 5000).size()).isEqualTo(100);
+            assertThat(productQuery.findPublic(null, null, new Paging(0, 5000)).size()).isEqualTo(100);
         }
 
         @Test
         @DisplayName("음수 페이지는 0 으로 본다")
         void negativePageIsFirst() {
-            assertThat(productQuery.findPublic(null, null, -3, 20).page()).isZero();
+            assertThat(productQuery.findPublic(null, null, new Paging(-3, 20)).page()).isZero();
         }
     }
 
@@ -462,13 +463,13 @@ class ProductQueryTest extends PostgresTestBase {
     }
 
     private List<Long> publicIds() {
-        return productQuery.findPublic(null, null, 0, 100).items().stream()
+        return productQuery.findPublic(null, null, new Paging(0, 100)).items().stream()
                 .map(ProductQuery.PublicItem::productId)
                 .toList();
     }
 
     private List<Long> sellerIds(long viewerId) {
-        return productQuery.findForSeller(viewerId, null, null, 0, 100).items().stream()
+        return productQuery.findForSeller(viewerId, null, null, new Paging(0, 100)).items().stream()
                 .map(ProductQuery.SellerItem::productId)
                 .toList();
     }

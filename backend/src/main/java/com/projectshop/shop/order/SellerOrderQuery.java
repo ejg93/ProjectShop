@@ -22,6 +22,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
 import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ListQuery;
+import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
@@ -111,14 +112,13 @@ public class SellerOrderQuery {
      *
      * @param sellerId 이 셀러 것만. null 이면 볼 수 있는 전부
      */
-    public Page find(long viewerId, Long sellerId, String sort, int page, int size) {
+    public Page find(long viewerId, Long sellerId, String sort, Paging paging) {
         Allowed<Long> visible = visibleSellersFor(viewerId);
 
         boolean seesEverything = !visible.restricted();
         Long[] sellers = visible.values().toArray(Long[]::new);
 
-        Paging paging = Paging.of(page, size);
-        String orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
+        OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
         List<Summary> items = jdbc.sql("""
                         select so.seller_order_number, o.order_number, so.status,
@@ -132,7 +132,7 @@ public class SellerOrderQuery {
                                 or so.seller_id = cast(:sellerId as bigint))
                         """
                 // 텍스트 블록이 줄 끝 공백을 지워서 "order by" 와 컬럼이 붙는다. 공백을 직접 넣는다.
-                + " order by " + orderBy + ", so.seller_order_id desc"
+                + " order by " + orderBy.clause() + ", so.seller_order_id desc"
                 + " limit :size offset :offset")
                 .param("seesEverything", seesEverything)
                 .param("sellers", sellers)

@@ -3,6 +3,7 @@ package com.projectshop.shop.payment;
 import java.net.URI;
 import java.util.List;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +21,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 환불을 요청하고 처리하는 입구.
@@ -149,10 +151,9 @@ public class RefundController {
             @AuthenticationPrincipal ShopUser user,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String sort,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @ParameterObject Paging paging) {
 
-        return query.find(user.id(), status, sort, page, size);
+        return query.find(user.id(), status, sort, paging);
     }
 
     /** 환불 하나를 펼친다. 못 보는 것은 없는 것과 같은 404 다(`D5`) */
