@@ -44,7 +44,7 @@
 | AI 리뷰 | 5 문서 | **PR 만** | 아래 「리뷰」 | 게이트가 아니다 |
 | 주간 리포트 | 5 문서 | 세션 시작 | 안 움직인 것만 센다(`2h`, `scripts/weekly-report.sh`) — 오래 안 본 점검 줄·멈춘 Dependabot PR·빨간 CI·경보 수·빠른 레인 비율·기준 문서 조건. **막지 않는다.** **길이는 스스로 막는다**(43줄) — `2u` 와 같은 주입 자리지만 lint 가 못 본다(파일이 아니라 만들어지는 출력이다) | 게이트가 아니다 — **도착 자리가 대신한다**: `SessionStart` 훅이 주 1회 주입해 예열의 입력이 된다 |
 | 요건 커버리지 리포트 | 5 문서 | 로컬·CI | 테스트가 언급하지 않는 R 목록(`2v`, `scripts/req-coverage.sh`). 알려 주기만 한다 — 첫 실행 13/37 | 게이트가 아니다 |
-| 리뷰 코멘트 확인 | 4 테스트 | 〃 | **리뷰가 아무것도 안 내놓는 것**(`2g-5`). 내용이 아니라 출력 유무다 | `2g-5`(나) 대기 |
+| 리뷰 코멘트 확인 | 4 테스트 | 〃 | **리뷰가 아무것도 안 내놓는 것**(`2g-5`). 내용이 아니라 출력 유무다 | **PR #41 2026-09-13 — 실물로 물었다.** 코멘트 0 이었고 원인은 리뷰가 아니라 **저장소 Stop 훅이 액션 안에서 돈 것**(도장 요구 → `verify.sh` 거부 9회 → 20턴 소진). 마무리 13차가 워크플로에서 훅 파일을 지우는 단계로 고쳤다 |
 | 폼 pending | 4 테스트 | 로컬·CI | `<form action={fn}>` 파일이 pending 을 `useState` 로 드는 것(`Q20-3`, `src/test/form-pending.test.ts`). **린트로는 못 막는다** — ESLint 선택자가 노드 단위라 「파일에 둘이 같이 있다」를 표현 못 한다 | `Q20-3` 2026-09-11 — `login-form` 에 pending 을 도로 넣으니 그 파일 경로를 짚었다 |
 | 층간 문자열 대조 | 4 테스트 | 로컬·CI | 화면이 든 값이 백엔드 실물과 갈리는 것. `ErrorSlugScreenTest`(오류 슬러그)·`OrderRecordTextTest`(상태 문구)·**`WithdrawalNoticeScreenTest`(제한 사유, `D2` R4)**·**`PasswordHintScreenTest`(비밀번호 길이)**(`Q20-2`). **화면 테스트로는 못 잡는다** — 같은 틀린 값을 쓰면 초록이다 | `Q16` 2026-09-05. `Q20-2` 2026-09-11 — **실물이 갈려 있었다**: 화면이 `PERISHABLE`·`SEALED_COPYRIGHT`, 실물은 `COPYABLE_MEDIA`·`DIGITAL_CONTENT` |
 | `axe-core` | 4 테스트 | 로컬·CI | 그려진 DOM 의 접근성 위반(`Q21`, `src/test/axe.ts`). **`jsx-a11y` 가 못 보는 자리만** — 조건부로 생긴 DOM. 건 자리는 `signup-form` 하나 | `Q21` 2026-09-11 — 라벨 연결을 떼니 `label(critical)`·`label-title-only(serious)` 둘이 떴다 |
