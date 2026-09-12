@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.http.HttpStatus;
 
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.audit.AuditLogQuery.Criteria;
@@ -125,7 +126,7 @@ class AuditLogQueryTest extends PostgresTestBase {
         @DisplayName("기간 밖은 안 나온다")
         void byPeriod() {
             OffsetDateTime tomorrow = OffsetDateTime.now().plusDays(1);
-            Page page = find(auditor, new Criteria(null, null, null, tomorrow, null, 0, 20));
+            Page page = find(auditor, new Criteria(null, null, null, tomorrow, null));
 
             assertThat(page.total()).isZero();
             assertThat(page.items()).as("빈 목록은 null 이 아니라 [] 다").isEmpty();
@@ -142,7 +143,7 @@ class AuditLogQueryTest extends PostgresTestBase {
 
             long total = find(auditor, all()).total();
             long upToOldest = find(auditor,
-                    new Criteria(null, null, null, null, oldest, 0, 20)).total();
+                    new Criteria(null, null, null, null, oldest)).total();
 
             assertThat(upToOldest)
                     .as("끝을 열어 둬야 하루씩 이어 붙일 때 경계 행이 두 번 안 나온다")
@@ -161,7 +162,7 @@ class AuditLogQueryTest extends PostgresTestBase {
 
     @Nested
     @DisplayName("페이징")
-    class Paging {
+    class PagingCases {
 
         @Test
         @DisplayName("최신순으로 나온다")
@@ -174,7 +175,7 @@ class AuditLogQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("한 페이지 크기를 100 으로 막는다")
         void capsPageSize() {
-            Page page = find(auditor, new Criteria(null, null, null, null, null, 0, 5000));
+            Page page = find(auditor, all(), new Paging(0, 5000));
 
             assertThat(page.size())
                     .as("안 막으면 목록 하나로 전체를 긁어 간다")
@@ -184,7 +185,7 @@ class AuditLogQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("전체 개수는 페이지 크기와 따로 센다")
         void totalIgnoresPaging() {
-            Page page = find(auditor, new Criteria(null, null, null, null, null, 0, 1));
+            Page page = find(auditor, all(), new Paging(0, 1));
 
             assertThat(page.items()).hasSize(1);
             assertThat(page.total()).isGreaterThan(1);
@@ -193,20 +194,24 @@ class AuditLogQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("음수 페이지는 0 으로 본다")
         void negativePageIsFirstPage() {
-            assertThat(find(auditor, new Criteria(null, null, null, null, null, -3, 20)).page())
+            assertThat(find(auditor, all(), new Paging(-3, 20)).page())
                     .isZero();
         }
     }
 
     private Page find(long viewer, Criteria criteria) {
-        return query.find(viewer, criteria);
+        return find(viewer, criteria, new Paging(0, 20));
+    }
+
+    private Page find(long viewer, Criteria criteria, Paging paging) {
+        return query.find(viewer, criteria, paging);
     }
 
     private static Criteria all() {
-        return new Criteria(null, null, null, null, null, 0, 20);
+        return new Criteria(null, null, null, null, null);
     }
 
     private static Criteria criteria(Long actorUserId, String targetType) {
-        return new Criteria(actorUserId, targetType, null, null, null, 0, 20);
+        return new Criteria(actorUserId, targetType, null, null, null);
     }
 }

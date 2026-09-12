@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 셀러가 자기에게 넘어온 주문을 보는 입구.
@@ -36,10 +37,9 @@ public class SellerOrderController {
             @AuthenticationPrincipal ShopUser user,
             @RequestParam(required = false) Long sellerId,
             @RequestParam(required = false) String sort,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            Paging paging) {
 
-        return sellerOrders.find(user.id(), sellerId, sort, page, size);
+        return sellerOrders.find(user.id(), sellerId, sort, paging);
     }
 
     /** 묶음 하나를 펼친다. <b>경로에 노출 번호를 쓴다</b>(`D9`) */

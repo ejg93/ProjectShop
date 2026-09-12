@@ -111,13 +111,12 @@ public class SellerOrderQuery {
      *
      * @param sellerId 이 셀러 것만. null 이면 볼 수 있는 전부
      */
-    public Page find(long viewerId, Long sellerId, String sort, int page, int size) {
+    public Page find(long viewerId, Long sellerId, String sort, Paging paging) {
         Allowed<Long> visible = visibleSellersFor(viewerId);
 
         boolean seesEverything = !visible.restricted();
         Long[] sellers = visible.values().toArray(Long[]::new);
 
-        Paging paging = Paging.of(page, size);
         String orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
         List<Summary> items = jdbc.sql("""

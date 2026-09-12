@@ -27,19 +27,23 @@ class ListQueryTest {
     private static final Map<String, String> SORTABLE =
             Map.of("createdAt", "i.created_at", "name", "p.name");
 
+    /**
+     * <b>보정이 생성자에 있다</b>(`Q23`). 그래서 <b>어느 경로로 만들어도</b> 성한 값이다 —
+     * 전에는 {@code of()} 안에 있어서 그것을 안 부르는 길이 열려 있었다.
+     */
     @Test
-    @DisplayName("size 는 상한에서 잘린다")
+    @DisplayName("size 는 만드는 순간 상한에서 잘린다")
     void sizeIsCappedAtMax() {
-        assertThat(Paging.of(0, ListQuery.MAX_SIZE + 1).size()).isEqualTo(ListQuery.MAX_SIZE);
-        assertThat(Paging.of(0, Integer.MAX_VALUE).size()).isEqualTo(ListQuery.MAX_SIZE);
+        assertThat(new Paging(0, ListQuery.MAX_SIZE + 1).size()).isEqualTo(ListQuery.MAX_SIZE);
+        assertThat(new Paging(0, Integer.MAX_VALUE).size()).isEqualTo(ListQuery.MAX_SIZE);
     }
 
     @Test
     @DisplayName("0 이나 음수 size 는 1 이 되고 음수 page 는 0 이 된다")
     void nonPositiveInputsBecomeSane() {
-        assertThat(Paging.of(0, 0).size()).isEqualTo(1);
-        assertThat(Paging.of(0, -5).size()).isEqualTo(1);
-        assertThat(Paging.of(-3, 20).page()).isZero();
+        assertThat(new Paging(0, 0).size()).isEqualTo(1);
+        assertThat(new Paging(0, -5).size()).isEqualTo(1);
+        assertThat(new Paging(-3, 20).page()).isZero();
     }
 
     /**
@@ -47,11 +51,14 @@ class ListQueryTest {
      *
      * <p>호출자가 {@code page * size} 를 직접 곱하던 자리인데, {@code int} 끼리 곱하면
      * <b>한 번은 넘쳐서 음수가 된다</b> — 그러면 {@code offset} 이 음수인 SQL 이 나간다.
+     *
+     * <p><b>칸이 아니라 계산이다</b>(`Q23`). 칸이면 {@code new Paging(3, 20, 0)} 처럼
+     * 페이지와 안 맞는 값을 넣을 수 있는데, 계산해서 주면 그 실수가 성립하지 않는다.
      */
     @Test
     @DisplayName("offset 은 int 로 넘치지 않는다")
     void offsetDoesNotOverflow() {
-        Paging paging = Paging.of(Integer.MAX_VALUE, ListQuery.MAX_SIZE);
+        Paging paging = new Paging(Integer.MAX_VALUE, ListQuery.MAX_SIZE);
 
         assertThat(paging.offset())
                 .isEqualTo((long) Integer.MAX_VALUE * ListQuery.MAX_SIZE)

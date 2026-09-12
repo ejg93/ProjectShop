@@ -6,10 +6,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 정산서를 조회하는 입구(청크 20).
@@ -38,9 +38,8 @@ public class SettlementController {
     /** 볼 수 있는 정산서. 셀러는 자기 것, 관리자·감사자는 전체다 */
     @GetMapping
     public SettlementQuery.Page list(@AuthenticationPrincipal ShopUser user,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return query.find(user.id(), page, size);
+            Paging paging) {
+        return query.find(user.id(), paging);
     }
 
     /**

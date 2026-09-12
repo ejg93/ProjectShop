@@ -17,6 +17,7 @@ import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderFixture;
 import com.projectshop.shop.support.BusinessCalendar;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 정산서를 누가 어디까지 보나(청크 20).
@@ -91,7 +92,7 @@ class SettlementQueryTest extends PostgresTestBase {
         void showsOnlyOwnSettlementsToASeller() {
             closeWith(sellerId, otherSellerId);
 
-            assertThat(query.find(ownerId, 0, 20).items())
+            assertThat(query.find(ownerId, new Paging(0, 20)).items())
                     .as("정산액은 곧 그 셀러의 월 거래액이다")
                     .singleElement()
                     .extracting(SettlementQuery.Summary::sellerCode)
@@ -103,7 +104,7 @@ class SettlementQueryTest extends PostgresTestBase {
         void showsEverythingToAnAdmin() {
             closeWith(sellerId, otherSellerId);
 
-            assertThat(query.find(adminId, 0, 20).total()).isEqualTo(2);
+            assertThat(query.find(adminId, new Paging(0, 20)).total()).isEqualTo(2);
         }
 
         /** 돈이 어디로 갔나를 못 보면 감사가 성립을 안 한다 */
@@ -112,7 +113,7 @@ class SettlementQueryTest extends PostgresTestBase {
         void showsEverythingToAnAuditor() {
             closeWith(sellerId, otherSellerId);
 
-            assertThat(query.find(auditorId, 0, 20).total()).isEqualTo(2);
+            assertThat(query.find(auditorId, new Paging(0, 20)).total()).isEqualTo(2);
         }
 
         @Test
@@ -120,7 +121,7 @@ class SettlementQueryTest extends PostgresTestBase {
         void refusesACustomer() {
             closeWith(sellerId);
 
-            assertThatThrownBy(() -> query.find(buyerId, 0, 20))
+            assertThatThrownBy(() -> query.find(buyerId, new Paging(0, 20)))
                     .as("0건이 아니다 — 0건과 못 봄이 갈려야 개수로 정보가 안 샌다")
                     .isInstanceOf(ShopException.class);
         }

@@ -82,8 +82,7 @@ public class InquiryQuery {
      * <p><b>내려간 게시물이 빠진다</b>(`R34`, 정보통신망법 제50조의7). 거부하면 게시가
      * 중단돼야 하는데 조건에서 빼지 않으면 화면에만 안 보이고 이 API 로는 그대로 나간다.
      */
-    public Page<PublicEntry> findPublic(long productId, int page, int size) {
-        Paging paging = Paging.of(page, size);
+    public Page<PublicEntry> findPublic(long productId, Paging paging) {
 
         List<PublicEntry> items = jdbc.sql("""
                         select i.inquiry_number, i.question, i.answer, i.status,
@@ -126,10 +125,10 @@ public class InquiryQuery {
      * <p><b>내려간 것을 숨기지 않는다.</b> 자기 글이 왜 안 보이는지를 본인이 알아야 하고,
      * 정보통신망법 제50조의7 은 <b>게시 중단</b>을 요구하지 작성자에게서 감추라고 하지 않는다.
      */
-    public Page<Entry> findMine(long viewerId, int page, int size) {
+    public Page<Entry> findMine(long viewerId, Paging paging) {
         boolean body = bodyVisibleTo(viewerId, Target.ownedBy(viewerId), "자기 문의를 볼 권한이 없다");
 
-        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), page, size, body);
+        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, body);
     }
 
     /**
@@ -139,7 +138,7 @@ public class InquiryQuery {
      * 애초에 안 걸린다 — 그 요구는 우리에게 온 것이라 셀러가 볼 것이 아니고,
      * 그 사실이 조건 하나로 성립한다.
      */
-    public Page<Entry> findForSeller(long viewerId, int page, int size) {
+    public Page<Entry> findForSeller(long viewerId, Paging paging) {
         Set<Long> sellers = sellersOpenTo(viewerId);
         if (sellers.isEmpty()) {
             throw new ShopException(ErrorCode.INQUIRY_FORBIDDEN, "셀러 문의를 볼 권한이 없다");
@@ -151,7 +150,7 @@ public class InquiryQuery {
                 "셀러 문의를 볼 권한이 없다");
 
         return find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
-                Map.of("sellers", sellers.toArray(Long[]::new)), page, size, body);
+                Map.of("sellers", sellers.toArray(Long[]::new)), paging, body);
     }
 
     /**
@@ -160,9 +159,8 @@ public class InquiryQuery {
      * <p>조건 문자열은 <b>이 파일 안의 리터럴</b>이라 바깥에서 오는 값이 없다(`D23` 「SQL」).
      * 값은 전부 이름 붙은 파라미터로 간다.
      */
-    private Page<Entry> find(String condition, Map<String, Object> params, int page, int size,
+    private Page<Entry> find(String condition, Map<String, Object> params, Paging paging,
             boolean body) {
-        Paging paging = Paging.of(page, size);
 
         var listing = jdbc.sql("""
                         select i.inquiry_number, i.kind, i.product_id, p.name as product_name,

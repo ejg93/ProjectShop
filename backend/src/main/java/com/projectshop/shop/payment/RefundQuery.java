@@ -97,10 +97,9 @@ public class RefundQuery {
      *
      * @param status 이 상태만. null 이면 전부. 승인 대기만 보는 것이 이 필터의 주 용도다
      */
-    public Page find(long viewerId, String status, String sort, int page, int size) {
+    public Page find(long viewerId, String status, String sort, Paging paging) {
         Visible visible = visibleFor(viewerId);
 
-        Paging paging = Paging.of(page, size);
         String orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
         String storedStatus = storedStatus(status);
 

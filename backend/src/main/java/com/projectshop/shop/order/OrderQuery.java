@@ -201,8 +201,7 @@ public class OrderQuery {
      * "내가 볼 수 있는 것이 무엇인가" 라서다 — 볼 수 있는 것이 없으면 답은 0건이다.
      * 조용히 넘어가지도 않는다. 판정이 거부를 감사 로그에 남긴다(`4b`).
      */
-    public Page findMine(long userId, String sort, int page, int size) {
-        Paging paging = Paging.of(page, size);
+    public Page findMine(long userId, String sort, Paging paging) {
         String orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
         if (!evaluator.decide(userId, "order", "read", Target.ownedBy(userId)).allowed()) {

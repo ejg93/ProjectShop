@@ -16,6 +16,7 @@ import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderFixture;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 비공개 문의가 남에게 안 보이나(청크 59).
@@ -86,7 +87,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void showsPublicQuestions() {
             ask(askerId, true);
 
-            assertThat(query.findPublic(productId, 0, 20).items()).hasSize(1);
+            assertThat(query.findPublic(productId, new Paging(0, 20)).items()).hasSize(1);
         }
 
         @Test
@@ -94,7 +95,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void hidesPrivateQuestions() {
             ask(askerId, false);
 
-            assertThat(query.findPublic(productId, 0, 20).items())
+            assertThat(query.findPublic(productId, new Paging(0, 20)).items())
                     .as("화면에서 숨기면 API 로는 보인다. 고르는 조건이어야 한다")
                     .isEmpty();
         }
@@ -109,14 +110,14 @@ class InquiryVisibilityTest extends PostgresTestBase {
             String number = ask(askerId, true);
             block(number);
 
-            assertThat(query.findPublic(productId, 0, 20).items()).isEmpty();
+            assertThat(query.findPublic(productId, new Paging(0, 20)).items()).isEmpty();
         }
 
         @Test
         @DisplayName("낸 사람을 실을 칸이 없다")
         void hasNoRoomForTheAuthor() {
             ask(askerId, true);
-            InquiryQuery.PublicEntry entry = query.findPublic(productId, 0, 20).items().get(0);
+            InquiryQuery.PublicEntry entry = query.findPublic(productId, new Paging(0, 20)).items().get(0);
 
             assertThat(entry.getClass().getRecordComponents())
                     .as("마스킹으로 가리면 새 컬럼을 더할 때 그 규칙에 넣는 것을 빠뜨린다")
@@ -133,7 +134,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void showsMyPrivateQuestions() {
             ask(askerId, false);
 
-            assertThat(query.findMine(askerId, 0, 20).items()).hasSize(1);
+            assertThat(query.findMine(askerId, new Paging(0, 20)).items()).hasSize(1);
         }
 
         @Test
@@ -141,7 +142,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void hidesOtherPeopleQuestions() {
             ask(askerId, false);
 
-            assertThat(query.findMine(strangerId, 0, 20).items())
+            assertThat(query.findMine(strangerId, new Paging(0, 20)).items())
                     .as("조건이 자기 것이라 남의 행은 애초에 안 뽑힌다")
                     .isEmpty();
         }
@@ -156,7 +157,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
             String number = ask(askerId, true);
             block(number);
 
-            assertThat(query.findMine(askerId, 0, 20).items()).hasSize(1);
+            assertThat(query.findMine(askerId, new Paging(0, 20)).items()).hasSize(1);
         }
     }
 
@@ -169,7 +170,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void showsPrivateQuestionsOnOwnProducts() {
             ask(askerId, false);
 
-            assertThat(query.findForSeller(sellerOwnerId, 0, 20).items()).hasSize(1);
+            assertThat(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items()).hasSize(1);
         }
 
         /**
@@ -181,13 +182,13 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void neverShowsAccountBoundRequests() {
             file(askerId, "processing_stop");
 
-            assertThat(query.findForSeller(sellerOwnerId, 0, 20).items()).isEmpty();
+            assertThat(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items()).isEmpty();
         }
 
         @Test
         @DisplayName("셀러가 아니면 못 본다")
         void refusesSomeoneWithoutASeller() {
-            assertThatThrownBy(() -> query.findForSeller(askerId, 0, 20))
+            assertThatThrownBy(() -> query.findForSeller(askerId, new Paging(0, 20)))
                     .as("0건이 아니다 — 0건과 못 봄이 갈려야 개수로 정보가 안 샌다")
                     .isInstanceOf(ShopException.class);
         }
@@ -281,7 +282,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
                     .param("number", number)
                     .update();
 
-            assertThat(query.findMine(askerId, 0, 20).items())
+            assertThat(query.findMine(askerId, new Paging(0, 20)).items())
                     .singleElement()
                     .extracting(InquiryQuery.Entry::overdue)
                     .as("「기한 안에 답」은 check 로 못 건다 — 막으면 늦은 답이 영영 안 나간다")
@@ -359,7 +360,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void staysVisibleToTheSellerWhoAnswers() {
             ask(askerId, false);
 
-            assertThat(query.findForSeller(sellerOwnerId, 0, 20).items())
+            assertThat(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items())
                     .singleElement()
                     .extracting(InquiryQuery.Entry::question)
                     .as("답을 못 쓰면 문의가 성립을 안 한다")
@@ -371,7 +372,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void staysVisibleToTheAuthor() {
             ask(askerId, false);
 
-            assertThat(query.findMine(askerId, 0, 20).items())
+            assertThat(query.findMine(askerId, new Paging(0, 20)).items())
                     .singleElement()
                     .extracting(InquiryQuery.Entry::question)
                     .isNotNull();
@@ -382,7 +383,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void staysVisibleOnThePublicListing() {
             ask(askerId, true);
 
-            assertThat(query.findPublic(productId, 0, 20).items())
+            assertThat(query.findPublic(productId, new Paging(0, 20)).items())
                     .singleElement()
                     .extracting(InquiryQuery.PublicEntry::question)
                     .as("공개로 낸 글이라 가릴 것이 없다")
@@ -436,7 +437,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void neverAppearsOnTheProductPage() {
             askAboutOrder(askerId, bundleNumber);
 
-            assertThat(query.findPublic(productId, 0, 20).items()).isEmpty();
+            assertThat(query.findPublic(productId, new Paging(0, 20)).items()).isEmpty();
         }
 
         /**
@@ -448,7 +449,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void isVisibleToTheBundleSeller() {
             askAboutOrder(askerId, bundleNumber);
 
-            assertThat(query.findForSeller(sellerOwnerId, 0, 20).items())
+            assertThat(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items())
                     .singleElement()
                     .extracting(InquiryQuery.Entry::kind)
                     .isEqualTo("ORDER");
@@ -465,7 +466,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
             String number = ask(askerId, true);
 
             assertThatCode(() -> inquiries.withdraw(askerId, number)).doesNotThrowAnyException();
-            assertThat(query.findPublic(productId, 0, 20).items()).isEmpty();
+            assertThat(query.findPublic(productId, new Paging(0, 20)).items()).isEmpty();
         }
 
         /**
@@ -524,7 +525,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
 
             assertThatCode(() -> inquiries.block(adminId, number, "advertisement"))
                     .doesNotThrowAnyException();
-            assertThat(query.findPublic(productId, 0, 20).items())
+            assertThat(query.findPublic(productId, new Paging(0, 20)).items())
                     .as("제50조의7 이 요구하는 것은 게시 중단이다")
                     .isEmpty();
         }
@@ -580,7 +581,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
             String number = ask(askerId, true);
             inquiries.block(adminId, number, "advertisement");
 
-            assertThat(query.findMine(askerId, 0, 20).items())
+            assertThat(query.findMine(askerId, new Paging(0, 20)).items())
                     .as("제50조의7 은 게시 중단을 요구하지 작성자에게서 감추라고 하지 않는다")
                     .hasSize(1);
         }

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.projectshop.shop.audit.AuditLogQuery.Criteria;
 import com.projectshop.shop.audit.AuditLogQuery.Page;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 감사 기록을 찾는 입구.
@@ -47,10 +48,9 @@ public class AuditLogController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            Paging paging) {
 
         return auditLogQuery.find(viewer.id(),
-                new Criteria(actorUserId, targetType, targetId, from, to, page, size));
+                new Criteria(actorUserId, targetType, targetId, from, to), paging);
     }
 }

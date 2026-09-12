@@ -18,6 +18,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderStatusService.Actor;
 import com.projectshop.shop.order.OrderTransitions.Payment;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 셀러가 보는 주문.
@@ -77,7 +78,7 @@ class SellerOrderQueryTest extends PostgresTestBase {
         void onlyMySeller() {
             payFor(placeOrder(List.of(alphaSku, betaSku)));
 
-            List<SellerOrderQuery.Summary> items = sellerOrders.find(alphaOwner, null, null, 0, 20)
+            List<SellerOrderQuery.Summary> items = sellerOrders.find(alphaOwner, null, null, new Paging(0, 20))
                     .items();
 
             assertThat(items)
@@ -95,7 +96,7 @@ class SellerOrderQueryTest extends PostgresTestBase {
         void unpaidIsHidden() {
             placeOrder(List.of(alphaSku));
 
-            SellerOrderQuery.Page page = sellerOrders.find(alphaOwner, null, null, 0, 20);
+            SellerOrderQuery.Page page = sellerOrders.find(alphaOwner, null, null, new Paging(0, 20));
 
             assertThat(page.items()).isEmpty();
             assertThat(page.total()).isZero();
@@ -106,7 +107,7 @@ class SellerOrderQueryTest extends PostgresTestBase {
         void statusIsUpperCase() {
             payFor(placeOrder(List.of(alphaSku)));
 
-            assertThat(sellerOrders.find(alphaOwner, null, null, 0, 20).items().getFirst().status())
+            assertThat(sellerOrders.find(alphaOwner, null, null, new Paging(0, 20)).items().getFirst().status())
                     .isEqualTo("PREPARING");
         }
 
@@ -120,7 +121,7 @@ class SellerOrderQueryTest extends PostgresTestBase {
             long clerk = fixture.insertUser("so-clerk@test.local", "권한없음");
             fixture.joinSeller(alpha, clerk);
 
-            assertThatThrownBy(() -> sellerOrders.find(clerk, null, null, 0, 20))
+            assertThatThrownBy(() -> sellerOrders.find(clerk, null, null, new Paging(0, 20)))
                     .isInstanceOfSatisfying(ShopException.class, e ->
                             assertThat(e.code()).isEqualTo(ErrorCode.ORDER_FORBIDDEN));
         }

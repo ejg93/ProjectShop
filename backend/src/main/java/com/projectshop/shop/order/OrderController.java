@@ -28,6 +28,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.Retries;
 
 /**
@@ -130,10 +131,9 @@ public class OrderController {
     public OrderQuery.Page list(
             @AuthenticationPrincipal ShopUser user,
             @RequestParam(required = false) String sort,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            Paging paging) {
 
-        return orderQuery.findMine(user.id(), sort, page, size);
+        return orderQuery.findMine(user.id(), sort, paging);
     }
 
     /**
