@@ -166,7 +166,8 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 	//
 	// **같은 함정을 저장소가 네 번 밟았다** — `2f`(`stack.md`)·`Q16`(화면 소스)·여기·`docker-compose.yml`.
 	// 네 번이면 기록이 아니라 강제 지점이 필요하다(`Q25`).
-	inputs.files(file("../doc/reference/data-lifecycle.md"))
+	// `RequirementEnforcementTest`(`Q33`) 가 요건표의 강제 지점 이름을 실물과 대조한다 — 표만 고친 청크도 돌아야 한다.
+	inputs.files(file("../doc/reference/data-lifecycle.md"), file("../doc/reference/commerce-compliance.md"))
 		.withPropertyName("comparedDocsInSlowLane")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
 }
