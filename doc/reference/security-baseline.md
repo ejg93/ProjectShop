@@ -304,7 +304,7 @@ v3 는 점수제라 사용자에게 퍼즐을 보여주지 않는다. 화면 흐
 
 | 자리 | 방식 |
 |---|---|
-| 요청 본문 | Bean Validation. 실패는 RFC 9457 형식으로 떨어뜨린다(청크 7b) |
+| 요청 본문 | Bean Validation. 실패는 RFC 9457 형식으로 떨어뜨린다(청크 7b). **`@RequestBody` 에 `@Valid` 가 없으면 `ArchitectureTest` 가 빨갛다**(`Q32`) — 빠지면 record 의 검증이 조용히 안 돈다 |
 | SQL | 이름 바인딩만. 문자열을 이어 붙인 SQL 을 안 쓴다 |
 | 정렬·필터 컬럼명 | 바인딩이 안 되는 자리다. 허용 목록으로 받는다 |
 | HTML 출력 | React 가 기본으로 이스케이프한다. `dangerouslySetInnerHTML` 을 안 쓴다 |

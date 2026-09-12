@@ -4,13 +4,23 @@ import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPac
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
+import java.time.LocalDateTime;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -19,8 +29,17 @@ import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.projectshop.shop.notification.MockNotificationSender;
+import com.projectshop.shop.payment.MockPaymentGateway;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
+
+import jakarta.validation.Valid;
 
 /**
  * {@code coding-rules.md}(D23)가 글로만 적어 둔 계층 규칙을 기계가 지킨다(청크 {@code 2n}).
@@ -39,8 +58,9 @@ import com.projectshop.shop.support.ListQuery.Paging;
  * <b>코드에서 {@code System.setProperty} 로 켜면 안 된다</b> — 규칙이 {@code static final} 이라
  * 필드 초기화가 {@code static} 블록보다 먼저 돌 수 있다.
  *
- * <p><b>못 보는 것</b> — 이건 의존 방향만 본다. 트랜잭션 경계가 서비스에 있나,
- * 판정을 서비스에서 부르나 같은 것은 여전히 문서와 사람이 든다.
+ * <p><b>못 보는 것</b> — 판정을 서비스에서 부르나, 한 트랜잭션이 한 유스케이스인가 같은 것은
+ * 여전히 문서와 사람이 든다. 트랜잭션 경계는 {@code Q32} 가 셋을 내렸다 — 조회에 없나,
+ * 안에서 바깥을 안 부르나. 그 규칙이 못 보는 것은 각 javadoc 에 있다.
  */
 @AnalyzeClasses(
         packages = "com.projectshop.shop",
@@ -209,6 +229,183 @@ class ArchitectureTest {
                     .should(부른다(ListQuery.class, "orderBy"))
                     .because("정렬 문자열이 SQL 에 결합되는 유일한 자리다 (security-baseline.md `D14`)."
                             + " OrderBy 타입은 「거쳤다」를 뜻할 뿐 「거치게」 만들지는 못한다");
+
+
+    /**
+     * 「입력과 출력」 — 요청 본문은 Bean Validation 을 거친다(`Q32`, `D14`).
+     *
+     * <p>{@code @RequestBody} 에 {@code @Valid} 가 없으면 <b>검증이 조용히 빠진다.</b> 컴파일도
+     * 통과하고 record 의 {@code @Size}·{@code @NotBlank} 는 그대로 있어서 <b>붙어 있는 것처럼 보인다.</b>
+     * 그 요청은 400 대신 DB 제약에서 500 으로 튄다({@code D23} 「길이 상한은 앱과 DB 양쪽에 둔다」).
+     * 지금 29곳이 전부 붙어 있어서 기준선 없이 건다.
+     */
+    @ArchTest
+    static final ArchRule 요청_본문은_검증을_거친다 =
+            methods()
+                    .that().areDeclaredInClassesThat().areAnnotatedWith(RestController.class)
+                    .and(본문을_받는다())
+                    .should(본문에_Valid_가_붙는다())
+                    .because("@Valid 가 빠지면 record 의 검증 애너테이션이 그대로 있어도 안 돈다"
+                            + " (security-baseline.md 「입력과 출력」) — 400 이 나갈 요청이 DB 제약에서 500 이 된다");
+
+    /**
+     * 「트랜잭션 경계」 — 읽기 전용 조회에 트랜잭션을 안 건다(`Q32`, {@code concurrency-rules.md}).
+     *
+     * <p>{@code *Query} 는 읽기 쪽 서비스다. 거기에 {@code @Transactional} 이 붙으면 커넥션을 응답이
+     * 끝날 때까지 쥔다 — 목록 하나가 풀에서 커넥션 하나를 요청 내내 가져간다. 메서드와 클래스 둘 다 본다.
+     */
+    @ArchTest
+    static final ArchRule 조회는_트랜잭션을_안_건다 =
+            noMethods()
+                    .that().areDeclaredInClassesThat().haveSimpleNameEndingWith("Query")
+                    .should().beAnnotatedWith(Transactional.class)
+                    .because("읽기 전용 조회에 트랜잭션을 걸면 커넥션을 오래 쥔다 (concurrency-rules.md 「트랜잭션 경계」)");
+
+    @ArchTest
+    static final ArchRule 조회_클래스는_트랜잭션을_안_건다 =
+            noClasses()
+                    .that().haveSimpleNameEndingWith("Query")
+                    .should().beAnnotatedWith(Transactional.class)
+                    .because("클래스에 걸면 모든 메서드가 트랜잭션이 된다 (concurrency-rules.md 「트랜잭션 경계」)");
+
+    /**
+     * 「트랜잭션 경계」 — 트랜잭션 안에서 바깥 시스템을 안 부른다(`Q32`, {@code concurrency-rules.md}).
+     *
+     * <p><b>호출 사슬 전체를 걷는다</b>(사용자 결정, 2026-09-13). 직접 호출만 보면 빈 규칙이다 —
+     * 지금 코드가 게이트웨이를 전부 {@code Retries.on(() -> gateway.approve(...))} 람다와
+     * private 헬퍼 뒤에서 부른다. ArchUnit 1.x 는 람다 안의 호출을 감싼 메서드의 호출로 귀속시키므로
+     * 람다는 걷힌다.
+     *
+     * <p><b>전파는 예외가 못 된다.</b> {@code REQUIRES_NEW}·{@code NOT_SUPPORTED} 는 바깥 트랜잭션을
+     * <b>중단</b>할 뿐 닫지 않는다 — 커넥션과 잠금이 그대로다. 문서가 막는 것이 「응답을 기다리는 동안
+     * 잠금이 유지된다」라 안쪽에 경계가 새로 생겨도 위반이다. 대신 <b>지나온 경계를 메시지에 적는다</b> —
+     * 읽는 사람이 「REQUIRES_NEW 라 괜찮다」고 오해하는 자리를 미리 막는다.
+     *
+     * <p><b>못 보는 것 둘.</b> (1) {@code TransactionTemplate} 블록은 애너테이션이 아니라 여기 안 잡힌다 —
+     * {@code NotificationService} 하나뿐이고 그 배치(발송은 블록 밖)는 {@code NotificationSendTest} 가 잰다.
+     * (2) 인터페이스 뒤 구현체는 정적으로 못 따라간다 — 지금 게이트웨이·발송기가 둘 다 구체 클래스라 없다.
+     *
+     * <p>바깥 시스템 목록은 여기 둘이다. 셋째가 생기면 {@link #바깥} 에 더한다.
+     */
+    @ArchTest
+    static final ArchRule 트랜잭션_안에서_바깥을_안_부른다 =
+            methods()
+                    .that(트랜잭션_경계다())
+                    .should(사슬_어디서도_안_부른다())
+                    .because("PG·메일 응답을 기다리는 동안 잠금이 유지된다 (concurrency-rules.md 「트랜잭션 경계」)."
+                            + " 느린 PG 하나가 같은 멱등키의 뒤 요청을 전부 409 로 만든다");
+
+    /**
+     * 「저장은 UTC」 — 시각은 {@code OffsetDateTime} 이다(`Q32`, {@code time-rules.md}).
+     *
+     * <p>{@code LocalDateTime} 은 시간대가 없어서 같은 값이 서버 설정에 따라 다른 순간을 가리킨다.
+     * <b>드는 것</b>을 막는다 — 필드·반환 타입·파라미터. 지금 셋 다 0이고 시각은 217곳이 전부 {@code OffsetDateTime} 이다.
+     *
+     * <p><b>스쳐 가는 것은 안 막는다.</b> {@code BusinessCalendar.endOfDay} 가
+     * {@code date.atTime(...).atZone(SEOUL)} 로 KST 하루 경계를 만드는 중간에 {@code LocalDateTime} 이 한 번 지나간다 —
+     * 어디에도 안 담기고 바로 {@code OffsetDateTime} 이 된다. 의존(`dependOnClassesThat`)으로 재면 그 자리가 걸려서
+     * 시그니처로 잰다. {@code ZonedDateTime} 도 같은 이유로 안 막는다 — 「판단은 KST」의 도구다.
+     */
+    @ArchTest
+    static final ArchRule 시각은_OffsetDateTime_이다 =
+            noFields()
+                    .should().haveRawType(LocalDateTime.class)
+                    .because("LocalDateTime 은 시간대가 없어 서버 설정에 따라 다른 순간이 된다 (time-rules.md 「저장은 UTC」)");
+
+    @ArchTest
+    static final ArchRule 시각을_LocalDateTime_으로_안_주고받는다 =
+            noMethods()
+                    .should().haveRawReturnType(LocalDateTime.class)
+                    .orShould().haveRawParameterTypes(하나라도(LocalDateTime.class))
+                    .because("경계를 LocalDateTime 으로 넘기면 받는 쪽이 시간대를 짐작한다 (time-rules.md 「저장은 UTC」)");
+
+    /** 트랜잭션 안에서 부르면 안 되는 바깥 시스템. */
+    private static final Set<String> 바깥 = Set.of(
+            MockPaymentGateway.class.getName(), MockNotificationSender.class.getName());
+
+    private static DescribedPredicate<JavaMethod> 본문을_받는다() {
+        return DescribedPredicate.describe("@RequestBody 를 받는",
+                method -> method.getParameters().stream()
+                        .anyMatch(parameter -> parameter.isAnnotatedWith(RequestBody.class)));
+    }
+
+    private static ArchCondition<JavaMethod> 본문에_Valid_가_붙는다() {
+        return new ArchCondition<>("의 @RequestBody 에 @Valid 가 붙는다") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                boolean ok = method.getParameters().stream()
+                        .filter(parameter -> parameter.isAnnotatedWith(RequestBody.class))
+                        .allMatch(parameter -> parameter.isAnnotatedWith(Valid.class));
+
+                events.add(new SimpleConditionEvent(method, ok,
+                        method.getFullName() + (ok ? " 은 검증을 거친다" : " 의 @RequestBody 에 @Valid 가 없다")));
+            }
+        };
+    }
+
+    /** 메서드나 그 클래스에 {@code @Transactional} 이 붙었나. */
+    private static DescribedPredicate<JavaMethod> 트랜잭션_경계다() {
+        return DescribedPredicate.describe("@Transactional 인",
+                method -> method.isAnnotatedWith(Transactional.class)
+                        || method.getOwner().isAnnotatedWith(Transactional.class));
+    }
+
+    /**
+     * 호출 사슬 어디서도 {@link #바깥} 을 안 부르나. 깊이 우선으로 걷고 저장소 밖 클래스에서는 멈춘다.
+     * 방문 집합이 순환을 끊는다. 위반 메시지는 사슬 전체와 지나온 트랜잭션 경계를 든다.
+     */
+    private static ArchCondition<JavaMethod> 사슬_어디서도_안_부른다() {
+        return new ArchCondition<>("가 호출 사슬 어디서도 바깥 시스템을 안 부른다") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                List<String> hits = new ArrayList<>();
+                Deque<String> path = new ArrayDeque<>(List.of(짧은_이름(method)));
+                걷는다(method, path, new HashSet<>(Set.of(method)), hits);
+
+                events.add(new SimpleConditionEvent(method, hits.isEmpty(),
+                        hits.isEmpty()
+                                ? 짧은_이름(method) + " 은 바깥을 안 부른다"
+                                : 짧은_이름(method) + " 이 트랜잭션 안에서 바깥을 부른다: " + String.join(" / ", hits)));
+            }
+        };
+    }
+
+    private static void 걷는다(JavaMethod from, Deque<String> path, Set<JavaMethod> visited, List<String> hits) {
+        for (JavaMethodCall call : from.getMethodCallsFromSelf()) {
+            JavaClass owner = call.getTargetOwner();
+            if (바깥.contains(owner.getName())) {
+                hits.add(String.join(" → ", path) + " → " + owner.getSimpleName() + "." + call.getName());
+                continue;
+            }
+            if (!owner.getPackageName().startsWith("com.projectshop.shop")) {
+                continue;
+            }
+            Optional<JavaMethod> target = call.getTarget().resolveMember();
+            if (target.isEmpty() || !visited.add(target.get())) {
+                continue;
+            }
+            path.addLast(짧은_이름(target.get()) + 경계(target.get()));
+            걷는다(target.get(), path, visited, hits);
+            path.removeLast();
+        }
+    }
+
+    /** 그 메서드가 새 전파로 경계를 만들면 표시한다 — 예외가 아니라 <b>읽는 사람을 위한 표식</b>이다. */
+    private static String 경계(JavaMethod method) {
+        Transactional tx = method.isAnnotatedWith(Transactional.class)
+                ? method.getAnnotationOfType(Transactional.class)
+                : method.getOwner().isAnnotatedWith(Transactional.class)
+                        ? method.getOwner().getAnnotationOfType(Transactional.class)
+                        : null;
+        if (tx == null || tx.propagation() == Propagation.REQUIRED) {
+            return "";
+        }
+        return " [" + tx.propagation() + " 경계 — 바깥 잠금은 유지된다]";
+    }
+
+    private static String 짧은_이름(JavaMethod method) {
+        return method.getOwner().getSimpleName() + "." + method.getName();
+    }
 
     /** 파라미터 목록에 그 타입이 하나라도 있나. */
     private static DescribedPredicate<List<JavaClass>> 하나라도(Class<?> type) {

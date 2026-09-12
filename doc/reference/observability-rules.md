@@ -88,8 +88,10 @@ RFC 9457 Problem Details 본문에 `trace_id` 를 넣는다(청크 7b).
 ## 형식 — 사람이 읽는 텍스트
 
 ```
-09:55:01.175 INFO  [018f2b,a3c1] c.p.s.order.OrderService : 주문 생성 order_id=1024
+09:55:01.175Z INFO  [018f2b,a3c1] c.p.s.order.OrderService : 주문 생성 order_id=1024
 ```
+
+**시각은 UTC 고 `Z` 를 붙인다**(`Q35`, `time-rules.md` 「표현 — 층마다」). 안 적으면 JVM 시간대를 따라가 Windows 와 CI 가 갈렸다.
 
 JSON 으로 안 찍는 이유는 **로그를 모을 수집기가 없어서**다.
 구조화해 봐야 결국 터미널에서 눈으로 읽는다.

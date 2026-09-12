@@ -33,7 +33,7 @@
 | 나머지 테스트 | 4 테스트 | 〃 | backend 972, frontend 29 | — |
 | 화면 대조 둘 | 4 테스트 | 〃 | 오류 슬러그·상태 문구가 층 사이에서 갈리는 것 | `Q16` 2026-09-05 |
 | `PublicSurfaceTest` | **1 타입** | 〃 | 패키지 밖에서 안 쓰는 `public`(`43a-27`). 스프링이 부르는 것은 뺀다 | `43a-27` 2026-09-10 |
-| `ArchitectureTest` | 4 테스트 | 〃 | `D23` 의 계층·예외·의존·공용도구. **문서에만 있던 것**(`2n`) | `2n` 2026-09-06 |
+| `ArchitectureTest` | 4 테스트 | 〃 | `D23` 의 계층·예외·의존·공용도구. **문서에만 있던 것**(`2n`). **`Q32` 가 다섯을 더했다** — `@RequestBody`→`@Valid`(`D14`) · `*Query` 에 `@Transactional` 없음 · **트랜잭션 안에서 PG·메일 안 부름**(호출 사슬 전체, 람다 포함 — 전파 경계는 예외가 아니라 메시지 표식) · `LocalDateTime` 을 필드·시그니처에 안 둠(시간 규칙) | `2n` 2026-09-06. `Q32` 2026-09-13 — `@Valid` 를 떼니 `OrderController.create` 를, `pay()` 에 `@Transactional` 을 붙이니 `pay → askGateway → MockPaymentGateway.approve` 사슬을 짚었다 |
 | SpotBugs | 4 테스트 | 〃 | 버그 패턴. **`test` 소스는 안 본다**(`2e`). **find-sec-bugs 1.14.0 을 얹었다**(`2e-1`) — 암호·역직렬화까지 본다. **SQL 주입은 못 본다**: 검출기가 `JdbcClient` 를 모른다 | `2m-1` 2026-09-06. `2e-1` 2026-09-11 — 얹고 둘, 둘 다 오탐 |
 | `npm run lint` | 4 테스트 | 로컬·CI | 접근성 규칙이 들었다(`D20`). **`eslint:recommended` 도 깐다**(`Q20-4`) — `eslint-config-next` 가 그것을 안 포함해서 `no-empty` 가 꺼져 있었다 | `2m-1` 2026-09-06. `Q20-4` 2026-09-11 — 빈 `finally { }` 를 심으니 `no-empty` 가 물었다 |
 | E2E 스모크 | 4 테스트 | **로컬·PR·수동**(`Q18-1`) | 프록시·세션 쿠키·CSRF 관통(`Q18`). 화면 테스트가 못 밟는 자리 | `Q18` 2026-09-06 |
@@ -44,10 +44,13 @@
 | AI 리뷰 | 5 문서 | **PR 만** | 아래 「리뷰」 | 게이트가 아니다 |
 | 주간 리포트 | 5 문서 | 세션 시작 | 안 움직인 것만 센다(`2h`, `scripts/weekly-report.sh`) — 오래 안 본 점검 줄·멈춘 Dependabot PR·빨간 CI·경보 수·빠른 레인 비율·기준 문서 조건. **막지 않는다.** **길이는 스스로 막는다**(43줄) — `2u` 와 같은 주입 자리지만 lint 가 못 본다(파일이 아니라 만들어지는 출력이다) | 게이트가 아니다 — **도착 자리가 대신한다**: `SessionStart` 훅이 주 1회 주입해 예열의 입력이 된다 |
 | 요건 커버리지 리포트 | 5 문서 | 로컬·CI | 테스트가 언급하지 않는 R 목록(`2v`, `scripts/req-coverage.sh`). 알려 주기만 한다 — 첫 실행 13/37 | 게이트가 아니다 |
-| 리뷰 코멘트 확인 | 4 테스트 | 〃 | **리뷰가 아무것도 안 내놓는 것**(`2g-5`). 내용이 아니라 출력 유무다 | `2g-5`(나) 대기 |
+| 리뷰 코멘트 확인 | 4 테스트 | 〃 | **리뷰가 아무것도 안 내놓는 것**(`2g-5`). 내용이 아니라 출력 유무다 | **PR #41 2026-09-13 — 실물로 물었다.** 코멘트 0 이었고 원인은 리뷰가 아니라 **저장소 Stop 훅이 액션 안에서 돈 것**(도장 요구 → `verify.sh` 거부 9회 → 20턴 소진). 마무리 13차가 워크플로에서 훅 파일을 지우는 단계로 고쳤다 |
 | 폼 pending | 4 테스트 | 로컬·CI | `<form action={fn}>` 파일이 pending 을 `useState` 로 드는 것(`Q20-3`, `src/test/form-pending.test.ts`). **린트로는 못 막는다** — ESLint 선택자가 노드 단위라 「파일에 둘이 같이 있다」를 표현 못 한다 | `Q20-3` 2026-09-11 — `login-form` 에 pending 을 도로 넣으니 그 파일 경로를 짚었다 |
 | 층간 문자열 대조 | 4 테스트 | 로컬·CI | 화면이 든 값이 백엔드 실물과 갈리는 것. `ErrorSlugScreenTest`(오류 슬러그)·`OrderRecordTextTest`(상태 문구)·**`WithdrawalNoticeScreenTest`(제한 사유, `D2` R4)**·**`PasswordHintScreenTest`(비밀번호 길이)**(`Q20-2`). **화면 테스트로는 못 잡는다** — 같은 틀린 값을 쓰면 초록이다 | `Q16` 2026-09-05. `Q20-2` 2026-09-11 — **실물이 갈려 있었다**: 화면이 `PERISHABLE`·`SEALED_COPYRIGHT`, 실물은 `COPYABLE_MEDIA`·`DIGITAL_CONTENT` |
 | `axe-core` | 4 테스트 | 로컬·CI | 그려진 DOM 의 접근성 위반(`Q21`, `src/test/axe.ts`). **`jsx-a11y` 가 못 보는 자리만** — 조건부로 생긴 DOM. 건 자리는 `signup-form` 하나 | `Q21` 2026-09-11 — 라벨 연결을 떼니 `label(critical)`·`label-title-only(serious)` 둘이 떴다 |
+| 서버 입구 린트 | 4 테스트 | 로컬·CI | 화면이 `fetch` 를 직접 쓰거나 `next/headers` 를 `api-session.ts` 밖에서 드는 것(`Q29`, `D24`). `no-restricted-globals`·`no-restricted-imports` 둘, 예외는 `src/lib/api*.ts` 와 테스트. **클라이언트가 `api-session` 을 드는 것은 빌드가 막는다** — `next/headers` 가 클라이언트 번들에 들어가면 `next build` 가 자체로 선다(1층) | `Q29` 2026-09-13 — 화면 파일에 둘을 심으니 `2 problems (2 errors)`. 클라이언트 컴포넌트에서 `api-session` 을 드니 `Ecmascript file had an error` 로 빌드가 섰다 |
+| `ResponseTimeFormatTest` | **2 설정** + 4 테스트 | `./gradlew build` | 응답 시각이 `Z` 가 아닌 것(`Q35`, `time-rules.md` 「표현 — 층마다」). 막는 것은 `spring.jackson.time-zone: UTC` 고 테스트는 그 설정이 실제 문자열을 정하는지 고정한다 | `Q35` 2026-09-13 — 설정을 `Asia/Seoul` 로 바꾸니 `2026-09-13T01:15:48.765248+09:00` 이 나가 빨갰다 |
+| `RequirementEnforcementTest` | 4 테스트 | `./gradlew build`(느린 레인) | **법 층.** `D2` 요건표 「강제 지점」 칸의 제약·인덱스 22·클래스.메서드 17·파일 1·`V` 26 이 실물인지(`Q33`). `req-coverage.sh` 의 반대 방향 — 그쪽은 테스트가 R 을 언급하나, 이쪽은 표가 적은 이름이 있나. 요건표는 `integrationTest` 입력으로 신고돼 표만 고쳐도 돈다 | `Q33` 2026-09-13 — 표의 `product_withdrawal_reason_check` 줄기를 틀리니 R4 를 짚었다. **접미사를 틀린 첫 시도는 조용히 통과했다** — 모양에서 빠져서다. javadoc 에 적었다 |
 | `doc-lint.sh` | 4 테스트 | 로컬·CI | 제목 파편·중복 문장·존댓말·**기준 문서 제목의 날짜**(`2c-2`)·**분할표 칸 누락**(`2t`, 기준선은 `doc-lint.sh` 의 값이고 줄기만 한다)·**「현재 상태」 25줄 초과**(`2u`)·**이력 날짜 역순**(`W3`, 기준선 7에서 줄기만 한다) | `2c-2` 2026-09-06. `2x-1` 2026-09-11 — 부르는 훅이 JSON 을 파싱하고 명령 위치를 본다 |
 | Stop hook | 4 테스트 | 로컬 세션 | 커밋 안 된 작업물을 남긴 채 세션이 끝나는 것(`2q`). `stop_hook_active` 면 통과 — 안 그러면 커밋 뒤에도 또 막는다 | `2q` 2026-09-10 |
 | push 훅 | 4 테스트 | 로컬 세션 | `git push` 가 `main` 을 향하거나 현재 가지가 `main` 인 것(`2x`), **그리고 full 도장 없는 push**(`2z-2`). **`Bash`·`PowerShell` 두 도구에 다 걸린다**(`2x-2`) | `2x` 2026-09-10 — 첫 판이 자기 기록 커밋을 막았다. `2x-2` 2026-09-11 — PowerShell 로 두 번 샜다 |

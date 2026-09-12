@@ -719,6 +719,18 @@ Redis 를 쓰는 테스트는 `@BeforeEach` 에서 자기 키를 지운다.
 **이건 우연히 성립한 안전장치라 테스트로 고정해 뒀다**(`RedisConnectionTest`).
 누가 그 빈을 지우면 캐시 구현이 조용히 바뀌는데, 그건 코드 어디에도 안 보인다.
 
+### `.next/types` 는 빌드 산출물인데 `tsc` 가 그것을 읽는다
+
+`LayoutProps`·`PageProps` 는 소스에 없다 — `next build`·`next dev`·`next typegen` 이 `.next/types` 에
+만들고 `tsconfig.json` 이 그 디렉터리를 `include` 에 둔다. 그래서 둘이 엇갈린다.
+
+| 한 일 | 무슨 일이 나나 | 푸는 법 |
+|---|---|---|
+| 탐침 페이지를 넣고 `next build` 를 돌렸는데 **중간에 죽었다** | `.next/types/validator.ts` 가 그 페이지를 가리킨 채 남아 `tsc --noEmit` 이 `Cannot find module '../../src/app/<탐침>/page.js'` 로 빨갛다 | `rm -rf .next` 뒤 아래 줄 |
+| `.next` 를 통째로 지웠다 | `layout.tsx` 가 `LayoutProps` 를 못 찾는다 | `npx next typegen`(10초). `next build` 를 다시 안 돌려도 된다 |
+
+**빠른 레인이 `tsc` 를 돌리므로**(`verify.sh`) 탐침을 넣었다 뺀 청크는 이것을 밟는다 — `Q29` 가 둘 다 밟았다.
+
 ### 화면을 진짜 브라우저로 밟는 방법이 있다
 
 `curl` 은 HTML 만 받는다. **버튼을 눌러 무슨 일이 나는지는 못 본다** — 로그인이 200 인데
