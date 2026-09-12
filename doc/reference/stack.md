@@ -801,6 +801,22 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen |
     ForEach-Object { Stop-Process -Id $_ -Force }
 ```
 
+### Dependabot 경보는 가지에 밀어도 안 닫힌다
+
+의존성을 올리고 밀었는데 경보가 그대로면 **고친 것이 안 먹은 것처럼 보인다.**
+
+**의존 그래프가 기본 가지 기준이라 그렇다.** `dependency-submission.yml` 이 `main` push 에서만
+도는데, 그건 **작업 가지의 좌표가 그래프에 남지 않게 하려는 의도**다(`2e-3`).
+
+```
+가지에 push  ──▶ CI 는 돈다.  그래프는 그대로 ──▶ 경보도 그대로
+main 에 머지 ──▶ 그래프 갱신              ──▶ 경보가 fixed 로 닫힌다
+```
+
+2026-09-12 에 `2e-6` 이 tomcat 을 `11.0.25` 로 올리고 밀었는데 critical 셋이 안 닫혔고,
+**머지 직후 셋이 한꺼번에 `fixed`** 가 됐다. **오탐(`commons-lang3`)은 이 경로와 무관하다** —
+그건 사람이 `inaccurate` 로 닫는 것이고 `gh api -X PATCH .../dependabot/alerts/N` 이 그 명령이다.
+
 ### `@Size` 는 record component 에 안 남는다
 
 리플렉션으로 요청 record 의 검증 규칙을 읽을 때 걸린다(`Q22`).
