@@ -80,16 +80,30 @@ class ListQueryTest {
     @Test
     @DisplayName("정렬 절에는 허용 목록의 값만 실린다")
     void onlyMappedColumnReachesSql() {
-        assertThat(ListQuery.orderBy("name", "createdAt", SORTABLE)).isEqualTo("p.name desc");
-        assertThat(ListQuery.orderBy("name,asc", "createdAt", SORTABLE)).isEqualTo("p.name asc");
-        assertThat(ListQuery.orderBy(null, "createdAt", SORTABLE)).isEqualTo("i.created_at desc");
+        assertThat(clauseOf("name")).isEqualTo("p.name desc");
+        assertThat(clauseOf("name,asc")).isEqualTo("p.name asc");
+        assertThat(clauseOf(null)).isEqualTo("i.created_at desc");
     }
 
     /** 방향은 {@code asc} 가 아니면 전부 {@code desc} 다 — 오타로 SQL 이 깨지지 않게 한다. */
     @Test
     @DisplayName("방향에 아무 값이나 넣어도 SQL 이 안 깨진다")
     void unknownDirectionFallsBackToDesc() {
-        assertThat(ListQuery.orderBy("name,; drop table product", "createdAt", SORTABLE))
-                .isEqualTo("p.name desc");
+        assertThat(clauseOf("name,; drop table product")).isEqualTo("p.name desc");
+    }
+
+    /**
+     * <b>빈 절을 만들 수 없다</b>(`Q24`). {@link ListQuery.OrderBy} 가 존재한다는 것은
+     * 허용 목록을 거쳤다는 뜻인데, 빈 문자열로 만들 수 있으면 그 뜻이 헐거워진다.
+     */
+    @Test
+    @DisplayName("빈 정렬 절은 만들 수 없다")
+    void blankClauseIsRejected() {
+        assertThatThrownBy(() -> new ListQuery.OrderBy(" "))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static String clauseOf(String sort) {
+        return ListQuery.orderBy(sort, "createdAt", SORTABLE).clause();
     }
 }

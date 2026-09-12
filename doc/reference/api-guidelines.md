@@ -242,8 +242,22 @@ public ProductQuery.PublicPage list(String sort, Paging paging) { ... }
 **「그 타입을 안 쓰는 것」은 타입이 못 막는다.** `Page` 로 끝나는 것을 돌려주는 `*Query` 의
 `public` 메서드가 `Paging` 을 받는지는 `ArchitectureTest` 가 본다.
 
-**`sort` 는 아직 그 자리가 없다.** 허용 목록이 자원마다 달라서 한 곳으로 못 모은다 —
-`ListQuery.orderBy` 를 안 부르면 지금은 아무것도 안 걸린다.
+**`sort` 는 자리가 다르다**(`Q24`). 허용 목록이 자원마다 달라서 `Paging` 처럼 한 곳으로 못 모은다 —
+`ArgumentResolver` 는 누가 부르는지 모르니 어느 목록을 볼지도 모른다. 그래서 **둘로 덮는다.**
+
+| 무엇 | 무엇을 막나 |
+|---|---|
+| `ListQuery.OrderBy` 타입 | 검증 안 된 문자열을 `order by` 자리에 쓰는 것 |
+| `ArchitectureTest` 규칙 | **그 타입을 아예 안 거치는 것** |
+
+```java
+OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
+... + " order by " + orderBy.clause() + ", p.product_id desc"
+```
+
+**타입만으로는 못 막는다.** 조립이 문자열이라 `" order by " + sort` 라고 쓰면 그대로 지나가고,
+`public record` 의 생성자를 닫을 수 없어서 `new OrderBy(요청문자열)` 도 열려 있다.
+**그 타입은 「거쳤다」를 뜻하지 「거칠 수밖에 없다」를 뜻하지 않는다.**
 
 ### 응답
 

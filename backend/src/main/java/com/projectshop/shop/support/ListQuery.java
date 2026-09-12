@@ -59,10 +59,14 @@ public final class ListQuery {
      * 결합이 강제되므로 <b>들어올 수 있는 값을 우리가 정한다</b>(`D14`).
      * SQL 에 닿는 것은 {@code sortable} 의 값뿐이고 요청은 키를 고르는 데만 쓰인다.
      *
+     * <p><b>{@link OrderBy} 로 돌려준다</b>(`Q24`). {@code String} 이던 자리인데, 그러면
+     * SQL 을 잇는 쪽에서 <b>검증을 거친 문자열과 요청 문자열이 같은 타입</b>이라
+     * {@code " order by " + sort} 라고 써도 아무것도 안 걸린다.
+     *
      * @param sort     {@code 필드,방향} 형태. null 이면 {@code defaultSort}
      * @param sortable API 이름 → 실제 컬럼식. 여기 없는 이름은 거부한다
      */
-    public static String orderBy(String sort, String defaultSort, Map<String, String> sortable) {
+    public static OrderBy orderBy(String sort, String defaultSort, Map<String, String> sortable) {
         String[] parts = (sort == null || sort.isBlank() ? defaultSort : sort).split(",");
 
         String column = sortable.get(parts[0].trim());
@@ -76,6 +80,35 @@ public final class ListQuery {
         String direction = parts.length > 1 && "asc".equalsIgnoreCase(parts[1].trim())
                 ? "asc" : "desc";
 
-        return column + " " + direction;
+        return new OrderBy(column + " " + direction);
+    }
+
+    /**
+     * SQL 에 이어도 되는 정렬 절. <b>허용 목록을 거쳤다는 것을 타입이 뜻한다</b>(`Q24`).
+     *
+     * <p>{@link Paging} 과 같은 꼴인데 <b>막는 힘이 그만 못하다.</b> 페이지는 생 {@code int} 를
+     * 받는 자리를 없애서 빠뜨릴 대상 자체가 사라졌지만, 정렬은 조립이 문자열이라
+     * <b>{@code OrderBy} 를 아예 안 쓰고 {@code " order by " + sort} 라고 쓰면 그대로 통과한다.</b>
+     * 그 구멍은 {@code ArchitectureTest} 의 규칙이 맡는다 — <b>둘이 서로의 구멍을 덮는다.</b>
+     *
+     * <p><b>생성자를 못 닫는다.</b> {@code public record} 의 canonical 생성자는 {@code public}
+     * 이라야 해서, {@code new OrderBy(요청문자열)} 이라고 쓰는 길이 열려 있다 —
+     * <b>이 타입은 「거쳤다」를 뜻하지 「거칠 수밖에 없다」를 뜻하지 않는다.</b>
+     * 그래서 위 규칙이 짝으로 필요하다.
+     *
+     * @param clause {@code 컬럼식 방향} 꼴. 컬럼식은 {@code sortable} 의 값이라 요청이 안 닿는다
+     */
+    public record OrderBy(String clause) {
+
+        public OrderBy {
+            if (clause == null || clause.isBlank()) {
+                throw new IllegalArgumentException("정렬 절이 비어 있다");
+            }
+        }
+
+        @Override
+        public String toString() {
+            return clause;
+        }
     }
 }
