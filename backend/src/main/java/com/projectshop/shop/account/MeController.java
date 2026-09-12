@@ -15,10 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import com.projectshop.shop.auth.EmailAddress;
 import com.projectshop.shop.auth.Password;
 import com.projectshop.shop.auth.PermissionCatalog;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
@@ -174,7 +174,7 @@ public class MeController {
     }
 
     public record EmailRequest(
-            @NotBlank @Email @Size(max = 320) String email,
+            @NotBlank @EmailAddress String email,
             @NotBlank String currentPassword) {
     }
 

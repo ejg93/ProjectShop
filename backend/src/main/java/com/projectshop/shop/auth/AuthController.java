@@ -27,7 +27,6 @@ import com.projectshop.shop.error.ShopException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -176,7 +175,7 @@ public class AuthController {
      * @param consents 항목 코드 → 동의 여부. 필수 항목은 전부 true 여야 한다.
      */
     public record SignupRequest(
-            @NotBlank @Email @Size(max = 254) String email,
+            @NotBlank @EmailAddress String email,
 
             @NotBlank @Password String password,
 
