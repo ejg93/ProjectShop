@@ -801,6 +801,22 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen |
     ForEach-Object { Stop-Process -Id $_ -Force }
 ```
 
+### Dependabot 경보는 가지에 밀어도 안 닫힌다
+
+의존성을 올리고 밀었는데 경보가 그대로면 **고친 것이 안 먹은 것처럼 보인다.**
+
+**의존 그래프가 기본 가지 기준이라 그렇다.** `dependency-submission.yml` 이 `main` push 에서만
+도는데, 그건 **작업 가지의 좌표가 그래프에 남지 않게 하려는 의도**다(`2e-3`).
+
+```
+가지에 push  ──▶ CI 는 돈다.  그래프는 그대로 ──▶ 경보도 그대로
+main 에 머지 ──▶ 그래프 갱신              ──▶ 경보가 fixed 로 닫힌다
+```
+
+2026-09-12 에 `2e-6` 이 tomcat 을 `11.0.25` 로 올리고 밀었는데 critical 셋이 안 닫혔고,
+**머지 직후 셋이 한꺼번에 `fixed`** 가 됐다. **오탐(`commons-lang3`)은 이 경로와 무관하다** —
+그건 사람이 `inaccurate` 로 닫는 것이고 `gh api -X PATCH .../dependabot/alerts/N` 이 그 명령이다.
+
 ### `@Size` 는 record component 에 안 남는다
 
 리플렉션으로 요청 record 의 검증 규칙을 읽을 때 걸린다(`Q22`).
@@ -842,11 +858,20 @@ Detected resolved migration not applied to database: 64.
 쓰던 것을 지우지 않아도 되고, 시드까지 한 번에 밟히므로 지연 트리거도 같이 돈다.
 
 ```bash
-docker exec shop-db psql -U shop -d postgres -c "create database shop_check owner shop;"
+docker exec shop-db psql -U shop -d postgres -c "drop database if exists shop_check;" \
+                                              -c "create database shop_check owner shop;"
 POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'
+
+# 확인이 끝나면 거둔다. 8080 은 bootRun 을 죽여도 안 풀린다(위 절).
+docker exec shop-db psql -U shop -d postgres -c "drop database shop_check;"
 ```
 
 `applied_migrations` 는 **마이그레이션 파일 수 + 시드 3** 이다(`43a-2` 기준 61+3=64).
+
+**지우는 줄이 뒤늦게 붙었다**(2026-09-12). 그전에는 만드는 줄만 있어서 **하루에 두 번 빠뜨렸고**
+`shop_spec`·`shop_spec2` 가 남았다 — 확인용 DB 는 **쓰고 나면 티가 안 나서** 다음에 `\l` 을
+칠 때까지 아무도 모른다. **이름을 매번 새로 짓는 것이 그 원인이었다**(`shop_q22`·`shop_spec`…) —
+`shop_check` 하나로 고정하고 **만들기 전에 지우면** 남아도 다음 확인이 덮는다.
 
 ### 컨테이너 재사용은 코드가 아니라 로컬 파일이 켠다
 
