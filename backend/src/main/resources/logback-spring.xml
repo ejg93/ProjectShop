@@ -24,7 +24,12 @@
       값이 없는 줄(기동·배치)은 하이픈으로 자리를 채워서 열이 안 밀린다.
     -->
     <property name="TRACE" value="[%.6X{traceId:-------},%.-4X{spanId:-----}]"/>
-    <property name="LINE"  value="%d{HH:mm:ss.SSS} %-5level ${TRACE} %logger{30} : %msg%n"/>
+    <!--
+      시각은 UTC 고 Z 를 붙인다(time-rules.md 「표현 — 층마다」, Q35). 로그·DB·API 가 한 기준이라
+      장애 때 세 문자열을 그대로 맞춰 본다. 시간대를 안 적으면 JVM 기본값을 따라가서
+      Windows 에서는 KST, 리눅스 CI 에서는 UTC 로 갈렸다 — 읽는 사람은 어느 쪽인지 알 수 없었다.
+    -->
+    <property name="LINE"  value="%d{HH:mm:ss.SSS,UTC}Z %-5level ${TRACE} %logger{30} : %msg%n"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

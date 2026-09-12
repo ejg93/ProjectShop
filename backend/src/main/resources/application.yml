@@ -19,6 +19,9 @@ spring:
   # DB 컬럼명과 JSON 필드명이 같아져서 로그·쿼리·응답을 같은 단어로 검색할 수 있다.
   jackson:
     property-naming-strategy: SNAKE_CASE
+    # 응답 시각은 UTC 의 Z 다(time-rules.md 「API 표기 — UTC」, Q35). Jackson 3 기본값도 UTC 문맥이지만
+    # 기본값에 기대지 않는다 — ResponseTimeFormatTest 가 이 줄이 실제로 나가는 문자열을 정하는지 고정한다.
+    time-zone: UTC
   mvc:
     # 오류 본문을 RFC 9457 Problem Details 로 내린다(D5). 규약의 세부는 청크 7b 가 정한다.
     problemdetails:

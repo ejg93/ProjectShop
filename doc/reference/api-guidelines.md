@@ -278,7 +278,7 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
 | 종류 | 형식 | 예 |
 |---|---|---|
-| 시각 | RFC 3339 (ISO 8601). 오프셋 포함 | `2026-08-05T14:30:00+09:00` |
+| 시각 | RFC 3339 (ISO 8601). **UTC 의 `Z`** — `time-rules.md` 「표현 — 층마다」가 정한다 | `2026-08-05T05:30:00Z` |
 | 날짜 | `YYYY-MM-DD` | `2026-08-05` |
 | 금액 | 정수. 원 단위 | `15000` |
 | 열거값 | 대문자 스네이크 | `PAID`, `SHIPPING_READY` |

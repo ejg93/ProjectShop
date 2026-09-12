@@ -22,6 +22,21 @@
 **Java 쪽은 `OffsetDateTime` 이다.** `LocalDateTime` 을 필드·반환·파라미터에 두면 `ArchitectureTest` 가 빨갛다(`Q32`) —
 시간대가 없어서 받는 쪽이 짐작하게 된다. `ZonedDateTime` 은 막지 않는다. 아래 「판단은 KST」가 그것으로 하루 경계를 자른다.
 
+### 표현 — 층마다
+
+**시각이 지나는 층마다 어느 시간대로 적나를 한 자리에 둔다**(`Q35`). 절 넷에 흩어져 있어서 `D5` 가 `+09:00` 을 예로 들어도 아무도 못 봤다.
+
+| 층 | 시간대 | 강제 지점 |
+|---|---|---|
+| DB 저장 | UTC (`timestamptz`) | 마이그레이션 타입. 새 컬럼은 `Q31` 이 잰다 |
+| Java 값 | `OffsetDateTime` — 오프셋은 안 정한다(`now()` 는 JVM, JDBC 는 UTC) | `ArchitectureTest`(`Q32`) — `LocalDateTime` 금지 |
+| 업무 판단 | KST (`Asia/Seoul`) | 아래 「판단을 KST 로 하는 이유」. 코드가 `ZoneId` 를 명시한다 |
+| **API 응답** | **UTC, `Z`** | `spring.jackson.time-zone: UTC` + `ResponseTimeFormatTest` |
+| **API 요청** | **오프셋 필수** — 없으면 400. `Z` 를 권한다 | 아직 시각을 받는 입구가 없다(2026-09-13). 생기면 `@DateTimeFormat(iso = DATE_TIME)` 이 아니라 `OffsetDateTime` 으로 받는다 — `LocalDateTime` 은 위 규칙이 막는다 |
+| 날짜 (`YYYY-MM-DD`) | KST 업무일 | 아래 「기간은 날짜로 센다」 |
+| **로그** | **UTC, `Z`** | `logback-spring.xml` 의 `%d{…,UTC}Z`. 사용자 결정(2026-09-13) — 읽기는 9시간 더해야 하지만 장애 때 로그·DB·API 를 같은 문자열로 맞춘다 |
+| 화면 | KST | `format.ts` 가 `Asia/Seoul` 로 그린다. 서버는 안 바꾼다 |
+
 ### 판단을 KST 로 하는 이유
 
 ```
@@ -53,6 +68,10 @@ where created_at >= '2026-08-01 00:00+09' and created_at < '2026-09-01 00:00+09'
 그 래퍼를 거치지 않은 시각이 화면에 나오면 UTC 가 그대로 보인다.
 
 `curl` 로 응답을 직접 볼 때는 9시간을 더해서 읽어야 한다. 이건 알고 치르는 대가다.
+
+**설정이 정하고 테스트가 고정한다**(`Q35`). `spring.jackson.time-zone: UTC` 가 직렬화 문맥을 박고 `ResponseTimeFormatTest` 가
+`/api/policies/privacy_policy` 의 `effective_at` 이 `Z` 로 끝나는지 본다. **설정 없이도 `Z` 였다** — Jackson 3 가 문맥 시간대를
+UTC 로 두고 그쪽으로 맞춘다. 기본값에 안 기댄 이유: 그 설정을 `Asia/Seoul` 로 바꾸니 바로 `+09:00` 이 나갔다.
 
 ## 기간은 날짜로 센다
 
