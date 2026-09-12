@@ -33,7 +33,7 @@
 | 나머지 테스트 | 4 테스트 | 〃 | backend 972, frontend 29 | — |
 | 화면 대조 둘 | 4 테스트 | 〃 | 오류 슬러그·상태 문구가 층 사이에서 갈리는 것 | `Q16` 2026-09-05 |
 | `PublicSurfaceTest` | **1 타입** | 〃 | 패키지 밖에서 안 쓰는 `public`(`43a-27`). 스프링이 부르는 것은 뺀다 | `43a-27` 2026-09-10 |
-| `ArchitectureTest` | 4 테스트 | 〃 | `D23` 의 계층·예외·의존·공용도구. **문서에만 있던 것**(`2n`) | `2n` 2026-09-06 |
+| `ArchitectureTest` | 4 테스트 | 〃 | `D23` 의 계층·예외·의존·공용도구. **문서에만 있던 것**(`2n`). **`Q32` 가 다섯을 더했다** — `@RequestBody`→`@Valid`(`D14`) · `*Query` 에 `@Transactional` 없음 · **트랜잭션 안에서 PG·메일 안 부름**(호출 사슬 전체, 람다 포함 — 전파 경계는 예외가 아니라 메시지 표식) · `LocalDateTime` 을 필드·시그니처에 안 둠(시간 규칙) | `2n` 2026-09-06. `Q32` 2026-09-13 — `@Valid` 를 떼니 `OrderController.create` 를, `pay()` 에 `@Transactional` 을 붙이니 `pay → askGateway → MockPaymentGateway.approve` 사슬을 짚었다 |
 | SpotBugs | 4 테스트 | 〃 | 버그 패턴. **`test` 소스는 안 본다**(`2e`). **find-sec-bugs 1.14.0 을 얹었다**(`2e-1`) — 암호·역직렬화까지 본다. **SQL 주입은 못 본다**: 검출기가 `JdbcClient` 를 모른다 | `2m-1` 2026-09-06. `2e-1` 2026-09-11 — 얹고 둘, 둘 다 오탐 |
 | `npm run lint` | 4 테스트 | 로컬·CI | 접근성 규칙이 들었다(`D20`). **`eslint:recommended` 도 깐다**(`Q20-4`) — `eslint-config-next` 가 그것을 안 포함해서 `no-empty` 가 꺼져 있었다 | `2m-1` 2026-09-06. `Q20-4` 2026-09-11 — 빈 `finally { }` 를 심으니 `no-empty` 가 물었다 |
 | E2E 스모크 | 4 테스트 | **로컬·PR·수동**(`Q18-1`) | 프록시·세션 쿠키·CSRF 관통(`Q18`). 화면 테스트가 못 밟는 자리 | `Q18` 2026-09-06 |

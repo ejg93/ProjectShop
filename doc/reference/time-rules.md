@@ -19,6 +19,9 @@
 
 기존 마이그레이션이 전부 `timestamptz` 를 쓰고 있다. 이 문서는 그것을 규칙으로 확정한다.
 
+**Java 쪽은 `OffsetDateTime` 이다.** `LocalDateTime` 을 필드·반환·파라미터에 두면 `ArchitectureTest` 가 빨갛다(`Q32`) —
+시간대가 없어서 받는 쪽이 짐작하게 된다. `ZonedDateTime` 은 막지 않는다. 아래 「판단은 KST」가 그것으로 하루 경계를 자른다.
+
 ### 판단을 KST 로 하는 이유
 
 ```
