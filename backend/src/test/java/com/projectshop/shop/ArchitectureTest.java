@@ -156,6 +156,11 @@ class ArchitectureTest {
      * <p>{@code support} 는 자원이 아니라 여러 자원이 같이 쓰는 것들이다. 거기서 자원 패키지를
      * 부르기 시작하면 <b>공용이 아니라 그 자원의 일부</b>가 되고, 다음 사람이 어느 쪽에
      * 코드를 둘지 매번 판단하게 된다.
+     *
+     * <p><b>허용 목록은 라이브러리를 적는다.</b> {@code io.swagger..} 는 `Q41` 에서 들어왔다 —
+     * {@code OpenApiConfig} 가 스펙을 그리는 표기를 물리는데, 그것은 자원이 아니라
+     * Jackson 과 같은 급의 도구다. <b>여기 더할 수 있는 것은 라이브러리뿐</b>이고
+     * {@code com.projectshop.shop.<자원>} 은 못 더한다 — 더하는 순간 규칙이 뜻을 잃는다.
      */
     @ArchTest
     static final ArchRule 공용_도구는_자원을_모른다 =
@@ -164,6 +169,7 @@ class ArchitectureTest {
                     .should().dependOnClassesThat()
                     .resideOutsideOfPackages("java..", "javax..", "jakarta..",
                             "org.springframework..", "org.slf4j..", "com.fasterxml..", "tools.jackson..",
+                            "io.swagger..",
                             "com.projectshop.shop.support..", "com.projectshop.shop.error..")
                     .because("support 가 자원을 부르면 공용이 아니라 그 자원의 일부가 된다"
                             + " (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)."

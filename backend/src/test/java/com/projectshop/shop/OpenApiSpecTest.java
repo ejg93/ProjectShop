@@ -56,7 +56,15 @@ class OpenApiSpecTest extends HttpTestBase {
 
     /** 그 자원들의 응답에 실리면 안 되는 내부 ID */
     private static final Set<String> INTERNAL_IDS =
-            Set.of("orderId", "sellerOrderId", "paymentId", "settlementId");
+            Set.of("order_id", "seller_order_id", "payment_id", "settlement_id");
+
+    /**
+     * 소문자와 숫자와 밑줄만(`D5` 「JSON 속성은 snake_case」).
+     *
+     * <p><b>맨 앞 밑줄은 허용한다.</b> {@code _visible_field_groups} 가 그 꼴이고
+     * {@code @JsonProperty} 로 박혀 있다 — 자원의 값이 아니라 <b>봉투에 실린 메타</b>라는 표식이다.
+     */
+    private static final Pattern SNAKE_CASE = Pattern.compile("^_?[a-z][a-z0-9_]*$");
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -148,19 +156,13 @@ class OpenApiSpecTest extends HttpTestBase {
      * 그래서 <b>스펙 전체에 그 이름이 없는지</b>로 잰다 — 넷 다 어느 응답에도 실릴 것이 아니라
      * 범위를 넓혀도 뜻이 같다.
      *
-     * <p><b>이름이 낙타 표기인 것은 스펙이 그렇게 그려서다.</b> 실제 응답은 뱀 표기로 나간다
-     * ({@code property-naming-strategy: SNAKE_CASE}) — <b>둘이 어긋난 것 자체가 결함</b>이고
-     * `Q41` 이 다룬다. 여기서는 스펙이 쓰는 표기로 잰다.
+     * <p>이름을 뱀 표기로 적는다 — 스펙과 응답이 같은 표기를 쓰는 것은 `Q41` 이 세웠고
+     * 바로 아래 {@link #specPropertiesAreSnakeCase} 가 그것을 지킨다.
      */
     @Test
     @DisplayName("스펙 어느 응답에도 내부 ID 가 없다")
     void responsesExposeNumbersNotIds() {
-        JsonNode spec = spec();
-        Set<String> properties = new java.util.TreeSet<>();
-        for (String schemaName : names(spec.path("components").path("schemas"))) {
-            collectFrom(spec.path("components").path("schemas").path(schemaName),
-                    properties, new java.util.HashSet<>());
-        }
+        Set<String> properties = specProperties(spec());
 
         // 스키마를 못 걷으면 0개를 재고 조용히 통과한다.
         assertThat(properties).hasSizeGreaterThan(50);
@@ -168,6 +170,57 @@ class OpenApiSpecTest extends HttpTestBase {
         assertThat(properties.stream().filter(INTERNAL_IDS::contains).toList())
                 .as("내부 ID 가 나가면 노출 번호를 둔 의미가 사라진다"
                         + " (identifier-rules.md 「순번을 노출하면 새는 것」)")
+                .isEmpty();
+    }
+
+    /**
+     * 스펙의 속성 이름이 응답과 같은 표기다(`Q41`).
+     *
+     * <p><b>갈려 있었다.</b> 응답은 {@code order_number} 인데 스펙은 {@code orderNumber} 였다 —
+     * 스펙을 그리는 swagger-core 가 Jackson 2 라 애플리케이션의 Jackson 3 설정을 못 읽는다.
+     * {@link com.projectshop.shop.support.OpenApiConfig} 가 표기를 물리고 여기서 갈리는 것을 막는다.
+     *
+     * <p><b>설정만 고치고 끝내지 않는 이유</b>: 라이브러리를 올리거나 그 빈이 다른 것에 덮이면
+     * 조용히 낙타 표기로 돌아간다. 그때 깨지는 것은 <b>스펙을 읽고 만든 프론트 타입</b>이라
+     * 백엔드 쪽에서는 아무것도 안 빨개진다.
+     */
+    @Test
+    @DisplayName("스펙의 속성 이름이 뱀 표기다")
+    void specPropertiesAreSnakeCase() {
+        Set<String> properties = specProperties(spec());
+
+        assertThat(properties).hasSizeGreaterThan(50);
+        assertThat(properties.stream().filter(name -> !SNAKE_CASE.matcher(name).matches()).toList())
+                .as("스펙에서 타입을 생성하면 snake_case 로 나온다는 것이 프론트 타입 생성의 전제다"
+                        + " (api-guidelines.md 「JSON 속성은 snake_case」). 갈리면 없는 키를 읽는다")
+                .isEmpty();
+    }
+
+    /**
+     * 실제 응답의 키가 전부 스펙에 있다(`Q41`).
+     *
+     * <p>표기만 재면 <b>둘 다 뱀 표기인데 서로 다른 이름</b>인 경우를 못 본다.
+     * 진짜 응답을 하나 받아서 그 키가 스펙에 있는지 본다.
+     *
+     * <p><b>지금은 신호가 얇다.</b> 상품 목록의 최상위 키가 전부 한 단어({@code items}·{@code page}·
+     * {@code size}·{@code total})라 두 표기에서 글자가 같다 — 설정을 빼고 돌려 보니
+     * <b>이 대조는 안 빨개졌다</b>(위 표기 검사만 물었다). 여러 단어 키가 최상위에 생기면 그때부터 문다.
+     */
+    @Test
+    @DisplayName("실제 응답의 키가 전부 스펙에 있다")
+    void specMatchesRealResponse() {
+        Response response = newSession().get("/api/products");
+        assertThat(response.is(200))
+                .as("상품 목록이 %s — 이 대조는 응답을 받아야 성립한다", response.status())
+                .isTrue();
+
+        Set<String> specProperties = specProperties(spec());
+        List<String> missing = names(JSON.readTree(response.body())).stream()
+                .filter(key -> !specProperties.contains(key))
+                .toList();
+
+        assertThat(missing)
+                .as("응답에 있는데 스펙에 없는 키는 부르는 쪽이 문서만 보고는 모른다")
                 .isEmpty();
     }
 
@@ -205,6 +258,16 @@ class OpenApiSpecTest extends HttpTestBase {
                 .filter(path -> !NOT_IN_SPEC.contains(path))
                 .distinct()
                 .toList();
+    }
+
+    /** 스펙의 모든 스키마에 실린 속성 이름 */
+    private static Set<String> specProperties(JsonNode spec) {
+        Set<String> properties = new java.util.TreeSet<>();
+        for (String schemaName : names(spec.path("components").path("schemas"))) {
+            collectFrom(spec.path("components").path("schemas").path(schemaName),
+                    properties, new java.util.HashSet<>());
+        }
+        return properties;
     }
 
     private static Set<String> shapesIn(JsonNode paths) {
