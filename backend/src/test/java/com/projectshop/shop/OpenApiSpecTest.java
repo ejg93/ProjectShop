@@ -152,7 +152,7 @@ class OpenApiSpecTest extends HttpTestBase {
      * 「나가지 않는 것」을 고치라고 시킨다. <b>스펙이 곧 나가는 것</b>이라 여기가 정확하다.
      *
      * <p><b>경로별로는 못 잰다.</b> 페이지 응답이 {@code Page} 스키마 하나를 자원 전체가 나눠 써서,
-     * {@code /api/orders} 의 응답을 따라가면 {@code settlementNumber} 까지 딸려 온다(`Q31` 에서 실측).
+     * {@code /api/orders} 의 응답을 따라가면 {@code settlement_number} 까지 딸려 온다(`Q31` 에서 실측).
      * 그래서 <b>스펙 전체에 그 이름이 없는지</b>로 잰다 — 넷 다 어느 응답에도 실릴 것이 아니라
      * 범위를 넓혀도 뜻이 같다.
      *

@@ -81,6 +81,14 @@ class SchemaNamingTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("훑을 컬럼이 있다")
+    void schemaIsNotEmpty() {
+        // 질의가 틀리면 0개를 재고 아홉 중 여덟이 조용히 통과한다.
+        // 유일하게 남는 namedExceptionsStillExist 도 예외 목록이 비는 순간 같이 빈 검사가 된다.
+        assertThat(columns()).hasSizeGreaterThan(200);
+    }
+
+    @Test
     @DisplayName("컬럼 이름이 소문자와 숫자와 밑줄로만 돼 있다")
     void columnNamesAreLowercase() {
         assertThat(columns().stream()

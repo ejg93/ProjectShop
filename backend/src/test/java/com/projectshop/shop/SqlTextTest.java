@@ -36,6 +36,11 @@ import org.junit.jupiter.api.Test;
  * 다시 돈다.</b> {@code Q25} 가 잡으려는 {@code UP-TO-DATE} 구멍은 저장소 밖 파일을 읽는
  * 테스트의 것이고 이 테스트는 거기 해당하지 않는다.
  *
+ * <p><b>그 전제에 좁은 틈이 하나 있다.</b> 마커는 주석이라 <b>바이트코드를 안 바꾸는 편집</b>이
+ * 가능하다 — 마커만 지우거나 옮기면 클래스가 그대로라 이 테스트가 안 돌 수 있다.
+ * 실제로는 마커를 건드리는 편집이 그 옆의 SQL 을 같이 건드리는 것이 보통이라 좁은 틈이고,
+ * 넓어지면 {@code build.gradle.kts} 에 이 소스 묶음을 신고하는 쪽으로 간다.
+ *
  * <h2>예외를 어떻게 다나 — 마커</h2>
  *
  * <p>값이 결합되는 자리를 새로 만들려면 <b>그 줄 바로 위에</b> 마커를 단다.
@@ -100,7 +105,7 @@ class SqlTextTest {
      * 룩어헤드가 통과해 <b>멀쩡한 다섯 자리가 전부 위반으로 뜬다</b>(이 청크에서 실제로 그랬다).
      */
     private static final Pattern ORDER_BY_CONCAT =
-            Pattern.compile("order by\\s*\"\\s*\\+\\s*+(?!orderBy\\.clause\\(\\))");
+            Pattern.compile("(?i)order by\\s*\"\\s*\\+\\s*+(?!orderBy\\.clause\\(\\))");
     private static final Pattern SET_LOCAL = Pattern.compile("(?i)set\\s+local");
 
     private static final List<Source> SOURCES = readSources();

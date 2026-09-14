@@ -334,7 +334,7 @@ public class OrderService {
                                                         withdrawal_notice_agreed_at)
                                 values (:sellerOrderId, :skuId, :productName, :optionLabel,
                                         :unitPriceInclVat, :quantity, :lineAmount, :bp, :commission,
-                                        :restrictionReason, :restrictionAgreedAt)
+                                        :restrictionReason, :noticeAgreedAt)
                                 """)
                         .param("sellerOrderId", sellerOrderId)
                         .param("skuId", line.skuId())
@@ -346,7 +346,7 @@ public class OrderService {
                         .param("bp", line.commissionBp())
                         .param("commission", line.commissionAmount())
                         .param("restrictionReason", agreedRestriction(line, restrictionAgreed))
-                        .param("restrictionAgreedAt",
+                        .param("noticeAgreedAt",
                                 MADE_TO_ORDER.equals(agreedRestriction(line, restrictionAgreed))
                                         ? OffsetDateTime.now() : null)
                         .update();

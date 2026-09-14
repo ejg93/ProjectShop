@@ -64,6 +64,11 @@ import org.junit.jupiter.api.Test;
  * <p><b>실행할 때 정해지는 경로</b>는 둘 다 못 본다. {@code StackVersionConsistencyTest} 가
  * 그 하나고, {@link #DYNAMIC_ALLOWED} 에 이유와 같이 적혀 있다.
  * {@link #DYNAMIC_COUNT} 가 그 수를 박아서 조용히 느는 것을 막는다.
+ *
+ * <p><b>폴더로 신고한 자리는 확장자까지 못 본다.</b> {@code ../frontend/src} 처럼 폴더를 통째로
+ * 신고하면 이 대조는 접두사로 맞추는데 Gradle 쪽은 {@code *.ts}·{@code *.tsx} 만 건다 —
+ * <b>그 폴더 아래 다른 확장자를 읽는 테스트가 생기면 신고된 것으로 통과하고, 실제로는
+ * {@code UP-TO-DATE} 구멍이 남는다.</b> 지금 그런 테스트는 없다. 생기면 확장자까지 맞춰야 한다.
  */
 class BuildInputTest {
 
