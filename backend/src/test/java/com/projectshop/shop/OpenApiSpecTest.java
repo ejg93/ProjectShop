@@ -81,6 +81,20 @@ class OpenApiSpecTest extends HttpTestBase {
             "Refund", List.of("POST /api/refunds", "POST /api/refunds/{refundNumber}/approve",
                     "POST /api/refunds/{refundNumber}/reject"));
 
+    /**
+     * 진짜 응답을 받아 스펙과 맞춰 볼 경로. <b>로그인 없이 200 이 나오는 것</b>만 쓴다 —
+     * 재는 대상은 응답의 모양이지 권한이 아니다.
+     *
+     * <p>{@code /api/health} 는 여러 단어 키({@code applied_migrations}·{@code checked_at})가
+     * <b>데이터 없이도 늘 있어서</b> 표기가 갈리면 바로 드러난다. 실제로 {@code OpenApiConfig} 를
+     * 빼고 돌려 보니 그 둘을 짚었다.
+     *
+     * <p><b>목록 안쪽은 아직 못 본다.</b> 통합 레인 DB 에 상품이 없어서 {@code items} 가 비고,
+     * 그래서 걷는 키가 여덟(건강 확인 넷 + 목록 바깥 넷)이다. 목록에 행을 만들어 주는 자리가 생기면
+     * 그때 안쪽까지 걸린다 — <b>지금 값은 「데이터 없이도 무는 만큼」이다.</b>
+     */
+    private static final List<String> REAL_RESPONSE_ROUTES = List.of("/api/health", "/api/products");
+
     private static final ObjectMapper JSON = new ObjectMapper();
 
     /**
@@ -171,7 +185,7 @@ class OpenApiSpecTest extends HttpTestBase {
      * <p><b>「경로별로는 못 잰다」고 적었던 것은 틀렸다</b>(`Q31` → `Q45`). 그때는
      * {@code /api/orders} 를 따라가면 정산 필드가 딸려 와서 스키마가 공유되는 줄 알았는데,
      * 실제 원인은 <b>서로 다른 타입이 같은 이름으로 합쳐진 것</b>이었다. `Q45` 가 이름을 갈라서
-     * 지금은 경로별로도 잴 수 있다 — 그 대조는 `Q43` 이 세운다.
+     * 지금은 경로별로도 잴 수 있고, 그 대조를 `Q43` 이 세웠다({@link #specMatchesRealResponse}).
      *
      * <p>이름을 뱀 표기로 적는다 — 스펙과 응답이 같은 표기를 쓰는 것은 `Q41` 이 세웠고
      * 바로 아래 {@link #specPropertiesAreSnakeCase} 가 그것을 지킨다.
@@ -219,26 +233,81 @@ class OpenApiSpecTest extends HttpTestBase {
      * <p>표기만 재면 <b>둘 다 뱀 표기인데 서로 다른 이름</b>인 경우를 못 본다.
      * 진짜 응답을 하나 받아서 그 키가 스펙에 있는지 본다.
      *
-     * <p><b>지금은 신호가 얇다.</b> 상품 목록의 최상위 키가 전부 한 단어({@code items}·{@code page}·
-     * {@code size}·{@code total})라 두 표기에서 글자가 같다 — 설정을 빼고 돌려 보니
-     * <b>이 대조는 안 빨개졌다</b>(위 표기 검사만 물었다). 여러 단어 키가 최상위에 생기면 그때부터 문다.
+     * <p><b>처음 세웠을 때는 아무것도 안 쟀다</b>(`Q41` → `Q43`, 마무리 독립 리뷰가 짚었다).
+     * 맨 바깥 키만 봤고({@code items}·{@code page}·{@code size}·{@code total} — 전부 한 단어라
+     * 표기가 틀려도 글자가 같다), 비교 대상도 <b>스펙 전체 속성을 한 덩이로 합친 것</b>이라
+     * 엉뚱한 응답에만 있는 이름이어도 통과했다.
+     *
+     * <p><b>고칠 수 있게 된 것은 `Q45` 덕이다.</b> 그전에는 응답 타입이 이름으로 합쳐져 있어서
+     * 「이 경로의 스키마」를 고를 수가 없었다. 지금은 경로마다 제 스키마를 가리킨다.
+     *
+     * <p>응답을 <b>중첩까지 전부</b> 걷고, 그 경로의 스키마에서 {@code $ref} 를 따라간 속성과만
+     * 맞춘다. 목록 안쪽의 여러 단어 키가 여기서 걸린다.
      */
     @Test
-    @DisplayName("실제 응답의 키가 전부 스펙에 있다")
+    @DisplayName("실제 응답의 키가 그 경로의 스펙에 전부 있다")
     void specMatchesRealResponse() {
-        Response response = newSession().get("/api/products");
-        assertThat(response.is(200))
-                .as("상품 목록이 %s — 이 대조는 응답을 받아야 성립한다", response.status())
-                .isTrue();
+        JsonNode spec = spec();
+        List<String> missing = new java.util.ArrayList<>();
+        int checked = 0;
 
-        Set<String> specProperties = specProperties(spec());
-        List<String> missing = names(JSON.readTree(response.body())).stream()
-                .filter(key -> !specProperties.contains(key))
-                .toList();
+        for (String path : REAL_RESPONSE_ROUTES) {
+            Response response = newSession().get(path);
+            assertThat(response.is(200))
+                    .as("%s 가 %s — 이 대조는 응답을 받아야 성립한다", path, response.status())
+                    .isTrue();
+
+            Set<String> keys = new java.util.TreeSet<>();
+            collectKeys(JSON.readTree(response.body()), keys);
+            Set<String> declared = schemaProperties(spec, path);
+            checked += keys.size();
+
+            keys.stream().filter(key -> !declared.contains(key))
+                    .forEach(key -> missing.add(path + "  " + key));
+        }
+
+        // 응답이 비면 0개를 재고 조용히 통과한다. 목록 안쪽까지 걷는 것이 이 대조의 값이다.
+        assertThat(checked).isGreaterThan(7);
 
         assertThat(missing)
-                .as("응답에 있는데 스펙에 없는 키는 부르는 쪽이 문서만 보고는 모른다")
+                .as("응답에 있는데 그 경로의 스펙에 없는 키는, 문서를 보고 부르는 쪽이 모른다."
+                        + " 스펙을 코드에서 뽑는 이유가 이 자리다")
                 .isEmpty();
+    }
+
+    /** JSON 을 중첩까지 걸어 객체의 키를 전부 모은다 */
+    private static void collectKeys(JsonNode node, Set<String> keys) {
+        if (node.isArray()) {
+            node.forEach(child -> collectKeys(child, keys));
+            return;
+        }
+        if (!node.isObject()) {
+            return;
+        }
+        for (String name : names(node)) {
+            keys.add(name);
+            collectKeys(node.path(name), keys);
+        }
+    }
+
+    /** 한 경로의 200 응답 스키마에서 {@code $ref} 를 따라간 속성 이름 */
+    private static Set<String> schemaProperties(JsonNode spec, String path) {
+        JsonNode content = spec.path("paths").path(path).path("get").path("responses")
+                .path("200").path("content");
+        Set<String> properties = new java.util.TreeSet<>();
+        Set<String> pending = new java.util.LinkedHashSet<>();
+        for (String mediaType : names(content)) {
+            collectFrom(content.path(mediaType).path("schema"), properties, pending);
+        }
+        Set<String> seen = new java.util.HashSet<>();
+        while (!pending.isEmpty()) {
+            String schema = pending.iterator().next();
+            pending.remove(schema);
+            if (seen.add(schema)) {
+                collectFrom(spec.path("components").path("schemas").path(schema), properties, pending);
+            }
+        }
+        return properties;
     }
 
     /**
