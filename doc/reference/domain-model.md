@@ -53,7 +53,7 @@ where deleted_at is null     -- 업무 상태가 몇 개로 늘든 안 바뀐다
 | `order`, `payment` | **없다** | 5년 보존이라 지우는 개념이 없다 |
 | `cart`, `cart_item` | **없다** | 그냥 지운다 |
 | `role`, `permission` | **없다** | 관리 데이터다. 지울 일이 생기면 그때 판단한다 |
-| `refund`, `return_request`, `compensation`, `settlement` 셋 | **없다** | 5년 보존이라 지우는 개념이 없다(`D13`) |
+| `refund`, `return_request`, `compensation`, `settlement` 셋 | **없다** | 보존 기간(환불·반품은 거래 종료 5년, 정산·배상은 세법 기산 — `43a-28`)이 차면 파기 배치가 통째로 지운다. 되살릴 일이 없어 표시할 것이 없다(`D13`) |
 | `inquiry`, `notification` | **없다** | 기간이 차면 물리 삭제다. 되살릴 일이 없어서 표시할 것이 없다 |
 
 ## 애그리거트
