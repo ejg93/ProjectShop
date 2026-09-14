@@ -1159,6 +1159,7 @@ document.body.innerHTML = await readAll(prelude);
 | Next.js 버전, 패키지 매니저 | 청크 13 |
 | springdoc-openapi | 청크 2a |
 | MinIO | 청크 26 |
+| Kafka — 컴포즈 이미지 태그 · `spring-kafka` · Testcontainers Kafka 좌표 | 청크 33. **로컬에서만 돈다**(`event-catalog.md` 「전송」) — 배포에는 안 올린다 |
 
 정해지면 위 표에 줄을 더한다.
 
