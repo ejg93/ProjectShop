@@ -42,9 +42,13 @@ import org.junit.jupiter.api.Test;
  *
  * <h2>무엇을 세나</h2>
  *
- * <p>{@code *Query}·{@code *Controller}·{@code *Service} 안의 <b>public record</b> 가 대상이다 —
- * API 로 나가는 읽기 모델과 요청·응답이 전부 그 꼴이다. 이름은 {@code @Schema(name = …)} 가
- * 있으면 그 값이고 없으면 record 이름이다.
+ * <p><b>{@code main} 의 모든 {@code public record} 가 대상이다.</b> 이름은
+ * {@code @Schema(name = …)} 가 있으면 그 값이고 없으면 record 이름이다.
+ *
+ * <p><b>파일 이름으로 좁혔던 것이 틀렸다.</b> 처음에는 {@code *Query}·{@code *Controller}·
+ * {@code *Service} 만 읽었는데 {@code PermissionCatalog} 를 놓쳤다 — 그 파일이 스펙에
+ * {@code PermissionEntry} 를 올리고 있었고, `Q45` 가 고친 진짜 충돌 하나가 거기였다.
+ * <b>스펙에 닿는 record 가 어느 파일에 사는지에는 규칙이 없어서, 좁히면 놓치고 그 놓침이 조용하다.</b>
  *
  * <h2>무엇을 못 보나</h2>
  *
@@ -57,8 +61,8 @@ class SchemaNameTest {
 
     private static final Path MAIN = Path.of("src", "main", "java");
 
-    /** API 타입이 사는 자리. 여기 밖의 record 는 스펙에 안 닿는다 */
-    private static final Pattern API_CLASS = Pattern.compile(".*(Query|Controller|Service)\\.java$");
+    /** {@code main} 의 자바 소스 전부. 자리로 좁히면 놓치고 그 놓침이 조용하다 */
+    private static final Pattern API_CLASS = Pattern.compile(".*\\.java$");
 
     /** {@code @Schema(name = "…")} 바로 다음의 {@code public record X} */
     private static final Pattern NAMED_RECORD = Pattern.compile(
@@ -77,7 +81,10 @@ class SchemaNameTest {
      */
     static final Map<String, String> INTERNAL_ONLY = Map.of(
             "Purged", "파기 배치의 결과. 배치가 로그로만 쓴다",
-            "Command", "서비스에 넘기는 명령. 컨트롤러가 요청 record 를 이것으로 바꿔서 넘긴다");
+            "Command", "서비스에 넘기는 명령. 컨트롤러가 요청 record 를 이것으로 바꿔서 넘긴다",
+            "Target", "권한·감사·통지가 각자 「무엇에 대한 것인가」를 담는다. 응답에 실리는 것이 아니다",
+            "Result", "모의 결제·모의 통지가 돌려주는 것. 스펙에 닿던 PaymentService 쪽은"
+                    + " @Schema(name = \"PaymentResult\") 로 갈라 뒀다");
 
     @Test
     @DisplayName("API 응답 타입의 스펙 이름이 겹치지 않는다")

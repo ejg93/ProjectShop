@@ -123,7 +123,6 @@ select * from product p join sku s using (product_id)
 | `_total` | 합계 |
 | `_bp` | 만분율 정수 (1000 = 10.00%) |
 | `_reason` | 고정된 사유 값 |
-
 | `_number` | **우리가 발급해서 바깥이 부르는 번호** |
 | `_no` | 그 밖의 번호 — 안에서 세우는 순번, 남이 발급한 번호 |
 
@@ -131,7 +130,7 @@ select * from product p join sku s using (product_id)
 
 **가르는 기준은 「누가 발급했나」다**(`Q42`). `order_number`·`settlement_number` 는 **우리가 만들어
 내보내는 것**이라 `identifier-rules.md` 가 형식까지 정하고 **한 번 내보내면 못 바꾼다.**
-`sort_no` 는 안에서 줄을 세우는 수고, `business_reg_no`·`mail_order_no` 는 **국가가 발급한 번호**다 —
+`sort_no` 는 안에서 줄을 세우는 수이고, `business_reg_no`·`mail_order_no` 는 **국가가 발급한 번호**다 —
 둘 다 우리가 형식을 정하지 않으므로 그 표의 대상이 아니다.
 
 **`SchemaNamingTest` 가 막는다** — `_no` 로 끝나는 컬럼은 허용 목록에 적힌 것뿐이고,

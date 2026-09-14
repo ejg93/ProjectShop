@@ -199,8 +199,12 @@ class LengthConstraintTest extends PostgresTestBase {
      *       붙는데 그 안에 {@code @Size} 가 들어 있다. 규칙을 한 곳으로 모은 결과라
      *       직접 붙은 것만 보면 <b>이메일이 이 대조에서 통째로 빠진다</b></li>
      * </ul>
+     *
+     * <p><b>{@link ScreenLengthTest} 도 이것을 쓴다</b>(`Q27`). 같은 함정을 두 번 풀면
+     * 한쪽만 고치는 날이 온다. 상한이 없으면 {@code AssertionError} 를 던지므로,
+     * 부르는 쪽이 그것을 「없는 칸」으로 넘길 때는 <b>메시지를 보고 가려야 한다</b> —
+     * record 가 깨진 경우도 같은 예외로 온다.
      */
-    /** {@link ScreenLengthTest} 도 쓴다 — 필드로 내려간 {@code &#64;Size} 를 찾는 함정이 같다(`Q27`) */
     static int maxOf(RecordComponent component) {
         for (Annotation annotation : annotationsOn(component)) {
             if (annotation instanceof Size size) {

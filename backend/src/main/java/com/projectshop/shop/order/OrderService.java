@@ -84,7 +84,6 @@ public class OrderService {
             String address1, String address2, String deliveryMemo) {}
 
     @Schema(name = "OrderCreated")
-
     public record Created(long orderId, String orderNumber, long payableAmount) {}
 
     /**

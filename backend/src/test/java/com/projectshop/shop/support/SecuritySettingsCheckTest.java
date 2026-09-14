@@ -17,6 +17,8 @@ class SecuritySettingsCheckTest {
 
     private static final String LOOPBACK = "127\\.0\\.0\\.1|0:0:0:0:0:0:0:1|::1";
     private static final String PRIVATE_RANGE = "10\\.\\d+\\.\\d+\\.\\d+";
+    /** 견본 목록에 없는 공인 주소. 로드밸런서 하나에 맞춘 배포가 이 꼴이다 */
+    private static final String PUBLIC_PINNED = "52\\.1\\.2\\.3";
 
     @Test
     @DisplayName("기본값인 루프백은 쿠키가 평문이어도 뜬다")
@@ -58,6 +60,27 @@ class SecuritySettingsCheckTest {
                 .doesNotThrowAnyException();
     }
 
+
+    /**
+     * <b>견본에 없는 공인 주소도 루프백 밖이다.</b> 처음에는 사설 대역 견본만 넣어 봐서,
+     * 프록시를 로드밸런서 하나에 맞춘 배포가 <b>그물 두 개 사이로 빠졌다</b>(마무리 14차 리뷰).
+     */
+    @Test
+    @DisplayName("공인 주소 하나에 맞춘 프록시도 쿠키가 평문이면 안 뜬다")
+    void pinnedPublicProxyWithPlainCookieFails() {
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify(PUBLIC_PINNED, false))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SESSION_COOKIE_SECURE");
+    }
+
+    @Test
+    @DisplayName("빈 값이면 안 뜬다")
+    void blankProxiesFails() {
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify("   ", true))
+                .as("빈 값이면 이 검사가 아무것도 안 물어서 통과하는데, 서버가 쓰는 값은 그것이 아니다")
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("비었다");
+    }
     @Test
     @DisplayName("정규식이 아니면 안 뜬다")
     void brokenPatternFails() {

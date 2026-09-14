@@ -75,8 +75,7 @@ class OpenApiSpecTest extends HttpTestBase {
      */
     private static final Map<String, List<String>> SHARED_RESPONSES = Map.of(
             "Account", List.of("GET /api/me", "PATCH /api/me", "POST /api/me/email"),
-            "InquiryPage", List.of("GET /api/me/inquiries",
-                    "GET /api/products/{productId}/inquiries", "GET /api/seller/inquiries"),
+            "PageInquiryEntry", List.of("GET /api/me/inquiries", "GET /api/seller/inquiries"),
             "ProductCreated", List.of("POST /api/products", "PUT /api/products/{productId}"),
             "Refund", List.of("POST /api/refunds", "POST /api/refunds/{refundNumber}/approve",
                     "POST /api/refunds/{refundNumber}/reject"));
@@ -233,6 +232,10 @@ class OpenApiSpecTest extends HttpTestBase {
      * <p>표기만 재면 <b>둘 다 뱀 표기인데 서로 다른 이름</b>인 경우를 못 본다.
      * 진짜 응답을 하나 받아서 그 키가 스펙에 있는지 본다.
      *
+     * <p><b>한 방향만 본다.</b> 「응답에 있는데 스펙에 없는 키」만 세므로 <b>스펙이 실물보다 넓은</b>
+     * 경우는 못 잡는다 — 값이 없을 때 빠지는 칸이 정상이라 반대 방향을 그대로 재면 오탐이 된다.
+     * 스펙이 넓어지는 사고(타입이 이름으로 합쳐지는 것)는 {@code SchemaNameTest} 가 소스에서 막는다.
+     *
      * <p><b>처음 세웠을 때는 아무것도 안 쟀다</b>(`Q41` → `Q43`, 마무리 독립 리뷰가 짚었다).
      * 맨 바깥 키만 봤고({@code items}·{@code page}·{@code size}·{@code total} — 전부 한 단어라
      * 표기가 틀려도 글자가 같다), 비교 대상도 <b>스펙 전체 속성을 한 덩이로 합친 것</b>이라
@@ -319,7 +322,7 @@ class OpenApiSpecTest extends HttpTestBase {
      * 이름을 준 뒤 스키마가 63개에서 81개가 됐다. 열여덟이 덮여서 사라져 있던 것이다.
      *
      * <p><b>어떻게 잡나</b>: 합쳐지면 <b>상관없는 경로 둘이 같은 스키마를 가리키게 된다.</b>
-     * 그 조합을 박아 두고 늘면 빨갛게 한다. 새 응답 record 에 이름을 안 주면 여기서 걸린다.
+     * 그 조합을 박아 두고 늘면 빨갛게 한다. 이름이 겹칠 상대가 이미 있을 때 걸린다 — 소스 쪽 `SchemaNameTest` 가 그보다 앞서고 넓다.
      *
      * <p><b>같은 record 를 여러 경로가 쓰는 것은 정상이다</b> — {@link #SHARED_RESPONSES} 가 그 넷이고,
      * 늘리려면 <b>합쳐진 것이 아니라 같은 것인지</b>를 확인하고 이 목록을 고친다.

@@ -73,8 +73,14 @@ public class InquiryQuery {
             OffsetDateTime createdAt, OffsetDateTime answeredAt,
             OffsetDateTime dueAt, boolean overdue) {}
 
-    /** 목록 규약(`D5`). 셋 다 같은 봉투를 쓴다 */
-    @Schema(name = "InquiryPage")
+    /**
+     * 목록 규약(`D5`). 셋 다 같은 봉투를 쓴다.
+     *
+     * <p><b>여기에 `@Schema(name)` 을 주면 안 된다</b>(`Q45` 에서 실제로 그랬다). 제네릭이라
+     * springdoc 이 타입 인자마다 이름을 만드는데({ PageInquiryEntry}·{ PagePublicEntry}),
+     * 고정 이름을 주면 <b>둘이 한 스키마로 합쳐진다</b> — 이름 충돌을 없애려던 청크가
+     * 충돌을 하나 만든 꼴이었다.
+     */
     public record Page<T>(List<T> items, int page, int size, long total) {}
 
     /**

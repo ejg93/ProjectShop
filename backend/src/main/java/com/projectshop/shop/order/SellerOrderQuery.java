@@ -69,7 +69,6 @@ public class SellerOrderQuery {
     }
 
     @Schema(name = "SellerOrderPage")
-
     public record Page(List<Summary> items, int page, int size, long total) {
     }
 

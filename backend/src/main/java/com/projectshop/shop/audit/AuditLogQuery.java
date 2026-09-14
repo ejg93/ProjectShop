@@ -64,7 +64,6 @@ public class AuditLogQuery {
     }
 
     @Schema(name = "AuditLogPage")
-
     public record Page(List<Row> items, int page, int size, long total) {
     }
 

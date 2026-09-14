@@ -101,7 +101,6 @@ public class ProductService {
     }
 
     @Schema(name = "ProductCreated")
-
     public record Created(long productId, List<Long> skuIds) {
     }
 

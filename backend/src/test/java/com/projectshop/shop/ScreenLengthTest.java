@@ -40,9 +40,9 @@ import org.junit.jupiter.api.Test;
  *
  * <h2>무엇을 못 보나</h2>
  *
- * <p><b>같은 이름을 여러 record 가 쓰면 전부와 맞춘다.</b> {@code reason} 처럼 흔한 이름은
- * 여러 요청에 있고, 그중 하나라도 상한이 다르면 걸린다 — 화면이 어느 쪽으로 보내는지는
- * 이 테스트가 모르므로 <b>가장 좁은 쪽에 맞추라고 말하는 셈</b>이다.
+ * <p><b>같은 이름의 요청 칸이 서로 다른 상한을 가지면 대조에서 뺀다</b>({@link #AMBIGUOUS_NAMES}).
+ * 화면이 어느 입구로 보내는지를 이 대조가 몰라서, 그냥 이으면 <b>틀린 쌍을 대조하며 초록</b>이 된다 —
+ * {@code Q28} 이 사유 컬럼에서 정한 것과 같은 기준이다.
  */
 @DisplayName("화면 상한과 서버 상한의 대조")
 class ScreenLengthTest {
@@ -70,6 +70,19 @@ class ScreenLengthTest {
             "app/checkout/checkout-form.tsx  postalCode",
                     "상한이 @Pattern 안에 있다 — `^[0-9]{5}$` 라 5자다"));
 
+    /**
+     * <b>같은 이름의 요청 칸이 서로 다른 상한을 가진 자리.</b> 화면이 어느 쪽으로 보내는지를
+     * 이 대조가 모르므로 <b>대조에서 뺀다.</b>
+     *
+     * <p>「아무거나 맞으면 통과」로 두지 않는 이유는 {@code Q28} 이 사유 컬럼에서 정한 것과 같다 —
+     * <b>잘못 이으면 틀린 쌍을 대조하며 초록</b>이 된다. 어느 입구인지를 알아내 이으려면
+     * 호출 사슬을 따라가야 하고, 그건 이 대조가 아니라 청크가 할 일이다(`Q46` 과 같은 꼴).
+     *
+     * <p>값이 「왜 갈리나」다.
+     */
+    private static final Map<String, String> AMBIGUOUS_NAMES = Map.of(
+            "name", "상품 이름 100 과 옵션 이름 50 이 같은 칸 이름을 쓴다");
+
     private record ScreenField(String where, String name, int max) {}
 
     @Test
@@ -80,9 +93,17 @@ class ScreenLengthTest {
 
         assertThat(fields).as("화면을 못 읽으면 0개를 재고 조용히 통과한다").hasSizeGreaterThan(8);
 
+        assertThat(serverLimits)
+                .as("요청 record 를 못 읽으면 0쌍을 대조하고 조용히 통과한다")
+                .hasSizeGreaterThan(8);
+
         List<String> mismatched = fields.stream()
                 .filter(field -> serverLimits.containsKey(field.name()))
-                .filter(field -> !serverLimits.get(field.name()).contains(field.max()))
+                .filter(field -> !AMBIGUOUS_NAMES.containsKey(field.name()))
+                // 상한이 여럿이면 「아무거나 맞으면 통과」가 아니라 전부와 같아야 한다.
+                // 여럿인 이름은 아래 AMBIGUOUS_NAMES 가 따로 든다.
+                .filter(field -> serverLimits.get(field.name()).stream()
+                        .anyMatch(max -> max != field.max()))
                 .map(field -> field.where() + "  " + field.name() + " 화면 " + field.max()
                         + " ↔ 서버 " + serverLimits.get(field.name()))
                 .toList();
@@ -117,13 +138,19 @@ class ScreenLengthTest {
                     continue;
                 }
                 for (RecordComponent component : nested.getRecordComponents()) {
-                    //  가 칸이 아니라 그 칸이 만든 필드에 붙는다. LengthConstraintTest 가
-                    // 이미 그것을 푸는 헬퍼를 든다 — 복제하면 한쪽만 고치는 날이 온다.
+                    // 상한 애너테이션이 칸이 아니라 그 칸이 만든 필드에 붙는다.
+                    // LengthConstraintTest 가 이미 그것을 푸는 헬퍼를 든다 —
+                    // 복제하면 한쪽만 고치는 날이 온다.
                     int max;
                     try {
                         max = LengthConstraintTest.maxOf(component);
-                    } catch (AssertionError noSize) {
-                        // 상한이 없는 칸이다. 화면이 걸 것도 없다.
+                    } catch (AssertionError error) {
+                        // 「상한이 없는 칸」만 넘긴다. 그 헬퍼는 record 가 깨진 경우에도 같은
+                        // 예외를 던지는데, 거기까지 삼키면 진짜 고장이 「상한 없음」으로 조용해진다.
+                        String message = error.getMessage();
+                        if (message == null || !message.contains("가 없다")) {
+                            throw error;
+                        }
                         continue;
                     }
                     limits.computeIfAbsent(component.getName(), key -> new ArrayList<>()).add(max);

@@ -73,7 +73,6 @@ public class RefundQuery {
     }
 
     @Schema(name = "RefundPage")
-
     public record Page(List<Summary> items, int page, int size, long total) {
     }
 

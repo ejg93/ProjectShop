@@ -47,8 +47,14 @@ final class SecuritySettingsCheck {
     /** 공인 IP. 신뢰 프록시가 이것을 물면 사실상 전부 신뢰한다 */
     private static final List<String> PUBLIC_SAMPLES = List.of("203.0.113.7", "8.8.8.8");
 
-    /** 사설 IP. 이것을 물면 프록시가 루프백 밖(다른 기계)에 있다 */
-    private static final List<String> PRIVATE_SAMPLES = List.of("10.0.0.5", "192.168.1.7", "172.16.0.9");
+    /**
+     * 기본값 그대로인 상태 — 루프백만 신뢰한다. {@code application.yml} 과 같은 글자다.
+     *
+     * <p>여기서 벗어나면 <b>프록시가 다른 기계에 있다</b>고 본다. 사설 대역 견본을 넣어 보는
+     * 방식이었는데, 그러면 프록시를 <b>특정 공인 주소</b>(로드밸런서·CDN)에 맞춘 배포가
+     * 견본 어느 쪽에도 안 걸려서 쿠키가 평문인 채로 떴다.
+     */
+    private static final String LOOPBACK_ONLY = "127\\.0\\.0\\.1|0:0:0:0:0:0:0:1|::1";
 
     private final String internalProxies;
     private final boolean cookieSecure;
@@ -76,6 +82,13 @@ final class SecuritySettingsCheck {
      * <p>정적 메서드인 것은 <b>기동 없이 재기 위해서</b>다 — 이 판정 자체는 스프링을 안 탄다.
      */
     static void verify(String internalProxies, boolean cookieSecure) {
+        if (internalProxies == null || internalProxies.isBlank()) {
+            throw new IllegalStateException(
+                    "TRUSTED_PROXIES 가 비었다. 빈 값이면 이 검사가 아무것도 안 물어서 통과하는데,"
+                            + " 서버가 실제로 쓰는 값은 그것이 아니다 — 검사가 엉뚱한 것을 재게 된다"
+                            + " (D14, Q44). 신뢰할 대역을 적거나 그 환경변수를 아예 안 준다");
+        }
+
         Pattern proxies;
         try {
             proxies = Pattern.compile(internalProxies);
@@ -94,7 +107,10 @@ final class SecuritySettingsCheck {
                             + " 앞단 프록시의 대역만 적는다");
         }
 
-        boolean proxyIsRemote = PRIVATE_SAMPLES.stream().anyMatch(ip -> proxies.matcher(ip).matches());
+        // **「루프백만 신뢰하나」로 잰다.** 사설 대역 견본만 넣어 보면 프록시를 특정 공인
+        // 주소(로드밸런서·CDN)에 맞춘 배포가 그물을 빠져나간다 — 그 견본도 이 견본도 안 물어서
+        // 쿠키가 평문인 채로 뜬다. 선언한 규칙이 「루프백 밖」이므로 그대로 잰다.
+        boolean proxyIsRemote = !LOOPBACK_ONLY.equals(internalProxies.trim());
         if (proxyIsRemote && !cookieSecure) {
             throw new IllegalStateException(
                     "프록시가 루프백 밖에 있는데(" + internalProxies + ")"

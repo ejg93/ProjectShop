@@ -67,11 +67,9 @@ public class SettlementQuery {
             Long commissionBaseAmount, String sellerOrderNumber, String productName) {}
 
     @Schema(name = "SettlementDetail")
-
     public record Detail(Summary summary, List<Line> lines) {}
 
     @Schema(name = "SettlementPage")
-
     public record Page(List<Summary> items, int page, int size, long total) {}
 
     /**
