@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -65,6 +66,20 @@ class OpenApiSpecTest extends HttpTestBase {
      * {@code @JsonProperty} 로 박혀 있다 — 자원의 값이 아니라 <b>봉투에 실린 메타</b>라는 표식이다.
      */
     private static final Pattern SNAKE_CASE = Pattern.compile("^_?[a-z][a-z0-9_]*$");
+
+    /**
+     * 여러 경로가 <b>같은 record 를</b> 응답으로 쓰는 자리. 합쳐진 것이 아니라 같은 것이다.
+     *
+     * <p>줄이는 방향으로만 고친다. 늘리려면 <b>정말 같은 타입인지</b> 먼저 본다 —
+     * 합쳐진 것을 여기 적으면 이 게이트가 자기가 막으려던 것을 봐주게 된다.
+     */
+    private static final Map<String, List<String>> SHARED_RESPONSES = Map.of(
+            "Account", List.of("GET /api/me", "PATCH /api/me", "POST /api/me/email"),
+            "InquiryPage", List.of("GET /api/me/inquiries",
+                    "GET /api/products/{productId}/inquiries", "GET /api/seller/inquiries"),
+            "ProductCreated", List.of("POST /api/products", "PUT /api/products/{productId}"),
+            "Refund", List.of("POST /api/refunds", "POST /api/refunds/{refundNumber}/approve",
+                    "POST /api/refunds/{refundNumber}/reject"));
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -151,10 +166,12 @@ class OpenApiSpecTest extends HttpTestBase {
      * <p><b>ArchUnit 이 아니라 여기서 잰다.</b> 구조로 재면 서비스 안에서만 도는 record 까지 물어서
      * 「나가지 않는 것」을 고치라고 시킨다. <b>스펙이 곧 나가는 것</b>이라 여기가 정확하다.
      *
-     * <p><b>경로별로는 못 잰다.</b> 페이지 응답이 {@code Page} 스키마 하나를 자원 전체가 나눠 써서,
-     * {@code /api/orders} 의 응답을 따라가면 {@code settlement_number} 까지 딸려 온다(`Q31` 에서 실측).
-     * 그래서 <b>스펙 전체에 그 이름이 없는지</b>로 잰다 — 넷 다 어느 응답에도 실릴 것이 아니라
-     * 범위를 넓혀도 뜻이 같다.
+     * <p><b>스펙 전체를 본다.</b> 넷 다 어느 응답에도 실릴 것이 아니라 범위를 넓혀도 뜻이 같다.
+     *
+     * <p><b>「경로별로는 못 잰다」고 적었던 것은 틀렸다</b>(`Q31` → `Q45`). 그때는
+     * {@code /api/orders} 를 따라가면 정산 필드가 딸려 와서 스키마가 공유되는 줄 알았는데,
+     * 실제 원인은 <b>서로 다른 타입이 같은 이름으로 합쳐진 것</b>이었다. `Q45` 가 이름을 갈라서
+     * 지금은 경로별로도 잴 수 있다 — 그 대조는 `Q43` 이 세운다.
      *
      * <p>이름을 뱀 표기로 적는다 — 스펙과 응답이 같은 표기를 쓰는 것은 `Q41` 이 세웠고
      * 바로 아래 {@link #specPropertiesAreSnakeCase} 가 그것을 지킨다.
@@ -221,6 +238,76 @@ class OpenApiSpecTest extends HttpTestBase {
 
         assertThat(missing)
                 .as("응답에 있는데 스펙에 없는 키는 부르는 쪽이 문서만 보고는 모른다")
+                .isEmpty();
+    }
+
+    /**
+     * 서로 다른 응답 타입이 스펙에서 같은 이름으로 합쳐지지 않는다(`Q45`).
+     *
+     * <p><b>실제로 합쳐져 있었다.</b> springdoc 이 스키마 이름을 <b>자바 클래스의 짧은 이름</b>으로
+     * 짓는데 {@code Page} 가 여섯, {@code Summary}·{@code Detail} 이 각각 넷이라 서로 덮어썼다 —
+     * <b>{@code GET /api/orders} 가 정산 요약을 돌려준다고 스펙에 적혀 있었다.</b>
+     * 이름을 준 뒤 스키마가 63개에서 81개가 됐다. 열여덟이 덮여서 사라져 있던 것이다.
+     *
+     * <p><b>어떻게 잡나</b>: 합쳐지면 <b>상관없는 경로 둘이 같은 스키마를 가리키게 된다.</b>
+     * 그 조합을 박아 두고 늘면 빨갛게 한다. 새 응답 record 에 이름을 안 주면 여기서 걸린다.
+     *
+     * <p><b>같은 record 를 여러 경로가 쓰는 것은 정상이다</b> — {@link #SHARED_RESPONSES} 가 그 넷이고,
+     * 늘리려면 <b>합쳐진 것이 아니라 같은 것인지</b>를 확인하고 이 목록을 고친다.
+     */
+    @Test
+    @DisplayName("상관없는 경로가 같은 응답 스키마를 가리키지 않는다")
+    void responseSchemasAreNotMerged() {
+        JsonNode spec = spec();
+        JsonNode paths = spec.path("paths");
+        Map<String, List<String>> bySchema = new java.util.TreeMap<>();
+
+        for (String path : names(paths)) {
+            for (String method : names(paths.path(path))) {
+                JsonNode content = paths.path(path).path(method).path("responses").path("200").path("content");
+                for (String mediaType : names(content)) {
+                    String schema = content.path(mediaType).path("schema").path("$ref")
+                            .asString("").replace("#/components/schemas/", "");
+                    if (!schema.isEmpty()) {
+                        bySchema.computeIfAbsent(schema, key -> new java.util.ArrayList<>())
+                                .add(method.toUpperCase(java.util.Locale.ROOT) + " " + path);
+                    }
+                }
+            }
+        }
+
+        assertThat(bySchema).as("스키마를 못 걷으면 0개를 재고 조용히 통과한다").hasSizeGreaterThan(20);
+
+        Map<String, List<String>> shared = new java.util.TreeMap<>();
+        bySchema.forEach((schema, users) -> {
+            if (users.size() > 1) {
+                shared.put(schema, users.stream().sorted().toList());
+            }
+        });
+
+        assertThat(shared)
+                .as("상관없는 경로 둘이 같은 스키마를 가리키면 응답 타입이 이름으로 합쳐진 것이다."
+                        + " 스펙을 보고 만든 타입이 통째로 다른 자원의 모양이 된다 (Q45)."
+                        + " 새 응답 record 에는 @Schema(name = …) 로 이름을 준다")
+                .isEqualTo(SHARED_RESPONSES);
+    }
+
+    /**
+     * {@link SchemaNameTest#INTERNAL_ONLY} 가 「스펙에 안 닿는다」고 적어 둔 이름이 정말 없다(`Q45`).
+     *
+     * <p>그쪽은 <b>이름이 겹쳐도 봐주는 목록</b>이라, 그중 하나가 나중에 응답에 실리면
+     * <b>봐주는 채로 합쳐진다.</b> 그 순간을 여기서 잡는다 — 목록이 주장이 아니라 검사가 된다.
+     */
+    @Test
+    @DisplayName("스펙에 안 닿는다고 적어 둔 이름이 정말 스펙에 없다")
+    void internalOnlyNamesStayOutOfSpec() {
+        Set<String> schemas = new java.util.TreeSet<>(names(spec().path("components").path("schemas")));
+
+        assertThat(schemas).as("스키마를 못 걷으면 0개를 재고 조용히 통과한다").hasSizeGreaterThan(50);
+        assertThat(SchemaNameTest.INTERNAL_ONLY.keySet().stream().filter(schemas::contains).toList())
+                .as("SchemaNameTest.INTERNAL_ONLY 는 이름이 겹쳐도 봐주는 목록이다."
+                        + " 그 이름이 스펙에 뜨면 봐주는 채로 합쳐진 것이라, 목록에서 빼고"
+                        + " @Schema(name = …) 로 이름을 준다")
                 .isEmpty();
     }
 

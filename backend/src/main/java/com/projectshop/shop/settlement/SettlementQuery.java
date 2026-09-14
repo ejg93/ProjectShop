@@ -16,6 +16,8 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery.Paging;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 정산서를 읽는다(청크 20).
  *
@@ -54,15 +56,21 @@ public class SettlementQuery {
      *
      * @param carriedOver 다음 주기로 넘기는 음수 잔액. 안 넘기면 0 이다
      */
+    @Schema(name = "SettlementSummary")
     public record Summary(String settlementNumber, String sellerCode, LocalDate periodStart,
             LocalDate periodEnd, LocalDate payoutDate, long payoutAmount, long carriedOver,
             String payoutStatus, OffsetDateTime createdAt) {}
 
     /** 정산서 한 줄의 근거. {@code supplier} 는 부가가치세법이 요구하는 값이다(`D2` R17) */
+    @Schema(name = "SettlementLine")
     public record Line(String kind, String supplier, long amount, Integer commissionBp,
             Long commissionBaseAmount, String sellerOrderNumber, String productName) {}
 
+    @Schema(name = "SettlementDetail")
+
     public record Detail(Summary summary, List<Line> lines) {}
+
+    @Schema(name = "SettlementPage")
 
     public record Page(List<Summary> items, int page, int size, long total) {}
 

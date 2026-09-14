@@ -17,6 +17,8 @@ import com.projectshop.shop.error.ShopException;
 
 import com.projectshop.shop.support.ListQuery.Paging;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 문의를 관객별로 읽는다(청크 59).
  *
@@ -64,6 +66,7 @@ public class InquiryQuery {
             String status, OffsetDateTime createdAt, OffsetDateTime answeredAt) {}
 
     /** 자기 것이거나 자기 셀러 것을 볼 때 쓰는 한 줄. 대상과 공개 여부가 같이 나간다 */
+    @Schema(name = "InquiryEntry")
     public record Entry(String inquiryNumber, String kind, Long productId, String productName,
             String sellerOrderNumber,
             String question, String answer, String status, boolean isPublic,
@@ -71,6 +74,7 @@ public class InquiryQuery {
             OffsetDateTime dueAt, boolean overdue) {}
 
     /** 목록 규약(`D5`). 셋 다 같은 봉투를 쓴다 */
+    @Schema(name = "InquiryPage")
     public record Page<T>(List<T> items, int page, int size, long total) {}
 
     /**

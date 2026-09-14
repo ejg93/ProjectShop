@@ -19,6 +19,8 @@ import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 환불을 찾아 본다. <b>승인자가 무엇을 승인할지 여기서 찾는다.</b>
  *
@@ -64,15 +66,19 @@ public class RefundQuery {
      * @param overdue 기한을 넘겼나. <b>서버가 계산해 내린다</b> — 화면이 {@code dueAt} 과 현재 시각을
      *                비교하면 시간대와 시계 차이만큼 답이 갈리고, 그 답이 법 요건이다(`D2` R5)
      */
+    @Schema(name = "RefundSummary")
     public record Summary(String refundNumber, String sellerOrderNumber, String orderNumber,
             String status, String reasonCode, long amount, OffsetDateTime dueAt, boolean overdue,
             OffsetDateTime createdAt) {
     }
 
+    @Schema(name = "RefundPage")
+
     public record Page(List<Summary> items, int page, int size, long total) {
     }
 
     /** 돌려주는 항목 한 줄. 주문 시점에 박제된 이름을 그대로 쓴다 */
+    @Schema(name = "RefundItem")
     public record Item(String productName, String optionLabel, int quantity, long amount) {
     }
 
@@ -82,6 +88,7 @@ public class RefundQuery {
      * @param decisionReason 승인·반려의 근거. <b>반려면 반드시 있다</b>({@code refund_rejection_reason_check}) —
      *                       고객에게 왜 안 됐는지 답하는 값이라 요청 사유와 달리 내린다
      */
+    @Schema(name = "RefundDetail")
     public record Detail(String refundNumber, String sellerOrderNumber, String orderNumber,
             String status, String reasonCode, long amount, long shippingFeeRefund, long delayInterest,
             OffsetDateTime dueAt, boolean overdue, String gatewayRefundNumber,

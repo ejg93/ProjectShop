@@ -16,6 +16,8 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.product.StockReason;
 import com.projectshop.shop.support.ExposedNumber;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 장바구니에서 고른 것을 주문으로 굳힌다.
  *
@@ -80,6 +82,8 @@ public class OrderService {
 
     public record Shipping(String receiverName, String receiverPhone, String postalCode,
             String address1, String address2, String deliveryMemo) {}
+
+    @Schema(name = "OrderCreated")
 
     public record Created(long orderId, String orderNumber, long payableAmount) {}
 

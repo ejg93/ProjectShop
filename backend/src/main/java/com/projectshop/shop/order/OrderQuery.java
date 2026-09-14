@@ -29,6 +29,8 @@ import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.ActorType;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 산 사람이 자기 주문을 찾아 본다.
  *
@@ -70,14 +72,18 @@ public class OrderQuery {
     }
 
     /** 목록 한 줄. 무엇을 샀는지는 상세가 답한다 — 목록에 상품을 붙이면 화면마다 다른 요약이 필요해진다 */
+    @Schema(name = "OrderSummary")
     public record Summary(String orderNumber, String status, long payableAmount,
             int itemCount, OffsetDateTime createdAt) {
     }
+
+    @Schema(name = "OrderPage")
 
     public record Page(List<Summary> items, int page, int size, long total) {
     }
 
     /** 산 것 한 줄. 주문 시점에 박제된 값이라 상품이 바뀌어도 안 바뀐다 */
+    @Schema(name = "OrderItem")
     public record Item(String productName, String optionLabel, int quantity,
             long unitPriceInclVat, long lineAmount) {
     }
@@ -115,6 +121,7 @@ public class OrderQuery {
     }
 
     /** 받는 사람. {@code shipping} 그룹이라 못 보는 역할에는 이 필드가 통째로 빠진다 */
+    @Schema(name = "OrderShipping")
     public record Shipping(String receiverName, String receiverPhone, String postalCode,
             String address1, String address2, String deliveryMemo) {
     }
@@ -139,6 +146,7 @@ public class OrderQuery {
      * @param overdue 환급 기한을 넘겼나. <b>서버가 계산한다</b> — 화면이 비교하면 시계 차이만큼
      *                답이 갈리고, 그 답이 법 요건이다(`D2` R5)
      */
+    @Schema(name = "OrderRefund")
     public record Refund(String refundNumber, String sellerOrderNumber, String status,
             String reasonCode, long amount, OffsetDateTime dueAt, boolean overdue,
             OffsetDateTime createdAt) {
@@ -179,6 +187,7 @@ public class OrderQuery {
      *                 같은 이유로 그룹 목록이 그 둘을 가른다
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(name = "OrderDetail")
     public record Detail(String orderNumber, String status, long totalAmount,
             long shippingFeeTotal, long payableAmount, OffsetDateTime createdAt,
             List<SellerOrder> sellerOrders, List<HistoryEntry> history, Shipping shipping,

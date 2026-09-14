@@ -25,6 +25,8 @@ import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 셀러가 자기에게 넘어온 주문을 본다.
  *
@@ -60,10 +62,13 @@ public class SellerOrderQuery {
      *
      * @param shipOverdue 지금 늦고 있나. 판정은 뷰가 한다(`V37`) — 화면마다 다시 재지 않는다
      */
+    @Schema(name = "SellerOrderSummary")
     public record Summary(String sellerOrderNumber, String orderNumber, String status,
             int itemCount, long shippingFee, OffsetDateTime shipDueAt, boolean shipOverdue,
             OffsetDateTime createdAt) {
     }
+
+    @Schema(name = "SellerOrderPage")
 
     public record Page(List<Summary> items, int page, int size, long total) {
     }
@@ -83,6 +88,7 @@ public class SellerOrderQuery {
      *                       타입으로 두면 표기를 고르는 자리가 없어서 빠뜨림이 성립하지 않는다
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(name = "SellerOrderDetail")
     public record Detail(String sellerOrderNumber, String orderNumber, String status,
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
