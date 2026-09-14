@@ -74,7 +74,7 @@ class OpenApiSpecTest extends HttpTestBase {
      * 합쳐진 것을 여기 적으면 이 게이트가 자기가 막으려던 것을 봐주게 된다.
      */
     private static final Map<String, List<String>> SHARED_RESPONSES = Map.of(
-            "Account", List.of("GET /api/me", "PATCH /api/me", "POST /api/me/email"),
+            "Account", List.of("GET /api/me", "PATCH /api/me", "POST /api/me/email/confirm"),
             "PageInquiryEntry", List.of("GET /api/me/inquiries", "GET /api/seller/inquiries"),
             "ProductCreated", List.of("POST /api/products", "PUT /api/products/{productId}"),
             "Refund", List.of("POST /api/refunds", "POST /api/refunds/{refundNumber}/approve",

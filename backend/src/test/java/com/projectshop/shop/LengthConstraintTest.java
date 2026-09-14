@@ -69,6 +69,10 @@ class LengthConstraintTest extends PostgresTestBase {
                 Arguments.of("app_user_email_length_check", List.of(
                         component(com.projectshop.shop.auth.AuthController.SignupRequest.class, "email"),
                         component(com.projectshop.shop.account.MeController.EmailRequest.class, "email"))),
+                // 대기 주소도 요청으로 들어온다. 계정 주소와 같은 상한이어야 한다 —
+                // 여기만 넓으면 확인 뒤 옮기는 순간 app_user 의 제약이 터진다(`5e-1`).
+                Arguments.of("email_change_request_new_email_length_check", List.of(
+                        component(com.projectshop.shop.account.MeController.EmailRequest.class, "email"))),
                 Arguments.of("app_user_display_name_length_check", List.of(
                         component(com.projectshop.shop.auth.AuthController.SignupRequest.class, "displayName"),
                         component(com.projectshop.shop.account.MeController.UpdateRequest.class, "displayName"))),
@@ -134,6 +138,8 @@ class LengthConstraintTest extends PostgresTestBase {
      * <p>값이 「왜 앱 검증과 대조할 것이 없나」다. 답이 안 되면 {@code pairs()} 로 가야 한다.
      */
     private static final Map<String, String> NOT_COMPARED = new java.util.TreeMap<>(Map.ofEntries(
+            Map.entry("email_change_request_token_hash_length_check",
+                    "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5e-1`)"),
             Map.entry("password_reset_token_hash_length_check",
                     "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5c-1`)"),
             Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),

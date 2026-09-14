@@ -126,6 +126,27 @@ public class AccountService {
      * 손해가 없다.</b> 채널이 서는 청크에서 확인 절차를 같이 세운다.
      */
     @Transactional
+    /**
+     * 현재 비밀번호가 맞나만 본다(`5e-1`).
+     *
+     * <p><b>{@link #changeEmail} 에서 떼어 냈다.</b> 이메일은 이제 바로 안 바뀌고 대기를 거치는데,
+     * <b>「본인이 맞나」는 그 앞에서 그대로 물어야</b> 한다 — 세션을 훔친 사람이 대기를 걸면
+     * 링크가 그 사람 주소로 간다.
+     */
+    public void verifyPassword(long userId, String currentPassword) {
+        requireUpdatePermission(userId);
+
+        String stored = jdbc.sql(
+                        "select password_hash from app_user where user_id = :id and deleted_at is null")
+                .param("id", userId)
+                .query(String.class)
+                .single();
+
+        if (!passwordEncoder.matches(currentPassword, stored)) {
+            throw new ShopException(ErrorCode.PASSWORD_MISMATCH, "현재 비밀번호가 맞지 않는다");
+        }
+    }
+
     public Account changeEmail(long userId, String email, String currentPassword) {
         requireUpdatePermission(userId);
 

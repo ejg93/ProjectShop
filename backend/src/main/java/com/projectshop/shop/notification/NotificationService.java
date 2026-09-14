@@ -110,6 +110,19 @@ public class NotificationService {
                 Map.of("reset_url", resetUrl, "expires_at", expiresAt.toString()));
     }
 
+    /**
+     * 이메일 변경 확인을 <b>새 주소로</b> 보낸다(`5e-1`).
+     *
+     * <p>다른 통지는 계정에 적힌 주소로 간다. 이것만 다른 이유는 <b>그 주소를 받을 수
+     * 있는지가 이 메일의 물음</b>이기 때문이다.
+     */
+    public void sendEmailChange(long userId, String newEmail, String confirmUrl,
+            OffsetDateTime expiresAt) {
+        send(NotificationEventType.EMAIL_CHANGE, NotificationEventType.EMAIL_CHANGE.code(),
+                NotificationKind.TRANSACTIONAL, new Target(null, null, null, null), userId,
+                Map.of("confirm_url", confirmUrl, "expires_at", expiresAt.toString()), newEmail);
+    }
+
     public Optional<Long> send(NotificationEventType eventType, Target target, long userId,
             Map<String, String> values) {
         return send(eventType, eventType.code(), NotificationKind.TRANSACTIONAL, target, userId, values);
@@ -126,6 +139,20 @@ public class NotificationService {
      */
     Optional<Long> send(NotificationEventType eventType, String templateCode, NotificationKind expectedKind,
             Target target, long userId, Map<String, String> values) {
+        return send(eventType, templateCode, expectedKind, target, userId, values, null);
+    }
+
+    /**
+     * 받는 주소를 밖에서 주는 갈래(`5e-1`).
+     *
+     * <p><b>딱 한 가지에만 쓴다</b> — 이메일 변경 확인이다. 그 메일은 <b>아직 계정에 없는
+     * 주소</b>로 가야 하고, 받을 수 있다는 것이 곧 확인이다.
+     *
+     * <p><b>패키지 밖에 안 연다.</b> 임의 주소로 보낼 수 있는 입구가 열려 있으면
+     * 동의 관문이 통째로 뜻을 잃는다 — 관문은 <b>계정</b>에 달려 있기 때문이다.
+     */
+    Optional<Long> send(NotificationEventType eventType, String templateCode, NotificationKind expectedKind,
+            Target target, long userId, Map<String, String> values, String overrideAddress) {
         NotificationTemplates.Version version = templates.current(templateCode, OffsetDateTime.now())
                 .orElseThrow(() -> new IllegalStateException(
                         "시행 중인 알림 템플릿이 없다: " + templateCode));
@@ -145,7 +172,9 @@ public class NotificationService {
         // 이력도 안 남는다 — 보낼 수 없는 것을 「보내는 중」으로 남기면 재시도가 그것을 집는다.
         NotificationTemplates.Rendered rendered = templates.render(version, values);
 
-        Optional<String> address = addressOf(userId);
+        Optional<String> address = overrideAddress != null
+                ? Optional.of(overrideAddress)
+                : addressOf(userId);
         Optional<Long> recorded = record(eventType, target, userId, version, rendered);
         if (recorded.isEmpty()) {
             return Optional.empty();

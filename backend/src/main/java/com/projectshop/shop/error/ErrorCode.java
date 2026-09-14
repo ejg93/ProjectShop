@@ -44,6 +44,10 @@ public enum ErrorCode {
     // 가입
     EMAIL_TAKEN(HttpStatus.CONFLICT, "email-taken", "이미 가입된 이메일이다"),
 
+    /** 확인 토큰이 없거나, 만료됐거나, 이미 썼다(`5e-1`). 셋을 안 가른다 */
+    EMAIL_CHANGE_TOKEN_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, "email-change-token-invalid",
+            "쓸 수 없는 확인 토큰이다"),
+
     // 동의
     UNKNOWN_CONSENT_ITEM(HttpStatus.UNPROCESSABLE_CONTENT, "unknown-consent-item", "모르는 동의 항목이다"),
     REQUIRED_CONSENT_MISSING(HttpStatus.UNPROCESSABLE_CONTENT, "required-consent-missing",
