@@ -167,7 +167,7 @@ SellerOrder ─┬─ Refund ─┬─ RefundItem          → order_item
 | `compensation` → `inquiry` | set null | 배상이 문의에서 왔다는 표시일 뿐이다. 문의가 3년 뒤 사라져도 판정은 남는다 |
 
 **같은 뿌리 안에 cascade 와 restrict 가 섞인 이유는 정산이다.** `settlement_item` 이 `order_item`·`seller_order`·`refund_item`·`compensation` 을
-전부 restrict 로 가리켜서 **5년 주문 파기가 정산 줄에 막힌다** — 법 둘이 부딪치는 자리고 `43a-6` 이 정한다.
+전부 restrict 로 가리켜서 **5년 주문 파기가 정산 줄에 막힌다** — 법 둘이 부딪치는 자리고 `43a-28` 이 정한다.
 
 ## 정산 — 장부는 바깥을 restrict 로만 가리킨다
 
