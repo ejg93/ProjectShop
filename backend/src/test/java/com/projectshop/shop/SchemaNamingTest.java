@@ -71,6 +71,18 @@ class SchemaNamingTest extends PostgresTestBase {
             "return_request.restock", "「불리언은 is_ 로 시작한다」 — 요청 필드 이름이라 고치면 API 가 바뀐다",
             "holiday.holiday_date", "「기준에서 벗어난 것」 — 기본키가 식별자가 아니라 값 자체다");
 
+    /**
+     * 우리가 발급하지 않는 번호 컬럼. <b>우리가 만들어 내보내는 번호가 여기 들어오면 안 된다.</b>
+     *
+     * <p>값이 「누가 발급했나」다 — 우리가 발급한 것이면 이름이 {@code _number} 여야 한다.
+     */
+    private static final Map<String, String> INTERNAL_SEQUENCE_COLUMNS = new java.util.TreeMap<>(Map.of(
+            "consent_item.sort_no", "동의 항목을 화면에 세우는 순서. 우리가 형식을 정하지 않는다",
+            "product_option.sort_no", "옵션을 화면에 세우는 순서",
+            "product_option_value.sort_no", "옵션 값을 화면에 세우는 순서",
+            "seller.business_reg_no", "사업자등록번호. 국가가 발급한다 — 셀러 신원 표시에 쓴다(`D2` R1)",
+            "seller.mail_order_no", "통신판매업신고번호. 국가가 발급한다(`D2` R1)"));
+
     @Autowired
     private JdbcClient jdbc;
 
@@ -150,9 +162,32 @@ class SchemaNamingTest extends PostgresTestBase {
                 .filter(c -> c.name().endsWith("_num"))
                 .map(Column::qualified)
                 .toList())
-                .as("줄인 이름은 무엇의 번호인지가 안 남는다. 세는 수는 _count, 식별 번호는 _no"
+                .as("줄인 이름은 무엇의 번호인지가 안 남는다. 세는 수는 _count, 번호는 _number 나 _no"
                         + " (naming-rules.md 「SQL」)")
                 .isEmpty();
+    }
+
+    /**
+     * 「번호」가 둘이라 접미사도 둘이다(`Q42`, {@code naming-rules.md} 「접미사」).
+     *
+     * <b>가르는 기준은 「누가 발급했나」다.</b> 우리가 만들어 내보내는 번호는 {@code _number} 고
+     * 형식을 우리가 정하지 않는 것(화면 순번, 국가가 발급한 등록번호)은 {@code _no} 다.
+     *
+     * <p><b>실측이 문서를 고쳤다.</b> {@code D22} 는 「번호는 {@code _no}」라고만 적었는데 실물은
+     * {@code _number} 여덟에 {@code _no} 다섯이었고, 그 다섯이 <b>순번 셋과 법정 번호 둘</b>이라
+     * 한 갈래가 아니었다. 둘이 다른 것이라 문서를 갈랐다.
+     */
+    @Test
+    @DisplayName("_no 로 끝나는 컬럼이 적어 둔 것뿐이다")
+    void internalSequenceSuffixIsPinned() {
+        assertThat(columns().stream()
+                .filter(c -> c.name().endsWith("_no"))
+                .map(Column::qualified)
+                .sorted()
+                .toList())
+                .as("노출 번호를 _no 로 지으면 뜻이 뒤집힌다 (naming-rules.md 「접미사」)."
+                        + " 새로 생기면 그것이 바깥이 부르는 번호인지 먼저 묻는다")
+                .isEqualTo(List.copyOf(INTERNAL_SEQUENCE_COLUMNS.keySet()));
     }
 
     @Test
