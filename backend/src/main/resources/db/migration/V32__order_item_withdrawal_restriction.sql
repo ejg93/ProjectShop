@@ -25,18 +25,8 @@
 --                    제17조제5항이 그 입증을 우리에게 지웠다. 접수를 막는 근거가 못 되고,
 --                    실제 판단은 반품 검수 축(43·44)이 한다. 그래서 값에서 뺀다
 
-
-alter table order_item add column withdrawal_restriction_reason text;
-
-comment on column order_item.withdrawal_restriction_reason is
-    '이 거래에서 성립한 청약철회 제한 사유. null 이면 제한이 없다(D2 R4, 전자상거래법 제17조제2항)';
-
 -- 동의를 받은 시각. 값이 아니라 시각인 이유는 **언제 받았는지가 입증 자료**라서다 —
 -- 동의 이력(user_consent)이 acted_at 을 남기는 것과 같다(D2 R11).
-alter table order_item add column withdrawal_restriction_agreed_at timestamptz;
-
-comment on column order_item.withdrawal_restriction_agreed_at is
-    '주문제작 상품의 청약철회 제한에 동의받은 시각(전자상거래법 시행령 제21조)';
 
 -- 값을 닫는다(D23 「법이 인정한 목록은 닫는다」).
 alter table order_item add constraint order_item_withdrawal_reason_check

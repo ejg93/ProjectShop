@@ -8,10 +8,6 @@
 -- (business-model.md). 주문 항목이 이미 그 값을 굳혀 뒀고(V16 commission_bp·commission_amount)
 -- 정산은 그것을 읽기만 한다. 여기서 하는 것은 **읽은 값을 정산 행에도 굳히는 것**이다.
 
-
-alter table settlement_item add column commission_bp int;
-alter table settlement_item add column commission_base_amount bigint;
-
 -- 이미 들어간 수수료 줄에 근거를 채운다.
 --
 -- 값이 전부 주문 항목에 있다. 정산이 그 항목을 가리키고 있어서 조인 하나로 닿는다 —
@@ -22,13 +18,6 @@ update settlement_item i
   from order_item oi
  where oi.order_item_id = i.order_item_id
    and i.kind = 'commission';
-
-comment on column settlement_item.commission_bp is
-    '뗀 요율. 주문 시점에 굳힌 order_item.commission_bp 를 그대로 옮긴다(청크 18)';
-
-comment on column settlement_item.commission_base_amount is
-    '요율을 곱한 기준 금액. 그 주문 항목의 line_amount 다(청크 18)';
-
 
 -- 수수료 줄에만 있다.
 --

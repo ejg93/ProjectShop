@@ -7,18 +7,10 @@
 -- **소비자의 불만 또는 분쟁처리에 관한 기록**(3년)이라, 단순 문의까지 거기 쌓이면
 -- **「분쟁이 몇 건이었나」에 답을 못 한다.**
 
-
-alter table inquiry add column seller_order_id bigint
-    references seller_order (seller_order_id) on delete restrict;
-
-comment on column inquiry.seller_order_id is
-    '주문 문의의 대상 묶음. 셀러가 자기 것만 보는 근거도 이 값이다(청크 58-2)';
-
 alter table inquiry drop constraint inquiry_kind_check;
 
 alter table inquiry add constraint inquiry_kind_check
     check (kind in ('product', 'order', 'processing_stop', 'access_objection', 'dispute'));
-
 
 -- 종류가 대상을 정한다.
 --
@@ -31,7 +23,6 @@ alter table inquiry add constraint inquiry_target_check
     check ((kind = 'product') = (product_id is not null)
            and (kind = 'order') = (seller_order_id is not null));
 
-
 -- **주문 문의는 공개가 성립하지 않는다.**
 --
 -- 남의 주문을 남이 보면 안 된다 — 무엇을 언제 샀는지가 그 질문에 그대로 들어 있다.
@@ -40,7 +31,6 @@ alter table inquiry add constraint inquiry_target_check
 -- 다음에 종류가 늘 때 「왜 product 만 있나」를 이 주석이 답한다.
 --
 --   inquiry_visibility_check: kind = 'product' or is_public = false
-
 
 -- 셀러가 자기 묶음의 문의를 찾는 자리.
 create index inquiry_seller_order_idx on inquiry (seller_order_id, created_at desc)

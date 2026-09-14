@@ -78,6 +78,8 @@ create table product (
 
     -- 셀러가 상품을 내린다. 수명과 업무 상태를 가른다(domain-model.md).
     deleted_at  timestamptz,
+    -- V26 가 더한 칸(Q36 이 접었다)
+    supply_lead_days int,
 
     constraint product_status_check
         check (status in ('draft', 'pending_review', 'on_sale', 'sold_out',
@@ -211,3 +213,6 @@ create table sku_option_value (
 
 create index sku_option_value_option_value_idx
     on sku_option_value (product_option_value_id);
+
+comment on column product.supply_lead_days is
+    '공급시기 약정 날수(영업일). null 이면 약정이 없어 법정 3영업일이 걸린다(D2 R21)';

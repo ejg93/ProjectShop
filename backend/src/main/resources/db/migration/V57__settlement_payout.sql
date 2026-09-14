@@ -6,7 +6,6 @@
 -- **요청과 승인을 가른다.** refund 가 같은 것을 이미 했고(V23·V24) 이유도 같다 —
 -- 돈이 나가는 결정을 한 사람이 혼자 끝내지 않는다.
 
-
 -- 지급 상태.
 --
 --   pending    마감만 됐다. 아직 아무도 지급을 시작 안 했다
@@ -19,15 +18,6 @@
 -- 반려했다는 사실은 감사 로그가 든다.
 --
 -- **취소가 없다.** 지급액은 마감이 정한 값이라 반려한다고 사라지지 않는다.
-alter table settlement add column payout_status text not null default 'pending';
-
-alter table settlement add column payout_requested_by_user_id bigint
-    references app_user (user_id) on delete restrict;
-alter table settlement add column payout_requested_at timestamptz;
-
-alter table settlement add column payout_decided_by_user_id bigint
-    references app_user (user_id) on delete restrict;
-alter table settlement add column payout_decided_at timestamptz;
 
 alter table settlement add constraint settlement_payout_status_check
     check (payout_status in ('pending', 'requested', 'paid', 'rejected'));
@@ -65,15 +55,11 @@ alter table settlement add constraint settlement_payout_self_approval_check
 alter table settlement add constraint settlement_payout_amount_check
     check (payout_status = 'pending' or payout_amount > 0);
 
-comment on column settlement.payout_status is
-    '지급 진행 상태. 마감(19)과 지급(21)은 다른 사건이다 — 확정됐다고 돈이 나간 것이 아니다';
-
 -- 지급일이 지났는데 안 나간 것을 찾는 자리.
 --
 -- **「배치가 돌았나」가 아니라 「밀린 것이 몇이냐」를 봐야 값이 보인다**(12a-5·36a 와 같은 판단).
 create index settlement_unpaid_idx on settlement (settlement_cycle_id)
  where payout_status <> 'paid';
-
 
 -- 권한.
 --
@@ -101,7 +87,6 @@ select r.role_id, p.permission_id, 'all', 'deny'
                    and p.action in ('request_payout', 'payout')
  where r.code = 'auditor';
 
-
 -- 지급이 관리자 밖으로 안 나갔는지 확인한다.
 --
 -- 빠뜨리면 조용하다. 셀러에게 payout 을 주면 **셀러가 자기 지급을 스스로 승인**하는데,
@@ -121,7 +106,6 @@ begin
         raise exception '지급은 관리자만이다. 열린 것: %', granted;
     end if;
 end $$;
-
 
 do $$
 declare missing int;

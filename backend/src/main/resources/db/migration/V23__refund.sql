@@ -71,6 +71,12 @@ create table refund (
 
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
+    -- V25 가 더한 칸(Q36 이 접었다)
+    requested_by_type text not null,
+    -- V47 가 더한 칸(Q36 이 접었다)
+    delay_interest bigint not null default 0,
+    -- V51 가 더한 칸(Q36 이 접었다)
+    approved_by_type text,
 
     constraint refund_number_unique unique (refund_number),
 
@@ -133,7 +139,6 @@ create index refund_seller_order_idx on refund (seller_order_id, created_at desc
 -- 기한을 넘긴 미처리 요청을 찾는 자리다(D2 R5). 이 인덱스가 없으면 그 조회가 전체를 훑는다.
 create index refund_pending_due_idx on refund (due_at) where status = 'requested';
 
-
 -- 환불 항목. 어느 주문 항목을 몇 개 돌려주나.
 --
 -- refund 가 seller_order 단위인데 이 표가 있는 이유는 부분 환불이다.
@@ -173,7 +178,6 @@ comment on table refund_item is '환불에 담긴 주문 항목과 수량. 부�
 create index refund_item_refund_idx on refund_item (refund_id);
 create index refund_item_order_item_idx on refund_item (order_item_id);
 
-
 -- 한 환불의 합계가 항목 합과 맞는지 본다.
 --
 -- 한 행 안에서 안 끝나는 등식이라 check 로 못 건다. V16 의 assert_order_amounts 와 같은 모양이고
@@ -210,7 +214,6 @@ begin
     end if;
 end;
 $$;
-
 
 -- 주문 하나의 환불 합이 결제액을 안 넘는지 본다(money-invariants).
 --
@@ -250,7 +253,6 @@ begin
     end if;
 end;
 $$;
-
 
 -- 한 주문 항목에서 누적으로 얼마나 나갔는지 본다.
 --
@@ -299,7 +301,6 @@ begin
 end;
 $$;
 
-
 create or replace function check_refund() returns trigger
 language plpgsql as $$
 declare
@@ -324,7 +325,6 @@ begin
     return null;
 end;
 $$;
-
 
 create or replace function check_refund_item() returns trigger
 language plpgsql as $$
@@ -354,7 +354,6 @@ begin
 end;
 $$;
 
-
 -- 지연 트리거인 이유는 V16 과 같다. refund 가 먼저 들어가고 refund_item 이 뒤에 붙는데
 -- 참조 방향이 그 반대라 순서를 못 바꾼다 — 즉시 트리거면 refund 를 넣는 순간
 -- 항목이 0개라 언제나 깨진다.
@@ -367,3 +366,12 @@ create constraint trigger refund_item_amounts_check
     after insert or update or delete on refund_item
     deferrable initially deferred
     for each row execute function check_refund_item();
+
+comment on column refund.requested_by_type is
+    '요청 출처. system 은 스위퍼가 만든 것이다(12a-3)';
+
+comment on column refund.delay_interest is
+    '환급이 기한을 넘겨서 붙은 지연배상금. 연 15%(시행령 제21조의3, D2 R5). 안 늦었으면 0';
+
+comment on column refund.approved_by_type is
+    '처리 출처. system 은 스위퍼가 자기 요청을 승인한 것이다(12a-5). 미처리면 null';

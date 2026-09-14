@@ -5,7 +5,6 @@
 --   1. 사유    cancelled 하나가 서로 다른 조문 둘을 덮고 있었다.
 --   2. 요청자  배치가 요청을 만들 자리가 없었다. requested_by_user_id 가 not null 이다.
 
-
 -- 1. 셀러 공급 불능을 별도 사유로 뗀다.
 --
 -- 법의 기산점이 다르다. 같은 「취소」인데 조문이 갈린다.
@@ -34,7 +33,6 @@ comment on column refund.reason_code is
 -- 재분류할 것이 없다. 운영 데이터가 있었으면 이 자리에 update 가 와야 한다 —
 -- 없다는 것을 적어 두지 않으면 다음 사람이 "빠뜨렸나" 를 묻게 된다.
 
-
 -- 2. 요청자를 사람 아닌 것도 담을 수 있게 연다.
 --
 -- 스위퍼(12a-3)가 요청을 만든다. 법이 청약철회만으로 환급 의무를 발생시키므로
@@ -44,11 +42,8 @@ comment on column refund.reason_code is
 -- 사람 컬럼을 nullable 로 뒀다. 같은 모양을 쓴다. 둘이 다른 방식이면
 -- 「이 행을 누가 만들었나」를 묻는 코드가 표마다 달라진다.
 
-alter table refund add column requested_by_type text not null default 'customer';
-
 -- 기본값을 지우는 이유는 다음 행이 조용히 customer 가 되지 않게 하려는 것이다.
 -- 기존 행을 채우는 데만 쓰고 걷는다.
-alter table refund alter column requested_by_type drop default;
 
 alter table refund alter column requested_by_user_id drop not null;
 
@@ -59,10 +54,6 @@ alter table refund add constraint refund_requested_by_type_check
 -- 한쪽만 걸면 「관리자가 냈는데 누구인지 모르는」 행이 생긴다(V18 과 같은 문장).
 alter table refund add constraint refund_requested_by_user_check
     check ((requested_by_type = 'system') = (requested_by_user_id is null));
-
-comment on column refund.requested_by_type is
-    '요청 출처. system 은 스위퍼가 만든 것이다(12a-3)';
-
 
 -- 자기승인 차단이 시스템 요청에서 뚫리지 않게 한다.
 --
@@ -78,7 +69,6 @@ alter table refund add constraint refund_self_approval_check
     check (approved_by_user_id is null
            or requested_by_user_id is null
            or approved_by_user_id <> requested_by_user_id);
-
 
 -- 스위퍼가 매 회차에 훑는 조건이다.
 --

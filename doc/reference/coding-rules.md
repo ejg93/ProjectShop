@@ -707,6 +707,13 @@ rs.getObject("product_option_value_id", Long.class)
 
 ## 마이그레이션
 
+**접었다**(`Q36`, 2026-09-14) — `add column` 스물넷을 표의 `create` 일곱 파일로 옮겼다.
+`pg_dump --schema-only` 전후 diff 가 0 이었다(다른 것은 pg_dump 가 실행마다 새로 만드는 토큰 두 줄뿐).
+**배포가 나가면 다시는 못 한다** — 그 뒤로는 `alter` 가 영구다.
+
+**재사용 컨테이너를 지워야 한다.** 적용된 마이그레이션을 고치면 Flyway 체크섬이 깨지는데,
+Testcontainers 가 컨테이너를 재사용해서 **옛 이력이 남는다** — `docker rm -f $(docker ps -aq --filter label=org.testcontainers=true)`.
+
 **배포 전엔 `alter` 를 쌓아도 된다. 배포 직전에 한 번 `create` 로 접는다**(사용자 결정 2026-09-13, `Q36`).
 
 처음 규칙은 「쌓지 않고 그때그때 `create` 를 고친다」였는데 **`V25` 부터 열다섯 파일이 `add column` 24개를 쌓았다** —

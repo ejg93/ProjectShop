@@ -7,7 +7,6 @@
 -- 없어서 「이 수수료 합이 어느 주문에서 나왔나」에 정산서가 답을 못 한다 — 그때 주문 표를
 -- 다시 더하면 그 계산이 마감 때와 같다는 보장이 없다(박제가 안 된다).
 
-
 -- 1. 주기. 월 하나에 한 행이고 셀러와 무관하다.
 --
 -- **셀러별로 안 판다.** 주기는 「전달 1일~말일을 이번 달 10일에 준다」는 달력이라
@@ -45,7 +44,6 @@ create table settlement_cycle (
 comment on table settlement_cycle is
     '정산 주기. 전달 1일~말일 KST 를 대상으로 하고 지급일을 박제한다(D3, 청크 17)';
 
-
 -- 2. 명세. 셀러 하나의 그 주기 정산서다.
 create table settlement (
     settlement_id bigint not null generated always as identity primary key,
@@ -71,6 +69,21 @@ create table settlement (
 
     -- **두 번 돌면 지급이 두 배가 되는 사고는 합계 불일치로 안 잡힌다** — 두 번째 정산서는
     -- 그것대로 합이 맞는다. 그래서 유일성이 등식과 별개로 필요하다(money-invariants.md).
+    -- V56 가 더한 칸(Q36 이 접었다)
+    settlement_number text,
+    -- V57 가 더한 칸(Q36 이 접었다)
+    payout_status text not null default 'pending',
+    -- V57 가 더한 칸(Q36 이 접었다)
+    payout_requested_by_user_id bigint
+        references app_user (user_id) on delete restrict,
+    -- V57 가 더한 칸(Q36 이 접었다)
+    payout_requested_at timestamptz,
+    -- V57 가 더한 칸(Q36 이 접었다)
+    payout_decided_by_user_id bigint
+        references app_user (user_id) on delete restrict,
+    -- V57 가 더한 칸(Q36 이 접었다)
+    payout_decided_at timestamptz,
+
     constraint settlement_cycle_seller_unique unique (settlement_cycle_id, seller_id),
 
     constraint settlement_carried_over_check
@@ -84,7 +97,6 @@ comment on table settlement is
 
 comment on column settlement.payout_amount is
     '이번에 지급할 금액. 항목 합과 같다(지연 트리거). 회수가 판매를 넘으면 음수다';
-
 
 -- 3. 항목. 정산서 한 줄이고 근거를 가리킨다.
 create table settlement_item (
@@ -128,6 +140,10 @@ create table settlement_item (
     ) stored,
 
     created_at timestamptz not null default now(),
+    -- V55 가 더한 칸(Q36 이 접었다)
+    commission_bp int,
+    -- V55 가 더한 칸(Q36 이 접었다)
+    commission_base_amount bigint,
 
     constraint settlement_item_kind_check
         check (kind in ('sale', 'shipping_fee', 'commission',
@@ -191,7 +207,6 @@ comment on table settlement_item is
 
 comment on column settlement_item.supplier is
     '부가가치세법상 공급자. kind 에서 생성되므로 어긋날 수 없다. 이월은 공급이 아니라 비어 있다';
-
 
 -- 지급액이 항목 합과 같다.
 --
@@ -260,3 +275,15 @@ create constraint trigger settlement_item_amounts_check
     after insert or update or delete on settlement_item
     deferrable initially deferred
     for each row execute function check_amounts_on_settlement_item();
+
+comment on column settlement_item.commission_bp is
+    '뗀 요율. 주문 시점에 굳힌 order_item.commission_bp 를 그대로 옮긴다(청크 18)';
+
+comment on column settlement_item.commission_base_amount is
+    '요율을 곱한 기준 금액. 그 주문 항목의 line_amount 다(청크 18)';
+
+comment on column settlement.settlement_number is
+    '정산서 노출 번호. 내부 ID 를 URL 에 쓰면 전체 정산 건수가 샌다(D9, 청크 20)';
+
+comment on column settlement.payout_status is
+    '지급 진행 상태. 마감(19)과 지급(21)은 다른 사건이다 — 확정됐다고 돈이 나간 것이 아니다';

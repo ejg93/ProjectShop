@@ -7,9 +7,6 @@
 -- 접두어는 T- 다. P- 는 D9 가 결제(payment_number)에 예약해 뒀고,
 -- 두 글자 접두어는 나머지 넷(빈 문자열·S-·R-·Q-)과 형식이 어긋난다.
 
-
-alter table settlement add column settlement_number text;
-
 -- 지금 있는 행을 채운다.
 --
 -- **운영 데이터가 없다** — 정산 표는 청크 17 이 오늘 세웠고 들어간 행은 테스트가 만든 것뿐이다.
@@ -33,17 +30,12 @@ alter table settlement add constraint settlement_number_unique unique (settlemen
 alter table settlement add constraint settlement_number_format_check
     check (settlement_number ~ '^T-[0-9]{8}-[2-9A-HJ-NP-Z]{6}$');
 
-comment on column settlement.settlement_number is
-    '정산서 노출 번호. 내부 ID 를 URL 에 쓰면 전체 정산 건수가 샌다(D9, 청크 20)';
-
-
 -- 조회 권한.
 --
 -- **고객에게 안 준다.** 정산은 우리와 셀러 사이의 계산이고 사는 사람이 볼 것이 아니다 —
 -- 셀러 신원 응답에서 수수료율을 뺀 것과 같은 판단이다(14a).
 insert into permission (resource, action, description) values
     ('settlement', 'read', '정산서와 그 항목을 조회한다');
-
 
 -- 판매자(대표). 자기 셀러 것만 본다.
 insert into role_permission (role_id, permission_id, scope, effect)
@@ -52,14 +44,12 @@ select r.role_id, p.permission_id, 'seller', 'allow'
   join permission p on p.resource = 'settlement' and p.action = 'read'
  where r.code = 'seller_owner';
 
-
 -- 관리자. V3 의 admin 부여는 그 시점의 permission 만 훑었으므로 새 권한은 여기서 넣는다.
 insert into role_permission (role_id, permission_id, scope, effect)
 select r.role_id, p.permission_id, 'all', 'allow'
   from role r
   join permission p on p.resource = 'settlement' and p.action = 'read'
  where r.code = 'admin';
-
 
 -- 감사자. 읽기라 연다.
 --
@@ -70,7 +60,6 @@ select r.role_id, p.permission_id, 'all', 'allow'
   from role r
   join permission p on p.resource = 'settlement' and p.action = 'read'
  where r.code = 'auditor';
-
 
 -- 고객에게 안 열렸는지 확인한다.
 --
@@ -91,7 +80,6 @@ begin
         raise exception '정산은 우리와 셀러 사이의 계산이다. 열린 역할: %', granted;
     end if;
 end $$;
-
 
 -- 셀러가 seller 범위로만 열렸는지 확인한다.
 --
