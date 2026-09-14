@@ -45,8 +45,8 @@ curl localhost:8080/actuator/health
 | `SERVER_PORT` | `8080`. 없으면 `PORT`(호스팅이 주입하는 이름)를 본다 |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` |
 | `REDIS_PASSWORD` | 빈 값(인증 없음). 관리형 Redis 는 넣어야 붙는다 |
-| `SESSION_COOKIE_SECURE` | `false`. **https 로 올리면 `true` 가 필수다** — 안 켜면 세션 쿠키가 평문으로 흐른다 |
-| `TRUSTED_PROXIES` | 루프백. `X-Forwarded-For` 를 믿어 줄 상대의 정규식 |
+| `SESSION_COOKIE_SECURE` | `false`. **https 로 올리면 `true` 가 필수다** — 안 켜면 세션 쿠키가 평문으로 흐른다 | — **프록시가 루프백 밖인데 꺼져 있으면 안 뜬다**(`Q44`) 
+| `TRUSTED_PROXIES` | 루프백. `X-Forwarded-For` 를 믿어 줄 상대의 정규식 | — **넓게 열면 안 뜬다**(`Q44`, `SecuritySettingsCheck`) 
 
 ## 호스팅에 올릴 때
 
