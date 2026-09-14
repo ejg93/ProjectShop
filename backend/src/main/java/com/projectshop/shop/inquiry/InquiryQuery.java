@@ -164,6 +164,28 @@ public class InquiryQuery {
     }
 
     /**
+     * 전체 문의(`25-1`). 관리자와 감사자가 훑는 자리다.
+     *
+     * <p><b>이 목록이 없어서 마스킹이 한 번도 안 걸렸다.</b> `25` 가 「남의 문의 본문은 관리자에게도
+     * 가려진다」를 판정에 박아 뒀는데, <b>남의 문의를 훑는 경로가 없어서</b> 그 규칙이 응답에서
+     * 실제로 비는지를 아무도 본 적이 없다. 여기가 그것을 처음 태운다.
+     *
+     * <p><b>대상을 {@code Target.of(-1L, -1L)} 로 잡는다</b>({@code AuditLogQuery} 와 같은 꼴).
+     * 남의 것이 섞여 오는 요청이라 <b>{@code own} 으로도 {@code seller} 로도 못 덮는다</b> —
+     * {@code all} 이 열린 사람만 통과한다.
+     *
+     * <p><b>마스킹 조건을 새로 안 쓴다.</b> {@link #bodyVisibleTo} 를 그대로 태운다 —
+     * 목록마다 규칙을 다시 쓰면 한 곳을 빠뜨렸을 때 <b>그 목록만 본문을 다 보여 주고 아무것도
+     * 안 깨진다.</b>
+     */
+    public Page<Entry> findAll(long viewerId, Paging paging) {
+        boolean body = bodyVisibleTo(viewerId, Target.of(-1L, -1L), "전체 문의를 볼 권한이 없다");
+
+        // 조건이 없다. 조건 자리를 비우는 대신 언제나 참인 것을 둬서 `find` 의 모양을 안 바꾼다.
+        return find("true", Map.of(), paging, body);
+    }
+
+    /**
      * 조건만 갈아 끼우고 나머지는 같다.
      *
      * <p>조건 문자열은 <b>이 파일 안의 리터럴</b>이라 바깥에서 오는 값이 없다(`D23` 「SQL」).

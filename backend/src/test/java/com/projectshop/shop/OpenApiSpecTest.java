@@ -75,7 +75,8 @@ class OpenApiSpecTest extends HttpTestBase {
      */
     private static final Map<String, List<String>> SHARED_RESPONSES = Map.of(
             "Account", List.of("GET /api/me", "PATCH /api/me", "POST /api/me/email/confirm"),
-            "PageInquiryEntry", List.of("GET /api/me/inquiries", "GET /api/seller/inquiries"),
+            "PageInquiryEntry", List.of("GET /api/inquiries", "GET /api/me/inquiries",
+                    "GET /api/seller/inquiries"),
             "ProductCreated", List.of("POST /api/products", "PUT /api/products/{productId}"),
             "Refund", List.of("POST /api/refunds", "POST /api/refunds/{refundNumber}/approve",
                     "POST /api/refunds/{refundNumber}/reject"));

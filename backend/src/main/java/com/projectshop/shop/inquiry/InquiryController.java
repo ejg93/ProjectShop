@@ -168,6 +168,19 @@ public class InquiryController {
         return query.findForSeller(user.id(), paging);
     }
 
+    /**
+     * 전체 문의(`25-1`). {@code all} 스코프가 열린 사람만 통과한다.
+     *
+     * <p><b>경로가 `/api/inquiries` 다.</b> 관객을 경로에 안 박는다 — 같은 자원이고
+     * 무엇을 볼 수 있나는 판정이 정한다(`D22` 「경로가 관객이어도 패키지는 자원이다」와 같은 결).
+     * 권한이 없으면 403 이지 404 가 아니다 — 문의가 있다는 사실은 비밀이 아니다.
+     */
+    @GetMapping("/api/inquiries")
+    public InquiryQuery.Page<InquiryQuery.Entry> all(@AuthenticationPrincipal ShopUser user,
+            @ParameterObject Paging paging) {
+        return query.findAll(user.id(), paging);
+    }
+
     /** 열거값은 API 가 대문자고 저장은 소문자다(`D5`). 종류와 사유가 같은 규칙을 쓴다 */
     private static String storedEnum(String kind) {
         return kind.toLowerCase(java.util.Locale.ROOT);
