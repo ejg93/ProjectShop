@@ -68,6 +68,9 @@ public class SecurityConfig {
             // 가입과 로그인은 계정이 없거나 아직 인증되지 않은 사람이 부른다.
             "/api/auth/signup",
             "/api/auth/login",
+            // 비밀번호를 잊은 사람이 부른다. 로그인할 수 없는 것이 이 입구를 쓰는 이유다(`5c-1`).
+            "/api/auth/password-reset",
+            "/api/auth/password-reset/confirm",
             // 약관·개인정보 고지는 동의하기 전에 읽는 것이다. 그 시점은 로그인 전이다.
             // 막아 두면 가입 화면이 무엇에 동의하는지 못 보여준다(약관규제법 제3조).
             "/api/consent-items/**",

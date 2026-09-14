@@ -95,6 +95,21 @@ public class NotificationService {
      * @return 남긴 발송 id. 이미 보낸 사건이면 빈 값
      * @throws NotificationTemplates.MissingTemplateValueException 판이 부르는 값을 안 넘겼으면
      */
+    /**
+     * 비밀번호 재설정 안내를 보낸다(`5c-1`).
+     *
+     * <p><b>원시 사건값을 패키지 밖에 안 연다.</b> {@code NotificationEventType} 이 열려 있으면
+     * 부르는 쪽이 아무 사건이나 골라 보낼 수 있고, 광고 관문({@link AdvertisingGate})을
+     * 건너뛸 자리가 생긴다 — 그래서 <b>목적마다 입구를 낸다.</b>
+     *
+     * @param resetUrl  토큰이 실린 링크. <b>원문이 나가는 유일한 자리다</b>
+     * @param expiresAt 링크가 죽는 시각
+     */
+    public void sendPasswordReset(long userId, String resetUrl, OffsetDateTime expiresAt) {
+        send(NotificationEventType.PASSWORD_RESET, new Target(null, null, null, null), userId,
+                Map.of("reset_url", resetUrl, "expires_at", expiresAt.toString()));
+    }
+
     public Optional<Long> send(NotificationEventType eventType, Target target, long userId,
             Map<String, String> values) {
         return send(eventType, eventType.code(), NotificationKind.TRANSACTIONAL, target, userId, values);

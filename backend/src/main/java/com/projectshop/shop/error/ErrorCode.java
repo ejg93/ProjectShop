@@ -32,6 +32,15 @@ public enum ErrorCode {
     ALREADY_WITHDRAWN(HttpStatus.UNAUTHORIZED, "already-withdrawn", "이미 탈퇴한 계정이다"),
     PASSWORD_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "password-mismatch", "비밀번호가 맞지 않는다"),
 
+    /**
+     * 재설정 토큰이 없거나, 만료됐거나, 이미 썼다(`5c-1`).
+     *
+     * <p><b>셋을 안 가른다.</b> 「만료됐다」와 「그런 토큰이 없다」를 갈라 주면 남의 링크를
+     * 주워 온 사람이 <b>그것이 실재했는지</b>를 알게 된다(`D14`).
+     */
+    PASSWORD_RESET_TOKEN_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, "password-reset-token-invalid",
+            "쓸 수 없는 재설정 토큰이다"),
+
     // 가입
     EMAIL_TAKEN(HttpStatus.CONFLICT, "email-taken", "이미 가입된 이메일이다"),
 
