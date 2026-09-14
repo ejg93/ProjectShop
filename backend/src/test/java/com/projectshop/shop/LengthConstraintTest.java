@@ -103,7 +103,25 @@ class LengthConstraintTest extends PostgresTestBase {
                                 "question"))),
                 Arguments.of("inquiry_answer_length_check", List.of(
                         component(com.projectshop.shop.inquiry.InquiryController.AnswerRequest.class,
-                                "answer"))));
+                                "answer"))),
+                // Q46 이 이은 넷. 서비스가 요청의 사유를 옮겨 담는 자리라 호출 사슬을 따라가 찾았다.
+                //
+                // `order_status_history_note.reason` 은 **입구가 넷**이다 — 상태를 옮기는 모든
+                // 동작이 같은 칸에 사유를 쌓는다. 하나만 이으면 나머지 셋이 갈려도 안 걸린다.
+                Arguments.of("order_status_history_note_reason_length_check", List.of(
+                        component(com.projectshop.shop.order.ShipmentController.ActionRequest.class, "reason"),
+                        component(com.projectshop.shop.order.ShipmentController.ApproveReturnRequest.class,
+                                "reason"),
+                        component(com.projectshop.shop.order.ShipmentController.RejectReturnRequest.class,
+                                "reason"),
+                        component(com.projectshop.shop.order.ReturnController.ReceiveRequest.class, "reason"))),
+                Arguments.of("return_note_decision_reason_length_check", List.of(
+                        component(com.projectshop.shop.order.ShipmentController.RejectReturnRequest.class,
+                                "decisionReason"))),
+                Arguments.of("refund_note_request_reason_length_check", List.of(
+                        component(com.projectshop.shop.payment.RefundController.RefundRequest.class, "reason"))),
+                Arguments.of("refund_note_decision_reason_length_check", List.of(
+                        component(com.projectshop.shop.payment.RefundController.DecisionRequest.class, "reason"))));
     }
 
     /**
@@ -122,12 +140,8 @@ class LengthConstraintTest extends PostgresTestBase {
             Map.entry("payment_card_issuer_length_check", "결제 대행사가 준 값이다"),
             Map.entry("payment_decline_reason_length_check", "결제 대행사가 준 값이다"),
             Map.entry("refund_gateway_refund_number_length_check", "결제 대행사가 준 값이다"),
-            Map.entry("order_status_history_note_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 어느 요청 record 와 짝인지 실측해야 한다(`Q46`)"),
-            Map.entry("refund_note_decision_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
-            Map.entry("refund_note_request_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
-            Map.entry("return_note_decision_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
-            Map.entry("return_note_inspection_note_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
-            Map.entry("return_note_request_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)")));
+            Map.entry("return_note_inspection_note_length_check", "쓰는 코드가 아직 없다 — 검수 소견을 남기는 입구가 `43a` 다. 그 입구가 서면 pairs() 로 옮긴다"),
+            Map.entry("return_note_request_reason_length_check", "쓰는 코드가 아직 없다 — 반품 접수 입구가 `43a` 다. 그 입구가 서면 pairs() 로 옮긴다")));
 
     /**
      * 모든 {@code length} 제약이 <b>대조되거나 이유가 적혀 있다</b>(`Q28`).
