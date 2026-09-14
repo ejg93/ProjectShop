@@ -34,7 +34,11 @@ create table password_reset_token (
         check (expires_at > issued_at)
 );
 
--- 같은 해시가 둘일 수 없다. 대조가 한 행으로 떨어진다.
+-- 같은 해시가 둘일 수 없다.
+--
+-- **조회 경로가 아니다.** 인코더가 매번 다른 소금을 써서 원문으로는 해시를 못 만들고,
+-- 그래서 `PasswordResetService.liveTokens` 는 살아 있는 것을 꺼내 하나씩 대 본다 —
+-- 사람마다 하나뿐이라 그 목록이 길어야 하나다. 이 인덱스가 막는 것은 **같은 해시가 둘 서는 것**이다.
 create unique index password_reset_token_hash_idx
     on password_reset_token (token_hash);
 

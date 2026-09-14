@@ -10,6 +10,7 @@ import java.util.Map;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.projectshop.shop.audit.AuditLog;
@@ -27,7 +28,7 @@ import com.projectshop.shop.error.ShopException;
  *
  * <h2>비밀번호 재확인과 다른 물음이다</h2>
  *
- * <p>{@link AccountService#changeEmail} 이 이미 현재 비밀번호를 받는다 — 그것은 「본인이 맞나」다.
+ * <p>{@link AccountService#verifyPassword} 가 이 앞에서 현재 비밀번호를 받는다 — 그것은 「본인이 맞나」다.
  * 여기서 더하는 것은 <b>「그 주소가 그 사람 것인가」</b>고, 둘 다 있어야 한다.
  *
  * <h2>토큰 다루는 방식은 `5c-1` 과 같다</h2>
@@ -117,6 +118,7 @@ public class EmailChangeService {
      *
      * @return 바뀐 주소
      */
+    @Transactional
     public String confirm(long userId, String token) {
         Request found = liveRequests(userId).stream()
                 .filter(candidate -> passwordEncoder.matches(token, candidate.hash()))
@@ -136,6 +138,19 @@ public class EmailChangeService {
 
         // 대기하는 사이에 남이 그 주소로 가입했을 수 있다. 유니크 인덱스가 최종 판단이지만
         // 사람이 읽을 문구를 주려고 여기서 먼저 본다.
+        boolean taken = jdbc.sql("""
+                        select exists(
+                            select 1 from app_user
+                             where lower(email) = lower(:email) and user_id <> :id)
+                        """)
+                .param("email", found.newEmail())
+                .param("id", userId)
+                .query(Boolean.class)
+                .single();
+        if (taken) {
+            throw new ShopException(ErrorCode.EMAIL_TAKEN);
+        }
+
         jdbc.sql("update app_user set email = :email where user_id = :id and deleted_at is null")
                 .param("email", found.newEmail())
                 .param("id", userId)

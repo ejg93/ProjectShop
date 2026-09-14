@@ -451,11 +451,22 @@ class SettlementSchemaTest extends PostgresTestBase {
     class Compensation {
 
         @Test
-        @DisplayName("사유 없이 못 선다")
+        @DisplayName("사유 글이 비면 안 들어간다")
         void needsAReason() {
             assertThatThrownBy(() -> insertCompensation("seller", PRICE, "   "))
                     .as("법이 요율을 안 줘서 이 글이 유일한 근거다")
                     .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("사유 글이 판정 행과 다른 표에 있다")
+        void keepsItsReasonInASeparateTable() {
+            aCompensation("seller");
+
+            assertThat(jdbc.sql("select count(*) from compensation_note")
+                    .query(Integer.class).single())
+                    .as("판정은 장부와 같이 살고 사유 글은 분쟁 기록이라 3년이다 — 한 행에 두면 하나가 틀린다")
+                    .isOne();
         }
 
         @Test
@@ -513,6 +524,18 @@ class SettlementSchemaTest extends PostgresTestBase {
         }
 
         @Test
+        @DisplayName("플랫폼이 무는 배상은 정산에 못 실린다")
+        void cannotBillAPlatformBorneCompensation() {
+            long settlementId = insertSettlement(-PRICE, -PRICE);
+
+            assertThatThrownBy(() -> insertItem(settlementId, "compensation", -PRICE,
+                    "compensation_id", aCompensation("platform")))
+                    .as("우리 귀책까지 셀러 몫에서 빼면 그 정산서가 거짓이다."
+                            + " 앱의 where 만으로 두면 psql 도 새 입구도 그 조건을 안 지난다")
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
         @DisplayName("공급자가 없다")
         void hasNoSupplier() {
             long settlementId = insertSettlement(-PRICE, -PRICE);
@@ -553,19 +576,25 @@ class SettlementSchemaTest extends PostgresTestBase {
                 .query(Long.class)
                 .single();
 
-        return jdbc.sql("""
-                        insert into compensation (seller_order_id, kind, bearer, amount, reason,
+        long compensationId = jdbc.sql("""
+                        insert into compensation (seller_order_id, kind, bearer, amount,
                                                   decided_by_user_id)
-                        values (:sellerOrderId, 'late_delivery', :bearer, :amount, :reason, :userId)
+                        values (:sellerOrderId, 'late_delivery', :bearer, :amount, :userId)
                         returning compensation_id
                         """)
                 .param("sellerOrderId", sellerOrderId)
                 .param("bearer", bearer)
                 .param("amount", amount)
-                .param("reason", reason)
                 .param("userId", userId)
                 .query(Long.class)
                 .single();
+
+        jdbc.sql("insert into compensation_note (compensation_id, reason) values (:id, :reason)")
+                .param("id", compensationId)
+                .param("reason", reason)
+                .update();
+
+        return compensationId;
     }
 
     /**
@@ -580,11 +609,16 @@ class SettlementSchemaTest extends PostgresTestBase {
         // 기준액 × 요율이 금액과 맞아떨어지는 값을 쓴다 — 틀린 값을 넣는 것은 CommissionBasis 다.
         boolean commission = "commission".equals(kind);
 
+        // 배상 줄은 부담 주체를 같이 든다(`V69`). 외래키가 판정의 값과 맞춰 보는 칸이라
+        // 안 넣으면 검사에 먼저 걸려서 「무엇을 막았나」가 안 갈린다.
+        String bearer = "compensation".equals(kind) ? "'seller'" : "null";
+
         jdbc.sql("""
                         insert into settlement_item (settlement_id, kind, amount, %s,
-                                                     commission_bp, commission_base_amount)
-                        values (:id, :kind, :amount, :sourceId, :bp, :base)
-                        """.formatted(sourceColumn))
+                                                     commission_bp, commission_base_amount,
+                                                     compensation_bearer)
+                        values (:id, :kind, :amount, :sourceId, :bp, :base, %s)
+                        """.formatted(sourceColumn, bearer))
                 .param("id", settlementId)
                 .param("kind", kind)
                 .param("amount", amount)

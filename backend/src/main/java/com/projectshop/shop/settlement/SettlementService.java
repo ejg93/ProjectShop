@@ -356,6 +356,10 @@ public class SettlementService {
      * <p><b>{@code platform} 은 안 싣는다.</b> 우리 결제나 시스템이 멈춰서 늦은 건까지
      * 셀러 몫에서 빼면 그 정산서가 거짓이 된다.
      *
+     * <p><b>이 {@code where} 가 유일한 방어가 아니다.</b> 부담 주체를 외래키가 같이 들어서
+     * ({@code settlement_item_compensation_fk}) {@code platform} 판정은 줄 자체가 못 선다 —
+     * 여기서 거르는 것은 <b>회차를 실패로 만들지 않기 위해서</b>고, 막는 것은 그쪽이다.
+     *
      * <p><b>부호를 여기서 뒤집는다.</b> 판정 표는 「물어 준 돈」이라 양수고, 정산에서는
      * 셀러 몫에서 빠지는 것이라 음수다({@code sale_reversal} 과 같은 모양이다).
      *
@@ -365,8 +369,10 @@ public class SettlementService {
     private void insertCompensationLines(long settlementId, long sellerId,
             LocalDate periodStart, LocalDate periodEnd) {
         jdbc.sql("""
-                        insert into settlement_item (settlement_id, kind, amount, compensation_id)
-                        select :settlementId, 'compensation', -c.amount, c.compensation_id
+                        insert into settlement_item (settlement_id, kind, amount,
+                                                     compensation_id, compensation_bearer)
+                        select :settlementId, 'compensation', -c.amount,
+                               c.compensation_id, c.bearer
                           from compensation c
                           join seller_order so on so.seller_order_id = c.seller_order_id
                          where so.seller_id = :sellerId

@@ -152,11 +152,6 @@ public class AuthController {
     }
 
     /**
-     * 세션을 버린다.
-     *
-     * <p>무엇을 할 수 있는지는 안 내려준다. 그건 청크 8a 의 몫이다.
-
-    /**
      * 비밀번호 재설정을 요청한다(`5c-1`).
      *
      * <p><b>가입 여부와 무관하게 202 다.</b> 없는 주소면 아무것도 안 보내고 같은 응답으로
@@ -184,6 +179,11 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * 세션을 버린다.
+     *
+     * <p>무엇을 할 수 있는지는 안 내려준다. 그건 청크 8a 의 몫이다.
+     */
     @PostMapping("/logout")
     public ResponseEntity<Void> logOut(HttpServletRequest http, HttpServletResponse response) {
         new SecurityContextLogoutHandler()

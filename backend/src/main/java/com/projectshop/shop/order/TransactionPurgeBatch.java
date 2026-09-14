@@ -63,16 +63,16 @@ public class TransactionPurgeBatch implements RetryableBatch {
                     + purged.orders() + purged.auditLogs() + purged.batchRuns()
                     + purged.notificationBodies() + purged.notifications()
                     + purged.refundNotes() + purged.historyNotes() + purged.inquiries()
-                    + purged.returnPickups() + purged.returnNotes();
+                    + purged.returnPickups() + purged.returnNotes() + purged.compensationNotes();
 
             if (processed == 0) {
                 log.debug("거래기록 파기 배치 — 대상 없음 기준일={}", baselineDate);
             } else {
-                log.info("거래기록 파기 배치 끝 기준일={} 배송지={} 카드={} 주문={} 감사로그={} 배치이력={} 알림본문={} 알림={} 환불사유={} 전이사유={} 문의={} 반품수거지={} 반품사유={}",
+                log.info("거래기록 파기 배치 끝 기준일={} 배송지={} 카드={} 주문={} 감사로그={} 배치이력={} 알림본문={} 알림={} 환불사유={} 전이사유={} 문의={} 반품수거지={} 반품사유={} 손해배상사유={}",
                         baselineDate, purged.shippingAddresses(), purged.paymentCards(),
                         purged.orders(), purged.auditLogs(), purged.batchRuns(),
                         purged.notificationBodies(), purged.notifications(), purged.refundNotes(), purged.historyNotes(), purged.inquiries(),
-                        purged.returnPickups(), purged.returnNotes());
+                        purged.returnPickups(), purged.returnNotes(), purged.compensationNotes());
             }
             return BatchRuns.Counts.of(processed);
         });

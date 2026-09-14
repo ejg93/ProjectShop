@@ -42,9 +42,6 @@ comment on column refund.reason_code is
 -- 사람 컬럼을 nullable 로 뒀다. 같은 모양을 쓴다. 둘이 다른 방식이면
 -- 「이 행을 누가 만들었나」를 묻는 코드가 표마다 달라진다.
 
--- 기본값을 지우는 이유는 다음 행이 조용히 customer 가 되지 않게 하려는 것이다.
--- 기존 행을 채우는 데만 쓰고 걷는다.
-
 alter table refund alter column requested_by_user_id drop not null;
 
 alter table refund add constraint refund_requested_by_type_check

@@ -82,20 +82,6 @@ public class NotificationService {
     }
 
     /**
-     * 보내고 남긴다.
-     *
-     * <p><b>두 번 불러도 한 번만 나간다.</b> 앱이 「이미 보냈나」를 조회해서 판단하면 그 사이에
-     * 끼어들 틈이 생겨서, 막는 것은 {@code notification} 의 부분 유니크다(`54a`).
-     * 걸리면 예외를 받아 <b>빈 값을 돌려준다</b> — 두 번째 호출은 실패가 아니라 할 일이 없는 것이다.
-     *
-     * @param eventType 사건. 템플릿 코드와 같은 값이다
-     * @param target    어느 자원 때문인가
-     * @param userId    받는 사람. 주소는 계정에서 가져온다
-     * @param values    판이 부르는 자리표시자와 넣을 값
-     * @return 남긴 발송 id. 이미 보낸 사건이면 빈 값
-     * @throws NotificationTemplates.MissingTemplateValueException 판이 부르는 값을 안 넘겼으면
-     */
-    /**
      * 비밀번호 재설정 안내를 보낸다(`5c-1`).
      *
      * <p><b>원시 사건값을 패키지 밖에 안 연다.</b> {@code NotificationEventType} 이 열려 있으면
@@ -123,6 +109,16 @@ public class NotificationService {
                 Map.of("confirm_url", confirmUrl, "expires_at", expiresAt.toString()), newEmail);
     }
 
+    /**
+     * 통지 하나를 남긴다. <b>같은 사건을 두 번 안 보낸다</b>({@code 54a}).
+     *
+     * @param eventType 무슨 사건인가
+     * @param target    어느 자원 때문인가
+     * @param userId    받는 사람. 주소는 계정에서 가져온다
+     * @param values    판이 부르는 자리표시자와 넣을 값
+     * @return 남긴 발송 id. 이미 보낸 사건이면 빈 값
+     * @throws NotificationTemplates.MissingTemplateValueException 판이 부르는 값을 안 넘겼으면
+     */
     public Optional<Long> send(NotificationEventType eventType, Target target, long userId,
             Map<String, String> values) {
         return send(eventType, eventType.code(), NotificationKind.TRANSACTIONAL, target, userId, values);

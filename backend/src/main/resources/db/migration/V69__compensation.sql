@@ -33,10 +33,6 @@ create table compensation (
     -- 물어 준 금액. **양수로 담는다** — 정산에 실릴 때 부호를 뒤집는다(`sale_reversal` 과 같다).
     amount bigint not null,
 
-    -- 왜 그 금액인가. **비울 수 없다.** 액수를 법이 안 정해서 근거가 이 글뿐이고,
-    -- 분쟁이 오면 이 칸이 우리가 자의로 정하지 않았다는 유일한 증거다.
-    reason text not null,
-
     -- 누가 정했나. **계정이 파기돼도 판정은 남아야 해서** restrict 다(`D13`).
     decided_by_user_id bigint not null references app_user (user_id) on delete restrict,
 
@@ -55,18 +51,43 @@ create table compensation (
         check (bearer in ('seller', 'platform')),
 
     -- 0 원 배상은 배상이 아니라 「안 물어 준 것」이다. 그 사실은 행이 없는 것으로 나타난다.
-    constraint compensation_amount_check check (amount > 0),
-
-    constraint compensation_reason_length_check
-        check (length(btrim(reason)) between 1 and 2000)
+    constraint compensation_amount_check check (amount > 0)
 );
 
 create index compensation_seller_order_idx on compensation (seller_order_id);
 
+-- 왜 그 금액인가. **표를 뗀 이유가 수명이다.**
+--
+-- 이 판정은 정산의 근거라 장부와 같이 산다(`data-lifecycle.md` 「정산」 5년). 그런데 사유 글은
+-- **분쟁처리 기록이라 3년**이고(시행령 제6조 4호), 같은 행에 두면 둘 중 하나가 틀린다.
+-- `refund_note`·`order_status_history_note` 가 같은 이유로 이미 떨어져 있다(`5i-2`).
+--
+-- **정산 행에 사람 글이 안 들어온다는 말을 지키는 자리이기도 하다** — `data-lifecycle.md` 의
+-- 정산 줄이 그렇게 적어 뒀는데, 사유를 판정 행에 두면 정산이 외래키로 그 글을 가리키게 된다.
+create table compensation_note (
+    compensation_id bigint primary key
+        references compensation (compensation_id) on delete cascade,
+
+    -- **비울 수 없다.** 액수를 법이 안 정해서 근거가 이 글뿐이고,
+    -- 분쟁이 오면 이 글이 우리가 자의로 정하지 않았다는 유일한 증거다.
+    reason text not null,
+
+    created_at timestamptz not null default now(),
+
+    constraint compensation_note_reason_length_check
+        check (length(btrim(reason)) between 1 and 2000)
+);
+
+comment on table compensation_note is
+    '손해배상 판정의 사유 글. 분쟁처리 기록이라 3년이고 판정 행(5년)보다 먼저 사라진다(43a-4b)';
+
+-- **부담 주체를 정산이 외래키로 같이 들게 하려고** 둘을 묶어 유일하게 만든다.
+-- 기본키가 이미 유일하지만, 외래키가 가리킬 대상은 유일 제약이라야 한다.
+alter table compensation add constraint compensation_bearer_unique
+    unique (compensation_id, bearer);
+
 comment on table compensation is
-    '미인도·지연인도 손해배상 판정. 액수를 법이 안 정해서 사람이 정한 값이다(D2 R38·R39, 43a-4b)';
-comment on column compensation.reason is
-    '왜 그 금액인가. 법이 요율을 안 줘서 이 글이 유일한 근거다';
+    '미인도·지연인도 손해배상 판정. 액수를 법이 안 정해서 사람이 정한 값이다(D2 R38·R39, 43a-4b). 사유 글은 compensation_note 가 든다';
 comment on column compensation.bearer is
     '누가 무나. seller 인 것만 정산에서 빠진다 — 우리 귀책까지 셀러에게 물리면 거짓이 된다';
 
@@ -74,10 +95,29 @@ comment on column compensation.bearer is
 --
 -- **셀러가 무는 것만 실린다.** `platform` 인 배상은 우리가 낸 돈이라 셀러 정산과 무관하다.
 alter table settlement_item
-    add column compensation_id bigint references compensation (compensation_id) on delete restrict;
+    add column compensation_id bigint,
+    add column compensation_bearer text;
+
+-- **셀러가 무는 것만 실린다 — 그것을 외래키가 든다.**
+--
+-- 앱의 `where bearer = 'seller'` 하나로 두면 `psql` 도 새 입구도 그 조건을 안 지나고,
+-- 그때 **플랫폼 귀책 배상이 셀러 정산에서 빠진다.** 검사(check)로는 못 막는다 —
+-- 부담 주체가 다른 표에 있어서 한 행 안에서 볼 수가 없다.
+--
+-- 그래서 판정의 (번호, 부담 주체) 쌍을 통째로 가리키고, 이쪽 값은 `seller` 로 못박는다.
+-- 판정이 `platform` 이면 가리킬 쌍이 없어서 그 줄이 안 선다.
+alter table settlement_item add constraint settlement_item_compensation_bearer_check
+    check ((kind = 'compensation' and compensation_bearer = 'seller')
+           or (kind <> 'compensation' and compensation_bearer is null));
+
+alter table settlement_item add constraint settlement_item_compensation_fk
+    foreign key (compensation_id, compensation_bearer)
+    references compensation (compensation_id, bearer) on delete restrict;
 
 comment on column settlement_item.compensation_id is
     '손해배상 판정의 근거. kind = compensation 인 줄에만 찬다(43a-4b)';
+comment on column settlement_item.compensation_bearer is
+    '항상 seller 다. 외래키가 판정의 부담 주체와 맞춰 보게 하려고 든 칸이다 — platform 판정은 이 줄이 못 선다';
 
 alter table settlement_item drop constraint settlement_item_kind_check;
 alter table settlement_item add constraint settlement_item_kind_check

@@ -238,6 +238,79 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
     }
 
     /** 끝난 주문 하나. 배송지와 항목까지 갖춘다 */
+    /**
+     * 손해배상 판정의 수명(`43a-4b`, `D13`).
+     *
+     * <p><b>순서가 이 묶음의 요점이다.</b> {@code compensation.seller_order_id} 가 restrict 라
+     * 배상을 안 지우면 <b>5년째 주문 파기가 외래키에 걸려서 통째로 멈춘다</b> —
+     * 그 사고는 배상 표가 비어 있는 동안에는 안 나고, 판정이 실제로 쌓인 뒤에 처음 난다.
+     */
+    @Nested
+    @DisplayName("손해배상 사유 글은")
+    class CompensationNotes {
+
+        @Test
+        @DisplayName("3년이 지나면 사라진다")
+        void isErasedAfterThreeYears() {
+            insertCompensation(orderClosedAt(NOW.minusYears(1)), NOW.minusYears(4));
+
+            purgeService.purge(NOW);
+
+            assertThat(countOf("select count(*) from compensation_note"))
+                    .as("분쟁처리 기록은 3년이다(시행령 제6조 4호)")
+                    .isZero();
+        }
+
+        @Test
+        @DisplayName("지워져도 판정은 남는다")
+        void leavesTheDecisionBehind() {
+            insertCompensation(orderClosedAt(NOW.minusYears(1)), NOW.minusYears(4));
+
+            purgeService.purge(NOW);
+
+            assertThat(countOf("select count(*) from compensation"))
+                    .as("판정은 정산의 근거라 장부와 같이 산다 — 사라지는 것은 사람이 쓴 글뿐이다")
+                    .isOne();
+        }
+
+        @Test
+        @DisplayName("아직 3년이 안 됐으면 남는다")
+        void survivesWithinThreeYears() {
+            insertCompensation(orderClosedAt(NOW.minusYears(1)), NOW.minusYears(2));
+
+            purgeService.purge(NOW);
+
+            assertThat(countOf("select count(*) from compensation_note")).isOne();
+        }
+    }
+
+    private void insertCompensation(long orderId, OffsetDateTime decidedAt) {
+        long sellerOrderId = jdbc.sql(
+                        "select seller_order_id from seller_order where order_id = :id")
+                .param("id", orderId)
+                .query(Long.class)
+                .single();
+
+        long compensationId = jdbc.sql("""
+                        insert into compensation (seller_order_id, kind, bearer, amount,
+                                                  decided_by_user_id, decided_at)
+                        values (:sellerOrderId, 'late_delivery', 'seller', 10000, :userId, :decidedAt)
+                        returning compensation_id
+                        """)
+                .param("sellerOrderId", sellerOrderId)
+                .param("userId", userId)
+                .param("decidedAt", decidedAt)
+                .query(Long.class)
+                .single();
+
+        jdbc.sql("""
+                        insert into compensation_note (compensation_id, reason)
+                        values (:id, '발송이 늦어 구매목적을 달성하지 못했다')
+                        """)
+                .param("id", compensationId)
+                .update();
+    }
+
     private long orderClosedAt(OffsetDateTime closedAt) {
         long orderId = insertOrder("20260809-7QX4P" + (char) ('4' + counter++));
         insertSellerOrder(orderId, closedAt);
