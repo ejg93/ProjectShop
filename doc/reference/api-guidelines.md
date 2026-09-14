@@ -105,6 +105,11 @@ RFC 5789 는 `PATCH` 의 본문이 「바꿀 것의 목록」이고 **그 형식
 **고칠 필드가 하나뿐일 때도 밝힌다.** 지금은 안 갈리지만 필드가 늘면 그때 갈리고,
 그때는 이미 쓰는 곳이 여럿이라 계약 변경이 된다.
 
+**「`null` 은 지운다」는 아직 실물이 없다**(2026-09-14 점검 N). `PATCH` 입구가 `/api/me` 하나고 필드가
+`display_name` 하나라 — `@NotBlank` 라 `null` 도 부재도 400 이다. 지울 수 있는 칸이 생기는 날
+**부재와 `null` 을 가르는 타입**(`JsonNullable` 또는 `Optional`)이 record 에 들어가야 위 문장이 성립한다.
+`String` 필드로는 둘 다 `null` 로 들어와 못 가른다 — 그 자리에서 이 절을 다시 본다.
+
 ## 상태 코드
 
 | 코드 | 언제 |
@@ -449,7 +454,7 @@ POST /api/settlements/{id}/confirm
 | 무엇 | 어떻게 |
 |---|---|
 | 형식 | `text/plain;charset=UTF-8` |
-| 저장 | `Content-Disposition: attachment` — 파일 이름에 그 자원의 노출 번호를 넣는다 |
+| 저장 | `Content-Disposition: attachment`(RFC 6266) — 파일 이름에 그 자원의 노출 번호를 넣는다. 이름이 ASCII 라 `filename*`(RFC 8187)은 아직 안 걸린다 — 한글 이름을 쓰는 날 걸린다 |
 | 권한 | **같은 조회를 재사용한다.** 표를 다시 읽으면 판정을 지나치는 두 번째 경로가 생긴다 |
 | 오류 | 본문 형식만 다르고 상태 코드와 판정은 JSON 경로와 같다 |
 
