@@ -53,7 +53,7 @@ where deleted_at is null     -- 업무 상태가 몇 개로 늘든 안 바뀐다
 | `order`, `payment` | **없다** | 5년 보존이라 지우는 개념이 없다 |
 | `cart`, `cart_item` | **없다** | 그냥 지운다 |
 | `role`, `permission` | **없다** | 관리 데이터다. 지울 일이 생기면 그때 판단한다 |
-| `refund`, `return_request`, `compensation`, `settlement` 셋 | **없다** | 보존 기간(환불·반품은 거래 종료 5년, 정산·배상은 세법 기산 — `43a-28`)이 차면 파기 배치가 통째로 지운다. 되살릴 일이 없어 표시할 것이 없다(`D13`) |
+| `refund`, `return_request`, `compensation`, `settlement` 넷 | **없다** | 보존 기간(환불·반품은 거래 종료 5년, 정산·배상은 세법 기산 — `43a-28`)이 차면 파기 배치가 통째로 지운다. 되살릴 일이 없어 표시할 것이 없다(`D13`) |
 | `inquiry`, `notification` | **없다** | 기간이 차면 물리 삭제다. 되살릴 일이 없어서 표시할 것이 없다 |
 
 ## 애그리거트
@@ -166,6 +166,9 @@ SellerOrder ─┬─ Refund ─┬─ RefundItem          → order_item
 | `*_note` → 부모 | cascade | 자유 텍스트는 부모보다 먼저 사라진다(`D13`). cascade 는 부모가 먼저 갈 때의 보험이다 |
 | `compensation` → `inquiry` | set null | 배상이 문의에서 왔다는 표시일 뿐이다. 문의가 3년 뒤 사라져도 판정은 남는다 |
 
+이 절의 표: `order_shipping` · `order_contract_document` · `order_status_history` · `order_status_history_note` · `payment` · `payment_card` ·
+`refund` · `refund_item` · `refund_note` · `return_request` · `return_request_item` · `return_pickup` · `return_note` · `compensation` · `compensation_note`.
+
 **같은 뿌리 안에 cascade 와 restrict 가 섞인 이유는 정산이다.** `settlement_item` 이 `order_item`·`seller_order`·`refund_item`·`compensation` 을
 전부 restrict 로 가리켜서 **5년 주문 파기가 정산 줄에 막힌다** — 법 둘이 부딪치는 자리고 `43a-28` 이 정한다.
 
@@ -200,6 +203,7 @@ AppUser ─┬─ UserRole                (user_role)
          └─ Cart                    (로그인 장바구니)
 ```
 
+이 절의 표: `user_role` · `seller_member` · `user_consent` · `password_reset_token` · `email_change_request` · `idempotency_key`.
 토큰 둘과 멱등키는 계정 없이 뜻이 없고 짧게 산다. 파기 배치가 기간으로 지우고, 계정이 먼저 가면 cascade 가 받는다.
 
 ## 상품 덩어리의 표
