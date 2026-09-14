@@ -336,6 +336,6 @@
 
 ## 이 저장소 밖의 연결점
 
-`C:\Users\EJG\Downloads\portfolio` 는 별개 저장소다. 여기서 그쪽 파일을 고치지 않는다.
+`C:\workspace\portfolio` 는 별개 저장소다(2026-09-14 에 옮겼다 — 전에는 `Downloads` 아래였다). 여기서 그쪽 파일을 고치지 않는다.
 portfolio 쪽 memory 폴더는 경로로 묶여 있어서 이 저장소에서 세션을 열면 안 보인다.
 그래서 재개에 필요한 정보는 전부 이 파일과 `PROGRESS.md` 안에 둔다.
