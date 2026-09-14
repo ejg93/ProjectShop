@@ -66,6 +66,30 @@ describe("셸의 머리", () => {
     expect(screen.queryByRole("link", { name: "받은 주문" })).not.toBeInTheDocument();
   });
 
+  it("정산서 링크는 읽기 권한이 있어야 보인다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "settlement", action: "read", scopes: ["SELLER"] }],
+    });
+
+    render(await SiteHeader());
+
+    // 셀러와 관리자·감사자가 같은 링크를 쓴다(`20-1`). 보는 것이 같고 범위만 달라서다.
+    expect(screen.getByRole("link", { name: "정산서" })).toBeInTheDocument();
+  });
+
+  it("사는 사람에게는 정산서 링크가 없다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "order", action: "read", scopes: ["OWN"] }],
+    });
+
+    render(await SiteHeader());
+
+    // 정산은 우리와 셀러 사이의 계산이라 사는 사람은 이 자원에 권한이 없다(`V56`).
+    expect(screen.queryByRole("link", { name: "정산서" })).not.toBeInTheDocument();
+  });
+
   it("상품과 장바구니는 로그인 전에도 있다", async () => {
     apiSessionOptional.mockResolvedValue(null);
 

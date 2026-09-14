@@ -43,7 +43,7 @@ import { describe, expect, it } from "vitest";
 const SRC = join(process.cwd(), "src");
 
 /** 화면 표를 문자열로 든 파일. JSX 가 없어서 문자열 리터럴을 통째로 걷는다 */
-const TEXT_TABLES = ["lib/order-text.ts", "lib/product-text.ts"];
+const TEXT_TABLES = ["lib/order-text.ts", "lib/product-text.ts", "lib/settlement-text.ts"];
 
 /** 사용자에게 읽히는 속성 넷 */
 const SCREEN_ATTRS = new Set(["placeholder", "aria-label", "title", "alt"]);
