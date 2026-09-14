@@ -123,11 +123,11 @@ class LengthConstraintTest extends PostgresTestBase {
             Map.entry("payment_decline_reason_length_check", "결제 대행사가 준 값이다"),
             Map.entry("refund_gateway_refund_number_length_check", "결제 대행사가 준 값이다"),
             Map.entry("order_status_history_note_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 어느 요청 record 와 짝인지 실측해야 한다(`Q46`)"),
-            Map.entry("refund_note_decision_reason_length_check", "〃"),
-            Map.entry("refund_note_request_reason_length_check", "〃"),
-            Map.entry("return_note_decision_reason_length_check", "〃"),
-            Map.entry("return_note_inspection_note_length_check", "〃"),
-            Map.entry("return_note_request_reason_length_check", "〃")));
+            Map.entry("refund_note_decision_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
+            Map.entry("refund_note_request_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
+            Map.entry("return_note_decision_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
+            Map.entry("return_note_inspection_note_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
+            Map.entry("return_note_request_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)")));
 
     /**
      * 모든 {@code length} 제약이 <b>대조되거나 이유가 적혀 있다</b>(`Q28`).
