@@ -32,6 +32,7 @@ const ITEM_KIND: Record<string, string> = {
   COMMISSION: "중개수수료",
   SALE_REVERSAL: "상품 대금 차감",
   COMMISSION_REVERSAL: "수수료 환입",
+  COMPENSATION: "손해배상",
   CARRYOVER: "이월 조정",
 };
 

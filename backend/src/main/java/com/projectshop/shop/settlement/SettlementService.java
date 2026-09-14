@@ -172,6 +172,7 @@ public class SettlementService {
         insertSaleLines(settlementId, sellerId, periodStart, periodEnd);
         insertShippingLines(settlementId, sellerId, periodStart, periodEnd);
         insertReversalLines(settlementId, sellerId, periodStart, periodEnd);
+        insertCompensationLines(settlementId, sellerId, periodStart, periodEnd);
         insertCarryOverLines(settlementId, sellerId);
 
         settleAmount(settlementId);
@@ -337,6 +338,43 @@ public class SettlementService {
                            and not exists (select 1 from settlement_item i
                                             where i.kind = 'commission_reversal'
                                               and i.refund_item_id = ri.refund_item_id)
+                        """)
+                .param("settlementId", settlementId)
+                .param("sellerId", sellerId)
+                .param("start", periodStart)
+                .param("end", periodEnd)
+                .update();
+    }
+
+    /**
+     * 그 달에 정해진 손해배상 중 <b>셀러가 무는 것</b>(`43a-4b`, `D2` R38·R39).
+     *
+     * <p><b>금액을 여기서 계산하지 않는다.</b> 고시가 「계약해제 및 손해배상」을 정하면서
+     * 액수를 안 줘서({@code V69} 가 원문을 적어 뒀다) 사람이 정한 값을 그대로 읽는다 —
+     * 정산이 다시 계산하면 판정과 정산서가 다른 금액을 말하게 된다.
+     *
+     * <p><b>{@code platform} 은 안 싣는다.</b> 우리 결제나 시스템이 멈춰서 늦은 건까지
+     * 셀러 몫에서 빼면 그 정산서가 거짓이 된다.
+     *
+     * <p><b>부호를 여기서 뒤집는다.</b> 판정 표는 「물어 준 돈」이라 양수고, 정산에서는
+     * 셀러 몫에서 빠지는 것이라 음수다({@code sale_reversal} 과 같은 모양이다).
+     *
+     * <p><b>이미 실린 것은 다시 안 싣는다.</b> {@code settlement_item_compensation_unique} 가
+     * 한 층 아래에서 막고, 여기서 거르는 것은 <b>회차를 실패로 만들지 않기 위해서</b>다.
+     */
+    private void insertCompensationLines(long settlementId, long sellerId,
+            LocalDate periodStart, LocalDate periodEnd) {
+        jdbc.sql("""
+                        insert into settlement_item (settlement_id, kind, amount, compensation_id)
+                        select :settlementId, 'compensation', -c.amount, c.compensation_id
+                          from compensation c
+                          join seller_order so on so.seller_order_id = c.seller_order_id
+                         where so.seller_id = :sellerId
+                           and c.bearer = 'seller'
+                           and (c.decided_at at time zone 'Asia/Seoul')::date
+                               between :start and :end
+                           and not exists (select 1 from settlement_item i
+                                            where i.compensation_id = c.compensation_id)
                         """)
                 .param("settlementId", settlementId)
                 .param("sellerId", sellerId)

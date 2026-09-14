@@ -439,6 +439,92 @@ class SettlementSchemaTest extends PostgresTestBase {
         return insertSettlementIn(cycleId, payout, carriedOver);
     }
 
+    /**
+     * 손해배상 판정과 그것이 정산에 실리는 자리(`43a-4b`, `D2` R38·R39).
+     *
+     * <p><b>액수를 법이 안 정한다.</b> 고시도 소비자기본법 시행령 별표1 도 미인도·지연인도의
+     * 배상액을 안 줘서 사람이 정한다 — 그래서 <b>누가 왜 정했나</b>가 비면 그 금액은
+     * 자의가 되고, 분쟁이 오면 우리 기록이 우리에게 불리한 증거가 된다.
+     */
+    @Nested
+    @DisplayName("손해배상은")
+    class Compensation {
+
+        @Test
+        @DisplayName("사유 없이 못 선다")
+        void needsAReason() {
+            assertThatThrownBy(() -> insertCompensation("seller", PRICE, "   "))
+                    .as("법이 요율을 안 줘서 이 글이 유일한 근거다")
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("0원이면 안 들어간다")
+        void rejectsAZeroAmount() {
+            assertThatThrownBy(() -> insertCompensation("seller", 0, "안 물어 준 것"))
+                    .as("0원 배상은 배상이 아니라 행이 없는 것이다")
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("모르는 부담 주체는 안 받는다")
+        void rejectsAnUnknownBearer() {
+            assertThatThrownBy(() -> insertCompensation("courier", PRICE, "택배사 잘못"))
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("정산에서는 음수로만 실린다")
+        void entersTheStatementAsANegative() {
+            long settlementId = insertSettlement(PRICE, 0);
+
+            assertThatThrownBy(() -> insertItem(settlementId, "compensation", PRICE,
+                    "compensation_id", aCompensation("seller")))
+                    .as("셀러 몫에서 빠지는 것이라 양수로 담으면 「합이 곧 지급액」이 깨진다")
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("근거 없이 배상 줄이 설 수 없다")
+        void cannotStandWithoutTheDecision() {
+            long settlementId = insertSettlement(-PRICE, -PRICE);
+
+            assertThatThrownBy(() -> insertItem(settlementId, "compensation", -PRICE,
+                    "order_item_id", anOrderItem()))
+                    .as("판정을 안 가리키는 배상 줄은 어디서 온 금액인지 모른다")
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("같은 판정이 두 번 못 실린다")
+        void cannotBeBilledTwice() {
+            long compensationId = aCompensation("seller");
+            long july = insertSettlement(-PRICE, -PRICE);
+            insertItem(july, "compensation", -PRICE, "compensation_id", compensationId);
+
+            long augustCycle = insertCycle(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
+                    LocalDate.of(2026, 9, 10));
+            long august = insertSettlementIn(augustCycle, -PRICE, -PRICE);
+
+            assertThatThrownBy(() ->
+                    insertItem(august, "compensation", -PRICE, "compensation_id", compensationId))
+                    .as("두 번 실리면 셀러가 같은 배상을 두 번 문다")
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("공급자가 없다")
+        void hasNoSupplier() {
+            long settlementId = insertSettlement(-PRICE, -PRICE);
+            insertItem(settlementId, "compensation", -PRICE, "compensation_id",
+                    aCompensation("seller"));
+
+            assertThat(supplierIsNull(settlementId, "compensation"))
+                    .as("손해배상금은 재화나 용역의 공급이 아니라 부가가치세 과세 대상이 아니다")
+                    .isTrue();
+        }
+    }
+
     private long insertSettlementIn(long cycle, long payout, long carriedOver) {
         return jdbc.sql("""
                         insert into settlement (settlement_number, settlement_cycle_id, seller_id,
@@ -451,6 +537,33 @@ class SettlementSchemaTest extends PostgresTestBase {
                 .param("sellerId", sellerId)
                 .param("payout", payout)
                 .param("carriedOver", carriedOver)
+                .query(Long.class)
+                .single();
+    }
+
+    /** 셀러가 무는 배상 하나. 묶음은 주문 항목에서 거슬러 찾는다 */
+    private long aCompensation(String bearer) {
+        return insertCompensation(bearer, PRICE, "발송 기한을 넘겨 구매목적을 달성하지 못했다");
+    }
+
+    private long insertCompensation(String bearer, long amount, String reason) {
+        long sellerOrderId = jdbc.sql(
+                        "select seller_order_id from order_item where order_item_id = :id")
+                .param("id", anOrderItem())
+                .query(Long.class)
+                .single();
+
+        return jdbc.sql("""
+                        insert into compensation (seller_order_id, kind, bearer, amount, reason,
+                                                  decided_by_user_id)
+                        values (:sellerOrderId, 'late_delivery', :bearer, :amount, :reason, :userId)
+                        returning compensation_id
+                        """)
+                .param("sellerOrderId", sellerOrderId)
+                .param("bearer", bearer)
+                .param("amount", amount)
+                .param("reason", reason)
+                .param("userId", userId)
                 .query(Long.class)
                 .single();
     }
