@@ -82,6 +82,12 @@ class BuildInputTest {
     /**
      * 실행할 때 경로가 정해져서 둘 다 못 보는 자리. <b>항목마다 어떻게 신고되는지를 적는다</b> —
      * 이유가 없으면 다음 사람이 그냥 지운다.
+     *
+     * <p><b>{@link SqlTextTest} 처럼 코드 옆 마커를 안 쓴 이유</b>: 거기는 예외가 늘어날 자리라
+     * 마커가 값을 하는데(새 결합 자리가 생길 때마다 테스트를 안 고친다), 여기는 <b>지금 하나고
+     * 늘 이유도 없다</b> — 저장소 밖 파일을 실행 때 골라 여는 테스트가 더 생기는 것 자체가
+     * 드물다. 「세어 보고 하나뿐이면 안 만든다」(`CLAUDE.md` 대전제)라 목록으로 둔다.
+     * 둘째가 생기면 그때 마커로 옮긴다.
      */
     private static final Map<String, String> DYNAMIC_ALLOWED = Map.of(
             "support/StackVersionConsistencyTest.java",

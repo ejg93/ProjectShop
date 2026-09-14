@@ -54,7 +54,7 @@ class OpenApiSpecTest extends HttpTestBase {
             Pattern.compile("^/api(/[a-z0-9-]+|/\\{[A-Za-z]+\\})+$");
 
 
-    /** 그 자원들의 응답에 실리면 안 되는 내부 ID */
+    /** 노출 번호를 둔 자원의 내부 ID. 어느 응답에도 실리면 안 된다(`identifier-rules.md` 「자원별 노출 방식」) */
     private static final Set<String> INTERNAL_IDS =
             Set.of("order_id", "seller_order_id", "payment_id", "settlement_id");
 
