@@ -17,6 +17,8 @@ import com.projectshop.shop.auth.PermissionEvaluator.Rule;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.auth.PermissionRuleLoader.ResourceAction;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 한 사용자가 지금 무엇을 할 수 있는지를 통째로 계산한다.
  *
@@ -55,6 +57,7 @@ public class PermissionCatalog {
      *        그룹이 전부 실린다. 그 전에는 빈 목록이 「제한 없음」이어서
      *        <b>「전부 보임」과 「아무것도 안 보임」이 같은 값</b>이었다
      */
+    @Schema(name = "PermissionEntry")
     public record Entry(String resource, String action, List<Scope> scopes,
             List<String> visibleFieldGroups) {
     }

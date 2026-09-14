@@ -67,6 +67,16 @@ API 경계까지가 `snake_case` 고, 프론트는 받자마자 바꿔서 JS 관
 타입을 손으로 두 벌 쓰면 어긋난다. 청크 2a 의 OpenAPI 스펙에서 타입을 생성하면 `snake_case` 로 나오므로,
 TypeScript 의 템플릿 리터럴 타입으로 변환해서 쓴다.
 
+**응답 record 에는 `@Schema(name = …)` 로 이름을 준다**(`Q45`). 스펙을 그리는 도구가 이름을
+**자바 클래스의 짧은 이름**으로 지어서, `Page`·`Summary`·`Detail` 처럼 자원마다 같은 이름을 쓰면
+**서로 덮어쓴다** — 한동안 `GET /api/orders` 가 정산 요약을 돌려준다고 적혀 있었다.
+`SchemaNameTest` 가 소스에서, `OpenApiSpecTest` 가 스펙에서 각각 막는다.
+
+**그 전제가 한동안 깨져 있었다**(`Q41`). 스펙을 그리는 swagger-core 는 Jackson 2 라
+애플리케이션의 Jackson 3 설정(`property-naming-strategy`)을 못 읽어서 **낙타 표기로 그렸다** —
+스펙을 보고 만든 타입은 없는 키를 읽게 된다. `OpenApiConfig` 가 표기를 물리고
+`OpenApiSpecTest` 가 갈리는 것을 막는다. **봉투 메타 필드(`_visible_field_groups`)만 밑줄로 시작한다.**
+
 ### URL
 
 - 자원은 **복수형 명사**. `/api/products`, `/api/orders`

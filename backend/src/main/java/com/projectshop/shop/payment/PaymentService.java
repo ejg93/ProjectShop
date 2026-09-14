@@ -12,6 +12,8 @@ import com.projectshop.shop.order.IdempotencyService;
 import com.projectshop.shop.order.OrderStatusService;
 import com.projectshop.shop.support.Retries;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 주문 하나를 결제한다.
  *
@@ -63,6 +65,7 @@ public class PaymentService {
      * <p>{@code status} 가 {@code APPROVED} 면 승인번호가, {@code FAILED} 면 거절 사유가 찬다.
      * 카드번호는 어디에도 없다(`D2` R18).
      */
+    @Schema(name = "PaymentResult")
     public record Result(String orderNumber, String status, String method, long amount,
             String approvalNumber, String cardIssuer, String cardLast4, String declineReason) {
 

@@ -123,15 +123,35 @@ select * from product p join sku s using (product_id)
 | `_total` | 합계 |
 | `_bp` | 만분율 정수 (1000 = 10.00%) |
 | `_reason` | 고정된 사유 값 |
+| `_number` | **우리가 발급해서 바깥이 부르는 번호** |
+| `_no` | 그 밖의 번호 — 안에서 세우는 순번, 남이 발급한 번호 |
 
-`_num` 은 안 쓴다. 개수인지 번호인지 안 갈린다 — 개수는 `_count`, 번호는 `_no` 를 쓴다.
+`_num` 은 안 쓴다. 개수인지 번호인지 안 갈린다 — 개수는 `_count` 다.
+
+**가르는 기준은 「누가 발급했나」다**(`Q42`). `order_number`·`settlement_number` 는 **우리가 만들어
+내보내는 것**이라 `identifier-rules.md` 가 형식까지 정하고 **한 번 내보내면 못 바꾼다.**
+`sort_no` 는 안에서 줄을 세우는 수이고, `business_reg_no`·`mail_order_no` 는 **국가가 발급한 번호**다 —
+둘 다 우리가 형식을 정하지 않으므로 그 표의 대상이 아니다.
+
+**`SchemaNamingTest` 가 막는다** — `_no` 로 끝나는 컬럼은 허용 목록에 적힌 것뿐이고,
+항목마다 **왜 우리 노출 번호가 아닌지**를 적는다. 새로 생기면 그 자리에서 묻게 된다.
 
 ### 불리언은 `is_` 로 시작한다
 
 `is_required`, `is_system`, `is_org_role`.
 
-**기존에 어긋난 것이 하나 있다.** `user_consent.granted` 는 접두사가 없다.
+**기존에 어긋난 것이 둘 있다.** `user_consent.granted` 는 접두사가 없다.
 안 바꾼다 — 그 컬럼은 `current_consent` 뷰와 응답에 그대로 나가고, 이름만 고치면 API 가 바뀐다.
+
+`return_request.restock` 도 같다(`V63`). 요청 필드 이름이 그대로 컬럼이 됐고
+`ShipmentController` 를 지나 API 에 나간다 — 고치면 부르는 쪽이 같이 바뀐다.
+
+**`SchemaNamingTest` 가 막는다**(`Q31`). 도는 스키마에 물어서 재고, **이름으로 적는 예외는
+위 둘과 `holiday.holiday_date` 셋뿐이다.** 예외마다 이 문서의 절 이름이 붙어 있어서
+절이 없으면 목록에 못 들어간다.
+
+**예외를 이름으로 안 적고 구조로 가르는 자리가 있다.** 1:1 확장 표 여덟은
+「기본키 컬럼이 외래키이기도 하다」로 알아본다 — 이름을 여덟 개 적으면 아홉 번째에 목록이 낡는다.
 
 ## Java
 

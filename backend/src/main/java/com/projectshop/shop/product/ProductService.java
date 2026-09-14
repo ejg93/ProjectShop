@@ -17,6 +17,8 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 상품을 등록하고 고친다.
  *
@@ -98,6 +100,7 @@ public class ProductService {
     public record SubstantiationCommand(String claim, String evidence, String sourceUrl) {
     }
 
+    @Schema(name = "ProductCreated")
     public record Created(long productId, List<Long> skuIds) {
     }
 

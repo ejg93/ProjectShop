@@ -17,6 +17,8 @@ import com.projectshop.shop.error.ShopException;
 
 import com.projectshop.shop.support.ListQuery.Paging;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 문의를 관객별로 읽는다(청크 59).
  *
@@ -64,13 +66,21 @@ public class InquiryQuery {
             String status, OffsetDateTime createdAt, OffsetDateTime answeredAt) {}
 
     /** 자기 것이거나 자기 셀러 것을 볼 때 쓰는 한 줄. 대상과 공개 여부가 같이 나간다 */
+    @Schema(name = "InquiryEntry")
     public record Entry(String inquiryNumber, String kind, Long productId, String productName,
             String sellerOrderNumber,
             String question, String answer, String status, boolean isPublic,
             OffsetDateTime createdAt, OffsetDateTime answeredAt,
             OffsetDateTime dueAt, boolean overdue) {}
 
-    /** 목록 규약(`D5`). 셋 다 같은 봉투를 쓴다 */
+    /**
+     * 목록 규약(`D5`). 셋 다 같은 봉투를 쓴다.
+     *
+     * <p><b>여기에 `@Schema(name)` 을 주면 안 된다</b>(`Q45` 에서 실제로 그랬다). 제네릭이라
+     * springdoc 이 타입 인자마다 이름을 만드는데({ PageInquiryEntry}·{ PagePublicEntry}),
+     * 고정 이름을 주면 <b>둘이 한 스키마로 합쳐진다</b> — 이름 충돌을 없애려던 청크가
+     * 충돌을 하나 만든 꼴이었다.
+     */
     public record Page<T>(List<T> items, int page, int size, long total) {}
 
     /**

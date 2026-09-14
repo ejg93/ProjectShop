@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 장바구니. 사기 전에 담아 두는 자리다.
  *
@@ -54,6 +56,7 @@ public class CartService {
      *                     지금 값이고, 주문할 때 {@code seller_order.shipping_fee} 로 박제된다
      * @param available    지금 살 수 있나. 재고가 없거나 상품이 내려갔으면 거짓이다
      */
+    @Schema(name = "CartItem")
     public record Item(long cartItemId, long skuId, long productId, String productName,
             String optionLabel, long sellerId, String sellerName,
             long priceInclVat, long shippingFee, int quantity, boolean available,

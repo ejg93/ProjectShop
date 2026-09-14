@@ -20,6 +20,8 @@ import jakarta.validation.constraints.Size;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.support.ListQuery.Paging;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 문의를 내고 읽고 답하는 입구(청크 59).
  *
@@ -111,6 +113,7 @@ public class InquiryController {
      *
      * @param reason {@code ADVERTISEMENT}(정보통신망법 제50조의7) 또는 {@code ABUSE}(약관)
      */
+    @Schema(name = "InquiryBlockRequest")
     public record BlockRequest(
             @NotBlank @Pattern(regexp = "ADVERTISEMENT|ABUSE") String reason) {}
 

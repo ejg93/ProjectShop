@@ -30,6 +30,8 @@ import jakarta.validation.constraints.Size;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.support.ListQuery.Paging;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 상품을 등록하고 고치는 입구.
  *
@@ -187,6 +189,7 @@ public class ProductController {
     }
 
     /** @param reason 셀러가 왜 막혔는지 본다. 안 알려주면 고칠 수가 없다 */
+    @Schema(name = "ProductBlockRequest")
     public record BlockRequest(@NotBlank @Size(max = 500) String reason) {
     }
 

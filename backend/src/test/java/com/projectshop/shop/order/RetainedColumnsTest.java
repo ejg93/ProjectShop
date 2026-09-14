@@ -48,7 +48,7 @@ class RetainedColumnsTest extends PostgresTestBase {
             "order_item", List.of("commission_amount", "commission_bp", "created_at",
                     "line_amount", "option_label", "order_item_id", "product_name", "quantity",
                     "seller_order_id", "sku_id", "unit_price_incl_vat",
-                    "withdrawal_restriction_agreed_at", "withdrawal_restriction_reason"),
+                    "withdrawal_notice_agreed_at", "withdrawal_restriction_reason"),
             "payment", List.of("amount", "approval_number", "created_at", "decline_reason",
                     "method", "order_id", "payment_id", "status"),
             "order_status_history", List.of("actor_type", "actor_user_id", "from_status",

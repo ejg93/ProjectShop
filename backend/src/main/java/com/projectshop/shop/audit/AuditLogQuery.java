@@ -17,6 +17,8 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 쌓인 감사 기록을 꺼낸다.
  *
@@ -61,6 +63,7 @@ public class AuditLogQuery {
             Long targetId, Map<String, Object> detail, OffsetDateTime createdAt) {
     }
 
+    @Schema(name = "AuditLogPage")
     public record Page(List<Row> items, int page, int size, long total) {
     }
 

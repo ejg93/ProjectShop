@@ -11,6 +11,8 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # 비어 있으면 인증 없이 붙는다(로컬 컴포즈). 관리형 Redis 는 비밀번호가 필수라 배포에서 넣는다.
+      password: ${REDIS_PASSWORD:}
       # 붙는 데 오래 걸리면 요청이 그만큼 붙잡힌다. Redis 는 날아가도 되는 것만 담으므로
       # 오래 기다리느니 빨리 실패하고 원본(DB)으로 가는 편이 낫다.
       timeout: 2s
@@ -64,7 +66,8 @@ management:
       show-details: when-authorized
 
 server:
-  port: ${SERVER_PORT:8080}
+  # `PORT` 는 호스팅(Railway 등)이 주입하는 이름이다. 둘 다 없으면 로컬 기본값.
+  port: ${SERVER_PORT:${PORT:8080}}
   # 프록시 뒤에서 진짜 클라이언트 IP 를 읽는다.
   #
   # 안 켜면 getRemoteAddr() 이 프록시 IP 를 준다. user_consent.acted_ip 는 동의 입증용이라
@@ -83,9 +86,10 @@ server:
       # 같은 망에 있는 무엇이든 X-Forwarded-For 한 줄로 IP 를 속일 수 있었다.
       # 우리 프록시는 같은 기계에서 도는 Next.js rewrite 하나뿐이라 루프백이면 충분하다.
       #
-      # 정규식이다. 배포로 프록시가 밖에 서면 그 주소를 여기 더한다 —
-      # 안 더하면 헤더를 안 봐서 acted_ip 가 프록시 IP 로 쌓인다.
-      internal-proxies: 127\.0\.0\.1|0:0:0:0:0:0:0:1|::1
+      # 정규식이다. 배포로 프록시가 밖에 서면 `TRUSTED_PROXIES` 로 그 대역을 넣는다 —
+      # 안 넣으면 헤더를 안 봐서 acted_ip 가 프록시 IP 로 쌓인다. 넓게(`.*`) 넣으면 기본값의
+      # 구멍이 다시 열린다 — 백엔드 공개 주소를 직접 때리는 누구나 IP 를 속인다(`backend/README.md`).
+      internal-proxies: ${TRUSTED_PROXIES:127\.0\.0\.1|0:0:0:0:0:0:0:1|::1}
   servlet:
     session:
       # 무활동 만료. 절대 만료 12시간은 서블릿에 설정 자리가 없어서 코드로 넣는다(청크 5c).
@@ -94,9 +98,9 @@ server:
         name: SHOPSESSION
         http-only: true
         same-site: lax
-        # 로컬이 http 라 끈다. 켜면 쿠키가 아예 안 실려서 로그인이 안 된다.
-        # 배포가 생기면 이 줄이 먼저 바뀐다 — 안 바꾸면 세션 쿠키가 평문으로 흐른다.
-        secure: false
+        # 로컬이 http 라 기본은 끈다. 켜면 쿠키가 아예 안 실려서 로그인이 안 된다.
+        # https 로 올리면 `SESSION_COOKIE_SECURE=true` 가 필수다 — 안 켜면 세션 쿠키가 평문으로 흐른다.
+        secure: ${SESSION_COOKIE_SECURE:false}
 
 # API 스펙을 코드에서 뽑는다(`2a`).
 #

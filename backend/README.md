@@ -42,4 +42,28 @@ curl localhost:8080/actuator/health
 | `DB_HOST` | `localhost` |
 | `POSTGRES_PORT` | `5432` |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | `shop` |
-| `SERVER_PORT` | `8080` |
+| `SERVER_PORT` | `8080`. 없으면 `PORT`(호스팅이 주입하는 이름)를 본다 |
+| `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` |
+| `REDIS_PASSWORD` | 빈 값(인증 없음). 관리형 Redis 는 넣어야 붙는다 |
+| `SESSION_COOKIE_SECURE` | `false`. **https 로 올리면 `true` 가 필수다** — 안 켜면 세션 쿠키가 평문으로 흐른다. **프록시가 루프백 밖인데 꺼져 있으면 서버가 안 뜬다**(`Q44`) |
+| `TRUSTED_PROXIES` | 루프백. `X-Forwarded-For` 를 믿어 줄 상대의 정규식. **아무 주소나 물게 넓히면 서버가 안 뜬다**(`Q44`, `SecuritySettingsCheck`) |
+
+## 호스팅에 올릴 때
+
+`Dockerfile` 이 이미지를 만든다(빌드 문맥은 이 폴더 — Railway 면 Root Directory 를 `backend` 로).
+로컬은 이 파일을 안 쓴다.
+
+**위 표의 변수를 전부 배포 환경에 넣는다.** 안 넣은 것은 로컬 기본값으로 떨어져서
+`localhost` 의 DB 를 찾다가 기동이 실패한다. Railway 의 관리형 Postgres·Redis 는
+`PGHOST`·`PGPASSWORD`·`REDISHOST`·`REDISPASSWORD` 같은 이름으로 값을 주므로
+그것을 위 이름으로 옮겨 적는다(`DB_HOST=${{Postgres.PGHOST}}` 식).
+
+**`TRUSTED_PROXIES` 는 프록시가 어디 서느냐로 갈린다.**
+
+| 화면(Next)이 어디 있나 | 값 | 왜 |
+|---|---|---|
+| 백엔드와 같은 사설망(Railway 안) | 그 망의 대역 | 그 대역 밖에서 온 `X-Forwarded-For` 는 안 믿는다 |
+| 바깥(Vercel) | 못 좁힌다 — Vercel 의 나가는 IP 가 고정이 아니다 | 넓게 열면 백엔드 공개 주소를 직접 때리는 누구나 IP 를 속인다. `acted_ip` 가 동의 입증용이라(`application.yml` 주석) 이 구멍이 열린 채로 실사용자를 받지 않는다 |
+
+**실제 데이터가 있는 DB 에 올린 뒤에는 적용된 마이그레이션을 못 고친다**(`PLAN.md` `3e`·`Q36`).
+데모라 실데이터가 없으면 스키마를 접을 때 그 DB 를 비우고 다시 올린다.

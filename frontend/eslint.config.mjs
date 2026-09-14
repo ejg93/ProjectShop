@@ -29,6 +29,15 @@ const eslintConfig = defineConfig([
   // "Cannot redefine plugin" 으로 죽는다 — eslint-config-next 가 이미 같은 이름으로 등록해 뒀다.
   { rules: jsxA11y.flatConfigs.recommended.rules },
 
+  // 남이 준 글자를 HTML 로 그리는 자리를 막는다(`Q34`, `D14` 「HTML 출력」, OWASP A03).
+  //
+  // React 는 기본으로 글자를 이스케이프하는데 `dangerouslySetInnerHTML` 은 그것을 끈다.
+  // 상품 설명·문의 본문처럼 남이 쓴 글이 거기 닿으면 남의 스크립트가 우리 페이지에서 돈다.
+  //
+  // 켜기 전에 쟀다 — 저장소 전체에 0건이라 기준선 없이 바로 건다(`Q29`·`Q20-4` 와 같은 수).
+  // `react` 플러그인은 `eslint-config-next` 가 이미 등록해 뒀으므로 규칙만 켠다.
+  { rules: { "react/no-danger": "error" } },
+
   // 서버를 부르는 입구를 파일 둘에 가둔다(`Q29`, `D24` 「서버를 부르는 입구가 셋이다」).
   //
   // **문서에만 있던 규칙이다.** `fetch` 를 화면에서 직접 쓰면 표기 변환·CSRF·오류 변환을

@@ -331,7 +331,7 @@ class OrderServiceTest extends PostgresTestBase {
         }
 
         private String agreedAtOf(long skuId) {
-            return columnOf(skuId, "withdrawal_restriction_agreed_at");
+            return columnOf(skuId, "withdrawal_notice_agreed_at");
         }
 
         /** 장바구니 항목은 주문과 함께 사라지므로 `sku_id` 로 찾는다 */

@@ -6,11 +6,14 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -87,7 +90,79 @@ class LengthConstraintTest extends PostgresTestBase {
                         component(com.projectshop.shop.product.ProductController.OptionRequest.class, "name"))),
                 Arguments.of("product_substantiation_source_url_length_check", List.of(
                         component(com.projectshop.shop.product.ProductController.SubstantiationRequest.class,
-                                "sourceUrl"))));
+                                "sourceUrl"))),
+                // Q28 이 넓힌 넷. 요청 record 와 컬럼이 1:1 로 붙는 자리부터 이었다.
+                Arguments.of("product_substantiation_claim_length_check", List.of(
+                        component(com.projectshop.shop.product.ProductController.SubstantiationRequest.class,
+                                "claim"))),
+                Arguments.of("product_substantiation_evidence_length_check", List.of(
+                        component(com.projectshop.shop.product.ProductController.SubstantiationRequest.class,
+                                "evidence"))),
+                Arguments.of("inquiry_question_length_check", List.of(
+                        component(com.projectshop.shop.inquiry.InquiryController.NewInquiryRequest.class,
+                                "question"))),
+                Arguments.of("inquiry_answer_length_check", List.of(
+                        component(com.projectshop.shop.inquiry.InquiryController.AnswerRequest.class,
+                                "answer"))));
+    }
+
+    /**
+     * <b>대조하지 않는 제약과 그 이유</b>(`Q28`).
+     *
+     * <p>{@code EnumConstraintTest.everyEnumIsAccountedFor} 와 같은 틀이다 —
+     * <b>대조하든 안 하든, 적히지 않으면 빌드를 세운다.</b> 새 {@code length} 제약이 들어오면
+     * 여기나 {@link #pairs()} 중 한 곳에 이름이 있어야 한다.
+     *
+     * <p>값이 「왜 앱 검증과 대조할 것이 없나」다. 답이 안 되면 {@code pairs()} 로 가야 한다.
+     */
+    private static final Map<String, String> NOT_COMPARED = new java.util.TreeMap<>(Map.ofEntries(
+            Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),
+            Map.entry("idempotency_key_length_check", "헤더로 받은 키를 그대로 저장한다. 요청 record 의 칸이 아니다"),
+            Map.entry("payment_approval_number_length_check", "결제 대행사가 준 값이다. 우리가 상한을 정하지 않는다"),
+            Map.entry("payment_card_issuer_length_check", "결제 대행사가 준 값이다"),
+            Map.entry("payment_decline_reason_length_check", "결제 대행사가 준 값이다"),
+            Map.entry("refund_gateway_refund_number_length_check", "결제 대행사가 준 값이다"),
+            Map.entry("order_status_history_note_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 어느 요청 record 와 짝인지 실측해야 한다(`Q46`)"),
+            Map.entry("refund_note_decision_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
+            Map.entry("refund_note_request_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
+            Map.entry("return_note_decision_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
+            Map.entry("return_note_inspection_note_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
+            Map.entry("return_note_request_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)")));
+
+    /**
+     * 모든 {@code length} 제약이 <b>대조되거나 이유가 적혀 있다</b>(`Q28`).
+     *
+     * <p><b>손으로 적는 쪽은 빠뜨려도 안 걸린다.</b> 독립 리뷰가 짚었다 —
+     * {@code coding-rules.md} 는 「갈리는 것은 이 테스트가 막는다」를 <b>저장소 전체 규칙</b>으로
+     * 적었는데 실제로 대조하던 것은 {@code V65} 가 넣은 열한 쌍뿐이었다.
+     * <b>문서가 약속한 범위와 테스트가 덮는 범위가 달랐다.</b>
+     *
+     * <p>그래서 <b>DB 에 물어서</b> 목록을 만든다. 새 제약이 생기면 둘 중 한 곳에 적기 전까지 빨갛다.
+     */
+    @Test
+    @DisplayName("모든 길이 제약이 대조되거나 이유가 적혀 있다")
+    void everyLengthConstraintIsAccountedFor() {
+        List<String> declared = jdbc.sql("""
+                        select conname
+                        from pg_constraint
+                        where contype = 'c' and conname like '%length!_check' escape '!'
+                        """)
+                .query(String.class)
+                .list();
+
+        assertThat(declared).as("제약을 못 읽으면 0개를 재고 조용히 통과한다").hasSizeGreaterThan(20);
+
+        Set<String> accounted = new java.util.TreeSet<>(NOT_COMPARED.keySet());
+        pairs().map(arguments -> (String) arguments.get()[0]).forEach(accounted::add);
+
+        assertThat(declared.stream().filter(name -> !accounted.contains(name)).sorted().toList())
+                .as("적히지 않은 제약은 대조 밖이라, 문서가 약속한 범위와 실제로 덮는 범위가 갈린다"
+                        + " (coding-rules.md 「길이」, Q28). pairs() 로 잇거나 NOT_COMPARED 에 이유를 적는다")
+                .isEmpty();
+
+        assertThat(accounted.stream().filter(name -> !declared.contains(name)).sorted().toList())
+                .as("없어진 제약이 목록에 남으면 그 목록이 무엇을 덮는지 아무도 모른다")
+                .isEmpty();
     }
 
     @ParameterizedTest(name = "{0}")
@@ -124,8 +199,13 @@ class LengthConstraintTest extends PostgresTestBase {
      *       붙는데 그 안에 {@code @Size} 가 들어 있다. 규칙을 한 곳으로 모은 결과라
      *       직접 붙은 것만 보면 <b>이메일이 이 대조에서 통째로 빠진다</b></li>
      * </ul>
+     *
+     * <p><b>{@link ScreenLengthTest} 도 이것을 쓴다</b>(`Q27`). 같은 함정을 두 번 풀면
+     * 한쪽만 고치는 날이 온다. 상한이 없으면 {@code AssertionError} 를 던지므로,
+     * 부르는 쪽이 그것을 「없는 칸」으로 넘길 때는 <b>메시지를 보고 가려야 한다</b> —
+     * record 가 깨진 경우도 같은 예외로 온다.
      */
-    private static int maxOf(RecordComponent component) {
+    static int maxOf(RecordComponent component) {
         for (Annotation annotation : annotationsOn(component)) {
             if (annotation instanceof Size size) {
                 return size.max();

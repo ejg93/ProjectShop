@@ -26,6 +26,7 @@
 | 테스트 | 무엇을 대조하나 |
 |---|---|
 | `ErrorSlugScreenTest` | 화면의 `switch (error.slug)` 가짓수 ⊆ `ErrorCode` 의 슬러그 |
+| `ScreenLengthTest` | 화면 입력칸의 `maxLength` = 요청 record 의 `@Size(max)` (`Q27`) |
 | `OrderRecordTextTest.StatusLabels` | Java 상태 코드 표 = `order-text.ts` 의 표 |
 | `WithdrawalNoticeScreenTest` | 화면의 제한 사유 문구 표 = `WithdrawalRestrictionReason`(`D2` R4) |
 | `PasswordHintScreenTest` | 화면의 비밀번호 길이 문구 = `@Password` 의 `@Size` |
@@ -40,6 +41,17 @@
 **이 대조들은 화면 소스를 읽으므로 `build.gradle.kts` 의 `comparedScreens` 입력에 걸려 있다.**
 안 걸면 화면만 고친 청크에서 `test` 가 `UP-TO-DATE` 로 건너뛴다 — `Q16` 이 그것을 실제로 밟았고,
 `OrderRecordTextTest` 는 그때까지 **걸려 있으면서 안 도는 상태**였다.
+
+**`BuildInputTest` 가 그 신고를 막는다**(`Q25`). 저장소가 같은 함정을 **네 번** 밟았고
+기록은 재발을 못 막았다. 테스트 소스가 읽는 저장소 밖 경로를 **두 방법으로** 걷어
+(소스를 글자로 · `Path` 상수를 리플렉션으로 — 둘이 못 보는 자리가 서로 다르다)
+신고 목록이 그것을 덮는지 본다.
+
+**신고 목록은 `build.gradle.kts` 가 시스템 속성으로 내려보낸다.** 그 파일을 글자로 읽지 않는다 —
+신고를 쓰는 방식이 하나 늘면(지금도 파일 하나씩과 폴더 통째로가 섞여 있다) 읽는 쪽이 깨진다.
+
+**실행할 때 경로가 정해지는 자리는 둘 다 못 본다.** `StackVersionConsistencyTest` 가 그 하나고
+`BuildInputTest.DYNAMIC_ALLOWED` 에 이유와 같이 적혀 있다. 그 수를 박아서 조용히 늘지 않게 한다.
 
 **브라우저가 아니다.** jsdom 이라 프록시·세션 쿠키·CSRF 는 못 밟는다. 그쪽은 `HttpFlowTest` 가
 백엔드에서 보고, **화면까지 관통하는 층은 `Q18` 이 세웠다** — 아래 「E2E」.
@@ -252,6 +264,14 @@ SQL·제약·배선을 보는 코드가 대부분이라 DB 를 탄다. **채우�
 
 정리 비용이 붙는 층이므로 케이스를 늘리지 않는다. 여기 있어야 할 이유가
 "쿠키·세션·실제 상태 코드" 가 아니면 통합 층으로 내린다.
+
+**`PagingResolverTest` 가 그렇게 내려왔다**(`Q26`). `Q23` 이 HTTP 층에 두면서 댄 근거는
+「인자를 만들어 주는 것을 서블릿 컨테이너가 부른다」였는데, 그것은 위 목록에 없다.
+**`MockMvc` 가 `WebMvcConfigurer` 를 그대로 태워서** 재는 것이 안 줄었다 —
+등록을 빼고 두 층에서 각각 돌려 보니 **같은 하나가 빨갰다.**
+
+**규칙을 못 담은 경우였으면 이 목록을 고쳤을 것이다.** 내려가는지 먼저 재 보고,
+안 되면 근거를 목록에 더한다 — 테스트를 그냥 두고 규칙만 어기는 쪽이 제일 나쁘다.
 
 ### 무엇을 어디에
 

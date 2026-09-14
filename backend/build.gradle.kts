@@ -141,6 +141,22 @@ tasks.withType<JavaCompile> {
 // 태그는 그보다 약한 대신 **표식을 빠뜨릴 자리가 없다** — 컨테이너가 `PostgresTestBase`·
 // `HttpTestBase` 에만 있어서 DB 를 쓰려면 상속해야 하고, 상속하면 태그가 따라온다.
 // 상속하지 않고 DB 를 쓰면 빠른 레인에서 곧바로 빨개진다.
+// **신고 목록의 단일 진실**(`Q25`). 아래 `inputs.files` 와 `BuildInputTest` 가 같은 값을 든다.
+//
+// **테스트가 이 파일을 글자로 읽지 않는다.** 읽게 두면 신고를 쓰는 방식이 하나 늘 때마다
+// (파일 하나씩 적는 것과 폴더를 통째로 거는 것이 이미 섞여 있다) 읽는 쪽이 같이 깨진다.
+// 대신 아래 `tasks.withType<Test>` 가 이 목록을 시스템 속성으로 내려보낸다.
+val comparedInSlowLane = listOf(
+	"../doc/reference/data-lifecycle.md",
+	"../doc/reference/commerce-compliance.md")
+val comparedInFastLane = listOf(
+	"../PLAN.md",
+	"../PROGRESS.md",
+	"../doc/reference/stack.md",
+	"../docker-compose.yml")
+val comparedScreenRoot = "../frontend/src"
+val declaredComparedInputs = comparedInSlowLane + comparedInFastLane + comparedScreenRoot
+
 val integrationTest = tasks.register<Test>("integrationTest") {
 	description = "컨테이너를 띄우는 테스트만 돌린다."
 	group = "verification"
@@ -167,7 +183,7 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 	// **같은 함정을 저장소가 네 번 밟았다** — `2f`(`stack.md`)·`Q16`(화면 소스)·여기·`docker-compose.yml`.
 	// 네 번이면 기록이 아니라 강제 지점이 필요하다(`Q25`).
 	// `RequirementEnforcementTest`(`Q33`) 가 요건표의 강제 지점 이름을 실물과 대조한다 — 표만 고친 청크도 돌아야 한다.
-	inputs.files(file("../doc/reference/data-lifecycle.md"), file("../doc/reference/commerce-compliance.md"))
+	inputs.files(comparedInSlowLane.map { file(it) })
 		.withPropertyName("comparedDocsInSlowLane")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
 }
@@ -175,6 +191,11 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 tasks.withType<Test> {
 	// 스냅샷은 명시적으로 갱신한다. 자동으로 덮으면 diff 를 안 보고 넘어간다.
 	systemProperty("snapshot.update", System.getProperty("snapshot.update") ?: "false")
+
+	// **신고 목록을 테스트에 그대로 넘긴다**(`Q25`). `BuildInputTest` 가 이것과
+	// 테스트 소스가 실제로 읽는 경로를 맞춰 본다. 값이 바뀌면 이 속성이 바뀌어
+	// 그 테스트가 다시 돈다 — 신고를 고치고 대조가 안 도는 일이 없다.
+	systemProperty("declaredComparedInputs", declaredComparedInputs.joinToString(";"))
 
 	// **컨텍스트 캐시를 세려면 테스트 JVM 에 걸어야 한다**(`2i-3`). `-D` 는 Gradle JVM 에만 가서,
 	// 그대로 주면 로그가 한 줄도 안 나오고 **세는 데 실패한 것이 성공처럼 보인다.**
@@ -202,20 +223,19 @@ tasks.test {
 	// `stack.md` 만 읽는 것이 아니라 **표의 세 번째 칸이 가리키는 파일까지** 읽는데,
 	// Postgres·Redis 이미지 태그가 거기 있다. 실측으로 확인했다 — 그 파일을 고치고
 	// `test` 를 돌리니 `UP-TO-DATE` 였다.
-	inputs.files(file("../PLAN.md"), file("../PROGRESS.md"), file("../doc/reference/stack.md"),
-			file("../docker-compose.yml"))
+	inputs.files(comparedInFastLane.map { file(it) })
 		.withPropertyName("comparedDocs")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
 
-	// **화면 소스도 입력이다**(`Q16`). 대조 넷이 프론트 파일을 읽는다 —
+	// **화면 소스도 입력이다**(`Q16`). 대조 다섯이 프론트 파일을 읽는다 —
 	// `ErrorSlugScreenTest`(오류 슬러그)·`OrderRecordTextTest`(상태 문구)·
-	// `WithdrawalNoticeScreenTest`(제한 사유)·`PasswordHintScreenTest`(비밀번호 길이). 뒤 둘은 `Q20-2` 다.
+	// `WithdrawalNoticeScreenTest`(제한 사유)·`PasswordHintScreenTest`(비밀번호 길이)·`ScreenLengthTest`(입력칸 maxLength, `Q27`). 가운데 둘은 `Q20-2` 다.
 	// **수를 적는 자리는 여기 하나가 아니다** — `testing-strategy.md` 의 대조 표가 실물 목록이다.
 	//
 	// **안 걸면 화면만 고친 청크에서 `test` 가 `UP-TO-DATE` 로 건너뛴다.** 문서에서 두 번
 	// 겪은 것과 같은 함정인데, `OrderRecordTextTest` 는 그동안 이 상태로 있었다 —
 	// **대조가 걸려 있는 것과 도는 것은 다르다.**
-	inputs.files(fileTree("../frontend/src") { include("**/*.ts", "**/*.tsx") })
+	inputs.files(fileTree(comparedScreenRoot) { include("**/*.ts", "**/*.tsx") })
 		.withPropertyName("comparedScreens")
 		.withPathSensitivity(PathSensitivity.RELATIVE)
 }

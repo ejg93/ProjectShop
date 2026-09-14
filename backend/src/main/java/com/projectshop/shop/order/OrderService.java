@@ -16,6 +16,8 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.product.StockReason;
 import com.projectshop.shop.support.ExposedNumber;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * 장바구니에서 고른 것을 주문으로 굳힌다.
  *
@@ -81,6 +83,7 @@ public class OrderService {
     public record Shipping(String receiverName, String receiverPhone, String postalCode,
             String address1, String address2, String deliveryMemo) {}
 
+    @Schema(name = "OrderCreated")
     public record Created(long orderId, String orderNumber, long payableAmount) {}
 
     /**
@@ -331,10 +334,10 @@ public class OrderService {
                                                         unit_price_incl_vat, quantity, line_amount,
                                                         commission_bp, commission_amount,
                                                         withdrawal_restriction_reason,
-                                                        withdrawal_restriction_agreed_at)
+                                                        withdrawal_notice_agreed_at)
                                 values (:sellerOrderId, :skuId, :productName, :optionLabel,
                                         :unitPriceInclVat, :quantity, :lineAmount, :bp, :commission,
-                                        :restrictionReason, :restrictionAgreedAt)
+                                        :restrictionReason, :noticeAgreedAt)
                                 """)
                         .param("sellerOrderId", sellerOrderId)
                         .param("skuId", line.skuId())
@@ -346,7 +349,7 @@ public class OrderService {
                         .param("bp", line.commissionBp())
                         .param("commission", line.commissionAmount())
                         .param("restrictionReason", agreedRestriction(line, restrictionAgreed))
-                        .param("restrictionAgreedAt",
+                        .param("noticeAgreedAt",
                                 MADE_TO_ORDER.equals(agreedRestriction(line, restrictionAgreed))
                                         ? OffsetDateTime.now() : null)
                         .update();
