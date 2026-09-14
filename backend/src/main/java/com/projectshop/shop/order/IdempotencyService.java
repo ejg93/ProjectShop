@@ -97,7 +97,7 @@ public class IdempotencyService {
      * 재고 차감의 조건부 UPDATE 와 같은 논리다(`D11`).
      */
     private boolean claim(long userId, String key, String hash) {
-        // SET 은 값 바인딩이 안 되는 자리다. 상수라 결합해도 되고, 들어갈 값을 우리가 정한다(`D23`).
+        // sql-exception: set-statement — SET 은 값 바인딩이 안 되는 자리다. 상수라 결합해도 되고, 들어갈 값을 우리가 정한다(`D23`).
         jdbc.sql("set local lock_timeout = " + LOCK_TIMEOUT_MS).update();
 
         try {
