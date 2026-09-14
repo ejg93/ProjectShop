@@ -1101,6 +1101,30 @@ Dependabot 이 vitest 5 를 이미 올려 두고 있어서 다음 범프에 깨�
 **axe 가 잎사귀 컴포넌트에서 도는 비율은 8~14% 다**(`Q21` 측정). 무엇을 못 잡는지는
 `testing-strategy.md` 「axe 가 무엇을 잡고 무엇을 못 잡나」가 든다.
 
+### 비동기 서버 컴포넌트가 든 쪽은 `render` 로 못 그린다
+
+**React 의 클라이언트 렌더러가 `async` 함수 컴포넌트를 통째로 거부한다** —
+`<X> is an async Client Component. Only Server Components can be async at the moment` 가 뜨고
+**쪽 전체가 빈 채로 나온다**(`<body><div /></body>`). 그 안의 다른 조각을 단언하려던 시험이
+전부 빨개지는데, 원인은 단언 대상과 아무 상관이 없다.
+
+**`SiteHeader` 시험이 멀쩡한 이유는 거기가 잎사귀라서다** — `await SiteHeader()` 가 돌려주는
+나무에 `async` 조각이 하나도 없다. 주문 상세처럼 **안쪽에서 또 서버를 부르는 조각**
+(`ContractDocuments`)이 있으면 그 조건이 깨진다.
+
+**서버 렌더러로 문자열을 뽑아 문서에 넣는다**(`43a-4a`). `react-dom/static` 의 `prerender` 가
+비동기 조각을 기다려 주고, 나온 것을 `document.body.innerHTML` 에 넣으면
+`@testing-library/dom` 의 `getByRole` 로 같은 질문을 그대로 물을 수 있다.
+
+```ts
+const { prelude } = await prerender(await OrderDetailPage({ params }));
+// prelude 는 웹 스트림이라 reader 로 읽는다. jsdom 에 Response 가 없을 수 있다.
+document.body.innerHTML = await readAll(prelude);
+```
+
+**누르는 것은 못 본다.** 서버 렌더러가 낸 것은 문자열이라 이벤트가 안 붙는다 —
+버튼을 눌러 보는 시험은 그 조각을 따로 `render` 한다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
