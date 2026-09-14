@@ -9,6 +9,17 @@ const BACKEND = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
   /**
+   * 컨테이너에 실을 것만 추려 낸다(`Q38`).
+   *
+   * 이것이 없으면 이미지가 `node_modules` 를 통째로 져야 한다. 켜면 Next 가 실제로 쓰는 것만
+   * 골라 `.next/standalone` 에 서버 진입점과 같이 넣는다 — `Dockerfile` 이 그것만 옮긴다.
+   *
+   * **로컬에는 영향이 없다.** `npm run dev`·`npm run build` 가 하던 일은 그대로고
+   * 산출물이 하나 더 생길 뿐이다.
+   */
+  output: "standalone",
+
+  /**
    * 이 폴더가 프로젝트 뿌리다.
    *
    * 안 적으면 Turbopack 이 상위 폴더까지 훑다가 저장소 밖의 `package-lock.json` 을 집어
