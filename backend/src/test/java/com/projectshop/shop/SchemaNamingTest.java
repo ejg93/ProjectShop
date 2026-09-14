@@ -51,17 +51,6 @@ class SchemaNamingTest extends PostgresTestBase {
 
     private static final int MAX_NAME_LENGTH = 30;
 
-    /**
-     * 상한을 이미 넘긴 컬럼. <b>이 테스트가 찾아냈다</b> — 마이그레이션 텍스트로 잰 2026-09-13
-     * 측정에서는 위반 0이었는데, 도는 스키마에 32자짜리가 있었다.
-     *
-     * <p><b>여기서 안 고친다.</b> 이름을 바꾸는 것은 마이그레이션이고 컬럼을 읽는 코드가 같이
-     * 움직여야 해서 청크가 따로다(`Q40`). 그때까지 이 목록이 <b>새로 느는 것만</b> 막는다 —
-     * {@code doc-lint.sh} 의 기준선과 같은 수단이고 줄이는 방향으로만 고친다.
-     */
-    private static final List<String> TOO_LONG_UNTIL_RENAMED =
-            List.of("order_item.withdrawal_restriction_agreed_at");
-
     /** 표 이름과 기본키 접두사가 갈리는 둘. {@code user}·{@code order} 가 예약어라 표에만 접두사를 붙였다 */
     private static final Map<String, String> PREFIXED_TABLES = Map.of(
             "app_user", "user",
@@ -103,18 +92,21 @@ class SchemaNamingTest extends PostgresTestBase {
                 .isEmpty();
     }
 
+    /**
+     * <b>이 자리가 실제로 깨져 있었다</b>(`Q31`). 마이그레이션을 글자로 재던 측정은 「위반 0」이라고
+     * 했는데 도는 스키마에 물으니 32자짜리가 있었다 — {@code order_item.withdrawal_restriction_agreed_at}.
+     * `Q40` 이 {@code withdrawal_notice_agreed_at} 으로 줄였다(`V66`).
+     */
     @Test
-    @DisplayName("30자를 넘는 컬럼이 박아 둔 것뿐이다")
-    void longColumnNamesDoNotGrow() {
+    @DisplayName("컬럼 이름이 30자를 안 넘는다")
+    void columnNamesAreShort() {
         assertThat(columns().stream()
                 .filter(c -> c.name().length() > MAX_NAME_LENGTH)
                 .map(Column::qualified)
                 .sorted()
                 .toList())
-                .as("긴 이름은 인덱스·제약 이름이 63자에서 잘린다 (naming-rules.md 「SQL › 공통」)."
-                        + " 목록은 줄이는 방향으로만 고친다 — 이름을 고치는 것은 마이그레이션이라"
-                        + " 이 테스트가 아니라 Q40 이 한다")
-                .isEqualTo(TOO_LONG_UNTIL_RENAMED);
+                .as("긴 이름은 인덱스·제약 이름이 63자에서 잘린다 (naming-rules.md 「SQL › 공통」)")
+                .isEmpty();
     }
 
     @Test

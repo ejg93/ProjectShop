@@ -331,7 +331,7 @@ public class OrderService {
                                                         unit_price_incl_vat, quantity, line_amount,
                                                         commission_bp, commission_amount,
                                                         withdrawal_restriction_reason,
-                                                        withdrawal_restriction_agreed_at)
+                                                        withdrawal_notice_agreed_at)
                                 values (:sellerOrderId, :skuId, :productName, :optionLabel,
                                         :unitPriceInclVat, :quantity, :lineAmount, :bp, :commission,
                                         :restrictionReason, :restrictionAgreedAt)
