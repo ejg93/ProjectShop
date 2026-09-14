@@ -200,7 +200,8 @@ class LengthConstraintTest extends PostgresTestBase {
      *       직접 붙은 것만 보면 <b>이메일이 이 대조에서 통째로 빠진다</b></li>
      * </ul>
      */
-    private static int maxOf(RecordComponent component) {
+    /** {@link ScreenLengthTest} 도 쓴다 — 필드로 내려간 {@code &#64;Size} 를 찾는 함정이 같다(`Q27`) */
+    static int maxOf(RecordComponent component) {
         for (Annotation annotation : annotationsOn(component)) {
             if (annotation instanceof Size size) {
                 return size.max();
