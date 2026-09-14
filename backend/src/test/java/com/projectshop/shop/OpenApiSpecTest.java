@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,15 @@ class OpenApiSpecTest extends HttpTestBase {
             "/api/products", "/api/seller/products", "/api/orders", "/api/seller/orders",
             "/api/audit-logs", "/api/settlements", "/api/refunds",
             "/api/me/inquiries", "/api/seller/inquiries");
+
+    /** 소문자·숫자·하이픈, 그리고 {@code {자리표시자}} 만(`D5`) */
+    private static final Pattern LOWERCASE_PATH =
+            Pattern.compile("^/api(/[a-z0-9-]+|/\\{[A-Za-z]+\\})+$");
+
+
+    /** 그 자원들의 응답에 실리면 안 되는 내부 ID */
+    private static final Set<String> INTERNAL_IDS =
+            Set.of("orderId", "sellerOrderId", "paymentId", "settlementId");
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -102,6 +112,65 @@ class OpenApiSpecTest extends HttpTestBase {
         }
     }
 
+    /**
+     * 경로가 소문자와 하이픈으로만 돼 있다(`Q31`, `D5`).
+     *
+     * <p><b>문서에만 있던 규칙이다.</b> 밑줄이나 낙타 표기가 섞인 경로가 하나 나가면
+     * <b>되돌릴 수가 없다</b> — 부르는 쪽이 그 주소를 박아 두기 때문이다. 규칙 중에
+     * 늦게 고칠수록 비싸지는 쪽이라 코드보다 먼저 막는다.
+     *
+     * <p><b>단수·복수는 못 잰다.</b> {@code /api/products} 가 맞고 {@code /api/product} 가 틀린 것은
+     * 뜻을 읽어야 정해져서 사람이 본다.
+     */
+    @Test
+    @DisplayName("API 경로가 소문자와 하이픈으로만 돼 있다")
+    void pathsAreLowercaseHyphen() {
+        // 라우트를 못 뽑으면 0개를 재고 조용히 통과한다. 그쪽이 표기가 틀린 것보다 나쁘다.
+        assertThat(apiRoutes()).hasSizeGreaterThan(20);
+
+        assertThat(apiRoutes().stream().filter(route -> !LOWERCASE_PATH.matcher(route).matches()).toList())
+                .as("한 번 나간 주소는 부르는 쪽이 박아 둬서 못 고친다"
+                        + " (api-guidelines.md 「경로」). 소문자·하이픈과 {자리표시자} 만 쓴다")
+                .isEmpty();
+    }
+
+    /**
+     * 노출 번호가 있는 자원의 응답에 내부 ID 가 안 실린다(`Q31`, `identifier-rules.md` 「자원별 노출 방식」).
+     *
+     * <p><b>순번이 새면 총량이 샌다.</b> 주문 ID 가 4837 이면 그날까지 주문이 4837 건이라는 뜻이고,
+     * 경쟁사가 두 번 호출해서 빼는 것이 증가 속도다. 그래서 그 자원들은 번호를 따로 둔다.
+     *
+     * <p><b>ArchUnit 이 아니라 여기서 잰다.</b> 구조로 재면 서비스 안에서만 도는 record 까지 물어서
+     * 「나가지 않는 것」을 고치라고 시킨다. <b>스펙이 곧 나가는 것</b>이라 여기가 정확하다.
+     *
+     * <p><b>경로별로는 못 잰다.</b> 페이지 응답이 {@code Page} 스키마 하나를 자원 전체가 나눠 써서,
+     * {@code /api/orders} 의 응답을 따라가면 {@code settlementNumber} 까지 딸려 온다(`Q31` 에서 실측).
+     * 그래서 <b>스펙 전체에 그 이름이 없는지</b>로 잰다 — 넷 다 어느 응답에도 실릴 것이 아니라
+     * 범위를 넓혀도 뜻이 같다.
+     *
+     * <p><b>이름이 낙타 표기인 것은 스펙이 그렇게 그려서다.</b> 실제 응답은 뱀 표기로 나간다
+     * ({@code property-naming-strategy: SNAKE_CASE}) — <b>둘이 어긋난 것 자체가 결함</b>이고
+     * `Q41` 이 다룬다. 여기서는 스펙이 쓰는 표기로 잰다.
+     */
+    @Test
+    @DisplayName("스펙 어느 응답에도 내부 ID 가 없다")
+    void responsesExposeNumbersNotIds() {
+        JsonNode spec = spec();
+        Set<String> properties = new java.util.TreeSet<>();
+        for (String schemaName : names(spec.path("components").path("schemas"))) {
+            collectFrom(spec.path("components").path("schemas").path(schemaName),
+                    properties, new java.util.HashSet<>());
+        }
+
+        // 스키마를 못 걷으면 0개를 재고 조용히 통과한다.
+        assertThat(properties).hasSizeGreaterThan(50);
+
+        assertThat(properties.stream().filter(INTERNAL_IDS::contains).toList())
+                .as("내부 ID 가 나가면 노출 번호를 둔 의미가 사라진다"
+                        + " (identifier-rules.md 「순번을 노출하면 새는 것」)")
+                .isEmpty();
+    }
+
     @Test
     @DisplayName("스펙이 OpenAPI 3.1 이다")
     void speaksOpenApi31() {
@@ -120,6 +189,11 @@ class OpenApiSpecTest extends HttpTestBase {
 
     /** 우리 API 라우트를 경로 모양으로 뽑는다 */
     private List<String> routeShapes() {
+        return apiRoutes().stream().map(OpenApiSpecTest::shapeOf).distinct().toList();
+    }
+
+    /** 뜬 라우트를 중괄호까지 그대로 뽑는다. 경로 표기를 재려면 자리표시자 이름이 남아 있어야 한다 */
+    private List<String> apiRoutes() {
         return handlerMappings.stream()
                 .filter(RequestMappingHandlerMapping.class::isInstance)
                 .map(RequestMappingHandlerMapping.class::cast)
@@ -129,7 +203,6 @@ class OpenApiSpecTest extends HttpTestBase {
                 .flatMap(condition -> condition.getPatternValues().stream())
                 .filter(path -> path.startsWith("/api/"))
                 .filter(path -> !NOT_IN_SPEC.contains(path))
-                .map(OpenApiSpecTest::shapeOf)
                 .distinct()
                 .toList();
     }
@@ -140,6 +213,36 @@ class OpenApiSpecTest extends HttpTestBase {
                 .takeWhile(Objects::nonNull)
                 .map(OpenApiSpecTest::shapeOf)
                 .collect(Collectors.toSet());
+    }
+
+    private static List<String> names(JsonNode object) {
+        Iterator<String> iterator = object.propertyNames().iterator();
+        return java.util.stream.Stream.generate(() -> iterator.hasNext() ? iterator.next() : null)
+                .takeWhile(Objects::nonNull)
+                .toList();
+    }
+
+
+    /** 한 덩이에서 속성 이름과 {@code $ref} 를 같이 긁는다 */
+    private static void collectFrom(JsonNode node, Set<String> properties, Set<String> refs) {
+        if (node.isArray()) {
+            node.forEach(child -> collectFrom(child, properties, refs));
+            return;
+        }
+        if (!node.isObject()) {
+            return;
+        }
+        for (String name : names(node)) {
+            JsonNode child = node.path(name);
+            if ("$ref".equals(name)) {
+                refs.add(child.asString("").replace("#/components/schemas/", ""));
+            } else if ("properties".equals(name)) {
+                properties.addAll(names(child));
+                collectFrom(child, properties, refs);
+            } else {
+                collectFrom(child, properties, refs);
+            }
+        }
     }
 
     /** {@code /api/products/{productId}} 와 {@code /api/products/{id}} 를 같은 것으로 본다 */

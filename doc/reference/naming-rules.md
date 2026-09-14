@@ -130,8 +130,18 @@ select * from product p join sku s using (product_id)
 
 `is_required`, `is_system`, `is_org_role`.
 
-**기존에 어긋난 것이 하나 있다.** `user_consent.granted` 는 접두사가 없다.
+**기존에 어긋난 것이 둘 있다.** `user_consent.granted` 는 접두사가 없다.
 안 바꾼다 — 그 컬럼은 `current_consent` 뷰와 응답에 그대로 나가고, 이름만 고치면 API 가 바뀐다.
+
+`return_request.restock` 도 같다(`V63`). 요청 필드 이름이 그대로 컬럼이 됐고
+`ShipmentController` 를 지나 API 에 나간다 — 고치면 부르는 쪽이 같이 바뀐다.
+
+**`SchemaNamingTest` 가 막는다**(`Q31`). 도는 스키마에 물어서 재고, **이름으로 적는 예외는
+위 둘과 `holiday.holiday_date` 셋뿐이다.** 예외마다 이 문서의 절 이름이 붙어 있어서
+절이 없으면 목록에 못 들어간다.
+
+**예외를 이름으로 안 적고 구조로 가르는 자리가 있다.** 1:1 확장 표 여덟은
+「기본키 컬럼이 외래키이기도 하다」로 알아본다 — 이름을 여덟 개 적으면 아홉 번째에 목록이 낡는다.
 
 ## Java
 
