@@ -271,6 +271,15 @@ public class BatchRuns {
      */
     static FailureKind failureKindOf(Throwable thrown) {
         for (Throwable cause = thrown; cause != null; cause = cause.getCause()) {
+            // **노출 번호 충돌은 일시적이다**(`Q49`·마무리 17차). 다시 뽑으면 다른 번호가 나온다.
+            // SQLSTATE 로는 안 갈린다 — `23505` 는 「다시 해도 같은 유일 위반」과 구분이 안 된다.
+            //
+            // **이 줄이 없으면 `Q49` 의 결정이 코드에 없다.** 그 청크는 「정산은 배치 안이라
+            // 재시도 스위퍼가 받으니 `Retries.onConflict` 로 안 감싼다」고 정했는데,
+            // 아래 분류가 `23505` 를 PERMANENT 로 보내서 **스위퍼가 그 회차를 안 집는다.**
+            if (cause instanceof ExposedNumber.Conflict) {
+                return FailureKind.TRANSIENT;
+            }
             if (cause instanceof SQLException sql) {
                 String state = sql.getSQLState();
                 if (state != null
