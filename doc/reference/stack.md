@@ -975,6 +975,33 @@ docker compose down -v && docker compose up -d --wait
 끄는 것은 `--setting-sources user` 뿐이다. **버리는 단위가 파일이라** 그 파일에 훅 말고 다른
 키가 있으면 그것도 같이 버려진다 — 이 저장소의 `.claude/settings.json` 은 최상위 키가 `hooks` 하나다.
 
+### 유니크 충돌 뒤 같은 트랜잭션은 죽어 있다
+
+오류가 한 번 나면 Postgres 는 그 트랜잭션을 abort 시킨다. 다음 문장은 무엇이든 `25P02`
+(`current transaction is aborted, commands ignored until end of transaction block`) 로 죽는다.
+
+**그래서 트랜잭션 안의 재시도는 성공할 수가 없다.** 두 번째 시도가 내는 것은 원래 예외가 아니라
+`25P02` 라 **잡으려던 catch 에도 안 걸린다** — 잡히지 않고 그대로 500 이 된다.
+`ExposedNumber` 의 재시도 3회가 그렇게 **한 번도 안 돌고 있었다**(`Q49`).
+`ExposedNumberConflictTest` 가 그 사실을 실물 DB 로 고정한다.
+
+**재시도는 밖에서 건다.** 롤백이 끝난 뒤라야 새 값으로 다시 시작할 수 있다.
+
+### 제약 이름은 메시지의 큰따옴표 안에 있다
+
+드라이버가 `runtimeOnly` 라 **본코드가 `PSQLException` 에 컴파일로 못 붙는다.**
+`getServerErrorMessage().getConstraint()` 는 리플렉션으로만 닿는다.
+
+대신 메시지를 본다. Postgres 는 이름을 큰따옴표로 감싸서 넣는다.
+
+```
+ERROR: duplicate key value violates unique constraint "shop_order_number_unique"
+```
+
+**문구가 번역돼도 따옴표 안은 안 바뀐다.** 그래서 이름을 큰따옴표째로 찾는다(`ExposedNumber`).
+실물 메시지가 이 꼴인지는 `ExposedNumberConflictTest` 가 잰다 — 기억으로 쓰면 틀리는 자리라
+조립한 예외로는 확인이 안 된다.
+
 ### 리뷰어가 서브에이전트를 기다리다 코멘트 없이 끝난다
 
 run 34862668434 이 그랬다. `started_in_background: 10` · `completed: 7` 이고 39턴을 태웠는데

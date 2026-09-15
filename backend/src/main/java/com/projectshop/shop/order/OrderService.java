@@ -285,7 +285,7 @@ public class OrderService {
         long commissionTotal = lines.stream().mapToLong(Line::commissionAmount).sum();
         long shippingTotal = shippingFeeBySeller(lines).values().stream().mapToLong(Long::longValue).sum();
 
-        return ExposedNumber.insertWith("", "주문번호", number -> jdbc.sql("""
+        return ExposedNumber.insert("", "shop_order_number_unique", number -> jdbc.sql("""
                                 insert into shop_order (order_number, user_id, total_amount,
                                                         commission_total, shipping_fee_total, payable_amount)
                                 values (:number, :userId, :total, :commission, :shipping, :payable)
@@ -395,7 +395,7 @@ public class OrderService {
     private long insertSellerOrder(long orderId, long sellerId, long shippingFee,
             int leadDays, Integer agreedDays) {
 
-        return ExposedNumber.insertWith(SELLER_ORDER_PREFIX, "셀러 주문번호", number -> jdbc.sql("""
+        return ExposedNumber.insert(SELLER_ORDER_PREFIX, "seller_order_number_unique", number -> jdbc.sql("""
                                 insert into seller_order (seller_order_number, order_id,
                                                           seller_id, shipping_fee, supply_lead_days,
                                                           agreed_lead_days)

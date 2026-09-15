@@ -19,6 +19,7 @@ import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.support.Retries;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -80,12 +81,15 @@ public class InquiryController {
     @PostMapping("/api/inquiries")
     public ResponseEntity<InquiryCreated> create(@AuthenticationPrincipal ShopUser user,
             @Valid @RequestBody NewInquiryRequest request) {
-        String number = inquiries.create(user.id(), new InquiryService.NewInquiry(
-                storedEnum(request.kind()),
-                request.productId(),
-                request.sellerOrderNumber(),
-                request.question(),
-                request.isPublic() == null || request.isPublic()));
+        // 재시도가 트랜잭션 바깥이다(`D11`·`Q49`). 안쪽은 이미 깨진 트랜잭션이라 다음 문장부터 못 돈다.
+        // 문의번호가 부딪히는 자리가 `InquiryService.create` 안이고 그것이 `@Transactional` 이다.
+        String number = Retries.onConflict(
+                () -> inquiries.create(user.id(), new InquiryService.NewInquiry(
+                        storedEnum(request.kind()),
+                        request.productId(),
+                        request.sellerOrderNumber(),
+                        request.question(),
+                        request.isPublic() == null || request.isPublic())));
 
         return ResponseEntity.created(URI.create("/api/me/inquiries"))
                 .body(new InquiryCreated(number));

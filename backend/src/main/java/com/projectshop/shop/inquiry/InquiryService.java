@@ -99,7 +99,7 @@ public class InquiryService {
         // 번호가 부딪히면 다시 뽑는다. 재시도가 이 안에 있어서 부르는 쪽이 세지 않는다(`D9`).
         // 기한을 접수하는 순간 박제한다(`58-1`). 답한 날에서 세면 늦게 답할수록 기한이
         // 밀려서 「늦었다」가 성립을 안 한다 — `refund.due_at` 과 같은 판단이다.
-        return ExposedNumber.insertWith(NUMBER_PREFIX, "문의번호", number -> jdbc.sql("""
+        return ExposedNumber.insert(NUMBER_PREFIX, "inquiry_number_unique", number -> jdbc.sql("""
                         insert into inquiry (inquiry_number, kind, product_id, seller_order_id,
                                              user_id, question, is_public, due_at)
                         values (:number, :kind, :productId, :sellerOrderId, :userId, :question,

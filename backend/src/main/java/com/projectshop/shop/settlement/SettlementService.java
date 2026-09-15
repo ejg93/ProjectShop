@@ -185,7 +185,7 @@ public class SettlementService {
      * 부르는 쪽이 세지 않는다.
      */
     private long insertStatement(long cycleId, long sellerId) {
-        return ExposedNumber.insertWith(NUMBER_PREFIX, "정산서 번호", number -> jdbc.sql("""
+        return ExposedNumber.insert(NUMBER_PREFIX, "settlement_number_unique", number -> jdbc.sql("""
                         insert into settlement (settlement_number, settlement_cycle_id,
                                                 seller_id, payout_amount)
                         values (:number, :cycleId, :sellerId, 0)
