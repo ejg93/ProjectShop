@@ -50,8 +50,18 @@ updates:
         update-types: ["version-update:semver-major"]
       # `eslint-plugin-jsx-a11y` 의 peer 가 eslint 10 을 안 받아서 `npm ci` 가 ERESOLVE 로
       # 죽는다(PR #14). **접근성 규칙이 그 플러그인에 있다**(`D20`) — 빼고 올리는 선택지가
-      # 없다. 플러그인이 eslint 10 을 받으면 이 줄을 지운다.
-      - dependency-name: "eslint"
+      # 없다. 플러그인이 eslint 10 을 받으면 아래 두 줄을 같이 지운다.
+      #
+      # **이름이 아니라 계열로 적는다**(`2f-4`). `eslint` 하나만 막아 뒀더니 Dependabot 이
+      # `@eslint/js` 를 10 으로 올린 PR #44 를 열었고, 그것이 `eslint@^10` 을 peer 로 요구해서
+      # **초록이 될 수 없는 PR** 이 됐다(`npm error Conflicting peer dependency: eslint@10.10.0`).
+      # 본체를 막고 부품을 안 막으면 같은 것이 다른 이름으로 들어온다 — 지금 넷이고 더 늘 수 있다.
+      #
+      # `eslint-config-next` 는 eslint 10 을 받는데 여기 같이 걸린다. 본체가 9 라
+      # 그것만 올려서 얻는 것이 없어서 손해가 아니다.
+      - dependency-name: "eslint*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/*"
         update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "deps"
