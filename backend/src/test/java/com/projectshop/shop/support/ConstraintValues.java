@@ -56,11 +56,15 @@ public final class ConstraintValues {
      * <p>숫자를 같이 받는다. {@code under_50_transactions} 에 {@code 50} 이 들어 있어서
      * 소문자만 훑으면 그 값이 통째로 빠진다.
      *
+     * <p><b>점도 받는다</b>(`Q57`). 사건 종류가 {@code shop.order.status_changed} 라 점이 들어간다 —
+     * 그 전까지 값이 전부 한 낱말이라 점을 빼고 훑었고, 그러면 <b>목록이 통째로 비어서</b>
+     * 대조가 「DB 쪽에 값이 없다」로 빨개진다. 실물로 밟았다.
+     *
      * @param definitionFragment 제약 정의 또는 그 일부
      */
     public static List<String> valuesIn(String definitionFragment) {
         return Arrays.stream(definitionFragment.split("'"))
-                .filter(part -> part.matches("[a-z0-9_]+"))
+                .filter(part -> part.matches("[a-z0-9_.]+"))
                 .distinct()
                 .toList();
     }

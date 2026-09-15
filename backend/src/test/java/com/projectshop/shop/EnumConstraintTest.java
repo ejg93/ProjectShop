@@ -158,6 +158,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("notification.NotificationStatus", List.of("notification_status_check"));
         pairs.put("support.BatchRunStatus", List.of("batch_run_status_check"));
         pairs.put("support.FailureKind", List.of("batch_run_failure_kind_values_check"));
+        pairs.put("support.EventType", List.of("outbox_event_type_check"));
         pairs.put("settlement.PayoutStatus", List.of("settlement_payout_status_check"));
         pairs.put("settlement.SettlementItemKind", List.of("settlement_item_kind_check"));
         return Map.copyOf(pairs);
@@ -192,7 +193,9 @@ class EnumConstraintTest extends PostgresTestBase {
                 .query(String.class)
                 .single();
 
-        Matcher produced = Pattern.compile("\\bTHEN\\s+'([a-z0-9_]+)'", Pattern.CASE_INSENSITIVE)
+        // 점을 받는다 — `ConstraintValues.valuesIn` 과 같은 이유이자 **같은 값 범위**여야 한다.
+        // 한쪽만 넓히면 점 든 값이 생성 열에 오는 날 이쪽이 조용히 빠뜨린다(마무리 18차 독립 리뷰).
+        Matcher produced = Pattern.compile("\\bTHEN\\s+'([a-z0-9_.]+)'", Pattern.CASE_INSENSITIVE)
                 .matcher(expression);
         List<String> values = new ArrayList<>();
         while (produced.find()) {
