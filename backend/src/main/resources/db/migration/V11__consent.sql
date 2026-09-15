@@ -110,7 +110,10 @@ create table user_consent (
     -- 동의 입증에 쓴다. 개인정보라 파기 대상이고, 그래서 위 cascade 에 같이 걸린다.
     acted_ip   inet,
 
-    acted_at   timestamptz not null default now()
+    acted_at   timestamptz not null default now(),
+    -- V46 가 더한 칸(Q36 이 접었다)
+    reconfirmed_at timestamptz
+
 );
 
 comment on table user_consent is
@@ -214,3 +217,6 @@ select 'marketing_night', '야간 광고성 정보 수신 (21시~08시)', false,
        '거부해도 주간 수신에는 영향이 없습니다'
   from consent_item
  where code = 'marketing_email' and version = 1;
+
+comment on column user_consent.reconfirmed_at is
+    '마지막으로 수신동의 여부를 확인한 시각. 다음 2년을 여기서 센다(시행령 제62조의3, 55b)';

@@ -959,6 +959,81 @@ docker compose down -v && docker compose up -d --wait
 바꾸는 묶음에서 리뷰가 「문서가 부르는 것이 실물과 맞나」를 물을 때, 리뷰가 읽는 규칙은
 그 PR 의 판이 아니라 `main` 의 판이다. 그 PR 의 지적을 읽을 때 이 차이를 먼저 본다.
 
+**되살리는 것이 우리가 지우는 것보다 늦다.** run 34862668434 에서 워크플로의 삭제 단계가
+15:31:15 에 돌고 「Restoring .claude」가 15:31:33 에 찍혔다 — **18초 뒤다.**
+`rm -f .claude/settings.json` 으로 저장소 훅을 끄려던 것이 열 회차 넘게 아무것도 안 하고 있었다.
+
+**파일을 지워서 못 끈다. 안 읽게 해야 끈다** — `claude_args` 에 `--setting-sources user`.
+액션이 그 플래그를 알아서 SDK 의 `settingSources` 로 넘기고, 소스 목록에서 `project`·`local` 이 빠진다.
+
+### 액션의 `settings` 입력은 훅을 못 지운다
+
+`settings: '{"hooks":{}}'` 로 저장소 훅을 덮으려는 것이 안 된다. CLI 의 `--settings` 는
+도움말이 「load **additional** settings」라 **더하기만 한다.** 로컬에서 세 변형을 쟀고
+(`{"hooks":{}}` · `{"hooks":{"Stop":[]}}` · `{"hooks":{"Stop":null}}`) 셋 다 프로젝트 Stop 훅이 그대로 돌았다.
+
+끄는 것은 `--setting-sources user` 뿐이다. **버리는 단위가 파일이라** 그 파일에 훅 말고 다른
+키가 있으면 그것도 같이 버려진다 — 이 저장소의 `.claude/settings.json` 은 최상위 키가 `hooks` 하나다.
+
+### Spring Session 을 켤 때 밟는 자리 넷
+
+세션을 Redis 로 옮기면서(`Q52`) 하루에 넷을 밟았다. **넷 다 증상이 「조용히 안 된다」다.**
+
+| 무엇 | 증상 | 맞는 것 |
+|---|---|---|
+| 좌표 | `SessionRepository` 빈이 안 뜬다 | **`org.springframework.boot:spring-boot-session-data-redis`**. `org.springframework.session:spring-session-data-redis` 만 넣으면 클래스는 오는데 자동설정이 없다 — Boot 4 가 자동설정을 모듈로 쪼갰다(추적 의존성과 같은 함정) |
+| 속성 경로 | 아무 일도 안 난다. 기본값이 그대로 쓰인다 | **`spring.session.data.redis.*`**. `spring.session.redis.*` 는 Boot 4 에서 빈 경로다 |
+| 저장소 종류 | `NoSuchBeanDefinitionException: FindByIndexNameSessionRepository` | **`repository-type: indexed`**. 기본값 `default` 는 색인이 없어서 「이 사람의 세션들」을 못 찾는다 |
+| 쿠키 설정 | MockMvc 에서 이름이 `SHOPSESSION` 이 아니라 `SESSION` 이다 | **내장 서버가 있을 때만 걸린다.** Boot 이 `server.servlet.session.cookie.*` 를 넘겨주는 자리가 `EmbeddedWebServerConfiguration` 안이라, MockMvc 층은 Spring Session 기본값을 쓴다 |
+
+**실물 쿠키는 그대로다.** 이름·`HttpOnly`·`SameSite` 가 HTTP 층에서 확인된다(`SessionStoreTest`) —
+넷째 줄은 **테스트 층의 사실**이지 배포되는 동작이 아니다. 그래서 그 단언을 HTTP 층에 뒀다.
+
+### 세션 명부는 전수 목록을 못 준다
+
+`SpringSessionBackedSessionRegistry.getAllPrincipals()` 가 `UnsupportedOperationException` 을 던진다 —
+색인이 「사람 하나 → 세션들」 방향뿐이라 전수 목록이 아예 없다. 예외 메시지가 그렇게 적혀 있다.
+
+**탈퇴가 그것을 쓰고 있었다**(`Q52`). 등록된 사람을 전부 받아 훑어서 그 사람 세션을 끊는 코드였다.
+지금은 `FindByIndexNameSessionRepository.findByPrincipalName(이메일)` 로 찾는다 — **열쇠가 principal 이름**이고
+이 저장소에서는 그것이 이메일이다(`ShopUser.getUsername()`).
+
+**advisory lock 과 같은 함정이 하나 더 있다**: 쿠키 값이 저장소 열쇠가 아니다. Spring Session 이
+세션 ID 를 Base64 로 싸서 내리므로, 쿠키 값을 그대로 `findById` 에 넣으면 **없는 것으로 나온다.**
+
+### 유니크 충돌 뒤 같은 트랜잭션은 죽어 있다
+
+오류가 한 번 나면 Postgres 는 그 트랜잭션을 abort 시킨다. 다음 문장은 무엇이든 `25P02`
+(`current transaction is aborted, commands ignored until end of transaction block`) 로 죽는다.
+
+**그래서 트랜잭션 안의 재시도는 성공할 수가 없다.** 두 번째 시도가 내는 것은 원래 예외가 아니라
+`25P02` 라 **잡으려던 catch 에도 안 걸린다** — 잡히지 않고 그대로 500 이 된다.
+`ExposedNumber` 의 재시도 3회가 그렇게 **한 번도 안 돌고 있었다**(`Q49`).
+`ExposedNumberConflictTest` 가 그 사실을 실물 DB 로 고정한다.
+
+**재시도는 밖에서 건다.** 롤백이 끝난 뒤라야 새 값으로 다시 시작할 수 있다.
+
+### 제약 이름은 메시지의 큰따옴표 안에 있다
+
+드라이버가 `runtimeOnly` 라 **본코드가 `PSQLException` 에 컴파일로 못 붙는다.**
+`getServerErrorMessage().getConstraint()` 는 리플렉션으로만 닿는다.
+
+대신 메시지를 본다. Postgres 는 이름을 큰따옴표로 감싸서 넣는다.
+
+```
+ERROR: duplicate key value violates unique constraint "shop_order_number_unique"
+```
+
+**문구가 번역돼도 따옴표 안은 안 바뀐다.** 그래서 이름을 큰따옴표째로 찾는다(`ExposedNumber`).
+실물 메시지가 이 꼴인지는 `ExposedNumberConflictTest` 가 잰다 — 기억으로 쓰면 틀리는 자리라
+조립한 예외로는 확인이 안 된다.
+
+### 리뷰어가 서브에이전트를 기다리다 코멘트 없이 끝난다
+
+run 34862668434 이 그랬다. `started_in_background: 10` · `completed: 7` 이고 39턴을 태웠는데
+결과 문장이 「그냥 에이전트 완료 알림을 기다린다」였고 **코멘트는 0개**다. `is_error: false` 라
+겉에서는 성공이다. **띄운 것을 다 안 받고 끝내면 산출물이 0이 된다** — 프롬프트가 그것을 막는다.
+
 ### 리뷰 한 번이 약 $1.1 에 5분이다
 
 `total_cost_usd` 1.1158 · `duration_ms` 315118 · `num_turns` 47 이 실측값이다(PR #26).
@@ -1101,6 +1176,30 @@ Dependabot 이 vitest 5 를 이미 올려 두고 있어서 다음 범프에 깨�
 **axe 가 잎사귀 컴포넌트에서 도는 비율은 8~14% 다**(`Q21` 측정). 무엇을 못 잡는지는
 `testing-strategy.md` 「axe 가 무엇을 잡고 무엇을 못 잡나」가 든다.
 
+### 비동기 서버 컴포넌트가 든 쪽은 `render` 로 못 그린다
+
+**React 의 클라이언트 렌더러가 `async` 함수 컴포넌트를 통째로 거부한다** —
+`<X> is an async Client Component. Only Server Components can be async at the moment` 가 뜨고
+**쪽 전체가 빈 채로 나온다**(`<body><div /></body>`). 그 안의 다른 조각을 단언하려던 시험이
+전부 빨개지는데, 원인은 단언 대상과 아무 상관이 없다.
+
+**`SiteHeader` 시험이 멀쩡한 이유는 거기가 잎사귀라서다** — `await SiteHeader()` 가 돌려주는
+나무에 `async` 조각이 하나도 없다. 주문 상세처럼 **안쪽에서 또 서버를 부르는 조각**
+(`ContractDocuments`)이 있으면 그 조건이 깨진다.
+
+**서버 렌더러로 문자열을 뽑아 문서에 넣는다**(`43a-4a`). `react-dom/static` 의 `prerender` 가
+비동기 조각을 기다려 주고, 나온 것을 `document.body.innerHTML` 에 넣으면
+`@testing-library/dom` 의 `getByRole` 로 같은 질문을 그대로 물을 수 있다.
+
+```ts
+const { prelude } = await prerender(await OrderDetailPage({ params }));
+// prelude 는 웹 스트림이라 reader 로 읽는다. jsdom 에 Response 가 없을 수 있다.
+document.body.innerHTML = await readAll(prelude);
+```
+
+**누르는 것은 못 본다.** 서버 렌더러가 낸 것은 문자열이라 이벤트가 안 붙는다 —
+버튼을 눌러 보는 시험은 그 조각을 따로 `render` 한다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
@@ -1135,6 +1234,7 @@ Dependabot 이 vitest 5 를 이미 올려 두고 있어서 다음 범프에 깨�
 | Next.js 버전, 패키지 매니저 | 청크 13 |
 | springdoc-openapi | 청크 2a |
 | MinIO | 청크 26 |
+| Kafka — 컴포즈 이미지 태그 · `spring-kafka` · Testcontainers Kafka 좌표 | 청크 33. **로컬에서만 돈다**(`event-catalog.md` 「전송」) — 배포에는 안 올린다 |
 
 정해지면 위 표에 줄을 더한다.
 

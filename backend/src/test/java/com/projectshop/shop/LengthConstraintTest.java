@@ -69,6 +69,10 @@ class LengthConstraintTest extends PostgresTestBase {
                 Arguments.of("app_user_email_length_check", List.of(
                         component(com.projectshop.shop.auth.AuthController.SignupRequest.class, "email"),
                         component(com.projectshop.shop.account.MeController.EmailRequest.class, "email"))),
+                // 대기 주소도 요청으로 들어온다. 계정 주소와 같은 상한이어야 한다 —
+                // 여기만 넓으면 확인 뒤 옮기는 순간 app_user 의 제약이 터진다(`5e-1`).
+                Arguments.of("email_change_request_new_email_length_check", List.of(
+                        component(com.projectshop.shop.account.MeController.EmailRequest.class, "email"))),
                 Arguments.of("app_user_display_name_length_check", List.of(
                         component(com.projectshop.shop.auth.AuthController.SignupRequest.class, "displayName"),
                         component(com.projectshop.shop.account.MeController.UpdateRequest.class, "displayName"))),
@@ -103,7 +107,25 @@ class LengthConstraintTest extends PostgresTestBase {
                                 "question"))),
                 Arguments.of("inquiry_answer_length_check", List.of(
                         component(com.projectshop.shop.inquiry.InquiryController.AnswerRequest.class,
-                                "answer"))));
+                                "answer"))),
+                // Q46 이 이은 넷. 서비스가 요청의 사유를 옮겨 담는 자리라 호출 사슬을 따라가 찾았다.
+                //
+                // `order_status_history_note.reason` 은 **입구가 넷**이다 — 상태를 옮기는 모든
+                // 동작이 같은 칸에 사유를 쌓는다. 하나만 이으면 나머지 셋이 갈려도 안 걸린다.
+                Arguments.of("order_status_history_note_reason_length_check", List.of(
+                        component(com.projectshop.shop.order.ShipmentController.ActionRequest.class, "reason"),
+                        component(com.projectshop.shop.order.ShipmentController.ApproveReturnRequest.class,
+                                "reason"),
+                        component(com.projectshop.shop.order.ShipmentController.RejectReturnRequest.class,
+                                "reason"),
+                        component(com.projectshop.shop.order.ReturnController.ReceiveRequest.class, "reason"))),
+                Arguments.of("return_note_decision_reason_length_check", List.of(
+                        component(com.projectshop.shop.order.ShipmentController.RejectReturnRequest.class,
+                                "decisionReason"))),
+                Arguments.of("refund_note_request_reason_length_check", List.of(
+                        component(com.projectshop.shop.payment.RefundController.RefundRequest.class, "reason"))),
+                Arguments.of("refund_note_decision_reason_length_check", List.of(
+                        component(com.projectshop.shop.payment.RefundController.DecisionRequest.class, "reason"))));
     }
 
     /**
@@ -116,18 +138,20 @@ class LengthConstraintTest extends PostgresTestBase {
      * <p>값이 「왜 앱 검증과 대조할 것이 없나」다. 답이 안 되면 {@code pairs()} 로 가야 한다.
      */
     private static final Map<String, String> NOT_COMPARED = new java.util.TreeMap<>(Map.ofEntries(
+            Map.entry("email_change_request_token_hash_length_check",
+                    "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5e-1`)"),
+            Map.entry("password_reset_token_hash_length_check",
+                    "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5c-1`)"),
+            Map.entry("compensation_note_reason_length_check",
+                    "쓰는 코드가 아직 없다 — 배상을 넣는 입구가 `43a-4c` 다. 그 입구가 서면 pairs() 로 옮긴다"),
             Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),
             Map.entry("idempotency_key_length_check", "헤더로 받은 키를 그대로 저장한다. 요청 record 의 칸이 아니다"),
             Map.entry("payment_approval_number_length_check", "결제 대행사가 준 값이다. 우리가 상한을 정하지 않는다"),
             Map.entry("payment_card_issuer_length_check", "결제 대행사가 준 값이다"),
             Map.entry("payment_decline_reason_length_check", "결제 대행사가 준 값이다"),
             Map.entry("refund_gateway_refund_number_length_check", "결제 대행사가 준 값이다"),
-            Map.entry("order_status_history_note_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 어느 요청 record 와 짝인지 실측해야 한다(`Q46`)"),
-            Map.entry("refund_note_decision_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
-            Map.entry("refund_note_request_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
-            Map.entry("return_note_decision_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
-            Map.entry("return_note_inspection_note_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)"),
-            Map.entry("return_note_request_reason_length_check", "여러 입구의 사유가 한 컬럼에 쌓인다 — 짝을 실측해야 한다(`Q46`)")));
+            Map.entry("return_note_inspection_note_length_check", "쓰는 코드가 아직 없다 — 검수 소견을 남기는 입구가 `43a` 다. 그 입구가 서면 pairs() 로 옮긴다"),
+            Map.entry("return_note_request_reason_length_check", "쓰는 코드가 아직 없다 — 반품 접수 입구가 `43a` 다. 그 입구가 서면 pairs() 로 옮긴다")));
 
     /**
      * 모든 {@code length} 제약이 <b>대조되거나 이유가 적혀 있다</b>(`Q28`).

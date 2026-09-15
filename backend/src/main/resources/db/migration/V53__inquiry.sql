@@ -11,7 +11,6 @@
 -- 제50조의7 은 운영자가 거부하면 게시가 중단돼야 한다고 정한다. Q&A 가 열리는 순간
 -- 그 자리가 광고판이 되는데 지금은 내릴 수단이 없다.
 
-
 -- 문의 하나. 상품 Q&A 와 계정에 붙는 요구가 같은 표에 있다.
 --
 -- **표를 안 가른다.** 셋 다 「받아서 답한다」는 같은 수명을 살고 같은 상태를 지난다 —
@@ -57,6 +56,13 @@ create table inquiry (
 
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
+    -- V54 가 더한 칸(Q36 이 접었다)
+    is_public boolean not null default false,
+    -- V59 가 더한 칸(Q36 이 접었다)
+    due_at timestamptz,
+    -- V61 가 더한 칸(Q36 이 접었다)
+    seller_order_id bigint
+        references seller_order (seller_order_id) on delete restrict,
 
     constraint inquiry_number_unique unique (inquiry_number),
 
@@ -124,3 +130,12 @@ comment on column inquiry.kind is
 
 comment on column inquiry.blocked_reason is
     '게시를 내린 사유. advertisement 는 정보통신망법 제50조의7, abuse 는 약관이다';
+
+comment on column inquiry.is_public is
+    '남에게 보이나. 상품 Q&A 만 고를 수 있고 계정에 붙는 요구는 언제나 false 다(청크 59)';
+
+comment on column inquiry.due_at is
+    '법정 처리 기한. 처리정지는 접수일 + 10일이다(개인정보보호법 시행령 제44조제2항, D2 R28)';
+
+comment on column inquiry.seller_order_id is
+    '주문 문의의 대상 묶음. 셀러가 자기 것만 보는 근거도 이 값이다(청크 58-2)';

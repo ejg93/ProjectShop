@@ -12,6 +12,7 @@ import {
 } from "@/lib/order-text";
 
 import { OrderActions } from "@/components/order-actions";
+import { ShipDelayNotice } from "@/components/ship-delay-notice";
 import { PolicyBody } from "@/components/policy-document";
 
 import { ORDER_ACTIONS } from "../status";
@@ -35,6 +36,11 @@ type SellerOrder = {
   deliveredAt: string | null;
   withdrawalExpireAt: string | null;
   autoConfirmAt: string | null;
+  /** 약정 발송 기한. 결제 승인 때 박제한다(`D2` R21) */
+  shipDueAt: string | null;
+  shippedAt: string | null;
+  /** 늦었나. 서버가 판단한 값이라 화면이 다시 재지 않는다 */
+  shipOverdue: boolean;
   items: Item[];
   allowedActions: string[];
 };
@@ -185,6 +191,16 @@ function SellerBundle({ bundle }: { bundle: SellerOrder }) {
         </h2>
         <p className="text-sm">{shipmentStatusText(bundle.status)}</p>
       </div>
+
+      {/*
+        보내기로 한 날이 지났다는 것을 맨 위에서 알린다(`43a-4a`, `D2` R38·R39).
+        품목 아래에 묻으면 스크롤해야 보이고, 그러면 취소가 열려 있다는 사실도 같이 묻힌다.
+      */}
+      <ShipDelayNotice
+        shipDueAt={bundle.shipDueAt}
+        shipOverdue={bundle.shipOverdue}
+        shippedAt={bundle.shippedAt}
+      />
 
       <ul className="grid gap-2">
         {bundle.items.map((item, index) => (

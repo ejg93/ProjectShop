@@ -7,8 +7,6 @@
 --
 -- **`transient` 만 재시도 대상이다.** 스위퍼가 이 값을 보고 고른다.
 
-alter table batch_run add column failure_kind text;
-
 -- 실패 행에만 있다. 성공·스킵 행에 붙어 있으면 무엇을 뜻하는지가 표에서 안 읽힌다.
 alter table batch_run add constraint batch_run_failure_kind_check
     check ((failure_kind is not null) = (status = 'failed'));
@@ -16,4 +14,3 @@ alter table batch_run add constraint batch_run_failure_kind_check
 alter table batch_run add constraint batch_run_failure_kind_values_check
     check (failure_kind is null or failure_kind in ('transient', 'permanent'));
 
-comment on column batch_run.failure_kind is '일시적(재시도 대상)인가 결정적(즉시 포기)인가. D19 2층';

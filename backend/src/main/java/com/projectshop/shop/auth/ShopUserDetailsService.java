@@ -1,5 +1,7 @@
 package com.projectshop.shop.auth;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -67,7 +69,17 @@ public class ShopUserDetailsService implements UserDetailsService {
      * <p>{@code equals} 를 <b>id 로만</b> 본다. 해시까지 비교하면 비밀번호를 바꾸거나 해시가 지워진 뒤에
      * {@code SessionRegistry} 에서 같은 사람을 못 찾는다 — 탈퇴가 세션을 못 끊는다는 뜻이다.
      */
-    public static final class ShopUser implements UserDetails, CredentialsContainer {
+    public static final class ShopUser implements UserDetails, CredentialsContainer, Serializable {
+
+        /**
+         * 세션이 Redis 에 JDK 직렬화로 담긴다(`Q52`). <b>필드를 더하거나 지우면 이 값을 올린다</b> —
+         * 안 올리면 배포 직후 옛 세션을 읽다가 {@code InvalidClassException} 이 난다.
+         *
+         * <p>JSON 을 안 쓴 이유는 principal 마다 변환 규칙(mixin)을 따로 써야 해서다.
+         * 클래스가 바뀌는 날의 위험 구간은 <b>절대 만료 12시간</b> 안이다(청크 `5c`).
+         */
+        @Serial
+        private static final long serialVersionUID = 1L;
 
         private final long id;
         private final String email;

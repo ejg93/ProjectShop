@@ -11,7 +11,6 @@
 --
 -- 중개자 고지로 안 빠져나간다. 제20조의2제3항이 못 면하는 범위에 제15조를 넣는다(D2 R5).
 
-
 -- 1. 상품마다 공급에 걸리는 날수.
 --
 -- 제15조제1항 단서가 「공급시기에 관하여 따로 약정한 것이 있는 경우에는 그러하지 아니하다」
@@ -23,16 +22,11 @@
 -- 약정은 고지가 성립 요건이다. 값만 두고 상품 상세가 안 그리면 그 약정은 서지 않고
 -- 3영업일이 그대로 걸린다 — R4 가 청약철회 제한에서 겪은 것과 같은 구조고,
 -- 그리는 것은 청크 14c 다.
-alter table product add column supply_lead_days int;
 
 -- 0 은 당일 발송이다. 위 상한은 법이 정한 것이 아니라 우리가 정한 것으로,
 -- 오타로 3000 이 들어가 기한이 8년 뒤가 되는 것을 막는다.
 alter table product add constraint product_supply_lead_days_check
     check (supply_lead_days is null or supply_lead_days between 0 and 60);
-
-comment on column product.supply_lead_days is
-    '공급시기 약정 날수(영업일). null 이면 약정이 없어 법정 3영업일이 걸린다(D2 R21)';
-
 
 -- 2. 묶음에 박제하는 값 셋.
 --
@@ -46,7 +40,6 @@ comment on column product.supply_lead_days is
 --
 -- 값을 안 넣고 넣는 경로가 생기면 법정 3영업일로 떨어진다. 그것이 안전한 방향이다 —
 -- 기본값이 길면 빠뜨린 순간 기한이 늘어나서 위반이 되고, 짧으면 우리가 더 서두를 뿐이다.
-alter table seller_order add column supply_lead_days int not null default 3;
 
 alter table seller_order add constraint seller_order_supply_lead_days_check
     check (supply_lead_days between 0 and 60);
@@ -56,7 +49,6 @@ alter table seller_order add constraint seller_order_supply_lead_days_check
 -- 이름이 ship_ 인 이유는 이 기한이 재는 것이 발송이어서다. 법은 「공급을 위하여
 -- 필요한 조치」라고 하는데 우리 도메인에서 그것은 preparing → shipping 하나다 —
 -- 조문 용어를 그대로 쓰면 이 컬럼이 배송완료까지 포함하는 것처럼 읽힌다.
-alter table seller_order add column ship_due_at timestamptz;
 
 -- 실제로 보낸 시각.
 --
@@ -65,11 +57,6 @@ alter table seller_order add column ship_due_at timestamptz;
 -- 데이터에서 같아 보인다.
 --
 -- delivered_at 이 이미 같은 모양이라 선례가 맞고, 배송 소요일 같은 지표도 그 둘의 차로 나온다.
-alter table seller_order add column shipped_at timestamptz;
-
-comment on column seller_order.supply_lead_days is '주문 시점에 박제한 약정 날수. 없으면 3';
-comment on column seller_order.ship_due_at is '발송 기한. 결제 승인 때 박제한다(D2 R21)';
-comment on column seller_order.shipped_at is '실제로 보낸 시각. 지연을 사후에 판단하는 근거다';
 
 -- 「기한 없이 보낸 것」을 막는 제약을 안 건다.
 --
@@ -80,7 +67,6 @@ comment on column seller_order.shipped_at is '실제로 보낸 시각. 지연을
 --
 -- 걸어도 얻는 것이 없다. ship_due_at 이 비면 지연 판정이 false 로 떨어져서
 -- 틀린 신호가 안 나간다 — 없는 기한을 넘겼다고 말하지 않는다.
-
 
 -- 3. 셀러에게 보이는 뷰를 다시 만든다.
 --
@@ -114,7 +100,6 @@ select so.seller_order_id,
 
 comment on view seller_order_visible is
     '셀러에게 보이는 셀러 주문. 결제가 끝난 것만 든다(11c-2)';
-
 
 -- 기한을 넘긴 미발송 묶음을 찾는 자리다(D2 R21).
 --

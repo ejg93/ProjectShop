@@ -15,6 +15,11 @@ import org.slf4j.LoggerFactory;
  * Postgres 는 {@code 40001}·{@code 40P01} 이 난 트랜잭션을 abort 시켜서
  * 다음 문장이 {@code 25P02} 로 죽는다. 즉 안쪽 재시도는 <b>성공할 수 없는 자리</b>다.
  *
+ * <p><b>다시 돌리는 것이 셋이다</b> — 직렬화 실패({@code 40001})·데드락({@code 40P01})·
+ * <b>노출 번호 충돌</b>({@link ExposedNumber.Conflict}, `Q49`). 앞의 둘은 SQLSTATE 로 갈리고
+ * 셋째는 타입으로 갈린다. 셋째만 타입인 이유는 {@code 23505} 가 <b>다시 해도 같은 실패</b>인
+ * 유일 위반과 구분이 안 되기 때문이다 — 뽑은 값이 바뀌는 자리만 다시 돌 값이 있다.
+ *
  * <p><b>SQLSTATE 를 직접 본다. 예외 타입으로 안 가른다.</b> Postgres 는 SQLSTATE 앞 두 자리로
  * 번역돼서 데드락이 {@code DeadlockLoserDataAccessException} 이 아니라 상위 타입으로 온다
  * (`stack.md`). 타입으로 잡으면 데드락을 놓치거나, 넓게 잡아서 <b>다시 해도 같은 실패</b>까지 반복한다.
@@ -48,6 +53,10 @@ public final class Retries {
      */
     public static <T> T onConflict(Supplier<T> work) {
         return on(work, thrown -> {
+            ExposedNumber.Conflict number = exposedNumberConflict(thrown);
+            if (number != null) {
+                return "노출 번호 충돌 " + number.constraint();
+            }
             String state = conflictState(thrown);
             return state == null ? null : "충돌 sqlstate=" + state;
         });
@@ -84,6 +93,26 @@ public final class Retries {
         }
 
         throw last;
+    }
+
+    /**
+     * 뽑은 노출 번호가 이미 있었나(`Q49`). 맞으면 그 예외를, 아니면 null 을 준다.
+     *
+     * <p><b>제약 이름 목록을 여기 안 둔다.</b> {@code ExposedNumber.insert} 만 이 예외를 만들 수 있고
+     * 그 자리가 어느 제약을 기대하는지 이미 안다 — 목록을 재시도 쪽에도 두면 새 노출 번호가
+     * 생긴 날 <b>둘이 갈린다</b>. 이름 꼬리({@code _number_unique})로 가르는 방법도 안 쓴다:
+     * 결제사가 준 승인번호·환불번호가 같은 꼬리를 쓰는데 <b>그것들은 다시 뽑을 수가 없다.</b>
+     */
+    private static ExposedNumber.Conflict exposedNumberConflict(Throwable thrown) {
+        for (Throwable cause = thrown; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ExposedNumber.Conflict conflict) {
+                return conflict;
+            }
+            if (cause.getCause() == cause) {
+                break;
+            }
+        }
+        return null;
     }
 
     /**

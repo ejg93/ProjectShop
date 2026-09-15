@@ -11,6 +11,7 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
@@ -21,6 +22,7 @@ import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaMethodCall;
+import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -31,9 +33,14 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.notification.MockNotificationSender;
 import com.projectshop.shop.payment.MockPaymentGateway;
 import com.projectshop.shop.support.ListQuery;
@@ -58,9 +65,10 @@ import jakarta.validation.Valid;
  * <b>코드에서 {@code System.setProperty} 로 켜면 안 된다</b> — 규칙이 {@code static final} 이라
  * 필드 초기화가 {@code static} 블록보다 먼저 돌 수 있다.
  *
- * <p><b>못 보는 것</b> — 판정을 서비스에서 부르나, 한 트랜잭션이 한 유스케이스인가 같은 것은
- * 여전히 문서와 사람이 든다. 트랜잭션 경계는 {@code Q32} 가 셋을 내렸다 — 조회에 없나,
- * 안에서 바깥을 안 부르나. 그 규칙이 못 보는 것은 각 javadoc 에 있다.
+ * <p><b>못 보는 것</b> — 한 트랜잭션이 한 유스케이스인가 같은 것은 여전히 문서와 사람이 든다.
+ * 트랜잭션 경계는 {@code Q32} 가 셋을 내렸다 — 조회에 없나, 안에서 바깥을 안 부르나.
+ * <b>「판정을 지나나」는 {@code Q56} 이 내렸다</b> — 그 전까지 이 자리에 「사람이 든다」로 적혀 있었다.
+ * 각 규칙이 못 보는 것은 그 javadoc 에 있다.
  */
 @AnalyzeClasses(
         packages = "com.projectshop.shop",
@@ -448,6 +456,170 @@ class ArchitectureTest {
             }
         };
     }
+
+
+    /**
+     * 「판정을 안 지나는 입구」 — 쓰기 입구는 판정 엔진을 지나거나 소유 목록에 있다(`Q56`, `D6`).
+     *
+     * <p><b>그전에는 규칙이 없었다.</b> 이 클래스가 스스로 「판정을 서비스에서 부르나는 사람이 든다」를
+     * 못 보는 것에 적어 뒀고, 새 쓰기 입구가 생길 때마다 어느 쪽을 쓸지 매번 판단했다.
+     *
+     * <p><b>두 스타일이 다 맞다</b>({@code permission-rules.md} 「판정을 안 지나는 입구」).
+     * 역할이 답을 바꾸는 동작은 판정 엔진이 막고, <b>소유자 말고 아무도 못 하고 소유자는 언제나 되는</b>
+     * 동작은 SQL 소유 조건이 막는다 — 어느 역할도 남의 주문을 대신 결제하지 않는다.
+     * 가르는 물음은 「역할이 답을 바꾸나」 하나다.
+     *
+     * <p><b>목록이 메서드 단위다</b>(사용자 선택 ②). 컨트롤러 단위로 들면 이미 예외로 찍힌 클래스 안에서
+     * <b>기본이 통과가 된다</b> — {@link #소유가_곧_권한인_입구} 의 {@code MeController} 가 그 자리다:
+     * 쓰기 입구 일곱 중 넷은 판정을 제대로 지나는데, 클래스로 열면 그 사실이 안 잡히고
+     * 새 입구가 판정을 빠뜨려도 조용히 통과한다. 이 규칙이 막으려던 바로 그 일이다.
+     *
+     * <p>호출 사슬을 걷는 것은 {@code 트랜잭션_안에서_바깥을_안_부른다} 와 같은 {@link #걷는다} 다 —
+     * 판정을 컨트롤러가 직접 부르는 자리가 거의 없고 서비스 안쪽 private 헬퍼에 있다.
+     */
+    @ArchTest
+    static final ArchRule 쓰기_입구는_판정을_지나거나_소유_목록에_있다 =
+            methods()
+                    .that(쓰기_입구다())
+                    .should(판정을_지나거나_목록에_있다());
+
+    /**
+     * 판정 엔진을 안 지나도 되는 쓰기 입구. <b>여는 것이 아니라 적어 두는 것이다.</b>
+     *
+     * <p>{@code permission-rules.md} 「판정을 안 지나는 입구」의 표와 같아야 한다.
+     * 항목이 실재하는 메서드인지는 {@link #목록의_입구가_실재한다} 가 잰다 —
+     * 이름이 바뀐 줄은 <b>아무도 안 막는 죽은 줄</b>이고, 그것이 다음 예외를 몰래 들여보내는 자리가 된다.
+     */
+    private static final Set<String> 소유가_곧_권한인_입구 = Set.of(
+            // 소유 조건이 막는 셋. SQL 의 where 가 곧 권한이다.
+            "PaymentController.pay",
+            "OrderController.create",
+            "CartController.add",
+            "CartController.changeQuantity",
+            "CartController.remove",
+            // 본인 계정. 판정할 역할이 없다 — 남이 대신 탈퇴하거나 이메일을 바꾸는 경로가 없다.
+            // 탈퇴는 비밀번호를 다시 받고, 이메일 변경은 확인 토큰이 막는다.
+            "MeController.withdraw",
+            "MeController.changeEmail",
+            "MeController.confirmEmail",
+            "MeController.changePassword",
+            // 인증 이전. 판정할 사람이 아직 없다.
+            "AuthController.signUp",
+            "AuthController.logIn",
+            "AuthController.logOut",
+            "AuthController.requestPasswordReset",
+            "AuthController.confirmPasswordReset");
+
+    /** 목록의 항목이 실재하는 쓰기 입구인가. 죽은 줄을 남기지 않는다(`Q56`) */
+    @ArchTest
+    static final ArchRule 목록의_입구가_실재한다 =
+            methods()
+                    .that(쓰기_입구다())
+                    .should(목록을_다_쓴다());
+
+
+    /** 쓰기 입구 — {@code *Controller} 의 public 메서드 중 비-GET 매핑이 붙은 것 */
+    private static DescribedPredicate<JavaMethod> 쓰기_입구다() {
+        return DescribedPredicate.describe("컨트롤러의 쓰기 입구인",
+                method -> method.getOwner().getSimpleName().endsWith("Controller")
+                        && method.getModifiers().contains(JavaModifier.PUBLIC)
+                        && 쓰기_매핑.stream().anyMatch(method::isAnnotatedWith));
+    }
+
+    private static final List<Class<? extends java.lang.annotation.Annotation>> 쓰기_매핑 = List.of(
+            PostMapping.class, PutMapping.class, PatchMapping.class, DeleteMapping.class);
+
+    /**
+     * 호출 사슬 어딘가에서 판정 엔진을 부르거나, 소유 목록에 있나.
+     *
+     * <p>위반 메시지가 <b>사슬 전체</b>를 든다. 「판정을 안 부른다」만 찍으면 어디까지 갔다가 없었는지를
+     * 다시 손으로 따라가야 한다 — {@code 트랜잭션_안에서_바깥을_안_부른다} 와 같은 판단이다.
+     */
+    private static ArchCondition<JavaMethod> 판정을_지나거나_목록에_있다() {
+        return new ArchCondition<>("가 판정을 지나거나 소유 목록에 있다") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                String name = 짧은_이름(method);
+                if (소유가_곧_권한인_입구.contains(name)) {
+                    events.add(new SimpleConditionEvent(method, true, name + " 은 소유 조건이 막는다"));
+                    return;
+                }
+
+                List<String> hits = new ArrayList<>();
+                Deque<String> path = new ArrayDeque<>(List.of(name));
+                판정까지_걷는다(method, path, new HashSet<>(Set.of(method)), hits);
+
+                events.add(new SimpleConditionEvent(method, !hits.isEmpty(),
+                        hits.isEmpty()
+                                ? name + " 이 판정을 안 지나고 소유 목록에도 없다. "
+                                        + "역할이 답을 바꾸면 PermissionEvaluator.decide 를 부르고, "
+                                        + "소유가 곧 권한이면 permission-rules.md 표와 이 목록에 같이 적는다"
+                                : name + " 은 판정을 지난다: " + hits.get(0)));
+            }
+        };
+    }
+
+    /** 목록에 적혔는데 실재하지 않는 입구를 찾는다. 죽은 줄은 다음 예외를 몰래 들여보낸다 */
+    private static ArchCondition<JavaMethod> 목록을_다_쓴다() {
+        return new ArchCondition<>("의 소유 목록에 죽은 줄이 없다") {
+            private final Set<String> 남은_것 = new HashSet<>();
+
+            /**
+             * <b>평가마다 비운다</b>(마무리 17차 독립 리뷰). 생성자에서만 채우면 같은 JVM 에서
+             * 이 규칙이 두 번 돌 때 <b>두 번째부터 집합이 비어 무조건 통과한다</b> —
+             * 「죽은 줄을 막는다」가 이 규칙의 존재 이유인데 그 자체가 죽은 줄이 된다.
+             * 지금은 {@code test} 태스크 한 번뿐이라 안 드러난다.
+             */
+            @Override
+            public void init(Collection<JavaMethod> allMethods) {
+                남은_것.clear();
+                남은_것.addAll(소유가_곧_권한인_입구);
+            }
+
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                남은_것.remove(짧은_이름(method));
+            }
+
+            @Override
+            public void finish(ConditionEvents events) {
+                events.add(new SimpleConditionEvent(소유가_곧_권한인_입구, 남은_것.isEmpty(),
+                        남은_것.isEmpty()
+                                ? "소유 목록이 전부 실재한다"
+                                : "소유 목록에 없는 입구가 적혀 있다: " + 남은_것
+                                        + ". 이름이 바뀌었으면 같이 고치고, 사라졌으면 줄을 지운다"));
+            }
+        };
+    }
+
+    /** {@link #걷는다} 와 같은 모양이다. 찾는 것이 바깥 시스템이 아니라 판정 엔진 호출이다 */
+    private static void 판정까지_걷는다(JavaMethod from, Deque<String> path, Set<JavaMethod> visited,
+            List<String> hits) {
+
+        for (JavaMethodCall call : from.getMethodCallsFromSelf()) {
+            JavaClass owner = call.getTargetOwner();
+            if (owner.isEquivalentTo(PermissionEvaluator.class)
+                    && 판정_메서드.contains(call.getName())) {
+                hits.add(String.join(" → ", path) + " → decide");
+                return;
+            }
+            if (!owner.getPackageName().startsWith("com.projectshop.shop")) {
+                continue;
+            }
+            Optional<JavaMethod> target = call.getTarget().resolveMember();
+            if (target.isEmpty() || !visited.add(target.get())) {
+                continue;
+            }
+            path.addLast(짧은_이름(target.get()));
+            판정까지_걷는다(target.get(), path, visited, hits);
+            path.removeLast();
+            if (!hits.isEmpty()) {
+                return;
+            }
+        }
+    }
+
+    private static final Set<String> 판정_메서드 = Set.of("decide", "allowedActions");
 
     private ArchitectureTest() {
     }

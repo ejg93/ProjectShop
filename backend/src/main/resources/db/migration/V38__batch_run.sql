@@ -41,6 +41,8 @@ create table batch_run (
     failure_reason text,
 
     created_at timestamptz not null default now(),
+    -- V42 가 더한 칸(Q36 이 접었다)
+    failure_kind text,
 
     constraint batch_run_batch_name_check
         check (batch_name ~ '^[a-z][a-z0-9_]*$'),
@@ -81,3 +83,5 @@ create unique index batch_run_succeeded_unique
 -- 1년 보존이라 상한이 천 단위다. 그 크기에서 순차 스캔이 인덱스보다 싸다.
 
 comment on table batch_run is '배치 회차 이력. 성공 회차는 (batch_name, baseline_date) 당 하나다';
+
+comment on column batch_run.failure_kind is '일시적(재시도 대상)인가 결정적(즉시 포기)인가. D19 2층';

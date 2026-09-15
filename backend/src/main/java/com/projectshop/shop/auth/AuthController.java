@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -27,6 +28,7 @@ import com.projectshop.shop.error.ShopException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -43,6 +45,14 @@ public class AuthController {
     private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
     private final CartService cartService;
     private final LoginAttemptService loginAttemptService;
+    private final PasswordResetService passwordResetService;
+
+    /**
+     * 재설정 링크의 틀. `{token}` 자리에 토큰이 들어간다.
+     *
+     * <p><b>화면 주소라 저장소가 아니라 환경이 든다</b> — 로컬은 3000, 배포는 공개 도메인이다.
+     */
+    private final String resetUrlTemplate;
 
     /** 직접 만들지 않고 받는다. 저장 방식을 정하는 곳은 {@code SecurityConfig} 하나여야 한다. */
     private final SecurityContextRepository securityContextRepository;
@@ -51,8 +61,12 @@ public class AuthController {
             AuthenticationManager authenticationManager,
             SessionAuthenticationStrategy sessionAuthenticationStrategy,
             SecurityContextRepository securityContextRepository, CartService cartService,
-            LoginAttemptService loginAttemptService) {
+            LoginAttemptService loginAttemptService, PasswordResetService passwordResetService,
+            @Value("${app.password-reset.url-template:http://localhost:3000/password-reset?token={token}}")
+            String resetUrlTemplate) {
 
+        this.passwordResetService = passwordResetService;
+        this.resetUrlTemplate = resetUrlTemplate;
         this.signupService = signupService;
         this.cartService = cartService;
         this.loginAttemptService = loginAttemptService;
@@ -138,6 +152,34 @@ public class AuthController {
     }
 
     /**
+     * 비밀번호 재설정을 요청한다(`5c-1`).
+     *
+     * <p><b>가입 여부와 무관하게 202 다.</b> 없는 주소면 아무것도 안 보내고 같은 응답으로
+     * 돌아간다 — 갈리면 이 입구가 <b>가입 여부를 물어보는 도구</b>가 된다(`D14`
+     * 「응답 문구는 계정 존재 여부를 안 흘린다」).
+     *
+     * <p><b>200 이 아니라 202 인 것은 사실에 맞춰서다.</b> 우리가 한 것은 접수지 발송 완료가
+     * 아니다 — 메일이 실제로 닿았는지는 이 응답이 모른다.
+     */
+    @PostMapping("/password-reset")
+    public ResponseEntity<Void> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
+        passwordResetService.request(request.email(), resetUrlTemplate);
+        return ResponseEntity.accepted().build();
+    }
+
+    /**
+     * 토큰으로 비밀번호를 다시 정한다(`5c-1`).
+     *
+     * <p>현재 비밀번호를 안 묻는다 — 그것을 아는 사람은 `/api/me/password` 를 쓴다.
+     * 여기서 본인 확인은 <b>메일로만 간 토큰을 가졌다는 것</b>이다.
+     */
+    @PostMapping("/password-reset/confirm")
+    public ResponseEntity<Void> confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        passwordResetService.reset(request.token(), request.newPassword());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * 세션을 버린다.
      *
      * <p>무엇을 할 수 있는지는 안 내려준다. 그건 청크 8a 의 몫이다.
@@ -161,6 +203,16 @@ public class AuthController {
                 .maxAge(0)
                 .build()
                 .toString());
+    }
+
+    /** 재설정 요청. <b>주소만 받는다</b> — 이 입구는 아무나 부른다 */
+    public record PasswordResetRequest(@NotBlank @EmailAddress String email) {
+    }
+
+    /** 재설정 확정. 토큰과 새 비밀번호다 */
+    public record PasswordResetConfirmRequest(
+            @NotBlank @Size(max = 200) String token,
+            @NotBlank @Password String newPassword) {
     }
 
     public record LoginRequest(@NotBlank String email, @NotBlank String password) {

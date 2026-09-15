@@ -14,11 +14,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+import jakarta.servlet.http.Cookie;
+
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,6 +44,15 @@ class AuthLoginTest extends PostgresTestBase {
 
     private static final String PASSWORD = "hunter2-and-then-some";
 
+    /**
+     * <b>여기서는 Spring Session 의 기본 이름이다</b>(`Q52`). `application.yml` 은 `SHOPSESSION` 으로
+     * 정해 뒀는데, Boot 이 그 값을 넘겨주는 자리가 <b>내장 서버가 있을 때만 걸린다</b> —
+     * 이 층은 MockMvc 라 서버가 없어서 기본 이름이 그대로 나온다.
+     *
+     * <b>실물 이름과 보호 속성은 HTTP 층이 잰다</b>({@code SessionStoreTest}). 거기가 서버를 띄운다.
+     */
+    private static final String SESSION_COOKIE = "SESSION";
+
     @Autowired
     MockMvc mvc;
 
@@ -49,7 +63,7 @@ class AuthLoginTest extends PostgresTestBase {
     PasswordEncoder passwordEncoder;
 
     @Autowired
-    SessionRegistry sessionRegistry;
+    FindByIndexNameSessionRepository<? extends Session> sessions;
 
     @Autowired
     org.springframework.data.redis.core.StringRedisTemplate redis;
@@ -99,11 +113,11 @@ class AuthLoginTest extends PostgresTestBase {
         @Test
         @DisplayName("세션에 앉는 principal 에서 비밀번호 해시가 지워진다")
         void erasesPasswordHashFromPrincipal() throws Exception {
-            HttpSession session = logIn(PASSWORD).andReturn().getRequest().getSession(false);
+            Session session = sessionOf(logIn(PASSWORD));
 
-            // 세션에서 직접 꺼낸다. SecurityContextHolder 는 요청이 끝나면 비워져서
+            // 저장소에서 직접 꺼낸다. SecurityContextHolder 는 요청이 끝나면 비워져서
             // "세션에 무엇이 남았나" 를 못 본다 — 그게 이 테스트가 묻는 것이다.
-            SecurityContext context = (SecurityContext) session.getAttribute(
+            SecurityContext context = session.getAttribute(
                     HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
             ShopUser principal = (ShopUser) context.getAuthentication().getPrincipal();
 
@@ -115,9 +129,9 @@ class AuthLoginTest extends PostgresTestBase {
         @Test
         @DisplayName("다음 요청에도 인증이 남는다")
         void authenticationSurvivesToTheNextRequest() throws Exception {
-            HttpSession session = logIn(PASSWORD).andReturn().getRequest().getSession(false);
+            String sessionId = sessionIdOf(logIn(PASSWORD));
 
-            assertThat(session).isNotNull();
+            assertThat(sessionId).isNotNull();
 
             // 잠긴 경로가 지나가면 세션에 인증이 실제로 저장된 것이다.
             //
@@ -126,7 +140,7 @@ class AuthLoginTest extends PostgresTestBase {
             //
             // 401 이 아니라는 것이 곧 "인증이 남았다" 다. 그 뒤의 권한 판정은 다른 축이라
             // 200 을 기대하면 이 계정에 역할을 주는 준비가 붙고, 그건 이 테스트가 볼 것이 아니다.
-            mvc.perform(get("/api/me").session((MockHttpSession) session))
+            mvc.perform(get("/api/me").cookie(sessionCookie(sessionId)))
                     .andExpect(result -> assertThat(result.getResponse().getStatus())
                             .as("세션에 인증이 저장됐으면 인증 필터를 지나간다")
                             .isNotEqualTo(401));
@@ -135,15 +149,16 @@ class AuthLoginTest extends PostgresTestBase {
         @Test
         @DisplayName("세션 ID 를 갈아 끼운다 — 세션 고정 공격을 막는다")
         void changesSessionId() throws Exception {
-            MockHttpSession planted = new MockHttpSession();
-            String plantedId = planted.getId();
+            // 먼저 익명 세션을 하나 만들어 그 ID 를 손에 쥔다. 공격자가 심어 두는 것이 이것이다.
+            String plantedId = sessionIdOf(mvc.perform(get("/api/health")));
+            assertThat(plantedId).isNotNull();
 
-            MvcResult result = mvc.perform(loginRequest(PASSWORD).session(planted)).andReturn();
-            HttpSession after = result.getRequest().getSession(false);
+            String after = sessionIdOf(
+                    mvc.perform(loginRequest(PASSWORD).cookie(sessionCookie(plantedId))));
 
-            assertThat(after).isNotNull();
-            assertThat(after.getId())
+            assertThat(after)
                     .as("심어 둔 ID 가 그대로면 공격자가 그 ID 로 인증된 세션을 얻는다")
+                    .isNotNull()
                     .isNotEqualTo(plantedId);
         }
 
@@ -152,14 +167,11 @@ class AuthLoginTest extends PostgresTestBase {
         void registersTheSession() throws Exception {
             logIn(PASSWORD);
 
-            boolean registered = sessionRegistry.getAllPrincipals().stream()
-                    .filter(ShopUserDetailsService.ShopUser.class::isInstance)
-                    .map(ShopUserDetailsService.ShopUser.class::cast)
-                    .anyMatch(user -> user.id() == userId);
-
-            assertThat(registered)
-                    .as("등록이 빠지면 5g 의 세션 만료가 대상 세션을 못 찾는다")
-                    .isTrue();
+            // **색인으로 찾는다**(`Q52`). 열쇠는 principal 이름, 즉 이메일이다 —
+            // 등록된 사람을 전부 받아 훑는 물음은 Redis 판 명부에 없다.
+            assertThat(sessions.findByPrincipalName("login@test.local"))
+                    .as("색인이 비면 5g 의 세션 만료가 대상 세션을 못 찾는다")
+                    .isNotEmpty();
         }
     }
 
@@ -263,7 +275,8 @@ class AuthLoginTest extends PostgresTestBase {
         @Test
         @DisplayName("실패는 세션을 안 만든다")
         void failureLeavesNoSession() throws Exception {
-            assertThat(logIn("wrong-but-long-enough").andReturn().getRequest().getSession(false))
+            assertThat(sessionIdOf(logIn("wrong-but-long-enough")))
+                    .as("실패한 로그인이 세션을 만들면 빈 세션이 Redis 에 쌓인다")
                     .isNull();
         }
     }
@@ -275,13 +288,12 @@ class AuthLoginTest extends PostgresTestBase {
         @Test
         @DisplayName("세션을 버려서 다음 요청이 다시 막힌다")
         void dropsTheSession() throws Exception {
-            MockHttpSession session =
-                    (MockHttpSession) logIn(PASSWORD).andReturn().getRequest().getSession(false);
+            String sessionId = sessionIdOf(logIn(PASSWORD));
 
-            mvc.perform(post("/api/auth/logout").session(session).with(csrf()))
+            mvc.perform(post("/api/auth/logout").cookie(sessionCookie(sessionId)).with(csrf()))
                     .andExpect(status().isNoContent());
 
-            mvc.perform(get("/api/orders").session(session))
+            mvc.perform(get("/api/orders").cookie(sessionCookie(sessionId)))
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -308,6 +320,38 @@ class AuthLoginTest extends PostgresTestBase {
                 .content("""
                         {"email": "%s", "password": "%s"}
                         """.formatted(email, password));
+    }
+
+    /**
+     * 응답이 내려준 세션 쿠키의 ID. 세션을 안 만들었으면 null 이다.
+     *
+     * <p><b>서블릿 세션 객체를 안 읽는다</b>(`Q52`). 세션이 Redis 로 가면서 요청 객체에
+     * 세션이 안 붙는다 — {@code SessionRepositoryFilter} 가 감싼 쪽이 들고 있어서,
+     * {@code getRequest().getSession(false)} 가 <b>로그인에 성공해도 null 을 준다.</b>
+     * 밖에서 보이는 사실은 쿠키 하나뿐이고 그것이 이 층이 볼 것이다.
+     */
+    private String sessionIdOf(ResultActions actions) throws Exception {
+        Cookie cookie = actions.andReturn().getResponse().getCookie(SESSION_COOKIE);
+        return cookie == null ? null : cookie.getValue();
+    }
+
+    /**
+     * 그 응답이 만든 세션을 저장소에서 꺼낸다.
+     *
+     * <p><b>쿠키 값이 저장소의 열쇠가 아니다.</b> Spring Session 이 세션 ID 를 Base64 로 싸서 내린다 —
+     * 쿠키 값을 그대로 {@code findById} 에 넣으면 <b>없는 것으로 나온다</b>(`Q52` 실측).
+     */
+    private Session sessionOf(ResultActions actions) throws Exception {
+        String cookieValue = sessionIdOf(actions);
+        assertThat(cookieValue).as("로그인이 세션 쿠키를 안 내렸다").isNotNull();
+        String id = new String(Base64.getDecoder().decode(cookieValue), StandardCharsets.UTF_8);
+        Session session = sessions.findById(id);
+        assertThat(session).as("쿠키가 가리키는 세션이 저장소에 없다").isNotNull();
+        return session;
+    }
+
+    private static Cookie sessionCookie(String id) {
+        return new Cookie(SESSION_COOKIE, id);
     }
 
     private String bodyOf(ResultActions actions) throws Exception {

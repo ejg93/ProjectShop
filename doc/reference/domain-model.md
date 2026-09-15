@@ -53,6 +53,8 @@ where deleted_at is null     -- 업무 상태가 몇 개로 늘든 안 바뀐다
 | `order`, `payment` | **없다** | 5년 보존이라 지우는 개념이 없다 |
 | `cart`, `cart_item` | **없다** | 그냥 지운다 |
 | `role`, `permission` | **없다** | 관리 데이터다. 지울 일이 생기면 그때 판단한다 |
+| `refund`, `return_request`, `compensation`, `settlement` 넷 | **없다** | 보존 기간(환불·반품은 거래 종료 5년, 정산·배상은 세법 기산 — `43a-28`)이 차면 파기 배치가 통째로 지운다. 되살릴 일이 없어 표시할 것이 없다(`D13`) |
+| `inquiry`, `notification` | **없다** | 기간이 차면 물리 삭제다. 되살릴 일이 없어서 표시할 것이 없다 |
 
 ## 애그리거트
 
@@ -134,7 +136,98 @@ SKU 를 물리 삭제하지 않으므로(수명 컬럼을 쓴다) 실제로 걸�
 담당자가 바뀌어도 상품은 셀러에 남는다. 사람에 매달면 퇴사할 때마다 상품을 옮겨야 한다.
 ADR 0004 가 정한 것이고, 조직 축(청크 3a)이 생긴 이유이기도 하다.
 
+## 주문 뒤에 붙는 덩어리 — 결제·환불·반품·손해배상
+
+주문이 두 층이라(`state-machines.md` 「주문은 두 층이다」) 뿌리도 둘이다.
+**결제는 `shop_order` 에, 환불·반품·배상은 `seller_order` 에 붙는다.**
+
+```
+Order ──┬─ OrderItem                 seller_order 를 거쳐 매달린다
+        ├─ OrderShipping             (order_shipping) 수명이 다르다. 위 참조
+        ├─ OrderContractDocument     (order_contract_document) 계약 시점의 문서 판. 주문과 같이 산다
+        ├─ OrderStatusHistory        (order_status_history · order_status_history_note) append-only
+        └─ Payment ─ PaymentCard     (payment · payment_card) 승인 시도 한 건. 카드 조각은 먼저 사라진다
+
+SellerOrder ─┬─ Refund ─┬─ RefundItem          → order_item
+             │          └─ RefundNote
+             ├─ ReturnRequest ─┬─ ReturnRequestItem  → order_item
+             │                 ├─ ReturnPickup
+             │                 └─ ReturnNote
+             └─ Compensation ─ CompensationNote     → seller_order 가 restrict 다. 아래
+```
+
+| 관계 | 규칙 | 왜 |
+|---|---|---|
+| `payment` → `shop_order` | cascade | 승인 시도는 주문 없이 뜻이 없다 |
+| `refund`·`return_request` → `seller_order` | cascade | 묶음 안쪽이다 |
+| `compensation` → `seller_order` | **restrict** | 정산이 이 행을 `(번호, 부담 주체)` 로 가리킨다(`43a-4b`). 장부의 근거는 안쪽이어도 못 지운다 |
+| `refund_item`·`return_request_item` → `order_item` | cascade | 항목이 사라지면 그 항목의 환불·반품 줄도 뜻이 없다 |
+| `order_status_history` → `shop_order`·`seller_order` | **restrict** | 지우는 쪽은 파기 배치다(`D13`). cascade 로 조용히 따라가게 두지 않는다 |
+| `*_note` → 부모 | cascade | 자유 텍스트는 부모보다 먼저 사라진다(`D13`). cascade 는 부모가 먼저 갈 때의 보험이다 |
+| `compensation` → `inquiry` | set null | 배상이 문의에서 왔다는 표시일 뿐이다. 문의가 3년 뒤 사라져도 판정은 남는다 |
+
+이 절의 표: `order_shipping` · `order_contract_document` · `order_status_history` · `order_status_history_note` · `payment` · `payment_card` ·
+`refund` · `refund_item` · `refund_note` · `return_request` · `return_request_item` · `return_pickup` · `return_note` · `compensation` · `compensation_note`.
+
+**같은 뿌리 안에 cascade 와 restrict 가 섞인 이유는 정산이다.** `settlement_item` 이 `order_item`·`seller_order`·`refund_item`·`compensation` 을
+전부 restrict 로 가리켜서 **5년 주문 파기가 정산 줄에 막힌다** — 법 둘이 부딪치는 자리고 `43a-28` 이 정한다.
+
+## 정산 — 장부는 바깥을 restrict 로만 가리킨다
+
+```
+SettlementCycle ─ Settlement ─ SettlementItem ─→ order_item · seller_order · refund_item · compensation   전부 restrict
+                                              └→ settlement (이월, carried_from)                         restrict
+```
+
+정산은 덩어리 하나고 **다른 덩어리를 소유하지 않는다.** 줄이 가리키는 것은 근거지 소속이 아니다.
+근거가 사라지면 줄이 남의 것이 되므로 전부 restrict 다. `settlement` → `settlement_cycle`·`seller` 도 restrict 다.
+
+## 문의·알림·동의·장바구니 — 독립 뿌리
+
+| 덩어리 | 표 | 참조 | 규칙 |
+|---|---|---|---|
+| Inquiry | `inquiry` | → `app_user`·`product`·`seller_order` 전부 restrict | 뿌리다. 상품·주문에 붙어 보이지만 **소유는 쓴 사람**이다 — 상품이 내려가도 문의는 남는다(3년, `D13`) |
+| Notification | `notification` ─ `notification_body` | → `shop_order`·`seller_order`·`refund`·`user_consent` cascade / → `notification_template` restrict | 사건의 기록이라 사건을 따라간다. 판은 지우면 그때 보낸 본문을 복원할 수 없어 restrict |
+| Consent | `consent_item`(판) / `user_consent`(이력) | `user_consent` → `app_user` cascade, → `consent_item` restrict. `consent_item.depends_on` 도 restrict | 판과 이력을 가른다. `order_contract_document` 가 판을 restrict 로 박제한다 |
+| Cart | `cart` ─ `cart_item` | `cart` → `app_user` cascade(비로그인은 null), `cart_item` → `sku` cascade | 거래 기록이 아니라 그냥 지운다. SKU 가 사라지면 담긴 것도 사라진다 |
+
+## AppUser 에 붙은 것
+
+```
+AppUser ─┬─ UserRole                (user_role)
+         ├─ SellerMember            (seller_member)
+         ├─ UserConsent             (user_consent)
+         ├─ PasswordResetToken      (password_reset_token)   30일 · cascade
+         ├─ EmailChangeRequest      (email_change_request)   30일 · cascade
+         ├─ IdempotencyKey          (idempotency_key)        24시간 · cascade
+         └─ Cart                    (로그인 장바구니)
+```
+
+이 절의 표: `user_role` · `seller_member` · `user_consent` · `password_reset_token` · `email_change_request` · `idempotency_key`.
+토큰 둘과 멱등키는 계정 없이 뜻이 없고 짧게 산다. 파기 배치가 기간으로 지우고, 계정이 먼저 가면 cascade 가 받는다.
+
+## 상품 덩어리의 표
+
+위 「상품은 한 덩어리다」의 실물이다 — `product`·`product_option`·`product_option_value`·`sku`·`sku_option_value` 가 덩어리고,
+`sku_stock`·`sku_stock_movement` 는 SKU 를 따라가되 덩어리에 안 든다. `product_substantiation` 은 상품에 cascade 다 —
+실증 자료라 상품 없이 뜻이 없다(`13f-1`).
+
+## 애그리거트 밖 — 참조 값과 기록
+
+| 표 | 왜 덩어리가 아닌가 |
+|---|---|
+| `holiday` | 영업일 참조 값. 아무도 소유하지 않는다 |
+| `policy_document` | 문안의 판. `order_contract_document` 가 restrict 로 가리킨다 |
+| `notification_template` | 위와 같다 |
+| `batch_run` | 회차 기록. 외래키가 없다 |
+| `audit_log` | 사건 기록. 외래키가 없다 — 계정이 파기돼도 남아야 한다(`D13` 「감사 로그는 예외다」) |
+| `role`·`permission`·`role_permission`·`permission_field_group`·`role_permission_field` | 권한 구성. 배포로 바뀌는 값이다 |
+
 ## 이 문서를 고칠 때
 
 새 테이블이 생기면 **어느 애그리거트에 속하는지**와 **수명 컬럼을 두는지**를 여기에 적는다.
 안 적으면 다음 사람이 즉흥으로 정하고, 즉흥으로 정한 참조 방향은 나중에 못 바꾼다.
+
+**이 문서가 `V16` 에서 멈춘 채 `V69` 까지 갔다**(2026-09-14 설계 점검). 정산·환불·반품·문의·배상·알림·회차 표 일곱이
+여기 없었고, 위 절들이 그날 채운 것이다. **재발은 `Q48` 이 막는다** — 마이그레이션의 `create table` 이름 전부가
+이 문서에 있는지 테스트가 잰다. 표를 만들고 여기 안 적으면 빨갛다.

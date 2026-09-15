@@ -11,7 +11,6 @@
 -- 금액 등식과 등식마다의 강제 지점은 money-invariants.md 에 있다.
 -- 여기는 그것을 제약으로 내린 자리다.
 
-
 -- 주문. 결제 단위다.
 --
 -- deleted_at 이 없다. 거래기록 5년 보존(D2 R6)을 지키는 방법이 "지우지 말자" 는 약속이 아니라
@@ -78,7 +77,6 @@ create trigger shop_order_set_updated_at
     before update on shop_order
     for each row execute function set_updated_at();
 
-
 -- 배송지. 주문에서 떼어 놨다.
 --
 -- 주문에 사람 정보를 박제하지 않는다(D13). 주문은 5년 보존인데 배송지는 파기 대상이라(R9)
@@ -107,7 +105,6 @@ create table order_shipping (
 );
 
 comment on table order_shipping is '배송지. 파기 대상이라 주문에서 분리했다(D2 R9, D13). 파기는 10a 가 행을 지운다';
-
 
 -- 셀러별 주문. 배송이 여기서 굴러간다.
 --
@@ -149,6 +146,17 @@ create table seller_order (
     updated_at timestamptz not null default now(),
 
     -- 한 주문에 같은 셀러가 두 줄로 들어가면 배송비가 두 번 붙는다.
+    -- V26 가 더한 칸(Q36 이 접었다)
+    supply_lead_days int not null default 3,
+    -- V26 가 더한 칸(Q36 이 접었다)
+    ship_due_at timestamptz,
+    -- V26 가 더한 칸(Q36 이 접었다)
+    shipped_at timestamptz,
+    -- V29 가 더한 칸(Q36 이 접었다)
+    return_reason text,
+    -- V35 가 더한 칸(Q36 이 접었다)
+    agreed_lead_days int,
+
     constraint seller_order_unique unique (order_id, seller_id),
 
     constraint seller_order_number_unique unique (seller_order_number),
@@ -171,7 +179,6 @@ create table seller_order (
 
 create index seller_order_seller_idx on seller_order (seller_id, created_at desc);
 create index seller_order_order_idx  on seller_order (order_id);
-
 
 -- 셀러에게 보이는 셀러 주문.
 --
@@ -210,7 +217,6 @@ create trigger seller_order_set_updated_at
     before update on seller_order
     for each row execute function set_updated_at();
 
-
 -- 주문 항목. 무엇을 얼마에 샀나가 여기 박제된다.
 --
 -- sku_id 를 두고 가격을 조인해 오면 셀러가 가격을 바꿨을 때 과거 주문 금액이 같이 바뀐다.
@@ -245,6 +251,10 @@ create table order_item (
     commission_amount bigint not null,
 
     created_at timestamptz not null default now(),
+    -- V32 가 더한 칸(Q36 이 접었다)
+    withdrawal_restriction_reason text,
+    -- V32 가 더한 칸(Q36 이 접었다)
+    withdrawal_restriction_agreed_at timestamptz,
 
     constraint order_item_quantity_check   check (quantity >= 1),
     constraint order_item_unit_price_incl_vat_check check (unit_price_incl_vat >= 0),
@@ -264,7 +274,6 @@ create index order_item_seller_order_idx on order_item (seller_order_id);
 
 -- 상품을 고칠 때 "주문에 쓰인 SKU 인가" 를 본다(10-2).
 create index order_item_sku_idx on order_item (sku_id);
-
 
 -- 합계가 항목 합과 맞는지 본다.
 --
@@ -398,3 +407,21 @@ create constraint trigger order_item_amounts_check
     after insert or update or delete on order_item
     deferrable initially deferred
     for each row execute function check_amounts_on_order_item();
+
+comment on column seller_order.supply_lead_days is '주문 시점에 박제한 약정 날수. 없으면 3';
+
+comment on column seller_order.ship_due_at is '발송 기한. 결제 승인 때 박제한다(D2 R21)';
+
+comment on column seller_order.shipped_at is '실제로 보낸 시각. 지연을 사후에 판단하는 근거다';
+
+comment on column seller_order.return_reason is
+    '반품 사유의 종류. 제17조제1항과 제3항을 가른다 — 기한과 제한 적용이 달라진다(D2 R3)';
+
+comment on column order_item.withdrawal_restriction_reason is
+    '이 거래에서 성립한 청약철회 제한 사유. null 이면 제한이 없다(D2 R4, 전자상거래법 제17조제2항)';
+
+comment on column order_item.withdrawal_restriction_agreed_at is
+    '주문제작 상품의 청약철회 제한에 동의받은 시각(전자상거래법 시행령 제21조)';
+
+comment on column seller_order.agreed_lead_days is
+    '주문 시점의 공급시기 약정 날수(영업일). null 이면 약정이 없어 법정 3영업일이 걸렸다(D2 R21)';

@@ -22,6 +22,7 @@ import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.support.Retries;
 
 /**
  * 환불을 요청하고 처리하는 입구.
@@ -105,9 +106,13 @@ public class RefundController {
             @AuthenticationPrincipal ShopUser user,
             @Valid @RequestBody RefundRequest request) {
 
-        RefundService.Refund refund = refunds.request(user.id(),
-                new RefundService.RequestCommand(request.sellerOrderNumber(), request.reasonCode(),
-                        toLines(request.lines()), request.reason()));
+        // 재시도가 트랜잭션 바깥이다(`D11`·`Q49`). 안쪽은 이미 깨진 트랜잭션이라 다음 문장부터 못 돈다.
+        // 환불번호가 부딪히는 자리가 `RefundService.request` 안이고 그것이 `@Transactional` 이다 —
+        // 여기서 감싸야 앞 시도가 통째로 롤백된 뒤에 새 번호로 다시 들어간다.
+        RefundService.Refund refund = Retries.onConflict(
+                () -> refunds.request(user.id(),
+                        new RefundService.RequestCommand(request.sellerOrderNumber(),
+                                request.reasonCode(), toLines(request.lines()), request.reason())));
 
         return ResponseEntity.created(URI.create("/api/refunds/" + refund.refundNumber()))
                 .body(refund);

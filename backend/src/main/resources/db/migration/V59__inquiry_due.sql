@@ -11,21 +11,15 @@
 -- 시행령 제41조제4항(열람)·제43조제3항(정정·삭제)도 같은 10일이다.
 -- **달력일이다** — 「영업일」이라고 안 적혀 있어서 D10 의 영업일 계산이 안 걸린다.
 
-
 -- 언제까지 답해야 하나. 박제한다.
 --
 -- **요구서를 받은 날에서 센다.** 답한 날에서 세면 늦게 답할수록 기한이 밀려서
 -- 「늦었다」가 성립을 안 한다(refund.due_at 이 요청 시각이 아니라 사건 날에서 세는 것과 같다).
-alter table inquiry add column due_at timestamptz;
-
-comment on column inquiry.due_at is
-    '법정 처리 기한. 처리정지는 접수일 + 10일이다(개인정보보호법 시행령 제44조제2항, D2 R28)';
 
 -- 기존 행에 채운다. 처리정지 요구만 대상이다.
 update inquiry
    set due_at = created_at + interval '10 days'
  where kind = 'processing_stop' and due_at is null;
-
 
 -- **기한이 있는 종류에만 있다.**
 --

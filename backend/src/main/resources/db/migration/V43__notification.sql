@@ -81,6 +81,8 @@ create table notification (
 
     -- 실제로 나간 시각. 대기 중이면 비어 있다.
     sent_at timestamptz,
+    -- V45 가 더한 칸(Q36 이 접었다)
+    user_consent_id bigint references user_consent (user_consent_id) on delete cascade,
 
     constraint notification_kind_check
         check (kind in ('transactional', 'advertising')),
@@ -151,3 +153,6 @@ create table notification_body (
 
 comment on table notification_body is
     '개인화된 발송 본문. 이름·금액이 들어가서 여섯 달만 산다(D18-1)';
+
+comment on column notification.user_consent_id is
+    '어느 의사표시에 대한 처리 결과 통지인가. 시행령 제62조의2 의 14일을 여기서 잰다(55a)';

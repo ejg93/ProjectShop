@@ -647,7 +647,7 @@ public class RefundService {
 
         OffsetDateTime dueAt = dueAt(bundle, command.reasonCode());
 
-        String refundNumber = ExposedNumber.insertWith(NUMBER_PREFIX, "환불번호", number -> jdbc.sql("""
+        String refundNumber = ExposedNumber.insert(NUMBER_PREFIX, "refund_number_unique", number -> jdbc.sql("""
                                 insert into refund (refund_number, seller_order_id, status,
                                                     reason_code, amount, shipping_fee_refund,
                                                     requested_by_type, requested_by_user_id,

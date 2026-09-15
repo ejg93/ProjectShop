@@ -14,16 +14,10 @@
 -- (`RefundSweeper` 가 항목을 안 고른다). 판단할 것이 없는 자리에 사람을 세워 두면
 -- 그 자리가 곧 지연이 된다.
 
-
 -- 승인자의 종류. requested_by_type 과 같은 모양이다(`V25`).
 --
 -- **null 은 「아직 안 정해졌다」다.** requested_by_type 은 not null 인데 이쪽이 nullable 인 것은
 -- 요청은 행이 생길 때 이미 누가 냈고, 승인은 나중에 오기 때문이다.
-alter table refund add column approved_by_type text;
-
--- 지금 처리된 행은 전부 사람이 승인·반려한 것이다. 승인은 관리자 하나뿐이고
--- (`V24` 의 do 블록이 그것을 지킨다) 반려도 같은 입구다.
-update refund set approved_by_type = 'admin' where status <> 'requested';
 
 -- 값이 둘뿐이다. requested_by_type 의 넷을 그대로 안 쓴다 —
 -- **승인은 관리자와 시스템만 한다.** 목록을 넓게 열면 `V24` 가 지키는 「승인은 관리자만」이
@@ -57,5 +51,3 @@ alter table refund add constraint refund_approved_by_user_check
 alter table refund add constraint refund_system_approval_scope_check
     check (approved_by_type <> 'system' or requested_by_type = 'system');
 
-comment on column refund.approved_by_type is
-    '처리 출처. system 은 스위퍼가 자기 요청을 승인한 것이다(12a-5). 미처리면 null';

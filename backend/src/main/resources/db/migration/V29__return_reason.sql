@@ -18,8 +18,6 @@
 -- 다툼이 있는 경우에는 통신판매업자가 이를 증명하여야 한다」.
 -- 그래서 접수 자체를 막지 않는다. 소비자가 하자라고 하면 3개월이 열리고, 다툼은 사후다.
 
-alter table seller_order add column return_reason text;
-
 -- 접수된 반품에만 있다. 접수 전이거나 다른 상태면 비어 있다.
 --
 -- 값을 닫는다(D23 「법이 인정한 목록은 닫는다」). 자유 텍스트로 두면
@@ -29,9 +27,6 @@ alter table seller_order add column return_reason text;
 --   defect          제17조제3항. 3개월, 제한 사유가 안 걸린다
 alter table seller_order add constraint seller_order_return_reason_check
     check (return_reason is null or return_reason in ('change_of_mind', 'defect'));
-
-comment on column seller_order.return_reason is
-    '반품 사유의 종류. 제17조제1항과 제3항을 가른다 — 기한과 제한 적용이 달라진다(D2 R3)';
 
 -- 사유가 없는 반품 접수를 막는다.
 --
@@ -47,7 +42,6 @@ comment on column seller_order.return_reason is
 -- 데이터를 지키는 것이 아니라 거짓말을 강요하는 것이다.
 alter table seller_order add constraint seller_order_return_reason_required_check
     check (status <> 'return_requested' or return_reason is not null);
-
 
 -- 기한을 안 박제한다.
 --

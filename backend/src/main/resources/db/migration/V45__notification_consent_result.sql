@@ -6,12 +6,6 @@
 -- 그래서 대상 칸이 하나 는다. 지금까지는 주문·셀러주문·환불 셋이었는데
 -- 이 통지가 가리키는 것은 **동의 이력의 그 행**이다.
 
-alter table notification
-    add column user_consent_id bigint references user_consent (user_consent_id) on delete cascade;
-
-comment on column notification.user_consent_id is
-    '어느 의사표시에 대한 처리 결과 통지인가. 시행령 제62조의2 의 14일을 여기서 잰다(55a)';
-
 -- 대상 칸이 넷이 됐다. 「많아야 하나」는 그대로다 —
 -- 광고와 비밀번호 재설정처럼 걸리는 자원이 없는 통지가 있어서 `= 1` 이 아니다.
 alter table notification drop constraint notification_target_check;

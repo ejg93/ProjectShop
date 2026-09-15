@@ -205,6 +205,7 @@ B: sku 20 잠금 → sku 10 대기        ← 서로 기다린다
 | 직렬화 실패 | SQLSTATE `40001` |
 | 데드락 | SQLSTATE `40P01` |
 | **결제사 무응답** | 예외 타입(`MockPaymentGateway.TimedOut`). DB 예외가 아니라 SQLSTATE 로 안 갈린다 |
+| **노출 번호 충돌** | 예외 타입(`ExposedNumber.Conflict`, `Q49`). **SQLSTATE 로 안 갈린다** — `23505` 는 다시 해도 같은 유일 위반과 구분이 안 된다 |
 
 간격은 50ms, 100ms, 200ms 다. 3회에도 안 되면 실패로 떨어뜨린다.
 
@@ -239,6 +240,18 @@ Postgres 의 데드락은 `DeadlockLoserDataAccessException` 이 아니라 상�
 | `OrderController.create` | `IdempotencyService.run` 이 트랜잭션 경계다. 그걸 통째로 감싼다 |
 | `OrderStatusBatch.move` | 건마다 트랜잭션이 갈려 있어서 이 자리가 이미 바깥이다 |
 | `PaymentService.pay` | 기록 트랜잭션을 감싼다. **PG 호출 재시도는 그보다 더 바깥**이라 따로 돈다 |
+| `RefundController.request` | 환불번호를 뽑는 자리가 `RefundService.request` 안이고 그것이 `@Transactional` 이다(`Q49`) |
+| `InquiryController.create` | 문의번호가 같은 모양이다(`Q49`) |
+| `SettlementService.insertStatement` | **안 감싼다.** 배치 안이라 `RetryableBatch` 가 10분 뒤 다시 돈다 |
+
+**노출 번호는 뽑는 자리가 아니라 부르는 자리에서 다시 돈다**(`Q49`). `ExposedNumber` 안에 재시도 루프가
+있었는데 호출 다섯이 전부 `@Transactional` 안이라 **한 번도 못 돌았다** — 두 번째 `insert` 가
+`DuplicateKeyException` 이 아니라 `25P02` 로 와서 잡히지도 않고 500 이 됐다. 재시도 3회가 장식이었다.
+
+**제약 이름을 부르는 자리가 든다.** `ExposedNumber.insert` 에 그 번호를 지키는 유일 제약 이름을 넘기고,
+그 제약이 걸렸을 때만 `Conflict` 로 바꾼다. **이름 꼬리(`_number_unique`)로 안 가른다** —
+결제사가 준 승인번호·환불번호가 같은 꼬리를 쓰는데 **바깥에서 받은 값은 다시 뽑을 수가 없다.**
+넘긴 이름이 실재하는지는 `ExposedNumberConstraintTest` 가 센다.
 
 **멱등키보다 바깥이다.** 안쪽이면 선점 기록을 남긴 채로 다시 돌게 되는데, 애초에 그럴 수 없다 —
 깨진 트랜잭션이라 그 기록도 같이 롤백된다. 롤백됐으니 같은 키로 다시 들어오는 것이 맞고,

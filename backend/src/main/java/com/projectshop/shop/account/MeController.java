@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,16 +45,24 @@ public class MeController {
     private final ConsentService consentService;
     private final WithdrawalService withdrawalService;
     private final SellerQuery sellerQuery;
+    private final EmailChangeService emailChangeService;
+
+    /** 확인 링크의 틀. 화면 주소라 환경이 든다 */
+    private final String confirmUrlTemplate;
 
     public MeController(PermissionCatalog permissionCatalog, AccountService accountService,
             ConsentService consentService, WithdrawalService withdrawalService,
-            SellerQuery sellerQuery) {
+            SellerQuery sellerQuery, EmailChangeService emailChangeService,
+            @Value("${app.email-change.url-template:http://localhost:3000/email-confirm?token={token}}")
+            String confirmUrlTemplate) {
 
         this.permissionCatalog = permissionCatalog;
         this.accountService = accountService;
         this.consentService = consentService;
         this.withdrawalService = withdrawalService;
         this.sellerQuery = sellerQuery;
+        this.emailChangeService = emailChangeService;
+        this.confirmUrlTemplate = confirmUrlTemplate;
     }
 
     /**
@@ -166,11 +176,31 @@ public class MeController {
      * 비밀번호 칸이 딸려 다니게 된다.
      */
     @PostMapping("/email")
-    public AccountService.Account changeEmail(
+    public ResponseEntity<Void> changeEmail(
             @AuthenticationPrincipal ShopUser user, @Valid @RequestBody EmailRequest request) {
 
-        return accountService.changeEmail(
-                user.id(), request.email(), request.currentPassword());
+        // 비밀번호 재확인은 그대로 받는다(「본인이 맞나」). 그다음에 새 주소로 링크를 보낸다.
+        accountService.verifyPassword(user.id(), request.currentPassword());
+        emailChangeService.request(user.id(), request.email(), confirmUrlTemplate);
+        return ResponseEntity.accepted().build();
+    }
+
+    /**
+     * 확인 링크를 눌렀다(`5e-1`). <b>여기서 계정 주소가 바뀐다.</b>
+     *
+     * <p>로그인한 사람만 부른다 — 링크를 주운 사람이 남의 계정을 못 바꾸게 한다.
+     * 토큰은 그 사람의 것만 대조한다.
+     */
+    @PostMapping("/email/confirm")
+    public AccountService.Account confirmEmail(
+            @AuthenticationPrincipal ShopUser user, @Valid @RequestBody EmailConfirmRequest request) {
+
+        emailChangeService.confirm(user.id(), request.token());
+        return accountService.read(user.id());
+    }
+
+    /** 확인 토큰만 받는다 */
+    public record EmailConfirmRequest(@NotBlank @Size(max = 200) String token) {
     }
 
     public record EmailRequest(

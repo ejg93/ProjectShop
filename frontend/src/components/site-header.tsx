@@ -1,27 +1,9 @@
 import Link from "next/link";
 
 import { apiSessionOptional } from "@/lib/api-session";
+import { can, type Me } from "@/lib/permissions";
 
 import { LogoutButton } from "./logout-button";
-
-/**
- * 로그인한 사람인지와, 무엇을 할 수 있는지.
- *
- * <p><b>이름은 안 쓴다</b> — 머리에 이름을 그리면 폭이 사람마다 달라진다.
- *
- * <p>권한 목록은 <b>근사치다</b>({@code PermissionCatalog}). 여기 뜬다고 그 자원을 만질 수
- * 있는 것이 아니라 실제 판정은 만질 때 다시 한다 — 화면이 <b>링크를 보일지</b> 정하는 데만 쓴다.
- */
-type Me = { userId: number; permissions: Permission[] };
-
-/**
- * <p>{@code scopes} 는 <b>대문자 스네이크다</b>(`D5` 「값의 형식」, `43a-20`) — `OWN`·`SELLER`·`ALL`.
- *
- * <p><b>합집합 타입으로 안 적는다.</b> 머리는 {@code resource}·{@code action} 으로만 고르고
- * 범위 값을 비교하는 자리가 없어서, 여기 목록을 적으면 <b>서버와 안 맞춰지는 사본</b>만 는다.
- * 비교하는 자리가 생기면 그때 판다.
- */
-type Permission = { resource: string; action: string; scopes: string[] };
 
 /**
  * 셀러 화면에 갈 수 있나.
@@ -32,26 +14,34 @@ type Permission = { resource: string; action: string; scopes: string[] };
  * <p>고르는 권한이 {@code order:update_status} 인 이유는 <b>그 화면이 하는 일이 그것</b>이라서다 —
  * 발송·배송완료·반품완료가 전부 이 하나에 걸려 있다(`V20`). 사는 사람은 안 갖는다.
  */
-function canHandleOrders(me: Me): boolean {
-  return me.permissions.some(
-    (granted) => granted.resource === "order" && granted.action === "update_status",
-  );
+function canHandleOrders(me: Me | null): boolean {
+  return can(me, "order", "update_status");
 }
 
 /**
  * 내 상품으로 갈 수 있나.
  *
  * <p><b>주문 권한과 따로 본다.</b> 둘이 같은 역할에 붙어 있다고 해서 한 검사로 묶으면,
- * 역할을 쪼갤 때 안 보이는 링크와 보이는 화면이 어긋난다 2014 판정의 근거는 역할이 아니라 권한이다.
+ * 역할을 쪼갤 때 안 보이는 링크와 보이는 화면이 어긋난다 — 판정의 근거는 역할이 아니라 권한이다.
  */
-function canManageProducts(me: Me): boolean {
-  return me.permissions.some(
-    (granted) => granted.resource === "product" && granted.action === "update",
-  );
+function canManageProducts(me: Me | null): boolean {
+  return can(me, "product", "update");
+}
+
+/**
+ * 정산서로 갈 수 있나.
+ *
+ * <p><b>셀러와 관리자·감사자가 같은 링크를 쓴다</b>(`20-1`). 보는 것이 같고 범위만 달라서,
+ * 읽기 권한 하나가 그 자리를 연다 — 지급을 할 수 있느냐는 화면 안에서 다시 갈린다(`V57`).
+ */
+function canReadSettlements(me: Me | null): boolean {
+  return can(me, "settlement", "read");
 }
 
 /**
  * 모든 화면이 쓰는 머리. 어디에 있든 상품·장바구니·계정으로 갈 수 있다.
+ *
+ * <p><b>이름은 안 쓴다</b> — 머리에 이름을 그리면 폭이 사람마다 달라진다.
  *
  * <p><b>로그인 여부로 항목이 갈린다</b>(`13b`). 그전까지는 누구에게나 「로그인」이 떠서,
  * 주문서까지 온 사람에게도 머리가 **로그인하라고 말하고 있었다**(`15-2` 에서 드러났다).
@@ -92,18 +82,25 @@ export async function SiteHeader() {
             셀러에게만 보인다. 사는 사람에게 그리면 **누르는 순간 튕기는 링크**가 되고,
             그건 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20` 「권한 없는 것은 숨긴다」).
           */}
-          {me && canHandleOrders(me) ? (
+          {canHandleOrders(me) ? (
             <HeaderLink href="/seller/orders">받은 주문</HeaderLink>
           ) : null}
-          {me && canManageProducts(me) ? (
+          {canManageProducts(me) ? (
             <HeaderLink href="/seller/products">내 상품</HeaderLink>
           ) : null}
           {/*
             받은 문의는 상품을 다루는 사람이 답한다(`59-1`). 판정이 `inquiry:answer` 를
             `seller_owner` 에게 `seller` 스코프로 열었고(`V54`), 그 사람이 곧 상품을 관리하는 사람이다.
           */}
-          {me && canManageProducts(me) ? (
+          {canManageProducts(me) ? (
             <HeaderLink href="/seller/inquiries">받은 문의</HeaderLink>
+          ) : null}
+          {/*
+            정산서는 파는 쪽과 관리자·감사자가 같이 본다(`20-1`). 사는 사람은 이 자원에
+            권한이 없다(`V56`) — 정산은 우리와 셀러 사이의 계산이다.
+          */}
+          {canReadSettlements(me) ? (
+            <HeaderLink href="/seller/settlements">정산서</HeaderLink>
           ) : null}
         </nav>
 

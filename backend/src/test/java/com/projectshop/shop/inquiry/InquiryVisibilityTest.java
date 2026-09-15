@@ -378,6 +378,62 @@ class InquiryVisibilityTest extends PostgresTestBase {
                     .isNotNull();
         }
 
+
+        /**
+         * <b>이 단언이 `25-1` 의 이유다.</b> `V62` 가 「감사자에게 본문이 안 열렸나」를
+         * 마이그레이션 안에서 확인하는데, <b>남의 문의를 훑는 목록이 없어서 응답에서 진짜로
+         * 비는지는 아무도 못 봤다.</b> 전체 목록이 생긴 지금 그것이 처음 걸린다.
+         *
+         * <p><b>관리자는 다르다</b> — 법정 요구(`R25`·`R28`)에 답하는 자리라 본문이 열려 있다.
+         * 둘을 같이 재야 <b>「누구에게 가려지나」가 목록에서 실제로 갈린다</b>는 것이 보인다.
+         */
+        @Test
+        @DisplayName("감사자는 목록에서 본문을 못 본다")
+        void bodyIsMaskedForTheAuditor() {
+            ask(askerId, false);
+
+            assertThat(query.findAll(auditorId, new Paging(0, 20)).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::question)
+                    .as("감사는 처리 이력이지 고객의 글이 아니다 (V62)")
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("관리자는 목록에서 본문을 본다")
+        void bodyStaysVisibleToTheAdmin() {
+            ask(askerId, false);
+
+            assertThat(query.findAll(adminId, new Paging(0, 20)).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::question)
+                    .as("법정 요구에 답하려면 무엇을 물었는지 읽어야 한다 (R25·R28, V62)")
+                    .isNotNull();
+        }
+
+        @Test
+        @DisplayName("전체 목록은 all 스코프가 열린 사람만 본다")
+        void listingNeedsAllScope() {
+            ask(askerId, false);
+
+            assertThatThrownBy(() -> query.findAll(askerId, new Paging(0, 20)))
+                    .as("own 으로는 못 덮는 요청이다 — 남의 것이 섞여 온다")
+                    .isInstanceOf(ShopException.class);
+            assertThatThrownBy(() -> query.findAll(sellerOwnerId, new Paging(0, 20)))
+                    .as("seller 로도 못 덮는다")
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("전체 목록이 남의 문의까지 담는다")
+        void listingSpansEveryone() {
+            ask(askerId, false);
+            ask(askerId, true);
+
+            assertThat(query.findAll(adminId, new Paging(0, 20)).total())
+                    .as("훑을 수 있어야 게시 중단(59-2)이 신고 없이도 쓰인다")
+                    .isEqualTo(2);
+        }
         @Test
         @DisplayName("공개 Q&A 는 그대로 보인다")
         void staysVisibleOnThePublicListing() {
@@ -746,4 +802,39 @@ class InquiryVisibilityTest extends PostgresTestBase {
                 .query(Long.class)
                 .single();
     }
+
+    /**
+     * 셀러 목록이 <b>셀러 하나만 대 보고</b> 필드 규칙을 정하는 자리(`25-1` 이 같이 봤다).
+     *
+     * <p>{@code findForSeller} 가 {@code sellers.iterator().next()} 로 아무 셀러나 집어 판정에 묻는다.
+     * <b>지금은 어느 셀러를 대든 답이 같아서 맞다</b> — 근거가 코드 주석에만 있고 검사가 없었다.
+     * 셀러마다 규칙이 갈리는 날 이 테스트가 먼저 빨개진다.
+     */
+    @Nested
+    @DisplayName("셀러가 여럿인 사람은")
+    class MultiSellerMember {
+
+        @Test
+        @DisplayName("어느 셀러를 대든 본문 가시성이 같다")
+        void fieldVisibilityDoesNotDependOnWhichSeller() {
+            AuthFixture fixture = new AuthFixture(jdbc);
+            long second = fixture.insertSeller("s-qna2", "문의셀러2");
+            fixture.verifySeller(second);
+            fixture.joinSeller(second, sellerOwnerId);
+            fixture.grantOrg(sellerOwnerId, "seller_owner", second);
+
+            boolean first = evaluator
+                    .decide(sellerOwnerId, "inquiry", "read", PermissionEvaluator.Target.ofSeller(sellerId))
+                    .canSee(InquiryFields.BODY);
+            boolean other = evaluator
+                    .decide(sellerOwnerId, "inquiry", "read", PermissionEvaluator.Target.ofSeller(second))
+                    .canSee(InquiryFields.BODY);
+
+            assertThat(other)
+                    .as("findForSeller 가 셀러 하나만 대 보고 정한다."
+                            + " 답이 갈리면 그 지름길이 틀린 목록을 만든다")
+                    .isEqualTo(first);
+        }
+    }
+
 }

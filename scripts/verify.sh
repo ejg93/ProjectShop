@@ -29,6 +29,13 @@ tree=$(GIT_INDEX_FILE="$tmp" git write-tree)
 fp_work=$(bash scripts/verify-fingerprint.sh "$tree"); fp_main=$(bash scripts/verify-fingerprint.sh origin/main)
 changed() { [ "$(echo "$fp_work" | grep "^$1 ")" != "$(echo "$fp_main" | grep "^$1 ")" ]; }
 
+# **마이그레이션 불변을 먼저 본다**(`Q51`). 1초고, 빨가면 뒤의 빌드가 뭘 하든 못 밀 것이라
+# 먼저 알려 주는 편이 싸다. 첫 배포 전에는 스스로 물러난다.
+#
+# **레인 판정 밖이다.** 지문이 `origin/main` 과 같아도 돌린다 — 이 검사가 견주는 것은
+# `origin/main` 이 아니라 **배포 기준점**이라 축이 다르다.
+bash scripts/migration-immutable.sh || exit 1
+
 ran=0; ok=1
 if changed backend; then
   ran=1

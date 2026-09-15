@@ -1,10 +1,12 @@
 package com.projectshop.shop.support;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 /**
  * 조용히 위험해지는 설정 둘을 기동에서 막는지 본다(`Q44`).
@@ -87,5 +89,47 @@ class SecuritySettingsCheckTest {
         assertThatThrownBy(() -> SecuritySettingsCheck.verify("10.0.0.[", true))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("정규식이 아니다");
+    }
+    /**
+     * <b>「기동에서 막는다」를 기동으로 잰다</b>(`Q47`).
+     *
+     * <p>위 테스트들은 {@link SecuritySettingsCheck#verify} 를 직접 부른다 — <b>판정은 재지만
+     * 그 판정이 기동에 걸려 있다는 것은 안 잰다.</b> {@code @PostConstruct} 를 떼거나
+     * {@code @Value} 키를 오타 내도 저 여덟이 전부 초록이다(마무리 14차 리뷰가 짚었다).
+     *
+     * <p><b>{@code @SpringBootTest} 를 안 쓴다.</b> 나쁜 값을 {@code properties} 로 주면
+     * 캐시 키가 달라져서 <b>컨텍스트가 하나 더 뜬다</b> — `D15` 가 「컨텍스트 가짓수가 곧 기동
+     * 횟수다」로 재 둔 자리고, 지금 둘이다. {@code ApplicationContextRunner} 는 이 빈만 올린
+     * 작은 컨텍스트를 그 자리에서 만들고 버려서 <b>캐시에 안 들어간다.</b>
+     */
+    @Test
+    @DisplayName("나쁜 값이면 컨텍스트가 안 뜬다")
+    void contextFailsOnDangerousValues() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(SecuritySettingsCheck.class)
+                .withPropertyValues(
+                        "server.tomcat.remoteip.internal-proxies=.*",
+                        "server.servlet.session.cookie.secure=true")
+                .run(context -> assertThat(context)
+                        .as("판정이 기동에 안 걸려 있으면 나쁜 값으로도 컨텍스트가 뜬다")
+                        .hasFailed()
+                        .getFailure()
+                        // 메시지는 원인 예외에 있다. 스프링이 「빈을 못 만들었다」로 한 겹 감싼다.
+                        .rootCause()
+                        .hasMessageContaining("공인 IP"));
+    }
+
+    @Test
+    @DisplayName("기본값이면 컨텍스트가 뜨고 빈이 등록된다")
+    void contextStartsOnDefaults() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(SecuritySettingsCheck.class)
+                .withPropertyValues(
+                        "server.tomcat.remoteip.internal-proxies=" + LOOPBACK,
+                        "server.servlet.session.cookie.secure=false")
+                .run(context -> assertThat(context)
+                        .as("@Value 키가 하나라도 어긋나면 값을 못 채워서 여기서 죽는다")
+                        .hasNotFailed()
+                        .hasSingleBean(SecuritySettingsCheck.class));
     }
 }

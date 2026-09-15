@@ -4,11 +4,6 @@
 -- 「이 동의 행에 통지가 나갔나」로는 두 번째 주기를 못 잰다 — 나갔다는 사실은 한 번만 참이 된다.
 -- 그래서 <b>마지막으로 확인한 시각</b>을 동의 이력에 남기고 거기서 다음 주기를 센다.
 
-alter table user_consent add column reconfirmed_at timestamptz;
-
-comment on column user_consent.reconfirmed_at is
-    '마지막으로 수신동의 여부를 확인한 시각. 다음 2년을 여기서 센다(시행령 제62조의3, 55b)';
-
 -- 확인이 밀린 동의를 고르는 질의가 이 컬럼과 `acted_at` 을 같이 본다.
 create index user_consent_reconfirm_idx
     on user_consent (consent_item_id, coalesce(reconfirmed_at, acted_at))

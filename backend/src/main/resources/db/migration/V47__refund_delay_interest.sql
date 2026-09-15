@@ -6,11 +6,6 @@
 -- **금액이 아니라 이자를 따로 담는다.** `amount` 에 합쳐 넣으면 「대금이 얼마였나」를 못 되찾고,
 -- 정산이 셀러에게 물릴 몫과 우리가 늦어서 무는 몫을 못 가른다 — 늦은 것은 우리 책임이다(`R5`).
 
-alter table refund add column delay_interest bigint not null default 0;
-
-comment on column refund.delay_interest is
-    '환급이 기한을 넘겨서 붙은 지연배상금. 연 15%(시행령 제21조의3, D2 R5). 안 늦었으면 0';
-
 -- 음수 이자가 없다. 안 늦은 것은 0 이지 마이너스가 아니다.
 alter table refund add constraint refund_delay_interest_check
     check (delay_interest >= 0);

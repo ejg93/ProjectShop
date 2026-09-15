@@ -52,6 +52,19 @@ public class TransactionPurgeService {
     private static final int INQUIRY_YEARS = 3;
 
     /**
+     * 손해배상 <b>사유 글</b>을 두는 기간(`43a-4b`). {@link #INQUIRY_YEARS} 와 근거가 같다 —
+     * 같은 시행령 제6조 4호의 「분쟁처리에 관한 기록」이고, 배상이 곧 그 처리의 결과다.
+     *
+     * <p><b>판정 행은 안 지운다.</b> 그쪽은 정산의 근거라 장부와 같이 살고
+     * (`data-lifecycle.md` 「정산」), 사라지는 것은 사람이 쓴 글뿐이다 —
+     * {@code refund_note}·{@code order_status_history_note} 와 같은 모양이다.
+     *
+     * <p><b>그래도 상수를 갈라 둔다.</b> 값이 같다고 한 이름으로 묶으면 한쪽 근거가 바뀔 때
+     * 다른 쪽까지 따라 움직인다 — {@link #AUDIT_YEARS} 를 가른 것과 같은 이유다.
+     */
+    private static final int COMPENSATION_NOTE_YEARS = 3;
+
+    /**
      * 배치 회차 이력을 두는 기간(`D19`). <b>개인정보가 아니라 법이 걸리는 파기가 아니다.</b>
      *
      * <p>여기 얹은 이유는 <b>수명이 끝난 행을 치운다는 일이 같아서</b>다 —
@@ -99,7 +112,7 @@ public class TransactionPurgeService {
     public record Purged(int shippingAddresses, int paymentCards, int orders,
             int auditLogs, int batchRuns, int notificationBodies, int notifications,
             int refundNotes, int historyNotes, int inquiries,
-            int returnPickups, int returnNotes) {}
+            int returnPickups, int returnNotes, int compensationNotes) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -115,6 +128,8 @@ public class TransactionPurgeService {
     public Purged purge(OffsetDateTime baseline) {
         int shippingAddresses = deleteExpiredShipping(baseline.minusMonths(SHIPPING_MONTHS));
         int paymentCards = deleteExpiredPaymentCards(baseline.minusMonths(SHIPPING_MONTHS));
+        int compensationNotes =
+                deleteExpiredCompensationNotes(baseline.minusYears(COMPENSATION_NOTE_YEARS));
         int orders = deleteExpiredOrders(baseline.minusYears(ORDER_YEARS));
         int auditLogs = deleteExpiredAuditLogs(baseline.minusYears(AUDIT_YEARS));
         int batchRuns = deleteExpiredBatchRuns(baseline.minusYears(BATCH_RUN_YEARS));
@@ -131,7 +146,7 @@ public class TransactionPurgeService {
 
         return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns,
                 notificationBodies, notifications, refundNotes, historyNotes, inquiries,
-                returnPickups, returnNotes);
+                returnPickups, returnNotes, compensationNotes);
     }
 
     /**
@@ -201,6 +216,28 @@ public class TransactionPurgeService {
     private int deleteExpiredInquiries(OffsetDateTime createdBefore) {
         return jdbc.sql("delete from inquiry where created_at < :createdBefore")
                 .param("createdBefore", createdBefore)
+                .update();
+    }
+
+    /**
+     * 손해배상의 <b>사유 글</b>을 지운다(`43a-4b`). <b>판정 행은 그대로 남는다</b> —
+     * {@code refund_note}·{@code order_status_history_note} 와 같은 모양이다.
+     *
+     * <p><b>넣는 코드보다 먼저 든다</b>({@link #deleteExpiredReturnPickups} 와 같은 자리).
+     * 판정을 넣는 입구는 `43a-4c` 라 지금 이 표가 비어 있는데, 순서를 뒤집으면
+     * <b>수집과 파기 사이가 위반 구간</b>이 된다(`D23`).
+     *
+     * <p>기준은 <b>정한 날</b>이다. 판정 행 자체가 결정이라 접수일과 판정일이 같다.
+     */
+    private int deleteExpiredCompensationNotes(OffsetDateTime decidedBefore) {
+        return jdbc.sql("""
+                        delete from compensation_note
+                         where compensation_id in (
+                             select compensation_id from compensation
+                              where decided_at < :decidedBefore
+                         )
+                        """)
+                .param("decidedBefore", decidedBefore)
                 .update();
     }
 

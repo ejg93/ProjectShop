@@ -65,5 +65,9 @@ curl localhost:8080/actuator/health
 | 백엔드와 같은 사설망(Railway 안) | 그 망의 대역 | 그 대역 밖에서 온 `X-Forwarded-For` 는 안 믿는다 |
 | 바깥(Vercel) | 못 좁힌다 — Vercel 의 나가는 IP 가 고정이 아니다 | 넓게 열면 백엔드 공개 주소를 직접 때리는 누구나 IP 를 속인다. `acted_ip` 가 동의 입증용이라(`application.yml` 주석) 이 구멍이 열린 채로 실사용자를 받지 않는다 |
 
+**첫 줄로 간다**(`Q38`). `frontend/Dockerfile` 이 생겨서 화면도 같은 사설망에 올릴 수 있다 —
+`docker build frontend` 로 이미지가 만들어지고, `BACKEND_ORIGIN` 을 그 망의 주소로 주면
+**백엔드는 공개 도메인이 없어진다.** 둘째 줄(바깥)은 그때 안 고르는 것이 된다.
+
 **실제 데이터가 있는 DB 에 올린 뒤에는 적용된 마이그레이션을 못 고친다**(`PLAN.md` `3e`·`Q36`).
 데모라 실데이터가 없으면 스키마를 접을 때 그 DB 를 비우고 다시 올린다.

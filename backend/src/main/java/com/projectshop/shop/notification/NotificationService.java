@@ -82,13 +82,37 @@ public class NotificationService {
     }
 
     /**
-     * 보내고 남긴다.
+     * 비밀번호 재설정 안내를 보낸다(`5c-1`).
      *
-     * <p><b>두 번 불러도 한 번만 나간다.</b> 앱이 「이미 보냈나」를 조회해서 판단하면 그 사이에
-     * 끼어들 틈이 생겨서, 막는 것은 {@code notification} 의 부분 유니크다(`54a`).
-     * 걸리면 예외를 받아 <b>빈 값을 돌려준다</b> — 두 번째 호출은 실패가 아니라 할 일이 없는 것이다.
+     * <p><b>원시 사건값을 패키지 밖에 안 연다.</b> {@code NotificationEventType} 이 열려 있으면
+     * 부르는 쪽이 아무 사건이나 골라 보낼 수 있고, 광고 관문({@link AdvertisingGate})을
+     * 건너뛸 자리가 생긴다 — 그래서 <b>목적마다 입구를 낸다.</b>
      *
-     * @param eventType 사건. 템플릿 코드와 같은 값이다
+     * @param resetUrl  토큰이 실린 링크. <b>원문이 나가는 유일한 자리다</b>
+     * @param expiresAt 링크가 죽는 시각
+     */
+    public void sendPasswordReset(long userId, String resetUrl, OffsetDateTime expiresAt) {
+        send(NotificationEventType.PASSWORD_RESET, new Target(null, null, null, null), userId,
+                Map.of("reset_url", resetUrl, "expires_at", expiresAt.toString()));
+    }
+
+    /**
+     * 이메일 변경 확인을 <b>새 주소로</b> 보낸다(`5e-1`).
+     *
+     * <p>다른 통지는 계정에 적힌 주소로 간다. 이것만 다른 이유는 <b>그 주소를 받을 수
+     * 있는지가 이 메일의 물음</b>이기 때문이다.
+     */
+    public void sendEmailChange(long userId, String newEmail, String confirmUrl,
+            OffsetDateTime expiresAt) {
+        send(NotificationEventType.EMAIL_CHANGE, NotificationEventType.EMAIL_CHANGE.code(),
+                NotificationKind.TRANSACTIONAL, new Target(null, null, null, null), userId,
+                Map.of("confirm_url", confirmUrl, "expires_at", expiresAt.toString()), newEmail);
+    }
+
+    /**
+     * 통지 하나를 남긴다. <b>같은 사건을 두 번 안 보낸다</b>({@code 54a}).
+     *
+     * @param eventType 무슨 사건인가
      * @param target    어느 자원 때문인가
      * @param userId    받는 사람. 주소는 계정에서 가져온다
      * @param values    판이 부르는 자리표시자와 넣을 값
@@ -111,6 +135,20 @@ public class NotificationService {
      */
     Optional<Long> send(NotificationEventType eventType, String templateCode, NotificationKind expectedKind,
             Target target, long userId, Map<String, String> values) {
+        return send(eventType, templateCode, expectedKind, target, userId, values, null);
+    }
+
+    /**
+     * 받는 주소를 밖에서 주는 갈래(`5e-1`).
+     *
+     * <p><b>딱 한 가지에만 쓴다</b> — 이메일 변경 확인이다. 그 메일은 <b>아직 계정에 없는
+     * 주소</b>로 가야 하고, 받을 수 있다는 것이 곧 확인이다.
+     *
+     * <p><b>패키지 밖에 안 연다.</b> 임의 주소로 보낼 수 있는 입구가 열려 있으면
+     * 동의 관문이 통째로 뜻을 잃는다 — 관문은 <b>계정</b>에 달려 있기 때문이다.
+     */
+    Optional<Long> send(NotificationEventType eventType, String templateCode, NotificationKind expectedKind,
+            Target target, long userId, Map<String, String> values, String overrideAddress) {
         NotificationTemplates.Version version = templates.current(templateCode, OffsetDateTime.now())
                 .orElseThrow(() -> new IllegalStateException(
                         "시행 중인 알림 템플릿이 없다: " + templateCode));
@@ -130,7 +168,9 @@ public class NotificationService {
         // 이력도 안 남는다 — 보낼 수 없는 것을 「보내는 중」으로 남기면 재시도가 그것을 집는다.
         NotificationTemplates.Rendered rendered = templates.render(version, values);
 
-        Optional<String> address = addressOf(userId);
+        Optional<String> address = overrideAddress != null
+                ? Optional.of(overrideAddress)
+                : addressOf(userId);
         Optional<Long> recorded = record(eventType, target, userId, version, rendered);
         if (recorded.isEmpty()) {
             return Optional.empty();

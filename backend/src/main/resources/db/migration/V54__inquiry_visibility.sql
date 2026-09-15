@@ -3,7 +3,6 @@
 -- 58 이 표만 세웠다. 입구가 없어서 R25(불만·분쟁)와 R28(처리정지·이의제기)의 법정 창구가
 -- 아직 방침 문구고, 「어디로 받나」에 코드가 답을 못 한다.
 
-
 -- 1. 공개 여부.
 --
 -- **종류가 반쯤 정한다.** 계정에 붙는 요구 셋은 언제나 비공개여야 한다 —
@@ -19,14 +18,10 @@
 --
 -- 층마다 기본값이 달라도 된다. **아래층은 안전한 쪽으로, 위층은 쓰기 좋은 쪽으로** 둔다 —
 -- 빠뜨렸을 때 새는 것이 아니라 안 보이는 쪽으로 떨어져야 한다.
-alter table inquiry add column is_public boolean not null default false;
 
 -- 계정에 붙는 요구는 공개될 수 없다. **앱 검증으로 두면 새 입구가 빠뜨린다**(D23 축 2).
 alter table inquiry add constraint inquiry_visibility_check
     check (kind = 'product' or is_public = false);
-
-comment on column inquiry.is_public is
-    '남에게 보이나. 상품 Q&A 만 고를 수 있고 계정에 붙는 요구는 언제나 false 다(청크 59)';
 
 -- 상품 화면이 공개분만 최신순으로 훑는다. 부분 인덱스의 조건이 곧 그 목록의 조건이다.
 --
@@ -34,7 +29,6 @@ comment on column inquiry.is_public is
 -- 조건에서 빼지 않으면 화면에만 안 보이고 목록 API 로는 나간다.
 create index inquiry_public_idx on inquiry (product_id, created_at desc)
  where is_public and status <> 'blocked' and product_id is not null;
-
 
 -- 2. 권한.
 --
@@ -46,7 +40,6 @@ insert into permission (resource, action, description) values
     ('inquiry', 'read',   '문의와 답변을 조회한다'),
     ('inquiry', 'answer', '문의에 답한다');
 
-
 -- 고객. 자기가 낸 것만 보고, 낸다.
 --
 -- 공개 목록은 이 권한을 안 지난다 — 비로그인도 보는 자리라 물을 사람이 없다.
@@ -56,7 +49,6 @@ select r.role_id, p.permission_id, 'own', 'allow'
   from role r
   join permission p on p.resource = 'inquiry' and p.action in ('create', 'read')
  where r.code = 'customer';
-
 
 -- 판매자(대표). 자기 셀러 상품에 달린 것만 보고 답한다.
 --
@@ -68,7 +60,6 @@ select r.role_id, p.permission_id, 'seller', 'allow'
   join permission p on p.resource = 'inquiry' and p.action in ('read', 'answer')
  where r.code = 'seller_owner';
 
-
 -- 관리자. V3 의 admin 부여는 그 시점의 permission 만 훑었으므로 새 권한은 여기서 넣는다.
 --
 -- **법정 요구에 답하는 것이 우리 몫이라 answer 가 필요하다**(R25·R28) —
@@ -78,7 +69,6 @@ select r.role_id, p.permission_id, 'all', 'allow'
   from role r
   join permission p on p.resource = 'inquiry'
  where r.code = 'admin';
-
 
 -- 감사자. 읽기는 열고 나머지는 막는다.
 --
@@ -95,7 +85,6 @@ select r.role_id, p.permission_id, 'all', 'deny'
   from role r
   join permission p on p.resource = 'inquiry' and p.action in ('create', 'answer')
  where r.code = 'auditor';
-
 
 -- 감사자 거부가 실제로 걸렸는지 확인한다.
 --
@@ -119,7 +108,6 @@ begin
         raise exception '감사자 거부가 안 걸린 문의 동작이 % 개 있다', missing;
     end if;
 end $$;
-
 
 -- 셀러가 남의 문의를 못 보는지 확인한다.
 --

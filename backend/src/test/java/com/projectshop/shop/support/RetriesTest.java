@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.PessimisticLockingFailureException;
 
 import com.projectshop.shop.error.ErrorCode;
@@ -42,6 +43,45 @@ class RetriesTest {
 
             assertThat(result).isEqualTo("됐다");
             assertThat(attempts).hasValue(3);
+        }
+
+        @Test
+        @DisplayName("노출 번호가 부딪히면 다시 뽑아서 결국 성공한다")
+        void retriesExposedNumberConflict() {
+            AtomicInteger attempts = new AtomicInteger();
+
+            String result = Retries.onConflict(() -> ExposedNumber.insert(
+                    "S-", "seller_order_number_unique",
+                    number -> {
+                        if (attempts.incrementAndGet() < 3) {
+                            throw duplicateOf("seller_order_number_unique");
+                        }
+                        return number;
+                    }));
+
+            assertThat(result).startsWith("S-");
+            assertThat(attempts)
+                    .as("재시도가 트랜잭션 밖이라 실제로 돈다(`Q49`). 안쪽에서는 두 번째가 25P02 로 죽었다")
+                    .hasValue(3);
+        }
+
+        @Test
+        @DisplayName("같은 insert 의 다른 유일 제약을 어긴 것은 다시 돌지 않는다")
+        void doesNotRetryWhenAnotherConstraintFailed() {
+            AtomicInteger attempts = new AtomicInteger();
+
+            assertThatThrownBy(() -> Retries.onConflict(() -> ExposedNumber.insert(
+                    "S-", "seller_order_number_unique",
+                    number -> {
+                        attempts.incrementAndGet();
+                        throw duplicateOf("seller_order_one_per_seller_unique");
+                    })))
+                    .isInstanceOf(DuplicateKeyException.class)
+                    .isNotInstanceOf(ExposedNumber.Conflict.class);
+
+            assertThat(attempts)
+                    .as("번호를 다시 뽑아도 그 제약은 그대로 걸린다")
+                    .hasValue(1);
         }
 
         @Test
@@ -97,6 +137,27 @@ class RetriesTest {
         }
 
         @Test
+        @DisplayName("결제사가 준 번호가 부딪힌 것은 다시 돌지 않는다")
+        void doesNotRetryGatewaySuppliedNumbers() {
+            AtomicInteger attempts = new AtomicInteger();
+
+            // `payment_approval_number_unique` 도 이름이 `_number_unique` 로 끝난다.
+            // **꼬리로 갈랐으면 여기가 다시 돌았다** — 결제사가 같은 승인번호를 또 주므로
+            // 네 번 다 실패하고, 게다가 진짜 중복 승인을 재시도가 덮는다(`Q49`).
+            assertThatThrownBy(() -> Retries.onConflict(() -> {
+                attempts.incrementAndGet();
+                throw new DuplicateKeyException(
+                        "ERROR: duplicate key value violates unique constraint "
+                                + "\"payment_approval_number_unique\"",
+                        new SQLException("duplicate key", "23505"));
+            })).isInstanceOf(DuplicateKeyException.class);
+
+            assertThat(attempts)
+                    .as("바깥에서 받은 값은 다시 뽑을 것이 없다")
+                    .hasValue(1);
+        }
+
+        @Test
         @DisplayName("업무 예외는 그대로 올린다")
         void doesNotRetryBusinessFailures() {
             AtomicInteger attempts = new AtomicInteger();
@@ -121,5 +182,18 @@ class RetriesTest {
     private static RuntimeException deadlock() {
         return new PessimisticLockingFailureException("데드락",
                 new SQLException("deadlock detected", "40P01"));
+    }
+
+    /**
+     * Postgres 가 내는 유일 위반을 그대로 흉내 낸다.
+     *
+     * <p><b>메시지 꼴이 판정의 입력이다</b>(`Q49`). 제약 이름을 타입으로 읽으려면
+     * {@code PSQLException} 이 필요한데 드라이버가 {@code runtimeOnly} 라 컴파일로 못 붙는다.
+     * 이 문자열이 실물과 같은지는 {@code ExposedNumberConflictTest} 가 진짜 DB 로 고정한다.
+     */
+    private static RuntimeException duplicateOf(String constraint) {
+        return new DuplicateKeyException(
+                "ERROR: duplicate key value violates unique constraint \"" + constraint + "\"",
+                new SQLException("duplicate key", "23505"));
     }
 }

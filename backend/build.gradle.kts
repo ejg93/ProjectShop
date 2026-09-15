@@ -59,6 +59,14 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+	// 세션을 Redis 에 둔다(`Q52`). 그전에는 서블릿 메모리라 **재배포마다 전원 로그아웃**이었고
+	// 인스턴스가 둘이면 로그인이 튀었다.
+	//
+	// **`org.springframework.session:spring-session-data-redis` 가 아니다.** Boot 4 는 자동설정이
+	// 모듈로 쪼개져 있어서 그쪽만 넣으면 클래스는 오는데 `SessionRepository` 빈이 안 뜬다 —
+	// 증상이 `NoSuchBeanDefinitionException: FindByIndexNameSessionRepository` 다.
+	// 추적 의존성에서 이미 밟은 자리와 같은 함정이고, 이 좌표가 세션 구현을 끌고 온다.
+	implementation("org.springframework.boot:spring-boot-session-data-redis")
 	implementation("org.flywaydb:flyway-database-postgresql")
 
 	// 추적 ID 를 발급하고 MDC 까지 나르는 것(D16).
@@ -153,7 +161,13 @@ val comparedInFastLane = listOf(
 	"../PLAN.md",
 	"../PROGRESS.md",
 	"../doc/reference/stack.md",
-	"../docker-compose.yml")
+	"../docker-compose.yml",
+	// **폴더로 건다**(`Q48`). `DocumentMapConsistencyTest` 의 둘째가 `doc/reference/` 를
+	// **목록으로 읽어서** 지도에 없는 문서를 찾는다 — 파일 하나씩 걸면 **새 문서가 생긴 날
+	// 입력이 안 바뀌어서** 정작 그 문서가 안 잡힌다. 잡아야 할 사건이 곧 입력의 변화다.
+	"../doc/reference",
+	// 셋째가 여기서 `create table` 을 읽는다. 표를 더한 청크에서 이 테스트가 돌아야 한다.
+	"src/main/resources/db/migration")
 val comparedScreenRoot = "../frontend/src"
 val declaredComparedInputs = comparedInSlowLane + comparedInFastLane + comparedScreenRoot
 

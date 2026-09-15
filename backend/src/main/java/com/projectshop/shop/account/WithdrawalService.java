@@ -3,9 +3,9 @@ package com.projectshop.shop.account;
 import java.util.Map;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.security.core.session.SessionInformation;
-import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,7 +13,6 @@ import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionRuleLoader;
-import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.consent.ConsentService;
 
 /**
@@ -35,18 +34,19 @@ public class WithdrawalService {
     private final JdbcClient jdbc;
     private final PasswordEncoder passwordEncoder;
     private final PermissionRuleLoader ruleLoader;
-    private final SessionRegistry sessionRegistry;
+    private final FindByIndexNameSessionRepository<? extends Session> sessions;
     private final AuditLog auditLog;
     private final ConsentService consentService;
 
     WithdrawalService(JdbcClient jdbc, PasswordEncoder passwordEncoder,
-            PermissionRuleLoader ruleLoader, SessionRegistry sessionRegistry, AuditLog auditLog,
+            PermissionRuleLoader ruleLoader,
+            FindByIndexNameSessionRepository<? extends Session> sessions, AuditLog auditLog,
             ConsentService consentService) {
 
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
         this.ruleLoader = ruleLoader;
-        this.sessionRegistry = sessionRegistry;
+        this.sessions = sessions;
         this.auditLog = auditLog;
         this.consentService = consentService;
     }
@@ -58,14 +58,17 @@ public class WithdrawalService {
      */
     @Transactional
     public void withdraw(long userId, String password, String actorIp) {
-        String stored = jdbc.sql(
-                        "select password_hash from app_user where user_id = :id and deleted_at is null")
+        // 이메일도 같이 읽는다. 세션 색인의 열쇠가 그것이다(`Q52`) — 아래 `expireSessions`.
+        Account account = jdbc.sql(
+                        "select password_hash, email from app_user"
+                                + " where user_id = :id and deleted_at is null")
                 .param("id", userId)
-                .query(String.class)
+                .query((rs, rowNum) -> new Account(rs.getString("password_hash"),
+                        rs.getString("email")))
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.ALREADY_WITHDRAWN));
 
-        if (!passwordEncoder.matches(password, stored)) {
+        if (!passwordEncoder.matches(password, account.passwordHash())) {
             throw new ShopException(ErrorCode.PASSWORD_MISMATCH);
         }
 
@@ -82,22 +85,29 @@ public class WithdrawalService {
         // 트랜잭션 안에서 부른다. 롤백되면 계정이 살아 있는데 캐시만 비어 있는 상태가 되는데,
         // 그쪽은 한 번 더 조회할 뿐이라 틀리지 않는다. 반대로 두면 죽은 계정이 캐시에 남는다.
         ruleLoader.evict(userId);
-        expireSessions(userId);
+        expireSessions(account.email());
+    }
+
+    /** 비밀번호 확인과 세션 색인에 필요한 것만 읽는다 */
+    private record Account(String passwordHash, String email) {
     }
 
     /**
-     * 이 사람의 세션을 전부 만료시킨다.
+     * 이 사람의 세션을 전부 지운다.
      *
-     * <p>principal 객체를 통째로 비교하지 않고 id 로 훑는다. {@code ShopUser.equals} 가
-     * id 만 보게 돼 있어서 지금은 어느 쪽이든 같지만, 찾는 기준을 코드에 드러내 둔다.
+     * <p><b>색인으로 찾는다</b>(`Q52`). 전에는 세션 명부에서 등록된 사람을 <b>전부 받아 훑었는데</b>,
+     * 세션이 Redis 로 가면서 그 물음이 사라졌다 — 색인이 「사람 하나 → 세션들」 방향뿐이라
+     * {@code SessionRegistry.getAllPrincipals()} 가 예외를 던진다. 열쇠는 principal 이름,
+     * 즉 {@code ShopUser.getUsername()} 이고 그것이 이메일이다.
      *
-     * <p>만료 표시가 실제 로그아웃이 되는 것은 {@code ConcurrentSessionFilter} 가 있어서다.
-     * 그 필터가 없으면 <b>이 호출은 아무 일도 안 한다</b> — 부른 줄 알았는데 안 먹는 쪽이 제일 나쁘다.
+     * <p><b>만료 표시가 아니라 삭제다.</b> 표시만 남기면 세션이 무활동 만료(30분)까지 Redis 에
+     * 그대로 있고 그 안에 이메일이 들어 있다 — 탈퇴는 개인정보를 거두기 시작하는 자리라
+     * 남겨 둘 이유가 없다. 지우면 다음 요청이 세션을 못 찾아 그대로 401 이다.
+     *
+     * <p>이 조작은 인스턴스를 안 가린다. 저장소가 Redis 라 <b>다른 대에 있는 세션도 지워진다</b> —
+     * 그전에는 자기 프로세스의 명부만 봐서 두 대가 되면 반쪽만 먹었다.
      */
-    private void expireSessions(long userId) {
-        sessionRegistry.getAllPrincipals().stream()
-                .filter(principal -> principal instanceof ShopUser user && user.id() == userId)
-                .flatMap(principal -> sessionRegistry.getAllSessions(principal, false).stream())
-                .forEach(SessionInformation::expireNow);
+    private void expireSessions(String email) {
+        sessions.findByPrincipalName(email).keySet().forEach(sessions::deleteById);
     }
 }

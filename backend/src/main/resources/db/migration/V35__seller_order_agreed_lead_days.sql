@@ -17,10 +17,6 @@
 --
 -- supply_lead_days 는 그대로 둔다. 그쪽은 기한을 계산할 때 쓰는 결과값이고,
 -- 둘을 하나로 합치면 「약정 없음」을 표현할 수 없어진다(V26 이 이미 고른 자리다).
-alter table seller_order add column agreed_lead_days int;
-
-comment on column seller_order.agreed_lead_days is
-    '주문 시점의 공급시기 약정 날수(영업일). null 이면 약정이 없어 법정 3영업일이 걸렸다(D2 R21)';
 
 alter table seller_order add constraint seller_order_agreed_lead_days_check
     check (agreed_lead_days is null or agreed_lead_days between 0 and 60);
@@ -31,7 +27,6 @@ alter table seller_order add constraint seller_order_agreed_lead_days_check
 -- 약정 5영업일짜리가 들어 있는데 결과가 3이면 그 약정을 못 지키는 기한을 박아 둔 것이다.
 alter table seller_order add constraint seller_order_lead_days_consistent_check
     check (agreed_lead_days is null or supply_lead_days >= agreed_lead_days);
-
 
 -- 뷰도 같이 고친다.
 --
