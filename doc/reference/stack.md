@@ -975,6 +975,32 @@ docker compose down -v && docker compose up -d --wait
 끄는 것은 `--setting-sources user` 뿐이다. **버리는 단위가 파일이라** 그 파일에 훅 말고 다른
 키가 있으면 그것도 같이 버려진다 — 이 저장소의 `.claude/settings.json` 은 최상위 키가 `hooks` 하나다.
 
+### Spring Session 을 켤 때 밟는 자리 넷
+
+세션을 Redis 로 옮기면서(`Q52`) 하루에 넷을 밟았다. **넷 다 증상이 「조용히 안 된다」다.**
+
+| 무엇 | 증상 | 맞는 것 |
+|---|---|---|
+| 좌표 | `SessionRepository` 빈이 안 뜬다 | **`org.springframework.boot:spring-boot-session-data-redis`**. `org.springframework.session:spring-session-data-redis` 만 넣으면 클래스는 오는데 자동설정이 없다 — Boot 4 가 자동설정을 모듈로 쪼갰다(추적 의존성과 같은 함정) |
+| 속성 경로 | 아무 일도 안 난다. 기본값이 그대로 쓰인다 | **`spring.session.data.redis.*`**. `spring.session.redis.*` 는 Boot 4 에서 빈 경로다 |
+| 저장소 종류 | `NoSuchBeanDefinitionException: FindByIndexNameSessionRepository` | **`repository-type: indexed`**. 기본값 `default` 는 색인이 없어서 「이 사람의 세션들」을 못 찾는다 |
+| 쿠키 설정 | MockMvc 에서 이름이 `SHOPSESSION` 이 아니라 `SESSION` 이다 | **내장 서버가 있을 때만 걸린다.** Boot 이 `server.servlet.session.cookie.*` 를 넘겨주는 자리가 `EmbeddedWebServerConfiguration` 안이라, MockMvc 층은 Spring Session 기본값을 쓴다 |
+
+**실물 쿠키는 그대로다.** 이름·`HttpOnly`·`SameSite` 가 HTTP 층에서 확인된다(`SessionStoreTest`) —
+넷째 줄은 **테스트 층의 사실**이지 배포되는 동작이 아니다. 그래서 그 단언을 HTTP 층에 뒀다.
+
+### 세션 명부는 전수 목록을 못 준다
+
+`SpringSessionBackedSessionRegistry.getAllPrincipals()` 가 `UnsupportedOperationException` 을 던진다 —
+색인이 「사람 하나 → 세션들」 방향뿐이라 전수 목록이 아예 없다. 예외 메시지가 그렇게 적혀 있다.
+
+**탈퇴가 그것을 쓰고 있었다**(`Q52`). 등록된 사람을 전부 받아 훑어서 그 사람 세션을 끊는 코드였다.
+지금은 `FindByIndexNameSessionRepository.findByPrincipalName(이메일)` 로 찾는다 — **열쇠가 principal 이름**이고
+이 저장소에서는 그것이 이메일이다(`ShopUser.getUsername()`).
+
+**advisory lock 과 같은 함정이 하나 더 있다**: 쿠키 값이 저장소 열쇠가 아니다. Spring Session 이
+세션 ID 를 Base64 로 싸서 내리므로, 쿠키 값을 그대로 `findById` 에 넣으면 **없는 것으로 나온다.**
+
 ### 유니크 충돌 뒤 같은 트랜잭션은 죽어 있다
 
 오류가 한 번 나면 Postgres 는 그 트랜잭션을 abort 시킨다. 다음 문장은 무엇이든 `25P02`

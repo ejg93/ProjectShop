@@ -15,7 +15,6 @@ import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,8 +24,10 @@ import org.springframework.security.web.authentication.session.RegisterSessionAu
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
+import org.springframework.session.security.SpringSessionBackedSessionRegistry;
 
 import com.projectshop.shop.error.ProblemEntryPoint;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
@@ -280,19 +281,27 @@ public class SecurityConfig {
         return new HttpSessionSecurityContextRepository();
     }
 
-    /** 누가 어떤 세션을 들고 있는지. 탈퇴·정지가 이걸 보고 세션을 끊는다(`ADR 0010`). */
-    @Bean
-    SessionRegistry sessionRegistry() {
-        return new SessionRegistryImpl();
-    }
-
     /**
-     * 세션이 죽었다는 것을 {@link SessionRegistry} 에 알린다.
+     * 누가 어떤 세션을 들고 있는지. 동시 로그인 제한과 만료 표시가 이걸 본다(`ADR 0010`).
      *
-     * <p>안 걸면 레지스트리에 죽은 세션이 쌓이고, 만료 대상이 실제와 어긋난다.
+     * <p><b>Redis 를 뒤에 둔다</b>(`Q52`). 전에는 {@code SessionRegistryImpl} 이라
+     * <b>자기 프로세스의 세션만 알았다</b> — 인스턴스가 둘이면 남의 대에 있는 세션이 안 보여서
+     * 동시 로그인 제한이 대마다 따로 세지고, 다른 대에서 끝난 세션이 명부에 쌓인다.
+     *
+     * <p><b>{@code getAllPrincipals()} 는 여기서 못 쓴다.</b> 이 구현이 그 물음을 지원 안 해서
+     * 부르면 예외가 난다 — 색인이 「사람 하나 → 세션들」 방향뿐이라 전수 목록이 없다.
+     * 탈퇴가 그것을 쓰고 있었고, {@code WithdrawalService} 가 저장소를 직접 부르게 바뀌었다.
      */
     @Bean
-    HttpSessionEventPublisher httpSessionEventPublisher() {
-        return new HttpSessionEventPublisher();
+    SessionRegistry sessionRegistry(
+            FindByIndexNameSessionRepository<? extends Session> sessions) {
+        return new SpringSessionBackedSessionRegistry<>(sessions);
     }
+
+    // **`HttpSessionEventPublisher` 를 뺐다**(`Q52`). 그 빈은 서블릿 컨테이너의 세션 생명주기를
+    // `SessionRegistryImpl` 에 알려 주는 다리였는데, 명부가 Redis 로 가면서 다리가 필요 없어졌다 —
+    // Spring Session 이 자기 저장소의 만료·삭제를 직접 이벤트로 낸다.
+    //
+    // **남겨 두면 안 걸리는 설정이 하나 는다**: 서블릿 이벤트는 자기 대에서만 나므로
+    // 다른 대의 만료를 못 나르고, 그런데도 「알리고 있다」고 읽힌다.
 }

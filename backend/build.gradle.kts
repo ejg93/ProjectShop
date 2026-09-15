@@ -59,6 +59,14 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+	// 세션을 Redis 에 둔다(`Q52`). 그전에는 서블릿 메모리라 **재배포마다 전원 로그아웃**이었고
+	// 인스턴스가 둘이면 로그인이 튀었다.
+	//
+	// **`org.springframework.session:spring-session-data-redis` 가 아니다.** Boot 4 는 자동설정이
+	// 모듈로 쪼개져 있어서 그쪽만 넣으면 클래스는 오는데 `SessionRepository` 빈이 안 뜬다 —
+	// 증상이 `NoSuchBeanDefinitionException: FindByIndexNameSessionRepository` 다.
+	// 추적 의존성에서 이미 밟은 자리와 같은 함정이고, 이 좌표가 세션 구현을 끌고 온다.
+	implementation("org.springframework.boot:spring-boot-session-data-redis")
 	implementation("org.flywaydb:flyway-database-postgresql")
 
 	// 추적 ID 를 발급하고 MDC 까지 나르는 것(D16).
