@@ -116,10 +116,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # 얕게 받는다. 파일 내용만 보고 이력은 안 본다.
+      # **이력 전체를 받는다**(`Q51`). `migration-immutable.sh` 가 배포 기준점 커밋과 견주는데
+      # 얕게 받으면 그 커밋이 없다. **그때 통과시키지 않고 빨개진다** — 「배포 전이라 기준이 없다」와
+      # 「받아 오기가 얕아서 없다」를 갈라야 게이트가 꺼진 것을 알아챈다.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - run: bash scripts/doc-lint.sh
+
+      # 배포된 마이그레이션을 고쳤나(`Q51`). **첫 배포 전에는 스스로 물러난다** —
+      # 기준점 파일이 없으면 「배포 전」을 찍고 통과한다.
+      - run: bash scripts/migration-immutable.sh
 
       # 리포트다. 안 빨개진다(`2v`) — 테스트가 안 부르는 R 목록을 로그에 남긴다.
       - run: bash scripts/req-coverage.sh
