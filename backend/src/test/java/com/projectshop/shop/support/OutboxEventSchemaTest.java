@@ -318,7 +318,7 @@ class OutboxEventSchemaTest extends PostgresTestBase {
                 .single();
 
         // `sku_stock` 에 처음 넣는 것도 이동이다(`V41` 의 `record_initial_stock`) —
-        // 그 백필이 이미 사건 하나를 낳으므로 아래 `move_stock` 은 둘째가 된다.
+        // **이 삽입 하나가 이동 하나를 만들고 그것이 사건 하나를 낳는다.** 따로 안 옮긴다.
         return jdbc.sql("""
                         with new_sku as (
                             insert into sku (product_id, price_incl_vat)
