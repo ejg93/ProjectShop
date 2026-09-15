@@ -196,9 +196,16 @@ jobs:
             echo '리뷰가 안 돌았다. 이 워크플로를 고치는 PR 이면 정상이다(2g-3) — 액션이 자기 파일을 main 과 대조해 건너뛴다'
             exit 0
           fi
+          # **개수를 안 세고 줄을 센다**(마무리 17차 독립 리뷰). `--paginate` 는 jq 필터를
+          # **페이지마다 따로** 돌리므로 `| length` 를 쓰면 페이지 수만큼 숫자가 줄로 나온다 —
+          # 코멘트가 100개를 넘는 PR 에서 `n` 이 `"0\n1"` 이 되고 `[ "$n" -ge 1 ]` 가
+          # `integer expression expected` 로 떨어져 **코멘트를 남겨도 항상 빨개진다.**
+          # 한 줄에 하나씩 뱉고 `wc -l` 로 세면 페이지가 몇이든 맞는다.
+          # (`--slurp` 는 `--jq` 와 같이 못 쓰고, `jq` 바이너리에 기대지 않는 편이 낫다.)
           n=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
                 --paginate \
-                --jq "[.[] | select(.body | startswith(\"<!-- claude-review -->\")) | select(.updated_at >= \"${ROUND_START}\")] | length")
+                --jq ".[] | select(.body | startswith(\"<!-- claude-review -->\")) | select(.updated_at >= \"${ROUND_START}\") | .id" \
+              | wc -l | tr -d ' ')
           if [ "$n" -ge 1 ]; then
             echo "이번 회차(${ROUND_START} 뒤) 리뷰 코멘트 $n 건"
             exit 0

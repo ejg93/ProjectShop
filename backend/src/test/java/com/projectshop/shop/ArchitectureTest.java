@@ -11,6 +11,7 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
@@ -64,9 +65,10 @@ import jakarta.validation.Valid;
  * <b>코드에서 {@code System.setProperty} 로 켜면 안 된다</b> — 규칙이 {@code static final} 이라
  * 필드 초기화가 {@code static} 블록보다 먼저 돌 수 있다.
  *
- * <p><b>못 보는 것</b> — 판정을 서비스에서 부르나, 한 트랜잭션이 한 유스케이스인가 같은 것은
- * 여전히 문서와 사람이 든다. 트랜잭션 경계는 {@code Q32} 가 셋을 내렸다 — 조회에 없나,
- * 안에서 바깥을 안 부르나. 그 규칙이 못 보는 것은 각 javadoc 에 있다.
+ * <p><b>못 보는 것</b> — 한 트랜잭션이 한 유스케이스인가 같은 것은 여전히 문서와 사람이 든다.
+ * 트랜잭션 경계는 {@code Q32} 가 셋을 내렸다 — 조회에 없나, 안에서 바깥을 안 부르나.
+ * <b>「판정을 지나나」는 {@code Q56} 이 내렸다</b> — 그 전까지 이 자리에 「사람이 든다」로 적혀 있었다.
+ * 각 규칙이 못 보는 것은 그 javadoc 에 있다.
  */
 @AnalyzeClasses(
         packages = "com.projectshop.shop",
@@ -560,7 +562,19 @@ class ArchitectureTest {
     /** 목록에 적혔는데 실재하지 않는 입구를 찾는다. 죽은 줄은 다음 예외를 몰래 들여보낸다 */
     private static ArchCondition<JavaMethod> 목록을_다_쓴다() {
         return new ArchCondition<>("의 소유 목록에 죽은 줄이 없다") {
-            private final Set<String> 남은_것 = new HashSet<>(소유가_곧_권한인_입구);
+            private final Set<String> 남은_것 = new HashSet<>();
+
+            /**
+             * <b>평가마다 비운다</b>(마무리 17차 독립 리뷰). 생성자에서만 채우면 같은 JVM 에서
+             * 이 규칙이 두 번 돌 때 <b>두 번째부터 집합이 비어 무조건 통과한다</b> —
+             * 「죽은 줄을 막는다」가 이 규칙의 존재 이유인데 그 자체가 죽은 줄이 된다.
+             * 지금은 {@code test} 태스크 한 번뿐이라 안 드러난다.
+             */
+            @Override
+            public void init(Collection<JavaMethod> allMethods) {
+                남은_것.clear();
+                남은_것.addAll(소유가_곧_권한인_입구);
+            }
 
             @Override
             public void check(JavaMethod method, ConditionEvents events) {

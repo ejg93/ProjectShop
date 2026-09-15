@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.session.FindByIndexNameSessionRepository;
 
 /**
  * 로그인 상태가 프로세스가 아니라 Redis 에 있나(`Q52`).
@@ -25,8 +26,17 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  */
 class SessionStoreTest extends HttpTestBase {
 
-    /** `application.yml` 의 `spring.session.redis.namespace` 와 같은 값이다 */
+    /**
+     * `application.yml` 의 `spring.session.data.redis.namespace` 와 같은 값이다.
+     *
+     * <p><b>경로가 `spring.session.redis` 가 아니다</b>(Boot 4). 그 옛 경로에 적으면 조용히 안 먹는다 —
+     * 같은 청크가 설정 파일에 그 경고를 박아 뒀는데 여기 주석이 옛 이름을 부르고 있었다(마무리 17차).
+     */
     private static final String SESSION_KEYS = "shop:session:sessions:*";
+
+    /** Spring Session 이 principal 이름으로 세션을 찾을 때 쓰는 색인 이름 */
+    private static final String PRINCIPAL_INDEX =
+            FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME;
 
     private static final String PASSWORD = "hunter2-and-then-some";
 
@@ -91,21 +101,39 @@ class SessionStoreTest extends HttpTestBase {
         deviceB.get("/api/health");
         assertThat(logIn(deviceB, "gone").is(200)).isTrue();
 
-        int withBothDevices = sessionKeys().size();
+        // **그 사람의 색인을 직접 센다.** 전체 열쇠 수가 줄었나로 재면 **하나만 지워져도 통과한다**
+        // (마무리 17차 독립 리뷰). 뒤따르는 401 도 그 구멍을 못 메운다 —
+        // `AccountLivenessFilter` 가 `deleted_at` 만 보고 401 을 주므로
+        // **세션이 Redis 에 그대로 남아 있어도 401 이다.** 두 겹을 갈라야 각 겹을 잰다(`D14`).
+        assertThat(sessionsOf("gone"))
+                .describedAs("두 기기가 각자 세션을 들고 있어야 경쟁이 성립한다")
+                .isEqualTo(2);
 
         assertThat(deviceA.post("/api/me/withdraw",
                 "{\"password\": \"%s\"}".formatted(PASSWORD)).is(204)).isTrue();
 
         // **만료 표시로는 이 단언이 안 선다.** 표시만 남기면 세션이 무활동 만료(30분)까지
         // Redis 에 그대로 있고 그 안에 이메일이 들어 있다 — 탈퇴는 개인정보를 거두는 자리다.
-        assertThat(sessionKeys())
-                .describedAs("두 기기의 세션이 둘 다 지워져야 한다. "
+        assertThat(sessionsOf("gone"))
+                .describedAs("두 기기의 세션이 **둘 다** 지워져야 한다. "
                         + "명부를 훑는 옛 방식은 빈 목록을 받고 성공처럼 끝난다")
-                .hasSizeLessThan(withBothDevices);
+                .isZero();
 
         assertThat(deviceB.get("/api/me").is(401))
                 .describedAs("다른 기기가 살아 있으면 탈퇴가 반쪽이다")
                 .isTrue();
+    }
+
+    /**
+     * 그 사람 앞으로 Redis 에 남아 있는 세션 수.
+     *
+     * <p>Spring Session 의 principal 색인을 직접 읽는다. 열쇠가 principal 이름이고
+     * 이 저장소에서는 그것이 이메일이다({@code ShopUser.getUsername()}).
+     */
+    private long sessionsOf(String name) {
+        Long size = redis.opsForSet().size(
+                "shop:session:index:" + PRINCIPAL_INDEX + ":" + email(name));
+        return size == null ? 0 : size;
     }
 
     private Set<String> sessionKeys() {

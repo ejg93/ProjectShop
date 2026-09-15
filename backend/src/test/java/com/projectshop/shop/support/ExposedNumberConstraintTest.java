@@ -46,6 +46,21 @@ class ExposedNumberConstraintTest {
             "(?:constraint\\s+([a-z0-9_]+)\\s+unique|create\\s+unique\\s+index\\s+([a-z0-9_]+))",
             Pattern.CASE_INSENSITIVE);
 
+    /**
+     * 뒤에 지운 것. {@code drop index x} 와 {@code drop constraint x} 둘 다 받는다.
+     *
+     * <p><b>안 빼면 재는 것이 「지금 실재한다」가 아니라 「한 번 쓴 적 있다」가 된다</b>
+     * (마무리 17차 독립 리뷰). {@code V45} 가 만든 인덱스를 {@code V46} 이 지웠는데도
+     * 집합에 남아 있었다 — 그 이름을 {@code ExposedNumber.insert} 에 적으면 통과하고,
+     * 실행 중에는 <b>충돌이 32⁶ 분의 1 이라 영영 안 드러난다.</b>
+     *
+     * <p><b>`Q51` 뒤에는 이 오탐이 줄지 않고 늘기만 한다</b> — 마이그레이션이 추가 전용이라
+     * 지운 기록도 파일로 영구히 남는다.
+     */
+    private static final Pattern DROPPED = Pattern.compile(
+            "drop\\s+(?:index|constraint)\\s+(?:if\\s+exists\\s+)?([a-z0-9_]+)",
+            Pattern.CASE_INSENSITIVE);
+
     @Test
     @DisplayName("노출 번호가 부르는 제약 이름이 마이그레이션에 실재한다")
     void everyNamedConstraintExists() throws IOException {
@@ -96,20 +111,45 @@ class ExposedNumberConstraintTest {
         return names;
     }
 
+    /**
+     * 지금 살아 있는 유일 제약. <b>만든 것에서 지운 것을 뺀다.</b>
+     *
+     * <p>파일 이름 순으로 본다 — Flyway 가 그 순서로 돌리므로 나중 파일의 {@code drop} 이
+     * 앞 파일의 {@code create} 를 이긴다. 지웠다가 같은 이름으로 다시 만든 자리도 그 순서가 답한다.
+     */
     private static TreeSet<String> declaredConstraintNames() throws IOException {
         var names = new TreeSet<String>();
         try (Stream<Path> files = Files.list(MIGRATION_DIR)) {
-            for (Path file : files.toList()) {
+            for (Path file : files.sorted(ExposedNumberConstraintTest::byVersion).toList()) {
                 if (!file.getFileName().toString().endsWith(".sql")) {
                     continue;
                 }
-                Matcher found = DECLARED.matcher(Files.readString(file, StandardCharsets.UTF_8));
+                String sql = Files.readString(file, StandardCharsets.UTF_8);
+
+                Matcher found = DECLARED.matcher(sql);
                 while (found.find()) {
                     String name = found.group(1) != null ? found.group(1) : found.group(2);
                     names.add(name.toLowerCase(Locale.ROOT));
+                }
+
+                Matcher gone = DROPPED.matcher(sql);
+                while (gone.find()) {
+                    names.remove(gone.group(1).toLowerCase(Locale.ROOT));
                 }
             }
         }
         return names;
     }
+
+    /** {@code V9} 가 {@code V10} 보다 먼저다. 이름순으로 두면 글자 비교라 뒤집힌다 */
+    private static int byVersion(Path left, Path right) {
+        return Integer.compare(versionOf(left), versionOf(right));
+    }
+
+    private static int versionOf(Path file) {
+        Matcher version = VERSION.matcher(file.getFileName().toString());
+        return version.find() ? Integer.parseInt(version.group(1)) : Integer.MAX_VALUE;
+    }
+
+    private static final Pattern VERSION = Pattern.compile("^V(\\d+)__");
 }

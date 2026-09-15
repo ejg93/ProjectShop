@@ -167,7 +167,7 @@ class AuthLoginTest extends PostgresTestBase {
         void registersTheSession() throws Exception {
             logIn(PASSWORD);
 
-            // **색인으로 찾는다**(). 열쇠는 principal 이름, 즉 이메일이다 —
+            // **색인으로 찾는다**(`Q52`). 열쇠는 principal 이름, 즉 이메일이다 —
             // 등록된 사람을 전부 받아 훑는 물음은 Redis 판 명부에 없다.
             assertThat(sessions.findByPrincipalName("login@test.local"))
                     .as("색인이 비면 5g 의 세션 만료가 대상 세션을 못 찾는다")
