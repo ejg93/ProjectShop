@@ -959,6 +959,28 @@ docker compose down -v && docker compose up -d --wait
 바꾸는 묶음에서 리뷰가 「문서가 부르는 것이 실물과 맞나」를 물을 때, 리뷰가 읽는 규칙은
 그 PR 의 판이 아니라 `main` 의 판이다. 그 PR 의 지적을 읽을 때 이 차이를 먼저 본다.
 
+**되살리는 것이 우리가 지우는 것보다 늦다.** run 34862668434 에서 워크플로의 삭제 단계가
+15:31:15 에 돌고 「Restoring .claude」가 15:31:33 에 찍혔다 — **18초 뒤다.**
+`rm -f .claude/settings.json` 으로 저장소 훅을 끄려던 것이 열 회차 넘게 아무것도 안 하고 있었다.
+
+**파일을 지워서 못 끈다. 안 읽게 해야 끈다** — `claude_args` 에 `--setting-sources user`.
+액션이 그 플래그를 알아서 SDK 의 `settingSources` 로 넘기고, 소스 목록에서 `project`·`local` 이 빠진다.
+
+### 액션의 `settings` 입력은 훅을 못 지운다
+
+`settings: '{"hooks":{}}'` 로 저장소 훅을 덮으려는 것이 안 된다. CLI 의 `--settings` 는
+도움말이 「load **additional** settings」라 **더하기만 한다.** 로컬에서 세 변형을 쟀고
+(`{"hooks":{}}` · `{"hooks":{"Stop":[]}}` · `{"hooks":{"Stop":null}}`) 셋 다 프로젝트 Stop 훅이 그대로 돌았다.
+
+끄는 것은 `--setting-sources user` 뿐이다. **버리는 단위가 파일이라** 그 파일에 훅 말고 다른
+키가 있으면 그것도 같이 버려진다 — 이 저장소의 `.claude/settings.json` 은 최상위 키가 `hooks` 하나다.
+
+### 리뷰어가 서브에이전트를 기다리다 코멘트 없이 끝난다
+
+run 34862668434 이 그랬다. `started_in_background: 10` · `completed: 7` 이고 39턴을 태웠는데
+결과 문장이 「그냥 에이전트 완료 알림을 기다린다」였고 **코멘트는 0개**다. `is_error: false` 라
+겉에서는 성공이다. **띄운 것을 다 안 받고 끝내면 산출물이 0이 된다** — 프롬프트가 그것을 막는다.
+
 ### 리뷰 한 번이 약 $1.1 에 5분이다
 
 `total_cost_usd` 1.1158 · `duration_ms` 315118 · `num_turns` 47 이 실측값이다(PR #26).
