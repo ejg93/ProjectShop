@@ -1,5 +1,6 @@
 package com.projectshop.shop.support;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -20,6 +21,11 @@ import org.springframework.stereotype.Component;
  * <p><b>트랜잭션에 안 들어간다.</b> 부르는 쪽이 {@code @Transactional} 이면 실패 행이
  * 본체와 같이 롤백돼서, 실패한 회차가 이력에 안 남는다. 그래서 이 클래스를 부르는 자리는
  * 배치 클래스이고 도메인 서비스가 아니다.
+ *
+ * <p><b>같은 배치는 한 번에 한 곳에서만 돈다</b>(`Q50`). {@code pg_try_advisory_lock} 을
+ * 본체 앞에서 잡고 못 잡으면 {@code SKIPPED} 를 남긴다. <b>인스턴스를 늘리기 전에 필요한 것이
+ * 아니다</b> — 배포와 재시작 자체가 두 인스턴스가 겹치는 창이고, 04:00 에 배포하면 크론 셋이 겹친다.
+ * 아래 부분 유니크는 <b>본체가 다 돈 뒤에야</b> 걸려서 두 번 계산되는 구간을 못 막는다.
  *
  * <p><b>예외를 안 올린다.</b> 회차가 실패하면 `ERROR` 로 남기고 끝낸다 —
  * 올려도 스케줄러가 같은 줄을 한 번 더 찍을 뿐이고, 파기·전이 배치는 다음 회차가 남은 것을 집는다.
@@ -48,9 +54,11 @@ public class BatchRuns {
     }
 
     private final JdbcClient jdbc;
+    private final BatchLockConnections lockConnections;
 
-    BatchRuns(JdbcClient jdbc) {
+    BatchRuns(JdbcClient jdbc, BatchLockConnections lockConnections) {
         this.jdbc = jdbc;
+        this.lockConnections = lockConnections;
     }
 
     /**
@@ -67,6 +75,66 @@ public class BatchRuns {
             return Optional.empty();
         }
 
+        // **잠금이 본체 앞이다**(`Q50`). 아래 부분 유니크는 본체가 다 돈 뒤에야 걸려서
+        // **두 번 계산되는 구간을 못 막는다** — 정산 마감이 그 구간에서 깨진다(`D19`).
+        try (Connection lock = lockConnections.open()) {
+            if (!tryLock(lock, batchName)) {
+                log.warn("{} 건너뜀 기준일={} — 다른 인스턴스가 같은 배치를 돌리는 중이다",
+                        batchName, baselineDate);
+                insert(batchName, baselineDate, OffsetDateTime.now(),
+                        BatchRunStatus.SKIPPED, null, null, null);
+                return Optional.empty();
+            }
+            try {
+                return runBody(batchName, baselineDate, body);
+            } finally {
+                unlock(lock, batchName);
+            }
+        } catch (SQLException e) {
+            // 잠금 연결을 못 얻었다. 회차를 안 돌린 것이라 실패로 남기고, 일시적이면
+            // 재시도 창(`D19` 2층)이 집는다. 예외를 안 올리는 것은 이 클래스의 규칙 그대로다.
+            FailureKind kind = failureKindOf(e);
+            insert(batchName, baselineDate, OffsetDateTime.now(), BatchRunStatus.FAILED, null,
+                    e.getClass().getSimpleName(), kind);
+            log.error("{} 잠금 실패 기준일={} 종류={}", batchName, baselineDate, kind, e);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * 같은 배치가 두 곳에서 동시에 돌지 않게 막는다(`Q50`).
+     *
+     * <p><b>세션 잠금이다.</b> 트랜잭션 잠금({@code pg_try_advisory_xact_lock})은 트랜잭션이
+     * 끝날 때 저절로 풀리는데, 이 클래스는 <b>일부러 트랜잭션 밖</b>이라 붙들 트랜잭션이 없다.
+     * 그래서 연결 하나를 본체가 끝날 때까지 쥐고 있다가 {@link #unlock} 이 <b>같은 연결로</b> 푼다 —
+     * 다른 연결에서 풀면 안 풀리고, 웅덩이 연결이라 객체가 같아야 한다.
+     *
+     * <p><b>열쇠가 배치 이름 하나다. 기준일을 안 넣는다.</b> 넣으면 어제 회차를 다시 돌리는 재시도와
+     * 오늘 회차가 같이 돌 수 있는데, 둘이 같은 표의 같은 행을 고른다.
+     */
+    private boolean tryLock(Connection lock, String batchName) throws SQLException {
+        try (var statement = lock.prepareStatement("select pg_try_advisory_lock(hashtext(?))")) {
+            statement.setString(1, batchName);
+            try (var result = statement.executeQuery()) {
+                return result.next() && result.getBoolean(1);
+            }
+        }
+    }
+
+    /** 잠금을 푼다. <b>본체가 던져도 푼다</b> — 안 풀면 다음 회차가 통째로 건너뛴다 */
+    private void unlock(Connection lock, String batchName) {
+        try (var statement = lock.prepareStatement("select pg_advisory_unlock(hashtext(?))")) {
+            statement.setString(1, batchName);
+            statement.execute();
+        } catch (SQLException e) {
+            // 연결을 닫으면 세션 잠금은 어차피 풀린다. 그래도 남기는 것은
+            // **풀린 경로가 둘로 갈리는 것**이 이상 신호라서다(`D16`).
+            log.warn("{} 잠금 해제 실패 — 연결을 닫아 푼다", batchName, e);
+        }
+    }
+
+    private Optional<Counts> runBody(String batchName, LocalDate baselineDate,
+            Supplier<Counts> body) {
         OffsetDateTime startedAt = OffsetDateTime.now();
         Counts counts;
         try {
@@ -84,10 +152,11 @@ public class BatchRuns {
         try {
             insert(batchName, baselineDate, startedAt, BatchRunStatus.SUCCEEDED, counts, null, null);
         } catch (DuplicateKeyException e) {
-            // 부분 유니크가 거부한 것이다. 인스턴스가 둘이면 같은 회차가 동시에 뜬다(`D19`).
-            // 파기·전이 배치는 두 번 돌아도 결과가 같아서 여기서 끝내도 되지만,
-            // 금액을 더하는 배치가 이 줄을 찍기 시작하면 그때는 분산 잠금이 선행이다.
-            log.warn("{} 이력 중복 기준일={} — 같은 회차가 동시에 돈 것이다", batchName, baselineDate);
+            // 부분 유니크가 거부한 것이다. **잠금이 선 뒤로 이 줄은 안 찍혀야 한다**(`Q50`) —
+            // 같은 배치의 동시 실행을 본체 앞에서 막으므로 여기까지 둘이 올 수가 없다.
+            // 그래도 남겨 둔다: 찍히면 잠금이 안 걸린 것이라 **그 자체가 신호**다(`D16`).
+            log.warn("{} 이력 중복 기준일={} — 같은 회차가 동시에 돈 것이다. "
+                    + "잠금이 선 뒤로는 안 나와야 하는 줄이다", batchName, baselineDate);
         }
         return Optional.of(counts);
     }
