@@ -34,6 +34,9 @@ class OutboxEventSchemaTest extends PostgresTestBase {
 
     private static final String ORDER_NUMBER = "20260915-7QX4M8";
     private static final String REFUND_NUMBER = "R-20260915-7QX4M8";
+    private static final String SELLER_ORDER_NUMBER = "S-20260915-7QX4M8";
+    private static final String SETTLEMENT_NUMBER = "T-20260915-7QX4M8";
+    private static final String BATCH_NAME = "outbox_probe";
 
     private long orderId;
 
@@ -61,13 +64,17 @@ class OutboxEventSchemaTest extends PostgresTestBase {
         insertOrderHistory("payment_pending", "paid");
 
         Map<String, Object> row = jdbc.sql("""
-                        select type, subject, data->>'order_number' as order_number,
-                               data->>'from_status' as from_status,
-                               data->>'to_status' as to_status,
-                               data->>'actor_type' as actor_type
-                          from outbox_event
-                         where subject = :subject
+                        select e.type, e.subject, e.source, e.occurred_at,
+                               e.data->>'order_number' as order_number,
+                               e.data->>'from_status' as from_status,
+                               e.data->>'to_status' as to_status,
+                               e.data->>'actor_type' as actor_type,
+                               h.occurred_at as history_occurred_at
+                          from outbox_event e
+                          join order_status_history h on h.order_id = :orderId
+                         where e.subject = :subject
                         """)
+                .param("orderId", orderId)
                 .param("subject", ORDER_NUMBER)
                 .query()
                 .singleRow();
@@ -80,6 +87,96 @@ class OutboxEventSchemaTest extends PostgresTestBase {
         assertThat(row.get("from_status")).isEqualTo("payment_pending");
         assertThat(row.get("to_status")).isEqualTo("paid");
         assertThat(row.get("actor_type")).isEqualTo("system");
+
+        // **봉투 속성도 잰다**(마무리 18차 독립 리뷰). 앞서 `data` 만 보고 `occurred_at`·`source` 를
+        // 안 봤는데, `D12` 봉투 표가 그 둘을 못박아 뒀다 — 값이 틀려도 빨간 것이 없었다.
+        assertThat(row.get("source"))
+                .as("`ErrorCode` 의 `tag:` 체계와 같다(`D12` 봉투). 바뀌면 계약 변경이다")
+                .isEqualTo("tag:projectshop.example,2026:shop");
+        assertThat(row.get("occurred_at"))
+                .as("**원천 행의 시각이지 발행 시각이 아니다**(`D12`). "
+                        + "여기가 `now()` 로 굳으면 소비자가 순서를 잘못 판단한다")
+                .isEqualTo(row.get("history_occurred_at"));
+    }
+
+    @Test
+    @DisplayName("원천 표 여섯이 저마다 사건을 낳는다")
+    void everySourceEmitsItsOwnEvent() {
+        // **앞서 주문 이력 하나만 쟀다**(마무리 18차 독립 리뷰). 나머지 다섯은 아무 테스트도 안 지나서
+        // **정산 트리거를 통째로 지워도 초록이었다.** 게이트가 막는다고 적어 둔 범위와
+        // 실제로 재는 범위가 갈려 있던 자리다.
+        long sellerOrderId = insertSellerOrder();
+
+        insertSellerOrderHistory(sellerOrderId);
+        assertEvent("shop.seller_order.status_changed", sellerOrderNumberOf(sellerOrderId));
+
+        // 처음 넣은 재고도 이동이다(`V41`). 그 백필이 이미 사건을 낳으므로 따로 안 옮긴다.
+        long skuId = insertSku(sellerOrderId);
+        assertEvent("shop.sku.stock_moved", String.valueOf(skuId));
+
+        insertBatchRun();
+        assertEvent("shop.batch.run_finished", BATCH_NAME);
+
+        long returnId = insertReturnRequest(sellerOrderId);
+        // 상태마다 짝이 되는 시각 칸이 있어야 한다(`return_request_timestamps_check`).
+        jdbc.sql("""
+                        update return_request
+                           set status = 'picked_up', picked_up_at = now()
+                         where return_request_id = :id
+                        """)
+                .param("id", returnId)
+                .update();
+        assertEvent("shop.return_request.status_changed", String.valueOf(returnId));
+
+        // `paid` 는 요청 사슬과 결정 사슬을 둘 다 채워야 한다(`V57`), 그리고 요청자와
+        // 승인자가 달라야 한다(`settlement_payout_self_approval_check`).
+        AuthFixture people = new AuthFixture(jdbc);
+        long requester = people.insertUser("outbox-payout-req@test.local", "요청자");
+        long approver = people.insertUser("outbox-payout-app@test.local", "승인자");
+
+        insertSettlement();
+        jdbc.sql("""
+                        update settlement
+                           set payout_status = 'paid',
+                               payout_requested_at = now(), payout_requested_by_user_id = :req,
+                               payout_decided_at = now(), payout_decided_by_user_id = :app
+                         where settlement_number = :number
+                        """)
+                .param("req", requester)
+                .param("app", approver)
+                .param("number", SETTLEMENT_NUMBER)
+                .update();
+        assertEvent("shop.settlement.payout_changed", SETTLEMENT_NUMBER);
+    }
+
+    @Test
+    @DisplayName("넣은 사건은 못 고치고 발행 표시도 못 되돌린다")
+    void eventsAreImmutable() {
+        insertOrderHistory("payment_pending", "paid");
+
+        // **저장점이 필요하다.** 첫 예외가 트랜잭션을 죽여서 다음 문장이 `25P02` 로 떨어진다 —
+        // `Q49` 가 고친 바로 그 함정이고, 여기서도 그대로 밟았다(마무리 18차).
+        jdbc.sql("savepoint before_update").update();
+        assertThatThrownBy(() -> jdbc.sql(
+                        "update outbox_event set subject = 'X' where subject = :subject")
+                .param("subject", ORDER_NUMBER)
+                .update())
+                .as("넣기만 하는 표에 불변 트리거를 붙이는 것이 이 저장소의 관례다(`V18`·`V27`)")
+                .isInstanceOf(DataAccessException.class)
+                .hasMessageContaining("못 고친다");
+        jdbc.sql("rollback to savepoint before_update").update();
+
+        jdbc.sql("update outbox_event set published_at = now() where subject = :subject")
+                .param("subject", ORDER_NUMBER)
+                .update();
+
+        assertThatThrownBy(() -> jdbc.sql(
+                        "update outbox_event set published_at = null where subject = :subject")
+                .param("subject", ORDER_NUMBER)
+                .update())
+                .as("되돌리면 같은 사건이 두 번 나간다")
+                .isInstanceOf(DataAccessException.class)
+                .hasMessageContaining("다시 나간다");
     }
 
     @Test
@@ -146,6 +243,140 @@ class OutboxEventSchemaTest extends PostgresTestBase {
                 .isEqualTo(after + 1);
     }
 
+    /**
+     * 그 종류·대상의 사건이 <b>정확히 하나</b> 났나.
+     *
+     * <p><b>대상만으로는 못 가린다</b>(마무리 18차 실측). 노출 번호가 없는 자원은 내부 id 를
+     * 그대로 {@code subject} 에 싣는데, 재고와 반품이 둘 다 그렇다 —
+     * 작은 수라 <b>서로 같은 값이 되어 한 대상에 사건이 둘로 세어졌다.</b>
+     * {@code type} 이 있어야 갈린다. 노출 번호를 쓰라는 `D9` 의 이유가 이 자리에서 보인다.
+     */
+    private void assertEvent(String type, String subject) {
+        assertThat(jdbc.sql("""
+                        select count(*) from outbox_event
+                         where type = :type and subject = :subject
+                        """)
+                .param("type", type)
+                .param("subject", subject)
+                .query(Integer.class)
+                .single())
+                .as("%s 사건이 %s 앞으로 하나 나야 한다", type, subject)
+                .isOne();
+    }
+
+    private long insertSellerOrder() {
+        AuthFixture fixture = new AuthFixture(jdbc);
+        long sellerId = fixture.insertSeller("s-outbox", "아웃박스셀러");
+        // 상품을 팔려면 신원이 확인돼야 한다(청크 3c 의 check_product_sale_allowed).
+        fixture.verifySeller(sellerId);
+        return jdbc.sql("""
+                        insert into seller_order (seller_order_number, order_id, seller_id, shipping_fee)
+                        values (:number, :orderId, :sellerId, 0)
+                        returning seller_order_id
+                        """)
+                .param("number", SELLER_ORDER_NUMBER)
+                .param("orderId", orderId)
+                .param("sellerId", sellerId)
+                .query(Long.class)
+                .single();
+    }
+
+    private String sellerOrderNumberOf(long sellerOrderId) {
+        return jdbc.sql("select seller_order_number from seller_order where seller_order_id = :id")
+                .param("id", sellerOrderId)
+                .query(String.class)
+                .single();
+    }
+
+    /** `order_status_history_actor_user_check` — 사람이 옮긴 전이는 누구인지 남아야 한다 */
+    private void insertSellerOrderHistory(long sellerOrderId) {
+        long actor = new AuthFixture(jdbc).insertUser("outbox-actor@test.local", "행위자");
+        jdbc.sql("""
+                        insert into order_status_history (seller_order_id, from_status, to_status,
+                                                          actor_type, actor_user_id)
+                        values (:id, 'preparing', 'shipping', 'seller', :actor)
+                        """)
+                .param("id", sellerOrderId)
+                .param("actor", actor)
+                .update();
+    }
+
+    private long insertSku(long sellerOrderId) {
+        long sellerId = jdbc.sql("select seller_id from seller_order where seller_order_id = :id")
+                .param("id", sellerOrderId)
+                .query(Long.class)
+                .single();
+        long ownerId = new AuthFixture(jdbc).insertUser("outbox-seller@test.local", "셀러주인");
+        long productId = jdbc.sql("""
+                        insert into product (seller_id, created_by_user_id, name, status)
+                        values (:sellerId, :userId, '아웃박스 상품', 'on_sale')
+                        returning product_id
+                        """)
+                .param("sellerId", sellerId)
+                .param("userId", ownerId)
+                .query(Long.class)
+                .single();
+
+        // `sku_stock` 에 처음 넣는 것도 이동이다(`V41` 의 `record_initial_stock`) —
+        // 그 백필이 이미 사건 하나를 낳으므로 아래 `move_stock` 은 둘째가 된다.
+        return jdbc.sql("""
+                        with new_sku as (
+                            insert into sku (product_id, price_incl_vat)
+                            values (:productId, 10000)
+                            returning sku_id
+                        )
+                        insert into sku_stock (sku_id, on_hand)
+                        select sku_id, 5 from new_sku
+                        returning sku_id
+                        """)
+                .param("productId", productId)
+                .query(Long.class)
+                .single();
+    }
+
+    private void insertBatchRun() {
+        jdbc.sql("""
+                        insert into batch_run (batch_name, baseline_date, started_at, finished_at,
+                                               target_count, processed_count, status)
+                        values (:name, current_date, now(), now(), 0, 0, 'succeeded')
+                        """)
+                .param("name", BATCH_NAME)
+                .update();
+    }
+
+    private long insertReturnRequest(long sellerOrderId) {
+        long requester = new AuthFixture(jdbc).insertUser("outbox-return@test.local", "반품자");
+        return jdbc.sql("""
+                        insert into return_request (seller_order_id, reason_code, requested_by_user_id)
+                        values (:id, 'change_of_mind', :user)
+                        returning return_request_id
+                        """)
+                .param("id", sellerOrderId)
+                .param("user", requester)
+                .query(Long.class)
+                .single();
+    }
+
+    private void insertSettlement() {
+        long sellerId = new AuthFixture(jdbc).insertSeller("s-outbox2", "정산셀러");
+        long cycleId = jdbc.sql("""
+                        insert into settlement_cycle (period_start, period_end, payout_date)
+                        values (current_date - 30, current_date - 1, current_date)
+                        returning settlement_cycle_id
+                        """)
+                .query(Long.class)
+                .single();
+        jdbc.sql("""
+                        insert into settlement (settlement_cycle_id, seller_id, settlement_number,
+                                                payout_amount)
+                        values (:cycle, :seller, :number, 5000)
+                        """)
+                .param("cycle", cycleId)
+                .param("seller", sellerId)
+                .param("number", SETTLEMENT_NUMBER)
+                .update();
+    }
+
     private void insertOrderHistory(String from, String to) {
         jdbc.sql("""
                         insert into order_status_history (order_id, from_status, to_status, actor_type)
@@ -158,17 +389,7 @@ class OutboxEventSchemaTest extends PostgresTestBase {
     }
 
     private long insertRefund() {
-        long sellerId = new AuthFixture(jdbc).insertSeller("s-outbox", "아웃박스셀러");
-        long sellerOrderId = jdbc.sql("""
-                        insert into seller_order (seller_order_number, order_id, seller_id, shipping_fee)
-                        values (:number, :orderId, :sellerId, 0)
-                        returning seller_order_id
-                        """)
-                .param("number", OrderFixture.sellerOrderNumber())
-                .param("orderId", orderId)
-                .param("sellerId", sellerId)
-                .query(Long.class)
-                .single();
+        long sellerOrderId = insertSellerOrder();
 
         return jdbc.sql("""
                         insert into refund (refund_number, seller_order_id, reason_code, amount,
@@ -184,7 +405,14 @@ class OutboxEventSchemaTest extends PostgresTestBase {
                 .single();
     }
 
-    /** `refund_self_approval_check` 가 요청자와 승인자가 같은 것을 막아서 따로 만든다 */
+    /**
+     * 승인자를 따로 만드는 이유는 {@code refund_approved_by_user_check} 다 —
+     * {@code approved_by_type} 이 {@code admin} 이면 {@code approved_by_user_id} 가 있어야 한다(`V51`).
+     *
+     * <p><b>{@code refund_self_approval_check} 가 아니다</b>(마무리 18차 독립 리뷰).
+     * 이 픽스처는 {@code requested_by_user_id} 를 {@code null} 로 넣어서 그 제약에 애초에 안 걸린다 —
+     * <b>안 걸리는 제약을 걸린다고 적어 두면</b> 다음 사람이 그 제약을 고칠 때 이 테스트를 근거로 삼는다.
+     */
     private long approverId() {
         return new AuthFixture(jdbc).insertUser("outbox-admin@test.local", "승인자");
     }

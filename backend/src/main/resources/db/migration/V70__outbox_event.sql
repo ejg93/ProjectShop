@@ -8,6 +8,11 @@
 -- 새 경로를 만드는 사람이 그 한 줄을 빠뜨리고, **빠뜨린 것은 아무도 안 알린 날에야 드러난다.**
 -- `sku_stock_requires_move` 가 재고에서 막은 것과 같은 판단이다.
 --
+-- **여기가 드는 것은 「원천 행 → 사건」 한 칸이다**(마무리 18차 독립 리뷰). 「전이 → 원천 행」은
+-- 여전히 앱이 든다 — `shop_order`·`seller_order` 에 이력 행을 요구하는 제약이 없어서,
+-- **새 경로가 `update seller_order set status` 만 하면 사건이 통째로 안 난다.**
+-- 지금 짝이 맞는 것은 상태 갱신과 이력 삽입이 `OrderStatusService` 한 클래스 안에 있다는 관례뿐이다.
+--
 -- 보내는 것은 여기 없다. 발행기는 청크 33 이 세운다 — 트랜잭션 안에서 바깥을 안 부른다(`D11`).
 
 create table outbox_event (
@@ -59,6 +64,10 @@ comment on column outbox_event.occurred_at is
 -- 적혀서 **어느 경로가 적고 어느 경로가 안 적는지가 코드에 흩어진다.**
 --
 -- 트리거 함수가 `set_config` 로 잠깐 열고 넣는다. 그 밖의 `insert` 는 거부다.
+--
+-- **막는 것은 「모르고 쓴 `insert`」까지다**(마무리 18차 독립 리뷰). 앱이 `select emit_outbox_event(…)` 를
+-- 직접 부르거나 `set_config('shop.outbox_write','1',true)` 를 먼저 켜면 그대로 통과한다 —
+-- 앱과 트리거가 같은 롤로 돌아서 `security definer` 로는 못 가른다. **작정하고 우회하는 것은 안 막는다.**
 create or replace function assert_outbox_write_allowed() returns trigger as $$
 begin
     if coalesce(current_setting('shop.outbox_write', true), '0') <> '1' then
@@ -72,6 +81,31 @@ $$ language plpgsql;
 create trigger outbox_event_requires_trigger
     before insert on outbox_event
     for each row execute function assert_outbox_write_allowed();
+
+-- 넣은 사건은 못 고친다. 고칠 수 있는 칸은 `published_at` 하나다.
+--
+-- **이 저장소가 넣기만 하는 표에 늘 붙이는 것이다** — `order_status_history_no_update`(`V18`),
+-- `policy_document_immutable`·`consent_item_immutable`(`V27`). 아웃박스만 빼면
+-- **`published_at` 을 `null` 로 되돌려 같은 사건을 다시 내보내는 것**을 아무것도 안 막는다.
+create or replace function assert_outbox_event_immutable() returns trigger as $$
+begin
+    if (new.type, new.source, new.subject, new.occurred_at, new.data, new.created_at)
+            is distinct from
+       (old.type, old.source, old.subject, old.occurred_at, old.data, old.created_at) then
+        raise exception '아웃박스 사건은 못 고친다. 고칠 수 있는 칸은 published_at 뿐이다 (id=%)',
+            old.outbox_event_id using errcode = 'check_violation';
+    end if;
+    if old.published_at is not null and new.published_at is null then
+        raise exception '발행 표시를 되돌리면 같은 사건이 다시 나간다 (id=%)',
+            old.outbox_event_id using errcode = 'check_violation';
+    end if;
+    return new;
+end;
+$$ language plpgsql;
+
+create trigger outbox_event_immutable
+    before update on outbox_event
+    for each row execute function assert_outbox_event_immutable();
 
 -- 트리거 함수들이 공통으로 부른다. 방벽을 열고 넣고 닫는 것을 한 자리에 둔다 —
 -- 여섯 함수가 각자 `set_config` 를 부르면 하나가 닫는 것을 빠뜨리는 날이 온다.
