@@ -30,6 +30,7 @@
 | `ActionPermissionTest` | 4 테스트 | 〃 | 주문 동작이 넘기는 권한 이름이 `permission` 표에 없는 것(`43a-21`). 없으면 그 동작이 **언제나 거부**인데 초록이다 | `43a-21` 2026-09-10 |
 | `SellerSchemaTest` 상태 목록 | 4 테스트 | 〃 | 셀러 상태 값이 SQL 두 곳이 매달린 것과 갈리는 것(`43a-22`). 열거형이 없어 `EnumConstraintTest` 가 못 보는 자리다 | `43a-22` 2026-09-10 |
 | `StackVersionConsistencyTest` | 4 테스트 | 〃 | `stack.md` 버전 표가 실제 파일과 갈리는 것(`2f`) | `2f` 2026-09-04 |
+| `DocumentMapConsistencyTest` | 4 테스트 | 〃 | **문서가 적어 둔 사실이 실물과 갈리는 것**(`Q48`) — 완료 행이 없는 파일을 가리키는 것 · `doc/reference/` 의 문서를 지도가 안 부르는 것 · `create table` 한 표를 `domain-model.md` 가 안 부르는 것. **올라가는 방향이 요점이다**: 문서를 훑어서는 빠진 것이 안 보인다 | `Q48` 2026-09-15 — 셋을 따로 부쉈다. ① 지도의 `state-machines.md` 를 `state-machine.md` 로 바꾸니 빨강(②도 같이 — 이름을 틀리면 그 파일이 지도에서 사라진 것이 된다) ② `doc/reference/zz-probe.md` 를 만드니 빨강 ③ `V99__zz_probe.sql` 에 `create table zz_probe` 만 넣으니 빨강. **②가 입력 배선까지 쟀다** — 문서를 새로 만든 것만으로 `test` 가 다시 돌았다(`Q25` 의 `UP-TO-DATE` 함정) |
 | 나머지 테스트 | 4 테스트 | 〃 | backend 972, frontend 29 | — |
 | 화면 대조 둘 | 4 테스트 | 〃 | 오류 슬러그·상태 문구가 층 사이에서 갈리는 것 | `Q16` 2026-09-05 |
 | `PublicSurfaceTest` | **1 타입** | 〃 | 패키지 밖에서 안 쓰는 `public`(`43a-27`). 스프링이 부르는 것은 뺀다 | `43a-27` 2026-09-10 |

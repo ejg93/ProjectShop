@@ -153,7 +153,13 @@ val comparedInFastLane = listOf(
 	"../PLAN.md",
 	"../PROGRESS.md",
 	"../doc/reference/stack.md",
-	"../docker-compose.yml")
+	"../docker-compose.yml",
+	// **폴더로 건다**(`Q48`). `DocumentMapConsistencyTest` 의 둘째가 `doc/reference/` 를
+	// **목록으로 읽어서** 지도에 없는 문서를 찾는다 — 파일 하나씩 걸면 **새 문서가 생긴 날
+	// 입력이 안 바뀌어서** 정작 그 문서가 안 잡힌다. 잡아야 할 사건이 곧 입력의 변화다.
+	"../doc/reference",
+	// 셋째가 여기서 `create table` 을 읽는다. 표를 더한 청크에서 이 테스트가 돌아야 한다.
+	"src/main/resources/db/migration")
 val comparedScreenRoot = "../frontend/src"
 val declaredComparedInputs = comparedInSlowLane + comparedInFastLane + comparedScreenRoot
 
