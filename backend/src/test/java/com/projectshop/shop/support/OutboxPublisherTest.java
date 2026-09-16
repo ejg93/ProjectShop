@@ -29,6 +29,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.scheduling.config.ScheduledTaskHolder;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 
@@ -53,6 +55,12 @@ import com.projectshop.shop.order.OrderFixture;
  */
 @DisplayName("아웃박스 발행기")
 class OutboxPublisherTest extends KafkaTestBase {
+
+    @Autowired
+    private ScheduledTaskHolder scheduledTasks;
+
+    @Autowired
+    private ThreadPoolTaskScheduler scheduler;
 
     @Autowired
     private JdbcClient jdbc;
@@ -192,6 +200,26 @@ class OutboxPublisherTest extends KafkaTestBase {
             throw new IllegalStateException(e);
         }
         return name;
+    }
+
+
+    /**
+     * 발행기가 서면 배치가 하나 는다 — 스레드도 그만큼 있나(마무리 20차 독립 리뷰).
+     *
+     * <p><b>기본 컨텍스트의 게이트가 이 자리를 못 본다.</b> {@code BatchSchedulingTest} 는
+     * {@code sink=none} 에서 도는데 발행기는 그때 빈이 아니라 세는 수에 안 들어간다 —
+     * 「배치마다 스레드 하나」를 지킨다는 규칙이 <b>조건부 빈 앞에서 눈이 먼다.</b>
+     * 그래서 켠 컨텍스트인 여기서 한 번 더 센다.
+     */
+    @Test
+    @DisplayName("발행기까지 세어도 배치마다 스레드가 있다")
+    void poolHasAThreadPerBatchWithPublisher() {
+        int batches = scheduledTasks.getScheduledTasks().size();
+
+        assertThat(scheduler.getScheduledThreadPoolExecutor().getCorePoolSize())
+                .as("배치가 %d 인데 스레드가 모자란다. `application.yml` 의 "
+                        + "`spring.task.scheduling.pool.size` 를 배치 수에 맞춘다", batches)
+                .isGreaterThanOrEqualTo(batches);
     }
 
     /** 실제 브로커를 물린 발행 경로. 붙는 것은 되고 <b>답만</b> 실패로 온다 */

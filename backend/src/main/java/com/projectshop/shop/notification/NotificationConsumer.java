@@ -23,10 +23,10 @@ import tools.jackson.databind.ObjectMapper;
  * 둘이 같은 건을 잡아도 {@code notification} 의 부분 유니크가 하나만 남긴다({@code 54a}).
  * <b>못 보낸 편지를 따로 모으는 큐(데드레터)를 안 두는 이유가 이것이다</b>(`event-catalog.md` 「전송」).
  *
- * <h2>넷 중 둘만 여기로 온다</h2>
+ * <h2>넷 중 셋이 여기로 온다</h2>
  *
  * <table border="1">
- *   <caption>거래 통지 넷의 경로</caption>
+ *   <caption>거래 통지 넷의 경로 — 셋은 사건으로, 공급 지연만 스위퍼로</caption>
  *   <tr><th>통지</th><th>사건으로 오나</th><th>왜</th></tr>
  *   <tr><td>청약 접수 확인</td><td>온다</td>
  *       <td>주문 생성이 이력 행을 남긴다(`33a` 에서 더했다) → {@code from_status} 가 비어 있다</td></tr>
@@ -39,7 +39,7 @@ import tools.jackson.databind.ObjectMapper;
  * <h2>실패하면 건너뛴다</h2>
  *
  * <p>예외를 그대로 올리면 같은 편지를 무한히 다시 받는다 — 그동안 뒤의 사건이 전부 밀린다.
- * {@code DefaultErrorHandler} 가 세 번까지 다시 해 보고 {@code ERROR} 를 남기고 넘어간다.
+ * {@code DefaultErrorHandler} 가 <b>시도 셋</b>(처음 한 번과 재시도 둘)까지 해 보고 {@code ERROR} 를 남기고 넘어간다.
  * <b>넘어간 사건은 스위퍼가 5분 뒤 집는다</b>({@code notification-rules.md} 「실패와 재시도」).
  */
 @Component

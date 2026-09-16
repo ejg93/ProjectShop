@@ -185,7 +185,9 @@ class EventRedeliveryTest extends KafkaTestBase {
      *
      * <h2>왜 끝에 붙나</h2>
      *
-     * <p>토픽이 발행된 행을 7일 두는데, <b>주문 번호는 빌드마다 되풀이된다</b>({@code OrderFixture} 의
+     * <p>토픽이 지난 레코드를 한동안 들고 있는데(브로커 기본값이고 <b>우리가 정한 값이 아니다</b> —
+     * 저장소가 정한 7일은 {@code TransactionPurgeService.OUTBOX_DAYS} 로 <b>DB 쪽</b>이다),
+     * <b>주문 번호는 빌드마다 되풀이된다</b>({@code OrderFixture} 의
      * 일련번호가 날짜와 함께 돈다). 앞에서부터 읽으면 <b>지난 빌드가 같은 번호로 남긴 사건</b>까지 세어서,
      * 세 건을 기대한 자리에 일곱 건이 잡힌다 — 실제로 그렇게 빨갰다.
      *

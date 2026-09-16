@@ -23,3 +23,10 @@ comment on column outbox_event.claimed_at is
 -- `claimed_at` 은 그 안에서 거르는 값이다.
 create index outbox_event_claimable_idx on outbox_event (outbox_event_id, claimed_at)
     where published_at is null;
+
+-- **`V70` 의 불변 검사가 이 칸을 안 본다.** 그 함수가 견주는 목록이
+-- `(type, source, subject, occurred_at, data, created_at)` 이라 `claimed_at` 은 자유롭게 바뀐다 —
+-- 발행기가 매 회차 여기에 쓰기 때문에 그래야 한다.
+--
+-- **그래서 「고칠 수 있는 칸은 published_at 뿐」이라는 `V70` 의 예외 문구는 이 파일 뒤로 낡았다.**
+-- 마이그레이션은 지나간 사실이라 안 고친다(`D23`). 고칠 수 있는 칸은 이제 둘이다 — `published_at` 과 여기.

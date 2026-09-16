@@ -166,7 +166,11 @@ class CommittedOrderFixture {
         String skus = "select sku_id from sku where product_id in (" + products + ")";
 
         transactions.executeWithoutResult(status -> {
-            execute("delete from outbox_event where subject in (" + numbers + ")");
+            // **주문 번호만으로는 모자란다**(마무리 20차 독립 리뷰). 재고 행을 넣으면 `V41` 의 트리거가
+            // 이동을 적고 그것이 `shop.sku.stock_moved` 사건을 낳는데, 그 사건의 `subject` 는 `sku_id` 다 —
+            // 아래에서 원천(`sku_stock_movement`)을 지우므로 **원천 없는 미발행 사건**이 남는다.
+            execute("delete from outbox_event where subject in (" + numbers + ")"
+                    + " or subject in (select sku_id::text from sku where product_id in (" + products + "))");
             execute("delete from notification where order_id in (" + orders + ")");
             execute("delete from order_status_history where order_id in (" + orders + ")");
             execute("delete from order_item where seller_order_id in (" + sellerOrders + ")");

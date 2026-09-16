@@ -103,6 +103,44 @@ class StackVersionConsistencyTest {
                 .isEmpty();
     }
 
+
+    /**
+     * 테스트 컨테이너 이미지가 컴포즈와 같나(마무리 20차 독립 리뷰).
+     *
+     * <p><b>위 대조가 못 보는 자리다.</b> {@code stack.md} 의 칸은 파일을 <b>하나만</b> 가리키고
+     * 그것이 {@code docker-compose.yml} 이라, 같은 태그의 <b>세 번째 사본</b>인 테스트 코드는
+     * 아무도 안 본다. 갈리면 <b>테스트가 통과해도 로컬에서 깨진다</b> — 그 문장이
+     * {@code KafkaTestBase} 주석에 적혀 있는데 지키는 것이 없었다.
+     */
+    @Test
+    @DisplayName("테스트 컨테이너 이미지가 컴포즈와 같다")
+    void testContainerImagesMatchCompose() throws IOException {
+        String compose = Files.readString(Path.of("..", "docker-compose.yml"), StandardCharsets.UTF_8);
+
+        List<String> mismatches = new ArrayList<>();
+        for (Path source : List.of(
+                Path.of("src", "test", "java", "com", "projectshop", "shop", "KafkaTestBase.java"),
+                Path.of("src", "test", "java", "com", "projectshop", "shop", "PostgresTestBase.java"))) {
+            String code = Files.readString(source, StandardCharsets.UTF_8);
+            Matcher images = CONTAINER_IMAGE.matcher(code);
+            while (images.find()) {
+                String image = images.group(1);
+                if (!compose.contains(image)) {
+                    mismatches.add(source.getFileName() + " 의 " + image + " 가 컴포즈에 없다");
+                }
+            }
+        }
+
+        assertThat(mismatches)
+                .describedAs("테스트가 띄우는 이미지와 컴포즈가 갈렸다. "
+                        + "둘이 다르면 테스트는 초록인데 로컬에서 깨진다")
+                .isEmpty();
+    }
+
+    /** {@code new XContainer("이미지:태그")} 의 그 문자열. 태그가 있는 것만 본다 */
+    private static final Pattern CONTAINER_IMAGE =
+            Pattern.compile("Container(?:<\\?>)?\\(\"([a-z0-9./-]+:[a-z0-9.-]+)\"\\)");
+
     /**
      * 칸에서 홑따옴표로 감싼 이름을 찾아 실재하는 경로로 바꾼다.
      *

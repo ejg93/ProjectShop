@@ -8,6 +8,7 @@ import { dateText, dateTimeText, priceText } from "@/lib/format";
 import {
   paymentStatusText,
   shipmentStatusText,
+  fromStatusText,
   statusText,
 } from "@/lib/order-text";
 
@@ -47,7 +48,7 @@ type SellerOrder = {
 
 type HistoryEntry = {
   sellerName: string | null;
-  fromStatus: string;
+  fromStatus: string | null;
   toStatus: string;
   actorType: string;
   occurredAt: string;
@@ -481,7 +482,7 @@ function History({ entries }: { entries: HistoryEntry[] }) {
                 {entry.sellerName ? (
                   <span className="text-text-muted">{entry.sellerName} · </span>
                 ) : null}
-                {statusText(entry.fromStatus)} → {statusText(entry.toStatus)}
+                {fromStatusText(entry.fromStatus)} → {statusText(entry.toStatus)}
               </span>
               <span className="text-xs text-text-muted">{dateTimeText(entry.occurredAt)}</span>
             </li>
