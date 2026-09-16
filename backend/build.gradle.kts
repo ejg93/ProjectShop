@@ -83,6 +83,16 @@ dependencies {
 	// 지표를 Prometheus 노출 형식으로 내준다(`Q53`). **수집 도구는 아직 없다** —
 	// 여기까지가 「잴 수 있다」고, 목표 수치는 값이 쌓인 뒤에 정한다(`D21`).
 	implementation("io.micrometer:micrometer-registry-prometheus")
+	// 아웃박스 표를 브로커로 내보낸다(`33`, `event-catalog.md` 「전송 — Kafka」).
+	//
+	// **스타터를 들인다.** `spring-kafka` 만 넣으면 자동 설정 모듈(`spring-boot-kafka`)이 안 따라와서
+	// `spring.kafka.*` 설정도 `KafkaTemplate` 빈도 안 생긴다 — Boot 4 는 자동 설정이 모듈별로 쪼개져 있다.
+	// **버전은 안 적는다 — BOM 이 관리한다**(4.1.1 의 `spring-kafka.version` 이 4.1.1).
+	// 위 springdoc 과 반대 자리라 적어 둔다.
+	//
+	// **로컬에서만 쓴다.** `shop.events.sink` 가 `none` 이면 자동 설정을 통째로 제외해서
+	// 빈이 아예 안 선다(`application.yml`) — 배포와 빠른 레인이 브로커를 안 찾는다.
+	implementation("org.springframework.boot:spring-boot-starter-kafka")
 	runtimeOnly("org.postgresql:postgresql")
 	// API 스펙을 코드에서 뽑는다(`2a`). **UI 스타터를 안 들인다** — 행이 연 것은 스펙 하나고,
 	// Swagger UI 는 정적 자원과 경로를 더 열어서 노출면만 넓힌다.
@@ -100,6 +110,8 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.testcontainers:testcontainers-postgresql")
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+	// 2.x 좌표 규칙대로 `testcontainers-` 접두어가 붙는다(`stack.md`). 쓰는 것은 `33b` 다.
+	testImplementation("org.testcontainers:testcontainers-kafka")
 	// 계층 규칙을 문서에서 테스트로 내린다(`2n`). JUnit 6 아티팩트다 — 이 저장소가 6.0.3 이다.
 	testImplementation("com.tngtech.archunit:archunit-junit6:1.5.0")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")

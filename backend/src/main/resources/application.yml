@@ -7,6 +7,14 @@ spring:
     password: ${POSTGRES_PASSWORD:shop}
   flyway:
     locations: classpath:db/migration
+  # 브로커 주소. **여기 적는 것이 연결을 여는 것은 아니다** — 프로듀서는 처음 보낼 때 붙는다.
+  # 보내는 자리(`33b` 의 발행기)가 `shop.events.sink` 로 잠겨 있어서, `none` 이면 이 값은 안 쓰인다.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      # 모든 복제본이 받은 뒤에 답한다. 로컬은 노드가 하나라 `1` 과 결과가 같지만,
+      # 발행기가 "답을 받은 뒤에만 보냈다고 표시한다" 를 지키려면 답의 뜻이 세야 한다.
+      acks: all
   session:
     # 서블릿 `server.servlet.session.timeout` 과 같은 값이다(`Q52`). 둘이 갈리면 이쪽이 이긴다 —
     # 저장소가 Redis 라 만료를 Spring Session 이 쥔다. 고칠 때 둘을 같이 고친다.
@@ -129,6 +137,23 @@ server:
         # 로컬이 http 라 기본은 끈다. 켜면 쿠키가 아예 안 실려서 로그인이 안 된다.
         # https 로 올리면 `SESSION_COOKIE_SECURE=true` 가 필수다 — 안 켜면 세션 쿠키가 평문으로 흐른다.
         secure: ${SESSION_COOKIE_SECURE:false}
+
+
+# 이 저장소가 정하는 값들. `spring.*` 과 갈라 둔다 — 프레임워크 설정이 아니라 우리 결정이다.
+shop:
+  events:
+    # 아웃박스 표를 어디로 내보내나(`event-catalog.md` 「전송」). `none` 이면 안 내보낸다.
+    #
+    # **기본이 `none` 이다.** Kafka 는 로컬에서만 돈다(사용자 결정 2026-09-14) —
+    # 배포에 브로커가 없고 빠른 레인도 컨테이너를 안 띄운다. `kafka` 로 켜는 것은
+    # `docker compose up kafka` 를 띄운 로컬과 `33b` 의 그 테스트 클래스뿐이다.
+    #
+    # **발행기와 토픽 빈이 이 값을 본다**(`33b`). `none` 이면 그 빈들이 안 서서
+    # 브로커로 나가는 연결이 아예 안 열린다.
+    sink: ${EVENTS_SINK:none}
+    # 토픽 하나에 다 넣는다. 종류는 헤더 `type` 으로 거른다(`event-catalog.md` 「전송」) —
+    # 소비자마다 토픽을 가르면 순서 보장 단위가 같이 갈린다.
+    topic: shop.events
 
 # API 스펙을 코드에서 뽑는다(`2a`).
 #

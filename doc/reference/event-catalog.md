@@ -132,7 +132,9 @@ create index outbox_event_unpublished_idx on outbox_event (outbox_event_id) wher
 | 헤더 | `type` · `id` | 본문을 안 열고 거른다 |
 | 전달 | **최소 한 번.** 발행기는 브로커 ack 뒤에만 `published_at` 을 채운다 | ack 전에 죽으면 다음 회차가 다시 보낸다 → 중복. 소비자가 거른다 |
 | 소비자 멱등 | 소비자마다 **자기 표의 유니크**로 | 거래 통지는 `notification` 부분 유니크(`54a`). 오프셋은 처리 뒤에 커밋한다 |
-| 스위치 | `shop.events.sink` = `none`(기본) / `kafka` | `none` 이면 Kafka 빈을 아예 안 만든다. **배포(`Q39`)와 빠른 레인은 `none`** |
+| 스위치 | `shop.events.sink` = `none`(기본) / `kafka` | `none` 이면 **발행기와 토픽 빈이 안 선다** — 브로커로 나가는 연결이 안 열린다. **배포(`Q39`)와 빠른 레인은 `none`** |
+
+**「빈을 아예 안 만든다」가 아니다**(`33` 실측). Boot 의 자동 설정은 `spring-boot-starter-kafka` 가 클래스패스에 있으면 무조건 돌아서 `KafkaTemplate` 빈이 선다 — 그것을 끄려면 `spring.autoconfigure.exclude` 에 적어야 하는데, 그 값은 환경변수 하나로 같이 못 움직인다(`EVENTS_SINK=kafka` 로 켜는 사람이 제외 목록도 같이 비워야 한다). **막으려던 것은 브로커로 나가는 연결이고 그것은 우리 빈에서 막힌다** — 프로듀서는 처음 보낼 때 붙고, 보내는 자리가 `sink` 로 잠겨 있다.
 
 **Kafka 는 로컬에서만 돈다.** Railway 에 브로커가 없고 관리형은 과금이라 안 올린다(사용자 결정). 이 저장소에
 처음으로 「로컬에서만 도는 축」이 생겼다 — `none` 이면 스위퍼가 하던 대로 5분마다 집는다.

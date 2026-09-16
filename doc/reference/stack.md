@@ -20,6 +20,8 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | Gradle | 9.7.1 | `gradle/wrapper/gradle-wrapper.properties` |
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
+| Kafka | 4.3.1 | `docker-compose.yml`. **로컬 전용** — 배포에 브로커가 없다(`event-catalog.md` 「전송」) |
+| spring-kafka | 4.1.1 | 안 적는다. **Boot BOM 이 관리한다** — `spring-boot-starter-kafka` 로 들인다 |
 | Tomcat | 11.0.25 | `backend/build.gradle.kts` 의 `tomcat.version`. **BOM 값을 덮었다** — 아래 「Boot BOM 의 Tomcat 이 보안 패치보다 낮을 수 있다」 |
 | Testcontainers | 2.0.5 | `build.gradle.kts` 의 BOM |
 | springdoc-openapi | 3.1.1 | `build.gradle.kts`. **3.x 가 Boot 4 판이다** — 2.x 는 Boot 3 모듈 배치를 부른다 |
@@ -1254,7 +1256,6 @@ management:
 | Next.js 버전, 패키지 매니저 | 청크 13 |
 | springdoc-openapi | 청크 2a |
 | MinIO | 청크 26 |
-| Kafka — 컴포즈 이미지 태그 · `spring-kafka` · Testcontainers Kafka 좌표 | 청크 33. **로컬에서만 돈다**(`event-catalog.md` 「전송」) — 배포에는 안 올린다 |
 
 정해지면 위 표에 줄을 더한다.
 

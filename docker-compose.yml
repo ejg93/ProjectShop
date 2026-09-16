@@ -56,6 +56,49 @@ services:
       timeout: 3s
       retries: 10
 
+
+  # 바깥에 알릴 사건을 나르는 브로커다(`33`, `event-catalog.md` 「전송 — Kafka」).
+  #
+  # **로컬에서만 돈다.** 배포에는 안 올린다 — 관리형 Kafka 가 과금이고 Railway 에 브로커가 없다
+  # (사용자 결정 2026-09-14). 앱은 `EVENTS_SINK` 가 `kafka` 일 때만 이쪽을 본다.
+  #
+  # **ZooKeeper 가 없다**(KRaft). 한 프로세스가 브로커와 컨트롤러를 겸해서,
+  # 옛 구성처럼 컨테이너를 둘 띄우지 않는다.
+  #
+  # **리스너가 둘인 이유**: 컨테이너 안에서 부르는 주소(`kafka:9092`)와 호스트에서 부르는
+  # 주소(`localhost:9092`)가 달라서다. 하나로 두면 한쪽이 반드시 못 붙는다 —
+  # 브로커는 붙은 클라이언트에게 "나한테 오려면 이 주소로 와라" 를 되돌려 주는데,
+  # 그 값이 상대가 닿을 수 없는 이름이면 첫 요청만 성공하고 그다음이 전부 타임아웃이다.
+  kafka:
+    image: apache/kafka:4.3.1
+    container_name: shop-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:${KAFKA_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # 노드가 하나라 복제본도 하나다. 기본값(3)을 그대로 두면 내부 표를 만들 때 터진다.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      TZ: Asia/Seoul
+    ports:
+      - "${KAFKA_PORT:-9092}:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      # 브로커에 실제로 질의를 던진다. 포트가 열린 것과 브로커가 답하는 것은 다르다.
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   db-data:
   redis-data:
+  kafka-data:
