@@ -1,12 +1,10 @@
 package com.projectshop.shop.payment;
 
+import static com.projectshop.shop.payment.RefundMath.delayInterest;
+import static com.projectshop.shop.payment.RefundMath.resolvePortions;
+
 import java.time.LocalDate;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -20,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.payment.RefundMath.Item;
+import com.projectshop.shop.payment.RefundMath.Portion;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.BusinessCalendar;
 import com.projectshop.shop.support.ExposedNumber;
@@ -449,15 +449,6 @@ public class RefundService {
         }
     }
 
-    /** 주문 항목 하나와 그 항목에서 이미 나간 누계 */
-    private record Item(long orderItemId, int quantity, long unitPriceInclVat,
-            long commissionAmount, int refundedQuantity, long refundedCommission) {
-
-        int remaining() {
-            return quantity - refundedQuantity;
-        }
-    }
-
     /**
      * 묶음의 항목과 누계를 읽는다.
      *
@@ -492,70 +483,6 @@ public class RefundService {
                         rs.getInt("refunded_quantity"),
                         rs.getLong("refunded_commission")))
                 .list();
-    }
-
-    /** 이번에 돌려줄 한 항목 */
-    private record Portion(long orderItemId, int quantity, long amount, long commissionRefund) {}
-
-    /**
-     * 무엇을 몇 개 돌려줄지 정하고 금액을 계산한다.
-     *
-     * <p>요청이 항목을 안 주면 <b>남은 것 전부</b>다. 전액 환불이 흔한 경로라
-     * 화면이 항목을 세어 보내게 하면 그 계산이 두 곳에 생긴다.
-     */
-    private static List<Portion> resolvePortions(List<Item> items, List<Line> lines) {
-        Map<Long, Item> byId = new LinkedHashMap<>();
-        for (Item item : items) {
-            byId.put(item.orderItemId(), item);
-        }
-
-        List<Line> wanted = lines == null || lines.isEmpty()
-                ? items.stream().filter(item -> item.remaining() > 0)
-                        .map(item -> new Line(item.orderItemId(), item.remaining())).toList()
-                : lines;
-
-        if (wanted.isEmpty()) {
-            throw new ShopException(ErrorCode.REFUND_EXCEEDS_LIMIT, "이미 전부 환불된 묶음이다");
-        }
-
-        List<Portion> portions = new ArrayList<>(wanted.size());
-        for (Line line : wanted) {
-            Item item = byId.get(line.orderItemId());
-
-            // 남의 묶음 항목을 끼워 넣는 요청이다. 없는 항목과 같은 답을 준다 —
-            // 가르면 항목 번호를 두드려서 남의 주문 구성을 셀 수 있다(`D5`).
-            if (item == null) {
-                throw new ShopException(ErrorCode.ORDER_NOT_FOUND,
-                        "이 묶음의 항목이 아니다: " + line.orderItemId());
-            }
-            if (line.quantity() <= 0 || line.quantity() > item.remaining()) {
-                throw new ShopException(ErrorCode.REFUND_EXCEEDS_LIMIT,
-                        "환불할 수 있는 수량은 %d 다: order_item_id=%d"
-                                .formatted(item.remaining(), item.orderItemId()));
-            }
-            portions.add(new Portion(item.orderItemId(), line.quantity(),
-                    item.unitPriceInclVat() * line.quantity(), commissionRefund(item, line.quantity())));
-        }
-        return portions;
-    }
-
-    /**
-     * 이 항목에서 포기할 수수료.
-     *
-     * <p><b>절사 잔액을 마지막 수량에 몰아 준다</b>(사용자 선택). {@code commission_amount} 가
-     * 항목 단위로 이미 잘린 값이라(`D8`) 수량으로 또 나누면 1원씩 남는데, 그것을 그대로 두면
-     * 통째로 환불했는데 수수료가 덜 돌아가서 <b>정산에 우리 몫이 남는다.</b>
-     *
-     * <p>마지막 수량인지는 <b>누계로 판단한다</b> — 3개를 1개씩 세 번 돌려주는 것과
-     * 한 번에 세 개 돌려주는 것이 같은 값이어야 하고, 그 등식을 테스트가 지킨다
-     * (`money-invariants` 「통째로 환불하면 {@code commission_refund = commission_amount}」).
-     */
-    private static long commissionRefund(Item item, int quantity) {
-        boolean last = item.refundedQuantity() + quantity == item.quantity();
-
-        return last
-                ? item.commissionAmount() - item.refundedCommission()
-                : item.commissionAmount() * quantity / item.quantity();
     }
 
     /**
@@ -721,47 +648,6 @@ public class RefundService {
                 .param("requestReason", requestReason)
                 .param("decisionReason", decisionReason)
                 .update();
-    }
-
-    /** 지연배상금 이율. 연 100분의 15(전자상거래법 시행령 제21조의3, `D2` R5) */
-    private static final BigDecimal DELAY_RATE = new BigDecimal("0.15");
-
-    /** 이율이 연 단위라 일수로 쪼갤 때 나누는 수. 윤년을 안 가른다 */
-    private static final BigDecimal DAYS_IN_YEAR = new BigDecimal(365);
-
-    /**
-     * 기한을 넘긴 만큼 붙는 지연배상금.
-     *
-     * <p><b>계산이 여기 한 곳이다.</b> 화면이 다시 계산하면 청구액과 표시액이 갈리고,
-     * 갈리는 쪽이 법정 금액이라 어느 쪽이 맞는지를 우리가 못 정한다. 결과를 { refund} 에
-     * 박제해서 나중에 이율이 바뀌어도 지나간 건의 금액이 안 움직이게 한다.
-     *
-     * <p><b>일 단위로 세고 하루가 안 찼어도 1일로 본다</b>(사용자 선택). 법이 「기간」이라고만 해서
-     * 실무 관례를 따랐다 — 한 시간 늦은 것에 0원을 물리면 「늦었는데 배상금이 0」이 된다.
-     *
-     * <p><b>원 미만은 올린다</b>(사용자 선택). `D8` 은 버림이지만 그것은 <b>우리가 받는 돈</b>의 규칙이고,
-     * 이것은 우리가 늦어서 <b>물어 주는 돈</b>이라 방향이 반대다. 버리면 법이 정한 금액보다 적게 준다.
-     *
-     *  amount   돌려줄 대금. 이자는 여기에 안 들어 있다
-     *  dueAt    환급 기한. `12a-3` 이 사유별 기산점으로 박아 둔 값이다
-     *  decidedAt 실제로 조치한 시각
-     *  붙는 이자. 기한 안에 처리했으면 0
-     */
-    static long delayInterest(long amount, OffsetDateTime dueAt, OffsetDateTime decidedAt) {
-        if (!decidedAt.isAfter(dueAt)) {
-            return 0;
-        }
-
-        long days = ChronoUnit.DAYS.between(dueAt, decidedAt);
-        if (Duration.between(dueAt, decidedAt).minusDays(days).isPositive()) {
-            days++;
-        }
-
-        return BigDecimal.valueOf(amount)
-                .multiply(DELAY_RATE)
-                .multiply(BigDecimal.valueOf(days))
-                .divide(DAYS_IN_YEAR, 0, RoundingMode.CEILING)
-                .longValueExact();
     }
 
     private record Pending(long requestedByUserId, long amount, RefundStatus status,
