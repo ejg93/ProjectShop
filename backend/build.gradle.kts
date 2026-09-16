@@ -80,6 +80,9 @@ dependencies {
 	// 빈은 뜨는데 그게 `Tracer.NOOP` 이라 추적 ID 가 조용히 안 찍힌다.
 	implementation("org.springframework.boot:spring-boot-micrometer-tracing-brave")
 	implementation("io.micrometer:micrometer-tracing-bridge-brave")
+	// 지표를 Prometheus 노출 형식으로 내준다(`Q53`). **수집 도구는 아직 없다** —
+	// 여기까지가 「잴 수 있다」고, 목표 수치는 값이 쌓인 뒤에 정한다(`D21`).
+	implementation("io.micrometer:micrometer-registry-prometheus")
 	runtimeOnly("org.postgresql:postgresql")
 	// API 스펙을 코드에서 뽑는다(`2a`). **UI 스타터를 안 들인다** — 행이 연 것은 스펙 하나고,
 	// Swagger UI 는 정적 자원과 경로를 더 열어서 노출면만 넓힌다.

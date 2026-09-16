@@ -1,6 +1,10 @@
 package com.projectshop.shop.payment;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,12 +55,23 @@ public class RefundSweeper {
 
     private static final Logger log = LoggerFactory.getLogger(RefundSweeper.class);
 
+    /**
+     * 마지막 회차가 센 「기한을 넘긴 대기」 수(`Q53`).
+     *
+     * <p><b>지표를 읽을 때 DB 를 안 친다.</b> Gauge 가 값을 물을 때마다 세면 지표를 자주 긁는 쪽이
+     * 그대로 부하가 된다 — 회차가 이미 세는 값이라 그것을 여기 적어 두고 Gauge 는 읽기만 한다.
+     */
+    private final AtomicLong overdueCount = new AtomicLong();
+
     private final JdbcClient jdbc;
     private final RefundService refunds;
 
-    RefundSweeper(JdbcClient jdbc, RefundService refunds) {
+    RefundSweeper(JdbcClient jdbc, RefundService refunds, MeterRegistry meters) {
         this.jdbc = jdbc;
         this.refunds = refunds;
+        Gauge.builder("shop.refund.overdue", overdueCount, AtomicLong::doubleValue)
+                .description("기한을 넘긴 환급 대기 건수. 연 15% 지연배상 대상이다(전자상거래법 제18조제3항)")
+                .register(meters);
     }
 
     /**
@@ -246,7 +261,7 @@ public class RefundSweeper {
      *
      * <p><b>「배치가 돌았나」가 아니라 「넘긴 것이 몇이냐」를 봐야 값이 보인다</b>
      * (`36a`·`10a-2` 가 같은 판단). 지연배상금은 <b>승인하는 순간에만</b> 계산되므로
-     * ({@code RefundService.delayInterest}) 대기 중인 건의 이자는 어느 컬럼에도 안 쌓인다 —
+     * ({@code RefundMath.delayInterest}) 대기 중인 건의 이자는 어느 컬럼에도 안 쌓인다 —
      * 세지 않으면 우리가 무는 돈이 얼마인지 아무 데도 안 드러난다.
      *
      * <p><b>시스템 요청은 위에서 이미 승인됐다.</b> 그래서 여기 남는 것은 대개 사람이 낸
@@ -263,6 +278,8 @@ public class RefundSweeper {
                         """)
                 .query(Integer.class)
                 .single();
+
+        overdueCount.set(overdue);
 
         if (overdue > 0) {
             log.warn("환급 기한을 넘긴 대기 {}건 — 연 15%가 붙는다(전자상거래법 제18조제3항)",

@@ -337,6 +337,12 @@ evaluator.decide(userId, "order", "update_status", target)
 |---|---|
 | `PermissionEvaluator.evaluate`(`4c-0`) | 케이스당 0.04초 → 0.0012초. **30배** |
 | `BusinessCalendar` 영업일 계산과 `OrderDeadlines`(`Q19`) | 법 기한(`D2` R3·R5)을 컨테이너 없이 본다 |
+| `RefundMath`(`Q54`) | 수수료 절사·지연배상금·환불 항목 결정을 컨테이너 없이 본다 |
+
+**떼어 낸 계산은 `*Math` 로 이름 짓고 그 파일의 테스트를 빠른 레인에 둔다**(`Q54`).
+`RefundMath` 가 첫 실례다 — `final`·package-private 이고 생성자를 닫는다.
+**한 자리만 DB 를 타도 순수가 아니다**: `shippingFeeRefund` 는 이미 나간 배송비 환급을 조회해서
+안 뗐다. 그런 것은 서비스에 남기고, 그 자리는 통합 층이 본다.
 
 **안 떼는 것도 근거를 적는다.** 정산 지급액은 SQL 이 줄을 되읽어 합산하도록 일부러 설계했다
 (`SettlementService`). 앱이 같은 계산을 한 벌 더 가지면 **계산이 두 벌**이 되고 어긋날 자리가 생긴다 —

@@ -2,6 +2,7 @@ package com.projectshop.shop.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
@@ -284,6 +285,144 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
         }
     }
 
+
+    /**
+     * 주문을 {@code restrict} 로 잡는 표가 남아 있으면 <b>파기 회차 전체가 롤백된다</b>(`43a-28b`).
+     *
+     * <p>그래서 보는 것이 「지워졌나」만이 아니다 — <b>예외 없이 끝났나</b>가 같이 걸린다.
+     * 고치기 전에는 첫 테스트가 restrict 위반으로 죽었다.
+     */
+    @Nested
+    @DisplayName("주문을 잡는 것이 있으면")
+    class Blockers {
+
+        @Test
+        @DisplayName("정산이 살아 있는 동안은 주문을 안 지운다")
+        void keepsTheOrderWhileSettlementLives() {
+            long orderId = orderClosedAt(NOW.minusYears(6));
+            // 2026년 2기 거래라 보존이 2032년까지다. 아직 한참 남았다.
+            insertSettlement(orderId, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+            purgeService.purge(NOW);
+
+            assertThat(orderExists(orderId))
+                    .as("정산이 장부라 5년이 지나도 못 지운다(개인정보법 제21조① 단서, `R41`)."
+                            + " 억지로 지우면 restrict 가 거부하고 이 회차 전체가 롤백된다")
+                    .isTrue();
+            assertThat(countOf("select count(*) from settlement_cycle")).isOne();
+        }
+
+        @Test
+        @DisplayName("정산 보존이 끝나면 주기를 통째로 지우고 주문도 따라 지운다")
+        void purgesTheCycleThenTheOrder() {
+            long orderId = orderClosedAt(NOW.minusYears(6));
+            // 2019년 1기 거래 — 신고기한 2019-07-25 다음날부터 5년이라 2024-07-26 에 끝났다.
+            insertSettlement(orderId, LocalDate.of(2019, 6, 1), LocalDate.of(2019, 6, 30));
+
+            purgeService.purge(NOW);
+
+            assertThat(countOf("select count(*) from settlement_cycle"))
+                    .as("줄만 지우면 지연 트리거가 합계 불일치로 막는다. 주기 통째로 지운다")
+                    .isZero();
+            assertThat(countOf("select count(*) from settlement_item")).isZero();
+            assertThat(orderExists(orderId))
+                    .as("같은 회차 안에서 정산이 먼저 사라지므로 주문이 이어서 지워진다")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("배상 판정도 보존이 끝나야 주문이 지워진다")
+        void waitsForTheCompensation() {
+            long stillHeld = orderClosedAt(NOW.minusYears(6));
+            insertCompensation(stillHeld, NOW.minusYears(1));
+
+            long released = orderClosedAt(NOW.minusYears(6));
+            insertCompensation(released, OffsetDateTime.of(2019, 6, 30, 0, 0, 0, 0, ZoneOffset.ofHours(9)));
+
+            purgeService.purge(NOW);
+
+            assertThat(orderExists(stillHeld))
+                    .as("정산의 근거라 장부와 같이 산다(`data-lifecycle.md` 「손해배상 판정」)")
+                    .isTrue();
+            assertThat(orderExists(released)).isFalse();
+            assertThat(countOf("select count(*) from compensation")).isOne();
+        }
+
+        @Test
+        @DisplayName("문의가 달린 주문은 문의가 사라진 뒤에 지워진다")
+        void waitsForTheInquiry() {
+            long stillHeld = orderClosedAt(NOW.minusYears(6));
+            // 주문이 닫히고 한참 뒤에 달린 문의다. 문의는 3년인데 기산이 작성일이라
+            // 주문(5년, 거래 종료 기산)보다 늦게 만료된다 — 그 조합이 파기를 막던 자리다.
+            insertOrderInquiry(stillHeld, NOW.minusYears(1));
+
+            long released = orderClosedAt(NOW.minusYears(6));
+            insertOrderInquiry(released, NOW.minusYears(4));
+
+            purgeService.purge(NOW);
+
+            assertThat(orderExists(stillHeld))
+                    .as("문의는 시행령 제6조 4호의 3년이라 아직 살아 있고, 주문을 restrict 로 잡는다")
+                    .isTrue();
+            assertThat(orderExists(released)).isFalse();
+            assertThat(countOf("select count(*) from inquiry")).isOne();
+        }
+    }
+
+    /** 그 주문의 항목 하나를 근거로 정산서 한 장을 세운다. 지급액은 줄 합과 같아야 한다 */
+    private void insertSettlement(long orderId, LocalDate periodStart, LocalDate periodEnd) {
+        long cycleId = jdbc.sql("""
+                        insert into settlement_cycle (period_start, period_end, payout_date)
+                        values (:start, :end, :payout)
+                        returning settlement_cycle_id
+                        """)
+                .param("start", periodStart)
+                .param("end", periodEnd)
+                .param("payout", periodEnd.plusMonths(1).withDayOfMonth(10))
+                .query(Long.class)
+                .single();
+
+        long settlementId = jdbc.sql("""
+                        insert into settlement (settlement_number, settlement_cycle_id, seller_id, payout_amount)
+                        values (:number, :cycleId, :sellerId, 10000)
+                        returning settlement_id
+                        """)
+                .param("number", "T-20260809-K3M9P" + (char) ('2' + counter++))
+                .param("cycleId", cycleId)
+                .param("sellerId", sellerId)
+                .query(Long.class)
+                .single();
+
+        jdbc.sql("""
+                        insert into settlement_item (settlement_id, kind, order_item_id, amount)
+                        select :settlementId, 'sale', oi.order_item_id, 10000
+                          from order_item oi
+                          join seller_order so on so.seller_order_id = oi.seller_order_id
+                         where so.order_id = :orderId
+                         limit 1
+                        """)
+                .param("settlementId", settlementId)
+                .param("orderId", orderId)
+                .update();
+    }
+
+    /** 그 주문의 묶음에 달린 문의 하나 */
+    private void insertOrderInquiry(long orderId, OffsetDateTime createdAt) {
+        jdbc.sql("""
+                        insert into inquiry (inquiry_number, kind, user_id, question,
+                                             seller_order_id, created_at)
+                        select :number, 'order', :userId, '언제 처리되나',
+                               so.seller_order_id, :createdAt
+                          from seller_order so
+                         where so.order_id = :orderId
+                         limit 1
+                        """)
+                .param("number", "Q-20260809-K3M9P" + (char) ('2' + counter++))
+                .param("userId", userId)
+                .param("createdAt", createdAt)
+                .param("orderId", orderId)
+                .update();
+    }
     private void insertCompensation(long orderId, OffsetDateTime decidedAt) {
         long sellerOrderId = jdbc.sql(
                         "select seller_order_id from seller_order where order_id = :id")

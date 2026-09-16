@@ -12,7 +12,7 @@
 | 결제 만료 | 결제가 안 끝난 주문을 만료시키고 재고를 푼다 | 5분 `fixedDelay` | 경과 시간 30분 | `OrderStatusBatch.expireUnpaidOrders` |
 | 자동 구매확정 | 자동확정 예정일이 지난 셀러 주문을 확정한다 | 매일 04:00 KST | `seller_order.auto_confirm_at` 박제값 | `OrderStatusBatch.confirmDeliveredOrders` |
 | 개인정보 파기 | 탈퇴 유예가 지난 계정 정보·동의 IP·방치된 비로그인 장바구니·만료 멱등키를 지운다 | 매일 04:00 KST | 전날 24시 | `AccountPurgeBatch.purge` |
-| 거래기록 파기 | 보존 기간이 지난 배송지·주문·감사 로그를 지운다 | **매월 1일** 04:00 KST | 전날 24시 | `TransactionPurgeBatch.purge` |
+| 거래기록 파기 | 보존 기간이 지난 배송지·정산·배상·문의·주문·감사 로그를 **그 순서로** 지운다 | **매월 1일** 04:00 KST | 전날 24시 | `TransactionPurgeBatch.purge` |
 | 환불 요청 스위퍼 | 닫혔는데 환불 요청이 없는 묶음에 요청을 만들고, 자기가 만든 요청을 승인해 돈을 내보낸다 | 5분 `fixedDelay` | `seller_order.closed_at` 이 있고 그 묶음에 `refund` 가 없다. 승인 대상은 `requested_by_type = 'system'` 인 대기 | `RefundSweeper.sweep` |
 | 거래 통지 스위퍼 | 법이 요구하는 통지 넷을 아직 안 나간 건에 보낸다 | 5분 `fixedDelay` | 청약 접수·대금 지급·공급 곤란·환급의 상태인데 `notification` 이 없다. **조회 하한(바닥)을 통지 기능이 선 시각으로 잡아서** 배치가 멈춰도 안 놓친다(`56a`) | `NotificationSweeper.sweep` |
 | 수신동의 확인 | 2년이 지난 광고 수신동의에 확인 통지를 보낸다 | 매일 04:30 KST | `coalesce(reconfirmed_at, acted_at)` 이 2년 전보다 오래됨 | `ConsentReconfirmSweeper.sweep` |
@@ -27,6 +27,11 @@
 
 거래기록 파기가 매월인 이유는 `data-lifecycle.md`(D13)가 개인정보 파기와 주기를 갈랐기 때문이다.
 1일로 잡은 것은 날짜가 고정이라 사람이 기억하고, 월초 정산 마감과 시각이 겹쳐도 서로 입력을 안 주기 때문이다.
+
+**순서가 이 배치의 규칙이다**(`43a-28b`). 정산·배상·문의가 주문을 `restrict` 로 잡고 있어서, 주문을 먼저
+지우면 DB 가 거부하고 **그 회차 전체가 롤백된다** — 그날 사라졌어야 할 다른 사람의 개인정보까지 남는다.
+정산·배상은 세법 보존(`D2` R41)이라 주문보다 오래 살고, 보존이 안 끝난 것은 `purgeableOrderIds` 가
+주문을 아예 안 고르게 해서 다음 회차로 넘긴다. **새 표가 같은 자리를 잡는 것은 `PurgeBlockerTest` 가 잰다.**
 
 ## 등록하는 자리
 

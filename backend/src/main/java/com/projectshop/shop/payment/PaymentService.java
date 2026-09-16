@@ -8,8 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
-import com.projectshop.shop.order.IdempotencyService;
-import com.projectshop.shop.order.OrderStatusService;
+import com.projectshop.shop.support.IdempotencyService;
 import com.projectshop.shop.support.Retries;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -41,14 +40,14 @@ public class PaymentService {
     private final JdbcClient jdbc;
     private final MockPaymentGateway gateway;
     private final IdempotencyService idempotency;
-    private final OrderStatusService orderStatuses;
+    private final PaymentOutcome outcome;
 
     PaymentService(JdbcClient jdbc, MockPaymentGateway gateway, IdempotencyService idempotency,
-            OrderStatusService orderStatuses) {
+            PaymentOutcome outcome) {
         this.jdbc = jdbc;
         this.gateway = gateway;
         this.idempotency = idempotency;
-        this.orderStatuses = orderStatuses;
+        this.outcome = outcome;
     }
 
     /**
@@ -224,9 +223,9 @@ public class PaymentService {
         }
 
         if (verdict.approved()) {
-            orderStatuses.markPaid(payable.orderId(), "결제 승인 " + verdict.approvalNumber());
+            outcome.paid(payable.orderId(), "결제 승인 " + verdict.approvalNumber());
         } else {
-            orderStatuses.markPaymentFailed(payable.orderId(), "결제 거절 " + verdict.declineReason());
+            outcome.failed(payable.orderId(), "결제 거절 " + verdict.declineReason());
         }
 
         // 응답은 저장값이 아니라 표기다(`D5`). 거절 사유는 안 올린다 —

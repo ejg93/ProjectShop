@@ -1,9 +1,48 @@
 # ProjectShop
 
 멀티 셀러 쇼핑몰. 판매자가 여럿 입점하고, 고객이 사고, 관리자가 관리한다.
-목적은 물건을 파는 게 아니라 권한 체계를 정갈하게 짜는 법을 익히는 것이다.
+목적은 물건을 파는 게 아니라 **규칙이 지켜지는 자리를 코드에서 가장 낮은 층으로 내리는 법**을 익히는 것이다.
 
-만드는 대상과 근거는 `PLAN.md`, 어디까지 했는지는 `PROGRESS.md` 에 있다.
+## 무엇을 증명하나
+
+**법 요건이 문서가 아니라 제약으로 서 있다.** 전자상거래법·개인정보법·세법에서 온 요건 **41개**에 번호를
+달고(`doc/reference/commerce-compliance.md`), 데이터로 표현되는 것은 DB 제약으로 내렸다 —
+청약철회 제한 사유는 `check` 로 값을 닫았고, 거래기록 5년 보존은 **`shop_order` 에 `deleted_at` 을 안 두는 구조**다.
+어느 요건이 어디에 걸렸는지는 `bash scripts/req-coverage.sh` 가 센다.
+
+**어디에 걸어야 실제로 막히나를 순서로 정했다.** 타입·스키마 > DB 제약 > 앱 검증 > 테스트 > 문서 순이고
+(`doc/reference/coding-rules.md` 「규칙의 우선순위」), 그 순서 자체를 테스트가 지킨다 —
+`ArchitectureTest` 가 계층·의존·순환을, `EnumConstraintTest` 가 열거형과 `check` 목록이 갈리는 것을 막는다.
+**게이트마다 「무엇을 막는지」와 「부순 날」을 적어 둔다**(`doc/reference/quality-gates.md`) —
+켜 두기만 하고 아무것도 안 막는 게이트를 가리려는 것이다.
+
+**주문이 두 층이고 권한이 행 단위다.** 한 주문에 셀러가 여럿이라 `shop_order`(고객이 낸 것)와
+`seller_order`(셀러가 처리하는 것)가 갈려 있고, 권한은 역할에 스코프(`own`·`seller`·`all`)를 붙여
+**행 하나에 대해** 판정한다(`doc/reference/permission-rules.md`).
+
+## 구조
+
+```
+  브라우저 ──▶ Next.js (3000)  ──rewrite──▶ Spring Boot (8080) ──▶ PostgreSQL 17
+               화면·세션 쿠키       /api/*        판정·업무 규칙        제약·트리거
+                                                        │
+                                                        └──▶ Redis (세션 저장소)
+```
+
+백엔드 패키지는 **자원 단위 18개**다(`order`·`payment`·`product`·`auth` 등). 관객 단위로 안 판다 —
+「셀러용」·「관리자용」으로 가르면 같은 자원의 규칙이 두 곳에 생긴다.
+
+## 읽는 순서
+
+| 무엇이 궁금하면 | 어디를 |
+|---|---|
+| 무엇을 만들고 있나 | `PLAN.md` 의 청크 분할표. 어디까지 했는지는 `PROGRESS.md` |
+| 기준 문서가 어디 있나 | `doc/reference/document-map.md` — 28개 문서의 지도 |
+| 왜 그렇게 정했나 | `doc/reference/coding-rules.md` 「규칙의 우선순위」. 충돌하면 무엇이 이기고 어디에 거나 |
+| 무엇이 실제로 막고 있나 | `doc/reference/quality-gates.md` — 게이트별 문턱과 부순 증거 |
+| 설계 결정의 저울질 | `doc/adr/` |
+
+**돌아가는 화면은 아직 링크가 없다.** 배포는 마지막 청크고(`Q39`), 그때 주소가 여기 붙는다.
 
 ## 구성
 
@@ -11,8 +50,10 @@
 |---|---|
 | `backend/` | Spring Boot 서버. 권한 판정, 상품·주문 API, 모의 결제 |
 | `frontend/` | Next.js 앱. 로그인, 상품·주문 화면, 관리자 권한 편집 |
-| `docker-compose.yml` | PostgreSQL 컨테이너 정의 |
+| `docker-compose.yml` | PostgreSQL·Redis 컨테이너 정의 |
+| `doc/reference/` | 기준 문서 28개. 규칙을 정하는 자리고, 코드는 여기를 따른다 |
 | `doc/adr/` | 설계 결정 기록. 무엇을 정했고 무엇과 저울질했는지 |
+| `scripts/` | 검증과 대조. `verify.sh`(레인을 골라 돌리고 도장) · `doc-lint.sh` · `req-coverage.sh` |
 
 ## DB 띄우기
 

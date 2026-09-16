@@ -8,6 +8,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -55,10 +58,12 @@ public class BatchRuns {
 
     private final JdbcClient jdbc;
     private final BatchLockConnections lockConnections;
+    private final MeterRegistry meters;
 
-    BatchRuns(JdbcClient jdbc, BatchLockConnections lockConnections) {
+    BatchRuns(JdbcClient jdbc, BatchLockConnections lockConnections, MeterRegistry meters) {
         this.jdbc = jdbc;
         this.lockConnections = lockConnections;
+        this.meters = meters;
     }
 
     /**
@@ -257,6 +262,16 @@ public class BatchRuns {
                 .param("failureReason", failureReason)
                 .param("failureKind", failureKind == null ? null : failureKind.code())
                 .update();
+
+        // 이력 행이 남은 뒤에만 센다(`Q53`). 앞에서 세면 부분 유니크가 거부한 회차까지 세어져서
+        // 지표와 `batch_run` 이 갈린다. 태그 둘 다 닫힌 목록이다 — 배치 이름은 카탈로그(`D19`),
+        // 상태는 열거형이라 카디널리티가 안 터진다(`D16`).
+        Counter.builder("shop.batch.run")
+                .tag("name", batchName)
+                .tag("status", status.code())
+                .description("배치 회차 수. 상태별로 갈라 센다")
+                .register(meters)
+                .increment();
     }
 
     /**

@@ -29,6 +29,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.IdempotencyService;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.Retries;
 

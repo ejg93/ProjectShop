@@ -9,6 +9,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.support.TaxRetention;
+
 /**
  * 거래 축의 보존 기간이 지난 것을 파기한다.
  *
@@ -108,11 +110,15 @@ public class TransactionPurgeService {
      * @param inquiries         보존 기간이 지나 지운 문의 수. 질문·답변 글이 같이 사라진다
      * @param returnPickups     보존 기간이 지나 지운 반품 수거지 수. 반품 행은 남는다
      * @param returnNotes       보존 기간이 지나 지운 반품 사유 글 수. 반품 행은 남는다
+     * @param compensationNotes 보존 기간이 지나 지운 배상 사유 글 수. 판정은 남는다
+     * @param settlementCycles  세법 보존이 끝나 지운 정산 주기 수. 주기 통째다(`D2` R41)
+     * @param compensations     세법 보존이 끝나 지운 손해배상 판정 수(`D2` R41)
      */
     public record Purged(int shippingAddresses, int paymentCards, int orders,
             int auditLogs, int batchRuns, int notificationBodies, int notifications,
             int refundNotes, int historyNotes, int inquiries,
-            int returnPickups, int returnNotes, int compensationNotes) {}
+            int returnPickups, int returnNotes, int compensationNotes,
+            int settlementCycles, int compensations) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -130,6 +136,14 @@ public class TransactionPurgeService {
         int paymentCards = deleteExpiredPaymentCards(baseline.minusMonths(SHIPPING_MONTHS));
         int compensationNotes =
                 deleteExpiredCompensationNotes(baseline.minusYears(COMPENSATION_NOTE_YEARS));
+
+        // **주문보다 먼저다**(`43a-28b`). 셋이 주문을 restrict 로 잡고 있어서, 남아 있으면
+        // 아래 주문 삭제가 거부되고 **이 회차 전체가 롤백된다** — 그날 사라졌어야 할
+        // 다른 사람의 개인정보까지 안 사라진다. 순서를 지키는 것을 PurgeBlockerTest 가 잰다.
+        int settlementCycles = deleteExpiredSettlements(baseline);
+        int compensations = deleteExpiredCompensations(baseline);
+        int inquiries = deleteExpiredInquiries(baseline.minusYears(INQUIRY_YEARS));
+
         int orders = deleteExpiredOrders(baseline.minusYears(ORDER_YEARS));
         int auditLogs = deleteExpiredAuditLogs(baseline.minusYears(AUDIT_YEARS));
         int batchRuns = deleteExpiredBatchRuns(baseline.minusYears(BATCH_RUN_YEARS));
@@ -140,13 +154,12 @@ public class TransactionPurgeService {
         int notifications = deleteExpiredNotifications(
                 baseline.minusMonths(ADVERTISEMENT_MONTHS), baseline.minusYears(ORDER_YEARS));
 
-        int inquiries = deleteExpiredInquiries(baseline.minusYears(INQUIRY_YEARS));
         int returnPickups = deleteExpiredReturnPickups(baseline.minusMonths(SHIPPING_MONTHS));
         int returnNotes = deleteExpiredReturnNotes(baseline.minusMonths(SHIPPING_MONTHS));
 
         return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns,
                 notificationBodies, notifications, refundNotes, historyNotes, inquiries,
-                returnPickups, returnNotes, compensationNotes);
+                returnPickups, returnNotes, compensationNotes, settlementCycles, compensations);
     }
 
     /**
@@ -242,6 +255,109 @@ public class TransactionPurgeService {
     }
 
     /**
+     * 세법 보존이 끝난 정산 주기를 <b>통째로</b> 지운다(`43a-28b`, `D2` R41).
+     *
+     * <p><b>줄만 지우면 안 된다.</b> 지연 트리거 {@code settlement_amounts_check} 가 커밋 시점에
+     * 정산서와 줄의 합계를 맞추므로, 줄을 빼고 정산서를 남기면 그 자리에서 막힌다.
+     * 주기를 통째로 지우면 커밋 시점에 정산서 자체가 없어 트리거가 볼 행이 없다.
+     *
+     * <p><b>기준은 지급일이 아니라 주기의 거래일이다</b>({@code period_end}) —
+     * {@link TaxRetention} 이 그 이유를 든다.
+     *
+     * <p><b>이월이 걸린 주기는 미룬다.</b> 다음 달 정산서의 줄이
+     * {@code carried_from_settlement_id} 로 이 주기의 정산서를 가리키면 그 줄이 근거를 잃는다 —
+     * 뒤 주기가 먼저 만료돼야 하고 그것은 한 달 뒤다.
+     *
+     * @return 지운 정산 주기 수
+     */
+    private int deleteExpiredSettlements(OffsetDateTime baseline) {
+        List<Long> cycleIds = jdbc.sql("""
+                        select sc.settlement_cycle_id, sc.period_end
+                          from settlement_cycle sc
+                         where not exists (
+                                   select 1
+                                     from settlement_item si
+                                     join settlement s on s.settlement_id = si.settlement_id
+                                    where si.carried_from_settlement_id is not null
+                                      and s.settlement_cycle_id <> sc.settlement_cycle_id
+                                      and si.carried_from_settlement_id in (
+                                          select s2.settlement_id from settlement s2
+                                           where s2.settlement_cycle_id = sc.settlement_cycle_id))
+                        """)
+                .query((rs, rowNum) -> new ExpiringCycle(
+                        rs.getLong("settlement_cycle_id"), rs.getObject("period_end", LocalDate.class)))
+                .list()
+                .stream()
+                .filter(cycle -> TaxRetention.retainUntil(cycle.periodEnd())
+                        .isBefore(baseline.atZoneSameInstant(KST).toLocalDate()))
+                .map(ExpiringCycle::cycleId)
+                .toList();
+
+        if (cycleIds.isEmpty()) {
+            return 0;
+        }
+
+        // 자식부터다. cascade 를 파기 수단으로 쓰지 않는다(`D23`).
+        jdbc.sql("""
+                        delete from settlement_item
+                         where settlement_id in (
+                             select settlement_id from settlement
+                              where settlement_cycle_id in (:ids))
+                        """)
+                .param("ids", cycleIds)
+                .update();
+
+        jdbc.sql("delete from settlement where settlement_cycle_id in (:ids)")
+                .param("ids", cycleIds)
+                .update();
+
+        return jdbc.sql("delete from settlement_cycle where settlement_cycle_id in (:ids)")
+                .param("ids", cycleIds)
+                .update();
+    }
+
+    /** 만료를 재는 데 필요한 것만 담는다 */
+    private record ExpiringCycle(long cycleId, LocalDate periodEnd) {}
+
+    /**
+     * 세법 보존이 끝난 손해배상 판정을 지운다(`43a-28b`, `D2` R41).
+     *
+     * <p><b>정산 줄이 가리키는 동안은 안 지운다.</b> 그 줄이 「무엇에 대한 배상인가」를 잃는다 —
+     * 정산이 위에서 먼저 사라지므로 같은 회차에 이어진다.
+     *
+     * <p>사유 글({@code compensation_note})은 이미 없다. 3년에 먼저 사라진다.
+     *
+     * @return 지운 판정 수
+     */
+    private int deleteExpiredCompensations(OffsetDateTime baseline) {
+        List<Long> ids = jdbc.sql("""
+                        select c.compensation_id, (c.decided_at at time zone 'Asia/Seoul')::date as decided_on
+                          from compensation c
+                         where not exists (select 1 from settlement_item si
+                                            where si.compensation_id = c.compensation_id)
+                        """)
+                .query((rs, rowNum) -> new ExpiringCompensation(
+                        rs.getLong("compensation_id"), rs.getObject("decided_on", LocalDate.class)))
+                .list()
+                .stream()
+                .filter(row -> TaxRetention.retainUntil(row.decidedOn())
+                        .isBefore(baseline.atZoneSameInstant(KST).toLocalDate()))
+                .map(ExpiringCompensation::compensationId)
+                .toList();
+
+        if (ids.isEmpty()) {
+            return 0;
+        }
+
+        return jdbc.sql("delete from compensation where compensation_id in (:ids)")
+                .param("ids", ids)
+                .update();
+    }
+
+    /** 만료를 재는 데 필요한 것만 담는다 */
+    private record ExpiringCompensation(long compensationId, LocalDate decidedOn) {}
+
+    /**
      * 배송지를 지운다. <b>주문은 그대로 남는다</b> — 그게 분리해 둔 이유다(`D13`).
      *
      * <p>거래 사실(금액·상품명·일시)은 5년을 채우고 사람 정보만 먼저 사라진다.
@@ -267,7 +383,7 @@ public class TransactionPurgeService {
      * <p>{@code order_shipping} 은 이 시점에 이미 없다. 6개월에 먼저 사라진다.
      */
     private int deleteExpiredOrders(OffsetDateTime closedBefore) {
-        List<Long> orderIds = closedOrderIds(closedBefore);
+        List<Long> orderIds = purgeableOrderIds(closedBefore);
         if (orderIds.isEmpty()) {
             return 0;
         }
@@ -301,13 +417,57 @@ public class TransactionPurgeService {
     }
 
     /**
-     * 끝난 지 이만큼 지난 주문.
+     * 끝난 지 이만큼 지났고 <b>아무도 안 가리키는</b> 주문(`43a-28b`).
+     *
+     * <p>{@link #closedOrderIds} 와 가른 이유가 여기 있다. 배송지·수거지는 <b>정산이 걸려 있어도</b>
+     * 여섯 달에 사라져야 한다 — 그쪽은 개인정보고 장부가 아니다. 미루는 것은 주문 축뿐이다.
+     *
+     * <p>세 참조가 {@code restrict} 라 남아 있으면 주문 삭제가 거부되고
+     * <b>파기 회차 전체가 롤백된다.</b> 정산·배상·문의는 위에서 먼저 지우고,
+     * 그래도 남은 것(보존 기간이 안 끝난 것)은 여기서 걸러 다음 회차로 넘긴다.
+     *
+     * <p><b>묶음 하나라도 걸리면 그 주문 전체가 빠진다.</b> 걸린 묶음만 빼고 주문을 지우면
+     * 그 묶음이 남아서 {@code shop_order} 삭제가 다시 거부된다.
+     */
+    private List<Long> purgeableOrderIds(OffsetDateTime closedBefore) {
+        return jdbc.sql("""
+                        select b.order_id
+                          from (select so.order_id, so.closed_at,
+                                       (exists (select 1 from settlement_item si
+                                                 where si.seller_order_id = so.seller_order_id
+                                                    or si.order_item_id in (
+                                                           select oi.order_item_id from order_item oi
+                                                            where oi.seller_order_id = so.seller_order_id)
+                                                    or si.refund_item_id in (
+                                                           select ri.refund_item_id
+                                                             from refund_item ri
+                                                             join refund r on r.refund_id = ri.refund_id
+                                                            where r.seller_order_id = so.seller_order_id))
+                                        or exists (select 1 from compensation c
+                                                    where c.seller_order_id = so.seller_order_id)
+                                        or exists (select 1 from inquiry i
+                                                    where i.seller_order_id = so.seller_order_id)) as blocked
+                                  from seller_order so) b
+                         group by b.order_id
+                        having count(*) filter (where b.closed_at is null) = 0
+                           and count(*) filter (where b.blocked) = 0
+                           and max(b.closed_at) < :closedBefore
+                        """)
+                .param("closedBefore", closedBefore)
+                .query(Long.class)
+                .list();
+    }
+
+    /**
+     * 끝난 지 이만큼 지난 주문. <b>주문 축 말고 그 주변(배송지·수거지·사유 글)을 지울 때 쓴다.</b>
      *
      * <p><b>셀러 주문이 하나라도 안 끝났으면 그 주문은 대상이 아니다.</b> 한 주문에 셀러가 여럿이면
      * 각자 따로 굴러가고(`D7`), 하나가 반품 중인데 배송지를 지우면 그 반품을 처리할 수 없다.
      *
      * <p>기산점이 {@code closed_at} 인 이유는 `D13` 이 "거래 종료일" 로 정해서다.
-     * 채우는 것은 청크 11 이라 지금은 대상이 안 잡힌다 — 로직과 테스트가 먼저 선 상태다.
+     *
+     * <p><b>정산·배상·문의를 안 본다.</b> 그것을 보는 것은 {@link #purgeableOrderIds} 고,
+     * 여기에 같은 조건을 붙이면 <b>정산이 걸린 주문의 배송지가 여섯 달에 안 지워진다</b>(`43a-28b`).
      */
     private List<Long> closedOrderIds(OffsetDateTime closedBefore) {
         return jdbc.sql("""

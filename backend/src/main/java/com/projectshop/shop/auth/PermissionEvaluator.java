@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
@@ -33,16 +36,18 @@ public class PermissionEvaluator {
     private final PermissionRuleLoader loader;
     private final AuditLog auditLog;
     private final List<StatusPolicy> statusPolicies;
+    private final MeterRegistry meters;
 
     /**
      * 상태 정책을 {@link ObjectProvider} 로 받는다. {@code List} 로 받으면 <b>구현이 하나도 없을 때
      * 컨텍스트가 안 뜬다</b> — 축을 통째로 떼어 낼 수 있어야 "안 걸린 상태로 되돌린다" 가 성립한다.
      */
     PermissionEvaluator(PermissionRuleLoader loader, AuditLog auditLog,
-            ObjectProvider<StatusPolicy> statusPolicies) {
+            ObjectProvider<StatusPolicy> statusPolicies, MeterRegistry meters) {
         this.loader = loader;
         this.auditLog = auditLog;
         this.statusPolicies = statusPolicies.stream().toList();
+        this.meters = meters;
     }
 
     /**
@@ -149,11 +154,23 @@ public class PermissionEvaluator {
      * 역할을 둘 이상 가진 사용자는 양쪽이 허용하는 만큼을 다 봐야 한다.
      */
     public Decision decide(long userId, String resource, String action, Target target) {
+        Timer.Sample sample = Timer.start(meters);
         List<Rule> rules = loader.loadRules(userId, resource, action);
         Decision decision = rules.isEmpty()
                 ? Decision.denyBecause("%s:%s 에 걸린 규칙이 하나도 없다".formatted(resource, action))
                 : evaluate(rules, loader.loadSellerMemberships(userId), userId, target,
                         allowedStatuses(resource, action));
+
+        // 판정 한 번에 걸린 시간(`Q53`). **사용자 번호를 태그로 안 단다**(`D16`) — 개인정보이기도 하고
+        // 계정 수만큼 지표가 갈라진다. 자원×동작×허용여부라 상한이 권한 표 크기의 두 배다.
+        //
+        // 감사 기록 앞에서 끊는다. 재는 것이 판정이고, 거부를 남기는 것은 그 뒤에 붙은 일이다.
+        sample.stop(Timer.builder("shop.permission.decide")
+                .tag("resource", resource)
+                .tag("action", action)
+                .tag("allowed", String.valueOf(decision.allowed()))
+                .description("권한 판정에 걸린 시간")
+                .register(meters));
 
         if (!decision.allowed()) {
             recordDenial(userId, resource, action, target, decision);
