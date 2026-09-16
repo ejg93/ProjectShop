@@ -1,9 +1,13 @@
 package com.projectshop.shop.notification;
 
+import java.nio.charset.StandardCharsets;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.JsonNode;
@@ -65,19 +69,30 @@ class NotificationConsumer {
     }
 
     /**
-     * 토픽 하나를 받아 종류로 가른다.
+     * 토픽 하나를 받아 <b>헤더로</b> 가른다.
+     *
+     * <p><b>본문을 늘 열지 않는다</b>(`33b` 가 헤더 `type`·`id` 를 실어 둔 이유). 지금 토픽에 오는 일곱 중
+     * 통지가 붙는 것은 둘이고, 나머지 다섯은 <b>헤더만 보고 넘긴다</b> — 사건이 늘수록 값이 커진다.
+     * {@code subject} 도 본문이 아니라 <b>파티션 키</b>에서 온다(`event-catalog.md` 「전송」).
      *
      * <p><b>오프셋은 처리 뒤에 커밋된다</b>({@code spring.kafka.listener.ack-mode: record}).
      * 먼저 커밋하면 처리 중에 죽은 사건이 안 돌아온다.
      *
-     * @param envelope CloudEvents 봉투 JSON(`D12` 「봉투」)
+     * @param record 봉투와 헤더가 같이 온다. 헤더 `type` 과 파티션 키만으로 거른다
      */
     @KafkaListener(topics = "${shop.events.topic}", groupId = "shop-notification")
-    void onEvent(String envelope) {
-        JsonNode event = objectMapper.readTree(envelope);
-        String type = event.path("type").asString();
-        String subject = event.path("subject").asString();
-        JsonNode data = event.path("data");
+    void onEvent(ConsumerRecord<String, String> record) {
+        String type = headerOf(record, "type");
+        // 파티션 키가 subject 다(`33b` 가 그렇게 싣는다). 본문을 안 열고 얻는다.
+        String subject = record.key();
+
+        if (!ORDER_STATUS_CHANGED.equals(type) && !REFUND_STATUS_CHANGED.equals(type)) {
+            // **여기서 끝난다.** 본문을 안 연다 — 종류는 헤더가 답하고 파티션 키가 subject 다
+            // (`event-catalog.md` 「전송」, `33b` 가 헤더 둘을 실어 둔 이유다).
+            return;
+        }
+
+        JsonNode data = objectMapper.readTree(record.value()).path("data");
 
         int sent = switch (type) {
             case ORDER_STATUS_CHANGED -> onOrderStatusChanged(subject, data);
@@ -108,6 +123,12 @@ class NotificationConsumer {
             return sweeper.sendPaymentCompleted(orderNumber);
         }
         return 0;
+    }
+
+    /** 없으면 빈 문자열. 헤더가 없는 편지는 우리 것이 아니라 거르는 쪽이 맞다 */
+    private String headerOf(ConsumerRecord<String, String> record, String name) {
+        Header header = record.headers().lastHeader(name);
+        return header == null ? "" : new String(header.value(), StandardCharsets.UTF_8);
     }
 
     /** 환불 전이. 승인된 것만 통지 대상이다 — 그 시점이 「환급에 필요한 조치를 했다」다 */
