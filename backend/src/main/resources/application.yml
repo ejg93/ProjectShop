@@ -70,7 +70,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        # prometheus 는 관리자만 본다(`Q53`, 사용자 결정 2026-09-16). 지표에 업무 규모가
+        # 그대로 드러나서 — 배치 처리 건수·환급 대기 건수 — 로그인만으로 열면 손님에게 보인다.
+        # 막는 자리는 SecurityConfig 고 여기는 「무엇을 노출하나」만 정한다.
+        include: health,prometheus
+  prometheus:
+    metrics:
+      export:
+        # **Boot 4 는 내보내기가 기본 꺼짐이다.** 노출 목록에 넣는 것만으로는 안 뜨고
+        # `/actuator/prometheus` 가 404 다 — 조건 보고서의
+        # `management.defaults.metrics.export.enabled is considered false` 가 그 자리다(`Q53`).
+        # 레지스트리 하나만 켠다. `management.defaults` 로 켜면 나중에 들이는 다른 판까지 같이 켜진다.
+        enabled: true
   endpoint:
     health:
       # 인증된 요청에만 상세를 준다.

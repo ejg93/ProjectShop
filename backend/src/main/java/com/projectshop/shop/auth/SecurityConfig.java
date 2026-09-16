@@ -3,6 +3,7 @@ package com.projectshop.shop.auth;
 import java.io.IOException;
 import java.util.List;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -92,10 +93,15 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,
-            SessionRegistry sessionRegistry, ProblemEntryPoint entryPoint) throws Exception {
+            SessionRegistry sessionRegistry, ProblemEntryPoint entryPoint,
+            ObjectProvider<PermissionEvaluator> evaluators) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
+                        // 지표는 관리자만 본다(`Q53`). `metric:read` 판정을 지나므로
+                        // 역할이 바뀌면 답도 바뀐다 — 경로에 역할 이름을 박지 않는다.
+                        .requestMatchers("/actuator/prometheus")
+                        .access(new MetricsAccessManager(evaluators))
                         // 상품 상세는 읽기만 연다(청크 8b). 별 하나라 /{id} 까지만 걸리고
                         // /{id}/approve 같은 검수 경로는 안 걸린다 — 둘 다 필요한 조건이다.
                         // API 스펙(`2a`). 코드에서 뽑은 계약이라 비밀이 아니고, 막으면 프론트가 못 읽는다.

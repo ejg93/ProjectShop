@@ -68,7 +68,7 @@
       상수 시간 비교로 바꾸면 **지키는 것 없이 읽기만 어려워진다.**
     -->
     <Match>
-        <Class name="com.projectshop.shop.order.IdempotencyService"/>
+        <Class name="com.projectshop.shop.support.IdempotencyService"/>
         <Or>
             <Method name="replay"/>
             <Method name="replayIfPresent"/>

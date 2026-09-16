@@ -1,6 +1,10 @@
 package com.projectshop.shop.payment;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,12 +55,23 @@ public class RefundSweeper {
 
     private static final Logger log = LoggerFactory.getLogger(RefundSweeper.class);
 
+    /**
+     * 마지막 회차가 센 「기한을 넘긴 대기」 수(`Q53`).
+     *
+     * <p><b>지표를 읽을 때 DB 를 안 친다.</b> Gauge 가 값을 물을 때마다 세면 지표를 자주 긁는 쪽이
+     * 그대로 부하가 된다 — 회차가 이미 세는 값이라 그것을 여기 적어 두고 Gauge 는 읽기만 한다.
+     */
+    private final AtomicLong overdueCount = new AtomicLong();
+
     private final JdbcClient jdbc;
     private final RefundService refunds;
 
-    RefundSweeper(JdbcClient jdbc, RefundService refunds) {
+    RefundSweeper(JdbcClient jdbc, RefundService refunds, MeterRegistry meters) {
         this.jdbc = jdbc;
         this.refunds = refunds;
+        Gauge.builder("shop.refund.overdue", overdueCount, AtomicLong::doubleValue)
+                .description("기한을 넘긴 환급 대기 건수. 연 15% 지연배상 대상이다(전자상거래법 제18조제3항)")
+                .register(meters);
     }
 
     /**
@@ -263,6 +278,8 @@ public class RefundSweeper {
                         """)
                 .query(Integer.class)
                 .single();
+
+        overdueCount.set(overdue);
 
         if (overdue > 0) {
             log.warn("환급 기한을 넘긴 대기 {}건 — 연 15%가 붙는다(전자상거래법 제18조제3항)",

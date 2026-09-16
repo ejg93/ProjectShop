@@ -176,12 +176,13 @@ class ArchitectureTest {
                     .should().dependOnClassesThat()
                     .resideOutsideOfPackages("java..", "javax..", "jakarta..",
                             "org.springframework..", "org.slf4j..", "com.fasterxml..", "tools.jackson..",
-                            "io.swagger..",
+                            "io.swagger..", "io.micrometer..",
                             "com.projectshop.shop.support..", "com.projectshop.shop.error..")
                     .because("support 가 자원을 부르면 공용이 아니라 그 자원의 일부가 된다"
                             + " (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)."
                             + " 자원을 열거하지 않고 허용을 적는다 — 열거하면 새 자원 패키지가 생길 때마다 샌다."
-                            + " accessClassesThat 은 호출만 보고 필드 선언을 안 봐서 dependOnClassesThat 이다");
+                            + " accessClassesThat 은 호출만 보고 필드 선언을 안 봐서 dependOnClassesThat 이다."
+                            + " io.micrometer 는 Spring·Jackson 과 같은 자리다 — 지표 라이브러리고 자원이 아니다 (Q53)");
 
     /**
      * 「목록 조회」 — 페이지를 내주는 조회는 {@link Paging} 을 받는다(`Q23`).
