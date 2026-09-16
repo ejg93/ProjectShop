@@ -27,7 +27,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * <p>금액 등식과 강제 지점은 `money-invariants.md` 에 있고 스키마가 그걸 막는다.
  * 여기서는 등식을 <b>맞춰서 넣을</b> 뿐이고, 틀리면 커밋할 때 지연 트리거가 잡는다.
  *
- * <p><b>멱등은 여기 없다.</b> 컨트롤러가 {@link IdempotencyService} 로 감싸고 이 서비스를 람다로 넘긴다 —
+ * <p><b>멱등은 여기 없다.</b> 컨트롤러가 {@link com.projectshop.shop.support.IdempotencyService} 로 감싸고 이 서비스를 람다로 넘긴다 —
  * 그래야 선점·주문 생성·응답 저장이 한 트랜잭션에 들어간다(`D11`).
  */
 @Service

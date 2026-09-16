@@ -118,9 +118,15 @@ class ArchitectureTest {
     /**
      * 「의존」 — 자원 패키지끼리 순환하지 않는다.
      *
-     * <p><b>허용이 셋이다. 셋 다 「업무가 두 자원에 걸쳐 있다」는 같은 모양이고,
+     * <p><b>허용이 둘이다. 둘 다 「업무가 두 자원에 걸쳐 있다」는 같은 모양이고,
      * 가르면 가짜 경계가 생긴다.</b> 모듈을 쪼개게 되면 여기부터 막히므로
      * 그때는 걸친 것을 공용 인터페이스로 빼는 것이 답이다 — 예외를 늘리는 것이 아니다.
+     *
+     * <p><b>{@code order ↔ payment} 가 그 첫 실례다</b>(`Q58`). 결제가 주문 상태를 옮기는 것은
+     * 남았는데 부르는 대상이 {@code payment.PaymentOutcome} 인터페이스로 바뀌었고, 구현
+     * ({@code order.PaymentOutcomeHandler}) 이 주문 쪽에 있어서 방향이 하나로 남았다.
+     * {@code IdempotencyService} 는 자원을 모르는 도구라 {@code support} 로 옮겼다.
+     * 남은 {@code OrderQuery} → 결제 열거형 넷은 한 방향이라 순환이 아니다.
      *
      * <table>
      *   <caption>허용한 순환과 근거</caption>
@@ -134,15 +140,10 @@ class ArchitectureTest {
      *           {@code AuthController} 가 {@code CartService.mergeIntoAccount} 와 쿠키 이름을 부르고,
      *           {@code CartController} 는 인증을 본다. 어느 쪽이 부르든 한 방향은 남는다</td>
      *       <td>{@code 2n} (사용자 결정, 2026-09-06)</td></tr>
-     *   <tr><td>{@code order ↔ payment}</td>
-     *       <td><b>결제가 주문 상태를 옮기고 주문 조회가 결제 상태를 보인다.</b>
-     *           {@code PaymentService} 가 {@code OrderStatusService}·{@code IdempotencyService} 를,
-     *           {@code OrderQuery} 가 결제·환불 열거형 넷을 쓴다. 둘을 가르면 가짜 경계가 생긴다</td>
-     *       <td>{@code 2n} (사용자 결정, 2026-09-06)</td></tr>
      * </table>
      *
-     * <p><b>넷째가 생기면 예외로 넣기 전에 멈춘다.</b> 셋은 도메인이 그렇게 생겨서 난 것이고,
-     * 넷째는 대개 「부를 자리가 없어서 아무 데나 부른 것」이다.
+     * <p><b>셋째가 생기면 예외로 넣기 전에 멈춘다.</b> 둘은 도메인이 그렇게 생겨서 난 것이고,
+     * 셋째는 대개 「부를 자리가 없어서 아무 데나 부른 것」이다.
      */
     @ArchTest
     static final ArchRule 자원_패키지는_순환하지_않는다 =
@@ -153,10 +154,8 @@ class ArchitectureTest {
                     .ignoreDependency(resideInAPackage("..audit.."), resideInAPackage("..auth.."))
                     .ignoreDependency(resideInAPackage("..auth.."), resideInAPackage("..cart.."))
                     .ignoreDependency(resideInAPackage("..cart.."), resideInAPackage("..auth.."))
-                    .ignoreDependency(resideInAPackage("..order.."), resideInAPackage("..payment.."))
-                    .ignoreDependency(resideInAPackage("..payment.."), resideInAPackage("..order.."))
                     .because("자원끼리 순환하면 모듈을 쪼갤 때 통째로 막힌다."
-                            + " 셋만 도메인이 그렇게 생겨서 뺀다 (coding-rules.md 「의존」, 2n)");
+                            + " 둘만 도메인이 그렇게 생겨서 뺀다 (coding-rules.md 「의존」, 2n · Q58)");
 
     /**
      * 「자원이 아닌데 패키지를 파는 경우」 — 공용 도구는 자원을 모른다.

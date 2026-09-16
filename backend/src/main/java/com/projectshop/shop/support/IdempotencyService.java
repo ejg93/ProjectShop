@@ -1,4 +1,4 @@
-package com.projectshop.shop.order;
+package com.projectshop.shop.support;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
