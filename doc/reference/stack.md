@@ -1199,6 +1199,26 @@ document.body.innerHTML = await readAll(prelude);
 
 **누르는 것은 못 본다.** 서버 렌더러가 낸 것은 문자열이라 이벤트가 안 붙는다 —
 버튼을 눌러 보는 시험은 그 조각을 따로 `render` 한다.
+### Boot 4 는 지표 내보내기가 기본 꺼짐이다
+
+`management.endpoints.web.exposure.include` 에 `prometheus` 를 넣어도 **`/actuator/prometheus` 가 404** 다(`Q53`).
+조건 보고서에 `PrometheusMetricsExportAutoConfiguration … management.defaults.metrics.export.enabled is considered false`
+로 뜨는 자리고, 노출 목록과 **내보내기 스위치가 다른 설정**이라는 것을 모르면 의존성·경로·권한을 차례로 뒤지게 된다.
+
+```yaml
+management:
+  prometheus:
+    metrics:
+      export:
+        enabled: true   # 레지스트리 하나만 켠다. management.defaults 로 켜면 나중 판까지 같이 켜진다
+```
+
+### SpotBugs 제외는 클래스 이름이라 파일을 옮기면 안 따라온다
+
+`config/spotbugs/exclude.xml` 의 `<Class name="…">` 는 **패키지까지 박힌 문자열**이다. `Q58` 이
+`IdempotencyService` 를 `order` 에서 `support` 로 옮겼더니 제외가 안 걸려 `verify.sh --full` 이 빨갛고,
+**빠른 레인은 초록이라 push 앞에서야 드러났다**. 클래스를 옮기는 청크는 이 파일을 같이 본다.
+
 
 ## 데이터 접근은 `JdbcClient` 다
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,10 +36,11 @@ class PurgeBlockerTest extends PostgresTestBase {
     /**
      * 주문 파기가 지우는 표. 이 표들을 {@code restrict} 로 가리키는 자리가 검사 대상이다.
      *
-     * <p>{@code TransactionPurgeService.deleteExpiredOrders} 가 지우는 것과 같아야 한다.
+     * <p>{@code TransactionPurgeService.deleteExpiredOrders} 가 지우는 넷과 그 넷이 cascade 로 끌고 가는 것을 담는다 —
+     * {@code refund_item} 은 {@code seller_order} 가 지워질 때 {@code refund} 를 거쳐 따라 사라진다.
      */
     private static final Set<String> PURGE_TARGETS = Set.of(
-            "shop_order", "seller_order", "order_item", "refund_item");
+            "shop_order", "seller_order", "order_item", "order_status_history", "refund_item");
 
     /**
      * 처분한 표. 셋 중 하나에 들어야 한다.
@@ -53,11 +55,7 @@ class PurgeBlockerTest extends PostgresTestBase {
             // 주문과 함께, 자식부터
             "order_item", "order_status_history", "seller_order",
             // 주문보다 먼저 + 주문 고르는 조건이 본다
-            "settlement_item", "compensation", "inquiry",
-            // 6개월에 먼저 사라진다
-            "order_shipping", "return_pickup",
-            // 반품·환불은 주문과 같은 5년이고 cascade 로 딸려 간다
-            "return_request", "refund");
+            "settlement_item", "compensation", "inquiry");
 
     @Autowired
     private JdbcClient jdbc;
@@ -101,6 +99,31 @@ class PurgeBlockerTest extends PostgresTestBase {
                         + " 그것이 다음 표를 몰래 들여보내는 자리가 된다")
                 .containsAll(HANDLED)
                 .containsAll(PURGE_TARGETS);
+    }
+
+    /**
+     * <b>실재하는 것만으로는 부족하다</b>(마무리 19차 독립 리뷰).
+     *
+     * <p>처음 세울 때 {@code order_shipping}·{@code return_pickup}·{@code return_request}·
+     * {@code refund} 를 「6개월에 먼저 사라진다」·「cascade 로 딸려 간다」는 설명과 함께 목록에 넣었는데,
+     * 그 넷은 참조가 <b>cascade 라 애초에 막는 자리가 아니다</b> — {@link #blockers()} 에 영영 안 나온다.
+     * 표가 실재하니 앞 테스트는 초록이었고, <b>막지도 않는 줄 넷이 목록에 살아 있었다.</b>
+     *
+     * <p>그 줄들이 위험한 이유는 {@link #everyBlockerIsHandled} 가 목록을 <b>면제 목록</b>으로 쓰기
+     * 때문이다. 넷 중 하나가 나중에 참조를 {@code restrict} 로 바꾸면 그 순간 진짜 블로커가 되는데,
+     * 이미 목록에 있어서 <b>게이트는 초록인 채 파기가 깨진다.</b>
+     */
+    @Test
+    @DisplayName("처분 목록에 막지도 않는 줄이 없다")
+    void handledListHasNoDeadRows() {
+        Set<String> actualBlockers = blockers().stream()
+                .map(Blocker::sourceTable)
+                .collect(Collectors.toSet());
+
+        assertThat(HANDLED)
+                .as("목록은 면제 목록이라, 지금 막지도 않는 표가 들어 있으면"
+                        + " 그 표가 나중에 restrict 로 바뀌는 날 아무도 안 잡는다")
+                .allSatisfy(table -> assertThat(actualBlockers).contains(table));
     }
 
     private List<Blocker> blockers() {
