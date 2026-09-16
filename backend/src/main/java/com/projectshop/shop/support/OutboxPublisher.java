@@ -97,7 +97,8 @@ public class OutboxPublisher {
      *
      * <p>{@code fixedDelay} 라 앞 회차가 늦어져도 겹치지 않는다.
      */
-    @Scheduled(fixedDelayString = "PT2S", initialDelayString = "PT2S")
+    @Scheduled(fixedDelayString = "${shop.events.publish-delay}",
+            initialDelayString = "${shop.events.publish-initial-delay}")
     public void publish() {
         try {
             publishOnce();

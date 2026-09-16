@@ -64,10 +64,10 @@ public class NotificationSweeper {
     public int sweepAll(OffsetDateTime now) {
         OffsetDateTime floor = notificationsBeganAt();
 
-        return sweepOrderPlaced(floor)
-                + sweepPaymentCompleted(floor)
+        return sweepOrderPlaced(floor, null)
+                + sweepPaymentCompleted(floor, null)
                 + sweepSupplyDelayed(floor)
-                + sweepRefundCompleted(floor)
+                + sweepRefundCompleted(floor, null)
                 + sweepConsentResult(floor);
     }
 
@@ -91,8 +91,39 @@ public class NotificationSweeper {
                 .single();
     }
 
+
+    /**
+     * 사건 하나가 가리키는 건에만 보낸다(`33a`). 소비자가 부른다.
+     *
+     * <h2>왜 스위퍼 안에 있나</h2>
+     *
+     * <p><b>대상 조건과 문안 값이 통지마다 다르다.</b> 소비자가 그것을 따로 들면 같은 규칙이
+     * 두 벌이 되고, 한쪽만 고치는 날 <b>즉시 경로와 안전망 경로가 다른 통지를 보낸다.</b>
+     * 여기 두면 두 경로가 <b>같은 쿼리</b>를 지난다 — 조건을 고치면 둘 다 고쳐진다.
+     *
+     * <p><b>거르는 조건은 그대로다.</b> 「통지가 아직 없는 건」과 「기능이 선 뒤에 생긴 건」을
+     * 그대로 지나고, 번호 하나로 좁히기만 한다. 그래서 <b>소비자가 두 번 받아도 한 번만 나간다</b> —
+     * 중복을 막는 것은 {@code notification} 의 부분 유니크고({@code 54a}) 여기는 대상을 줄일 뿐이다.
+     *
+     * @param orderNumber 노출 번호(`D9`). 사건의 {@code subject} 가 그대로 들어온다
+     * @return 실제로 남긴 발송 수. 이미 보냈으면 0
+     */
+    int sendOrderPlaced(String orderNumber) {
+        return sweepOrderPlaced(notificationsBeganAt(), orderNumber);
+    }
+
+    /** 대금 지급 통지를 그 주문에만 보낸다(`33a`). {@link #sendOrderPlaced} 와 같은 자리다 */
+    int sendPaymentCompleted(String orderNumber) {
+        return sweepPaymentCompleted(notificationsBeganAt(), orderNumber);
+    }
+
+    /** 환급 통지를 그 환불에만 보낸다(`33a`). {@link #sendOrderPlaced} 와 같은 자리다 */
+    int sendRefundCompleted(String refundNumber) {
+        return sweepRefundCompleted(notificationsBeganAt(), refundNumber);
+    }
+
     /** 청약 접수 확인. 제14조제1항 — 청약 의사표시의 수신 확인 */
-    private int sweepOrderPlaced(OffsetDateTime floor) {
+    private int sweepOrderPlaced(OffsetDateTime floor, String orderNumber) {
         List<Pending> targets = jdbc.sql("""
                         select o.user_id, o.order_id as target_id, o.order_number as first_value,
                                null as second_value
@@ -100,8 +131,10 @@ public class NotificationSweeper {
                           left join notification n
                             on n.order_id = o.order_id and n.event_type = :eventType
                          where o.created_at >= :floor and n.notification_id is null
+                           and (cast(:orderNumber as text) is null or o.order_number = :orderNumber)
                         """)
                 .param("floor", floor)
+                .param("orderNumber", orderNumber)
                 .param("eventType", NotificationEventType.ORDER_PLACED.code())
                 .query(Pending.class)
                 .list();
@@ -111,7 +144,7 @@ public class NotificationSweeper {
     }
 
     /** 대금 지급 통지. 제8조제3항 — 전자적 대금지급이 이루어진 사실을 알린다 */
-    private int sweepPaymentCompleted(OffsetDateTime floor) {
+    private int sweepPaymentCompleted(OffsetDateTime floor, String orderNumber) {
         List<Pending> targets = jdbc.sql("""
                         select o.user_id, o.order_id as target_id, o.order_number as first_value,
                                p.amount::text as second_value
@@ -120,9 +153,11 @@ public class NotificationSweeper {
                           left join notification n
                             on n.order_id = p.order_id and n.event_type = :eventType
                          where p.status = 'approved' and p.created_at >= :floor
+                           and (cast(:orderNumber as text) is null or o.order_number = :orderNumber)
                            and n.notification_id is null
                         """)
                 .param("floor", floor)
+                .param("orderNumber", orderNumber)
                 .param("eventType", NotificationEventType.PAYMENT_COMPLETED.code())
                 .query(Pending.class)
                 .list();
@@ -164,7 +199,7 @@ public class NotificationSweeper {
     }
 
     /** 환급 통지. 제18조제3항 단서 — 환급에 필요한 조치를 하였음을 알린다 */
-    private int sweepRefundCompleted(OffsetDateTime floor) {
+    private int sweepRefundCompleted(OffsetDateTime floor, String refundNumber) {
         List<Pending> targets = jdbc.sql("""
                         select o.user_id, r.refund_id as target_id,
                                r.refund_number as first_value, r.amount::text as second_value
@@ -174,9 +209,11 @@ public class NotificationSweeper {
                           left join notification n
                             on n.refund_id = r.refund_id and n.event_type = :eventType
                          where r.status = 'approved' and r.decided_at >= :floor
+                           and (cast(:refundNumber as text) is null or r.refund_number = :refundNumber)
                            and n.notification_id is null
                         """)
                 .param("floor", floor)
+                .param("refundNumber", refundNumber)
                 .param("eventType", NotificationEventType.REFUND_COMPLETED.code())
                 .query(Pending.class)
                 .list();

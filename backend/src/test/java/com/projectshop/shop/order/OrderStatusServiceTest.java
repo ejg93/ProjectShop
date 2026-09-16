@@ -277,8 +277,8 @@ class OrderStatusServiceTest extends PostgresTestBase {
             deliverFromShipping();
 
             assertThat(historyCount())
-                    .as("현재 상태만 있으면 '언제 배송됐나' 에 답할 수 없다(`ADR 0007`)")
-                    .isEqualTo(3);
+                    .as("생성 한 줄에 전이 셋이다 — 주문이 생긴 것도 이력의 첫 줄이다(`33a`)")
+                    .isEqualTo(4);
         }
 
         @Test
@@ -287,8 +287,8 @@ class OrderStatusServiceTest extends PostgresTestBase {
             statuses.movePayment(orderId, Payment.PAYMENT_EXPIRED, Actor.system("30분 초과"));
 
             assertThat(historyCount())
-                    .as("주문 쪽 만료 한 줄과 셀러 주문 쪽 취소 한 줄이다")
-                    .isEqualTo(2);
+                    .as("생성 한 줄, 주문 쪽 만료 한 줄, 셀러 주문 쪽 취소 한 줄이다")
+                    .isEqualTo(3);
         }
     }
 

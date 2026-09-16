@@ -23,7 +23,6 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,15 +31,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.kafka.KafkaContainer;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-import com.projectshop.shop.PostgresTestBase;
+import com.projectshop.shop.KafkaTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.order.OrderFixture;
 
@@ -52,33 +47,12 @@ import com.projectshop.shop.order.OrderFixture;
  * 앞 둘은 발행기를 대충 써도 초록이 되지만, 셋째는 {@code get()} 으로 ack 를 기다리는
  * 그 한 줄이 빠지면 바로 빨개진다.
  *
- * <p><b>브로커를 여기서만 띄운다.</b> {@code PostgresTestBase.Containers} 에 빈으로 두면
- * 브로커를 안 쓰는 느린 레인 전부가 같이 띄운다 — 지금 그쪽이 90개가 넘는다.
+ * <p><b>브로커와 설정은 {@code KafkaTestBase} 가 든다</b> — 브로커를 쓰는 테스트가 둘이 되면서
+ * 그 자리를 한 클래스로 옮겼다(`33a`). 컨텍스트가 갈리지 않게 켜는 값도 거기 있다.
  *
- * <p><b>컨텍스트가 하나 는다</b>({@code 2i-3}). {@code shop.events.sink} 를 켜야 발행기 빈이 서고
- * 그 값이 캐시 키라 바탕과 안 합쳐진다. 켜는 자리를 이 클래스 하나로 묶어서 하나로 막았다.
  */
 @DisplayName("아웃박스 발행기")
-@TestPropertySource(properties = "shop.events.sink=kafka")
-class OutboxPublisherTest extends PostgresTestBase {
-
-    /** 컴포즈와 같은 이미지다. 갈리면 테스트가 통과해도 로컬에서 깨진다(`stack.md` 버전 표) */
-    private static final KafkaContainer KAFKA = new KafkaContainer("apache/kafka:4.3.1")
-            .withReuse(true);
-
-    static {
-        KAFKA.start();
-    }
-
-    @DynamicPropertySource
-    static void kafka(DynamicPropertyRegistry registry) {
-        registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
-    }
-
-    @AfterAll
-    static void keepContainer() {
-        // 일부러 안 멈춘다. `withReuse(true)` 가 다음 빌드에서 같은 컨테이너를 다시 쓴다.
-    }
+class OutboxPublisherTest extends KafkaTestBase {
 
     @Autowired
     private JdbcClient jdbc;

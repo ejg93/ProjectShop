@@ -102,6 +102,9 @@ class OrderConcurrencyTest extends PostgresTestBase {
             execute("delete from order_item where seller_order_id in (" + sellerOrders + ")");
             execute("delete from seller_order where order_id in (" + orders + ")");
             execute("delete from order_shipping where order_id in (" + orders + ")");
+            // **주문 생성이 이력 행을 남긴다**(`33a`). `restrict` 라 이것을 안 지우면 주문이 안 지워지고,
+            // 남은 주문을 뒤 시험의 전체 세기가 같이 센다 — 그 시험이 대신 빨개진다.
+            execute("delete from order_status_history where order_id in (" + orders + ")");
             execute("delete from shop_order where user_id in (" + buyers + ")");
             execute("delete from cart_item where cart_id in (select cart_id from cart where user_id in ("
                     + buyers + "))");
