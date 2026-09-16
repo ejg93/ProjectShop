@@ -90,8 +90,13 @@ dependencies {
 	// **버전은 안 적는다 — BOM 이 관리한다**(4.1.1 의 `spring-kafka.version` 이 4.1.1).
 	// 위 springdoc 과 반대 자리라 적어 둔다.
 	//
-	// **로컬에서만 쓴다.** `shop.events.sink` 가 `none` 이면 자동 설정을 통째로 제외해서
-	// 빈이 아예 안 선다(`application.yml`) — 배포와 빠른 레인이 브로커를 안 찾는다.
+	// **로컬에서만 쓴다.** `shop.events.sink` 가 `none` 이면 **발행기와 토픽 빈이 안 선다**
+	// (`OutboxPublisher`·`EventTopicConfig` 의 `@ConditionalOnProperty`) — 브로커로 나가는 연결이
+	// 안 열려서 배포와 빠른 레인이 브로커를 안 찾는다.
+	//
+	// **자동 설정까지 끄는 것은 아니다.** 스타터가 클래스패스에 있으면 `KafkaTemplate` 빈은 늘 서고,
+	// 그것을 끄려면 `spring.autoconfigure.exclude` 에 적어야 하는데 그 값이 `EVENTS_SINK` 와 같이
+	// 안 움직인다(`event-catalog.md` 「전송」 아래). 프로듀서는 첫 발송 때 붙으므로 연결은 안 열린다.
 	implementation("org.springframework.boot:spring-boot-starter-kafka")
 	runtimeOnly("org.postgresql:postgresql")
 	// API 스펙을 코드에서 뽑는다(`2a`). **UI 스타터를 안 들인다** — 행이 연 것은 스펙 하나고,
