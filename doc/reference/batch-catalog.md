@@ -18,6 +18,7 @@
 | 수신동의 확인 | 2년이 지난 광고 수신동의에 확인 통지를 보낸다 | 매일 04:30 KST | `coalesce(reconfirmed_at, acted_at)` 이 2년 전보다 오래됨 | `ConsentReconfirmSweeper.sweep` |
 | 방치 묶음 마감 | 셀러가 손을 놓은 묶음을 닫아 보존 기간이 흐르게 한다 | 매일 04:45 KST | `preparing` 이 발송 기한 + 7일, `shipping` 이 발송 + 30일 | `StaleBundleBatch.close` |
 | 회차 재시도 스위퍼 | 일시적으로 실패한 회차를 다시 돌린다 | 10분 `fixedDelay` | `batch_run` 의 마지막 회차가 `transient` 실패이거나 `skipped` 이고 시도가 셋 미만 | `BatchRetrySweeper.sweep` |
+| 아웃박스 발행기 | 안 보낸 사건을 집어 Kafka 로 보내고 **답을 받은 것만** 보냄으로 표시한다 | 2초 `fixedDelay` | `outbox_event.published_at` 이 비었고 집힌 지 1분이 넘었거나 아직 안 집혔다 | `OutboxPublisher.publishOnce` |
 | 정산 마감 | 전달 구매확정분을 셀러별 정산서로 묶어 지급액을 확정한다 | **매월 1일** 05:00 KST | 기준일이 **전달 말일**. 그 달의 구매확정·배송비·정산된 건의 환불·지난 음수 잔액 | `SettlementCloseBatch.close` |
 | 정산 마감 | 정산 주기가 끝난 건을 확정한다 | 미정 (청크 19) | 미정 | 아직 없다 |
 
@@ -236,6 +237,21 @@ JVM 이 죽은 회차가 영영 `running` 으로 남고 그 행을 치우는 배
 **재진입이 함정이다.** advisory lock 은 같은 세션 안에서 다시 잡힌다. 그래서 「잠금이 풀렸나」를
 `record` 를 다시 불러서 확인하면 **안 풀렸어도 통과한다** — 연결을 재활용하면 앞 회차의 잠금을 쥔 세션이 돌아와서
 이미 쥔 잠금을 또 잡기 때문이다. `BatchLockTest` 는 **다른 웅덩이의 연결로** 묻는다.
+
+
+### 발행기만 잠금이 다르다
+
+`OutboxPublisher` 는 `BatchRuns` 를 안 탄다 — 2초 주기라 **회차라는 단위가 없다**(`D19`).
+그래서 위 advisory lock 도 안 걸리고, 대신 **집을 때 행을 잠근다**(`33b`).
+
+| 무엇 | 어떻게 |
+|---|---|
+| 두 대가 같은 편지를 안 집는다 | `select … for update skip locked` — 남이 집는 중인 행을 기다리지 않고 건너뛴다 |
+| 잠금이 브로커 왕복을 안 문다 | 집는 트랜잭션이 `claimed_at` 만 찍고 닫힌다. **보내는 동안은 아무것도 안 잠겨 있다**(`D11`) |
+| 집고 죽은 편지가 안 묻힌다 | `claimed_at` 이 1분보다 오래되면 다시 집는다 |
+
+**잠금만으로는 못 한다.** 잠금은 커밋까지 살아서, 그것으로 두 대를 가르려면 보내는 내내
+트랜잭션을 열어 둬야 한다 — 그게 `ArchitectureTest.트랜잭션_안에서_바깥을_안_부른다` 가 막는 자리다.
 
 ## 로그
 

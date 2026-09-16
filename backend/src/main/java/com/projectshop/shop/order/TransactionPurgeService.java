@@ -91,6 +91,18 @@ public class TransactionPurgeService {
      */
     private static final int ADVERTISEMENT_MONTHS = 6;
 
+    /**
+     * 발행이 끝난 아웃박스 사건을 두는 기간(`D13`).
+     *
+     * <p><b>보낸 편지의 사본이라 원본이 따로 있다</b>(`D12`) — 원천 표(`order_status_history` 등)가
+     * 그 사실을 든다. 그래서 짧다. <b>안 보낸 행은 안 지운다</b> — 그것은 사본이 아니라
+     * 아직 아무도 못 받은 편지다.
+     *
+     * <p>이 값이 곧 <b>재생(replay)할 수 있는 창</b>이다. 소비자가 지난 사건을 다시 받아야 할 일이
+     * 생기면 늘리는 자리가 여기 하나다(`event-catalog.md` 「지금 안 하는 것」).
+     */
+    private static final int OUTBOX_DAYS = 7;
+
     private final JdbcClient jdbc;
 
     TransactionPurgeService(JdbcClient jdbc) {
@@ -118,7 +130,7 @@ public class TransactionPurgeService {
             int auditLogs, int batchRuns, int notificationBodies, int notifications,
             int refundNotes, int historyNotes, int inquiries,
             int returnPickups, int returnNotes, int compensationNotes,
-            int settlementCycles, int compensations) {}
+            int settlementCycles, int compensations, int outboxEvents) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -157,9 +169,13 @@ public class TransactionPurgeService {
         int returnPickups = deleteExpiredReturnPickups(baseline.minusMonths(SHIPPING_MONTHS));
         int returnNotes = deleteExpiredReturnNotes(baseline.minusMonths(SHIPPING_MONTHS));
 
+        // 보낸 편지의 사본이라 순서에 안 얽힌다 — 아무도 이 표를 외래키로 안 잡는다.
+        int outboxEvents = deleteExpiredOutboxEvents(baseline.minusDays(OUTBOX_DAYS));
+
         return new Purged(shippingAddresses, paymentCards, orders, auditLogs, batchRuns,
                 notificationBodies, notifications, refundNotes, historyNotes, inquiries,
-                returnPickups, returnNotes, compensationNotes, settlementCycles, compensations);
+                returnPickups, returnNotes, compensationNotes, settlementCycles, compensations,
+                outboxEvents);
     }
 
     /**
@@ -505,6 +521,25 @@ public class TransactionPurgeService {
     private int deleteExpiredBatchRuns(OffsetDateTime baselineBefore) {
         return jdbc.sql("delete from batch_run where baseline_date < :baselineBefore")
                 .param("baselineBefore", baselineBefore.toLocalDate())
+                .update();
+    }
+
+    /**
+     * 발행이 끝난 아웃박스 사건을 지운다. <b>안 보낸 것은 안 지운다</b>(`D13`, `33b`).
+     *
+     * <p>{@code published_at} 이 빈 행은 아직 아무도 못 받은 편지다 — 기간이 아무리 지나도
+     * 그것을 지우면 그 사건은 영영 안 나간다. 조건이 <b>기간과 발행 여부 둘</b>인 이유다.
+     *
+     * <p><b>개인정보 파기가 아니다.</b> 페이로드에 식별자만 싣기로 정해 둬서
+     * (`event-catalog.md` 「페이로드 규칙」) 여기 이름·연락처가 없다. 배치 이력을 얹은 것과 같은
+     * 자리 — 수명이 끝난 행을 치우는 일이 같아서 같이 돈다.
+     */
+    private int deleteExpiredOutboxEvents(OffsetDateTime publishedBefore) {
+        return jdbc.sql("""
+                        delete from outbox_event
+                        where published_at is not null and published_at < :publishedBefore
+                        """)
+                .param("publishedBefore", publishedBefore)
                 .update();
     }
 
