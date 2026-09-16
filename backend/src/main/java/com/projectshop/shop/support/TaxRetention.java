@@ -17,13 +17,12 @@ import java.time.Month;
  * 정산 지급일은 주기가 끝난 다음 달이다 — 12월 주기를 지급일로 재면 다음 해 1기로 잡혀
  * <b>6개월을 더 들고 있게 된다.</b> 필요 없이 오래 두는 것도 개인정보법 제21조제1항이 막는다.
  *
- * <p><b>지금은 패키지 밖에서 안 쓴다.</b> 파기가 이것을 부르는 것은 `43a-28b` 고, 그때
- * {@code order} 가 쓰면서 넓힌다 — 쓰는 곳이 생기기 전에 여는 것을 `PublicSurfaceTest` 가 막는다.
+ * <p><b>파기가 이것을 부른다</b>(`43a-28b`) — {@code TransactionPurgeService} 가 정산·배상의 만료를 이 값으로 잰다.
  *
  * <p><b>역외거래 7년은 안 담는다.</b> 같은 조문의 괄호지만 우리는 국내 거래만 받는다 —
  * 받게 되는 날 이 클래스가 그 갈림을 들고, 그때까지는 없는 분기를 미리 만들지 않는다.
  */
-final class TaxRetention {
+public final class TaxRetention {
 
     /** 국세기본법 제85조의3제2항. 역외거래는 7년이고 우리는 그 거래를 안 받는다 */
     private static final int RETENTION_YEARS = 5;
@@ -43,7 +42,7 @@ final class TaxRetention {
      * @param transactionDate 거래사실이 일어난 날(KST). 정산이면 주기의 마지막 날이다
      * @return 보존 만료일. 신고기한 다음날에서 5년을 더한 날
      */
-    static LocalDate retainUntil(LocalDate transactionDate) {
+    public static LocalDate retainUntil(LocalDate transactionDate) {
         LocalDate filingDeadline = filingDeadlineOf(transactionDate);
 
         return filingDeadline.plusDays(1).plusYears(RETENTION_YEARS);
