@@ -176,7 +176,13 @@ tasks.withType<JavaCompile> {
 // 대신 아래 `tasks.withType<Test>` 가 이 목록을 시스템 속성으로 내려보낸다.
 val comparedInSlowLane = listOf(
 	"../doc/reference/data-lifecycle.md",
-	"../doc/reference/commerce-compliance.md")
+	"../doc/reference/commerce-compliance.md",
+	// **폴더로 건다**(`Q83`). `IdentifierReferenceTest` 가 `doc/reference` 를 **목록으로 읽어서**
+	// 문서가 부르는 컬럼·테스트 이름을 대조한다 — 파일 하나씩 걸면 새 문서가 생긴 날 입력이 안 바뀐다.
+	"../doc/reference",
+	// **javadoc 만 고치면 클래스 파일이 같다.** 같은 테스트가 주석도 읽으므로 소스를 입력으로 건다 —
+	// 안 걸면 이름이 틀린 주석을 넣어도 `integrationTest` 가 UP-TO-DATE 로 건너뛴다(실측, `Q83`).
+	"src/main/java")
 val comparedInFastLane = listOf(
 	"../PLAN.md",
 	"../PROGRESS.md",

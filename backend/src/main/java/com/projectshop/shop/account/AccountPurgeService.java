@@ -81,6 +81,9 @@ public class AccountPurgeService {
      */
     private static final int GUEST_CART_DAYS = 30;
 
+    /** 토큰 보관 기간. `D13` 이 둘 다 30일로 정했고 기준은 **발급일**이다 */
+    private static final int TOKEN_RETENTION_DAYS = 30;
+
     /**
      * 멱등키를 보관하는 기간(`D11`).
      *
@@ -97,9 +100,10 @@ public class AccountPurgeService {
      * @param consentRows 보존 기간이 지나 지운 동의 이력 행 수
      * @param guestCarts  방치돼서 지운 비로그인 장바구니 수
      * @param idempotencyKeys 보관 기간이 지나 지운 멱등키 수
+     * @param tokens      보관 기간이 지나 지운 토큰 수(비밀번호 재설정·이메일 변경 합)
      */
     public record Purged(int accounts, int consentIps, int consentRows, int guestCarts,
-            int idempotencyKeys) {}
+            int idempotencyKeys, int tokens) {}
 
     /**
      * 오늘 기준으로 파기한다. 배치가 이 자리를 부른다.
@@ -136,8 +140,34 @@ public class AccountPurgeService {
 
         int guestCarts = deleteStaleGuestCarts(baseline.minusDays(GUEST_CART_DAYS));
         int idempotencyKeys = deleteExpiredIdempotencyKeys(baseline.minusHours(IDEMPOTENCY_KEY_HOURS));
+        int tokens = deleteExpiredTokens(baseline.minusDays(TOKEN_RETENTION_DAYS));
 
-        return new Purged(purgedIds.size(), consentIps, consentRows, guestCarts, idempotencyKeys);
+        return new Purged(purgedIds.size(), consentIps, consentRows, guestCarts, idempotencyKeys,
+                tokens);
+    }
+
+    /**
+     * 토큰 둘을 발급일 기준으로 지운다(`Q62`, `D13` 「30일」).
+     *
+     * <p><b>수집하는 코드가 파기하는 코드보다 먼저 나왔다</b> — `5c-1`·`5e-1` 이 표를 세우고
+     * {@code data-lifecycle.md} 가 「30일 물리 삭제」로 적었는데 <b>지우는 자리가 없었다</b>.
+     * 그 사이가 위반 구간이다(`D23` 「개인정보 컬럼은 셋을 같이 채운다」).
+     *
+     * <p><b>쓴 것과 만료된 것을 안 가른다.</b> 둘 다 그 시점엔 못 쓰는 값이고,
+     * 가르면 「쓴 것은 언제까지 두나」가 새 질문이 된다 — 기준은 <b>발급일</b> 하나다.
+     *
+     * <p>계정을 지우면 {@code cascade} 로 같이 사라지므로 여기 남는 것은
+     * <b>살아 있는 계정의 낡은 토큰</b>이다. 확인 안 된 주소와 재설정 열쇠를 들고 있어
+     * 오래 둘수록 새면 위험한 것만 는다(`D14`).
+     */
+    private int deleteExpiredTokens(OffsetDateTime issuedBefore) {
+        int resets = jdbc.sql("delete from password_reset_token where issued_at < :issuedBefore")
+                .param("issuedBefore", issuedBefore)
+                .update();
+        int emails = jdbc.sql("delete from email_change_request where issued_at < :issuedBefore")
+                .param("issuedBefore", issuedBefore)
+                .update();
+        return resets + emails;
     }
 
     /**

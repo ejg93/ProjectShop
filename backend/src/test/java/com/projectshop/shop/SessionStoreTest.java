@@ -97,17 +97,17 @@ class SessionStoreTest extends HttpTestBase {
         signUp(deviceA, "gone");
         assertThat(logIn(deviceA, "gone").is(200)).isTrue();
 
-        Session deviceB = newSession();
-        deviceB.get("/api/health");
-        assertThat(logIn(deviceB, "gone").is(200)).isTrue();
-
         // **그 사람의 색인을 직접 센다.** 전체 열쇠 수가 줄었나로 재면 **하나만 지워져도 통과한다**
         // (마무리 17차 독립 리뷰). 뒤따르는 401 도 그 구멍을 못 메운다 —
         // `AccountLivenessFilter` 가 `deleted_at` 만 보고 401 을 주므로
         // **세션이 Redis 에 그대로 남아 있어도 401 이다.** 두 겹을 갈라야 각 겹을 잰다(`D14`).
+        //
+        // **전에는 두 기기로 쟀다**(`Q63` 이전). 동시접속이 1개가 되면서 둘째 로그인이 첫째를
+        // 끊으므로 그 시나리오가 성립하지 않는다 — **여러 개를 다 지우나는 이제 제한이 대신 답한다**:
+        // 애초에 여러 개가 안 생긴다. 여기서는 남은 한 겹, 「표시가 아니라 삭제인가」를 잰다.
         assertThat(sessionsOf("gone"))
-                .describedAs("두 기기가 각자 세션을 들고 있어야 경쟁이 성립한다")
-                .isEqualTo(2);
+                .describedAs("로그인한 세션이 색인에 잡혀야 지워진 것을 잴 수 있다")
+                .isEqualTo(1);
 
         assertThat(deviceA.post("/api/me/withdraw",
                 "{\"password\": \"%s\"}".formatted(PASSWORD)).is(204)).isTrue();
@@ -115,12 +115,12 @@ class SessionStoreTest extends HttpTestBase {
         // **만료 표시로는 이 단언이 안 선다.** 표시만 남기면 세션이 무활동 만료(30분)까지
         // Redis 에 그대로 있고 그 안에 이메일이 들어 있다 — 탈퇴는 개인정보를 거두는 자리다.
         assertThat(sessionsOf("gone"))
-                .describedAs("두 기기의 세션이 **둘 다** 지워져야 한다. "
+                .describedAs("세션이 실제로 지워져야 한다. "
                         + "명부를 훑는 옛 방식은 빈 목록을 받고 성공처럼 끝난다")
                 .isZero();
 
-        assertThat(deviceB.get("/api/me").is(401))
-                .describedAs("다른 기기가 살아 있으면 탈퇴가 반쪽이다")
+        assertThat(deviceA.get("/api/me").is(401))
+                .describedAs("지운 세션으로는 아무것도 못 한다")
                 .isTrue();
     }
 

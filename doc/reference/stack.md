@@ -858,7 +858,7 @@ component.getDeclaringRecord().getDeclaredField(component.getName()).getAnnotati
 
 ### 시드를 한 번 넣은 로컬 DB 는 다음 마이그레이션에서 기동을 막는다
 
-`local` 프로필의 시드가 `V900`·`V901`·`V902` 라 **번호가 실제 마이그레이션보다 위**다.
+`local` 프로필의 시드가 `V900`·`V901`·`V902`·`V903` 이라 **번호가 실제 마이그레이션보다 위**다.
 그 DB 에 `V64` 를 더하면 Flyway 가 순서를 어긴 것으로 보고 기동 전에 멈춘다.
 
 ```

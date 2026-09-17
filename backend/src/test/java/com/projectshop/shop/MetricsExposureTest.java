@@ -78,7 +78,9 @@ class MetricsExposureTest extends HttpTestBase {
         assertThat(response.is(200)).as(response.body()).isTrue();
         assertThat(response.body())
                 .as("이름 규약이 shop.<자원>.<무엇> 이고 Prometheus 표기에서 점이 밑줄이 된다")
-                .contains("shop_batch_run_total")
+                // 자원 토막이 표 이름(단수)이라 `shop.batch_run.finished` 다(`Q82`).
+                // Prometheus 가 카운터에 `_total` 을 붙여서 `shop_batch_run_finished_total` 이 된다.
+                .contains("shop_batch_run_finished_total")
                 .contains("shop_permission_decide_seconds")
                 .contains("shop_refund_overdue");
         assertThat(response.body())

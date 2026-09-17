@@ -14,9 +14,9 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 | 단계 | 명령 | 무엇이 도나 | 누가 요구하나 |
 |---|---|---|---|
 | **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test | **Stop hook** — 청크를 닫을 때 |
-| **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(느린 레인 930개) · frontend `next build`·lint·test | **push hook** — 미는 것은 마무리 앞 한 번 |
+| **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(두 레인) · frontend `next build`·lint·test | **push hook** — 미는 것은 마무리 앞 한 번 |
 
-**full 은 Docker 를 먼저 본다**(`2z-3`). 안 떠 있으면 한 줄로 끝낸다 — 그전에는 930개가 전부 FAILED 로 뜨고
+**full 은 Docker 를 먼저 본다**(`2z-3`). 안 떠 있으면 한 줄로 끝낸다 — 그전에는 느린 레인이 전부 FAILED 로 뜨고
 진짜 원인은 XML 리포트를 파야 나왔다.
 
 DB 를 타는 결함은 그래서 청크 여럿 뒤에 드러날 수 있다 — 청크가 커밋 하나라 `git bisect` 가 답한다.
@@ -40,8 +40,8 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | 〃 | `npm test` | 실패 0 |
 | **로그인·상품·장바구니 화면을 건드렸으면** | 백엔드를 `local` 로 띄운 뒤 `cd frontend && npm run build && npm run e2e` | 통과. CI 는 PR 에서 자동으로 돈다(`Q18-1`). 손으로 걸려면 `gh workflow run e2e.yml --ref <가지>` — **`e2e.yml` 이 `main` 에 있어야 뜬다** |
 | **푸시했으면** | 아래 「CI」 | 초록. **빨가면 다음 청크보다 먼저 친다** |
-| **고치는 중·청크를 닫을 때** | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**(87개). 대신 **DB 를 타는 930개는 여기서 안 돈다** — 그것은 push 앞의 `--full` 이 돈다(`2z-2`) |
-| 스키마·서비스만 볼 때 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(930개, **72~78초**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
+| **고치는 중·청크를 닫을 때** | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**. 대신 **DB 를 타는 것은 여기서 안 돈다** — 그것은 push 앞의 `--full` 이 돈다(`2z-2`) |
+| 스키마·서비스만 볼 때 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(**70초대**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
 | **마이그레이션을 더했으면** | **빈 DB 를 만들어** `POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 **마이그레이션 파일 수 + 시드 3**. **테스트만으로는 기동 경로를 안 지난다**. 쓰던 DB 에 그냥 올리면 시드가 `V900+` 라 Flyway 가 순서를 어긴 것으로 보고 멈춘다(`stack.md`) |
 | 컨테이너 설정을 건드렸으면 | `docker compose config --quiet` 후 `docker compose up -d` | 종료 코드 0, `shop-db`·`shop-redis` 가 `healthy` |
 | 프록시·라우팅을 건드렸으면 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |

@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.auth.PermissionEvaluator;
@@ -36,6 +38,14 @@ class InquiryVisibilityTest extends PostgresTestBase {
 
     @Autowired
     private InquiryQuery query;
+
+    /**
+     * <b>이 테스트는 웹 컨텍스트를 안 띄워서 앱의 {@code ObjectMapper} 빈이 없다.</b>
+     * 키가 있나 없나만 보므로 표기 설정(`Q35` 의 UTC Z)이 결과를 안 바꾼다 — 모듈만 찾아 붙여 쓴다.
+     */
+    private final ObjectMapper mapper = com.fasterxml.jackson.databind.json.JsonMapper.builder()
+            .findAndAddModules()
+            .build();
 
     @Autowired
     private JdbcClient jdbc;
@@ -246,6 +256,81 @@ class InquiryVisibilityTest extends PostgresTestBase {
                     .as("셀러는 자기 상품 문의의 글을 본다")
                     .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.list(String.class))
                     .contains("body");
+        }
+
+
+        /**
+         * <b>마스킹이 응답에서 실제로 키를 빼나</b>(`Q80`).
+         *
+         * <p>같은 묶음의 다른 테스트들은 record 접근자만 본다 — {@code @JsonInclude(NON_NULL)} 을 떼도
+         * 전부 초록이라 <b>애노테이션을 재는 자리가 없었다</b>(마무리 21차 독립 리뷰).
+         * 접근자가 {@code null} 인 것과 <b>나가는 JSON 에 키가 없는 것</b>은 다른 사실이고,
+         * `D20` 이 요구하는 것은 뒤엣것이다.
+         */
+        @Test
+        @DisplayName("못 보는 칸은 응답에 키가 아예 없다")
+        void masksByRemovingTheKey() throws Exception {
+            ask(askerId, false);
+
+            JsonNode json = jsonOf(query.findAll(auditorId, new Paging(0, 20)).items().getFirst());
+
+            assertThat(json.has("question"))
+                    .as("감사자는 글을 못 본다. null 로 실으면 「값 없음」과 안 갈린다 (D20)")
+                    .isFalse();
+            assertThat(json.path("_visible_field_groups").toString())
+                    .as("키가 없을 때 「못 봄」과 「값 없음」을 가르는 것이 이 목록이다")
+                    .doesNotContain("body");
+        }
+
+        /** 볼 수 있으면 키가 있고 그룹 목록이 그 근거다. 위와 짝이라 둘이 같이 있어야 대조가 선다. */
+        @Test
+        @DisplayName("볼 수 있으면 키가 있다")
+        void keepsTheKeyWhenVisible() throws Exception {
+            ask(askerId, false);
+
+            JsonNode json = jsonOf(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items().getFirst());
+
+            assertThat(json.has("question")).isTrue();
+            assertThat(json.path("_visible_field_groups").toString()).contains("body");
+        }
+
+        /**
+         * <b>권한만 없는 사람으로 잰다</b>(`Q80`).
+         *
+         * <p>그전에는 전체 목록({@code findAll})으로 쟀는데 그쪽은 {@code canAnswer} 에 상수를 넘기는
+         * 경로라 <b>권한이 아니라 상수를 재고 있었다</b>(마무리 21차 독립 리뷰).
+         * 여기서는 읽기는 되고 답변만 막힌 상태를 만들어, 상태가 열려 있어도 목록이 비는지 본다.
+         */
+        @Test
+        @DisplayName("답할 권한이 없으면 상태가 열려 있어도 빈 목록이다")
+        void dropsAnswerActionWithoutPermission() {
+            ask(askerId, true);
+            denyAnswerForSellerOwner();
+
+            assertThat(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::allowedActions)
+                    .as("상태는 received 인데 권한이 없다")
+                    .isEqualTo(List.of());
+        }
+
+        private JsonNode jsonOf(InquiryQuery.Entry entry) throws Exception {
+            return mapper.readTree(mapper.writeValueAsString(entry));
+        }
+
+        /**
+         * 답변 권한만 거부한다. 읽기는 그대로라 목록 자체는 나온다 —
+         * {@code role_permission} 의 기본키가 효과까지 포함이라 허용과 거부가 같이 산다.
+         */
+        private void denyAnswerForSellerOwner() {
+            jdbc.sql("""
+                    insert into role_permission (role_id, permission_id, scope, effect)
+                    select r.role_id, p.permission_id, 'seller', 'deny'
+                      from role r
+                      join permission p on p.resource = 'inquiry' and p.action = 'answer'
+                     where r.code = 'seller_owner'
+                    """)
+                    .update();
         }
 
         /** 상태가 먼저 닫히면 권한이 있어도 빈 목록이다 — 그리기 전에 같은 답을 준다. */

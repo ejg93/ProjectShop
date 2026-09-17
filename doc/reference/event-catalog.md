@@ -30,9 +30,9 @@
 | `shop.seller_order.status_changed` | `order_status_history` (`seller_order_id` 가 있는 행) | 배송 층 전이 | `seller_order_number` |
 | `shop.sku.stock_moved` | `sku_stock_movement` | `move_stock()` 이 돌 때 | `sku_id` — 노출 번호가 없다. **웹훅으로는 안 나간다**(`D9`) |
 | `shop.refund.status_changed` | `refund` (`status` 가 바뀔 때) | 환불 전이 | `refund_number` |
-| `shop.return_request.status_changed` | `return_request` (`status` 가 바뀔 때) | 반품 전이 | `return_request_id` — 노출 번호가 아직 없다. 웹훅에 내보내려면 번호부터다(`43a-5` 자리) |
+| `shop.return_request.status_changed` | `return_request` (`status` 가 바뀔 때) | 반품 전이 | `seller_order_number` — **반품에는 자기 노출 번호가 없다**(`D9` 「자원별 노출 방식」이 그렇게 정했다). 이 표가 한동안 「번호가 아직 없다」로 적어 뒀고 `V70` 이 그 문장을 옮겼는데, **식별자의 출처는 `D9` 다**(`Q66`) |
 | `shop.settlement.payout_changed` | `settlement` (`payout_status` 가 바뀔 때) | 지급 전이 | `settlement_number` |
-| `shop.batch.run_finished` | `batch_run` | 회차가 끝났을 때 | `batch_name` |
+| `shop.batch_run.finished` | `batch_run` | 회차가 끝났을 때 | `batch_name` |
 
 **원천이 둘로 갈린다.** 앞 셋은 이미 넣기만 하는 표라 `after insert` 다. 뒤 셋은 상태를 한 행에서 고치는 표라
 `after update of status ... when (old.status is distinct from new.status)` 다 — 같은 값으로 다시 쓰면 사건이 아니다.
@@ -63,7 +63,10 @@
 1. **식별자만 싣는다.** 이름·이메일·전화·주소는 안 싣는다 — `D16` 이 로그에 정한 것과 같은 방향이다.
    받는 쪽이 필요하면 API 로 다시 읽는다. 그래야 이벤트가 새도 개인정보는 안 샌다
 2. **노출 번호를 쓴다**(`D9`). 내부 id 는 `sku_id` 처럼 노출 번호가 없는 것만
-3. 전이면 `from_status`·`to_status`·`actor_type` 을 싣는다. `actor_user_id` 는 안 싣는다 — 1번이다
+3. 전이면 `from_status`·`to_status`·`actor_type` 을 싣는다. `actor_user_id` 는 안 싣는다 — 1번이다.
+   **못 싣는 것이 하나 있다**: 반품은 원천 표에 주체의 <b>종류</b>를 담는 칸이 없다
+   (`requested_by_user_id`·`decided_by_user_id` 뿐이고 사람 id 는 1번이 막는다).
+   종류 칸이 서는 청크가 그것을 채운다 — 그때까지 빠져 있는 것은 `OutboxEventSchemaTest` 가 목록으로 든다
 4. **표기는 저장값 그대로다** — `data` 의 키는 snake_case, 열거값은 소문자. 트리거가 만들어서 Java 의 대문자 변환(`EnumValue`)을 못 지난다.
    **API 응답(`D5` 「값의 형식」)과 다르다.** 웹훅이 대외 계약이 될 때 대문자로 바꿀지 그때 정하고, 바꾼다면 발행기(`33b`)가 한다 — 트리거는 안 한다
 
@@ -86,6 +89,32 @@
 }
 ```
 
+### 금액은 실제로 나간 돈이다
+
+환불 사건은 `refund_amount` 와 `delay_interest` 를 **따로** 싣는다(`Q66`).
+`refund.amount` 하나만 실었더니 **소비자가 환급액으로 읽으면 틀렸다** — 실제로 나가는 돈은
+`RefundService.settle` 이 지연이자를 더한 값이다. 이름을 갈라 두면 받는 쪽이 합을 스스로 정한다.
+
+### 시드가 낳은 사건은 사실이 아니다
+
+데모 시드가 재고를 넣으면 트리거 둘을 지나 **SKU 수만큼 미발행 `shop.sku.stock_moved`** 가 쌓인다(`Q67`).
+발행기가 서면 그것이 **진짜 재고 이동과 구별 없이** 나가고 받는 쪽은 가를 방법이 없다.
+
+**시드가 아웃박스를 비운다** — Flyway 쪽은 `V903` 이, 그 뒤에 도는 `DemoOrderSeeder` 는 자기 끝에서.
+**둘 다 있어야 선다**(마무리 23차 독립 리뷰가 뒤쪽을 짚었다): 러너는 진짜 `OrderService` 를 태워서
+전이마다 트리거가 아웃박스를 다시 채운다. 가르는 것은 **어떻게 만들었나**가 아니라 **진짜 일어난 일인가**다. 발행기가 「어떤 사건은 진짜가 아니다」를 알게 하는 쪽은
+버렸다(사용자 결정) — 그 지식이 어디서 오는지를 또 정해야 하고, **아웃박스의 「쌓인 것은 다 나간다」를 깬다.**
+
+재는 것은 `SeedOutboxTest` 고 **글자로 잰다** — 시드는 `local` 프로필에서만 돌아서
+테스트가 실물로 물을 자리가 없다.
+
+### `time` 은 그 일이 일어난 시각이다
+
+`occurred_at` 의 출처가 원천마다 갈렸다 — 원천 컬럼 · `updated_at` · `now()` 셋이었다(`Q66`).
+`now()` 는 **발행 시각에 가깝고** `updated_at` 은 전이가 아닌 수정에도 밀린다.
+지금은 **결정 시각이 있으면 그것**이고(`refund.decided_at`·`settlement.payout_decided_at`),
+없을 때만 뒤로 물러난다.
+
 ## 아웃박스 표 — `Q57` 이 세운다(`32` 를 대신한다)
 
 ```sql
@@ -101,7 +130,7 @@ create table outbox_event (
     constraint outbox_event_type_check check (type in (
         'shop.order.status_changed', 'shop.seller_order.status_changed', 'shop.sku.stock_moved',
         'shop.refund.status_changed', 'shop.return_request.status_changed',
-        'shop.settlement.payout_changed', 'shop.batch.run_finished'))
+        'shop.settlement.payout_changed', 'shop.batch_run.finished'))
 );
 create index outbox_event_unpublished_idx on outbox_event (outbox_event_id) where published_at is null;
 ```

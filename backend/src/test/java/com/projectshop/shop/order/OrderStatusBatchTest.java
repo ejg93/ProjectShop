@@ -119,6 +119,13 @@ class OrderStatusBatchTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 자동 구매확정은 <b>의사표시의 의제</b>다(`D2` R31, 약관규제법 제12조).
+     *
+     * <p>제12조1호가 「일정한 작위가 없으면 의사표시가 있는 것으로 본다」는 조항을 <b>상당한 기한</b>과
+     * <b>미리 알림</b> 없이는 무효로 본다. 그래서 기한(8일)과 화면 고지가 같이 요건이고,
+     * 화면 쪽은 {@code ship-delay.test.tsx} 가 잰다.
+     */
     @Nested
     @DisplayName("자동 구매확정은")
     class AutoConfirm {

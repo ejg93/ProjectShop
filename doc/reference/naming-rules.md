@@ -48,7 +48,7 @@ JSON 속성 이름은 여기서 안 다룬다. `api-guidelines.md`(D5)가 Zaland
 |---|---|
 | `holiday.holiday_date` | 공휴일은 하루 단위다. 몇 시인지가 없다 |
 | `batch_run.baseline_date` | 회차를 세는 축이다(`D19`). 같은 기준일의 두 번째 회차를 막는 유니크가 이 값으로 걸린다 |
-| `settlement.payout_date` | 지급 예정일이다. 은행 영업일 단위라 시각이 없다 |
+| `settlement_cycle.payout_date` | 지급 예정일이다. 은행 영업일 단위라 시각이 없다 |
 
 **둘이 갈리는 것은 `SchemaNamingTest` 가 잰다** — `_at` 이 `date` 이거나 `_date` 가 `timestamptz` 면 빨갛다.
 

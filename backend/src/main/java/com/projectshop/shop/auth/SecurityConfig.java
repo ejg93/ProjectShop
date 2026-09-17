@@ -21,6 +21,7 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.ConcurrentSessionControlAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.RegisterSessionAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -144,6 +145,11 @@ public class SecurityConfig {
                         // 기본값에 기대면 이 요구사항이 코드 어디에도 안 보인다.
                         .sessionFixation(config -> config.changeSessionId()));
 
+        // **`sessionConcurrency(...)` 를 여기 안 쓴다**(`Q63`). 그 설정은 필터체인이 만드는
+        // 로그인 전략에 붙는데 이 저장소는 `formLogin` 을 껐다 — **컨트롤러가 전략 빈을 직접 부른다.**
+        // 여기 적으면 켜 두어도 로그인 경로를 안 지나서 <b>아무것도 안 막는다</b>,
+        // 그리고 그것이 바로 이 청크가 없애려던 상태다. 제한은 아래 {@code sessionAuthenticationStrategy} 에 있다.
+
         // CSRF 토큰을 쿠키로 내려준다.
         //
         // 기본 저장소는 세션이라 클라이언트가 토큰을 얻을 방법이 아예 없다.
@@ -162,8 +168,12 @@ public class SecurityConfig {
 
         // 만료 표시된 세션을 실제로 끊는다.
         //
-        // SessionRegistry 의 expireNow() 는 표시만 남긴다. 이 필터가 없으면 탈퇴(5g)가
-        // 세션을 끊었다고 믿는데 아무 일도 안 일어난다 — 부른 줄 알았는데 안 먹는 쪽이 제일 나쁘다.
+        // SessionRegistry 의 expireNow() 는 표시만 남긴다. 이 필터가 없으면 표시가 남아도
+        // 아무 일도 안 일어난다 — 부른 줄 알았는데 안 먹는 쪽이 제일 나쁘다.
+        //
+        // **표시를 남기는 것이 무엇인지가 바뀌었다**(`Q63`). 전에는 탈퇴(`5g`)였는데 지금은
+        // 탈퇴가 세션을 직접 지우고(`Q52`), 표시를 남기는 것은 **동시접속 제한**이다 —
+        // 둘째 기기에서 로그인하면 첫째 세션에 만료가 찍히고 이 필터가 그것을 401 로 바꾼다.
         //
         // 기본 전략은 본문에 안내 문구를 쓴다. 우리는 JSON API 라 401 만 준다.
         http.addFilterAfter(
@@ -264,15 +274,41 @@ public class SecurityConfig {
      * <p>{@code formLogin} 이 하던 일이다. 껐으므로 <b>아무도 안 부른다</b> —
      * 컨트롤러가 부르지 않으면 세션 고정 방어(`D14`)도 세션 등록도 조용히 빠진다.
      *
-     * <p>둘을 묶어 두는 이유는 하나만 부르는 실수를 없애려는 것이다.
+     * <p>셋을 묶어 두는 이유는 하나만 부르는 실수를 없애려는 것이다.
+     * <b>순서가 규칙이다</b> — 제한이 먼저 세고, 그다음 ID 를 갈고, 마지막에 명부에 적는다.
+     * 등록이 먼저 오면 방금 만든 세션까지 세어서 <b>첫 로그인이 자기를 끊는다.</b>
      */
     @Bean
     SessionAuthenticationStrategy sessionAuthenticationStrategy(SessionRegistry sessionRegistry) {
         return new CompositeSessionAuthenticationStrategy(List.of(
+                // **동시접속 1개**(`Q63`, `D14` 의 「규제」 등급이 그 수를 정했다).
+                concurrentSessionControl(sessionRegistry),
                 // 세션 ID 를 갈아 공격자가 미리 심어 둔 ID 를 죽인다(D14).
                 new ChangeSessionIdAuthenticationStrategy(),
-                // 탈퇴(5g)가 이 등록을 보고 세션을 만료시킨다(ADR 0010).
+                // 명부에 적는다. 위 제한이 다음 로그인 때 이것을 보고 센다.
                 new RegisterSessionAuthenticationStrategy(sessionRegistry)));
+    }
+
+    /**
+     * 한 계정이 동시에 가질 수 있는 세션 수를 제한한다(`Q63`).
+     *
+     * <p><b>그전에는 제한이 없었다.</b> 명부·필터·전략 셋은 원래 「탈퇴가 만료 표시를 남기고
+     * 필터가 401 로 바꾼다」 경로였는데, 탈퇴가 세션 저장소를 직접 지우게 되면서(`Q52`)
+     * 표시할 것이 사라졌다 — 셋이 <b>쓰는 곳 없이</b> 남았고 {@code maximumSessions} 는 꺼져 있었다.
+     * <b>안 걸리는 설정을 켜 두면 「막고 있다」고 읽힌다.</b>
+     *
+     * <p><b>넘치면 새 로그인이 옛 세션을 끊는다</b>({@code exceptionIfMaximumExceeded = false}).
+     * 반대로 두면 브라우저를 그냥 닫아 세션이 매달린 사람이 <b>타임아웃까지 자기 계정에 못 들어온다</b> —
+     * 막는 것이 남이 아니라 본인이 된다. 끊긴 쪽은 {@code ConcurrentSessionFilter} 가 401 로 돌려보낸다.
+     *
+     * <p>세는 자리가 Redis 라(`Q52`) <b>두 대에서도 맞게 센다.</b>
+     */
+    private static ConcurrentSessionControlAuthenticationStrategy concurrentSessionControl(
+            SessionRegistry sessionRegistry) {
+        var strategy = new ConcurrentSessionControlAuthenticationStrategy(sessionRegistry);
+        strategy.setMaximumSessions(1);
+        strategy.setExceptionIfMaximumExceeded(false);
+        return strategy;
     }
 
     /**

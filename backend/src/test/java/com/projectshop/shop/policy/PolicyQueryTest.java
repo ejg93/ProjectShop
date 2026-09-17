@@ -18,7 +18,11 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 
 /**
- * 정책 문서 조회(`13a-1`).
+ * 정책 문서 조회(`13a-1`, `D2` R2 · R26).
+ *
+ * <p><b>중개자 지위 고지(`R2`)가 여기 산다.</b> 약관 제2조 본문이 그 고지고(`V11` 의
+ * {@code terms_of_service}), 화면은 그 본문을 그대로 그린다 — <b>문안을 두 벌로 안 둔다.</b>
+ * 셸 바닥에서 약관으로 가는 길(`R26` 5호)은 {@code site-footer.test.tsx} 가 잰다.
  *
  * <p>다른 조회와 실패 방향이 반대다. 대개는 <b>너무 많이 나가는 것</b>이 사고인데
  * 여기서는 <b>안 나가는 것</b>이 사고다 — 개인정보법 제30조제2항이 공개를 요구하고

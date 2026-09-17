@@ -188,7 +188,7 @@ SettlementCycle ─ Settlement ─ SettlementItem ─→ order_item · seller_or
 |---|---|---|---|
 | Inquiry | `inquiry` | → `app_user`·`product`·`seller_order` 전부 restrict | 뿌리다. 상품·주문에 붙어 보이지만 **소유는 쓴 사람**이다 — 상품이 내려가도 문의는 남는다(3년, `D13`) |
 | Notification | `notification` ─ `notification_body` | → `shop_order`·`seller_order`·`refund`·`user_consent` cascade / → `notification_template` restrict | 사건의 기록이라 사건을 따라간다. 판은 지우면 그때 보낸 본문을 복원할 수 없어 restrict |
-| Consent | `consent_item`(판) / `user_consent`(이력) | `user_consent` → `app_user` cascade, → `consent_item` restrict. `consent_item.depends_on` 도 restrict | 판과 이력을 가른다. `order_contract_document` 가 판을 restrict 로 박제한다 |
+| Consent | `consent_item`(판) / `user_consent`(이력) | `user_consent` → `app_user` cascade, → `consent_item` restrict. `consent_item.depends_on_id` 도 restrict | 판과 이력을 가른다. `order_contract_document` 가 판을 restrict 로 박제한다 |
 | Cart | `cart` ─ `cart_item` | `cart` → `app_user` cascade(비로그인은 null), `cart_item` → `sku` cascade | 거래 기록이 아니라 그냥 지운다. SKU 가 사라지면 담긴 것도 사라진다 |
 
 ## AppUser 에 붙은 것

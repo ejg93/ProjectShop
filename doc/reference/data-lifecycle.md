@@ -105,9 +105,11 @@
 **아카이브 스키마로 옮기는 방법을 안 골랐다.** 조회 경로가 살아 있는 표와 아카이브 둘로 갈리고,
 참조 무결성이 끊긴다. 표를 가르는 쪽은 `order_shipping` 에서 이미 검증된 수단이다.
 
-**자유 텍스트 넷은 아직 판단이 안 끝났다** — `order_status_history.reason`,
-`refund.request_reason`·`decision_reason`, `order_item.withdrawal_restriction_reason`.
-사람이 쓴 글이라 개인정보가 섞여 들어올 수 있고, 그 처분은 청크 `5i-2` 다.
+**자유 텍스트는 표를 갈라 뗐다**(`5i-2`·`5i-3`). 사람이 쓴 글이라 개인정보가 섞여 들어오고,
+거래기록보다 짧게 살아야 해서다 — `order_status_history_note.reason`·`refund_note.request_reason`·
+`refund_note.decision_reason` 이 그 자리고 위 표가 저마다 수명을 든다.
+**안 뗀 것이 하나 있다**: `order_item.withdrawal_restriction_reason` 은 셀러가 고르는 **닫힌 값**이라
+사람이 쓰는 글이 아니다(`product_withdrawal_reason_check`).
 
 ## 배송지
 

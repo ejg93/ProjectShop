@@ -65,13 +65,13 @@ public class AccountPurgeBatch implements RetryableBatch {
         return runs.record(BATCH_NAME, baselineDate, () -> {
             AccountPurgeService.Purged purged = purgeService.purge(baseline);
             int processed = purged.accounts() + purged.consentIps() + purged.consentRows()
-                    + purged.guestCarts() + purged.idempotencyKeys();
+                    + purged.guestCarts() + purged.idempotencyKeys() + purged.tokens();
 
             if (processed == 0) {
                 // 지울 것이 없는 날이 대부분이다. INFO 로 남기면 진짜 파기가 그 사이에 묻힌다(`D16`).
                 log.debug("개인정보 파기 배치 — 대상 없음 기준일={}", baselineDate);
             } else {
-                log.info("개인정보 파기 배치 끝 기준일={} 계정={} 동의IP={} 동의이력={} 장바구니={} 멱등키={}",
+                log.info("개인정보 파기 배치 끝 기준일={} 계정={} 동의IP={} 동의이력={} 장바구니={} 멱등키={} 토큰={}",
                         baselineDate, purged.accounts(), purged.consentIps(), purged.consentRows(),
                         purged.guestCarts(), purged.idempotencyKeys());
             }

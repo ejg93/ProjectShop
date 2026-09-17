@@ -266,7 +266,9 @@ public class BatchRuns {
         // 이력 행이 남은 뒤에만 센다(`Q53`). 앞에서 세면 부분 유니크가 거부한 회차까지 세어져서
         // 지표와 `batch_run` 이 갈린다. 태그 둘 다 닫힌 목록이다 — 배치 이름은 카탈로그(`D19`),
         // 상태는 열거형이라 카디널리티가 안 터진다(`D16`).
-        Counter.builder("shop.batch.run")
+        // 자원 토막이 **표 이름(단수)** 이다(`Q82`, `D16`·`D22`). `batch` 라는 표가 없다 —
+        // 사건 이름(`D12`)이 같은 규칙을 쓰므로 둘을 안 가른다.
+        Counter.builder("shop.batch_run.finished")
                 .tag("name", batchName)
                 .tag("status", status.code())
                 .description("배치 회차 수. 상태별로 갈라 센다")

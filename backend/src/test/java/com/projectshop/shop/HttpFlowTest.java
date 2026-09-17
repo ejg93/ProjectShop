@@ -315,25 +315,33 @@ class HttpFlowTest extends HttpTestBase {
          *
          * <p>이 시나리오는 손 {@code curl} 로만 확인돼 있었다. 2차 점검이 그걸 부채로 잡았다.
          */
+        /**
+         * <b>시나리오가 바뀌었다</b>(`Q63`). 전에는 「두 기기가 같이 살고, 탈퇴가 둘 다 끊는다」였는데
+         * 동시접속이 1개가 되면서 <b>두 기기가 애초에 같이 못 산다</b> —
+         * 보장이 사라진 것이 아니라 <b>한 겹 앞으로 당겨졌다.</b>
+         *
+         * <p>그래서 여기서 재는 것도 둘이다: 둘째 로그인이 첫째를 끊나, 그리고 남은 하나가 탈퇴로 끊기나.
+         */
         @Test
-        @DisplayName("한 기기에서 탈퇴하면 다른 기기 세션도 끊긴다")
-        void withdrawalKillsOtherDevices() {
+        @DisplayName("다른 기기로 로그인하면 앞 기기가 먼저 끊긴다")
+        void newerLoginKillsTheOlderDevice() {
             Session deviceA = loggedIn("twodev");
+            assertThat(deviceA.get("/api/me").is(200)).isTrue();
 
             Session deviceB = newSession();
             deviceB.get("/api/health");
             assertThat(logIn(deviceB, "twodev").is(200)).isTrue();
 
-            assertThat(deviceA.get("/api/me").is(200)).isTrue();
+            assertThat(deviceA.get("/api/me").is(401))
+                    .as("동시접속 1개라 앞 세션이 끊긴다(D14 「동시접속은 1개다」)")
+                    .isTrue();
             assertThat(deviceB.get("/api/me").is(200)).isTrue();
 
-            assertThat(deviceA.post("/api/me/withdraw",
+            // **끊을 다른 기기가 애초에 없다.** 탈퇴는 남은 하나를 끊는다.
+            assertThat(deviceB.post("/api/me/withdraw",
                     "{\"password\": \"%s\"}".formatted(PASSWORD)).is(204)).isTrue();
 
-            assertThat(deviceA.get("/api/me").is(401)).isTrue();
-            assertThat(deviceB.get("/api/me").is(401))
-                    .as("다른 기기가 살아 있으면 탈퇴가 반쪽이다")
-                    .isTrue();
+            assertThat(deviceB.get("/api/me").is(401)).isTrue();
         }
 
         @Test

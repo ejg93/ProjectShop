@@ -159,6 +159,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("support.BatchRunStatus", List.of("batch_run_status_check"));
         pairs.put("support.FailureKind", List.of("batch_run_failure_kind_values_check"));
         pairs.put("support.EventType", List.of("outbox_event_type_check"));
+        pairs.put("auth.PermissionKind", List.of("permission_kind_check"));
         pairs.put("settlement.PayoutStatus", List.of("settlement_payout_status_check"));
         pairs.put("settlement.SettlementItemKind", List.of("settlement_item_kind_check"));
         return Map.copyOf(pairs);

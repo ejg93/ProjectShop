@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Map;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -102,6 +103,11 @@ class OutboxEventSchemaTest extends PostgresTestBase {
     @Test
     @DisplayName("원천 표 여섯이 저마다 사건을 낳는다")
     void everySourceEmitsItsOwnEvent() {
+        emitEveryEvent();
+    }
+
+    /** 원천 여섯을 한 번씩 건드려 사건 일곱을 만든다. 아래 페이로드 대조들이 같은 입력을 쓴다(`Q66`). */
+    private void emitEveryEvent() {
         // **앞서 주문 이력 하나만 쟀다**(마무리 18차 독립 리뷰). 나머지 다섯은 아무 테스트도 안 지나서
         // **정산 트리거를 통째로 지워도 초록이었다.** 게이트가 막는다고 적어 둔 범위와
         // 실제로 재는 범위가 갈려 있던 자리다.
@@ -115,7 +121,7 @@ class OutboxEventSchemaTest extends PostgresTestBase {
         assertEvent("shop.sku.stock_moved", String.valueOf(skuId));
 
         insertBatchRun();
-        assertEvent("shop.batch.run_finished", BATCH_NAME);
+        assertEvent("shop.batch_run.finished", BATCH_NAME);
 
         long returnId = insertReturnRequest(sellerOrderId);
         // 상태마다 짝이 되는 시각 칸이 있어야 한다(`return_request_timestamps_check`).
@@ -126,7 +132,10 @@ class OutboxEventSchemaTest extends PostgresTestBase {
                         """)
                 .param("id", returnId)
                 .update();
-        assertEvent("shop.return_request.status_changed", String.valueOf(returnId));
+        // **subject 가 내부 id 였다**(`Q66`). `D9` 가 반품에 「없다 — seller_order_number」로 정해 뒀는데
+        // `V70` 이 `D12` 표의 낡은 문장을 옮겼다. 재고와 반품이 둘 다 작은 내부 id 를 실어서
+        // **한 대상에 사건이 둘로 세어진** 것이 마무리 18차가 밟은 실물이다.
+        assertEvent("shop.return_request.status_changed", sellerOrderNumberOf(sellerOrderId));
 
         // `paid` 는 요청 사슬과 결정 사슬을 둘 다 채워야 한다(`V57`), 그리고 요청자와
         // 승인자가 달라야 한다(`settlement_payout_self_approval_check`).
@@ -431,4 +440,65 @@ class OutboxEventSchemaTest extends PostgresTestBase {
                 .query(Integer.class)
                 .single();
     }
+
+    /**
+     * 사건마다 {@code data} 가 `D12` 페이로드 규칙을 지키나(`Q66`).
+     *
+     * <p><b>앞의 대조는 `subject` 만 봤다.</b> 그래서 봉투 안에 내부 id 가 섞여 있어도 초록이었다 —
+     * 마무리 18차 독립 리뷰가 규칙 넷이 깨진 것을 찾았고, 그중 하나는 실물로 밟혔다
+     * (재고와 반품이 둘 다 작은 내부 id 를 실어 <b>한 대상에 사건이 둘로 세어졌다</b>).
+     *
+     * <p>재는 것은 규칙 1·2다 — <b>개인정보를 안 싣는다</b>와 <b>노출 번호를 쓴다</b>.
+     * {@code sku_id} 만 예외인데 그 자원에는 노출 번호가 없다(`D9`).
+     */
+    @Test
+    @DisplayName("사건의 data 에 내부 id 와 개인정보가 없다")
+    void payloadsCarryExposedNumbersOnly() {
+        emitEveryEvent();
+
+        List<String> offenders = jdbc.sql("""
+                        select distinct type || ' → ' || key
+                          from outbox_event, jsonb_object_keys(data) as key
+                         where key like '%\\_id'
+                            or key in ('email', 'phone', 'name', 'display_name',
+                                       'receiver_name', 'address1', 'address2')
+                         order by 1
+                        """)
+                .query(String.class)
+                .list();
+
+        assertThat(offenders)
+                .as("`D12` 페이로드 규칙 1·2 — 식별자만 싣고 노출 번호를 쓴다. "
+                        + "노출 번호가 없는 자원만 내부 id 를 쓴다(sku_id)")
+                .isEqualTo(List.of("shop.sku.stock_moved → sku_id"));
+    }
+
+    /**
+     * 전이 사건은 <b>누가 옮겼나</b>를 같이 싣는다(`D12` 페이로드 규칙 3).
+     *
+     * <p><b>반품만 못 싣는다.</b> 원천 표에 주체의 종류를 담는 칸이 없고
+     * ({@code requested_by_user_id}·{@code decided_by_user_id} 뿐이다), 사람 id 는 규칙 1 이 막는다.
+     * <b>안 넣은 것도 근거를 남긴다</b>(`D23`) — 종류 칸이 서는 청크가 이 목록을 줄인다.
+     */
+    @Test
+    @DisplayName("전이 사건은 주체의 종류를 싣는다")
+    void transitionsCarryTheActorType() {
+        emitEveryEvent();
+
+        // **`?` 를 안 쓴다.** jsonb 의 존재 연산자인데 JDBC 가 자리표시자로 읽어서 터진다 —
+        // `jsonb_exists` 가 같은 것을 함수로 부른다.
+        List<String> without = jdbc.sql("""
+                        select distinct type from outbox_event
+                         where (type like '%status_changed' or type like '%payout_changed')
+                           and not jsonb_exists(data, 'actor_type')
+                         order by 1
+                        """)
+                .query(String.class)
+                .list();
+
+        assertThat(without)
+                .as("전이면 actor_type 을 싣는다. 못 싣는 것은 원천 표에 종류 칸이 없는 것뿐이다")
+                .isEqualTo(List.of("shop.return_request.status_changed"));
+    }
+
 }

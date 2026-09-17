@@ -66,8 +66,13 @@ public class SettlementQuery {
     public record Line(String kind, String supplier, long amount, Integer commissionBp,
             Long commissionBaseAmount, String sellerOrderNumber, String productName) {}
 
+    /**
+     * @param allowedActions 지금 이 정산서에 할 수 있는 것(`Q81`). <b>화면이 권한을 따로 안 묻는다</b>
+     *                       (`D20` 「어디서 권한을 묻나」). 이름은 대문자고 <b>소문자·하이픈으로 바꾸면
+     *                       경로</b>다 — {@code PAYOUT_REQUEST} 가 {@code /api/settlements/{번호}/payout-request} 다
+     */
     @Schema(name = "SettlementDetail")
-    public record Detail(Summary summary, List<Line> lines) {}
+    public record Detail(Summary summary, List<Line> lines, List<String> allowedActions) {}
 
     @Schema(name = "SettlementPage")
     public record Page(List<Summary> items, int page, int size, long total) {}
@@ -78,6 +83,37 @@ public class SettlementQuery {
      * @param everything 전체. {@code all} 스코프에서만 참이다
      * @param sellers    소속이면서 조회 권한이 열린 셀러
      */
+    /**
+     * 이 사람이 이 정산서에 지금 할 수 있는 것(`Q81`).
+     *
+     * <p><b>셋을 여기서 같이 본다</b> — 권한 · 지급 상태 · <b>자기가 올린 것인가</b>.
+     * 그전에는 화면이 앞 둘만 보고 그렸고, 셋째는 <b>응답에 없어서 볼 수가 없었다</b> —
+     * 그래서 자기가 올린 지급에도 승인 버튼이 뜨고 누르면 {@code 403} 이 왔다.
+     * 서버는 그 사실을 이미 들고 있다({@code settlement_payout_self_approval_check}, {@code V57}).
+     *
+     * <p>이름은 <b>소문자·하이픈으로 바꾸면 경로</b>다. {@code PAYOUT} 은 승인이고 돈이 나간 것으로 친다.
+     */
+    private List<String> payoutActions(long viewerId, long sellerId, Long requestedBy,
+            Summary summary) {
+        Target target = Target.ofSeller(sellerId);
+
+        // 응답의 값은 이미 대문자 이름이다(`EnumValue` 가 바꿨다). `of` 는 저장값을 받으므로 여기선 못 쓴다.
+        return switch (PayoutStatus.valueOf(summary.payoutStatus())) {
+            case PENDING, REJECTED -> summary.payoutAmount() > 0
+                            && evaluator.decide(viewerId, RESOURCE, "request_payout", target).allowed()
+                    ? List.of("PAYOUT_REQUEST")
+                    : List.of();
+            // 결정이 열리는 유일한 상태다(`D7`). 올린 사람은 결정을 못 한다 — 반려도 결정이라
+            // {@code payout_decided_by_user_id} 를 채우고 그 제약에 걸린다.
+            case REQUESTED -> !evaluator.decide(viewerId, RESOURCE, "payout", target).allowed()
+                            || (requestedBy != null && requestedBy == viewerId)
+                    ? List.of()
+                    : List.of("PAYOUT", "PAYOUT_REJECTION");
+            // 지급이 끝났다. 되돌리는 자리가 없다
+            case PAID -> List.of();
+        };
+    }
+
     private record Visible(boolean everything, Long[] sellers) {}
 
     public Page find(long viewerId, Paging paging) {
@@ -122,10 +158,15 @@ public class SettlementQuery {
     public Detail findOne(long viewerId, String settlementNumber) {
         Visible visible = visibleFor(viewerId);
 
-        Summary summary = jdbc.sql("""
+        // 지급 목록을 만들려면 <b>셀러</b>(권한 대상)와 <b>요청자</b>(자기 승인 금지)가 더 필요하다.
+        // 응답에는 안 나간다 — 판단에만 쓰고, 나가는 것은 아래 allowedActions 한 칸이다.
+        record Payout(Summary summary, long sellerId, Long requestedBy) {}
+
+        Payout payout = jdbc.sql("""
                         select s.settlement_number, sel.code as seller_code,
                                c.period_start, c.period_end, c.payout_date,
-                               s.payout_amount, s.carried_over, s.payout_status, s.created_at
+                               s.payout_amount, s.carried_over, s.payout_status, s.created_at,
+                               s.seller_id, s.payout_requested_by_user_id
                           from settlement s
                           join settlement_cycle c on c.settlement_cycle_id = s.settlement_cycle_id
                           join seller sel on sel.seller_id = s.seller_id
@@ -135,12 +176,15 @@ public class SettlementQuery {
                 .param("number", settlementNumber)
                 .param("seesEverything", visible.everything())
                 .param("sellers", visible.sellers())
-                .query((rs, rowNum) -> summaryOf(rs))
+                .query((rs, rowNum) -> new Payout(summaryOf(rs),
+                        rs.getLong("seller_id"),
+                        (Long) rs.getObject("payout_requested_by_user_id")))
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.SETTLEMENT_NOT_FOUND,
                         "그런 정산서가 없다: " + settlementNumber));
 
-        return new Detail(summary, linesOf(settlementNumber));
+        return new Detail(payout.summary(), linesOf(settlementNumber),
+                payoutActions(viewerId, payout.sellerId(), payout.requestedBy(), payout.summary()));
     }
 
     /**
