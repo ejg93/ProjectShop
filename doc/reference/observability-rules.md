@@ -189,7 +189,7 @@ log.info("주문 생성 order_id={}", order.id()); // 필요한 필드만 고른
 
 | 무엇 | 규칙 |
 |---|---|
-| 이름 | `shop.<자원>.<무엇>` — `shop.batch_run.finished`·`shop.permission.decide`·`shop.refund.overdue`. Prometheus 표기에서 점이 밑줄이 된다 |
+| 이름 | `shop.<자원>.<무엇>` — `shop.batch_run.finished`·`shop.permission.decide`·`shop.refund.overdue`·`shop.error.raised`. Prometheus 표기에서 점이 밑줄이 된다 |
 | 태그 | **닫힌 목록만.** 배치 이름은 카탈로그(`D19`), 상태는 열거형이다 |
 | 금지 | **개인정보를 태그로 안 단다** — 사용자 번호·이메일·주소. 아래 「개인정보는 안 찍는다」가 그대로 걸린다 |
 
@@ -198,6 +198,30 @@ log.info("주문 생성 order_id={}", order.id()); // 필요한 필드만 고른
 `shop.batch.run` 이 그래서 `shop.batch_run.finished` 가 됐다: `batch` 라는 표가 없다.
 **고칠 수 있는 자리가 지금뿐이었다** — 대시보드(`63`)와 노출(`62`)이 미착수라 소비자가 0이고,
 서면 쿼리가 그 이름에 묶인다.
+
+### 오류는 코드로 센다
+
+`shop.error.raised{code}` 가 **어느 규칙이 얼마나 걸리나**를 답한다(청크 62).
+세는 자리는 `ProblemFactory.create` 다 — **본문을 만드는 곳에서 센다.** 예외 처리기에만 붙이면
+로그인 실패 401 이 빠진다(`ProblemEntryPoint` 가 MVC 밖에서 본문을 만든다).
+
+**본문 없이 상태만 내보내는 자리는 안 세어진다.** 필터가 `response.setStatus` 로 끝내는 셋이 그렇다 —
+죽은 계정(`AccountLivenessFilter`) · 동시접속으로 끊긴 세션(`ConcurrentSessionFilter`) ·
+인가 거부 403(스프링 기본 `AccessDeniedHandler`). **그 셋은 본문도 없다**(`D5` 는 오류에 RFC 9457 을 요구한다) —
+지표보다 그쪽이 먼저 걸리는 문제고, 고치는 것은 `Q84` 다.
+
+**상태 코드는 이 지표가 안 든다.** 스프링이 내는 `http.server.requests` 가 이미 그 축을 들고 있어
+두 벌이 된다 — 그쪽은 「어느 **경로**가 아픈가」고 이쪽은 「어느 **규칙**이 걸렸나」다.
+
+| | `http.server.requests`(스프링) | `shop.error.raised`(우리) |
+|---|---|---|
+| 태그 | `uri`·`status`·`method`·`outcome` | `code` 하나 |
+| 시계열 | 엔드포인트 수만큼 갈린다 | `ErrorCode` 종류만큼(닫힌 목록) |
+| 못 보는 것 | **왜 났나** | 본문 없이 상태만 내보내는 셋(위) |
+
+**프레임워크가 내는 것도 센다.** `ApiExceptionHandler.createResponseEntity` 가 404·405·파싱 실패를
+`ENDPOINT_NOT_FOUND`·`METHOD_NOT_ALLOWED`·`MALFORMED_REQUEST` 로 옮겨 같은 자리를 지난다 —
+처음에 「못 센다」로 적었는데 사실이 아니었다(마무리 24차 독립 리뷰).
 
 **태그가 열린 값이면 지표가 그 값 수만큼 갈라진다.** 사용자 번호를 달면 계정 수만큼 시계열이 생기고,
 그것이 개인정보가 지표로 새는 경로이기도 하다.
