@@ -21,9 +21,23 @@ final class WithdrawalRestriction {
     }
 
     /**
+     * 이 거래에서 <b>실제로 성립한</b> 청약철회 제한(`Q5`, `D2` R4).
+     *
+     * <p>상품에 붙은 것은 「이 사유에 해당할 수 있다」는 표시고, 제한이 서려면
+     * <b>사유마다 다른 조건</b>이 차야 한다(전자상거래법 제17조제2항).
+     *
+     * <ul>
+     *   <li>{@code digital_content}(5호) — 제공이 개시돼야 한다. 반품 접수가 배송완료에서만
+     *       열려서({@code OrderStatusPolicy}) 공급이 전제고, 주문 시점에 성립한 것으로 본다</li>
+     *   <li>{@code made_to_order}(시행령 제21조) — <b>거래마다 별도 고지와 소비자의 동의</b>가
+     *       요건이다. 안 받았으면 제한이 없는 주문이고, 나중에 무를 수 있다</li>
+     *   <li>{@code copyable_media}(4호) — <b>여기서는 절대 성립하지 않는다.</b> 포장 훼손은
+     *       물건이 돌아와야 아는 사실이고 제17조제5항이 그 입증을 우리에게 지웠다.
+     *       판단은 반품 검수 축(43·44)이 한다</li>
+     * </ul>
+     *
      * @param reason           상품에 박힌 제한 사유. 없으면 {@code null}
      * @param restrictionAgreed 소비자가 그 제한에 동의했나
-     * @return 실제로 서는 제한 사유. <b>안 서면 {@code null}</b>
      */
     static String agreed(String reason, boolean restrictionAgreed) {
         if (reason == null) {

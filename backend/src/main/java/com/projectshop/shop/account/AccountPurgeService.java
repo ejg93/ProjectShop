@@ -81,15 +81,15 @@ public class AccountPurgeService {
      */
     private static final int GUEST_CART_DAYS = 30;
 
+    /** 토큰 보관 기간. `D13` 이 둘 다 30일로 정했고 기준은 **발급일**이다 */
+    private static final int TOKEN_RETENTION_DAYS = 30;
+
     /**
      * 멱등키를 보관하는 기간(`D11`).
      *
      * <p>재전송은 네트워크가 끊긴 직후 몇 초에서 몇 분 안에 온다. 24시간은 넉넉히 잡은 것이고
      * 지나면 아무도 조회하지 않는 행이다.
      */
-    /** 토큰 보관 기간. `D13` 이 둘 다 30일로 정했고 기준은 **발급일**이다 */
-    private static final int TOKEN_RETENTION_DAYS = 30;
-
     private static final int IDEMPOTENCY_KEY_HOURS = 24;
 
     /**
@@ -147,13 +147,6 @@ public class AccountPurgeService {
     }
 
     /**
-     * 지난 멱등키를 지운다.
-     *
-     * <p>개인정보가 아니라(`D9` 가 키에 개인정보를 넣지 말라고 정했다) 법이 걸리는 파기가 아니다.
-     * 여기 얹은 이유는 <b>수명이 끝난 행을 치운다는 일이 같아서</b>다 —
-     * 안 지우면 요청 하나당 한 행이 영구히 쌓인다.
-     */
-    /**
      * 토큰 둘을 발급일 기준으로 지운다(`Q62`, `D13` 「30일」).
      *
      * <p><b>수집하는 코드가 파기하는 코드보다 먼저 나왔다</b> — `5c-1`·`5e-1` 이 표를 세우고
@@ -177,6 +170,13 @@ public class AccountPurgeService {
         return resets + emails;
     }
 
+    /**
+     * 지난 멱등키를 지운다.
+     *
+     * <p>개인정보가 아니라(`D9` 가 키에 개인정보를 넣지 말라고 정했다) 법이 걸리는 파기가 아니다.
+     * 여기 얹은 이유는 <b>수명이 끝난 행을 치운다는 일이 같아서</b>다 —
+     * 안 지우면 요청 하나당 한 행이 영구히 쌓인다.
+     */
     private int deleteExpiredIdempotencyKeys(OffsetDateTime expiredBefore) {
         return jdbc.sql("delete from idempotency_key where created_at < :expiredBefore")
                 .param("expiredBefore", expiredBefore)

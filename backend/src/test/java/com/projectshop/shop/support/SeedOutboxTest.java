@@ -48,6 +48,25 @@ class SeedOutboxTest {
                 .contains("deletefromoutbox_event");
     }
 
+    /**
+     * <b>Flyway 시드만 비우면 반쪽이다</b>(마무리 23차 독립 리뷰).
+     * {@code DemoOrderSeeder} 가 그 뒤에 {@code ApplicationRunner} 로 돌면서 진짜 서비스를 태우고,
+     * 전이마다 트리거가 아웃박스를 다시 채운다 — <b>처음 쟀을 때 이 자리를 안 봤다.</b>
+     *
+     * <p>가르는 것은 <b>어떻게 만들었나</b>(SQL 이냐 서비스 호출이냐)가 아니라
+     * <b>진짜 일어난 일인가</b>다. 데모가 만든 주문은 둘 다 아니다.
+     */
+    @Test
+    @DisplayName("데모 주문 러너도 아웃박스를 비운다")
+    void demoRunnerClearsTheOutbox() {
+        Path runner = Path.of("src", "main", "java", "com", "projectshop", "shop",
+                "demo", "DemoOrderSeeder.java");
+
+        assertThat(readString(runner).replace(" ", ""))
+                .as("이 러너는 Flyway 시드 뒤에 돌면서 사건을 다시 낳는다 (`Q67`)")
+                .contains("deletefromoutbox_event");
+    }
+
     /** 번호순. Flyway 가 그 순서로 돌리므로 마지막 파일이 마지막에 돈다. */
     private static List<Path> seedFiles() {
         try (Stream<Path> files = Files.list(SEEDS)) {

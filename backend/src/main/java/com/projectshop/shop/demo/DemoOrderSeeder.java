@@ -150,7 +150,26 @@ public class DemoOrderSeeder implements ApplicationRunner {
         made.add(restricted.orderNumber());
         deliver(CRAFT_OWNER, sellerOrderNumber(restricted.orderId(), CRAFT));
 
+        clearOutbox();
+
         log.info("데모 주문 {}건을 만들었다: {}", made.size(), made);
+    }
+
+    /**
+     * 이 시드가 낳은 아웃박스 사건을 걷는다(`Q67`).
+     *
+     * <p><b>Flyway 시드만 비우면 반쪽이다</b>(마무리 23차 독립 리뷰). `V903` 이 표를 비우는데
+     * <b>이 러너가 그 뒤에 돌면서</b> 진짜 {@code OrderService} 를 태우고, 전이마다 트리거가
+     * 아웃박스를 다시 채운다 — 발행기가 서면 <b>데모로 만든 주문의 통지가 진짜처럼 나간다.</b>
+     *
+     * <p><b>여기 것도 사실이 아니다.</b> 「없던 일을 있었던 것처럼」 만드는 것은 SQL 이든
+     * 서비스 호출이든 같다 — 가르는 것은 <b>어떻게 만들었나</b>가 아니라 <b>진짜 일어난 일인가</b>다.
+     */
+    private void clearOutbox() {
+        int cleared = jdbc.sql("delete from outbox_event").update();
+        if (cleared > 0) {
+            log.info("데모 시드가 낳은 아웃박스 사건 {}건을 걷었다", cleared);
+        }
     }
 
     /**
