@@ -229,6 +229,25 @@ class InquiryVisibilityTest extends PostgresTestBase {
                     .isEqualTo(List.of());
         }
 
+        /**
+         * <b>키가 없을 때 「못 봄」과 「값 없음」을 가르는 것이 이 목록이다</b>(`Q75`).
+         *
+         * <p>응답이 {@code NON_NULL} 이라 둘 다 키가 사라진다 — 답이 아직 안 나간 문의와
+         * 답을 못 보는 사람의 응답이 같은 모양이다. {@code OrderQuery.Detail} 이 쓰던 짝을 그대로 맞췄다.
+         */
+        @Test
+        @DisplayName("본문을 볼 수 있으면 그룹 목록에 body 가 있다")
+        void carriesBodyGroupWhenVisible() {
+            ask(askerId, true);
+
+            assertThat(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::visibleFieldGroups)
+                    .as("셀러는 자기 상품 문의의 글을 본다")
+                    .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.list(String.class))
+                    .contains("body");
+        }
+
         /** 상태가 먼저 닫히면 권한이 있어도 빈 목록이다 — 그리기 전에 같은 답을 준다. */
         @Test
         @DisplayName("답이 나간 뒤에는 빈 목록이다")

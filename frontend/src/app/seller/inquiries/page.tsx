@@ -13,8 +13,9 @@ type SellerInquiry = {
   inquiryNumber: string;
   productId: number | null;
   productName: string | null;
-  question: string;
-  answer: string | null;
+  /** 못 보면 키가 아예 없다. 값이 없는 것과 갈리는 근거는 `_visible_field_groups` 다(`Q75`) */
+  question?: string;
+  answer?: string | null;
   status: "RECEIVED" | "ANSWERED" | "BLOCKED" | "WITHDRAWN";
   isPublic: boolean;
   createdAt: string;
@@ -84,7 +85,7 @@ export default async function SellerInquiriesPage() {
 
               <p className="whitespace-pre-wrap">{item.question}</p>
 
-              {item.answer === null ? null : (
+              {item.answer == null ? null : (
                 <div className="grid gap-1 rounded-ui bg-surface p-4">
                   <p className="text-text-muted">
                     내 답변
