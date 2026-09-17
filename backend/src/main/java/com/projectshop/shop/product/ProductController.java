@@ -215,7 +215,7 @@ public class ProductController {
     public record ProductRequest(
             @NotNull Long sellerId,
             @NotBlank @Size(max = 100) String name,
-            String description,
+            @Size(max = 2000) String description,
             Integer commissionBp,
             Boolean withdrawalRestricted,
             String withdrawalRestrictionReason,

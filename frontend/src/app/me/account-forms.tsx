@@ -71,7 +71,7 @@ function EmailForm({ email }: { email: string }) {
     <form ref={form} action={submit} className="grid gap-4 rounded-ui border border-border p-5">
       <h3 className="text-sm font-semibold">이메일 바꾸기</h3>
 
-      <Field name="email" type="email" label="새 이메일" autoComplete="email" defaultValue={email} />
+      <Field name="email" type="email" label="새 이메일" autoComplete="email" defaultValue={email} maxLength={254} />
       <Field
         name="emailPassword"
         type="password"

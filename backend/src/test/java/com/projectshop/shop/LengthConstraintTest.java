@@ -86,6 +86,9 @@ class LengthConstraintTest extends PostgresTestBase {
                         component(com.projectshop.shop.order.OrderController.ShippingRequest.class, "deliveryMemo"))),
                 Arguments.of("product_name_length_check", List.of(
                         component(com.projectshop.shop.product.ProductController.ProductRequest.class, "name"))),
+                // 셋째 층이 다 비어 있던 칸이다(`Q73`) — @Size 도 check 도 maxLength 도 없었다.
+                Arguments.of("product_description_length_check", List.of(
+                        component(com.projectshop.shop.product.ProductController.ProductRequest.class, "description"))),
                 Arguments.of("product_review_note_length_check", List.of(
                         component(com.projectshop.shop.product.ProductController.RejectRequest.class, "note"))),
                 Arguments.of("product_block_reason_length_check", List.of(
@@ -146,6 +149,13 @@ class LengthConstraintTest extends PostgresTestBase {
                     "쓰는 코드가 아직 없다 — 배상을 넣는 입구가 `43a-4c` 다. 그 입구가 서면 pairs() 로 옮긴다"),
             Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),
             Map.entry("idempotency_key_length_check", "헤더로 받은 키를 그대로 저장한다. 요청 record 의 칸이 아니다"),
+            // 수거지 넷은 **아직 요청 입구가 없다**(`Q73`). 표는 `V63` 이 세웠고 화면과 입구는
+            // `43a-5` 가 연다 — 그 청크가 record 를 만들 때 이 넷을 위 pairs() 로 옮긴다.
+            // 값은 짝인 order_shipping 과 맞춰 뒀으므로 그때 새로 정할 것이 없다.
+            Map.entry("return_pickup_sender_name_length_check", "수거지 입구가 아직 없다(`43a-5`). 값은 order_shipping 과 같다"),
+            Map.entry("return_pickup_address1_length_check", "〃"),
+            Map.entry("return_pickup_address2_length_check", "〃"),
+            Map.entry("return_pickup_pickup_memo_length_check", "〃"),
             Map.entry("payment_approval_number_length_check", "결제 대행사가 준 값이다. 우리가 상한을 정하지 않는다"),
             Map.entry("payment_card_issuer_length_check", "결제 대행사가 준 값이다"),
             Map.entry("payment_decline_reason_length_check", "결제 대행사가 준 값이다"),
@@ -262,5 +272,71 @@ class LengthConstraintTest extends PostgresTestBase {
             }
         }
         throw new AssertionError(record.getSimpleName() + " 에 " + name + " 칸이 없다");
+    }
+
+    /**
+     * {@code check} 제약이 하나도 안 걸린 {@code text} 컬럼. <b>상한이 없다는 뜻이다.</b>
+     *
+     * <p>열거값({@code in (...)})이나 형식 제약으로 닫힌 칸은 그 제약이 길이를 대신 묶으므로 뺀다 —
+     * 물어야 하는 것은 <b>아무것도 안 걸린 칸</b>이다.
+     */
+    private static final String UNBOUNDED_TEXT_COLUMNS = """
+            select c.relname || '.' || a.attname
+            from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
+            join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+            where c.relkind = 'r'
+              and a.atttypid = 'text'::regtype
+              and not exists (select 1 from pg_constraint k
+                              where k.conrelid = c.oid and k.contype = 'c'
+                                and a.attnum = any (k.conkey))
+            order by 1
+            """;
+
+    /**
+     * 상한이 없어도 되는 칸과 그 근거.
+     *
+     * <p><b>근거 없이 이름만 넣지 않는다</b> — {@code data-lifecycle.md} 「수명을 안 정하는 표」와 같은 규칙이다.
+     * 근거 칸이 없으면 이 목록이 <b>제약을 안 걸고 싶을 때 도망칠 자리</b>가 된다.
+     */
+    private static final Map<String, String> UNBOUNDED_ON_PURPOSE = new java.util.TreeMap<>(Map.ofEntries(
+            Map.entry("PLACEHOLDER", "첫 회차에 실물을 보고 채운다")));
+
+    /**
+     * 상한이 아예 없는 칸을 찾는다. <b>위 {@code pairs()} 와 방향이 반대다.</b>
+     *
+     * <p>{@code everyLengthConstraintIsAccountedFor} 는 {@code pg_constraint} 에서 <b>이미 있는</b>
+     * 길이 제약을 걷어 짝을 묻는다 — 그래서 <b>없는 칸은 구조적으로 안 세어진다.</b>
+     * 점검 O 가 그 구멍으로 {@code product.description} 과 {@code return_pickup} 넷을 찾았다.
+     * 세 층(앱·DB·화면)이 다 비어 있었는데 게이트 다섯이 전부 초록이었다.
+     */
+    @Test
+    @DisplayName("상한이 없는 text 컬럼은 전부 근거가 적혀 있다")
+    void everyUnboundedTextColumnIsAccountedFor() {
+        List<String> unbounded = jdbc.sql(UNBOUNDED_TEXT_COLUMNS).query(String.class).list();
+
+        List<String> unexplained = unbounded.stream()
+                .filter(column -> !UNBOUNDED_ON_PURPOSE.containsKey(column))
+                .toList();
+
+        assertThat(unexplained)
+                .describedAs("길이 상한이 아예 없는 text 컬럼이다. 제약을 걸거나, "
+                        + "안 걸 이유를 UNBOUNDED_ON_PURPOSE 에 근거와 함께 적는다")
+                .isEmpty();
+    }
+
+    /** 목록에 적어 둔 칸이 아직 상한 없이 남아 있나. 제약이 생기면 그 줄을 지운다. */
+    @Test
+    @DisplayName("근거를 적어 둔 칸은 아직 상한이 없다")
+    void explainedColumnsStillLackConstraints() {
+        List<String> unbounded = jdbc.sql(UNBOUNDED_TEXT_COLUMNS).query(String.class).list();
+
+        List<String> stale = UNBOUNDED_ON_PURPOSE.keySet().stream()
+                .filter(column -> !unbounded.contains(column))
+                .toList();
+
+        assertThat(stale)
+                .describedAs("이 칸에는 이제 제약이 걸려 있다. UNBOUNDED_ON_PURPOSE 에서 그 줄을 지운다")
+                .isEmpty();
     }
 }

@@ -209,4 +209,84 @@ class ScreenLengthTest {
                     Integer.parseInt(matcher.group(maxGroup))));
         }
     }
+
+    /**
+     * {@code name="x"} 만 있는 칸. <b>{@code maxLength} 가 붙었는지는 안 묻는다.</b>
+     *
+     * <p>위 {@code FIELD} 는 둘을 <b>같이</b> 요구해서 {@code maxLength} 가 없는 칸을 아예 못 걷는다 —
+     * 그래서 「상한을 빠뜨린 칸」이 목록에 안 들어가고 두 대조가 조용히 통과했다(점검 O).
+     */
+    private static final Pattern NAMED_FIELD = Pattern.compile(
+            "<[A-Za-z][^<>]*?\\bname=\"(\\w+)\"[^<>]*>",
+            Pattern.DOTALL);
+
+    /**
+     * {@code maxLength} 가 없어도 되는 화면 칸과 그 근거.
+     *
+     * <p><b>근거 없이 이름만 넣지 않는다.</b> 근거 칸이 없으면 이 목록이
+     * <b>상한을 빠뜨렸을 때 도망칠 자리</b>가 된다.
+     */
+    private static final Map<String, String> WITHOUT_SCREEN_LIMIT = new java.util.TreeMap<>(Map.ofEntries(
+            // **비밀번호는 안 자른다.** maxLength 는 넘친 글자를 조용히 버려서 사용자가 친 것과
+            // 다른 값이 간다 — 로그인은 그냥 실패하고, 변경은 <b>본인도 모르는 비밀번호</b>가 된다.
+            // 길이는 서버의 @Password 가 재고 거기서 400 으로 돌려준다(`D14`).
+            Map.entry("app/login/login-form.tsx  password", "비밀번호는 잘리면 안 된다. 서버 @Password 가 잰다"),
+            Map.entry("app/me/account-forms.tsx  currentPassword", "〃"),
+            Map.entry("app/me/account-forms.tsx  emailPassword", "〃"),
+            Map.entry("app/me/account-forms.tsx  newPassword", "〃"),
+            Map.entry("app/me/withdraw/withdraw-form.tsx  password", "〃"),
+            Map.entry("app/signup/signup-form.tsx  password", "〃"),
+
+            // 아래 넷은 글자를 받는 칸이 아니다. maxLength 속성 자체가 안 걸린다.
+            Map.entry("app/me/inquiries/inquiry-form.tsx  kind", "select 다. 고를 수 있는 값이 목록으로 닫혀 있다"),
+            Map.entry("app/products/[productId]/ask-form.tsx  isPublic", "checkbox 다. 값이 둘뿐이다"),
+            Map.entry("app/seller/products/new/product-form.tsx  priceInclVat",
+                    "type=number 다. maxLength 가 안 걸리고 범위는 min/max 가 든다"),
+            Map.entry("app/seller/products/new/product-form.tsx  stockCount", "〃")));
+
+    /**
+     * 화면 칸 중 {@code maxLength} 가 없는 것을 찾는다.
+     *
+     * <p><b>위 둘과 방향이 반대다.</b> {@code screenLimitsMatchServer} 는 상한이 <b>있는</b> 칸의 수를 묻고
+     * {@code unmatchedFieldsArePinned} 는 그중 서버 짝이 없는 것을 묻는다 — 둘 다
+     * <b>상한이 있는 칸의 목록</b>에서 시작해서, 아예 없는 칸은 어느 쪽에도 안 걸린다.
+     * 점검 O 가 그 구멍으로 셋을 찾았다: 가입의 {@code email}·{@code displayName} 과 계정의 {@code email} 이
+     * 서버에서 254·50·254 인데 화면에는 상한이 없었고, 그때 이 파일의 두 대조가 초록이었다.
+     */
+    @Test
+    @DisplayName("maxLength 가 없는 화면 칸은 전부 근거가 적혀 있다")
+    void fieldsWithoutMaxLengthArePinned() {
+        List<String> limited = screenFields().stream()
+                .map(field -> field.where() + "  " + field.name())
+                .toList();
+
+        List<String> missing = namedFields().stream()
+                .filter(field -> !limited.contains(field))
+                .filter(field -> !WITHOUT_SCREEN_LIMIT.containsKey(field))
+                .sorted()
+                .distinct()
+                .toList();
+
+        assertThat(missing)
+                .as("화면 입력칸에 maxLength 가 없다. 서버 @Size 와 같은 값을 주거나, "
+                        + "상한이 없어야 할 이유를 WITHOUT_SCREEN_LIMIT 에 근거와 함께 적는다")
+                .isEmpty();
+    }
+
+    /** 이름이 붙은 화면 칸 전부. {@code where  name} 꼴이라 위 목록들과 같은 표기다. */
+    private static List<String> namedFields() {
+        List<String> found = new ArrayList<>();
+        try (Stream<Path> files = Files.walk(SCREEN_ROOT)) {
+            for (Path file : files.filter(path -> path.toString().endsWith(".tsx")).toList()) {
+                Matcher matcher = NAMED_FIELD.matcher(Files.readString(file));
+                while (matcher.find()) {
+                    found.add(SCREEN_ROOT.relativize(file).toString().replace('\\', '/')
+                            + "  " + matcher.group(1));
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("화면 소스를 못 읽었다: " + SCREEN_ROOT.toAbsolutePath(), e);
+        }
+        return found;
+    }
 }
