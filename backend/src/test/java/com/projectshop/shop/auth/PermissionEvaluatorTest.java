@@ -195,32 +195,76 @@ class PermissionEvaluatorTest extends PostgresTestBase {
      * <p>이 테스트는 그 구멍이 실재함을 고정한다. 지금은 통과하는 것이 정상이고,
      * 읽기·쓰기 분류를 데이터로 갖게 되면 이 테스트가 깨진다. 깨지면 기대값을 뒤집는다.
      */
+    /**
+     * 읽기 전용 역할은 <b>나중에 생긴 쓰기 권한에도</b> 막힌다(`Q59`).
+     *
+     * <p><b>이 자리는 구멍이었고 테스트가 그것을 「통과하는 것이 정상」으로 고정하고 있었다.</b>
+     * 새 권한을 넣는 마이그레이션마다 「감사자 deny 도 같이 넣어라」가 {@code V12} 의 주석으로만
+     * 걸려 있었고(강제 지점 5위), 아홉 청크가 그것을 지켰다 — <b>지킨 것과 막힌 것은 다르다.</b>
+     * 지금은 {@code permission} 의 {@code after insert} 트리거가 만든다.
+     */
     @Nested
-    @DisplayName("알려진 구멍")
-    class KnownHole {
+    @DisplayName("읽기 전용 역할은")
+    class ReadOnlyRoles {
 
         @Test
-        @DisplayName("나중에 추가된 권한은 감사자를 막지 못한다")
-        void auditorLeaksThroughNewPermission() {
-            jdbc.sql("insert into permission (resource, action, description) values ('product', 'approve', '테스트용')")
+        @DisplayName("나중에 추가된 쓰기 권한에도 막힌다")
+        void isDeniedOnAWritePermissionAddedLater() {
+            addPermission("approve", "write");
+
+            assertThat(decisionForAuditor("approve").allowed())
+                    .as("트리거가 거부를 안 만들면 감사자가 새 쓰기 권한을 지난다")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("나중에 추가된 읽기 권한은 지난다")
+        void passesOnAReadPermissionAddedLater() {
+            addPermission("summary", "read");
+
+            assertThat(decisionForAuditor("summary").allowed())
+                    .as("읽기까지 막으면 감사가 안 된다. 가르는 것은 이름이 아니라 kind 다")
+                    .isTrue();
+        }
+
+        /** 역할이 나중에 읽기 전용이 돼도 <b>그때까지의 쓰기 권한 전부</b>가 막힌다. */
+        @Test
+        @DisplayName("역할을 읽기 전용으로 바꾸면 기존 쓰기 권한이 전부 막힌다")
+        void deniesEveryExistingWritePermission() {
+            jdbc.sql("update role set read_only = true where code = 'admin'").update();
+
+            long staff = fixture.insertUser("readonly-admin@test.local", "읽기전용관리자");
+            fixture.grantGlobal(staff, "admin");
+
+            assertThat(evaluator.decide(staff, "product", "update", Target.ofSeller(alpha)).allowed())
+                    .as("읽기 전용으로 바꾼 순간의 쓰기 권한도 같이 막혀야 한다")
+                    .isFalse();
+        }
+
+        private void addPermission(String action, String kind) {
+            jdbc.sql("""
+                            insert into permission (resource, action, description, kind)
+                            values ('product', :action, '테스트용', :kind)
+                            """)
+                    .param("action", action)
+                    .param("kind", kind)
                     .update();
             jdbc.sql("""
                             insert into role_permission (role_id, permission_id, scope, effect)
                             select r.role_id, p.permission_id, 'all', 'allow'
                             from permission p join role r on r.code = 'admin'
-                            where p.resource = 'product' and p.action = 'approve'
+                            where p.resource = 'product' and p.action = :action
                             """)
+                    .param("action", action)
                     .update();
+        }
 
-            long auditor = fixture.insertUser("auditor2@test.local", "감사자");
+        private Decision decisionForAuditor(String action) {
+            long auditor = fixture.insertUser("auditor-" + action + "@test.local", "감사자");
             fixture.grantGlobal(auditor, "auditor");
             fixture.grantGlobal(auditor, "admin");
 
-            Decision decision = evaluator.decide(auditor, "product", "approve", Target.ofSeller(alpha));
-
-            assertThat(decision.allowed())
-                    .as("감사자가 새 쓰기 권한을 통과한다. 권한을 추가한 마이그레이션이 deny 를 안 넣어서다")
-                    .isTrue();
+            return evaluator.decide(auditor, "product", action, Target.ofSeller(alpha));
         }
     }
 
