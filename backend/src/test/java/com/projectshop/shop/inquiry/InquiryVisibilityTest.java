@@ -1,6 +1,7 @@
 package com.projectshop.shop.inquiry;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import java.util.List;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -191,6 +192,54 @@ class InquiryVisibilityTest extends PostgresTestBase {
             assertThatThrownBy(() -> query.findForSeller(askerId, new Paging(0, 20)))
                     .as("0건이 아니다 — 0건과 못 봄이 갈려야 개수로 정보가 안 샌다")
                     .isInstanceOf(ShopException.class);
+        }
+
+        /**
+         * <b>화면이 권한을 따로 안 묻게 서버가 답을 싣는다</b>(`Q79`, `D20`).
+         *
+         * <p>그전에는 화면이 {@code status === "RECEIVED"} 만 보고 답변 폼을 그렸다.
+         * 안 샌 이유는 부여표가 {@code inquiry:answer} 를 셀러에게만 준 것뿐이라,
+         * <b>부여가 바뀌면 조용히 샜다.</b>
+         */
+        @Test
+        @DisplayName("답할 수 있으면 ANSWER 를 싣는다")
+        void carriesAnswerActionWhenAnswerable() {
+            ask(askerId, true);
+
+            assertThat(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::allowedActions)
+                    .as("셀러는 아직 답이 안 나간 문의에 답할 수 있다")
+                    .isEqualTo(List.of("ANSWER"));
+        }
+
+        /**
+         * <b>전체 목록은 조작을 안 싣는다.</b> 관리자·감사자가 훑는 자리라 답변 입구가 아니다 —
+         * 답은 셀러 목록에서 나간다. 여기서 폼을 그릴 일이 없다는 것을 계약으로 고정한다.
+         */
+        @Test
+        @DisplayName("전체 목록에는 조작이 안 실린다")
+        void neverCarriesActionsOnTheAdminListing() {
+            ask(askerId, true);
+
+            assertThat(query.findAll(auditorId, new Paging(0, 20)).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::allowedActions)
+                    .as("감사자는 읽기만 한다")
+                    .isEqualTo(List.of());
+        }
+
+        /** 상태가 먼저 닫히면 권한이 있어도 빈 목록이다 — 그리기 전에 같은 답을 준다. */
+        @Test
+        @DisplayName("답이 나간 뒤에는 빈 목록이다")
+        void dropsAnswerActionOnceAnswered() {
+            String number = ask(askerId, true);
+            inquiries.answer(sellerOwnerId, number, "곧 보냅니다");
+
+            assertThat(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::allowedActions)
+                    .isEqualTo(List.of());
         }
     }
 

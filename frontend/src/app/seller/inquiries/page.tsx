@@ -19,6 +19,8 @@ type SellerInquiry = {
   isPublic: boolean;
   createdAt: string;
   answeredAt: string | null;
+  /** 서버가 계산해 내려준다. 화면은 권한을 따로 안 묻는다(`D20`) */
+  allowedActions: string[];
 };
 
 type Page = { items: SellerInquiry[]; page: number; size: number; total: number };
@@ -92,8 +94,8 @@ export default async function SellerInquiriesPage() {
                 </div>
               )}
 
-              {/* 답할 수 있는 것은 아직 답이 안 나간 것뿐이다 — 서버가 조건부 UPDATE 로 막는다 */}
-              {item.status === "RECEIVED" ? (
+              {/* 권한과 상태를 서버가 같이 봤다. 상태만 보면 부여표가 바뀌는 날 조용히 샌다(`Q79`) */}
+              {item.allowedActions.includes("ANSWER") ? (
                 <AnswerForm inquiryNumber={item.inquiryNumber} />
               ) : null}
             </li>

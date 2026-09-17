@@ -42,6 +42,8 @@ public class InquiryQuery {
 
     private static final String RESOURCE = "inquiry";
     private static final String READ = "read";
+    /** 답변 권한. `V54` 가 셀러에게만 허용하고 감사자에게 거부한다 */
+    private static final String ANSWER = "answer";
 
     // 정렬을 안 받는다(`D5` 는 목록에 정렬을 열라고 하지 않는다).
     //
@@ -65,13 +67,21 @@ public class InquiryQuery {
     public record PublicEntry(String inquiryNumber, String question, String answer,
             String status, OffsetDateTime createdAt, OffsetDateTime answeredAt) {}
 
-    /** 자기 것이거나 자기 셀러 것을 볼 때 쓰는 한 줄. 대상과 공개 여부가 같이 나간다 */
+    /**
+     * 자기 것이거나 자기 셀러 것을 볼 때 쓰는 한 줄. 대상과 공개 여부가 같이 나간다.
+     *
+     * @param allowedActions 지금 이 문의에 할 수 있는 것. <b>화면이 권한을 따로 안 묻는다</b>(`Q79`,
+     *                       `D20` 「할 수 없는 조작은 화면에 안 그린다」). 한 자원의 조작은 그 자원
+     *                       응답이 들고, 전역 메뉴만 {@code /api/me/permissions} 로 묻는다.
+     *                       이름은 대문자고 <b>소문자·하이픈으로 바꾸면 경로</b>다 —
+     *                       {@code ANSWER} 가 {@code /api/inquiries/{번호}/answer} 다(주문과 같은 꼴)
+     */
     @Schema(name = "InquiryEntry")
     public record Entry(String inquiryNumber, String kind, Long productId, String productName,
             String sellerOrderNumber,
             String question, String answer, String status, boolean isPublic,
             OffsetDateTime createdAt, OffsetDateTime answeredAt,
-            OffsetDateTime dueAt, boolean overdue) {}
+            OffsetDateTime dueAt, boolean overdue, List<String> allowedActions) {}
 
     /**
      * 목록 규약(`D5`). 셋 다 같은 봉투를 쓴다.
@@ -159,8 +169,12 @@ public class InquiryQuery {
         boolean body = bodyVisibleTo(viewerId, Target.ofSeller(sellers.iterator().next()),
                 "셀러 문의를 볼 권한이 없다");
 
+        boolean canAnswer = evaluator
+                .decide(viewerId, RESOURCE, ANSWER, Target.ofSeller(sellers.iterator().next()))
+                .allowed();
+
         return find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
-                Map.of("sellers", sellers.toArray(Long[]::new)), paging, body);
+                Map.of("sellers", sellers.toArray(Long[]::new)), paging, body, canAnswer);
     }
 
     /**
@@ -193,6 +207,16 @@ public class InquiryQuery {
      */
     private Page<Entry> find(String condition, Map<String, Object> params, Paging paging,
             boolean body) {
+        return find(condition, params, paging, body, false);
+    }
+
+    /**
+     * @param canAnswer 이 사람이 이 목록의 문의에 답할 권한이 있나. <b>행마다 안 묻는다</b> —
+     *                  스코프가 셀러라 한 셀러로 물으면 결과가 같다({@link #findForSeller} 의 주석과 같은 이유).
+     *                  행마다 갈리는 것은 <b>상태</b>뿐이라 아래에서 그것만 본다.
+     */
+    private Page<Entry> find(String condition, Map<String, Object> params, Paging paging,
+            boolean body, boolean canAnswer) {
 
         var listing = jdbc.sql("""
                         select i.inquiry_number, i.kind, i.product_id, p.name as product_name,
@@ -237,7 +261,8 @@ public class InquiryQuery {
                         rs.getObject("created_at", OffsetDateTime.class),
                         rs.getObject("answered_at", OffsetDateTime.class),
                         rs.getObject("due_at", OffsetDateTime.class),
-                        rs.getBoolean("overdue")))
+                        rs.getBoolean("overdue"),
+                        answerActions(canAnswer, rs.getString("status"))))
                 .list();
 
         return new Page<>(items, paging.page(), paging.size(), counting.query(Long.class).single());
@@ -249,6 +274,19 @@ public class InquiryQuery {
      * <p><b>못 봄이 0건이 아니다</b> — 0건과 못 봄이 갈려야 개수로 정보가 안 샌다
      * ({@code RefundQuery} 와 같은 판단).
      */
+    /**
+     * 답할 수 있으면 {@code ANSWER} 하나, 아니면 빈 목록.
+     *
+     * <p><b>권한과 상태를 여기서 같이 본다.</b> 화면이 상태만 보고 그리던 것이 `Q79` 가 찾은 자리다 —
+     * 그때 안 샌 이유는 부여표가 {@code inquiry:answer} 를 셀러에게만 준 것뿐이라,
+     * <b>부여가 바뀌면 조용히 샜다.</b> 답이 이미 나간 것을 막는 것은 서버의 조건부 {@code UPDATE} 고
+     * 이 목록은 <b>그리기 전에</b> 같은 답을 준다.
+     */
+    private static List<String> answerActions(boolean canAnswer, String status) {
+        boolean answerable = canAnswer && InquiryStatus.RECEIVED == InquiryStatus.of(status);
+        return answerable ? List.of("ANSWER") : List.of();
+    }
+
     private boolean bodyVisibleTo(long viewerId, Target target, String message) {
         var decision = evaluator.decide(viewerId, RESOURCE, READ, target);
         if (!decision.allowed()) {
