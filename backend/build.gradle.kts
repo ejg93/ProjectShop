@@ -50,6 +50,18 @@ dependencyManagement {
 }
 
 dependencies {
+	// **Dependabot 경보 #6 을 닫는다**(2026-09-17, medium). `at.yawk.lz4:lz4-java` 1.10.1 이
+	// `kafka-clients` 를 타고 들어오는데(spring-boot-starter-kafka → spring-kafka → kafka-clients),
+	// 네이티브 XXHash 가 **잘못된 배열 범위를 받으면 JVM 을 죽인다**(<= 1.11.0).
+	//
+	// **우리가 그 길을 밟나**: 지금은 안 밟는다 — `compression.type` 을 안 정해서 카프카 기본값
+	// `none` 이고, LZ4 코덱이 안 불린다. **그래도 고정한다** — 「안 걸리는 설정을 켜 두면
+	// 「막고 있다」고 읽힌다」와 같은 자리다. 압축을 켜는 날 이 경보를 다시 만나는 것보다
+	// 지금 한 줄이 싸고, **버전이 올라가면 이 제약이 저절로 무의미해진다**(아래가 더 낮으면 진다).
+	constraints {
+		implementation("at.yawk.lz4:lz4-java:1.11.1")
+	}
+
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-cache")
 	implementation("com.github.ben-manes.caffeine:caffeine")
