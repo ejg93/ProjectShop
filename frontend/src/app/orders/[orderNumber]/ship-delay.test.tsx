@@ -83,6 +83,12 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
+/**
+ * 자동 구매확정을 <b>미리 알리는 자리</b>다(`R31`, 약관규제법 제12조1호).
+ *
+ * **미리 알리지 않으면 그 의제가 무효다** — 기한만 지켜도 안 되고 화면이 말해야 한다.
+ * 기한 자체는 `OrderStatusBatchTest.AutoConfirm` 이 잰다.
+ */
 describe("발송 지연 안내", () => {
   it("기한이 지나고 안 보냈으면 취소할 수 있다고 말한다", async () => {
     await renderOrder({

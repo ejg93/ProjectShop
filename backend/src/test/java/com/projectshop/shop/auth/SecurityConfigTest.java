@@ -18,7 +18,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.projectshop.shop.PostgresTestBase;
 
 /**
- * 인증 기반이 깔린 모양을 고정한다.
+ * 인증 기반이 깔린 모양을 고정한다(`D2` R10).
+ *
+ * <p><b>`R10`(비밀번호를 복원 불가능하게 저장) 이 여기 걸린다</b> — 개인정보보호법 제24조제3항.
+ * 아래 {@code PasswordEncoder} 대조가 그 요건의 강제 지점이다.
  *
  * <p>여기서 잡으려는 실패는 두 가지다. 하나는 <b>열려 있으면 안 되는 경로가 열리는 것</b>,
  * 다른 하나는 <b>인증 실패가 401 이 아닌 형태로 나가는 것</b>이다.

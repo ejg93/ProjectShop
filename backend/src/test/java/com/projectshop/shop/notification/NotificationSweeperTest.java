@@ -18,7 +18,11 @@ import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.order.OrderFixture;
 
 /**
- * 법이 요구하는 통지 넷이 실제로 나가는가(청크 56, `D2` R20).
+ * 법이 요구하는 통지 넷이 실제로 나가는가(청크 56, `D2` R20 · R23 · R35).
+ *
+ * <p><b>`R35`(청약 접수 확인 통지) 가 그 넷 중 앞의 둘이다</b> — {@code order_placed} 와
+ * {@code payment_completed}. 법이 「신속하게」를 요구하고(전자상거래법 제14조제1항),
+ * `33a` 뒤로는 사건을 받은 소비자가 그 자리에서 보내 5분이 초 단위로 내려왔다.
  *
  * <p><b>이 요건은 코드를 훑어서는 안 보인다.</b> 네 시점의 화면은 다 있었고 컬럼도 다 있었는데
  * <b>보내는 자리가 없었다</b> — 어느 파일을 열어도 빠진 것이 안 드러난다(`D23` 「지켜지는지는
