@@ -61,7 +61,9 @@ class SchemaNamingTest extends PostgresTestBase {
     private static final Map<String, String> TYPED_SUFFIXES = Map.of(
             "_at", "timestamp with time zone",
             "_date", "date",
-            "_bp", "integer");
+            "_bp", "integer",
+            "_amount", "bigint",
+            "_hash", "text");
 
     private static final Set<String> NON_INTEGER_MONEY_TYPES = Set.of(
             "numeric", "decimal", "real", "double precision", "money");
