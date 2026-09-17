@@ -74,7 +74,8 @@ const REJECT: PayoutAction = {
  * 지급액이 0 이하인 정산서는 이월로 넘어가지 지급 대상이 아니라, 그 버튼을 그리면
  * <b>눌러야 422 가 나는 버튼</b>이 된다.
  *
- * @param granted 판정이 내려준 목록. 범위는 안 본다 — 대상별 판정은 서버가 한다
+ * @param allowed 서버가 준 동작 이름 목록(`Q81`). **권한 목록이 아니다** — 권한·상태·요청자를
+ *                서버가 한자리에서 보고 남은 것만 이름으로 준다. 모르는 이름은 버린다
  */
 export function payoutActionsFor(allowed: readonly string[]): PayoutAction[] {
   return ALL.filter((action) => allowed.includes(action.name));

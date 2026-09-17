@@ -23,7 +23,7 @@ afterEach(() => {
  */
 describe("지급 버튼", () => {
   // **상태와 권한을 여기서 안 잰다**(`Q81`). 그 판단은 서버가 하고
-  // `SettlementPayoutActionsTest` 가 잰다 — 화면은 이름을 버튼으로 바꾸기만 한다.
+  // `SettlementPayoutTest.AllowedActions` 가 잰다 — 화면은 이름을 버튼으로 바꾸기만 한다.
 
   it("서버가 준 이름만 버튼이 된다", () => {
     expect(payoutActionsFor(["PAYOUT"]).map((action) => action.label)).toEqual(["지급 승인"]);
