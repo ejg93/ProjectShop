@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { ApiError, api } from "@/lib/api";
-import type { Permission } from "@/lib/permissions";
 
 /**
  * 이 정산서에 지금 할 수 있는 것(`20-1`).
@@ -36,8 +35,6 @@ export type PayoutAction = {
   label: string;
   confirm: string;
 };
-
-const RESOURCE = "settlement";
 
 /**
  * 지급을 올린다. <b>반려된 것도 이 버튼으로 다시 온다.</b>

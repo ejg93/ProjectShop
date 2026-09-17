@@ -20,9 +20,17 @@ alter table outbox_event add constraint outbox_event_type_check check (type in (
     'shop.refund.status_changed', 'shop.return_request.status_changed',
     'shop.settlement.payout_changed', 'shop.batch_run.finished'));
 
--- 이미 쌓인 행도 옮긴다. **불변 트리거가 `type` 을 안 본다** — 그것이 막는 것은
--- 봉투의 뜻이 바뀌는 자리(`data`·`subject`·`occurred_at`)고, 여기는 배포 전 이름 교정이다.
+-- 이미 쌓인 행도 옮긴다. **불변 트리거가 `type` 도 본다**(`V70` 의 `assert_outbox_event_immutable`) —
+-- 처음 쓸 때 「안 본다」고 적었는데 사실이 아니었다(마무리 22차 독립 리뷰). 빈 표에서는 이 `update` 가
+-- 0행이라 테스트도 CI 도 초록인데, **행이 하나라도 있는 DB 에서는 마이그레이션이 죽는다.**
+--
+-- 그래서 그 트리거를 잠깐 끄고 켠다. **끄는 범위가 이 문장 하나여야 한다** —
+-- 켜는 것을 빠뜨리면 그 뒤로 봉투를 아무나 고칠 수 있고, 그것은 트리거가 없는 것과 같다.
+alter table outbox_event disable trigger outbox_event_immutable;
+
 update outbox_event set type = 'shop.batch_run.finished' where type = 'shop.batch.run_finished';
+
+alter table outbox_event enable trigger outbox_event_immutable;
 
 -- ---------------------------------------------------------------------------
 -- 2. 반품 — `subject` 가 내부 id 였다

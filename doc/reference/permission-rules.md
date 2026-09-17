@@ -421,8 +421,8 @@ where p.action not in ('read')
 | 무엇 | 어디 | 왜 |
 |---|---|---|
 | `permission.kind` — `read` / `write` | 컬럼. `not null`, **기본값 없음** | 새 권한을 넣는 사람이 매번 정하게 한다. 이름으로 안 가른다 — 구멍 2 가 닫힌다 |
-| `role.read_only` | 컬럼. 감사자가 `true` | 「읽기만 하는 역할」이 이름(`auditor`)이 아니라 속성이 된다 |
-| 트리거 둘 | `permission` 에 `write` 가 서면 `read_only` 역할 전부에 `deny/all` · 역할이 `read_only` 로 서면 기존 `write` 전부에 `deny/all` | **잊을 방법이 없다** — DB 제약(2위). 이미 손으로 넣은 행과는 `on conflict do nothing` |
+| `role.is_read_only` | 컬럼. 감사자가 `true` | 「읽기만 하는 역할」이 이름(`auditor`)이 아니라 속성이 된다 |
+| 트리거 둘 | `permission` 에 `write` 가 서면 `read_only` 역할 전부에 `deny/all` · 역할이 `is_read_only` 로 서면 기존 `write` 전부에 `deny/all` | **잊을 방법이 없다** — DB 제약(2위). 이미 손으로 넣은 행과는 `on conflict do nothing` |
 | `kind` 는 못 고친다 | `before update of kind` 트리거가 거부 | 고치면 **이미 만든 거부가 남거나 빠진다** — `write`→`read` 는 거부가 남고 `read`→`write` 는 `after insert` 가 안 돈다. 바꿔야 하면 권한을 새로 만든다 |
 
 **선 것**: `V75__permission_kind.sql` · `auth/PermissionKind` · `PermissionSchemaTest`(넷) ·

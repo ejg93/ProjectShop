@@ -457,7 +457,7 @@ class OutboxEventSchemaTest extends PostgresTestBase {
         emitEveryEvent();
 
         List<String> offenders = jdbc.sql("""
-                        select type || ' → ' || key
+                        select distinct type || ' → ' || key
                           from outbox_event, jsonb_object_keys(data) as key
                          where key like '%\\_id'
                             or key in ('email', 'phone', 'name', 'display_name',

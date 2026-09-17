@@ -1,25 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Permission } from "@/lib/permissions";
 
 import { PayoutActions, payoutActionsFor } from "./payout-actions";
 
 // 조작 뒤에 부르는 것들이다. 여기서 고정하려는 것은 「무엇을 그리나」라 실제로 부르지 않게 막아 둔다.
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
-
-/** 셀러가 받는 것. 정산서를 볼 수는 있고 지급은 못 건드린다(`V56`·`V57`) */
-const SELLER: Permission[] = [{ resource: "settlement", action: "read", scopes: ["SELLER"] }];
-
-/** 관리자가 받는 것. 요청과 승인이 다른 동작이다(`V57`) */
-const ADMIN: Permission[] = [
-  { resource: "settlement", action: "read", scopes: ["ALL"] },
-  { resource: "settlement", action: "request_payout", scopes: ["ALL"] },
-  { resource: "settlement", action: "payout", scopes: ["ALL"] },
-];
-
-const REQUESTED = { payoutStatus: "REQUESTED", payoutAmount: 10_000 };
-const PENDING = { payoutStatus: "PENDING", payoutAmount: 10_000 };
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -28,11 +14,12 @@ afterEach(() => {
 /**
  * 지급 버튼이 무엇을 그리나(`20-1`·`D15`).
  *
- * <p><b>이 파일이 이 청크의 강제 지점이다.</b> 「권한 없는 버튼을 안 그린다」는 빌드·린트·타입
- * 검사를 전부 통과하면서 틀릴 수 있다 — 화면이 그리는 것은 타입이 아니라 <b>고른 결과</b>다.
+ * <p><b>재는 것이 바뀌었다</b>(`Q81`). 전에는 상태와 권한을 화면이 맞춰 봐서 그 표를 여기서 쟀는데,
+ * 지금은 <b>서버가 셋(권한·상태·누가 올렸나)을 보고 이름 목록으로 준다</b> —
+ * 그 판단은 {@code SettlementPayoutTest.AllowedActions} 가 잰다.
  *
- * <p><b>상태와 권한을 둘 다 시험한다.</b> 한쪽만 보면 다른 쪽이 조용히 열린다 —
- * 권한만 보면 이미 지급한 정산서에 승인 버튼이 뜨고, 상태만 보면 셀러에게 지급 버튼이 뜬다.
+ * <p><b>여기 남은 것은 이름을 버튼으로 바꾸는 자리</b>와 확인·알림 흐름이다.
+ * 모르는 이름이 오면 버리는 것도 여기서 잰다 — 서버가 새 동작을 내려도 화면이 안 깨진다.
  */
 describe("지급 버튼", () => {
   // **상태와 권한을 여기서 안 잰다**(`Q81`). 그 판단은 서버가 하고

@@ -231,7 +231,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("역할을 읽기 전용으로 바꾸면 기존 쓰기 권한이 전부 막힌다")
         void deniesEveryExistingWritePermission() {
-            jdbc.sql("update role set read_only = true where code = 'admin'").update();
+            jdbc.sql("update role set is_read_only = true where code = 'admin'").update();
 
             long staff = fixture.insertUser("readonly-admin@test.local", "읽기전용관리자");
             fixture.grantGlobal(staff, "admin");

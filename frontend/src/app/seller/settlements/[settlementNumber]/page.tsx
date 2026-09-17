@@ -4,9 +4,8 @@ import { notFound } from "next/navigation";
 
 import { PayoutActions, payoutActionsFor } from "@/components/payout-actions";
 import { ApiError } from "@/lib/api";
-import { apiSession, apiSessionOptional } from "@/lib/api-session";
+import { apiSession } from "@/lib/api-session";
 import { dateText, dateTimeText, priceText } from "@/lib/format";
-import type { Me } from "@/lib/permissions";
 import {
   commissionRateText,
   payoutStatusText,

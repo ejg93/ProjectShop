@@ -37,11 +37,12 @@ alter table permission add constraint permission_kind_check
 -- 2. 읽기만 하는 역할
 -- ---------------------------------------------------------------------------
 
+-- 이름이 `is_` 로 시작한다(`D22` 「불리언은 `is_` 로 시작한다」) — `SchemaNamingTest` 가 잰다.
 -- 역할 쪽에도 데이터로 둔다. `code = 'auditor'` 를 트리거가 글자로 비교하게 하면
 -- **읽기 전용 역할이 둘째로 생기는 날** 그 트리거를 고쳐야 한다.
-alter table role add column read_only boolean not null default false;
+alter table role add column is_read_only boolean not null default false;
 
-update role set read_only = true where code = 'auditor';
+update role set is_read_only = true where code = 'auditor';
 
 -- ---------------------------------------------------------------------------
 -- 3. 거부를 만드는 트리거 둘
@@ -57,7 +58,7 @@ begin
         insert into role_permission (role_id, permission_id, scope, effect)
         select r.role_id, new.permission_id, 'all', 'deny'
           from role r
-         where r.read_only
+         where r.is_read_only
         on conflict do nothing;
     end if;
     return null;
@@ -72,7 +73,7 @@ create trigger permission_denies_read_only_roles
 -- `after insert or update of read_only` 라 새로 만든 읽기 전용 역할도 같은 길로 채워진다.
 create or replace function deny_writes_for_read_only_role() returns trigger as $$
 begin
-    if new.read_only then
+    if new.is_read_only then
         insert into role_permission (role_id, permission_id, scope, effect)
         select new.role_id, p.permission_id, 'all', 'deny'
           from permission p
@@ -84,7 +85,7 @@ end;
 $$ language plpgsql;
 
 create trigger role_denies_writes_when_read_only
-    after insert or update of read_only on role
+    after insert or update of is_read_only on role
     for each row execute function deny_writes_for_read_only_role();
 
 -- ---------------------------------------------------------------------------
