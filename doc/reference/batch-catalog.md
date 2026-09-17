@@ -20,7 +20,6 @@
 | 회차 재시도 스위퍼 | 일시적으로 실패한 회차를 다시 돌린다 | 10분 `fixedDelay` | `batch_run` 의 마지막 회차가 `transient` 실패이거나 `skipped` 이고 시도가 셋 미만 | `BatchRetrySweeper.sweep` |
 | 아웃박스 발행기 | 안 보낸 사건을 집어 Kafka 로 보내고 **답을 받은 것만** 보냄으로 표시한다 | 2초 `fixedDelay` | `outbox_event.published_at` 이 비었고 집힌 지 1분이 넘었거나 아직 안 집혔다 | `OutboxPublisher.publishOnce` |
 | 정산 마감 | 전달 구매확정분을 셀러별 정산서로 묶어 지급액을 확정한다 | **매월 1일** 05:00 KST | 기준일이 **전달 말일**. 그 달의 구매확정·배송비·정산된 건의 환불·지난 음수 잔액 | `SettlementCloseBatch.close` |
-| 정산 마감 | 정산 주기가 끝난 건을 확정한다 | 미정 (청크 19) | 미정 | 아직 없다 |
 
 파기 둘은 청크 36 이 스케줄에 붙였다. **배치 클래스와 서비스를 갈랐다** —
 파기 서비스가 `@Transactional` 이라 거기에 `@Scheduled` 를 붙이면 회차 기록이 파기와 한 트랜잭션이 되고,
