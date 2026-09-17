@@ -17,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
-import jakarta.servlet.http.Cookie;
 
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -26,6 +25,7 @@ import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import jakarta.servlet.http.Cookie;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -295,6 +295,55 @@ class AuthLoginTest extends PostgresTestBase {
 
             mvc.perform(get("/api/orders").cookie(sessionCookie(sessionId)))
                     .andExpect(status().isUnauthorized());
+        }
+    }
+
+
+    /**
+     * 동시접속이 1개로 제한되나(`Q63`, `D14` 의 「규제」 등급).
+     *
+     * <p><b>부품이 아무것도 안 막던 자리다.</b> 탈퇴가 세션 저장소를 직접 지우게 되면서(`Q52`)
+     * 「만료 표시를 남기고 필터가 읽는다」 경로가 사라졌고, 명부·필터·전략 셋이 쓰는 곳 없이 남았다.
+     * {@code maximumSessions} 는 안 켜져 있어서 <b>동시 로그인이 무제한</b>이었다.
+     *
+     * <p>여기서 재는 것은 <b>설정이 켜졌나</b>가 아니라 <b>실제로 끊기나</b>다 — 켜 두고 안 걸리는 것이
+     * 이 청크가 없애려는 바로 그 상태다.
+     */
+    @Nested
+    @DisplayName("동시접속 제한은")
+    class ConcurrentSessions {
+
+        @Test
+        @DisplayName("둘째 로그인이 첫째 세션을 끊는다")
+        void expiresTheOlderSession() throws Exception {
+            String first = sessionIdOf(logIn(PASSWORD).andExpect(status().isOk()));
+
+            logIn(PASSWORD).andExpect(status().isOk());
+
+            // **401 인 것이 곧 「끊겼다」다.** 인가까지 가면 403 이 나오므로(이 계정엔 역할이 없다)
+            // 401 과 403 을 가르는 것이 여기서 재는 것이다 — 위 `changesSessionId` 와 반대 방향이다.
+            mvc.perform(get("/api/me").cookie(sessionCookie(first)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        /**
+         * <b>새 로그인은 막지 않는다</b>({@code maxSessionsPreventsLogin(false)}).
+         *
+         * <p>반대로 두면 브라우저를 그냥 닫아 세션이 매달린 사람이 타임아웃까지 자기 계정에
+         * 못 들어온다 — <b>막는 것이 남이 아니라 본인</b>이 된다.
+         */
+        @Test
+        @DisplayName("둘째 로그인 자체는 지나간다")
+        void letsTheNewerLoginThrough() throws Exception {
+            logIn(PASSWORD).andExpect(status().isOk());
+
+            String second = sessionIdOf(logIn(PASSWORD).andExpect(status().isOk()));
+
+            // 401 이 아니면 인증이 남은 것이다. 그 뒤 권한 판정은 다른 축이라 여기서 안 본다.
+            mvc.perform(get("/api/me").cookie(sessionCookie(second)))
+                    .andExpect(result -> assertThat(result.getResponse().getStatus())
+                            .as("새 세션은 살아 있어야 한다")
+                            .isNotEqualTo(401));
         }
     }
 
