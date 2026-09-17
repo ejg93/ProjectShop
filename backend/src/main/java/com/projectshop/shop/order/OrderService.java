@@ -128,6 +128,7 @@ public class OrderService {
         }
 
         long orderId = insertOrder(userId, lines);
+        recordCreated(orderId, userId);
         decreaseStock(orderId, lines);
         insertSellerOrdersAndItems(orderId, lines, command.withdrawalRestrictionAgreed());
         insertShipping(orderId, command.shipping());
@@ -272,6 +273,31 @@ public class OrderService {
                         "sku_id=%d 의 재고가 모자란다".formatted(line.skuId()));
             }
         }
+    }
+
+    /**
+     * 주문이 생겼다는 것을 상태 이력에 남긴다(`33a`).
+     *
+     * <p><b>이 행이 없으면 청약 접수 확인 통지가 5분 늦는다.</b> 이력 행이 사건을 낳고
+     * (`outbox_event` 트리거, `Q57`) 그 사건을 소비자가 즉시 처리한다 — 행이 없으면 사건도 없어서
+     * 스위퍼가 표를 훑어 찾을 때까지 기다린다. 전자상거래법 제14조제1항이 「신속하게」를 요구하는
+     * 바로 그 통지다(`D2` R20).
+     *
+     * <p><b>표는 이 행을 처음부터 예상하고 있었다.</b> {@code from_status} 가 비어도 되게 만들어져
+     * 있고(`V18`) 전이 검사도 「비어 있음 → 결제대기」를 받는다. 넣는 코드만 없었다.
+     *
+     * <p><b>행위자가 산 사람이다.</b> 시스템이 옮긴 것이 아니라 손님이 청약한 것이라
+     * {@code customer} 로 남기고 누구인지도 같이 적는다.
+     */
+    private void recordCreated(long orderId, long userId) {
+        jdbc.sql("""
+                        insert into order_status_history (order_id, from_status, to_status,
+                                                          actor_type, actor_user_id)
+                        values (:orderId, null, 'payment_pending', 'customer', :userId)
+                        """)
+                .param("orderId", orderId)
+                .param("userId", userId)
+                .update();
     }
 
     /**

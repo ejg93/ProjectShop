@@ -103,6 +103,7 @@ curl localhost:8080/api/health
 - Docker Desktop
 - JDK 25. `JAVA_HOME` 이 JDK 17 미만이면 Gradle이 안 뜬다
 - Node.js 20 이상 (청크 13부터)
+- Kafka 는 **로컬 전용이고 기본으로 꺼져 있다.** `EVENTS_SINK=kafka` 로 켤 때만 컨테이너가 필요하다(`doc/reference/event-catalog.md` 「전송」)
 
 ### 한 번만 켜는 것 — 컨테이너 재사용
 

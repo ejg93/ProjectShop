@@ -16,15 +16,16 @@ export const metadata: Metadata = { title: "내 문의 · ProjectShop" };
 export type MyInquiry = {
   inquiryNumber: string;
   kind: "PRODUCT" | "ORDER" | "PROCESSING_STOP" | "ACCESS_OBJECTION" | "DISPUTE";
-  productId: number | null;
-  productName: string | null;
-  question: string;
-  answer: string | null;
+  /** 응답이 NON_NULL 이라 **없으면 키가 아예 없다**(`Q75`). null 과 undefined 를 같이 받는다 */
+  productId?: number | null;
+  productName?: string | null;
+  question?: string;
+  answer?: string | null;
   status: "RECEIVED" | "ANSWERED" | "BLOCKED" | "WITHDRAWN";
   isPublic: boolean;
   createdAt: string;
-  answeredAt: string | null;
-  dueAt: string | null;
+  answeredAt?: string | null;
+  dueAt?: string | null;
   overdue: boolean;
 };
 
@@ -116,7 +117,7 @@ function InquiryCard({ item }: { item: MyInquiry }) {
         <span className="text-text-muted">{dateText(item.createdAt)}</span>
       </div>
 
-      {item.productId === null ? null : (
+      {item.productId == null ? null : (
         <Link href={`/products/${item.productId}`} className="text-text-muted underline">
           {item.productName}
         </Link>
@@ -128,7 +129,7 @@ function InquiryCard({ item }: { item: MyInquiry }) {
         기한은 법이 정한 것만 나온다(`58-1`) — 처리정지가 시행령 제44조제2항의 10일이다.
         **넘긴 것이 조회로 드러나는 것이 강제의 천장**이라, 그 사실을 사람이 보는 자리가 여기다.
       */}
-      {item.dueAt === null ? null : (
+      {item.dueAt == null ? null : (
         <p className={item.overdue ? "text-danger-text" : "text-text-muted"}>
           {item.overdue
             ? `답변 기한(${dateText(item.dueAt)})이 지났습니다. 고객센터로 알려 주시기 바랍니다.`
@@ -136,10 +137,10 @@ function InquiryCard({ item }: { item: MyInquiry }) {
         </p>
       )}
 
-      {item.answer === null ? null : (
+      {item.answer == null ? null : (
         <div className="grid gap-1 rounded-ui bg-surface p-4">
           <p className="text-text-muted">
-            답변 {item.answeredAt === null ? null : `· ${dateText(item.answeredAt)}`}
+            답변 {item.answeredAt == null ? null : `· ${dateText(item.answeredAt)}`}
           </p>
           <p className="whitespace-pre-wrap">{item.answer}</p>
         </div>

@@ -176,13 +176,14 @@ class ArchitectureTest {
                     .should().dependOnClassesThat()
                     .resideOutsideOfPackages("java..", "javax..", "jakarta..",
                             "org.springframework..", "org.slf4j..", "com.fasterxml..", "tools.jackson..",
-                            "io.swagger..", "io.micrometer..",
+                            "io.swagger..", "io.micrometer..", "org.apache.kafka..",
                             "com.projectshop.shop.support..", "com.projectshop.shop.error..")
                     .because("support 가 자원을 부르면 공용이 아니라 그 자원의 일부가 된다"
                             + " (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)."
                             + " 자원을 열거하지 않고 허용을 적는다 — 열거하면 새 자원 패키지가 생길 때마다 샌다."
                             + " accessClassesThat 은 호출만 보고 필드 선언을 안 봐서 dependOnClassesThat 이다."
-                            + " io.micrometer 는 Spring·Jackson 과 같은 자리다 — 지표 라이브러리고 자원이 아니다 (Q53)");
+                            + " io.micrometer 는 Spring·Jackson 과 같은 자리다 — 지표 라이브러리고 자원이 아니다 (Q53)."
+                            + " org.apache.kafka 도 같다 — 발행기가 ProducerRecord 로 헤더를 싣는다 (33b)");
 
     /**
      * 「목록 조회」 — 페이지를 내주는 조회는 {@link Paging} 을 받는다(`Q23`).
@@ -299,7 +300,7 @@ class ArchitectureTest {
      * {@code NotificationService} 하나뿐이고 그 배치(발송은 블록 밖)는 {@code NotificationSendTest} 가 잰다.
      * (2) 인터페이스 뒤 구현체는 정적으로 못 따라간다 — 지금 게이트웨이·발송기가 둘 다 구체 클래스라 없다.
      *
-     * <p>바깥 시스템 목록은 여기 둘이다. 셋째가 생기면 {@link #바깥} 에 더한다.
+     * <p>바깥 시스템 목록은 여기 셋이다. 넷째가 생기면 {@link #바깥} 에 더한다.
      */
     @ArchTest
     static final ArchRule 트랜잭션_안에서_바깥을_안_부른다 =
@@ -335,7 +336,10 @@ class ArchitectureTest {
 
     /** 트랜잭션 안에서 부르면 안 되는 바깥 시스템. */
     private static final Set<String> 바깥 = Set.of(
-            MockPaymentGateway.class.getName(), MockNotificationSender.class.getName());
+            MockPaymentGateway.class.getName(), MockNotificationSender.class.getName(),
+            // 브로커도 바깥이다(`33b`). 발행기가 ack 를 기다리는 동안 트랜잭션이 열려 있으면
+            // 그 잠금이 손님 요청을 막는다 — 그래서 집기·보내기·도장을 셋으로 갈랐다.
+            org.springframework.kafka.core.KafkaTemplate.class.getName());
 
     private static DescribedPredicate<JavaMethod> 본문을_받는다() {
         return DescribedPredicate.describe("@RequestBody 를 받는",

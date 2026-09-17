@@ -90,7 +90,7 @@ export function LoginForm() {
         `aria-invalid` 의 뜻은 「이 칸의 값이 유효하지 않다」고, 그건 여기서 사실이 아니다.
       */}
       <Field name="email" type="email" label="이메일" autoComplete="email"
-              defaultValue={TEST_ACCOUNT?.email} />
+              defaultValue={TEST_ACCOUNT?.email} maxLength={254} />
 
       <Field name="password" type="password" label="비밀번호" autoComplete="current-password"
               defaultValue={TEST_ACCOUNT?.password} />

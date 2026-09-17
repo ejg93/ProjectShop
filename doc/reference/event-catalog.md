@@ -1,7 +1,7 @@
 # 이벤트 카탈로그
 
-무엇이 일어났나를 바깥에 알리는 단위다 — 발행기(`33`)가 내보내고 웹훅(`30`)·Kafka 가 받는다.
-이름·봉투·페이로드·원천·버전·전송 수단을 정한다. 발행기의 구현(`33`)은 여기서 안 정한다.
+무엇이 일어났나를 바깥에 알리는 단위다 — 발행기(`33b`)가 내보내고 웹훅(`30`)·Kafka 가 받는다.
+이름·봉투·페이로드·원천·버전·전송 수단을 정한다. 발행기의 구현(`33`·`33b`)은 여기서 안 정한다.
 
 ## 왜 지금 쓰나
 
@@ -26,7 +26,7 @@
 
 | `type` | 원천 표 | 언제 | `subject` |
 |---|---|---|---|
-| `shop.order.status_changed` | `order_status_history` (`order_id` 가 있는 행) | 결제 층 전이(`D7`) | `order_number` |
+| `shop.order.status_changed` | `order_status_history` (`order_id` 가 있는 행) | 결제 층 전이(`D7`)와 **주문 생성**(`from_status` 가 비어 있다, `33a`) | `order_number` |
 | `shop.seller_order.status_changed` | `order_status_history` (`seller_order_id` 가 있는 행) | 배송 층 전이 | `seller_order_number` |
 | `shop.sku.stock_moved` | `sku_stock_movement` | `move_stock()` 이 돌 때 | `sku_id` — 노출 번호가 없다. **웹훅으로는 안 나간다**(`D9`) |
 | `shop.refund.status_changed` | `refund` (`status` 가 바뀔 때) | 환불 전이 | `refund_number` |
@@ -65,7 +65,7 @@
 2. **노출 번호를 쓴다**(`D9`). 내부 id 는 `sku_id` 처럼 노출 번호가 없는 것만
 3. 전이면 `from_status`·`to_status`·`actor_type` 을 싣는다. `actor_user_id` 는 안 싣는다 — 1번이다
 4. **표기는 저장값 그대로다** — `data` 의 키는 snake_case, 열거값은 소문자. 트리거가 만들어서 Java 의 대문자 변환(`EnumValue`)을 못 지난다.
-   **API 응답(`D5` 「값의 형식」)과 다르다.** 웹훅이 대외 계약이 될 때 대문자로 바꿀지 그때 정하고, 바꾼다면 발행기(`33`)가 한다 — 트리거는 안 한다
+   **API 응답(`D5` 「값의 형식」)과 다르다.** 웹훅이 대외 계약이 될 때 대문자로 바꿀지 그때 정하고, 바꾼다면 발행기(`33b`)가 한다 — 트리거는 안 한다
 
 ```json
 {
@@ -111,7 +111,7 @@ create index outbox_event_unpublished_idx on outbox_event (outbox_event_id) wher
 | `type` 은 닫힌 목록이다 | `check`(2위). Java `EventType` 과 `EnumConstraintTest` 가 대조한다 |
 | **앱은 이 표에 직접 `insert` 하지 않는다** | 트리거가 `set_config('shop.outbox_write', '1', true)` 를 켜고 넣는다. 안 켜진 `insert` 는 거부 — `sku_stock_requires_move` 와 같은 꼴 |
 | 원천 행과 같은 트랜잭션이다 | 트리거라 저절로 그렇다. 롤백되면 같이 사라진다 — `D11` 「한 트랜잭션」이 공짜다 |
-| 발행은 커밋 뒤다 | 발행기(`33`)가 `published_at is null` 을 읽는다. 트랜잭션 안에서 바깥을 안 부른다(`D11`)가 그대로 성립한다 |
+| 발행은 커밋 뒤다 | 발행기(`33b`)가 `published_at is null` 을 읽는다. 트랜잭션 안에서 바깥을 안 부른다(`D11`)가 그대로 성립한다 |
 | 발행된 행은 **7일** 뒤 물리 삭제 | `D13` 자원별 정책에 행을 둔다. 미발행은 안 지운다 — 지우면 「일어났는데 안 알린」 사건이 된다 |
 
 **순서는 `subject` 단위로만 약속한다.** `outbox_event_id` 는 넣은 순서지 커밋 순서가 아니다 —
@@ -120,7 +120,7 @@ create index outbox_event_unpublished_idx on outbox_event (outbox_event_id) wher
 
 ## 전송 — Kafka
 
-발행기(`33`)가 `outbox_event` 를 Kafka 로 보낸다. 사용자가 골랐고 갈림길(웹훅 직접 · Kafka 가운데 웹훅도 소비자)은
+발행기(`33b`)가 `outbox_event` 를 Kafka 로 보낸다. 사용자가 골랐고 갈림길(웹훅 직접 · Kafka 가운데 웹훅도 소비자)은
 `PROGRESS.md` 이력이 든다.
 
 | 항목 | 값 | 왜 |
@@ -132,7 +132,9 @@ create index outbox_event_unpublished_idx on outbox_event (outbox_event_id) wher
 | 헤더 | `type` · `id` | 본문을 안 열고 거른다 |
 | 전달 | **최소 한 번.** 발행기는 브로커 ack 뒤에만 `published_at` 을 채운다 | ack 전에 죽으면 다음 회차가 다시 보낸다 → 중복. 소비자가 거른다 |
 | 소비자 멱등 | 소비자마다 **자기 표의 유니크**로 | 거래 통지는 `notification` 부분 유니크(`54a`). 오프셋은 처리 뒤에 커밋한다 |
-| 스위치 | `shop.events.sink` = `none`(기본) / `kafka` | `none` 이면 Kafka 빈을 아예 안 만든다. **배포(`Q39`)와 빠른 레인은 `none`** |
+| 스위치 | `shop.events.sink` = `none`(기본) / `kafka` | `none` 이면 **발행기와 토픽 빈이 안 선다** — 브로커로 나가는 연결이 안 열린다. **배포(`Q39`)와 빠른 레인은 `none`** |
+
+**「빈을 아예 안 만든다」가 아니다**(`33` 실측). Boot 의 자동 설정은 `spring-boot-starter-kafka` 가 클래스패스에 있으면 무조건 돌아서 `KafkaTemplate` 빈이 선다 — 그것을 끄려면 `spring.autoconfigure.exclude` 에 적어야 하는데, 그 값은 환경변수 하나로 같이 못 움직인다(`EVENTS_SINK=kafka` 로 켜는 사람이 제외 목록도 같이 비워야 한다). **막으려던 것은 브로커로 나가는 연결이고 그것은 우리 빈에서 막힌다** — 프로듀서는 처음 보낼 때 붙고, 보내는 자리가 `sink` 로 잠겨 있다.
 
 **Kafka 는 로컬에서만 돈다.** Railway 에 브로커가 없고 관리형은 과금이라 안 올린다(사용자 결정). 이 저장소에
 처음으로 「로컬에서만 도는 축」이 생겼다 — `none` 이면 스위퍼가 하던 대로 5분마다 집는다.
@@ -140,6 +142,19 @@ create index outbox_event_unpublished_idx on outbox_event (outbox_event_id) wher
 
 **스위퍼는 안전망으로 남는다.** 소비자가 죽어 있는 동안 못 받은 사건을 5분 뒤 스위퍼가 집는다.
 둘이 같은 사건을 잡아도 유니크가 하나만 남긴다 — 데드레터 큐를 따로 안 두는 이유다.
+
+
+## 소비자 — 누가 읽나
+
+| 소비자 | 그룹 | 무엇을 받나 | 무엇을 하나 |
+|---|---|---|---|
+| `NotificationConsumer`(`33a`) | `shop-notification` | 토픽 전부(종류는 헤더 `type` 으로 거른다) | 청약 접수·대금 지급·환급 통지를 **그 자리에서** 남긴다 |
+
+**넷 중 하나만 안 온다.** 공급 지연은 「기한이 지났다」는 시각 조건이라 전이가 아니고, 그래서 사건이 없다 —
+스위퍼 몫으로 남는다. **청약 접수는 온다** — `33a` 가 주문 생성에 이력 행을 더해서 사건이 생겼다.
+
+**새 소비자는 자기 그룹으로 같은 토픽을 읽는다.** 그룹이 다르면 오프셋이 따로 흘러서
+서로를 안 막는다 — 토픽을 하나로 둔 이유다.
 
 ## 버전
 
@@ -155,7 +170,7 @@ create index outbox_event_unpublished_idx on outbox_event (outbox_event_id) wher
 | 관리형 Kafka(배포) | 과금. 올리고 싶어지면 `shop.events.sink` 와 `KAFKA_BOOTSTRAP` 만 바꾼다 |
 | 웹훅 서명 | `30`. 웹훅이 Kafka 소비자로 설지 발행기가 직접 보낼지는 그때 정한다 |
 | 재생(replay) | 발행된 행을 7일 뒤 지우므로 못 한다. 필요해지면 수명을 늘린다 — `D13` 의 그 행 하나다 |
-| 스키마 레지스트리 | 소비자가 우리 발행기 하나뿐이다 |
+| 스키마 레지스트리 | 소비자가 우리 것 하나뿐이고(`33a` 의 거래 통지) 발행기와 같은 저장소에 있다 — 봉투가 갈릴 자리가 없다. **바깥 소비자가 생기면 다시 본다** |
 | 문의·상품 이벤트 | 위 「안 만드는 것」 |
 
 ## 이 문서를 고칠 때

@@ -95,7 +95,7 @@ export function SignupForm({
   return (
     <form action={submit} className="grid gap-8">
       <div className="grid gap-5">
-        <Field name="email" type="email" label="이메일" autoComplete="email" />
+        <Field name="email" type="email" label="이메일" autoComplete="email" maxLength={254} />
         <Field
           name="password"
           type="password"
@@ -103,7 +103,7 @@ export function SignupForm({
           autoComplete="new-password"
           hint={PASSWORD_HINT}
         />
-        <Field name="displayName" type="text" label="이름" autoComplete="name" />
+        <Field name="displayName" type="text" label="이름" autoComplete="name" maxLength={50} />
       </div>
 
       <fieldset className="grid gap-4">

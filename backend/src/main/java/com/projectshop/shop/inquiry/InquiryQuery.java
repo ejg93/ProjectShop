@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
+import com.projectshop.shop.auth.VisibleFieldGroups;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.support.EnumValue;
@@ -17,6 +18,8 @@ import com.projectshop.shop.error.ShopException;
 
 import com.projectshop.shop.support.ListQuery.Paging;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -42,6 +45,8 @@ public class InquiryQuery {
 
     private static final String RESOURCE = "inquiry";
     private static final String READ = "read";
+    /** 답변 권한. `V54` 가 셀러에게만 허용하고 감사자에게 거부한다 */
+    private static final String ANSWER = "answer";
 
     // 정렬을 안 받는다(`D5` 는 목록에 정렬을 열라고 하지 않는다).
     //
@@ -65,13 +70,23 @@ public class InquiryQuery {
     public record PublicEntry(String inquiryNumber, String question, String answer,
             String status, OffsetDateTime createdAt, OffsetDateTime answeredAt) {}
 
-    /** 자기 것이거나 자기 셀러 것을 볼 때 쓰는 한 줄. 대상과 공개 여부가 같이 나간다 */
+    /**
+     * 자기 것이거나 자기 셀러 것을 볼 때 쓰는 한 줄. 대상과 공개 여부가 같이 나간다.
+     *
+     * @param allowedActions 지금 이 문의에 할 수 있는 것. <b>화면이 권한을 따로 안 묻는다</b>(`Q79`,
+     *                       `D20` 「할 수 없는 조작은 화면에 안 그린다」). 한 자원의 조작은 그 자원
+     *                       응답이 들고, 전역 메뉴만 {@code /api/me/permissions} 로 묻는다.
+     *                       이름은 대문자고 <b>소문자·하이픈으로 바꾸면 경로</b>다 —
+     *                       {@code ANSWER} 가 {@code /api/inquiries/{번호}/answer} 다(주문과 같은 꼴)
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     @Schema(name = "InquiryEntry")
     public record Entry(String inquiryNumber, String kind, Long productId, String productName,
             String sellerOrderNumber,
             String question, String answer, String status, boolean isPublic,
             OffsetDateTime createdAt, OffsetDateTime answeredAt,
-            OffsetDateTime dueAt, boolean overdue) {}
+            OffsetDateTime dueAt, boolean overdue, List<String> allowedActions,
+            @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {}
 
     /**
      * 목록 규약(`D5`). 셋 다 같은 봉투를 쓴다.
@@ -136,9 +151,10 @@ public class InquiryQuery {
      * 정보통신망법 제50조의7 은 <b>게시 중단</b>을 요구하지 작성자에게서 감추라고 하지 않는다.
      */
     public Page<Entry> findMine(long viewerId, Paging paging) {
-        boolean body = bodyVisibleTo(viewerId, Target.ownedBy(viewerId), "자기 문의를 볼 권한이 없다");
+        Visibility visibility = visibilityFor(viewerId, Target.ownedBy(viewerId),
+                "자기 문의를 볼 권한이 없다");
 
-        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, body);
+        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility);
     }
 
     /**
@@ -156,11 +172,15 @@ public class InquiryQuery {
 
         // 셀러는 자기 셀러 하나로 물어도 결과가 같다 — 스코프가 seller 라 어느 셀러를 대든
         // 같은 규칙이 걸린다. 필드 목록도 그 규칙에서 나온다.
-        boolean body = bodyVisibleTo(viewerId, Target.ofSeller(sellers.iterator().next()),
+        Visibility visibility = visibilityFor(viewerId, Target.ofSeller(sellers.iterator().next()),
                 "셀러 문의를 볼 권한이 없다");
 
+        boolean canAnswer = evaluator
+                .decide(viewerId, RESOURCE, ANSWER, Target.ofSeller(sellers.iterator().next()))
+                .allowed();
+
         return find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
-                Map.of("sellers", sellers.toArray(Long[]::new)), paging, body);
+                Map.of("sellers", sellers.toArray(Long[]::new)), paging, visibility, canAnswer);
     }
 
     /**
@@ -179,10 +199,11 @@ public class InquiryQuery {
      * 안 깨진다.</b>
      */
     public Page<Entry> findAll(long viewerId, Paging paging) {
-        boolean body = bodyVisibleTo(viewerId, Target.of(-1L, -1L), "전체 문의를 볼 권한이 없다");
+        Visibility visibility = visibilityFor(viewerId, Target.of(-1L, -1L),
+                "전체 문의를 볼 권한이 없다");
 
         // 조건이 없다. 조건 자리를 비우는 대신 언제나 참인 것을 둬서 `find` 의 모양을 안 바꾼다.
-        return find("true", Map.of(), paging, body);
+        return find("true", Map.of(), paging, visibility);
     }
 
     /**
@@ -192,7 +213,18 @@ public class InquiryQuery {
      * 값은 전부 이름 붙은 파라미터로 간다.
      */
     private Page<Entry> find(String condition, Map<String, Object> params, Paging paging,
-            boolean body) {
+            Visibility visibility) {
+        return find(condition, params, paging, visibility, false);
+    }
+
+    /**
+     * @param canAnswer 이 사람이 이 목록의 문의에 답할 권한이 있나. <b>행마다 안 묻는다</b> —
+     *                  스코프가 셀러라 한 셀러로 물으면 결과가 같다({@link #findForSeller} 의 주석과 같은 이유).
+     *                  행마다 갈리는 것은 <b>상태</b>뿐이라 아래에서 그것만 본다.
+     */
+    private Page<Entry> find(String condition, Map<String, Object> params, Paging paging,
+            Visibility visibility, boolean canAnswer) {
+        boolean body = visibility.body();
 
         var listing = jdbc.sql("""
                         select i.inquiry_number, i.kind, i.product_id, p.name as product_name,
@@ -237,7 +269,9 @@ public class InquiryQuery {
                         rs.getObject("created_at", OffsetDateTime.class),
                         rs.getObject("answered_at", OffsetDateTime.class),
                         rs.getObject("due_at", OffsetDateTime.class),
-                        rs.getBoolean("overdue")))
+                        rs.getBoolean("overdue"),
+                        answerActions(canAnswer, rs.getString("status")),
+                        visibility.groups()))
                 .list();
 
         return new Page<>(items, paging.page(), paging.size(), counting.query(Long.class).single());
@@ -249,14 +283,38 @@ public class InquiryQuery {
      * <p><b>못 봄이 0건이 아니다</b> — 0건과 못 봄이 갈려야 개수로 정보가 안 샌다
      * ({@code RefundQuery} 와 같은 판단).
      */
-    private boolean bodyVisibleTo(long viewerId, Target target, String message) {
+    /**
+     * 답할 수 있으면 {@code ANSWER} 하나, 아니면 빈 목록.
+     *
+     * <p><b>권한과 상태를 여기서 같이 본다.</b> 화면이 상태만 보고 그리던 것이 `Q79` 가 찾은 자리다 —
+     * 그때 안 샌 이유는 부여표가 {@code inquiry:answer} 를 셀러에게만 준 것뿐이라,
+     * <b>부여가 바뀌면 조용히 샜다.</b> 답이 이미 나간 것을 막는 것은 서버의 조건부 {@code UPDATE} 고
+     * 이 목록은 <b>그리기 전에</b> 같은 답을 준다.
+     */
+    private static List<String> answerActions(boolean canAnswer, String status) {
+        boolean answerable = canAnswer && InquiryStatus.RECEIVED == InquiryStatus.of(status);
+        return answerable ? List.of("ANSWER") : List.of();
+    }
+
+    /**
+     * 이 사람이 무엇을 보나. <b>본문 가림 여부와 보이는 그룹 목록을 같이 든다</b>(`Q75`).
+     *
+     * <p>그전에는 {@code boolean} 하나만 돌려줬다. 그래서 못 보는 칸에 {@code null} 을 넣어 내보냈고
+     * <b>「못 봄」과 「값 없음」이 응답에서 한 모양</b>이 됐다 — 답이 아직 안 나간 문의와
+     * 답을 못 보는 사람의 응답이 똑같이 {@code "answer": null} 이다.
+     * {@code OrderQuery.Detail} 이 이미 {@code NON_NULL} 과 그룹 목록을 짝으로 쓰고 있어 같은 꼴로 맞췄다.
+     */
+    private record Visibility(boolean body, List<String> groups) {}
+
+    private Visibility visibilityFor(long viewerId, Target target, String message) {
         var decision = evaluator.decide(viewerId, RESOURCE, READ, target);
         if (!decision.allowed()) {
             throw new ShopException(ErrorCode.INQUIRY_FORBIDDEN, message);
         }
         // **판정이 필드 목록까지 답한다**(`4d`). 화면이 지우면 API 로는 보이고,
         // 여기서 물으면 **그 규칙이 한 곳**이다 — 감사자가 본문을 못 보는 근거가 `V62` 에 있다.
-        return decision.canSee(InquiryFields.BODY);
+        return new Visibility(decision.canSee(InquiryFields.BODY),
+                VisibleFieldGroups.of(decision, InquiryFields.values()));
     }
 
     /** 소속이면서 조회가 열린 셀러. 소속만으로는 안 되고 판정이 열어 줘야 한다 */

@@ -47,6 +47,8 @@ curl localhost:8080/actuator/health
 | `REDIS_PASSWORD` | 빈 값(인증 없음). 관리형 Redis 는 넣어야 붙는다 |
 | `SESSION_COOKIE_SECURE` | `false`. **https 로 올리면 `true` 가 필수다** — 안 켜면 세션 쿠키가 평문으로 흐른다. **프록시가 루프백 밖인데 꺼져 있으면 서버가 안 뜬다**(`Q44`) |
 | `TRUSTED_PROXIES` | 루프백. `X-Forwarded-For` 를 믿어 줄 상대의 정규식. **아무 주소나 물게 넓히면 서버가 안 뜬다**(`Q44`, `SecuritySettingsCheck`) |
+| `KAFKA_BOOTSTRAP` | `localhost:9092`. 브로커 주소. **켜져 있어도 발행기가 잠겨 있으면 안 쓰인다** |
+| `EVENTS_SINK` | `none`. `kafka` 로 켜면 아웃박스 표의 사건이 브로커로 나간다. **배포는 `none` 이다** — 브로커를 안 올린다 |
 
 ## 호스팅에 올릴 때
 

@@ -20,6 +20,8 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | Gradle | 9.7.1 | `gradle/wrapper/gradle-wrapper.properties` |
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
+| Kafka | 4.3.1 | `docker-compose.yml`. **로컬 전용** — 배포에 브로커가 없다(`event-catalog.md` 「전송」) |
+| spring-kafka | 4.1.1 | 안 적는다. **Boot BOM 이 관리한다** — `spring-boot-starter-kafka` 로 들인다 |
 | Tomcat | 11.0.25 | `backend/build.gradle.kts` 의 `tomcat.version`. **BOM 값을 덮었다** — 아래 「Boot BOM 의 Tomcat 이 보안 패치보다 낮을 수 있다」 |
 | Testcontainers | 2.0.5 | `build.gradle.kts` 의 BOM |
 | springdoc-openapi | 3.1.1 | `build.gradle.kts`. **3.x 가 Boot 4 판이다** — 2.x 는 Boot 3 모듈 배치를 부른다 |
@@ -1032,11 +1034,18 @@ ERROR: duplicate key value violates unique constraint "shop_order_number_unique"
 
 run 34862668434 이 그랬다. `started_in_background: 10` · `completed: 7` 이고 39턴을 태웠는데
 결과 문장이 「그냥 에이전트 완료 알림을 기다린다」였고 **코멘트는 0개**다. `is_error: false` 라
-겉에서는 성공이다. **띄운 것을 다 안 받고 끝내면 산출물이 0이 된다** — 프롬프트가 그것을 막는다.
+겉에서는 성공이다. **띄운 것을 다 안 받고 끝내면 산출물이 0이 된다.**
 
-### 리뷰 한 번이 약 $1.1 에 5분이다
+**프롬프트가 막는다고 적어 뒀는데 두 번째가 났다**(`2g-7`). run 35077299175 이 넷을 띄우고
+`completed: 0` 인 채로 「4개 에이전트가 모두 실행 중이다」를 남기고 끝났다. 지금 막는 것은 글이 아니라
+`claude_args` 의 `--disallowedTools "Task,Agent"` 다 — **도구가 없어서 띄울 수가 없다.**
+도구 이름은 지금 CLI 에서 `Agent` 고 `Task` 는 옛 이름이라 둘을 같이 적는다.
 
-`total_cost_usd` 1.1158 · `duration_ms` 315118 · `num_turns` 47 이 실측값이다(PR #26).
+### 리뷰 한 번이 4분 50초에서 11분 48초다
+
+`duration_ms` 290388 · 392999 · 627093 · 707900 이 2026-09-16 의 네 회차고
+`total_cost_usd` 가 1.79 · 1.69 · 2.62 · 3.52 다. 제일 긴 것이 청크 여섯짜리 PR #48 이라
+**청크당 약 2분**으로 는다. 그전 실측은 PR #26 의 5분 15초 · $1.12 였다.
 CI 중 제일 길고 제일 비싸다. **PR 을 마무리 때만 여는 근거가 이 수치다**(`2g-4`) —
 청크마다 열면 이 값이 청크 수만큼 곱해지는데, 그렇게 연 PR 열하나에서 지적이 0개였다.
 
@@ -1254,7 +1263,6 @@ management:
 | Next.js 버전, 패키지 매니저 | 청크 13 |
 | springdoc-openapi | 청크 2a |
 | MinIO | 청크 26 |
-| Kafka — 컴포즈 이미지 태그 · `spring-kafka` · Testcontainers Kafka 좌표 | 청크 33. **로컬에서만 돈다**(`event-catalog.md` 「전송」) — 배포에는 안 올린다 |
 
 정해지면 위 표에 줄을 더한다.
 

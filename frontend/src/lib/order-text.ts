@@ -76,3 +76,13 @@ export function statusText(status: string): string {
 export function actionPath(sellerOrderNumber: string, action: string): string {
   return `/api/shipments/${sellerOrderNumber}/${action.toLowerCase().replace(/_/g, "-")}`;
 }
+
+/**
+ * 이력 첫 줄의 앞 상태. <b>앞 상태가 없으면 주문이 막 생긴 줄이다</b>(`33a`).
+ *
+ * <p>`from_status` 가 빈 행은 주문 생성이 남긴다. 그대로 넘기면 화면에
+ * 「 → 결제대기」처럼 앞이 비어서 그려진다 — 무엇에서 옮겨 온 것인지 읽는 사람이 모른다.
+ */
+export function fromStatusText(status: string | null): string {
+  return status === null ? "주문 접수" : statusText(status);
+}

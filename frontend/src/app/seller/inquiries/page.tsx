@@ -11,14 +11,17 @@ export const metadata: Metadata = { title: "받은 문의 · ProjectShop" };
 /** 셀러가 보는 문의 한 줄(`59`). 계정에 붙는 요구는 여기 안 나온다 */
 type SellerInquiry = {
   inquiryNumber: string;
-  productId: number | null;
-  productName: string | null;
-  question: string;
-  answer: string | null;
+  productId?: number | null;
+  productName?: string | null;
+  /** 못 보면 키가 아예 없다. 값이 없는 것과 갈리는 근거는 `_visible_field_groups` 다(`Q75`) */
+  question?: string;
+  answer?: string | null;
   status: "RECEIVED" | "ANSWERED" | "BLOCKED" | "WITHDRAWN";
   isPublic: boolean;
   createdAt: string;
-  answeredAt: string | null;
+  answeredAt?: string | null;
+  /** 서버가 계산해 내려준다. 화면은 권한을 따로 안 묻는다(`D20`) */
+  allowedActions: string[];
 };
 
 type Page = { items: SellerInquiry[]; page: number; size: number; total: number };
@@ -71,7 +74,7 @@ export default async function SellerInquiriesPage() {
                 <span className="text-text-muted">{dateText(item.createdAt)}</span>
               </div>
 
-              {item.productId === null ? null : (
+              {item.productId == null ? null : (
                 <Link
                   href={`/products/${item.productId}`}
                   className="text-text-muted underline"
@@ -82,18 +85,18 @@ export default async function SellerInquiriesPage() {
 
               <p className="whitespace-pre-wrap">{item.question}</p>
 
-              {item.answer === null ? null : (
+              {item.answer == null ? null : (
                 <div className="grid gap-1 rounded-ui bg-surface p-4">
                   <p className="text-text-muted">
                     내 답변
-                    {item.answeredAt === null ? null : ` · ${dateText(item.answeredAt)}`}
+                    {item.answeredAt == null ? null : ` · ${dateText(item.answeredAt)}`}
                   </p>
                   <p className="whitespace-pre-wrap">{item.answer}</p>
                 </div>
               )}
 
-              {/* 답할 수 있는 것은 아직 답이 안 나간 것뿐이다 — 서버가 조건부 UPDATE 로 막는다 */}
-              {item.status === "RECEIVED" ? (
+              {/* 권한과 상태를 서버가 같이 봤다. 상태만 보면 부여표가 바뀌는 날 조용히 샌다(`Q79`) */}
+              {item.allowedActions.includes("ANSWER") ? (
                 <AnswerForm inquiryNumber={item.inquiryNumber} />
               ) : null}
             </li>

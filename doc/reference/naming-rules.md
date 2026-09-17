@@ -37,8 +37,20 @@ JSON 속성 이름은 여기서 안 다룬다. `api-guidelines.md`(D5)가 Zaland
 
 가이드의 표준 접미사에는 `_date` 만 있다. 우리는 `created_at`, `deleted_at`, `acted_at` 을 쓴다.
 
-`_date` 는 날짜형에 맞는 이름인데 **우리는 전부 `timestamptz` 다**(`D10` 이 UTC 저장으로 정했다).
-날짜가 아니라 시각이므로 `_at` 이 값을 더 정확히 말한다.
+시각은 `_at` 이고 `timestamptz` 다(`D10` 이 UTC 저장으로 정했다). 날짜가 아니라 시각이므로
+`_at` 이 값을 더 정확히 말한다.
+
+**`_date` 는 버린 이름이 아니라 다른 뜻이다**(2026-09-17 `점검 O` 가 고쳤다 — 그전에는
+「우리는 전부 `timestamptz` 다」로 적혀 있었는데 사실이 아니었다). **시각이 아니라 날짜가 값의 뜻인 칸**에
+`date` 타입으로 쓴다. 셋이 있다.
+
+| 컬럼 | 왜 날짜인가 |
+|---|---|
+| `holiday.holiday_date` | 공휴일은 하루 단위다. 몇 시인지가 없다 |
+| `batch_run.baseline_date` | 회차를 세는 축이다(`D19`). 같은 기준일의 두 번째 회차를 막는 유니크가 이 값으로 걸린다 |
+| `settlement.payout_date` | 지급 예정일이다. 은행 영업일 단위라 시각이 없다 |
+
+**둘이 갈리는 것은 `SchemaNamingTest` 가 잰다** — `_at` 이 `date` 이거나 `_date` 가 `timestamptz` 면 빨갛다.
 
 ### 3. 마이그레이션을 고쳐서 기존 테이블도 맞췄다
 
@@ -116,17 +128,36 @@ select * from product p join sku s using (product_id)
 | `_id` | 식별자 |
 | `_at` | 시각 (`timestamptz`) |
 | `_status` | 상태 값 |
-| `_type` | 종류 |
+| `_type` | **가리키는 주체·대상의 종류** |
+| `_kind` | **그 행 자체의 종류** |
 | `_name` | 이름 |
 | `_code` | 코드에서 참조하는 안정된 키 |
 | `_count` | 개수 |
 | `_total` | 합계 |
 | `_bp` | 만분율 정수 (1000 = 10.00%) |
+| `_amount` | 금액. 원 단위 정수 `bigint`(`D8`) |
+| `_days` | 날수. 영업일이면 그 칸의 주석이 밝힌다 |
+| `_date` | 날짜. 시각이 아니라 날짜가 값의 뜻인 칸 (위 「기준에서 벗어난 것」 2) |
+| `_hash` | 해시 값. **원본을 안 저장한다**(`D14`) |
 | `_reason` | 고정된 사유 값 |
+| `_note` | 사람이 쓴 사유 글. 수명이 짧다(`D13`) |
+| `_memo` | 사람이 쓴 짧은 메모. 선택값이다 |
 | `_number` | **우리가 발급해서 바깥이 부르는 번호** |
 | `_no` | 그 밖의 번호 — 안에서 세우는 순번, 남이 발급한 번호 |
 
 `_num` 은 안 쓴다. 개수인지 번호인지 안 갈린다 — 개수는 `_count` 다.
+
+**`_type` 과 `_kind` 를 가르는 기준은 「무엇의 종류인가」다**(사용자 결정 2026-09-17, `점검 O`).
+둘이 이미 갈려 쓰이고 있어서 규칙으로 못 박은 것이지 새로 정한 것이 아니다.
+
+| | 무엇의 종류 | 실물 |
+|---|---|---|
+| `_type` | **그 컬럼이 가리키는 상대** | `actor_type`·`approved_by_type`·`requested_by_type`(누가 했나) · `target_type`(무엇을 가리키나) · `event_type`(무슨 일이 났나) |
+| `_kind` | **그 행 자체** | `notification.kind`·`inquiry.kind`·`settlement_item.kind`·`batch_run.failure_kind` |
+
+**한 이름으로 모으지 않는다.** `event_type` 은 `D12` 봉투의 CloudEvents 속성 이름이라 못 바꾸고,
+`actor_type` 과 `notification.kind` 를 같은 이름으로 두면 **한 행에 둘이 같이 오는 표**에서
+무엇의 종류인지를 이름이 못 말한다.
 
 **가르는 기준은 「누가 발급했나」다**(`Q42`). `order_number`·`settlement_number` 는 **우리가 만들어
 내보내는 것**이라 `identifier-rules.md` 가 형식까지 정하고 **한 번 내보내면 못 바꾼다.**
@@ -135,6 +166,16 @@ select * from product p join sku s using (product_id)
 
 **`SchemaNamingTest` 가 막는다** — `_no` 로 끝나는 컬럼은 허용 목록에 적힌 것뿐이고,
 항목마다 **왜 우리 노출 번호가 아닌지**를 적는다. 새로 생기면 그 자리에서 묻게 된다.
+
+**이미 나간 이름은 안 바꾼다**(사용자 결정 2026-09-17, `점검 O`). `payment.approval_number` 와
+`refund.gateway_refund_number` 는 **결제 대행사가 준 번호**라 위 기준대로면 `_no` 인데,
+`approvalNumber` 가 이미 주문 응답(`OrderQuery.Payment`)과 거래기록 텍스트의 「승인번호」에 실려 있다.
+**되돌리기 비용이 비대칭이다**(`D23`) — 이름을 바꾸면 응답 계약과 거래기록 서식이 같이 움직이고,
+그 둘은 소비자가 이미 있는 자리다.
+
+**그래서 `_number` 쪽도 목록으로 든다.** `SchemaNamingTest` 가 `_number` 로 끝나는 컬럼마다
+「우리가 발급하나」를 묻고, 아니면 **왜 그 이름으로 남았는지**가 적혀 있어야 한다.
+새 컬럼은 이 예외를 못 쓴다 — 아직 아무것도 안 나갔으므로 `_no` 가 값이 싸다.
 
 ### 불리언은 `is_` 로 시작한다
 

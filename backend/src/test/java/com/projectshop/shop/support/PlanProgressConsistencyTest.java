@@ -8,9 +8,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +42,13 @@ class PlanProgressConsistencyTest {
     private static final Pattern HISTORY_DATE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
     /** 칸 구분자. 정규식 특수문자라 그대로 못 쓴다. */
     private static final Pattern CELL_SEPARATOR = Pattern.compile(Pattern.quote("|"));
+
+    /** 마이그레이션 파일이 사는 곳. 테스트의 작업 디렉터리가 {@code backend/} 라 상대 경로다. */
+    private static final Path MIGRATIONS = Path.of("src", "main", "resources", "db", "migration");
+    /** 데모 시드. 번호 체계가 900번대로 따로 논다 — 여기 있는 번호는 예약이 아니다. */
+    private static final Path SEEDS = Path.of("src", "main", "resources", "db", "seed");
+    /** {@code V74__permission_kind.sql} 의 번호. <b>예약은 이 꼴로만 적는다</b> — 아래 두 테스트가 그것만 본다. */
+    private static final Pattern VERSIONED = Pattern.compile("V([0-9]+)__");
 
     @Test
     @DisplayName("이력이 완료로 적은 청크는 분할표에서도 닫혀 있다")
@@ -120,5 +132,123 @@ class PlanProgressConsistencyTest {
     /** 칸에서 값만 남긴다 — 굵게 표시와 홑따옴표는 번호가 아니라 꾸밈이다. */
     private static String strip(String cell) {
         return cell.replace("**", "").replace("`", "").trim();
+    }
+
+    /**
+     * 미착수 청크가 예약한 마이그레이션 번호가 서로 안 겹치는지 본다.
+     *
+     * <p><b>실제로 겹쳤다</b>(점검 O, 2026-09-17). {@code Q59} 와 {@code Q62} 가 둘 다 {@code V72} 를
+     * 적어 뒀고, 그것을 보는 자리가 사람 눈뿐이었다 — {@code CLAUDE.md} 「병렬 줄」이
+     * 「마이그레이션 번호를 예약한다」고 정해 놓고 겹침을 재는 것은 안 두었다.
+     */
+    @Test
+    @DisplayName("미착수 청크가 예약한 마이그레이션 번호는 서로 안 겹친다")
+    void reservedMigrationNumbersAreUnique() throws IOException {
+        List<String> clashes = new ArrayList<>();
+        reservedNumbers().forEach((number, chunks) -> {
+            if (chunks.size() > 1) {
+                clashes.add("V" + number + " ← " + String.join(", ", chunks));
+            }
+        });
+
+        assertThat(clashes)
+                .describedAs("미착수 청크 둘 이상이 같은 마이그레이션 번호를 예약했다. "
+                        + "먼저 적은 쪽이 그 번호를 갖고 나머지는 새 번호를 받는다")
+                .isEmpty();
+    }
+
+    /**
+     * 예약한 번호가 이미 있는 마지막 번호보다 큰지 본다.
+     *
+     * <p><b>빈 번호를 뒤늦게 채우면 기동이 죽는다.</b> Flyway 는 {@code out-of-order} 가 기본으로 꺼져 있고
+     * 이 저장소는 그 설정을 안 켰다. {@code V73} 을 이미 받은 DB 에 {@code V72} 가 나타나면 검증에서 막힌다 —
+     * 로컬 compose 와 {@code PostgresTestBase} 의 재사용 컨테이너({@code withReuse(true)})가 그 상태로 산다.
+     */
+    @Test
+    @DisplayName("예약한 마이그레이션 번호는 이미 있는 마지막 번호보다 크다")
+    void reservedMigrationNumbersExceedApplied() throws IOException {
+        int last = lastMigrationNumber();
+
+        List<String> behind = new ArrayList<>();
+        reservedNumbers().forEach((number, chunks) -> {
+            if (number <= last) {
+                behind.add("V" + number + " (" + String.join(", ", chunks) + ")");
+            }
+        });
+
+        assertThat(behind)
+                .describedAs("이미 지나간 번호를 예약했다. 마지막 번호는 V" + last
+                        + " 다 — 빈 번호를 뒤에 채우면 그 번호를 안 받은 DB 가 기동에서 막힌다")
+                .isEmpty();
+    }
+
+    /**
+     * 미착수 행이 적어 둔 번호를 번호별로 모은다.
+     *
+     * <p><b>이미 파일이 있는 번호는 예약이 아니라 인용이다.</b> 미착수 행도 지난 마이그레이션을 근거로
+     * 부른다({@code V902__demo_products.sql} 처럼 시드를 가리키는 줄이 실제로 있다). 그것까지 세면
+     * 인용이 겹치는 것만으로 빨개진다.
+     */
+    private static Map<Integer, List<String>> reservedNumbers() throws IOException {
+        Set<Integer> existing = existingNumbers();
+        Map<Integer, List<String>> byNumber = new LinkedHashMap<>();
+
+        for (String line : Files.readAllLines(PLAN, StandardCharsets.UTF_8)) {
+            String[] cells = cellsOf(line);
+            if (cells.length < 4) {
+                continue;
+            }
+            String id = cells[0];
+            boolean struckThrough = id.startsWith("~~");
+            id = strip(id.replace("~~", ""));
+            if (id.isEmpty() || id.endsWith("원안")) {
+                continue;
+            }
+            if (struckThrough || cells[1].startsWith("~~") || "완료".equals(cells[cells.length - 1])) {
+                continue;
+            }
+            Matcher matcher = VERSIONED.matcher(line);
+            while (matcher.find()) {
+                int number = Integer.parseInt(matcher.group(1));
+                if (existing.contains(number)) {
+                    continue;
+                }
+                List<String> chunks = byNumber.computeIfAbsent(number, key -> new ArrayList<>());
+                if (!chunks.contains(id)) {
+                    chunks.add(id);
+                }
+            }
+        }
+        return byNumber;
+    }
+
+    /** 마이그레이션의 마지막 번호. 예약은 이 값보다 커야 한다. */
+    private static int lastMigrationNumber() throws IOException {
+        return numbersIn(MIGRATIONS).stream().mapToInt(Integer::intValue).max().orElse(0);
+    }
+
+    /** 이미 파일이 있는 번호 전부. 시드도 센다 — 거기 있는 번호는 예약할 수 없다. */
+    private static Set<Integer> existingNumbers() throws IOException {
+        Set<Integer> numbers = new TreeSet<>(numbersIn(MIGRATIONS));
+        numbers.addAll(numbersIn(SEEDS));
+        return numbers;
+    }
+
+    /** 한 폴더의 {@code V<번호>__} 파일에서 번호만 뽑는다. 폴더가 없으면 빈 목록이다. */
+    private static Set<Integer> numbersIn(Path directory) throws IOException {
+        if (!Files.isDirectory(directory)) {
+            return Set.of();
+        }
+        try (Stream<Path> files = Files.list(directory)) {
+            Set<Integer> numbers = new TreeSet<>();
+            files.map(file -> file.getFileName().toString())
+                    .forEach(name -> {
+                        Matcher matcher = VERSIONED.matcher(name);
+                        if (matcher.lookingAt()) {
+                            numbers.add(Integer.parseInt(matcher.group(1)));
+                        }
+                    });
+            return numbers;
+        }
     }
 }
