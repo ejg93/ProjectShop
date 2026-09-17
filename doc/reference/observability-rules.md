@@ -189,7 +189,7 @@ log.info("주문 생성 order_id={}", order.id()); // 필요한 필드만 고른
 
 | 무엇 | 규칙 |
 |---|---|
-| 이름 | `shop.<자원>.<무엇>` — `shop.batch_run.finished`·`shop.permission.decide`·`shop.refund.overdue`. Prometheus 표기에서 점이 밑줄이 된다 |
+| 이름 | `shop.<자원>.<무엇>` — `shop.batch_run.finished`·`shop.permission.decide`·`shop.refund.overdue`·`shop.error.raised`. Prometheus 표기에서 점이 밑줄이 된다 |
 | 태그 | **닫힌 목록만.** 배치 이름은 카탈로그(`D19`), 상태는 열거형이다 |
 | 금지 | **개인정보를 태그로 안 단다** — 사용자 번호·이메일·주소. 아래 「개인정보는 안 찍는다」가 그대로 걸린다 |
 
@@ -198,6 +198,21 @@ log.info("주문 생성 order_id={}", order.id()); // 필요한 필드만 고른
 `shop.batch.run` 이 그래서 `shop.batch_run.finished` 가 됐다: `batch` 라는 표가 없다.
 **고칠 수 있는 자리가 지금뿐이었다** — 대시보드(`63`)와 노출(`62`)이 미착수라 소비자가 0이고,
 서면 쿼리가 그 이름에 묶인다.
+
+### 오류는 코드로 센다
+
+`shop.error.raised{code}` 가 **어느 규칙이 얼마나 걸리나**를 답한다(청크 62).
+세는 자리는 `ProblemFactory.create` 하나다 — 본문을 만드는 곳이 하나라 세는 곳도 하나고,
+**예외 처리기에만 붙이면 401 이 안 세어진다**(보안 필터가 먼저 끊어서 거기까지 안 온다).
+
+**상태 코드는 이 지표가 안 든다.** 스프링이 내는 `http.server.requests` 가 이미 그 축을 들고 있어
+두 벌이 된다 — 그쪽은 「어느 **경로**가 아픈가」고 이쪽은 「어느 **규칙**이 걸렸나」다.
+
+| | `http.server.requests`(스프링) | `shop.error.raised`(우리) |
+|---|---|---|
+| 태그 | `uri`·`status`·`method`·`outcome` | `code` 하나 |
+| 시계열 | 엔드포인트 수만큼 갈린다 | `ErrorCode` 종류만큼(닫힌 목록) |
+| 못 보는 것 | **왜 났나** | 프레임워크가 내는 것(404·405·파싱 실패) |
 
 **태그가 열린 값이면 지표가 그 값 수만큼 갈라진다.** 사용자 번호를 달면 계정 수만큼 시계열이 생기고,
 그것이 개인정보가 지표로 새는 경로이기도 하다.

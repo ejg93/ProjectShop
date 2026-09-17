@@ -73,6 +73,9 @@ class MetricsExposureTest extends HttpTestBase {
         batchRuns.record(BATCH_NAME, LocalDate.now(),
                 () -> BatchRuns.Counts.of(0));
 
+        // 오류 지표도 같다 — 한 번은 나야 실린다. 없는 주문을 부르면 우리 ErrorCode 가 나온다.
+        session.get("/api/orders/NO-SUCH-ORDER");
+
         Response response = session.get("/actuator/prometheus");
 
         assertThat(response.is(200)).as(response.body()).isTrue();
@@ -82,7 +85,13 @@ class MetricsExposureTest extends HttpTestBase {
                 // Prometheus 가 카운터에 `_total` 을 붙여서 `shop_batch_run_finished_total` 이 된다.
                 .contains("shop_batch_run_finished_total")
                 .contains("shop_permission_decide_seconds")
-                .contains("shop_refund_overdue");
+                .contains("shop_refund_overdue")
+                // 오류율의 축(청크 62). **이름이 갈리면 대시보드가 조용히 빈다** —
+                // 패널이 빈 것과 오류가 0인 것이 화면에서 같아 보여서 그것을 여기서 막는다.
+                .contains("shop_error_raised_total");
+        assertThat(response.body())
+                .as("태그는 오류 코드 하나다. 경로를 달면 엔드포인트 수만큼 갈린다(`D16`)")
+                .contains("shop_error_raised_total{code=");
         assertThat(response.body())
                 .as("개인정보는 태그로 안 나간다(`D16`)")
                 .doesNotContain("user_id=");
