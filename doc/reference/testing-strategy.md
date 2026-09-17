@@ -26,7 +26,7 @@
 | 테스트 | 무엇을 대조하나 |
 |---|---|
 | `ErrorSlugScreenTest` | 화면의 `switch (error.slug)` 가짓수 ⊆ `ErrorCode` 의 슬러그 |
-| `ScreenLengthTest` | 화면 입력칸의 `maxLength` = 요청 record 의 `@Size(max)` (`Q27`) |
+| `ScreenLengthTest` | 화면 입력칸의 `maxLength` = 요청 record 의 `@Size(max)` (`Q27`). **상한이 아예 없는 칸도 잡는다**(`Q74`) — 그전에는 `maxLength` 가 있는 태그만 걷어서 빠뜨린 칸이 목록에 안 들어갔다 |
 | `OrderRecordTextTest.StatusLabels` | Java 상태 코드 표 = `order-text.ts` 의 표 |
 | `WithdrawalNoticeScreenTest` | 화면의 제한 사유 문구 표 = `WithdrawalRestrictionReason`(`D2` R4) |
 | `PasswordHintScreenTest` | 화면의 비밀번호 길이 문구 = `@Password` 의 `@Size` |

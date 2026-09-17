@@ -257,7 +257,7 @@ public class ProductController {
 
     public record OptionRequest(
             @NotBlank @Size(max = 50) String name,
-            @NotEmpty List<@NotBlank String> values) {
+            @NotEmpty List<@NotBlank @Size(max = 50) String> values) {
     }
 
     /** @param priceInclVat 부가세를 포함한 판매가다(`D8`). 원 단위 정수라 소수가 없다 */

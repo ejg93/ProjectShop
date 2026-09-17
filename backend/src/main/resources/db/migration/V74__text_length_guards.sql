@@ -25,6 +25,13 @@ alter table return_pickup
     add constraint return_pickup_pickup_memo_length_check
         check (pickup_memo is null or length(pickup_memo) <= 200);
 
+alter table product_option_value
+    -- 옵션 **이름**은 @Size(max = 50) 인데 **값**은 @NotBlank 뿐이었다(점검 O 가 반대 방향 대조를 세우다 찾았다).
+    -- 셀러가 상품 등록에서 직접 넣는 칸이라 입구가 있다. 이름과 같은 50 으로 맞춘다 —
+    -- 한 줄에 같이 보이는 값이라 한쪽만 길면 화면이 깨진다.
+    add constraint product_option_value_value_length_check
+        check (length(value) between 1 and 50);
+
 alter table product
     -- 2000 은 **같은 저장소의 자유 텍스트 상한**에서 왔다(관례, 4순위) — `inquiry.question`·
     -- `inquiry.answer` 가 `V53` 에서 2000 이다. 상품 설명 길이를 정한 표준도 업계 규격도 못 봤다.

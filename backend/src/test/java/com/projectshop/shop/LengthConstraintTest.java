@@ -152,6 +152,11 @@ class LengthConstraintTest extends PostgresTestBase {
             // 수거지 넷은 **아직 요청 입구가 없다**(`Q73`). 표는 `V63` 이 세웠고 화면과 입구는
             // `43a-5` 가 연다 — 그 청크가 record 를 만들 때 이 넷을 위 pairs() 로 옮긴다.
             // 값은 짝인 order_shipping 과 맞춰 뒀으므로 그때 새로 정할 것이 없다.
+            // 상한이 **목록 원소**에 붙어 있다 — `List<@NotBlank @Size(max = 50) String> values`.
+            // 이 대조는 record 칸의 애노테이션을 읽으므로 원소 쪽은 안 보인다. 수는 옵션 이름과 같은 50 이고
+            // 갈리면 ProductOptionTest 가 잡는다. 원소까지 읽게 만드는 것은 이 대조가 아니라 청크가 할 일이다.
+            Map.entry("product_option_value_value_length_check",
+                    "상한이 ProductController.OptionRequest.values 의 원소 @Size 라 record 칸이 아니다"),
             Map.entry("return_pickup_sender_name_length_check", "수거지 입구가 아직 없다(`43a-5`). 값은 order_shipping 과 같다"),
             Map.entry("return_pickup_address1_length_check", "〃"),
             Map.entry("return_pickup_address2_length_check", "〃"),
@@ -300,7 +305,47 @@ class LengthConstraintTest extends PostgresTestBase {
      * 근거 칸이 없으면 이 목록이 <b>제약을 안 걸고 싶을 때 도망칠 자리</b>가 된다.
      */
     private static final Map<String, String> UNBOUNDED_ON_PURPOSE = new java.util.TreeMap<>(Map.ofEntries(
-            Map.entry("PLACEHOLDER", "첫 회차에 실물을 보고 채운다")));
+            // ── 구성 값. 배포로 바뀌고 요청 입구가 없다 ──────────────────────────────
+            // 사람이 폼에 쓰는 값이 아니라 마이그레이션과 시드가 넣는다. 상한을 걸어도
+            // 막을 입구가 없고, 대신 값이 갈리는 것은 열거형 대조(EnumConstraintTest)가 본다.
+            Map.entry("permission.resource", "권한 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
+            Map.entry("permission.action", "〃"),
+            Map.entry("permission.description", "〃"),
+            Map.entry("permission_field_group.code", "〃"),
+            Map.entry("permission_field_group.resource", "〃"),
+            Map.entry("permission_field_group.description", "〃"),
+            Map.entry("role_permission_field.effect", "〃"),
+            Map.entry("role.code", "역할 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
+            Map.entry("role.name", "〃"),
+            Map.entry("role.description", "〃"),
+            Map.entry("consent_item.code", "동의 항목의 판이다. 개정할 때 마이그레이션으로 넣는다"),
+            Map.entry("consent_item.title", "〃"),
+            Map.entry("holiday.name", "공휴일 이름이다. 임시공휴일도 마이그레이션으로 넣는다"),
+            Map.entry("policy_document.code", "약관의 판이다. 개정할 때 마이그레이션으로 넣는다"),
+            Map.entry("policy_document.title", "〃"),
+            Map.entry("notification_template.code", "알림 문구의 판이다. 마이그레이션으로 넣는다"),
+            Map.entry("notification_template.subject", "〃"),
+            Map.entry("notification_template.body", "〃"),
+
+
+            // ── 앱·트리거가 적는 값. 사람이 안 친다 ──────────────────────────────────
+            Map.entry("audit_log.event_type", "앱이 적는 상수다. 요청에서 안 온다"),
+            Map.entry("audit_log.target_type", "〃"),
+            Map.entry("user_consent.source", "앱이 적는 상수다(어느 경로로 동의했나)"),
+            Map.entry("outbox_event.source", "트리거가 적는다. 기본값이 상수 하나다(`D12`)"),
+            Map.entry("outbox_event.subject", "트리거가 노출 번호를 넣는다. 그 번호들이 각자 제약을 든다"),
+            Map.entry("settlement_item.supplier", "정산이 계산해 적는다. 요청 입구가 없다"),
+            Map.entry("seller.code", "우리가 발급하는 값이다. 요청에서 안 온다"),
+
+            // ── 박제. 원본이 따로 있고 앱이 복사한다 ────────────────────────────────
+            Map.entry("order_item.product_name", "주문 시점 박제다. 앱이 복사해 적고 요청 입구가 없다"),
+            Map.entry("order_item.option_label", "〃 — 옵션 여럿을 이어 붙이므로 원본 상한과 길이가 다르다"),
+            Map.entry("notification_body.subject", "템플릿을 렌더한 결과다. 사람이 안 친다"),
+            Map.entry("notification_body.body", "〃"),
+
+            // ── 입구가 아직 없는 것 ────────────────────────────────────────────────
+            // 셀러 등록 청크가 서면 이 줄을 지우고 위 pairs() 로 옮긴다.
+            Map.entry("seller.name", "셀러 등록 입구가 아직 없다. 지금은 시드만 넣는다")));
 
     /**
      * 상한이 아예 없는 칸을 찾는다. <b>위 {@code pairs()} 와 방향이 반대다.</b>
