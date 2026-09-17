@@ -30,7 +30,7 @@ public enum EventType {
     REFUND_STATUS_CHANGED("shop.refund.status_changed"),
     RETURN_REQUEST_STATUS_CHANGED("shop.return_request.status_changed"),
     SETTLEMENT_PAYOUT_CHANGED("shop.settlement.payout_changed"),
-    BATCH_RUN_FINISHED("shop.batch.run_finished");
+    BATCH_RUN_FINISHED("shop.batch_run.finished");
 
     private final String code;
 
