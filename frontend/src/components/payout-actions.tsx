@@ -9,18 +9,17 @@ import type { Permission } from "@/lib/permissions";
 /**
  * 이 정산서에 지금 할 수 있는 것(`20-1`).
  *
- * <p><b>권한 목록으로 그린다.</b> 판정이 내려준 목록({@code /api/me/permissions})에 그 동작이
+ * <p><b>서버가 준 목록으로 그린다</b>(`Q81`). 정산 응답의 {@code allowedActions} 에 그 이름이
  * 없으면 버튼을 <b>안 그린다</b> — 그려 놓고 감추는 방식은 안 쓴다. 감추면 그 자리가
  * DOM 에 남아서 화면낭독기가 읽고, 개발자 도구로 되살리면 눌러진다(`D20`·`59` 와 같은 판단).
  *
- * <p><b>{@link OrderActions} 와 다른 점 하나.</b> 주문은 서버가 {@code allowed_actions} 를
- * 응답에 실어 주지만 정산 응답에는 그 칸이 없다(청크 20·21 이 안 만들었고 `20-1` 은 API 를
- * 안 건드린다). 그래서 <b>상태와 권한을 여기서 맞춰 본다</b> — 상태 표는 아래 한 자리에 모아서
- * 화면마다 달라질 자리를 안 만든다.
+ * <p><b>{@link OrderActions} 와 같은 꼴이다</b>(`Q81`). 권한·상태·<b>누가 올렸나</b>를 서버가
+ * 한자리에서 보고 이름 목록으로 준다 — 화면에 판단이 없다.
  *
- * <p><b>화면이 못 아는 것이 하나 있다.</b> 자기가 올린 지급은 자기가 승인 못 하는데
- * ({@code settlement_payout_self_approval_check}), 누가 올렸는지가 응답에 없다.
- * 그래서 승인 버튼은 뜨고 누르면 403 이 온다 — 그 답을 아래 {@link messageFor} 가 말로 바꾼다.
+ * <p><b>그전에는 화면이 셋째를 못 봤다.</b> 자기가 올린 지급은 자기가 승인 못 하는데
+ * ({@code settlement_payout_self_approval_check}), 누가 올렸는지가 응답에 없어서
+ * <b>승인 버튼이 뜨고 누르면 403 이 왔다.</b> 지금은 그 버튼이 애초에 안 온다 —
+ * {@link messageFor} 의 그 문구는 다른 경로(경쟁 상태)로만 나온다.
  */
 
 /**
@@ -31,7 +30,8 @@ import type { Permission } from "@/lib/permissions";
  * @param confirm    누르기 전에 무엇이 일어나는지 묻는다(`D20` 「되돌릴 수 없는 조작」)
  */
 export type PayoutAction = {
-  permission: string;
+  /** 서버가 주는 이름. 소문자·하이픈으로 바꾸면 아래 {@link PayoutAction#path} 다 */
+  name: string;
   path: string;
   label: string;
   confirm: string;
@@ -45,7 +45,7 @@ const RESOURCE = "settlement";
  * <p>되돌릴 수 있는 조작이라 문구가 무엇이 사라지는지를 안 묻는다.
  */
 const REQUEST: PayoutAction = {
-  permission: "request_payout",
+  name: "PAYOUT_REQUEST",
   path: "payout-request",
   label: "지급 올리기",
   confirm: "이 정산서를 승인 대기로 올립니다. 계속하시겠습니까?",
@@ -53,7 +53,7 @@ const REQUEST: PayoutAction = {
 
 /** 승인. <b>여기서 돈이 나간 것으로 친다</b> */
 const APPROVE: PayoutAction = {
-  permission: "payout",
+  name: "PAYOUT",
   path: "payout",
   label: "지급 승인",
   confirm: "승인하시면 지급한 것으로 기록되며 되돌릴 수 없습니다. 계속하시겠습니까?",
@@ -61,7 +61,7 @@ const APPROVE: PayoutAction = {
 
 /** 반려. 돈이 안 나가므로 다시 올릴 수 있다 */
 const REJECT: PayoutAction = {
-  permission: "payout",
+  name: "PAYOUT_REJECTION",
   path: "payout-rejection",
   label: "지급 반려",
   confirm: "반려하시면 이 정산서가 지급 대기로 돌아갑니다. 계속하시겠습니까?",
@@ -79,32 +79,12 @@ const REJECT: PayoutAction = {
  *
  * @param granted 판정이 내려준 목록. 범위는 안 본다 — 대상별 판정은 서버가 한다
  */
-export function payoutActionsFor(
-  granted: readonly Pick<Permission, "resource" | "action">[],
-  settlement: { payoutStatus: string; payoutAmount: number },
-): PayoutAction[] {
-  const byState = stateAllows(settlement);
-
-  return byState.filter((action) =>
-    granted.some(
-      (permission) =>
-        permission.resource === RESOURCE && permission.action === action.permission,
-    ),
-  );
+export function payoutActionsFor(allowed: readonly string[]): PayoutAction[] {
+  return ALL.filter((action) => allowed.includes(action.name));
 }
 
-function stateAllows(settlement: { payoutStatus: string; payoutAmount: number }): PayoutAction[] {
-  switch (settlement.payoutStatus) {
-    case "PENDING":
-    case "REJECTED":
-      return settlement.payoutAmount > 0 ? [REQUEST] : [];
-    case "REQUESTED":
-      return [APPROVE, REJECT];
-    default:
-      // 지급이 끝났거나 모르는 상태다. 모르는 값에 버튼을 그리면 무엇이 일어날지를 화면이 모른다.
-      return [];
-  }
-}
+/** 서버가 주는 이름과 짝이 되는 표. 이름이 곧 경로라 여기서 다시 안 만든다. */
+const ALL: PayoutAction[] = [REQUEST, APPROVE, REJECT];
 
 export function PayoutActions({
   settlementNumber,

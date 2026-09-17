@@ -35,63 +35,25 @@ afterEach(() => {
  * 권한만 보면 이미 지급한 정산서에 승인 버튼이 뜨고, 상태만 보면 셀러에게 지급 버튼이 뜬다.
  */
 describe("지급 버튼", () => {
-  it("볼 권한만 있는 사람에게는 아무것도 안 그린다", () => {
-    const actions = payoutActionsFor(SELLER, REQUESTED);
+  // **상태와 권한을 여기서 안 잰다**(`Q81`). 그 판단은 서버가 하고
+  // `SettlementPayoutActionsTest` 가 잰다 — 화면은 이름을 버튼으로 바꾸기만 한다.
 
-    // 셀러에게 지급이 열리면 자기 지급을 스스로 올리고, 자기승인 제약은 둘이 짜면 통과한다(`V57`).
-    expect(actions).toHaveLength(0);
-
-    const { container } = render(<PayoutActions settlementNumber="ST-1" actions={actions} />);
-    // 그려 놓고 감추면 DOM 에 남아서 화면낭독기가 읽고, 개발자 도구로 되살리면 눌러진다.
-    expect(container).toBeEmptyDOMElement();
+  it("서버가 준 이름만 버튼이 된다", () => {
+    expect(payoutActionsFor(["PAYOUT"]).map((action) => action.label)).toEqual(["지급 승인"]);
   });
 
-  it("승인 권한이 있으면 올라온 지급에 승인과 반려가 난다", () => {
-    render(
-      <PayoutActions settlementNumber="ST-1" actions={payoutActionsFor(ADMIN, REQUESTED)} />,
-    );
-
-    expect(screen.getByRole("button", { name: "지급 승인" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "지급 반려" })).toBeInTheDocument();
-    // 올라온 것을 또 올릴 수는 없다.
-    expect(screen.queryByRole("button", { name: "지급 올리기" })).not.toBeInTheDocument();
+  it("빈 목록이면 아무것도 안 그린다", () => {
+    expect(payoutActionsFor([])).toEqual([]);
   });
 
-  it("다른 동작의 권한으로는 안 열린다", () => {
-    const onlyRequest: Permission[] = [
-      { resource: "settlement", action: "request_payout", scopes: ["ALL"] },
-    ];
-
-    // 요청과 승인을 가른 이유가 이것이다 — 하나로 보면 올리는 순간 승인이 같이 열린다(`V57`).
-    expect(payoutActionsFor(onlyRequest, REQUESTED)).toHaveLength(0);
+  it("모르는 이름은 버리고 아는 것만 남긴다", () => {
+    expect(payoutActionsFor(["PAYOUT_REQUEST", "PAYOUT_CANCEL"]).map((a) => a.label))
+      .toEqual(["지급 올리기"]);
   });
 
-  it("다른 자원의 같은 이름에는 안 열린다", () => {
-    const elsewhere: Permission[] = [{ resource: "refund", action: "payout", scopes: ["ALL"] }];
-
-    expect(payoutActionsFor(elsewhere, REQUESTED)).toHaveLength(0);
-  });
-
-  it("반려된 것은 다시 올릴 수 있다", () => {
-    const actions = payoutActionsFor(ADMIN, { payoutStatus: "REJECTED", payoutAmount: 10_000 });
-
-    expect(actions.map((action) => action.label)).toEqual(["지급 올리기"]);
-  });
-
-  it("지급이 끝난 것에는 아무것도 안 난다", () => {
-    expect(payoutActionsFor(ADMIN, { payoutStatus: "PAID", payoutAmount: 10_000 })).toHaveLength(0);
-  });
-
-  it("모르는 상태에는 아무것도 안 난다", () => {
-    // 서버가 상태를 하나 늘려도 무엇이 일어날지 모르는 버튼이 생기면 안 된다(`D5`).
-    expect(payoutActionsFor(ADMIN, { payoutStatus: "SETTLED", payoutAmount: 10_000 })).toHaveLength(
-      0,
-    );
-  });
-
-  it("줄 돈이 없으면 올리기가 안 난다", () => {
-    // 지급액이 0 이하면 이월로 넘어가지 지급 대상이 아니다(`settlement_payout_amount_check`).
-    expect(payoutActionsFor(ADMIN, { payoutStatus: "PENDING", payoutAmount: 0 })).toHaveLength(0);
+  it("승인과 반려는 같이 온다", () => {
+    expect(payoutActionsFor(["PAYOUT", "PAYOUT_REJECTION"]).map((a) => a.path))
+      .toEqual(["payout", "payout-rejection"]);
   });
 
   it("되돌릴 수 없는 조작은 확인을 받고, 거절하면 안 보낸다", () => {
@@ -99,7 +61,7 @@ describe("지급 버튼", () => {
     vi.spyOn(window, "confirm").mockReturnValue(false);
 
     render(
-      <PayoutActions settlementNumber="ST-1" actions={payoutActionsFor(ADMIN, REQUESTED)} />,
+      <PayoutActions settlementNumber="ST-1" actions={payoutActionsFor(["PAYOUT", "PAYOUT_REJECTION"])} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "지급 승인" }));
 
@@ -112,7 +74,7 @@ describe("지급 버튼", () => {
   });
 
   it("결과를 알리는 자리가 소리로도 전해진다", () => {
-    render(<PayoutActions settlementNumber="ST-1" actions={payoutActionsFor(ADMIN, PENDING)} />);
+    render(<PayoutActions settlementNumber="ST-1" actions={payoutActionsFor(["PAYOUT_REQUEST"])} />);
 
     // 동적으로 바뀌는 것은 역할이 있어야 스크린 리더가 읽는다(`D20`).
     expect(screen.getByRole("status")).toBeInTheDocument();

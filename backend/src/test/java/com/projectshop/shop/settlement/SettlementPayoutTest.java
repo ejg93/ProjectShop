@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +45,9 @@ class SettlementPayoutTest extends PostgresTestBase {
 
     @Autowired
     private SettlementPayoutService payouts;
+
+    @Autowired
+    private SettlementQuery settlements;
 
     @Autowired
     private JdbcClient jdbc;
@@ -426,5 +430,70 @@ class SettlementPayoutTest extends PostgresTestBase {
                 .param("price", PRICE)
                 .query(Long.class)
                 .single();
+    }
+
+    /**
+     * 화면이 그릴 것을 서버가 정한다(`Q81`).
+     *
+     * <p><b>화면에서 걷어낸 표가 여기로 왔다.</b> 그전에는 상태와 권한을 화면이 맞춰 봤고,
+     * <b>누가 올렸는지는 응답에 없어서 못 봤다</b> — 자기가 올린 지급에도 승인 버튼이 뜨고
+     * 누르면 {@code 403} 이 왔다. 셋을 한자리에서 보는 것이 이 묶음의 요지다.
+     */
+    @Nested
+    @DisplayName("할 수 있는 것 목록은")
+    class AllowedActions {
+
+        @Test
+        @DisplayName("올릴 수 있으면 올리기가 난다")
+        void offersRequestToStaff() {
+            assertThat(actionsFor(staffId)).containsExactly("PAYOUT_REQUEST");
+        }
+
+        @Test
+        @DisplayName("셀러에게는 아무것도 안 난다")
+        void offersNothingToTheSeller() {
+            assertThat(actionsFor(ownerId)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("감사자에게는 아무것도 안 난다")
+        void offersNothingToTheAuditor() {
+            assertThat(actionsFor(auditorId)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("올라온 뒤에는 다른 관리자에게 승인과 반려가 난다")
+        void offersDecisionsToAnotherAdmin() {
+            payouts.request(staffId, settlementNumber);
+
+            assertThat(actionsFor(approverId)).containsExactly("PAYOUT", "PAYOUT_REJECTION");
+        }
+
+        /**
+         * <b>이것이 화면에서 못 보던 자리다.</b> {@code settlement_payout_self_approval_check} 가
+         * 막는 것을 목록이 먼저 답한다 — 안 그러면 버튼을 그려 놓고 눌러야 알려준다.
+         */
+        @Test
+        @DisplayName("올린 사람에게는 결정이 안 난다")
+        void hidesDecisionsFromTheRequester() {
+            payouts.request(staffId, settlementNumber);
+
+            assertThat(actionsFor(staffId))
+                    .as("자기가 올린 것은 자기가 결정 못 한다. 반려도 결정이다")
+                    .isEmpty();
+        }
+
+        @Test
+        @DisplayName("지급이 끝나면 아무것도 안 난다")
+        void offersNothingOncePaid() {
+            payouts.request(staffId, settlementNumber);
+            payouts.approve(approverId, settlementNumber);
+
+            assertThat(actionsFor(approverId)).isEmpty();
+        }
+
+        private List<String> actionsFor(long viewerId) {
+            return settlements.findOne(viewerId, settlementNumber).allowedActions();
+        }
     }
 }

@@ -44,7 +44,12 @@ type SettlementLine = {
   productName: string | null;
 };
 
-type SettlementDetail = { summary: SettlementSummary; lines: SettlementLine[] };
+type SettlementDetail = {
+  summary: SettlementSummary;
+  lines: SettlementLine[];
+  /** 서버가 권한·상태·요청자를 다 보고 준 이름 목록(`Q81`) */
+  allowedActions: string[];
+};
 
 /**
  * 정산서 하나(`20-1`).
@@ -67,13 +72,11 @@ export default async function SettlementDetailPage({
 }) {
   const { settlementNumber } = await params;
 
-  const [detail, me] = await Promise.all([
-    findSettlement(settlementNumber),
-    apiSessionOptional<Me>("/api/me/permissions"),
-  ]);
+  const detail = await findSettlement(settlementNumber);
 
-  const { summary, lines } = detail;
-  const actions = payoutActionsFor(me?.permissions ?? [], summary);
+  const { summary, lines, allowedActions } = detail;
+  // 권한을 따로 안 묻는다 — 서버가 권한·상태·요청자를 다 보고 이름으로 준다(`Q81`, `D20`).
+  const actions = payoutActionsFor(allowedActions);
 
   return (
     <>
