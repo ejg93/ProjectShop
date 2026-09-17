@@ -187,7 +187,10 @@ val comparedInFastLane = listOf(
 	// 입력이 안 바뀌어서** 정작 그 문서가 안 잡힌다. 잡아야 할 사건이 곧 입력의 변화다.
 	"../doc/reference",
 	// 셋째가 여기서 `create table` 을 읽는다. 표를 더한 청크에서 이 테스트가 돌아야 한다.
-	"src/main/resources/db/migration")
+	"src/main/resources/db/migration",
+	// `PlanProgressConsistencyTest` 의 예약 번호 검사가 **시드도 센다**(`Q69`) — 거기 있는 번호는
+	// 예약이 아니라 인용이라 걷어내야 한다. 시드가 하나 늘면 그 판정이 바뀌므로 입력이다.
+	"src/main/resources/db/seed")
 val comparedScreenRoot = "../frontend/src"
 val declaredComparedInputs = comparedInSlowLane + comparedInFastLane + comparedScreenRoot
 
