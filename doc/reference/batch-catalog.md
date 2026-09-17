@@ -18,7 +18,7 @@
 | 수신동의 확인 | 2년이 지난 광고 수신동의에 확인 통지를 보낸다 | 매일 04:30 KST | `coalesce(reconfirmed_at, acted_at)` 이 2년 전보다 오래됨 | `ConsentReconfirmSweeper.sweep` |
 | 방치 묶음 마감 | 셀러가 손을 놓은 묶음을 닫아 보존 기간이 흐르게 한다 | 매일 04:45 KST | `preparing` 이 발송 기한 + 7일, `shipping` 이 발송 + 30일 | `StaleBundleBatch.close` |
 | 회차 재시도 스위퍼 | 일시적으로 실패한 회차를 다시 돌린다 | 10분 `fixedDelay` | `batch_run` 의 마지막 회차가 `transient` 실패이거나 `skipped` 이고 시도가 셋 미만 | `BatchRetrySweeper.sweep` |
-| 아웃박스 발행기 | 안 보낸 사건을 집어 Kafka 로 보내고 **답을 받은 것만** 보냄으로 표시한다 | 2초 `fixedDelay` | `outbox_event.published_at` 이 비었고 집힌 지 1분이 넘었거나 아직 안 집혔다 | `OutboxPublisher.publishOnce` |
+| 아웃박스 발행기 | 안 보낸 사건을 집어 Kafka 로 보내고 **답을 받은 것만** 보냄으로 표시한다 | 2초 `fixedDelay` | `outbox_event.published_at` 이 비었고 집힌 지 1분이 넘었거나 아직 안 집혔다 | `OutboxPublisher.publish` |
 | 정산 마감 | 전달 구매확정분을 셀러별 정산서로 묶어 지급액을 확정한다 | **매월 1일** 05:00 KST | 기준일이 **전달 말일**. 그 달의 구매확정·배송비·정산된 건의 환불·지난 음수 잔액 | `SettlementCloseBatch.close` |
 
 파기 둘은 청크 36 이 스케줄에 붙였다. **배치 클래스와 서비스를 갈랐다** —
@@ -278,6 +278,11 @@ JVM 이 죽은 회차가 영영 `running` 으로 남고 그 행을 치우는 배
 | Spring Batch | 지금은 전부 쿼리 하나에 루프 하나다. 청크·리더·라이터가 필요해지면 |
 
 ## 이 문서를 고칠 때
+
+**카탈로그 행과 `@Scheduled` 는 `BatchCatalogTest` 가 양방향으로 대조한다**(`Q70`).
+행을 지우거나 메서드 이름을 바꾸면 그 테스트가 빨개진다 — 「클래스」 칸은 **`@Scheduled` 가 붙은
+메서드**를 가리킨다(그 안에서 부르는 회차 메서드가 아니다).
+
 
 배치가 늘면 카탈로그 행과 「새 배치를 더할 때」의 5번까지를 같이 채운다.
 **체인이 하나라도 생기면 3층이 실제로 도는지 테스트로 고정한다** — 선행이 실패한 날 후행이 스킵되는지가
