@@ -57,6 +57,12 @@ class SchemaNamingTest extends PostgresTestBase {
             "shop_order", "order");
 
     /** 정수(원)로 저장한다. 부동소수·십진 타입이 들어오면 반올림이 어디서 나는지 아무도 모른다 */
+    /** 타입을 약속하는 접미사. 뜻만 있는 접미사(`_name`·`_reason`)는 여기 안 넣는다 — 기계가 판정할 것이 없다. */
+    private static final Map<String, String> TYPED_SUFFIXES = Map.of(
+            "_at", "timestamp with time zone",
+            "_date", "date",
+            "_bp", "integer");
+
     private static final Set<String> NON_INTEGER_MONEY_TYPES = Set.of(
             "numeric", "decimal", "real", "double precision", "money");
 
@@ -302,4 +308,85 @@ class SchemaNamingTest extends PostgresTestBase {
                 .collect(Collectors.groupingBy(KeyColumn::table,
                         Collectors.mapping(KeyColumn::column, Collectors.toList())));
     }
+
+    /**
+     * 접미사가 약속한 타입과 실제 타입이 같나(`Q78`).
+     *
+     * <p><b>접미사 표 전체는 기계로 못 잰다.</b> {@code _name}·{@code _reason} 처럼 뜻만 있는 것은
+     * 사람이 읽어야 판정되고, 컬럼 이름의 마지막 토막을 전부 접미사로 보면 {@code card_issuer}·
+     * {@code source_url} 같은 평범한 명사까지 규칙 위반이 된다. <b>타입을 약속하는 접미사만</b> 잰다.
+     *
+     * <p>{@code _at} 과 {@code _date} 가 이번에 갈린 자리다 — {@code D22} 가 「우리는 전부
+     * {@code timestamptz} 다」로 적어 뒀는데 {@code baseline_date}·{@code payout_date} 가 이미
+     * {@code date} 였다(점검 O). 문서를 사실로 고치면서 <b>둘이 섞이는 것</b>을 여기서 막는다.
+     */
+    @Test
+    @DisplayName("접미사가 약속한 타입과 실제 타입이 같다")
+    void typedSuffixesMatchColumnTypes() {
+        List<String> mismatched = columns().stream()
+                .map(SchemaNamingTest::typeMismatch)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+
+        assertThat(mismatched)
+                .as("접미사가 타입을 약속한다 (naming-rules.md 「접미사」)."
+                        + " 이름을 고치거나 타입을 고친다 — 둘이 갈리면 이름이 거짓말을 한다")
+                .isEmpty();
+    }
+
+    /** 약속을 어긴 칸이면 설명을, 아니면 {@code null}. */
+    private static String typeMismatch(Column column) {
+        String expected = TYPED_SUFFIXES.entrySet().stream()
+                .filter(entry -> column.name().endsWith(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
+        if (expected == null || expected.equals(column.type())) {
+            return null;
+        }
+        return column.qualified() + " 는 " + column.type() + " 인데 " + expected + " 여야 한다";
+    }
+
+    /**
+     * {@code _no}·{@code _number} 로 끝나는 컬럼 중 <b>우리가 발급하지 않는</b> 것과 그 근거.
+     *
+     * <p>{@code D22} 「접미사」가 가르는 기준이 「누가 발급했나」인데, <b>이름만으로는 그것을 못 본다.</b>
+     * 그래서 남이 준 번호를 여기 적고 <b>왜 그 이름으로 남았는지</b>를 값에 둔다.
+     */
+    private static final Map<String, String> FOREIGN_NUMBERS = Map.of(
+            "payment.approval_number",
+            "결제 대행사가 준 번호다. 기준대로면 _no 인데 approvalNumber 가 이미 주문 응답과 거래기록에 실렸다",
+            "refund.gateway_refund_number",
+            "결제 대행사가 준 번호다. 위와 같은 이유로 이름을 안 바꿨다");
+
+    /**
+     * {@code _number} 가 「우리가 발급한 번호」라는 약속을 지키나(`Q77`).
+     *
+     * <p><b>{@code _no} 쪽만 묻고 있었다.</b> {@code internalSequenceSuffixIsPinned} 가 그쪽을 핀하는 동안
+     * {@code _number} 는 아무것도 안 물어서, 남이 준 번호가 우리 노출 번호 행세를 해도 조용했다(점검 O).
+     * 예외는 <b>이미 나간 이름</b>뿐이고 새 컬럼은 못 쓴다 — 아직 아무것도 안 나갔으면 {@code _no} 가 싸다.
+     */
+    @Test
+    @DisplayName("남이 발급한 번호가 _number 를 쓰면 근거가 적혀 있다")
+    void foreignNumbersArePinned() {
+        List<String> undocumented = columns().stream()
+                .filter(column -> column.name().endsWith("_number"))
+                .map(Column::qualified)
+                .filter(name -> !OUR_NUMBERS.contains(name))
+                .filter(name -> !FOREIGN_NUMBERS.containsKey(name))
+                .toList();
+
+        assertThat(undocumented)
+                .as("_number 는 우리가 발급해서 바깥이 부르는 번호다 (naming-rules.md 「접미사」)."
+                        + " 남이 준 번호면 _no 로 짓고, 이미 나간 이름이면 FOREIGN_NUMBERS 에 근거를 적는다")
+                .isEmpty();
+    }
+
+    /** 이 저장소가 발급하는 노출 번호. {@code identifier-rules.md} 가 형식까지 정한 것들이다. */
+    private static final Set<String> OUR_NUMBERS = Set.of(
+            "shop_order.order_number",
+            "seller_order.seller_order_number",
+            "refund.refund_number",
+            "settlement.settlement_number",
+            "inquiry.inquiry_number");
 }
