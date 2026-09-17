@@ -1,5 +1,6 @@
 package com.projectshop.shop;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
@@ -18,6 +19,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
@@ -522,6 +533,67 @@ class ArchitectureTest {
                     .should(목록을_다_쓴다());
 
 
+
+    /**
+     * 문서의 표와 위 목록이 같나(`Q65`).
+     *
+     * <p><b>대조가 사람 손이었다.</b> {@code permission-rules.md} 가 「이 표와 그 목록이 같아야 한다」고
+     * 적어 두고 대조를 사람에게 맡겼는데, {@code Q56} 이 그 자리에서 이미 <b>표 셋 대 실물 다섯</b>로
+     * 갈려 있던 것을 찾았고 <b>세운 날 숫자가 또 한 칸 틀렸다</b>.
+     *
+     * <p>그래서 문서 쪽 표기를 {@code Class.method} 로 바꿨다 — 산문으로 적혀 있으면 기계가 못 센다.
+     * 그 이름이 실재하는 메서드인지는 {@link #목록의_입구가_실재한다} 가, 실재하는 클래스인지는
+     * {@code IdentifierReferenceTest} 가 각각 잰다.
+     */
+    @Test
+    @DisplayName("문서의 「판정을 안 지나는 입구」 표가 목록과 같다")
+    void 문서의_표와_목록이_같다() throws IOException {
+        Path doc = Path.of("..", "doc", "reference", "permission-rules.md");
+        List<String> lines = Files.readAllLines(doc, StandardCharsets.UTF_8);
+
+        Pattern entry = Pattern.compile("`([A-Z][A-Za-z0-9]*Controller\\.[a-zA-Z0-9]+)`");
+        Set<String> inDoc = new TreeSet<>();
+        boolean inSection = false;
+        for (String line : lines) {
+            if (line.startsWith("## ")) {
+                inSection = line.contains("판정을 안 지나는 입구");
+                continue;
+            }
+            if (!inSection) {
+                continue;
+            }
+            Matcher matcher = entry.matcher(line);
+            while (matcher.find()) {
+                inDoc.add(matcher.group(1));
+            }
+        }
+
+        assertThat(inDoc)
+                .as("문서의 표와 소유가_곧_권한인_입구 목록이 갈렸다. "
+                        + "한쪽만 고치면 다음 예외가 몰래 들어온다 (permission-rules.md)")
+                .isEqualTo(new TreeSet<>(소유가_곧_권한인_입구));
+    }
+
+    /**
+     * 순수 계산이 서비스 안에 남는 것을 막는다(`Q68`).
+     *
+     * <p><b>{@code RefundMath} 를 뺀 강제 지점은 「옮긴 계산이 되돌아오는 것」만 막았다.</b>
+     * 새 계산을 {@code *Service} 안에 {@code private static} 으로 쓰면 아무도 안 잡고,
+     * 그 규칙은 {@code coding-rules.md}·{@code testing-strategy.md} 에만 있어 <b>문서 5위</b>였다.
+     *
+     * <p><b>시그니처로 판정한다.</b> 「필드를 안 쓴다」는 ArchUnit 이 못 보므로
+     * <b>바이트코드가 무엇을 부르나</b>로 잰다 — 바깥(DB·시계·지표)을 하나도 안 부르는 {@code static}
+     * 메서드는 <b>계산</b>이고, 계산은 자기 클래스로 나가야 시험할 수 있다(`D15`).
+     *
+     * <p><b>{@code private} 도 센다.</b> 접근 제어자를 좁히는 것으로 이 규칙을 피할 수 있으면
+     * 규칙이 아니라 권고다.
+     */
+    @ArchTest
+    static final ArchRule 순수_계산은_서비스에_안_남는다 =
+            methods()
+                    .that(계산을_담는_클래스의_static_메서드다())
+                    .should(바깥을_부르거나_계산이_아니다());
+
     /** 쓰기 입구 — {@code *Controller} 의 public 메서드 중 비-GET 매핑이 붙은 것 */
     private static DescribedPredicate<JavaMethod> 쓰기_입구다() {
         return DescribedPredicate.describe("컨트롤러의 쓰기 입구인",
@@ -628,4 +700,100 @@ class ArchitectureTest {
     private ArchitectureTest() {
     }
 
+
+    /** 계산이 숨기 쉬운 자리. 이 셋은 「무엇을 언제 하나」를 드는 클래스라 <b>계산의 집이 아니다</b>(`D23` 「계층」). */
+    private static DescribedPredicate<JavaMethod> 계산을_담는_클래스의_static_메서드다() {
+        return DescribedPredicate.describe("서비스·스위퍼·배치의 static 메서드인",
+                method -> {
+                    String owner = method.getOwner().getSimpleName();
+                    return (owner.endsWith("Service") || owner.endsWith("Sweeper")
+                            || owner.endsWith("Batch"))
+                            && method.getModifiers().contains(JavaModifier.STATIC)
+                            && !계산이_아닌_static.containsKey(owner + "." + method.getName());
+                });
+    }
+
+    /**
+     * {@code static} 인데 계산이 아닌 자리와 그 근거.
+     *
+     * <p><b>근거 없이 이름만 넣지 않는다.</b> 근거 칸이 없으면 이 목록이
+     * <b>계산을 서비스에 두고 싶을 때 도망칠 자리</b>가 된다.
+     */
+    private static final Map<String, String> 계산이_아닌_static = Map.of(
+            "TransactionPurgeService.purgeableOrderIds",
+            "SQL 을 짜는 자리라 계산이 아니다. 조건이 곧 파기 순서고 그것은 DB 에 붙어 있다",
+            "LoginAttemptService.key",
+            "저장소 열쇠 규칙이다. 그 서비스가 쓰는 Redis 에 붙어 있어 도메인이 아니다",
+            "PaymentService.fingerprint",
+            "그 서비스의 private record 를 짜 넣는다. 밖으로 빼면 그 record 도 같이 나가고 쓰는 곳은 여전히 하나다",
+            "RefundSweeper.reasonOf",
+            "상태를 사유 코드로 옮기는 표다. 그 스위퍼가 쓰는 전이에 붙어 있다",
+            "RefundService.upper",
+            "문자열 손질이다. 도메인 규칙이 아니라 입력 정규화고 쓰는 곳이 하나다",
+            "RefundService.blankToNull",
+            "〃");
+
+    /**
+     * 바깥을 하나라도 부르면 계산이 아니다.
+     *
+     * <p><b>부르는 것으로 잰다.</b> 「필드를 안 쓴다」는 ArchUnit 이 못 보고, 「인자가 도메인 타입뿐」은
+     * {@code long}·{@code String} 이 섞이면 못 가른다 — <b>DB·시계·지표를 하나도 안 부르는 {@code static}</b>
+     * 이면 그 메서드는 입력만으로 답이 정해진다. 그것이 계산이고, 계산은 자기 클래스로 나가야 시험된다(`D15`).
+     *
+     * <p><b>직접 호출만 본다.</b> 사슬을 걷지 않으므로 <b>private 헬퍼 뒤에 숨기면 안 걸린다</b> —
+     * 그물이 성기다는 것을 여기 적어 둔다. 규칙 자체는 여전히 {@code coding-rules.md} 「계층」이다.
+     */
+    private static ArchCondition<JavaMethod> 바깥을_부르거나_계산이_아니다() {
+        return new ArchCondition<>("바깥(DB·시계·지표)을 부르거나 계산이 아니어야") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                boolean touchesOutside = method.getMethodCallsFromSelf().stream()
+                        .map(JavaMethodCall::getTargetOwner)
+                        .map(JavaClass::getName)
+                        .anyMatch(계산_바깥::contains);
+                if (touchesOutside || !계산의_모양이다(method)) {
+                    return;
+                }
+                events.add(SimpleConditionEvent.violated(method,
+                        method.getOwner().getSimpleName() + "." + method.getName()
+                                + " 은 바깥을 하나도 안 부르는 static 이다 — 계산이면 자기 클래스로 뺀다"
+                                + "(`RefundMath` 가 그 꼴이다). 계산이 아니면 "
+                                + "ArchitectureTest.계산이_아닌_static 에 근거와 함께 적는다"));
+            }
+        };
+    }
+
+    /**
+     * 계산의 모양인가.
+     *
+     * <p><b>바깥을 안 부르는 static 이 전부 계산은 아니다.</b> 처음 쟀을 때 열일곱이 걸렸는데
+     * 대부분이 <b>가드</b>({@code notFound}·{@code require*})와 <b>행 매퍼</b>였다 —
+     * 예외를 던지는 것은 값을 내는 것이 아니고, {@code ResultSet} 을 받는 것은 DB 모양에 묶여 있다.
+     *
+     * <p>그래서 셋을 뺀다: <b>예외를 던지는 것</b> · <b>{@code ResultSet} 을 받는 것</b> ·
+     * <b>값을 안 돌려주는 것</b>. 남는 것이 「입력을 넣으면 값이 나오는」 자리고 그것이 계산이다.
+     */
+    private static boolean 계산의_모양이다(JavaMethod method) {
+        if (method.getRawReturnType().getName().equals("void")) {
+            return false;
+        }
+        if (method.getRawParameterTypes().stream()
+                .anyMatch(type -> type.getName().equals("java.sql.ResultSet"))) {
+            return false;
+        }
+        return method.getConstructorCallsFromSelf().stream()
+                .map(call -> call.getTargetOwner())
+                .noneMatch(owner -> owner.isAssignableTo(Throwable.class));
+    }
+
+    /** 바깥이라고 부르는 것들. 이 중 하나라도 부르면 입력만으로 답이 안 정해진다. */
+    private static final Set<String> 계산_바깥 = Set.of(
+            "org.springframework.jdbc.core.simple.JdbcClient",
+            "io.micrometer.core.instrument.MeterRegistry",
+            "io.micrometer.core.instrument.Counter",
+            "java.time.Clock",
+            "java.time.OffsetDateTime",
+            "java.time.LocalDate",
+            "java.time.Instant",
+            "org.slf4j.Logger");
 }

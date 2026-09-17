@@ -50,8 +50,6 @@ public class OrderService {
     private static final int LEGAL_SUPPLY_LEAD_DAYS = 3;
 
     /** 청약철회 제한 사유(`V13`). 성립 조건이 사유마다 달라서 이름으로 가른다(`Q5`) */
-    private static final String DIGITAL_CONTENT = "digital_content";
-    private static final String MADE_TO_ORDER = "made_to_order";
 
     private final JdbcClient jdbc;
 
@@ -374,9 +372,9 @@ public class OrderService {
                         .param("lineAmount", line.lineAmount())
                         .param("bp", line.commissionBp())
                         .param("commission", line.commissionAmount())
-                        .param("restrictionReason", agreedRestriction(line, restrictionAgreed))
+                        .param("restrictionReason", WithdrawalRestriction.agreed(line.withdrawalRestrictionReason(), restrictionAgreed))
                         .param("noticeAgreedAt",
-                                MADE_TO_ORDER.equals(agreedRestriction(line, restrictionAgreed))
+                                WithdrawalRestriction.MADE_TO_ORDER.equals(WithdrawalRestriction.agreed(line.withdrawalRestrictionReason(), restrictionAgreed))
                                         ? OffsetDateTime.now() : null)
                         .update();
             }
@@ -401,16 +399,6 @@ public class OrderService {
      *
      * @return 성립한 사유. 없으면 {@code null}
      */
-    private static String agreedRestriction(Line line, boolean restrictionAgreed) {
-        String reason = line.withdrawalRestrictionReason();
-        if (reason == null) {
-            return null;
-        }
-        if (DIGITAL_CONTENT.equals(reason)) {
-            return reason;
-        }
-        return MADE_TO_ORDER.equals(reason) && restrictionAgreed ? reason : null;
-    }
 
     /**
      * 셀러 묶음 하나를 넣는다. <b>노출 번호를 여기서 뽑는다</b>(`D9`).

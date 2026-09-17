@@ -361,9 +361,9 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 | 스타일 | 언제 | 어디 |
 |---|---|---|
 | 판정 엔진 `decide` | 역할·스코프·상태에 따라 답이 갈리는 동작 — 셀러가 남의 것을, 관리자가 강제로, 감사자가 읽기만 | 나머지 전부 — `decide`·`allowedActions` 를 부르는 클래스는 `grep` 이 센다 |
-| **SQL 소유 조건** | 소유자 말고 아무도 못 하고, 소유자는 언제나 되는 동작 | `payment`(결제 요청) · `shop_order`(생성) · `cart` |
-| **본인 계정** | 판정할 역할이 없다 — 남이 대신 하는 경로가 아예 없다 | `MeController` 의 탈퇴·비밀번호 변경·이메일 변경·이메일 확인. 탈퇴는 비밀번호를 다시 받고 이메일 변경은 확인 토큰이 막는다 |
-| **인증 이전** | 판정할 사람이 아직 없다 | `AuthController` 의 가입·로그인·로그아웃·비밀번호 재설정 둘 |
+| **SQL 소유 조건** | 소유자 말고 아무도 못 하고, 소유자는 언제나 되는 동작 | `PaymentController.pay` · `OrderController.create` · `CartController.add` · `CartController.changeQuantity` · `CartController.remove` |
+| **본인 계정** | 판정할 역할이 없다 — 남이 대신 하는 경로가 아예 없다. 탈퇴는 비밀번호를 다시 받고 이메일 변경은 확인 토큰이 막는다 | `MeController.withdraw` · `MeController.changePassword` · `MeController.changeEmail` · `MeController.confirmEmail` |
+| **인증 이전** | 판정할 사람이 아직 없다 | `AuthController.signUp` · `AuthController.logIn` · `AuthController.logOut` · `AuthController.requestPasswordReset` · `AuthController.confirmPasswordReset` |
 
 **아래 둘은 `Q56` 이 찾았다**(2026-09-15). 표가 셋이었는데 규칙을 돌려 보니 실물이 다섯 자리였다 —
 문서가 「나머지 전부」로 뭉쳐 둔 자리에 판정을 안 지나는 입구가 **아홉** 더 있었다 — 본인 계정 넷과 인증 이전 다섯이다.
@@ -387,7 +387,8 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 그 줄은 **아무도 안 막는 죽은 줄**이고, 그것이 다음 예외를 몰래 들여보내는 자리가 된다.
 세운 날 바로 값을 했다 — 다섯 줄이 실제 이름과 달랐다(`logIn`·`logOut`·`signUp`·`changeQuantity`).
 
-**이 표와 그 목록이 같아야 한다.** 한쪽만 고치면 갈린다 — 대조는 아직 사람이 한다.
+**이 표와 그 목록이 같아야 한다.** 한쪽만 고치면 갈린다 — **대조는 `ArchitectureTest.문서의_표와_목록이_같다` 가 한다**(`Q65`).
+그래서 이 표의 마지막 칸이 산문이 아니라 `Class.method` 다 — 산문으로 적으면 기계가 못 센다.
 
 ## 알려진 구멍
 
