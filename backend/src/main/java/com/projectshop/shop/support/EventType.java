@@ -14,13 +14,15 @@ import java.util.Arrays;
  * 바꾸는 것은 새 이름을 더하고 옛 이름을 한동안 같이 내보내는 일이지 고치는 일이 아니다(`D12` 「버전」).
  *
  * <p><b>패키지를 안 판다</b>(`D23` 「자원이 아닌데 패키지를 파는 경우」). 사건은 자원이 아니고,
- * 열거형 하나라 {@code support} 에 둬도 순환이 안 난다. 발행기(`33`)가 설 때 다시 본다.
+ * 열거형 하나라 {@code support} 에 둬도 순환이 안 난다.
  *
- * <p><b>Java 는 이 값을 안 쓴다.</b> 표를 채우는 것이 트리거라 여기서 부르는 자리가 없다 —
- * 있는 이유는 {@code EnumConstraintTest} 가 SQL 의 닫힌 목록과 대조할 상대가 필요해서다.
- * 목록이 갈리면 그 테스트가 빨개진다.
+ * <p><b>{@code public} 인 근거는 소비자다</b>(`Q76`, `D23` 「`public` 에는 근거가 있어야 한다」).
+ * {@code notification} 패키지의 소비자가 이 값으로 분기한다 — 열지 않으면 그쪽이 같은 문자열을
+ * 다시 적게 되고, 실제로 그랬다. 표를 채우는 것은 여전히 트리거라 <b>쓰는 곳이 발행 쪽에는 없다.</b>
+ *
+ * <p><b>{@code EnumConstraintTest} 가 SQL 의 닫힌 목록과 대조한다.</b> 목록이 갈리면 그 테스트가 빨개진다.
  */
-enum EventType {
+public enum EventType {
 
     ORDER_STATUS_CHANGED("shop.order.status_changed"),
     SELLER_ORDER_STATUS_CHANGED("shop.seller_order.status_changed"),
@@ -37,7 +39,7 @@ enum EventType {
     }
 
     /** 저장값이자 봉투의 {@code type} 이다 */
-    String code() {
+    public String code() {
         return code;
     }
 
@@ -47,7 +49,7 @@ enum EventType {
      * <p><b>모르는 값이면 터진다.</b> {@code outbox_event_type_check} 가 이미 막고 있으므로
      * 여기 오는 모르는 값은 <b>마이그레이션과 이 enum 이 어긋났다</b>는 뜻이다.
      */
-    static EventType of(String code) {
+    public static EventType of(String code) {
         return Arrays.stream(values())
                 .filter(type -> type.code.equals(code))
                 .findFirst()

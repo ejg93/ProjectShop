@@ -2,6 +2,8 @@ package com.projectshop.shop.notification;
 
 import java.nio.charset.StandardCharsets;
 
+import com.projectshop.shop.support.EventType;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -52,8 +54,13 @@ class NotificationConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationConsumer.class);
 
-    private static final String ORDER_STATUS_CHANGED = "shop.order.status_changed";
-    private static final String REFUND_STATUS_CHANGED = "shop.refund.status_changed";
+    /**
+     * 이 소비자가 듣는 사건. <b>이름을 여기서 다시 안 적는다</b>(`Q76`, `D23` 「열거값을 어디에 두나」) —
+     * 그전에는 같은 문자열을 상수로 베껴 뒀고, 그 값이 <b>대외 계약</b>이라 한쪽만 고치는 날
+     * 통지가 조용히 멈춘다. 원본은 {@link EventType} 이고 {@code EnumConstraintTest} 가 DB 와 대조한다.
+     */
+    private static final EventType ORDER_STATUS_CHANGED = EventType.ORDER_STATUS_CHANGED;
+    private static final EventType REFUND_STATUS_CHANGED = EventType.REFUND_STATUS_CHANGED;
 
     /** 주문이 막 생겼다는 표시. 앞 상태가 없는 전이는 생성뿐이다 */
     private static final String PAYMENT_PENDING = "payment_pending";
@@ -86,7 +93,7 @@ class NotificationConsumer {
         // 파티션 키가 subject 다(`33b` 가 그렇게 싣는다). 본문을 안 열고 얻는다.
         String subject = record.key();
 
-        if (!ORDER_STATUS_CHANGED.equals(type) && !REFUND_STATUS_CHANGED.equals(type)) {
+        if (!ORDER_STATUS_CHANGED.code().equals(type) && !REFUND_STATUS_CHANGED.code().equals(type)) {
             // **여기서 끝난다.** 본문을 안 연다 — 종류는 헤더가 답하고 파티션 키가 subject 다
             // (`event-catalog.md` 「전송」, `33b` 가 헤더 둘을 실어 둔 이유다).
             return;
@@ -94,13 +101,15 @@ class NotificationConsumer {
 
         JsonNode data = objectMapper.readTree(record.value()).path("data");
 
-        int sent = switch (type) {
-            case ORDER_STATUS_CHANGED -> onOrderStatusChanged(subject, data);
-            case REFUND_STATUS_CHANGED -> onRefundStatusChanged(subject, data);
-            // 나머지 다섯은 통지 대상이 아니다. 받아서 버리는 것이 아니라 **아직 소비자가 없는 것**이라
-            // 새 소비자가 생기면 그쪽이 같은 토픽을 자기 그룹으로 읽는다(`event-catalog.md` 「전송」).
-            default -> 0;
-        };
+        // 위 거름을 지났으므로 아는 값이다. **모르는 값을 여기서 만나면 터지는 것이 맞다** —
+        // 그건 헤더와 이 목록이 어긋났다는 뜻이고, 조용히 0을 돌려주면 통지가 사라진 것을 아무도 모른다.
+        //
+        // 나머지 다섯은 위에서 이미 넘어갔다. 받아서 버리는 것이 아니라 **아직 소비자가 없는 것**이라
+        // 새 소비자가 생기면 그쪽이 같은 토픽을 자기 그룹으로 읽는다(`event-catalog.md` 「전송」).
+        EventType event = EventType.of(type);
+        int sent = event == ORDER_STATUS_CHANGED
+                ? onOrderStatusChanged(subject, data)
+                : onRefundStatusChanged(subject, data);
 
         if (sent > 0) {
             log.info("사건으로 통지를 남겼다 type={} subject={}", type, subject);
