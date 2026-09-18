@@ -73,16 +73,17 @@
 **경로에 사람이 지은 이름을 안 쓴다.** 원본 파일 이름은 컬럼에만 두고, 저장소의 키는 앱이 만든다.
 
 ```
-{버킷}/{자원}/{자원 UUID}/{파일 UUID}.{확장자}
+{버킷}/{자원}/{UUID}/{이름}.{확장자}
 
-shop-public/product/0193f2c1-…/0193f2d4-….webp
-shop-private/return-inspection/0193f3a0-…/0193f3b1-….webp
+shop-public/product/0193f2c1-…/original.jpg
+shop-public/product/0193f2c1-…/thumbnail.jpg
+shop-private/return-inspection/0193f3a0-…/original.jpg
 ```
 
 | 규칙 | 왜 |
 |---|---|
 | 키에 원본 이름을 안 쓴다 | 경로 탈출(`../`)과 이름 충돌이 성립하지 않는다 |
-| 키에 순번을 안 쓴다 | 옆 번호를 찍어 남의 파일을 세지 못한다(`identifier-rules.md` 와 같은 이유) |
+| 키에 순번을 안 쓴다 | **이 키는 서명 URL 에 그대로 실려 나간다** — 순번을 넣으면 사는 사람이 주소만 보고 상품 총량과 증가 속도를 읽는다(`identifier-rules.md` 와 같은 이유). 상품 번호도 안 넣는다 |
 | 버킷을 공개로 안 만든다 | 아래 「여는 법」이 유일한 입구가 된다 |
 
 **원본 이름·MIME·바이트 수는 컬럼으로 받고 `check` 로 좁힌다**(청크 `27`). 표시에만 쓰고

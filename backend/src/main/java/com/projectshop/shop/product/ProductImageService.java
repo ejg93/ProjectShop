@@ -120,7 +120,11 @@ public class ProductImageService {
         BufferedImage source = read(bytes);
 
         String extension = contentType.equals("image/png") ? "png" : "jpg";
-        String folder = "product/" + productId + "/" + UUID.randomUUID();
+        // **키에 상품 번호를 안 넣는다**(media-rules.md 「두는 곳」). 이 키는 서명 URL 에
+        // 그대로 실려 나가므로, 순번을 넣으면 사는 사람이 주소만 보고 상품 총량과
+        // 증가 속도를 읽는다(identifier-rules.md 와 같은 이유). 어느 상품의 사진인지는
+        // product_image 행이 답한다 — 키가 답할 일이 아니다.
+        String folder = "product/" + UUID.randomUUID();
         String objectKey = folder + "/original." + extension;
         String thumbnailKey = folder + "/thumbnail.jpg";
 
