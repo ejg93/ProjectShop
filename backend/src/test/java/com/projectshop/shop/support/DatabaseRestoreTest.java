@@ -31,6 +31,11 @@ import com.projectshop.shop.PostgresTestBase;
  * <p><b>이 fork 의 DB 만 건드린다.</b> 느린 레인은 fork 가 여럿이고 컨테이너는 하나라
  * 남의 DB 를 날리면 그 fork 가 통째로 깨진다({@code 2i-2}).
  */
+// **트랜잭션을 안 연다.** 바탕이 `@Transactional` 이라 그대로 두면 시험의 트랜잭션이
+// 표를 잠근 채 `drop schema` 를 부르고, 둘이 서로를 기다려 **회차가 통째로 멈춘다**
+// (실측 — 10분을 넘겨도 안 끝났다). 되돌릴 것도 없다. 스키마를 날렸다 되부으니까.
+@org.springframework.transaction.annotation.Transactional(
+        propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
 @DisplayName("백업·복구")
 class DatabaseRestoreTest extends PostgresTestBase {
 

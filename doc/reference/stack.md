@@ -1280,6 +1280,15 @@ Detected resolved migration not applied to database: 78.
 **배포에서는 이 제약이 값을 한다** — 되돌리기가 맨 뒤 한 칸으로 제한되면
 「어디까지 되돌렸나」가 한 줄로 답해진다.
 
+### 시험 트랜잭션을 연 채로 `drop schema` 를 부르면 멈춘다
+
+`PostgresTestBase` 는 `@Transactional` 이다. 그 트랜잭션이 표를 잠근 채
+**다른 연결로** `drop schema public cascade` 를 부르면 둘이 서로를 기다린다 —
+타임아웃이 없어서 **회차가 통째로 멈춘다**(`Q101` 실측, 10분을 넘겨도 안 끝났다).
+
+증상이 「느리다」라 원인이 안 읽힌다. 스키마를 건드리는 시험은
+`@Transactional(propagation = NOT_SUPPORTED)` 로 트랜잭션을 아예 안 연다.
+
 ### 덤프는 그때의 마이그레이션 판에 묶인다
 
 되살린 DB 로 앱을 띄우면 Flyway 가 **기록된 체크섬과 지금 파일**을 대조한다.
