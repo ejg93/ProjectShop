@@ -151,7 +151,7 @@ plan_open_rows() {
 # 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
 # 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
 # 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
-plan_open_incomplete_baseline=44
+plan_open_incomplete_baseline=37
 plan_open_incomplete=$(plan_open_rows | awk '
     $0 !~ /\*\*축\*\*/ || $0 !~ /\*\*강제 지점\*\*/ || $0 !~ /\*\*닫힘\*\*/ {k++}
   END{print k+0}')
@@ -183,6 +183,36 @@ plan_unplaced=$(comm -23 \
 if [ -n "${plan_unplaced// /}" ]; then
   echo "[구간 누락] PLAN.md — 안 닫힌 청크 중 구간 표에 없는 것: ${plan_unplaced}"
   echo "    다섯 구간 중 하나의 청크 칸에 낱개로 적는다(PLAN.md 「구간」)"
+  fail=1
+fi
+
+# **곧 칠 행은 칸 넷이 다 차 있나.** 위 「분할표 칸 누락」은 **래칫**이라 기준선 44 안에 이미
+# 든 행은 더 망가져도 안 걸린다 — `64` 가 `Q39` 몫을 흡수하면서 범위가 늘었는데 **닫힘 칸은
+# 빈 채로 지나갔고**, 마무리 25차 독립 리뷰가 손으로 찾아야 했다.
+#
+# **구간 ①·② 로 좁힌다.** 49행 전부에 0 기준을 걸면 44를 0으로 내리는 큰 일이 되고,
+# 큰 일은 안 지켜진다 — **안 지켜지는 규칙은 없는 규칙이다**(`/warmup`). 차례가 잡힌 것부터
+# 채우면 구간이 앞으로 갈수록 자연히 다 찬다. **행이 ③으로 물러나면 이 검사에서도 빠진다** —
+# 곧 안 칠 것에 닫힘을 미리 쓰면 **무엇을 닫는지 모르는 채로 쓰게 된다**(`CLAUDE.md`
+# 「문서가 코드보다 먼저다」의 둘째 조건과 같은 이유다).
+near_ids=$(awk '/^## 구간/{on=1; next} on && /^## /{on=0} on && (/\*\*① 얼굴\*\*/ || /\*\*② 배포 앞\*\*/){
+    n=split($0,c,"|"); if (n<4) next; s=c[3];
+    while (match(s, /`[^`]+`/)) { print substr(s, RSTART+1, RLENGTH-2); s=substr(s, RSTART+RLENGTH) }
+  }' PLAN.md | sort -u)
+near_incomplete=""
+for id in $near_ids; do
+  row=$(plan_open_rows | awk -F'|' -v want="$id" '{gsub(/^ +| +$/,"",$2); if ($2==want) print}')
+  [ -z "$row" ] && continue   # 닫힌 행이면 볼 것이 없다
+  miss=""
+  case "$row" in *'**축**'*) ;; *) miss="$miss 축" ;; esac
+  case "$row" in *'**강제 지점**'*) ;; *) miss="$miss 강제지점" ;; esac
+  case "$row" in *'**닫힘**'*) ;; *) miss="$miss 닫힘" ;; esac
+  [ -n "$miss" ] && near_incomplete="${near_incomplete}  ${id} —${miss}"$'\n'
+done
+if [ -n "${near_incomplete//[$'\n' ]/}" ]; then
+  echo "[곧 칠 행 칸 누락] PLAN.md — 구간 ①·② 의 행은 칸 넷이 다 있어야 한다. 빠진 것:"
+  printf '%s' "$near_incomplete"
+  echo "    닫힘은 「무엇이 초록이면 끝인가」를 검사할 수 있는 이름으로 적는다(PLAN.md 「청크 분할표」)"
   fail=1
 fi
 
