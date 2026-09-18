@@ -186,6 +186,40 @@ if [ -n "${plan_unplaced// /}" ]; then
   fail=1
 fi
 
+# 차례를 주장하는 문장이 구간 표 밖에 있나. **차례의 주인은 `PLAN.md` 「구간」 표 하나다** —
+# `PROGRESS.md` 「현재 상태」가 순서를 그 표에 넘겼고, 그러면 다른 자리의 같은 말은
+# **사본**이라 원본이 바뀌어도 안 따라온다.
+#
+# **막으려는 사고**: 2026-09-17 에 `Q39` 를 맨 끝에서 구간 ②로 옮겼는데, 그 말을 베껴 둔
+# 여섯 자리가 그대로 남았다. 그중 `README.md` 는 포폴 독자가 읽는 유일한 입구다.
+# **마무리 25차 독립 리뷰가 일곱을 손으로 셌고, 이 검사는 리뷰가 못 본 `coding-rules.md` 를 더 냈다.**
+#
+# **예외를 안 판다.** 구멍을 파면 쓰인다 — 끝난 일은 과거형으로 고쳐 적으면 순서 단어가 안 남는다.
+# 스캔 밖인 두 자리는 성격이 달라서다: 구간 표는 **주인**이고 `PROGRESS.md` 「이력」은
+# **그때는 맞았던 기록**이다(고치면 서사가 거짓이 된다).
+#
+# `「」` 안은 걷어낸다 — 남의 문장을 옮겨 적는 자리라 순서 단어가 그대로 들어온다(존댓말 검사와 같다).
+order_word='(맨 마지막|마지막 청크|맨 뒤)'
+chunk_ref='(`(Q|D)?[0-9]+[a-z0-9-]*`|Q[0-9]+)'
+order_claims=""
+for f in README.md backend/README.md CLAUDE.md doc/reference/*.md; do
+  [ -f "$f" ] || continue
+  h=$(perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' "$f" | grep -nE "$order_word" | grep -E "$chunk_ref")
+  [ -n "$h" ] && order_claims="${order_claims}$(echo "$h" | sed "s|^|  $f:|")"$'\n'
+done
+# `PLAN.md` 는 구간 절(`## 구간` ~ 다음 `## `)을 뺀 나머지, `PROGRESS.md` 는 이력을 뺀 나머지.
+for pair in "PLAN.md:^## 구간" "PROGRESS.md:^## 이력"; do
+  f=${pair%%:*}; skip=${pair#*:}
+  h=$(awk -v skip="$skip" '$0 ~ skip {off=1; next} off && /^## /{off=0} {print (off ? "" : $0)}' "$f" \
+    | perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' | grep -nE "$order_word" | grep -E "$chunk_ref")
+  [ -n "$h" ] && order_claims="${order_claims}$(echo "$h" | sed "s|^|  $f:|")"$'\n'
+done
+if [ -n "${order_claims//[$'\n' ]/}" ]; then
+  echo "[차례 사본] 청크의 차례는 PLAN.md 「구간」 표만 든다. 다른 자리는 그 표를 가리킨다:"
+  printf '%s' "$order_claims" | cut -c1-160
+  fail=1
+fi
+
 # 이력이 날짜순인가(`W3`). 앞줄보다 이른 날짜가 오면 센다 — 그 수가 기준선을 넘으면 빨갛다.
 # **기준선은 내리기만 한다.** 2026-09-11 에 이미 일곱이었고(299~393줄이 통째로 역순이다)
 # 그것을 되돌리면 diff 가 95줄 이동이라 아무도 못 읽는다. **새 줄이 그 수를 늘리는 것만 막는다.**
