@@ -1,5 +1,6 @@
 package com.projectshop.shop.support;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -7,11 +8,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -29,19 +32,20 @@ import com.projectshop.shop.PostgresTestBase;
  * <p>바탕 둘({@link PostgresTestBase}·{@code HttpTestBase})이 끈 것을 되켜는 자리다.
  * 켜 두면 로그인 시험 하나가 실패를 여럿 보내면서 <b>401 을 기대한 자리에 429</b> 를 받는다.
  *
- * <h2>열쇠를 이 fork 만의 것으로 가른다</h2>
+ * <h2>fork 는 이미 갈려 있다 — 막을 것은 같은 fork 안이다</h2>
  *
- * <p>느린 레인은 fork 가 여럿이고 Redis 는 하나다({@code Q100}). 접두어가 고정이면
- * <b>시험 클래스들이 카운터 하나를 나눠 쓰고</b>, 이 시험이 카운터를 넘긴 채 끝나면
- * 창 1분 안에 {@code /api/auth/*} 를 치는 다음 클래스가 429 를 받는다.
- * {@code KafkaTestBase} 가 토픽 이름에 pid 를 넣은 것과 같은 수다.
+ * <p>{@code Q100} 이 「fork 마다 Redis 를 나눠 쓰니 열쇠에 pid 를 넣자」고 했는데
+ * <b>전제가 틀렸다</b>({@code Q104}, 마무리 27차 독립 리뷰). {@code PostgresTestBase.forkRedis} 가
+ * 이미 <b>fork 마다 논리 DB 를 가른다</b>({@code 2i-2}) — pid 접두어는 같은 일을 한 번 더 하는 것이고,
+ * 정작 <b>같은 fork 안의 다음 클래스</b>와는 값이 같아서 실제 실패 모드를 못 막았다. 그래서 걷었다.
+ *
+ * <p><b>막는 것은 {@link #카운터를_치운다} 하나다.</b> 이 시험이 상한을 넘긴 채 끝나면
+ * 창 1분 안에 {@code /api/auth/*} 를 치는 다음 것이 429 를 받는다 — 실제로 {@code AuthLoginTest} 가 그 자리다.
  */
 @TestPropertySource(properties = "shop.rate-limit.enabled=true")
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("요청 횟수 제한")
 class RateLimitFilterTest extends PostgresTestBase {
-
-    /** fork 마다 하나. 같은 Redis 를 쓰는 다른 fork 와 안 겹친다 */
-    private static final String KEY_PREFIX = "rate-test-" + ProcessHandle.current().pid() + ":";
 
     @Autowired
     private MockMvc mvc;
@@ -49,21 +53,23 @@ class RateLimitFilterTest extends PostgresTestBase {
     @Autowired
     private StringRedisTemplate redis;
 
-    @DynamicPropertySource
-    static void rateLimit(DynamicPropertyRegistry registry) {
-        registry.add("shop.rate-limit.key-prefix", () -> KEY_PREFIX);
-    }
+    @Value("${shop.rate-limit.key-prefix}")
+    private String keyPrefix;
 
     /**
-     * <b>끝날 때도 지운다.</b> 앞만 지우면 이 시험이 카운터를 넘긴 채 끝나고,
-     * 창 1분이 남아 있는 동안 같은 열쇠를 쓰는 것이 걸린다({@code Q100}).
+     * <b>이것이 이 청크의 강제 지점이다</b>({@code Q104}).
+     *
+     * <p>앞만 지우면 이 시험이 <b>카운터를 넘긴 채 끝나고</b>, 창 1분이 남아 있는 동안
+     * 같은 열쇠를 쓰는 다음 것이 429 를 받는다. 아래 {@code 다음_것은_안_막힌다} 가
+     * 그 다음 것 역할을 한다 — 이 메서드를 지우면 그 시험이 빨개진다.
      */
     @AfterEach
     void 카운터를_치운다() {
-        redis.delete(redis.keys(KEY_PREFIX + "*"));
+        redis.delete(redis.keys(keyPrefix + "*"));
     }
 
     @Test
+    @Order(1)
     @DisplayName("상한을 넘기면 429 와 Retry-After 가 나간다")
     void 상한을_넘기면_429_다() throws Exception {
         for (int i = 0; i < 20; i++) {
@@ -79,16 +85,17 @@ class RateLimitFilterTest extends PostgresTestBase {
     }
 
     /**
-     * <b>이것이 {@code Q100} 의 통과 기준이다.</b> 이 시험이 끝난 뒤 같은 fork 의 다른
-     * 클래스가 인증 경로를 쳐도 안 막힌다 — 열쇠가 갈렸고 뒤도 치웠기 때문이다.
+     * <b>앞 시험이 넘긴 카운터가 여기로 안 넘어온다.</b> 창이 1분이라 치우지 않으면
+     * 이 시험이 첫 요청부터 429 를 받는다 — 실제 저장소에서는 그 다음 것이
+     * {@code AuthLoginTest} 고, 거기서는 401 을 기대한 자리에 429 가 온다.
+     *
+     * <p>순서를 {@link Order} 로 고정한다. 앞이 먼저 돌지 않으면 아무것도 안 재는 시험이 된다.
      */
     @Test
-    @DisplayName("치운 뒤에는 기본 접두어 열쇠가 남지 않는다")
-    void 기본_접두어_열쇠를_안_남긴다() throws Exception {
-        for (int i = 0; i < 21; i++) {
-            mvc.perform(get("/api/auth/session"));
-        }
-
-        org.assertj.core.api.Assertions.assertThat(redis.keys("rate:*")).isEmpty();
+    @Order(2)
+    @DisplayName("앞 시험이 상한을 넘겨도 다음 것은 안 막힌다")
+    void 다음_것은_안_막힌다() throws Exception {
+        mvc.perform(get("/api/auth/session"))
+                .andExpect(status().is(org.hamcrest.Matchers.not(429)));
     }
 }
