@@ -117,6 +117,7 @@ public class ProductImageService {
 
         byte[] bytes = file.bytes();
         String contentType = detect(bytes);
+        requireMatchingExtension(file.originalName(), contentType);
         BufferedImage source = read(bytes);
 
         String extension = contentType.equals("image/png") ? "png" : "jpg";
@@ -146,6 +147,52 @@ public class ProductImageService {
     }
 
     /**
+     * 셀러가 자기 상품의 사진을 지운다({@code Q95}).
+     *
+     * <h2>저장소까지 간다</h2>
+     *
+     * <p>행만 지우고 객체를 두면 <b>주인 없는 파일</b>이 남고, 그 열쇠를 아는 사람에게는
+     * 서명 URL 이 계속 나온다({@code media-rules.md} 「남의 것이 올라오면」과 같은 자리).
+     *
+     * <p><b>저장소를 먼저 지운다.</b> 행을 먼저 지우면 열쇠를 잃어서 지울 대상을 못 찾는다 —
+     * {@code Q94} 의 게시 중단과 같은 순서다.
+     *
+     * <h2>상품 삭제가 이것을 안 대신한다</h2>
+     *
+     * <p>{@code ProductService.delete} 는 <b>소프트 삭제</b>({@code deleted_at})라 상품 행이
+     * 안 사라지고, 따라서 {@code product_image} 의 {@code cascade} 도 안 돈다.
+     * <b>파기 배치가 상품을 물리적으로 지우게 되는 날</b> 그쪽도 이 경로를 불러야 한다.
+     */
+    @Transactional
+    public void delete(long actorUserId, long productImageId) {
+        record Owned(long productId, long sellerId, String objectKey, String thumbnailKey) {
+        }
+
+        Owned owned = jdbc.sql("""
+                        select i.product_id, p.seller_id, i.object_key, i.thumbnail_key
+                          from product_image i
+                          join product p on p.product_id = i.product_id
+                         where i.product_image_id = :id
+                        """)
+                .param("id", productImageId)
+                .query(Owned.class)
+                .optional()
+                .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        if (!evaluator.decide(actorUserId, "product", "update",
+                Target.ofSeller(owned.sellerId())).allowed()) {
+            throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
+        }
+
+        storage.delete(Visibility.PUBLIC, owned.objectKey());
+        storage.delete(Visibility.PUBLIC, owned.thumbnailKey());
+
+        jdbc.sql("delete from product_image where product_image_id = :id")
+                .param("id", productImageId)
+                .update();
+    }
+
+    /**
      * <b>내용으로 판별한다.</b> {@link ImageIO} 가 읽어 낸 형식 이름이 답이고,
      * 요청이 뭐라고 적었는지는 안 본다.
      */
@@ -168,6 +215,42 @@ public class ProductImageService {
             return contentType;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * 이름의 확장자가 <b>내용에서 나온 형식과 짝인가</b>({@code Q96}, {@code media-rules.md} 검사 2).
+     *
+     * <h2>왜 이름까지 보나</h2>
+     *
+     * <p>내용이 PNG 인데 이름이 {@code .jpg} 면 우리는 PNG 로 저장하고 {@code original_name} 에는
+     * {@code .jpg} 가 남는다 — <b>내려받은 사람이 연 파일과 이름이 어긋난다.</b> 그리고
+     * <b>이름을 믿는 다음 코드</b>(내려받기 헤더·이관 스크립트)가 그 어긋남을 물려받는다.
+     *
+     * <p><b>이름을 검증의 입력으로 쓰는 것이 아니다.</b> 형식은 이미 내용이 정했고
+     * ({@link #detect}), 여기서는 <b>이름이 그것과 다른지</b>만 본다.
+     *
+     * <h2>DB 로 못 내린다</h2>
+     *
+     * <p>{@code original_name} 과 {@code content_type} 두 칸의 <b>관계</b>라
+     * {@code check} 로 쓰면 확장자 목록을 SQL 에 박게 된다 — 형식을 하나 더 받는 날
+     * 고칠 자리가 하나 는다.
+     */
+    private void requireMatchingExtension(String originalName, String contentType) {
+        int dot = originalName == null ? -1 : originalName.lastIndexOf('.');
+        if (dot < 0 || dot == originalName.length() - 1) {
+            throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
+        }
+
+        String extension = originalName.substring(dot + 1).toLowerCase(Locale.ROOT);
+        boolean matches = switch (contentType) {
+            case "image/jpeg" -> extension.equals("jpg") || extension.equals("jpeg");
+            case "image/png" -> extension.equals("png");
+            default -> false;
+        };
+
+        if (!matches) {
+            throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
         }
     }
 

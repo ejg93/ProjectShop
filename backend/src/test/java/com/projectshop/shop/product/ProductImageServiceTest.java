@@ -14,6 +14,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import com.projectshop.shop.StorageTestBase;
 import com.projectshop.shop.auth.AuthFixture;
@@ -39,6 +41,9 @@ class ProductImageServiceTest extends StorageTestBase {
 
     @Autowired
     private ObjectStorage storage;
+
+    @Autowired
+    private S3Client s3;
 
     @Autowired
     private JdbcClient jdbc;
@@ -104,6 +109,42 @@ class ProductImageServiceTest extends StorageTestBase {
                 .hasFieldOrPropertyWithValue("code", ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
     }
 
+    /**
+     * <b>이름이 내용과 어긋나면 거부한다</b>({@code Q96}). 저장은 내용대로 하므로
+     * 이름을 그냥 두면 {@code original_name} 이 거짓말을 하고,
+     * <b>그 이름을 믿는 다음 코드</b>가 그것을 물려받는다.
+     */
+    @Test
+    @DisplayName("내용이 PNG 인데 이름이 jpg 면 거부한다")
+    void 확장자가_내용과_어긋나면_거부한다() {
+        ProductImageService.Incoming mislabeled =
+                new ProductImageService.Incoming("photo.jpg", ProductImageFixture.pngBytes(40, 30));
+
+        assertThatThrownBy(() -> service.upload(ownerA, productA, mislabeled))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
+    }
+
+    @Test
+    @DisplayName("확장자가 없는 이름도 거부한다")
+    void 확장자가_없으면_거부한다() {
+        ProductImageService.Incoming noExtension =
+                new ProductImageService.Incoming("photo", ProductImageFixture.jpegBytes(40, 30));
+
+        assertThatThrownBy(() -> service.upload(ownerA, productA, noExtension))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
+    }
+
+    @Test
+    @DisplayName("png 이름에 PNG 내용이면 통과한다")
+    void 짝이_맞으면_통과한다() {
+        ProductImageService.Uploaded uploaded = service.upload(ownerA, productA,
+                new ProductImageService.Incoming("photo.png", ProductImageFixture.pngBytes(40, 30)));
+
+        assertThat(uploaded.objectKey()).endsWith(".png");
+    }
+
     @Test
     @DisplayName("5 MiB 를 넘으면 거부한다")
     void 너무_크면_거부한다() {
@@ -125,6 +166,66 @@ class ProductImageServiceTest extends StorageTestBase {
         assertThatThrownBy(() -> service.upload(ownerA, productA, jpeg("photo.jpg", 40, 30)))
                 .isInstanceOf(ShopException.class)
                 .hasFieldOrPropertyWithValue("code", ErrorCode.IMAGE_LIMIT_REACHED);
+    }
+
+    /**
+     * <b>지우면 저장소에서도 사라진다</b>({@code Q95}). 행만 지우면 주인 없는 파일이 남고,
+     * 그 열쇠를 아는 사람에게는 서명 URL 이 계속 나온다.
+     */
+    @Test
+    @DisplayName("사진을 지우면 저장소에서도 사라진다")
+    void 사진을_지우면_저장소에서도_사라진다() {
+        ProductImageService.Uploaded uploaded =
+                service.upload(ownerA, productA, jpeg("photo.jpg", 40, 30));
+
+        service.delete(ownerA, uploaded.productImageId());
+
+        assertThatThrownBy(() -> s3.headObject(b -> b.bucket(PUBLIC_BUCKET).key(uploaded.objectKey())))
+                .isInstanceOf(NoSuchKeyException.class);
+        assertThatThrownBy(() -> s3.headObject(b -> b.bucket(PUBLIC_BUCKET).key(uploaded.thumbnailKey())))
+                .isInstanceOf(NoSuchKeyException.class);
+    }
+
+    @Test
+    @DisplayName("남의 상품 사진은 못 지운다")
+    void 남의_상품_사진은_못_지운다() {
+        ProductImageService.Uploaded uploaded =
+                service.upload(ownerA, productA, jpeg("photo.jpg", 40, 30));
+
+        assertThatThrownBy(() -> service.delete(ownerB, uploaded.productImageId()))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_FORBIDDEN);
+    }
+
+    /**
+     * <b>앱 검증을 지나쳐도 DB 가 막는다</b>({@code Q102}). 여기서 {@code insert} 를 직접
+     * 넣는 것은 <b>「앱 검증을 빠뜨린 새 입구」를 흉내 내는 것</b>이다 — 관리자 일괄 등록이든
+     * 이관 스크립트든, 세는 코드를 안 부르는 다음 자리는 이 트리거를 못 지나간다.
+     *
+     * <p>{@code check} 로는 못 한다. 그것은 자기 행 안에서 끝나는 조건이고
+     * 여기 세는 것은 <b>같은 상품의 다른 행</b>이다({@code coding-rules.md} 「불변식」).
+     */
+    @Test
+    @DisplayName("앱을 건너뛰고 열한 장째를 넣어도 DB 가 거절한다")
+    void 앱을_건너뛰어도_DB_가_거절한다() {
+        for (int i = 0; i < 10; i++) {
+            service.upload(ownerA, productA, jpeg("photo.jpg", 40, 30));
+        }
+
+        assertThatThrownBy(() -> jdbc.sql("""
+                        insert into product_image
+                            (product_id, object_key, thumbnail_key, original_name,
+                             content_type, byte_size)
+                        values (:id, :key, :thumb, :name, :type, :size)
+                        """)
+                .param("id", productA)
+                .param("key", "product/bypass/original.jpg")
+                .param("thumb", "product/bypass/thumbnail.jpg")
+                .param("name", "bypass.jpg")
+                .param("type", "image/jpeg")
+                .param("size", 100L)
+                .update())
+                .hasMessageContaining("Q102");
     }
 
     private static ProductImageService.Incoming jpeg(String name, int width, int height) {
