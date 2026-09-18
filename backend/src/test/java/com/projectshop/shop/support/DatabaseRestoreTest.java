@@ -48,13 +48,32 @@ class DatabaseRestoreTest extends PostgresTestBase {
     /**
      * <b>「덤프가 있다」와 「되살아난다」는 다른 말이다.</b> 뜨기만 하고 안 부어 보면
      * 부을 때 처음 알게 되고, 그때는 원본이 없다.
+     *
+     * <h2>업무 데이터를 심고 잰다</h2>
+     *
+     * <p>처음에는 {@code flyway_schema_history} 행 수와 「표가 0개가 아니다」만 봤는데,
+     * 그것은 <b>스키마 메타</b>다 — {@code 64} 가 존재하는 이유가
+     * 「마이그레이션은 데이터를 안 되살린다」인데 <b>정작 그 데이터를 안 쟀다</b>
+     * (마무리 27차 독립 리뷰, {@code Q103}).
+     *
+     * <p>그래서 <b>뜨기 전에 행을 심는다.</b> 되부은 뒤 그 행이 없으면 빨갛다 —
+     * 스키마만 돌아온 복구는 <b>일요일 배포에서 빈 쇼핑몰</b>이 뜨는 것과 같은 상태다
+     * ({@code backend/README.md} 「올리고 나면 빈 쇼핑몰이 뜬다」).
      */
     @Test
-    @DisplayName("뜨고 날리고 되부으면 행 수가 같다")
+    @DisplayName("뜨고 날리고 되부으면 업무 데이터가 돌아온다")
     void 뜨고_날리고_되부으면_같다() throws IOException, InterruptedException {
         String database = databaseName();
         long before = countMigrations();
         assertThat(before).isPositive();
+
+        String marker = "restore-" + ProcessHandle.current().pid();
+        jdbc.sql("insert into seller (code, name, status) values (:code, :name, :status)")
+                .param("code", marker)
+                .param("name", "복구 표본")
+                .param("status", "pending")
+                .update();
+        assertThat(markerRows(marker)).isOne();
 
         exec("sh", "-c", "pg_dump -Fc --no-owner --no-privileges -U %s -d %s > /tmp/%s.dump"
                 .formatted(postgres.getUsername(), database, database));
@@ -71,15 +90,31 @@ class DatabaseRestoreTest extends PostgresTestBase {
                 .as("되살린 DB 의 마이그레이션 이력이 뜨기 전과 같아야 한다")
                 .isEqualTo(before);
         assertThat(tableCount()).isPositive();
+
+        // **이것이 이 시험의 요지다.** 위 둘은 스키마가 돌아온 것까지만 말한다.
+        assertThat(markerRows(marker))
+                .as("심은 행이 돌아와야 한다 — 스키마만 돌아온 복구는 빈 쇼핑몰과 같다")
+                .isOne();
+
+        jdbc.sql("delete from seller where code = :code").param("code", marker).update();
+    }
+
+    private long markerRows(String code) {
+        return jdbc.sql("select count(*) from seller where code = :code")
+                .param("code", code)
+                .query(Long.class)
+                .single();
     }
 
     private void exec(String... command) throws IOException, InterruptedException {
         Container.ExecResult result = postgres.execInContainer(command);
-        // pg_restore 는 되돌릴 것이 없는 `drop` 에 경고를 내고 1 로 끝날 수 있다.
-        // 우리가 보는 것은 아래 행 수라, 여기서는 실행이 됐는지만 본다.
+
+        // **0 만 통과다**(Q103). 처음에는 `< 2` 로 뒀는데 — pg_restore 가 되돌릴 것이 없는
+        // `drop` 에 경고를 내고 1 로 끝날 수 있어서 — 그러면 **부분 실패한 복구도 초록**이다.
+        // 빈 DB 에 붓는 이 자리에서는 그 경고가 안 난다. 나면 그것이야말로 봐야 할 것이다.
         assertThat(result.getExitCode())
                 .as("명령이 실패했다: %s%n%s", String.join(" ", command), result.getStderr())
-                .isLessThan(2);
+                .isZero();
     }
 
     private String databaseName() {
