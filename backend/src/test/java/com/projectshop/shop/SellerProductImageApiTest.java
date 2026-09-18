@@ -95,8 +95,11 @@ class SellerProductImageApiTest extends HttpTestBase {
         jdbc.sql("delete from product_image where product_id = :id").param("id", productId).update();
         jdbc.sql("delete from sku_option_value where sku_id in (select sku_id from sku where product_id = :id)")
                 .param("id", productId).update();
+        jdbc.sql("delete from sku_stock_movement where sku_id in (select sku_id from sku where product_id = :id)")
+                .param("id", productId).update();
         jdbc.sql("delete from sku_stock where sku_id in (select sku_id from sku where product_id = :id)")
                 .param("id", productId).update();
+        jdbc.sql("delete from product_substantiation where product_id = :id").param("id", productId).update();
         jdbc.sql("delete from sku where product_id = :id").param("id", productId).update();
         jdbc.sql("delete from product_option_value where product_option_id in "
                 + "(select product_option_id from product_option where product_id = :id)")
