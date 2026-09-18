@@ -39,6 +39,9 @@ public enum ErrorCode {
     SESSION_SUPERSEDED(HttpStatus.UNAUTHORIZED, "session-superseded",
             "다른 기기에서 로그인해 이 세션이 끊겼다"),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "access-denied", "이 요청을 할 권한이 없다"),
+    // 요청이 너무 잦다(71). RFC 6585 가 429 를 정하고 Retry-After 가 같이 나간다.
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "too-many-requests",
+            "요청이 너무 잦다"),
     PASSWORD_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "password-mismatch", "비밀번호가 맞지 않는다"),
 
     /**

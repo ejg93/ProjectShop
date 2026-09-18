@@ -28,8 +28,11 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.SecurityFilterChain;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
+
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ProblemWriter;
+import com.projectshop.shop.support.RateLimitFilter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -101,7 +104,8 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,
             SessionRegistry sessionRegistry, ProblemEntryPoint entryPoint,
-            ProblemWriter problems, ObjectProvider<PermissionEvaluator> evaluators) throws Exception {
+            ProblemWriter problems, StringRedisTemplate redis,
+            ObjectProvider<PermissionEvaluator> evaluators) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
@@ -195,6 +199,10 @@ public class SecurityConfig {
                                 (HttpServletResponse) event.getResponse(),
                                 ErrorCode.SESSION_SUPERSEDED)),
                 SecurityContextHolderFilter.class);
+
+        // 요청 횟수 제한(71). 맨 앞에 둔다 — 뒤에 두면 막을 요청이 인증·세션 조회를
+        // 이미 다 지난 뒤라, 막는 값이 그만큼 줄어든다.
+        http.addFilterBefore(new RateLimitFilter(redis, problems), SecurityContextHolderFilter.class);
 
         // 세션을 만든 지 12시간이 지나면 끊는다(D14, 청크 5c).
         //
