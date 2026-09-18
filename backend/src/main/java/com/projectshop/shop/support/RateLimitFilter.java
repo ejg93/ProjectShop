@@ -60,10 +60,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * 열쇠 앞에 붙는다. <b>Redis 하나를 나눠 쓰는 것들과 안 섞이게</b> 한다 —
      * 세션이 {@code shop:session} 을 쓰는 것과 같은 자리다.
      *
-     * <p><b>설정으로 뺀 이유는 시험이다</b>({@code Q100}). 느린 레인은 fork 가 여럿이고
-     * Redis 는 하나라, 접두어가 고정이면 <b>시험 클래스들이 카운터 하나를 나눠 쓴다</b> —
-     * 제한을 켠 시험이 카운터를 넘긴 채 끝나면 창 1분 안에 {@code /api/auth/*} 를 치는
-     * 다음 클래스가 429 를 받는다. {@code KafkaTestBase} 가 토픽 이름에 pid 를 넣은 것과 같은 수다.
+     * <p><b>설정으로 뺀 이유는 배포다</b>({@code Q104} 정정). 처음에는 시험 때문이라고 적었는데
+     * 전제가 틀렸다 — {@code PostgresTestBase.forkRedis} 가 이미 fork 마다 논리 DB 를 가르므로
+     * ({@code 2i-2}) 시험은 이 값을 안 건드린다. 남긴 것은 <b>관리형 Redis 를 남과 나눠 쓰는 날</b>
+     * 을 위해서고, 그날은 이 한 줄이 열쇠 공간을 가른다.
      */
     private final String keyPrefix;
 
