@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -69,6 +70,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * <p><b>MockMvc 를 권하는 것이 아니다</b>(`D15`) — 서블릿 컨테이너를 안 띄워서 실제 HTTP 와
  * 갈리는 자리가 세 번 나왔고, 관통하는 흐름은 {@link HttpTestBase} 가 든다.
  */
+// **요청 횟수 제한을 끈다**(71). 로그인 시험 하나가 실패를 여럿 보내는 식이라,
+// 켜 두면 401 을 기대한 자리에 429 가 온다(마무리 26차 실측). 제한 자체는
+// RateLimitFilterTest 가 켜고 잰다 — 나머지는 그 필터를 재는 시험이 아니다.
+@TestPropertySource(properties = "shop.rate-limit.enabled=false")
 @AutoConfigureMockMvc
 @Transactional
 @Tag("db")

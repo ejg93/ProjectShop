@@ -118,6 +118,18 @@ dependencies {
 	// 3.x 가 쪼개진 배치(`spring-boot-webmvc`·`spring-boot-tomcat`)를 부른다 — 2.x 를 얹으면
 	// 없는 좌표를 찾다가 죽는다. Boot BOM 이 관리 안 해서 버전을 직접 적는다.
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.1.1")
+	// 파일 저장소를 S3 API 로 말한다(`26`, `media-rules.md`). 로컬은 MinIO 컨테이너고
+	// **배포는 Cloudflare R2 다**(사용자 결정 2026-09-18) — 둘 다 S3 호환이라 클라이언트가 하나다.
+	// 갈리는 것은 엔드포인트와 키 셋뿐이고 그것은 설정으로 들어온다.
+	//
+	// **`apache-client` 를 같이 넣는다.** SDK 는 HTTP 구현을 런타임에 고르는데, 후보가 하나도
+	// 없으면 빈이 뜨는 대신 **첫 호출에서** `Unable to load an HTTP implementation` 으로 죽는다 —
+	// 기동은 초록이고 업로드만 터져서 원인이 멀어 보인다.
+	//
+	// **BOM 으로 버전을 묶는다.** `s3` 와 전송 계층이 판이 갈리면 서명 방식에서 어긋난다.
+	implementation(platform("software.amazon.awssdk:bom:2.55.0"))
+	implementation("software.amazon.awssdk:s3")
+	implementation("software.amazon.awssdk:apache-client")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
@@ -127,6 +139,8 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.testcontainers:testcontainers-postgresql")
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+	// 파일 저장소를 띄워서 버킷 정책을 실제로 잰다(`26`). 2.x 좌표 규칙대로 접두어가 붙는다.
+	testImplementation("org.testcontainers:testcontainers-minio")
 	// 2.x 좌표 규칙대로 `testcontainers-` 접두어가 붙는다(`stack.md`). 쓰는 것은 `33b` 다.
 	testImplementation("org.testcontainers:testcontainers-kafka")
 	// 계층 규칙을 문서에서 테스트로 내린다(`2n`). JUnit 6 아티팩트다 — 이 저장소가 6.0.3 이다.

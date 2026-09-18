@@ -136,24 +136,118 @@ for f in "${honorific_check_files[@]}"; do
   fi
 done
 
-# 분할표의 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
-# 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
-# 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
-#
+# 분할표에서 안 닫힌 행만 뽑는다. **아래 두 검사가 같은 판정을 쓴다** — 두 벌로 두면 갈린다.
 # 행 판정은 `PlanProgressConsistencyTest` 와 같다 — 번호 칸이나 이름 칸의 취소선, 선행 칸의 `완료`.
 # `#`·`칸` 은 표 머리다(분할표와 그 앞의 칸 설명 표).
-plan_open_incomplete_baseline=44
-plan_open_incomplete=$(awk '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
+plan_open_rows() {
+  awk '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
     n=split($0,c,"|"); id=c[2]; gsub(/^ +| +$/,"",id); nm=c[3]; gsub(/^ +/,"",nm);
     last=c[n-1]; gsub(/^ +| +$/,"",last);
     if (id=="#" || id=="칸" || id ~ /^~~/ || nm ~ /^~~/ || last=="완료") next;
-    if ($0 !~ /\*\*축\*\*/ || $0 !~ /\*\*강제 지점\*\*/ || $0 !~ /\*\*닫힘\*\*/) k++
-  } END{print k+0}' PLAN.md)
+    print
+  }' PLAN.md
+}
+
+# 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
+# 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
+# 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
+plan_open_incomplete_baseline=37
+plan_open_incomplete=$(plan_open_rows | awk '
+    $0 !~ /\*\*축\*\*/ || $0 !~ /\*\*강제 지점\*\*/ || $0 !~ /\*\*닫힘\*\*/ {k++}
+  END{print k+0}')
 if [ "$plan_open_incomplete" -gt "$plan_open_incomplete_baseline" ]; then
   echo "[분할표 칸 누락] PLAN.md — 안 닫힌 행 중 축·강제 지점·닫힘이 빠진 것이 ${plan_open_incomplete}개 (기준선 ${plan_open_incomplete_baseline}). 새 행에는 넷을 다 적는다(PLAN.md 「청크 분할표」)"
   fail=1
 elif [ "$plan_open_incomplete" -lt "$plan_open_incomplete_baseline" ]; then
   echo "[기준선 내릴 것] PLAN.md — 칸 빠진 행이 ${plan_open_incomplete}개로 줄었다. scripts/doc-lint.sh 의 plan_open_incomplete_baseline 을 그 수로 내린다"
+fi
+
+# 구간 표(「구간 — 배포를 결승선으로 놓는다」)가 안 닫힌 청크를 다 담나. 담기는 것이 **차례**라
+# 빠진 행은 「나중에 한다」가 아니라 **아무 문서도 차례를 안 드는 상태**가 된다 —
+# `PROGRESS.md` 「현재 상태」가 순서를 이 표에 넘겼기 때문이다.
+#
+# **래칫이 아니라 0 기준이다.** 칸 누락과 달리 과거 부채가 없다 — 표를 세운 날 흘린 열을
+# `Q87` 이 같이 채웠다. 하루 만에 흘린 것이라 되돌리는 diff 가 작았다.
+#
+# **청크 칸만 본다.** 「왜 여기」 칸의 산문이 번호를 스쳐도 담긴 것으로 안 친다 —
+# 산문은 고쳐도 차례가 안 바뀌는 자리라, 거기에 기대면 차례가 산문에 숨는다.
+#
+# **범위 표기는 못 읽는다.** `46`~`48` 로 줄여 적으면 47 이 빠진 것으로 잡힌다. 그것이 의도다 —
+# 사람이 읽는 표와 기계가 읽는 표가 갈리면 기계 쪽이 헛것을 센다(`Q87` 이 낱개로 폈다).
+plan_unplaced=$(comm -23 \
+  <(plan_open_rows | awk -F'|' '{id=$2; gsub(/^ +| +$/,"",id); print id}' | sort -u) \
+  <(awk '/^## 구간/{on=1; next} on && /^## /{on=0} on && /^\| /{
+      n=split($0,c,"|"); if (n<4) next; s=c[3];
+      while (match(s, /`[^`]+`/)) { print substr(s, RSTART+1, RLENGTH-2); s=substr(s, RSTART+RLENGTH) }
+    }' PLAN.md | sort -u) | tr '\n' ' ')
+if [ -n "${plan_unplaced// /}" ]; then
+  echo "[구간 누락] PLAN.md — 안 닫힌 청크 중 구간 표에 없는 것: ${plan_unplaced}"
+  echo "    다섯 구간 중 하나의 청크 칸에 낱개로 적는다(PLAN.md 「구간」)"
+  fail=1
+fi
+
+# **곧 칠 행은 칸 넷이 다 차 있나.** 위 「분할표 칸 누락」은 **래칫**이라 기준선 44 안에 이미
+# 든 행은 더 망가져도 안 걸린다 — `64` 가 `Q39` 몫을 흡수하면서 범위가 늘었는데 **닫힘 칸은
+# 빈 채로 지나갔고**, 마무리 25차 독립 리뷰가 손으로 찾아야 했다.
+#
+# **구간 ①·② 로 좁힌다.** 49행 전부에 0 기준을 걸면 44를 0으로 내리는 큰 일이 되고,
+# 큰 일은 안 지켜진다 — **안 지켜지는 규칙은 없는 규칙이다**(`/warmup`). 차례가 잡힌 것부터
+# 채우면 구간이 앞으로 갈수록 자연히 다 찬다. **행이 ③으로 물러나면 이 검사에서도 빠진다** —
+# 곧 안 칠 것에 닫힘을 미리 쓰면 **무엇을 닫는지 모르는 채로 쓰게 된다**(`CLAUDE.md`
+# 「문서가 코드보다 먼저다」의 둘째 조건과 같은 이유다).
+near_ids=$(awk '/^## 구간/{on=1; next} on && /^## /{on=0} on && (/\*\*① 얼굴\*\*/ || /\*\*② 배포 앞\*\*/){
+    n=split($0,c,"|"); if (n<4) next; s=c[3];
+    while (match(s, /`[^`]+`/)) { print substr(s, RSTART+1, RLENGTH-2); s=substr(s, RSTART+RLENGTH) }
+  }' PLAN.md | sort -u)
+near_incomplete=""
+for id in $near_ids; do
+  row=$(plan_open_rows | awk -F'|' -v want="$id" '{gsub(/^ +| +$/,"",$2); if ($2==want) print}')
+  [ -z "$row" ] && continue   # 닫힌 행이면 볼 것이 없다
+  miss=""
+  case "$row" in *'**축**'*) ;; *) miss="$miss 축" ;; esac
+  case "$row" in *'**강제 지점**'*) ;; *) miss="$miss 강제지점" ;; esac
+  case "$row" in *'**닫힘**'*) ;; *) miss="$miss 닫힘" ;; esac
+  [ -n "$miss" ] && near_incomplete="${near_incomplete}  ${id} —${miss}"$'\n'
+done
+if [ -n "${near_incomplete//[$'\n' ]/}" ]; then
+  echo "[곧 칠 행 칸 누락] PLAN.md — 구간 ①·② 의 행은 칸 넷이 다 있어야 한다. 빠진 것:"
+  printf '%s' "$near_incomplete"
+  echo "    닫힘은 「무엇이 초록이면 끝인가」를 검사할 수 있는 이름으로 적는다(PLAN.md 「청크 분할표」)"
+  fail=1
+fi
+
+# 차례를 주장하는 문장이 구간 표 밖에 있나. **차례의 주인은 `PLAN.md` 「구간」 표 하나다** —
+# `PROGRESS.md` 「현재 상태」가 순서를 그 표에 넘겼고, 그러면 다른 자리의 같은 말은
+# **사본**이라 원본이 바뀌어도 안 따라온다.
+#
+# **막으려는 사고**: 2026-09-17 에 `Q39` 를 맨 끝에서 구간 ②로 옮겼는데, 그 말을 베껴 둔
+# 여섯 자리가 그대로 남았다. 그중 `README.md` 는 포폴 독자가 읽는 유일한 입구다.
+# **마무리 25차 독립 리뷰가 일곱을 손으로 셌고, 이 검사는 리뷰가 못 본 `coding-rules.md` 를 더 냈다.**
+#
+# **예외를 안 판다.** 구멍을 파면 쓰인다 — 끝난 일은 과거형으로 고쳐 적으면 순서 단어가 안 남는다.
+# 스캔 밖인 두 자리는 성격이 달라서다: 구간 표는 **주인**이고 `PROGRESS.md` 「이력」은
+# **그때는 맞았던 기록**이다(고치면 서사가 거짓이 된다).
+#
+# `「」` 안은 걷어낸다 — 남의 문장을 옮겨 적는 자리라 순서 단어가 그대로 들어온다(존댓말 검사와 같다).
+order_word='(맨 마지막|마지막 청크|맨 뒤)'
+chunk_ref='(`(Q|D)?[0-9]+[a-z0-9-]*`|Q[0-9]+)'
+order_claims=""
+for f in README.md backend/README.md CLAUDE.md doc/reference/*.md; do
+  [ -f "$f" ] || continue
+  h=$(perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' "$f" | grep -nE "$order_word" | grep -E "$chunk_ref")
+  [ -n "$h" ] && order_claims="${order_claims}$(echo "$h" | sed "s|^|  $f:|")"$'\n'
+done
+# `PLAN.md` 는 구간 절(`## 구간` ~ 다음 `## `)을 뺀 나머지, `PROGRESS.md` 는 이력을 뺀 나머지.
+for pair in "PLAN.md:^## 구간" "PROGRESS.md:^## 이력"; do
+  f=${pair%%:*}; skip=${pair#*:}
+  h=$(awk -v skip="$skip" '$0 ~ skip {off=1; next} off && /^## /{off=0} {print (off ? "" : $0)}' "$f" \
+    | perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' | grep -nE "$order_word" | grep -E "$chunk_ref")
+  [ -n "$h" ] && order_claims="${order_claims}$(echo "$h" | sed "s|^|  $f:|")"$'\n'
+done
+if [ -n "${order_claims//[$'\n' ]/}" ]; then
+  echo "[차례 사본] 청크의 차례는 PLAN.md 「구간」 표만 든다. 다른 자리는 그 표를 가리킨다:"
+  printf '%s' "$order_claims" | cut -c1-160
+  fail=1
 fi
 
 # 이력이 날짜순인가(`W3`). 앞줄보다 이른 날짜가 오면 센다 — 그 수가 기준선을 넘으면 빨갛다.

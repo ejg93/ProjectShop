@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -41,6 +42,10 @@ import com.projectshop.shop.auth.AuthFixture;
  * <p>{@code db} 태그를 다는 이유는 {@link PostgresTestBase} 와 같다 — 컨테이너를 띄우므로
  * 느린 레인({@code integrationTest})으로 간다.
  */
+// **요청 횟수 제한을 끈다**(71). 로그인 시험 하나가 실패를 여럿 보내는 식이라,
+// 켜 두면 401 을 기대한 자리에 429 가 온다(마무리 26차 실측). 제한 자체는
+// RateLimitFilterTest 가 켜고 잰다 — 나머지는 그 필터를 재는 시험이 아니다.
+@TestPropertySource(properties = "shop.rate-limit.enabled=false")
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @Tag("db")
 @Import(PostgresTestBase.Containers.class)

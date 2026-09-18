@@ -30,6 +30,18 @@ public enum ErrorCode {
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "login-failed", "아이디 또는 비밀번호가 맞지 않는다"),
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "unauthenticated", "로그인이 필요하다"),
     ALREADY_WITHDRAWN(HttpStatus.UNAUTHORIZED, "already-withdrawn", "이미 탈퇴한 계정이다"),
+    // 필터가 끊는 자리 셋(Q84). 셋 다 그전에는 본문 없이 상태 코드만 나갔다 —
+    // 받는 쪽이 trace_id 도 type 도 못 받았고, 오류율 지표(62)에도 안 잡혔다.
+    //
+    // 셋을 가른 이유는 받는 쪽이 갈라 대응해서다. 죽은 계정은 다시 로그인해도 소용없고,
+    // 밀려난 세션은 다시 로그인하면 되며, 인가 거부는 로그인 상태가 맞는데 권한이 없다.
+    ACCOUNT_INACTIVE(HttpStatus.UNAUTHORIZED, "account-inactive", "쓸 수 없는 계정이다"),
+    SESSION_SUPERSEDED(HttpStatus.UNAUTHORIZED, "session-superseded",
+            "다른 기기에서 로그인해 이 세션이 끊겼다"),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "access-denied", "이 요청을 할 권한이 없다"),
+    // 요청이 너무 잦다(71). RFC 6585 가 429 를 정하고 Retry-After 가 같이 나간다.
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "too-many-requests",
+            "요청이 너무 잦다"),
     PASSWORD_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "password-mismatch", "비밀번호가 맞지 않는다"),
 
     /**
@@ -240,6 +252,16 @@ public enum ErrorCode {
             "그 경로에 쓸 수 없는 메서드다"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported-media-type",
             "다룰 수 없는 미디어 타입이다"),
+    // 상품 사진(27, media-rules.md)
+    //
+    // 크기와 형식은 HTTP 가 이미 뜻을 정해 둔 자리라 그 코드를 쓴다(D5).
+    // 장수 제한만 우리 규칙이라 422 다.
+    IMAGE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "image-too-large",
+            "사진이 너무 크다"),
+    IMAGE_TYPE_NOT_ALLOWED(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "image-type-not-allowed",
+            "받지 않는 사진 형식이다"),
+    IMAGE_LIMIT_REACHED(HttpStatus.UNPROCESSABLE_CONTENT, "image-limit-reached",
+            "사진을 더 올릴 수 없다"),
     // 문의(59)
     //
     // 못 보는 것도 404 다. 403 을 주면 문의번호를 훑어서 실재하는 비공개 문의의 지도를

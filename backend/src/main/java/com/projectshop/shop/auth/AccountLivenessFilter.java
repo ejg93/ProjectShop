@@ -9,6 +9,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ProblemWriter;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,9 +35,11 @@ import jakarta.servlet.http.HttpSession;
 class AccountLivenessFilter extends OncePerRequestFilter {
 
     private final PermissionRuleLoader loader;
+    private final ProblemWriter problems;
 
-    AccountLivenessFilter(PermissionRuleLoader loader) {
+    AccountLivenessFilter(PermissionRuleLoader loader, ProblemWriter problems) {
         this.loader = loader;
+        this.problems = problems;
     }
 
     @Override
@@ -48,7 +53,9 @@ class AccountLivenessFilter extends OncePerRequestFilter {
                 && !loader.isAlive(user.id())) {
 
             expire(request);
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+            // 본문 없이 상태만 내보내면 받는 쪽이 trace_id 도 type 도 못 받고
+            // 오류율 지표에도 안 잡힌다(Q84).
+            problems.write(request, response, ErrorCode.ACCOUNT_INACTIVE);
             return;
         }
 

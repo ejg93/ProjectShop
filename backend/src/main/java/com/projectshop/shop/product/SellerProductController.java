@@ -1,11 +1,20 @@
 package com.projectshop.shop.product;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.support.ListQuery.Paging;
@@ -24,9 +33,11 @@ import com.projectshop.shop.support.ListQuery.Paging;
 public class SellerProductController {
 
     private final ProductQuery productQuery;
+    private final ProductImageService productImageService;
 
-    SellerProductController(ProductQuery productQuery) {
+    SellerProductController(ProductQuery productQuery, ProductImageService productImageService) {
         this.productQuery = productQuery;
+        this.productImageService = productImageService;
     }
 
     /**
@@ -42,5 +53,35 @@ public class SellerProductController {
             @ParameterObject Paging paging) {
 
         return productQuery.findForSeller(user.id(), sellerId, sort, paging);
+    }
+
+    /**
+     * 자기 상품에 사진을 올린다({@code 27}).
+     *
+     * <p><b>경로가 상품 아래다.</b> 사진은 상품 없이 존재하지 않는다 — 어느 상품의 것인지를
+     * 본문이 아니라 경로가 들면, 그 값을 빠뜨린 요청이 <b>성립하지 않는다</b>.
+     *
+     * <p>판정은 {@link ProductImageService} 가 한다. 남의 상품이면 403 이다.
+     */
+    @PostMapping("/{productId}/images")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ProductImageService.Uploaded upload(
+            @AuthenticationPrincipal ShopUser user,
+            @PathVariable long productId,
+            @RequestPart("file") MultipartFile file) {
+
+        return productImageService.upload(user.id(), productId, incoming(file));
+    }
+
+    /**
+     * <b>웹 타입이 여기서 끝난다</b>({@code D23} 「계층」). 서비스는 이름과 바이트만 받는다 —
+     * 그래야 같은 규칙을 HTTP 가 아닌 자리(배치·이관)에서도 쓴다.
+     */
+    private static ProductImageService.Incoming incoming(MultipartFile file) {
+        try {
+            return new ProductImageService.Incoming(file.getOriginalFilename(), file.getBytes());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

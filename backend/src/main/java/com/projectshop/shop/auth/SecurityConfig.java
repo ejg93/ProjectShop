@@ -26,7 +26,22 @@ import org.springframework.security.web.authentication.session.RegisterSessionAu
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.authentication.AuthenticationTrustResolver;
+import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ProblemWriter;
+import com.projectshop.shop.support.RateLimitFilter;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.session.security.SpringSessionBackedSessionRegistry;
@@ -81,6 +96,10 @@ public class SecurityConfig {
             // 개인정보법 제30조제2항(공개)과 전자상거래법 제13조제2항(청약 이전 고지).
             // 둘 다 로그인 전에 읽는 것이라 막으면 의무를 못 지킨다.
             "/api/policies/**",
+            // 저작권 신고 접수(Q94, D2 R42). 저작권자가 우리 회원일 이유가 없다 —
+            // 회원만 신고할 수 있게 하면 법이 요구한 절차에 가입이라는 관문이 하나 붙는다.
+            // 판정 경로는 여기 없다. 그쪽은 누가 언제 무엇을 했는지가 증거라 로그인이 필요하다.
+            "/api/copyright-reports/images/*",
             // 상품 공개 목록. 비로그인도 본다 — 사는 사람은 로그인 전에 물건을 고른다.
             // 이 경로는 판정이 없다. on_sale 만 나가므로 감출 것이 없다(청크 8).
             //
@@ -95,7 +114,11 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,
             SessionRegistry sessionRegistry, ProblemEntryPoint entryPoint,
+            ProblemWriter problems, StringRedisTemplate redis,
+            @Value("${shop.rate-limit.enabled}") boolean rateLimitEnabled,
             ObjectProvider<PermissionEvaluator> evaluators) throws Exception {
+        AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
+
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
@@ -136,7 +159,24 @@ public class SecurityConfig {
                 // 이 자리는 MVC 에 닿기 전이라 @RestControllerAdvice 가 못 잡는다.
                 // 그래서 본문을 여기서 직접 쓰는데, 만드는 것은 ProblemFactory 하나다 —
                 // 두 자리가 각자 만들면 같은 오류가 형태만 다르게 두 벌 나간다.
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint))
+                // 인가 거부(403)도 같은 본문으로 나간다(Q84). 안 걸면 스프링 기본
+                // AccessDeniedHandler 가 sendError 로 끝내서 본문이 비고, 그 응답은
+                // ProblemFactory 를 안 지나서 오류율 지표에도 안 잡힌다.
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler((request, response, denied) -> {
+                            // **익명이면 401 이다.** 로그인을 안 한 사람에게 「권한이 없다」고
+                            // 답하면 로그인하면 되는 상황과 안 되는 상황이 뭉친다 — CSRF 토큰이
+                            // 없는 POST 가 그 자리고, HttpFlowTest 가 실제 서버의 답을 401 로
+                            // 확정해 뒀다. 핸들러를 안 걸었을 때 스프링이 하던 것과 같다.
+                            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                            if (auth == null || trustResolver.isAnonymous(auth)) {
+                                entryPoint.commence(request, response,
+                                        new InsufficientAuthenticationException("인증이 없다"));
+                            } else {
+                                problems.write(request, response, ErrorCode.ACCESS_DENIED);
+                            }
+                        }))
 
                 .sessionManagement(session -> session
                         // 세션은 필요할 때만 만든다. 열린 경로를 훑는 것만으로 세션이 쌓이지 않게 한다.
@@ -164,7 +204,7 @@ public class SecurityConfig {
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 // 인가 직전에 둔다. 인증이 확정된 뒤여야 principal 을 볼 수 있고,
                 // 인가 전이어야 죽은 계정이 아무것도 통과하지 못한다.
-                .addFilterBefore(new AccountLivenessFilter(ruleLoader), AuthorizationFilter.class);
+                .addFilterBefore(new AccountLivenessFilter(ruleLoader, problems), AuthorizationFilter.class);
 
         // 만료 표시된 세션을 실제로 끊는다.
         //
@@ -178,8 +218,17 @@ public class SecurityConfig {
         // 기본 전략은 본문에 안내 문구를 쓴다. 우리는 JSON API 라 401 만 준다.
         http.addFilterAfter(
                 new ConcurrentSessionFilter(sessionRegistry,
-                        event -> event.getResponse().setStatus(HttpStatus.UNAUTHORIZED.value())),
+                        event -> problems.write(
+                                (HttpServletRequest) event.getRequest(),
+                                (HttpServletResponse) event.getResponse(),
+                                ErrorCode.SESSION_SUPERSEDED)),
                 SecurityContextHolderFilter.class);
+
+        // 요청 횟수 제한(71). 맨 앞에 둔다 — 뒤에 두면 막을 요청이 인증·세션 조회를
+        // 이미 다 지난 뒤라, 막는 값이 그만큼 줄어든다.
+        if (rateLimitEnabled) {
+            http.addFilterBefore(new RateLimitFilter(redis, problems), SecurityContextHolderFilter.class);
+        }
 
         // 세션을 만든 지 12시간이 지나면 끊는다(D14, 청크 5c).
         //

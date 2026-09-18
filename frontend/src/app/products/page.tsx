@@ -31,6 +31,8 @@ type ProductItem = {
   minPriceInclVat: number;
   /** 이 셀러의 배송비. 총액을 그리려면 있어야 한다(`D2` R24) */
   shippingFee: number;
+  /** 첫 사진의 썸네일. 만료 5분 서명 URL 이고 사진이 없으면 null 이다(`28`) */
+  thumbnailUrl: string | null;
   createdAt: string;
 };
 
@@ -114,16 +116,18 @@ function ProductCard({ item }: { item: ProductItem }) {
       "
     >
       {/*
-        사진이 상품을 설명하지 않는다. 스키마에 이미지가 없어서 상품번호로 받아 온 자리표시라
-        내용이 상품과 무관하다 - 읽어 주면 없는 정보를 있는 것처럼 말하게 된다(`D20`).
-        청크 26 이 진짜 사진을 붙일 때 alt 에 상품명이 들어간다.
+        사진이 있으면 그 상품의 사진이라 alt 에 상품명이 들어간다(`28`).
+
+        없으면 자리표시고, 그때는 alt 를 비운다 - 내용이 상품과 무관해서
+        읽어 주면 없는 정보를 있는 것처럼 말하게 된다(`D20`).
       */}
       <Image
-        src={`https://picsum.photos/seed/${item.productId}/600/450`}
-        alt=""
+        src={item.thumbnailUrl ?? `https://picsum.photos/seed/${item.productId}/600/450`}
+        alt={item.thumbnailUrl ? item.name : ""}
         width={600}
         height={450}
         className="aspect-[4/3] w-full rounded-ui object-cover"
+        unoptimized={item.thumbnailUrl !== null}
       />
 
       <div className="grid content-between gap-2">

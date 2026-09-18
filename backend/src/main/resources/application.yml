@@ -56,6 +56,16 @@ spring:
     # 응답 시각은 UTC 의 Z 다(time-rules.md 「API 표기 — UTC」, Q35). Jackson 3 기본값도 UTC 문맥이지만
     # 기본값에 기대지 않는다 — ResponseTimeFormatTest 가 이 줄이 실제로 나가는 문자열을 정하는지 고정한다.
     time-zone: UTC
+  # **업로드 상한을 명시한다**(27, media-rules.md). Boot 기본이 1 MB 라 안 적으면
+  # 5 MiB 를 정해 놓고 실제로는 1 MB 에서 끊긴다 — 그때 나가는 것은 우리가 정한
+  # IMAGE_TOO_LARGE(413)가 아니라 MaxUploadSizeExceededException 이다.
+  #
+  # **앱 검증보다 한 뼘 크게 둔다.** 같은 값이면 멀티파트 봉투(경계 문자열·헤더)가
+  # 몇 바이트 더 붙는 것 때문에 5 MiB 짜리 파일이 봉투에서 먼저 걸린다.
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 6MB
   mvc:
     # 오류 본문을 RFC 9457 Problem Details 로 내린다(D5). 규약의 세부는 청크 7b 가 정한다.
     problemdetails:
@@ -172,6 +182,34 @@ shop:
     # 테스트는 이 둘을 한 시간으로 밀어 두고 자기가 부른다.
     publish-delay: PT2S
     publish-initial-delay: PT2S
+  # 요청 횟수 제한(71). **시험에서는 끈다** — 로그인 시험 하나가 실패를 여럿 보내는 식이라
+  # 켜 둔 채로 느린 레인을 돌리면 401 을 기대한 자리에 429 가 온다(마무리 26차 실측).
+  # 제한 자체는 RateLimitFilterTest 가 켜고 잰다.
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+
+  # 올라온 파일을 어디에 두나(`26`, `media-rules.md`). 로컬은 MinIO 컨테이너,
+  # 배포는 Cloudflare R2 다(사용자 결정 2026-09-18) — 둘 다 S3 호환이라 값만 갈린다.
+  storage:
+    # 엔드포인트를 명시한다. 비우면 SDK 가 진짜 AWS 를 부른다 —
+    # 로컬에서 그러면 자격 증명 오류가 나고, 원인이 「AWS 를 부르고 있다」로 안 읽힌다.
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${STORAGE_ACCESS_KEY:shop}
+    secret-key: ${STORAGE_SECRET_KEY:shopshop}
+    # MinIO 는 지역을 안 보지만 SDK 가 서명할 때 값을 요구한다. R2 도 `auto` 를 받는다.
+    region: ${STORAGE_REGION:auto}
+    # **경로 방식으로 부른다.** 기본은 `버킷.호스트` 인데 `localhost` 앞에 버킷 이름을 붙이면
+    # DNS 가 못 찾는다. R2 도 경로 방식을 받는다.
+    path-style: ${STORAGE_PATH_STYLE:true}
+    # 갈래마다 버킷 하나다(`media-rules.md` 「여는 법」). 섞으면 키를 보고 갈래를 판단하게 되고,
+    # 그 판단이 한 번 틀리면 비공개 파일이 서명 URL 로 나간다.
+    public-bucket: ${STORAGE_PUBLIC_BUCKET:shop-public}
+    private-bucket: ${STORAGE_PRIVATE_BUCKET:shop-private}
+    # 버킷을 만들 것인가. **기본이 꺼짐이다** — `shop.events.sink` 가 `none` 인 것과 같은 자리다(`33b`).
+    # 켜는 것은 저장소를 띄운 로컬(`docker compose up minio`)과 그것을 띄우는 테스트뿐이고,
+    # 안 켜면 기동이 저장소를 안 찾는다. 클라이언트 빈은 이 값과 무관하게 늘 선다 —
+    # S3 클라이언트는 첫 호출에서 붙으므로 빈이 서는 것만으로는 연결이 안 열린다.
+    bootstrap: ${STORAGE_BOOTSTRAP:false}
 
 # API 스펙을 코드에서 뽑는다(`2a`).
 #

@@ -34,6 +34,8 @@ type ProductDetail = {
    * 고지가 성립 요건이라 값만 두면 법정 기한이 그대로다(`14c`).
    */
   supplyLeadDays: number | null;
+  /** 사진들. 만료 5분 서명 URL 이고 사진이 없으면 빈 배열이다(`28`) */
+  imageUrls: string[];
   options: OptionGroup[];
   skus: PublicSku[];
 };
@@ -103,13 +105,15 @@ export default async function ProductDetailPage({
     <div className="mx-auto grid w-full max-w-6xl flex-1 content-start gap-12 px-4 py-16">
       <div className="grid gap-10 md:grid-cols-2">
         <Image
-          // 자리표시라 상품과 무관한 사진이다. 읽어 주면 없는 정보를 있는 것처럼 말한다(`D20`).
-          src={`https://picsum.photos/seed/${product.productId}/800/600`}
-          alt=""
+          // 사진이 있으면 그 상품의 사진이라 alt 에 상품명이 들어간다(`28`).
+          // 없으면 자리표시고, 그때는 상품과 무관해서 alt 를 비운다(`D20`).
+          src={product.imageUrls[0] ?? `https://picsum.photos/seed/${product.productId}/800/600`}
+          alt={product.imageUrls.length > 0 ? product.name : ""}
           width={800}
           height={600}
           priority
           className="aspect-[4/3] w-full rounded-ui object-cover"
+          unoptimized={product.imageUrls.length > 0}
         />
 
         <div className="grid content-start gap-6">

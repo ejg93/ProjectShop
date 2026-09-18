@@ -188,13 +188,16 @@ class ArchitectureTest {
                     .resideOutsideOfPackages("java..", "javax..", "jakarta..",
                             "org.springframework..", "org.slf4j..", "com.fasterxml..", "tools.jackson..",
                             "io.swagger..", "io.micrometer..", "org.apache.kafka..",
+                            "software.amazon.awssdk..",
                             "com.projectshop.shop.support..", "com.projectshop.shop.error..")
                     .because("support 가 자원을 부르면 공용이 아니라 그 자원의 일부가 된다"
                             + " (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)."
                             + " 자원을 열거하지 않고 허용을 적는다 — 열거하면 새 자원 패키지가 생길 때마다 샌다."
                             + " accessClassesThat 은 호출만 보고 필드 선언을 안 봐서 dependOnClassesThat 이다."
                             + " io.micrometer 는 Spring·Jackson 과 같은 자리다 — 지표 라이브러리고 자원이 아니다 (Q53)."
-                            + " org.apache.kafka 도 같다 — 발행기가 ProducerRecord 로 헤더를 싣는다 (33b)");
+                            + " org.apache.kafka 도 같다 — 발행기가 ProducerRecord 로 헤더를 싣는다 (33b)."
+                            + " software.amazon.awssdk 도 같다 — 저장소를 S3 API 로 부르는 클라이언트고"
+                            + " 자원이 아니다. 로컬 MinIO 와 배포 R2 가 같은 API 라 클라이언트가 하나다 (26).");
 
     /**
      * 「목록 조회」 — 페이지를 내주는 조회는 {@link Paging} 을 받는다(`Q23`).
@@ -523,7 +526,12 @@ class ArchitectureTest {
             "AuthController.logIn",
             "AuthController.logOut",
             "AuthController.requestPasswordReset",
-            "AuthController.confirmPasswordReset");
+            "AuthController.confirmPasswordReset",
+
+            // 저작권 신고 접수(Q94, D2 R42). 법이 요구한 절차라 로그인을 안 받는다 —
+            // 저작권자가 우리 회원일 이유가 없고, 회원만 신고할 수 있게 하면
+            // 그 절차에 가입이라는 관문이 하나 붙는다. 판정 쪽은 이 목록에 없다.
+            "CopyrightReportController.report");
 
     /** 목록의 항목이 실재하는 쓰기 입구인가. 죽은 줄을 남기지 않는다(`Q56`) */
     @ArchTest
