@@ -224,6 +224,7 @@ AppUser ─┬─ UserRole                (user_role)
 | `policy_document` | 문안의 판. `order_contract_document` 가 restrict 로 가리킨다 |
 | `notification_template` | 위와 같다 |
 | `batch_run` | 회차 기록. 외래키가 없다 |
+| `copyright_report` | 신고 기록(`Q94`, `D2` `R42`). **사진이 사라져도 남는다** — `product_image_id` 가 `set null` 이고 `product_id` 가 남아서 무엇을 내렸는지를 든다. 접수된 사실 자체가 절차를 돌린 증거라 지우지 않는다 |
 | `audit_log` | 사건 기록. 외래키가 없다 — 계정이 파기돼도 남아야 한다(`D13` 「감사 로그는 예외다」) |
 | `outbox_event` | 바깥에 알릴 사건(`Q57`, `D12`). **외래키가 없다** — 원천 행이 파기돼도 보낸 사실은 남고, 소비자가 이미 받았을 수 있다. 채우는 것은 앱이 아니라 원천 표의 트리거다 |
 | `role`·`permission`·`role_permission`·`permission_field_group`·`role_permission_field` | 권한 구성. 배포로 바뀌는 값이다 |

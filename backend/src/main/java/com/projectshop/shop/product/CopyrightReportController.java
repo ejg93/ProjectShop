@@ -37,15 +37,15 @@ public class CopyrightReportController {
     }
 
     /**
-     * @param claim 어떤 저작물에 대한 권리인지. 법이 특정할 수 있는 정보를 요구한다
+     * @param claimedWork 어떤 저작물에 대한 권리인지. 법이 특정할 수 있는 정보를 요구한다
      */
     public record ReportRequest(
             @NotBlank @Size(max = 100) String reporterName,
             @NotBlank @Email @Size(max = 320) String reporterEmail,
-            @NotBlank @Size(max = 2000) String claim) {
+            @NotBlank @Size(max = 2000) String claimedWork) {
     }
 
-    public record DecisionRequest(@NotBlank String decision) {
+    public record CopyrightDecisionRequest(@NotBlank String decision) {
     }
 
     @PostMapping("/images/{productImageId}")
@@ -55,14 +55,14 @@ public class CopyrightReportController {
             @Valid @RequestBody ReportRequest request) {
 
         return service.report(productImageId, new CopyrightReportService.Command(
-                request.reporterName(), request.reporterEmail(), request.claim()));
+                request.reporterName(), request.reporterEmail(), request.claimedWork()));
     }
 
     @PostMapping("/{reportId}/decision")
     public void decide(
             @AuthenticationPrincipal ShopUser user,
             @PathVariable long reportId,
-            @Valid @RequestBody DecisionRequest request) {
+            @Valid @RequestBody CopyrightDecisionRequest request) {
 
         service.decide(user.id(), reportId, request.decision());
     }

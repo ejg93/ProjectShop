@@ -50,9 +50,9 @@ public class CopyrightReportService {
      * @param reporterName  신고자. <b>계정이 아니라 연락처로 받는다</b> — 저작권자가
      *                      우리 회원일 이유가 없고, 회원만 신고할 수 있게 하면
      *                      법이 요구한 절차에 가입이라는 관문이 하나 붙는다
-     * @param claim         어떤 저작물에 대한 권리인지. 법이 특정할 수 있는 정보를 요구한다
+     * @param claimedWork         어떤 저작물에 대한 권리인지. 법이 특정할 수 있는 정보를 요구한다
      */
-    public record Command(String reporterName, String reporterEmail, String claim) {
+    public record Command(String reporterName, String reporterEmail, String claimedWork) {
     }
 
     public record Received(long copyrightReportId) {
@@ -63,16 +63,19 @@ public class CopyrightReportService {
     public Received report(long productImageId, Command command) {
         long id = jdbc.sql("""
                         insert into copyright_report
-                            (product_image_id, reporter_name, reporter_email, claim)
-                        values (:imageId, :name, :email, :claim)
+                            (product_image_id, product_id, reporter_name, reporter_email, claimed_work)
+                        select i.product_image_id, i.product_id, :name, :email, :claimedWork
+                          from product_image i
+                         where i.product_image_id = :imageId
                         returning copyright_report_id
                         """)
                 .param("imageId", productImageId)
                 .param("name", command.reporterName())
                 .param("email", command.reporterEmail())
-                .param("claim", command.claim())
+                .param("claimedWork", command.claimedWork())
                 .query(Long.class)
-                .single();
+                .optional()
+                .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
 
         return new Received(id);
     }
@@ -98,9 +101,9 @@ public class CopyrightReportService {
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        // **새 동작을 안 만들었다.** 게시 중단(`processing_stop`, `59-2`)이 같은 성격이고,
-        // 동작을 늘리면 그것을 누구에게 주느냐를 또 정해야 한다.
-        if (!evaluator.decide(actorUserId, "product", "processing_stop",
+        // **동작을 새로 팠다.** 기존 product:delete 는 seller_owner 가 seller 스코프로 갖고 있어서,
+        // 그것을 쓰면 셀러가 자기 상품에 들어온 신고를 스스로 판정한다 — 신고의 상대가 판정하는 구조다.
+        if (!evaluator.decide(actorUserId, "product", "moderate",
                 Target.ofSeller(pending.sellerId())).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
