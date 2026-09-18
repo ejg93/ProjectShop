@@ -123,6 +123,31 @@ class CopyrightReportServiceTest extends StorageTestBase {
                 .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_FORBIDDEN);
     }
 
+    /**
+     * <b>사진이 먼저 사라진 신고도 판정할 수 있어야 한다.</b> 표가 {@code set null} 로
+     * 그 상태를 일부러 만들어 뒀는데, 판정 조회가 사진을 안쪽 조인으로 읽으면
+     * <b>그 행이 영영 미판정으로 남는다</b>(마무리 26차 독립 리뷰가 찾았다).
+     */
+    @Test
+    @DisplayName("사진이 이미 사라진 신고도 판정할 수 있다")
+    void 사진이_사라진_신고도_판정할_수_있다() {
+        long reportId = report();
+        jdbc.sql("delete from product_image where product_image_id = :id")
+                .param("id", image.productImageId())
+                .update();
+
+        service.decide(admin, reportId, "rejected");
+
+        String decision = jdbc.sql("""
+                        select decision from copyright_report where copyright_report_id = :id
+                        """)
+                .param("id", reportId)
+                .query(String.class)
+                .single();
+
+        assertThat(decision).isEqualTo("rejected");
+    }
+
     private long report() {
         return service.report(image.productImageId(), new CopyrightReportService.Command(
                 "권리자", "rights@test.local", "우리 화보 사진이다")).copyrightReportId();

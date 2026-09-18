@@ -41,6 +41,12 @@ create table copyright_report (
     decided_at timestamptz,
     decided_by_user_id bigint references app_user (user_id) on delete restrict,
 
+    -- 길이 상한은 앱과 DB 양쪽에 둔다(coding-rules.md). 값은 입구의 @Size 와 같다 —
+    -- 갈리면 한쪽이 받은 것을 다른 쪽이 거절해서 500 이 난다.
+    constraint copyright_report_reporter_name_length check (length(reporter_name) <= 100),
+    constraint copyright_report_reporter_email_length check (length(reporter_email) <= 320),
+    constraint copyright_report_claimed_work_length check (length(claimed_work) <= 2000),
+
     -- 법이 인정한 결과만 들어간다(`coding-rules.md` 「법이 인정한 목록은 닫는다」).
     -- 자유 텍스트로 두면 법이 인정하지 않는 처리가 기록으로 남는다.
     constraint copyright_report_decision_check

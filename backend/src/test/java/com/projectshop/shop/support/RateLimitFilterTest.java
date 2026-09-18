@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.projectshop.shop.PostgresTestBase;
@@ -22,6 +23,8 @@ import com.projectshop.shop.PostgresTestBase;
  *
  * <p>인증 경로를 쓰는 이유는 상한이 스물이라 <b>시험이 짧아서</b>다.
  */
+/** 여기만 켠다. 바탕이 끈 것을 되켜는 자리라 켜는 이유가 이 한 줄에 있다 */
+@TestPropertySource(properties = "shop.rate-limit.enabled=true")
 @DisplayName("요청 횟수 제한")
 class RateLimitFilterTest extends PostgresTestBase {
 

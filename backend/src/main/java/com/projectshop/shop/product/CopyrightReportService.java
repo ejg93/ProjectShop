@@ -108,7 +108,9 @@ public class CopyrightReportService {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
 
-        if (decision.equals("taken_down")) {
+        // 사진이 이미 사라졌으면 내릴 것이 없다. 판정은 그대로 기록한다 —
+        // 「이미 없어서 안 내렸다」와 「판정을 안 했다」는 다른 말이다.
+        if (decision.equals("taken_down") && pending.productImageId() != null) {
             takeDown(pending.productImageId());
         }
 
@@ -128,14 +130,22 @@ public class CopyrightReportService {
                 Map.of("decision", decision));
     }
 
-    private record Pending(long productImageId, long sellerId) {
+    /** @param productImageId 사진이 이미 사라졌으면 {@code null} 이다 */
+    private record Pending(Long productImageId, long sellerId) {
     }
 
+    /**
+     * <b>{@code product_image} 를 바깥 조인으로 읽는다.</b> 사진이 이미 사라진 신고도
+     * 판정할 수 있어야 한다 — 표가 {@code set null} 로 그 상태를 일부러 만들어 뒀는데
+     * 안쪽 조인으로 읽으면 <b>그 행은 영영 미판정으로 남는다</b>(마무리 26차 독립 리뷰).
+     *
+     * <p>셀러는 {@code r.product_id} 에서 온다. 사진이 아니라 <b>상품</b>이 판정 대상의
+     * 주인이라, 사진이 사라져도 누가 판정할 수 있는지는 그대로 답해진다.
+     */
     private static final String FIND_PENDING = """
             select r.product_image_id, p.seller_id
               from copyright_report r
-              join product_image i on i.product_image_id = r.product_image_id
-              join product p on p.product_id = i.product_id
+              join product p on p.product_id = r.product_id
              where r.copyright_report_id = :id and r.decided_at is null
             """;
 

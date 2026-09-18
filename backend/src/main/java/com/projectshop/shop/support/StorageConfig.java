@@ -33,7 +33,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
  * 사람이 콘솔로 같은 일을 다시 한다. <b>절차가 두 벌이면 한쪽이 낡는다.</b>
  *
  * <p>그리고 앱이 만들면 <b>「공개 버킷을 안 만든다」를 테스트가 잴 수 있다</b>
- * ({@code StorageBootstrapIT}) — 컴포즈에 두면 그 사실이 사람 눈에만 보인다.
+ * ({@code StorageBootstrapTest}) — 컴포즈에 두면 그 사실이 사람 눈에만 보인다.
  *
  * <h2>기본이 꺼짐이다</h2>
  *

@@ -77,6 +77,20 @@ curl localhost:8080/actuator/health
 `docker build frontend` 로 이미지가 만들어지고, `BACKEND_ORIGIN` 을 그 망의 주소로 주면
 **백엔드는 공개 도메인이 없어진다.** 둘째 줄(바깥)은 그때 안 고르는 것이 된다.
 
+### 버킷은 사람이 만든다 — 첫 업로드가 `NoSuchBucket` 이 안 되게
+
+**버킷 만들기는 기본이 꺼짐이다**(`STORAGE_BOOTSTRAP=false`). 켜는 것은 저장소를 띄운 로컬과
+그 시험뿐이라, **배포에서는 그 코드가 안 돈다** — 안 만들고 올리면 첫 업로드가 `NoSuchBucket` 이다.
+
+| 무엇 | 값 |
+|---|---|
+| 만들 버킷 | `shop-public` · `shop-private` (`STORAGE_PUBLIC_BUCKET`·`STORAGE_PRIVATE_BUCKET` 기본값) |
+| 공개 접근 | **둘 다 끈다.** R2 는 기본이 비공개고 공개 개발 URL 을 따로 켜야 한다 — 켜지 않는다 |
+| 여는 방법 | 앱이 내주는 만료 5분 서명 URL 하나뿐이다(`media-rules.md` 「여는 법」) |
+
+**`STORAGE_BOOTSTRAP=true` 로 한 번 올려서 만들지 않는다.** 그 값이 켜진 채로 남으면
+기동마다 저장소를 부르고, **저장소가 늦게 뜨는 날 기동이 같이 실패한다.**
+
 ### 올리고 나면 빈 쇼핑몰이 뜬다 — 데모 데이터를 부어야 한다
 
 **기본 프로필은 시드를 안 읽는다.** `application.yml` 의 `locations` 가

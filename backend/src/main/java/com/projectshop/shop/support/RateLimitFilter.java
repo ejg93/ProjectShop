@@ -31,6 +31,15 @@ import jakarta.servlet.http.HttpServletResponse;
  *
  * <h2>Redis 가 죽으면 통과시킨다</h2>
  *
+ * <h2>시험에서는 꺼 둔다</h2>
+ *
+ * <p>{@code shop.rate-limit.enabled} 가 가른다. 로그인 시험 하나가 <b>실패 다섯 번</b>을
+ * 보내는 식이라, 켜 둔 채로 느린 레인을 돌리면 <b>401 을 기대한 자리에 429 가 온다</b> —
+ * 실제로 {@code AuthLoginTest} 가 그렇게 깨졌다(마무리 26차).
+ *
+ * <p><b>제한 자체는 제 시험이 잰다</b>({@code RateLimitFilterTest}). 그 하나만 켜면 되고,
+ * 나머지 구백 몇 개는 이 필터를 재는 시험이 아니다.
+ *
  * <p>{@code LoginAttemptService} 와 반대 방향이다. 그쪽은 로컬 카운터로 <b>계속 막고</b>
  * 여기는 <b>통과시킨다</b> — 가르는 것은 「막는 것과 여는 것 중 무엇이 사고인가」다.
  * 로그인 잠금이 풀리면 무차별 대입이 열리지만, 요청 제한이 풀리면 그동안 좀 붐빌 뿐이다.

@@ -26,8 +26,14 @@ import org.springframework.security.web.authentication.session.RegisterSessionAu
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.authentication.AuthenticationTrustResolver;
+import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import com.projectshop.shop.error.ErrorCode;
@@ -109,7 +115,10 @@ public class SecurityConfig {
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,
             SessionRegistry sessionRegistry, ProblemEntryPoint entryPoint,
             ProblemWriter problems, StringRedisTemplate redis,
+            @Value("${shop.rate-limit.enabled}") boolean rateLimitEnabled,
             ObjectProvider<PermissionEvaluator> evaluators) throws Exception {
+        AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
+
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
@@ -155,8 +164,19 @@ public class SecurityConfig {
                 // ProblemFactory 를 안 지나서 오류율 지표에도 안 잡힌다.
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(entryPoint)
-                        .accessDeniedHandler((request, response, denied) ->
-                                problems.write(request, response, ErrorCode.ACCESS_DENIED)))
+                        .accessDeniedHandler((request, response, denied) -> {
+                            // **익명이면 401 이다.** 로그인을 안 한 사람에게 「권한이 없다」고
+                            // 답하면 로그인하면 되는 상황과 안 되는 상황이 뭉친다 — CSRF 토큰이
+                            // 없는 POST 가 그 자리고, HttpFlowTest 가 실제 서버의 답을 401 로
+                            // 확정해 뒀다. 핸들러를 안 걸었을 때 스프링이 하던 것과 같다.
+                            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                            if (auth == null || trustResolver.isAnonymous(auth)) {
+                                entryPoint.commence(request, response,
+                                        new InsufficientAuthenticationException("인증이 없다"));
+                            } else {
+                                problems.write(request, response, ErrorCode.ACCESS_DENIED);
+                            }
+                        }))
 
                 .sessionManagement(session -> session
                         // 세션은 필요할 때만 만든다. 열린 경로를 훑는 것만으로 세션이 쌓이지 않게 한다.
@@ -206,7 +226,9 @@ public class SecurityConfig {
 
         // 요청 횟수 제한(71). 맨 앞에 둔다 — 뒤에 두면 막을 요청이 인증·세션 조회를
         // 이미 다 지난 뒤라, 막는 값이 그만큼 줄어든다.
-        http.addFilterBefore(new RateLimitFilter(redis, problems), SecurityContextHolderFilter.class);
+        if (rateLimitEnabled) {
+            http.addFilterBefore(new RateLimitFilter(redis, problems), SecurityContextHolderFilter.class);
+        }
 
         // 세션을 만든 지 12시간이 지나면 끊는다(D14, 청크 5c).
         //

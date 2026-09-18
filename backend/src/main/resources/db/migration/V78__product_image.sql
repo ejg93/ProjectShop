@@ -11,7 +11,7 @@ create table product_image (
     product_id bigint not null references product (product_id) on delete cascade,
 
     -- 저장소의 열쇠. 앱이 만든 것만 들어온다(`media-rules.md` 「두는 곳」) —
-    -- `{자원}/{자원 UUID}/{파일 UUID}.{확장자}` 고 버킷 이름은 설정이 든다.
+    -- `{자원}/{UUID}/{이름}.{확장자}` 고 버킷 이름은 설정이 든다.
     --
     -- **원본 이름을 여기 안 쓴다.** 쓰면 경로 탈출과 이름 충돌이 성립한다.
     object_key text not null,
@@ -42,6 +42,13 @@ create table product_image (
     -- 5 MiB. 값의 출처는 `media-rules.md` 「받는 것 — 제한값」이고, 고칠 때 둘을 같이 고친다.
     constraint product_image_byte_size_check
         check (byte_size > 0 and byte_size <= 5242880),
+
+    -- 길이 상한은 앱과 DB 양쪽에 둔다(coding-rules.md). 열쇠는 앱이 만들어서
+    -- 모양이 정해져 있고(product/{UUID}/{이름}.{확장자}) 200 이면 두 배 넉넉하다.
+    constraint product_image_object_key_length check (length(object_key) <= 200),
+    constraint product_image_thumbnail_key_length check (length(thumbnail_key) <= 200),
+    -- 파일 이름. 흔한 파일 시스템의 상한과 같은 값으로 둔다.
+    constraint product_image_original_name_length check (length(original_name) <= 255),
 
     -- 같은 열쇠가 두 행에 있으면 하나를 지울 때 다른 하나가 없는 파일을 가리킨다.
     constraint product_image_object_key_unique unique (object_key),
