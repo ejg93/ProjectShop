@@ -136,24 +136,54 @@ for f in "${honorific_check_files[@]}"; do
   fi
 done
 
-# 분할표의 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
-# 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
-# 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
-#
+# 분할표에서 안 닫힌 행만 뽑는다. **아래 두 검사가 같은 판정을 쓴다** — 두 벌로 두면 갈린다.
 # 행 판정은 `PlanProgressConsistencyTest` 와 같다 — 번호 칸이나 이름 칸의 취소선, 선행 칸의 `완료`.
 # `#`·`칸` 은 표 머리다(분할표와 그 앞의 칸 설명 표).
-plan_open_incomplete_baseline=44
-plan_open_incomplete=$(awk '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
+plan_open_rows() {
+  awk '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
     n=split($0,c,"|"); id=c[2]; gsub(/^ +| +$/,"",id); nm=c[3]; gsub(/^ +/,"",nm);
     last=c[n-1]; gsub(/^ +| +$/,"",last);
     if (id=="#" || id=="칸" || id ~ /^~~/ || nm ~ /^~~/ || last=="완료") next;
-    if ($0 !~ /\*\*축\*\*/ || $0 !~ /\*\*강제 지점\*\*/ || $0 !~ /\*\*닫힘\*\*/) k++
-  } END{print k+0}' PLAN.md)
+    print
+  }' PLAN.md
+}
+
+# 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
+# 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
+# 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
+plan_open_incomplete_baseline=44
+plan_open_incomplete=$(plan_open_rows | awk '
+    $0 !~ /\*\*축\*\*/ || $0 !~ /\*\*강제 지점\*\*/ || $0 !~ /\*\*닫힘\*\*/ {k++}
+  END{print k+0}')
 if [ "$plan_open_incomplete" -gt "$plan_open_incomplete_baseline" ]; then
   echo "[분할표 칸 누락] PLAN.md — 안 닫힌 행 중 축·강제 지점·닫힘이 빠진 것이 ${plan_open_incomplete}개 (기준선 ${plan_open_incomplete_baseline}). 새 행에는 넷을 다 적는다(PLAN.md 「청크 분할표」)"
   fail=1
 elif [ "$plan_open_incomplete" -lt "$plan_open_incomplete_baseline" ]; then
   echo "[기준선 내릴 것] PLAN.md — 칸 빠진 행이 ${plan_open_incomplete}개로 줄었다. scripts/doc-lint.sh 의 plan_open_incomplete_baseline 을 그 수로 내린다"
+fi
+
+# 구간 표(「구간 — 배포를 결승선으로 놓는다」)가 안 닫힌 청크를 다 담나. 담기는 것이 **차례**라
+# 빠진 행은 「나중에 한다」가 아니라 **아무 문서도 차례를 안 드는 상태**가 된다 —
+# `PROGRESS.md` 「현재 상태」가 순서를 이 표에 넘겼기 때문이다.
+#
+# **래칫이 아니라 0 기준이다.** 칸 누락과 달리 과거 부채가 없다 — 표를 세운 날 흘린 열을
+# `Q87` 이 같이 채웠다. 하루 만에 흘린 것이라 되돌리는 diff 가 작았다.
+#
+# **청크 칸만 본다.** 「왜 여기」 칸의 산문이 번호를 스쳐도 담긴 것으로 안 친다 —
+# 산문은 고쳐도 차례가 안 바뀌는 자리라, 거기에 기대면 차례가 산문에 숨는다.
+#
+# **범위 표기는 못 읽는다.** `46`~`48` 로 줄여 적으면 47 이 빠진 것으로 잡힌다. 그것이 의도다 —
+# 사람이 읽는 표와 기계가 읽는 표가 갈리면 기계 쪽이 헛것을 센다(`Q87` 이 낱개로 폈다).
+plan_unplaced=$(comm -23 \
+  <(plan_open_rows | awk -F'|' '{id=$2; gsub(/^ +| +$/,"",id); print id}' | sort -u) \
+  <(awk '/^## 구간/{on=1; next} on && /^## /{on=0} on && /^\| /{
+      n=split($0,c,"|"); if (n<4) next; s=c[3];
+      while (match(s, /`[^`]+`/)) { print substr(s, RSTART+1, RLENGTH-2); s=substr(s, RSTART+RLENGTH) }
+    }' PLAN.md | sort -u) | tr '\n' ' ')
+if [ -n "${plan_unplaced// /}" ]; then
+  echo "[구간 누락] PLAN.md — 안 닫힌 청크 중 구간 표에 없는 것: ${plan_unplaced}"
+  echo "    다섯 구간 중 하나의 청크 칸에 낱개로 적는다(PLAN.md 「구간」)"
+  fail=1
 fi
 
 # 이력이 날짜순인가(`W3`). 앞줄보다 이른 날짜가 오면 센다 — 그 수가 기준선을 넘으면 빨갛다.
