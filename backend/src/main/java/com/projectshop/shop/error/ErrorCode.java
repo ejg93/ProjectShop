@@ -240,6 +240,16 @@ public enum ErrorCode {
             "그 경로에 쓸 수 없는 메서드다"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported-media-type",
             "다룰 수 없는 미디어 타입이다"),
+    // 상품 사진(27, media-rules.md)
+    //
+    // 크기와 형식은 HTTP 가 이미 뜻을 정해 둔 자리라 그 코드를 쓴다(D5).
+    // 장수 제한만 우리 규칙이라 422 다.
+    IMAGE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "image-too-large",
+            "사진이 너무 크다"),
+    IMAGE_TYPE_NOT_ALLOWED(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "image-type-not-allowed",
+            "받지 않는 사진 형식이다"),
+    IMAGE_LIMIT_REACHED(HttpStatus.UNPROCESSABLE_CONTENT, "image-limit-reached",
+            "사진을 더 올릴 수 없다"),
     // 문의(59)
     //
     // 못 보는 것도 404 다. 403 을 주면 문의번호를 훑어서 실재하는 비공개 문의의 지도를

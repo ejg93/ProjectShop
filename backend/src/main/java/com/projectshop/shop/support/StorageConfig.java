@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 /**
  * 파일 저장소에 붙는 자리를 만든다({@code 26}, {@code media-rules.md}).
@@ -60,6 +61,31 @@ class StorageConfig {
                 .region(Region.of(region))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(accessKey, secretKey)))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(pathStyle)
+                        .build())
+                .build();
+    }
+
+    /**
+     * 서명 URL 을 만드는 쪽이다({@code 28}). 클라이언트와 <b>같은 자격·같은 엔드포인트</b>를 써야
+     * 서명이 맞는다 — 갈리면 저장소가 {@code SignatureDoesNotMatch} 로 거절하고,
+     * 그 메시지는 「키가 틀렸다」처럼 읽혀서 원인이 멀어진다.
+     */
+    @Bean
+    S3Presigner s3Presigner(
+            @Value("${shop.storage.endpoint}") String endpoint,
+            @Value("${shop.storage.access-key}") String accessKey,
+            @Value("${shop.storage.secret-key}") String secretKey,
+            @Value("${shop.storage.region}") String region,
+            @Value("${shop.storage.path-style}") boolean pathStyle) {
+        return S3Presigner.builder()
+                .endpointOverride(URI.create(endpoint))
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKey, secretKey)))
+                // **클라이언트와 같은 방식이어야 한다.** 여기만 빠뜨리면 서명 URL 이
+                // `버킷.호스트` 로 나와서 `UnknownHostException` 이다 — 27 이 실측으로 밟았다.
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(pathStyle)
                         .build())

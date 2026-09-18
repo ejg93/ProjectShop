@@ -212,6 +212,10 @@ AppUser ─┬─ UserRole                (user_role)
 `sku_stock`·`sku_stock_movement` 는 SKU 를 따라가되 덩어리에 안 든다. `product_substantiation` 은 상품에 cascade 다 —
 실증 자료라 상품 없이 뜻이 없다(`13f-1`).
 
+**`product_image` 도 cascade 다**(`27`). 상품이 없으면 그 상품의 사진은 뜻이 없다 —
+다만 **행이 사라져도 저장소의 객체는 안 사라진다.** 파일을 지우는 것은 cascade 가 아니라
+지우는 코드의 일이고, 그 코드는 `Q94`(신고·삭제)와 파기 배치가 든다(`media-rules.md`).
+
 ## 애그리거트 밖 — 참조 값과 기록
 
 | 표 | 왜 덩어리가 아닌가 |
