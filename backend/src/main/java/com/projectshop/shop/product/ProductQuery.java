@@ -15,6 +15,7 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.support.ObjectStorage;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.OrderBy;
@@ -54,10 +55,12 @@ public class ProductQuery {
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
+    private final ObjectStorage storage;
 
-    ProductQuery(JdbcClient jdbc, PermissionEvaluator evaluator) {
+    ProductQuery(JdbcClient jdbc, PermissionEvaluator evaluator, ObjectStorage storage) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
+        this.storage = storage;
     }
 
     /**
@@ -67,9 +70,11 @@ public class ProductQuery {
      *                    전자상거래법 제21조의2 1호가 첫 화면에 필수 총금액을 요구하고
      *                    배송비가 그 필수 수반 비용이다(`D2` R24). 셀러 조회로 따로 받으면
      *                    목록에서 상품마다 한 번씩이라 N+1 이다
+     * @param thumbnailUrl 첫 사진의 썸네일. <b>만료 5분 서명 URL 이고 사진이 없으면 null 이다</b>
+     *                     (`media-rules.md` 「여는 법」, `28`)
      */
     public record PublicItem(long productId, long sellerId, String sellerName, String name,
-            long minPriceInclVat, long shippingFee, OffsetDateTime createdAt) {
+            long minPriceInclVat, long shippingFee, String thumbnailUrl, OffsetDateTime createdAt) {
     }
 
     /**
@@ -98,7 +103,7 @@ public class ProductQuery {
      */
     public record PublicDetail(long productId, long sellerId, String sellerName, String name,
             String description, boolean withdrawalRestricted, String withdrawalRestrictionReason,
-            long shippingFee, Integer supplyLeadDays, List<OptionGroup> options,
+            long shippingFee, Integer supplyLeadDays, List<String> imageUrls, List<OptionGroup> options,
             List<PublicSku> skus, OffsetDateTime createdAt) {
     }
 
@@ -135,7 +140,10 @@ public class ProductQuery {
         List<PublicItem> items = jdbc.sql("""
                         select p.product_id, p.seller_id, s.name as seller_name, p.name,
                                coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat,
-                               s.default_shipping_fee, p.created_at
+                               s.default_shipping_fee, p.created_at,
+                               (select i.thumbnail_key from product_image i
+                                 where i.product_id = p.product_id
+                                 order by i.sort_no, i.product_image_id limit 1) as thumbnail_key
                           from product p
                           join seller s on s.seller_id = p.seller_id
                           left join sku sk on sk.product_id = p.product_id
@@ -160,6 +168,7 @@ public class ProductQuery {
                         rs.getString("name"),
                         rs.getLong("min_price_incl_vat"),
                         rs.getLong("default_shipping_fee"),
+                        presigned(rs.getString("thumbnail_key")),
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .list();
 
@@ -281,6 +290,7 @@ public class ProductQuery {
                         rs.getObject("supply_lead_days", Integer.class),
                         List.of(),
                         List.of(),
+                        List.of(),
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .optional()
                 // 파는 중이 아닌 것과 아예 없는 것을 안 가른다. 가르면 draft 상품의 존재가 샌다.
@@ -288,7 +298,7 @@ public class ProductQuery {
 
         return new PublicDetail(head.productId(), head.sellerId(), head.sellerName(), head.name(),
                 head.description(), head.withdrawalRestricted(), head.withdrawalRestrictionReason(),
-                head.shippingFee(), head.supplyLeadDays(), findOptions(productId),
+                head.shippingFee(), head.supplyLeadDays(), findImageUrls(productId), findOptions(productId),
                 findPublicSkus(productId), head.createdAt());
     }
 
@@ -298,6 +308,37 @@ public class ProductQuery {
      * <p>값을 옵션마다 다시 조회하지 않는다 — 옵션이 셋이면 쿼리가 넷이 되고,
      * 그 모양은 상품 수만큼 늘어난다.
      */
+    /**
+     * 상세에 실을 사진들. <b>원본 쪽이고 목록은 썸네일이다</b>({@code media-rules.md} 「썸네일」).
+     *
+     * <p>사진이 없으면 빈 목록이다. {@code null} 을 안 쓴다 —
+     * 「없다」를 빈 목록이 이미 말하고, {@code null} 은 <b>「모른다」로도 읽힌다</b>({@code D23}).
+     */
+    private List<String> findImageUrls(long productId) {
+        return jdbc.sql("""
+                        select object_key from product_image
+                         where product_id = :id
+                         order by sort_no, product_image_id
+                        """)
+                .param("id", productId)
+                .query(String.class)
+                .list()
+                .stream()
+                .map(storage::presignedUrl)
+                .toList();
+    }
+
+    /**
+     * 열쇠를 <b>만료 5분 서명 URL</b> 로 바꾼다. 열쇠가 없으면 {@code null} 이다 —
+     * 사진이 없는 상품이 있고, 그 자리를 화면이 자리표시로 채운다.
+     *
+     * <p><b>저장소 주소를 그대로 안 내린다.</b> 버킷이 비공개라 그 주소는 밖에서 안 열리고,
+     * 여는 유일한 방법이 이 서명이다({@code media-rules.md} 「여는 법」).
+     */
+    private String presigned(String objectKey) {
+        return objectKey == null ? null : storage.presignedUrl(objectKey);
+    }
+
     private List<OptionGroup> findOptions(long productId) {
         record Row(long optionId, String optionName, long valueId, String value) {
         }

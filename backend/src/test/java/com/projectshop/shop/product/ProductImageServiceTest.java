@@ -128,14 +128,7 @@ class ProductImageServiceTest extends StorageTestBase {
     }
 
     private static ProductImageService.Incoming jpeg(String name, int width, int height) {
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            ImageIO.write(image, "jpeg", out);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-        return new ProductImageService.Incoming(name, out.toByteArray());
+        return new ProductImageService.Incoming(name, ProductImageFixture.jpegBytes(width, height));
     }
 
     private static ProductService.Command tshirt(long sellerId) {
