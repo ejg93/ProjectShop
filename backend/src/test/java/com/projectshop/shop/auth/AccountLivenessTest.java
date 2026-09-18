@@ -3,6 +3,8 @@ package com.projectshop.shop.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -74,6 +77,28 @@ class AccountLivenessTest extends PostgresTestBase {
             // 로그인 시점 검사만으로는 이미 열린 세션을 못 막는다. 이 필터가 그 자리다.
             mvc.perform(get("/api/me/permissions").with(user(principal())))
                     .andExpect(status().isUnauthorized());
+        }
+
+        /**
+         * <b>본문까지 잰다</b>({@code Q98}). {@code Q84} 전에는 이 필터가
+         * {@code response.setStatus} 로 끝내서 <b>{@code trace_id} 도 {@code type} 도 없었고</b>,
+         * {@code ProblemFactory} 를 안 지나 오류율 지표에도 안 잡혔다.
+         *
+         * <p>그 고침을 재는 자리가 없어서 <b>되돌려도 초록이었다</b> — 마무리 26차 독립 리뷰와
+         * PR #53 리뷰가 둘 다 짚었다.
+         */
+        @Test
+        @DisplayName("401 본문이 Problem Details 다")
+        void deadAccountHasProblemBody() throws Exception {
+            withdraw();
+
+            mvc.perform(get("/api/me/permissions").with(user(principal())))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(content().contentTypeCompatibleWith(
+                            MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.type")
+                            .value("tag:projectshop.example,2026:error:account-inactive"))
+                    .andExpect(jsonPath("$.trace_id").isNotEmpty());
         }
 
         @Test

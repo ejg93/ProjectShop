@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -324,6 +325,30 @@ class AuthLoginTest extends PostgresTestBase {
             // 401 과 403 을 가르는 것이 여기서 재는 것이다 — 위 `changesSessionId` 와 반대 방향이다.
             mvc.perform(get("/api/me").cookie(sessionCookie(first)))
                     .andExpect(status().isUnauthorized());
+        }
+
+        /**
+         * <b>본문까지 잰다</b>({@code Q98}). {@code Q84} 전에는 {@code ConcurrentSessionFilter} 의
+         * 콜백이 {@code setStatus} 로 끝내서 <b>{@code trace_id} 도 {@code type} 도 없었고</b>,
+         * 그 고침을 재는 자리가 없어서 <b>되돌려도 초록이었다</b>.
+         *
+         * <p>슬러그가 {@code session-superseded} 인 것이 중요하다 — 받는 쪽이
+         * <b>다시 로그인하면 되는 상황</b>과 죽은 계정을 갈라 대응한다.
+         */
+        @Test
+        @DisplayName("끊긴 세션의 401 본문이 Problem Details 다")
+        void supersededSessionHasProblemBody() throws Exception {
+            String first = sessionIdOf(logIn(PASSWORD).andExpect(status().isOk()));
+
+            logIn(PASSWORD).andExpect(status().isOk());
+
+            mvc.perform(get("/api/me").cookie(sessionCookie(first)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(content().contentTypeCompatibleWith(
+                            MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.type")
+                            .value("tag:projectshop.example,2026:error:session-superseded"))
+                    .andExpect(jsonPath("$.trace_id").isNotEmpty());
         }
 
         /**

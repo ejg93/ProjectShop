@@ -1302,6 +1302,30 @@ Migration checksum mismatch for migration version 70
 **덤프는 코드와 짝이다.** 되살릴 곳이 어느 커밋을 도는지 같이 본다.
 배포 뒤에는 이 문제가 사라진다 — 기준점 뒤로 마이그레이션이 못 바뀌기 때문이다.
 
+### MockMvc 는 멀티파트 봉투를 안 지난다
+
+`spring.servlet.multipart.max-file-size` 는 **서블릿 컨테이너가 본문을 풀 때** 걸린다.
+MockMvc 는 그 봉투를 테스트가 직접 만들어 넣어서 **그 상한을 아예 안 지난다.**
+
+`27` 이 그렇게 지나갔다 — 5 MiB 를 문서·코드·DB 세 자리에 박아 놓고
+**실제 상한은 Boot 기본값 1 MB** 였는데, 서비스를 직접 부르는 시험도 MockMvc 시험도
+전부 초록이었다. 마무리 26차 독립 리뷰가 소스를 읽어서 찾았다.
+
+**업로드 입구는 실제 HTTP 로 잰다**(`HttpTestBase.postFile`, `Q97`).
+
+### 하위 클래스에 `@SpringBootTest` 를 다시 달면 바탕의 설정이 사라진다
+
+`webEnvironment` 는 **가장 가까운 애너테이션 하나가 정한다.** 바탕이
+`RANDOM_PORT` 를 걸어 뒀어도 하위 클래스가 `@SpringBootTest(properties = …)` 를 달면
+**MOCK 으로 떨어지고** 실제 서버가 안 뜬다.
+
+```
+Could not resolve placeholder 'local.server.port'
+```
+
+메시지가 포트 이야기라 **애너테이션을 겹쳐 단 것**이 원인으로 안 읽힌다.
+속성만 더할 때는 `@TestPropertySource` 를 쓴다.
+
 ### 재사용 컨테이너는 지난 실행의 흔적을 보여 준다
 
 `withReuse(true)` 를 건 컨테이너에서 **고정된 이름**(버킷·토픽·스키마)을 쓰면,
