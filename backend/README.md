@@ -77,5 +77,23 @@ curl localhost:8080/actuator/health
 `docker build frontend` 로 이미지가 만들어지고, `BACKEND_ORIGIN` 을 그 망의 주소로 주면
 **백엔드는 공개 도메인이 없어진다.** 둘째 줄(바깥)은 그때 안 고르는 것이 된다.
 
+### 올리고 나면 빈 쇼핑몰이 뜬다 — 데모 데이터를 부어야 한다
+
+**기본 프로필은 시드를 안 읽는다.** `application.yml` 의 `locations` 가
+`classpath:db/migration` 하나고 `db/seed` 는 거기 없다. `DemoOrderSeeder` 도
+`@Profile("local")` 이라 안 돈다 — **그냥 올리면 상품 0·셀러 0·주문 0 이다.**
+
+**프로필을 새로 안 가른다**(`Q37` 결정 — 프로필마다 설정이 갈리면 안 돌려본 조합이 생긴다).
+대신 `64` 의 스크립트로 **로컬의 찬 DB 를 떠서 호스팅에 붓는다.**
+
+| 순서 | 무엇을 |
+|---|---|
+| 1 | 로컬을 시드가 찬 상태로 만든다 — `local` 프로필로 한 번 띄우면 `V900+` 가 올라간다 |
+| 2 | `bash scripts/db-dump.sh "" build/demo.dump` |
+| 3 | `bash scripts/db-restore.sh build/demo.dump "postgres://…호스팅…"` |
+
+**덤프는 코드와 짝이다.** 뜬 뒤에 마이그레이션 파일을 고치면 같은 덤프가 더는 안 올라간다
+(`stack.md` 「덤프는 그때의 마이그레이션 판에 묶인다」) — **올리기 직전에 뜬다.**
+
 **실제 데이터가 있는 DB 에 올린 뒤에는 적용된 마이그레이션을 못 고친다**(`PLAN.md` `3e`·`Q36`).
 데모라 실데이터가 없으면 스키마를 접을 때 그 DB 를 비우고 다시 올린다.
