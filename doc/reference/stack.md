@@ -1260,6 +1260,24 @@ Failed to verify that image 'quay.io/minio/minio:…' is a compatible substitute
 **받을 수 없다는 뜻이 아니라 이름이 다르다는 뜻**이라 메시지가 원인에서 멀다.
 `DockerImageName.parse(…).asCompatibleSubstituteFor("minio/minio")` 로 같은 것이라고 말해 준다.
 
+### 되돌리기는 맨 뒤부터만 된다
+
+Flyway 는 **적용된 것보다 앞 번호가 비어 있는 상태**를 거부한다.
+
+```
+Detected resolved migration not applied to database: 78.
+```
+
+이 저장소에서는 그것이 늘 걸린다 — **시드가 `V900+`** 라 로컬 DB 에는 항상
+더 높은 번호가 적용돼 있다. `V78` 을 걷어 내면 `V900` 이 그보다 뒤에 있어서
+다음 기동이 막힌다(`65` 실측).
+
+**되돌릴 때는 그 뒤 번호까지 같이 걷는다.** 시드는 다시 부으면 되므로
+로컬에서는 스키마를 통째로 날리고 다시 올리는 편이 빠르다.
+
+**배포에서는 이 제약이 값을 한다** — 되돌리기가 맨 뒤 한 칸으로 제한되면
+「어디까지 되돌렸나」가 한 줄로 답해진다.
+
 ### 덤프는 그때의 마이그레이션 판에 묶인다
 
 되살린 DB 로 앱을 띄우면 Flyway 가 **기록된 체크섬과 지금 파일**을 대조한다.
