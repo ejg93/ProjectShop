@@ -135,12 +135,14 @@ public class CopyrightReportService {
     }
 
     /**
-     * <b>{@code product_image} 를 바깥 조인으로 읽는다.</b> 사진이 이미 사라진 신고도
-     * 판정할 수 있어야 한다 — 표가 {@code set null} 로 그 상태를 일부러 만들어 뒀는데
-     * 안쪽 조인으로 읽으면 <b>그 행은 영영 미판정으로 남는다</b>(마무리 26차 독립 리뷰).
+     * <b>{@code product_image} 를 안 읽는다.</b> 사진이 이미 사라진 신고도 판정할 수 있어야
+     * 하는데 — 표가 {@code set null} 로 그 상태를 일부러 만들어 뒀다 — 그 표를 거쳐 읽으면
+     * <b>그 행은 영영 미판정으로 남는다</b>(마무리 26차 독립 리뷰가 찾았다).
      *
-     * <p>셀러는 {@code r.product_id} 에서 온다. 사진이 아니라 <b>상품</b>이 판정 대상의
+     * <p>셀러는 {@code r.product_id} 에서 바로 온다. 사진이 아니라 <b>상품</b>이 판정 대상의
      * 주인이라, 사진이 사라져도 누가 판정할 수 있는지는 그대로 답해진다.
+     *
+     * <p>{@code product_image_id} 는 <b>지울 대상을 찾을 때만</b> 쓰고 그때는 {@code null} 일 수 있다.
      */
     private static final String FIND_PENDING = """
             select r.product_image_id, p.seller_id
