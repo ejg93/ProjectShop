@@ -1260,6 +1260,22 @@ Failed to verify that image 'quay.io/minio/minio:…' is a compatible substitute
 **받을 수 없다는 뜻이 아니라 이름이 다르다는 뜻**이라 메시지가 원인에서 멀다.
 `DockerImageName.parse(…).asCompatibleSubstituteFor("minio/minio")` 로 같은 것이라고 말해 준다.
 
+### 덤프는 그때의 마이그레이션 판에 묶인다
+
+되살린 DB 로 앱을 띄우면 Flyway 가 **기록된 체크섬과 지금 파일**을 대조한다.
+배포 전에는 마이그레이션이 가변이라(`Q51`), 뜬 뒤에 그 파일을 고치면
+**같은 덤프가 더는 안 올라간다**.
+
+```
+Migration checksum mismatch for migration version 70
+```
+
+`64` 가 실측으로 밟았다 — 오래된 로컬 덤프를 되살렸더니 `V70` 에서 걸렸고,
+**덤프가 깨진 것이 아니라 코드가 그 사이에 움직인 것**이었다.
+
+**덤프는 코드와 짝이다.** 되살릴 곳이 어느 커밋을 도는지 같이 본다.
+배포 뒤에는 이 문제가 사라진다 — 기준점 뒤로 마이그레이션이 못 바뀌기 때문이다.
+
 ### 재사용 컨테이너는 지난 실행의 흔적을 보여 준다
 
 `withReuse(true)` 를 건 컨테이너에서 **고정된 이름**(버킷·토픽·스키마)을 쓰면,
