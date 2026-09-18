@@ -47,24 +47,16 @@ public class ProblemEntryPoint implements AuthenticationEntryPoint {
      */
     private static final String CHALLENGE = "Session";
 
-    private final ProblemFactory problems;
-    private final ObjectMapper objectMapper;
+    private final ProblemWriter writer;
 
-    ProblemEntryPoint(ProblemFactory problems, ObjectMapper objectMapper) {
-        this.problems = problems;
-        this.objectMapper = objectMapper;
+    ProblemEntryPoint(ProblemWriter writer) {
+        this.writer = writer;
     }
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
             AuthenticationException authException) throws IOException {
 
-        ProblemDetail problem = problems.create(ErrorCode.UNAUTHENTICATED, null, request);
-
-        response.setStatus(ErrorCode.UNAUTHENTICATED.status().value());
-        response.setHeader(HttpHeaders.WWW_AUTHENTICATE, CHALLENGE);
-        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        response.setCharacterEncoding("UTF-8");
-        objectMapper.writeValue(response.getWriter(), problem);
+        writer.write(request, response, ErrorCode.UNAUTHENTICATED, CHALLENGE);
     }
 }

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -95,6 +96,35 @@ class ProblemResponseTest extends PostgresTestBase {
                     .andExpect(jsonPath("$.errors").isNotEmpty())
                     // 요청에 쓴 이름과 오류에 나온 이름이 다르면 화면이 그 필드를 못 찾는다.
                     .andExpect(jsonPath("$.errors[?(@.field == 'display_name')]").exists());
+        }
+    }
+
+    /**
+     * 컨트롤러 밖에서 끊는 자리({@code Q84}).
+     *
+     * <p><b>{@code @ExceptionHandler} 는 여기까지 못 온다.</b> 필터가 먼저 끊으면 MVC 를 안 지나서
+     * 그전에는 셋 다 상태 코드만 나갔다 — 받는 쪽에 {@code trace_id} 도 {@code type} 도 없었고
+     * {@code ProblemFactory} 를 안 지나 <b>오류율 지표에도 안 잡혔다</b>(청크 62).
+     */
+    @Nested
+    @DisplayName("필터가 끊는 자리")
+    class FilterCut {
+
+        /**
+         * 로그인은 했는데 권한이 없는 요청이다. 지표는 관리자만 본다({@code Q53}).
+         *
+         * <p>그전에는 스프링 기본 {@code AccessDeniedHandler} 의 {@code sendError} 로 나가서
+         * 본문이 비었다.
+         */
+        @Test
+        @DisplayName("인가 거부가 403 이고 본문이 Problem Details 다")
+        void accessDeniedHasBody() throws Exception {
+            mvc.perform(get("/actuator/prometheus").with(user("nobody")))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().contentTypeCompatibleWith(
+                            MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:access-denied"))
+                    .andExpect(jsonPath("$.trace_id").isNotEmpty());
         }
     }
 }

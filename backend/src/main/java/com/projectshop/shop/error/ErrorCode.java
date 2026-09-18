@@ -30,6 +30,15 @@ public enum ErrorCode {
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "login-failed", "아이디 또는 비밀번호가 맞지 않는다"),
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "unauthenticated", "로그인이 필요하다"),
     ALREADY_WITHDRAWN(HttpStatus.UNAUTHORIZED, "already-withdrawn", "이미 탈퇴한 계정이다"),
+    // 필터가 끊는 자리 셋(Q84). 셋 다 그전에는 본문 없이 상태 코드만 나갔다 —
+    // 받는 쪽이 trace_id 도 type 도 못 받았고, 오류율 지표(62)에도 안 잡혔다.
+    //
+    // 셋을 가른 이유는 받는 쪽이 갈라 대응해서다. 죽은 계정은 다시 로그인해도 소용없고,
+    // 밀려난 세션은 다시 로그인하면 되며, 인가 거부는 로그인 상태가 맞는데 권한이 없다.
+    ACCOUNT_INACTIVE(HttpStatus.UNAUTHORIZED, "account-inactive", "쓸 수 없는 계정이다"),
+    SESSION_SUPERSEDED(HttpStatus.UNAUTHORIZED, "session-superseded",
+            "다른 기기에서 로그인해 이 세션이 끊겼다"),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "access-denied", "이 요청을 할 권한이 없다"),
     PASSWORD_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "password-mismatch", "비밀번호가 맞지 않는다"),
 
     /**

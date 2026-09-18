@@ -27,6 +27,12 @@ import org.springframework.security.web.authentication.session.SessionAuthentica
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.SecurityFilterChain;
+
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ProblemWriter;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.session.security.SpringSessionBackedSessionRegistry;
@@ -95,7 +101,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,
             SessionRegistry sessionRegistry, ProblemEntryPoint entryPoint,
-            ObjectProvider<PermissionEvaluator> evaluators) throws Exception {
+            ProblemWriter problems, ObjectProvider<PermissionEvaluator> evaluators) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
@@ -136,7 +142,13 @@ public class SecurityConfig {
                 // 이 자리는 MVC 에 닿기 전이라 @RestControllerAdvice 가 못 잡는다.
                 // 그래서 본문을 여기서 직접 쓰는데, 만드는 것은 ProblemFactory 하나다 —
                 // 두 자리가 각자 만들면 같은 오류가 형태만 다르게 두 벌 나간다.
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint))
+                // 인가 거부(403)도 같은 본문으로 나간다(Q84). 안 걸면 스프링 기본
+                // AccessDeniedHandler 가 sendError 로 끝내서 본문이 비고, 그 응답은
+                // ProblemFactory 를 안 지나서 오류율 지표에도 안 잡힌다.
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler((request, response, denied) ->
+                                problems.write(request, response, ErrorCode.ACCESS_DENIED)))
 
                 .sessionManagement(session -> session
                         // 세션은 필요할 때만 만든다. 열린 경로를 훑는 것만으로 세션이 쌓이지 않게 한다.
@@ -164,7 +176,7 @@ public class SecurityConfig {
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 // 인가 직전에 둔다. 인증이 확정된 뒤여야 principal 을 볼 수 있고,
                 // 인가 전이어야 죽은 계정이 아무것도 통과하지 못한다.
-                .addFilterBefore(new AccountLivenessFilter(ruleLoader), AuthorizationFilter.class);
+                .addFilterBefore(new AccountLivenessFilter(ruleLoader, problems), AuthorizationFilter.class);
 
         // 만료 표시된 세션을 실제로 끊는다.
         //
@@ -178,7 +190,10 @@ public class SecurityConfig {
         // 기본 전략은 본문에 안내 문구를 쓴다. 우리는 JSON API 라 401 만 준다.
         http.addFilterAfter(
                 new ConcurrentSessionFilter(sessionRegistry,
-                        event -> event.getResponse().setStatus(HttpStatus.UNAUTHORIZED.value())),
+                        event -> problems.write(
+                                (HttpServletRequest) event.getRequest(),
+                                (HttpServletResponse) event.getResponse(),
+                                ErrorCode.SESSION_SUPERSEDED)),
                 SecurityContextHolderFilter.class);
 
         // 세션을 만든 지 12시간이 지나면 끊는다(D14, 청크 5c).
