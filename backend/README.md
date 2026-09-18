@@ -48,6 +48,12 @@ curl localhost:8080/actuator/health
 | `SESSION_COOKIE_SECURE` | `false`. **https 로 올리면 `true` 가 필수다** — 안 켜면 세션 쿠키가 평문으로 흐른다. **프록시가 루프백 밖인데 꺼져 있으면 서버가 안 뜬다**(`Q44`) |
 | `TRUSTED_PROXIES` | 루프백. `X-Forwarded-For` 를 믿어 줄 상대의 정규식. **아무 주소나 물게 넓히면 서버가 안 뜬다**(`Q44`, `SecuritySettingsCheck`) |
 | `KAFKA_BOOTSTRAP` | `localhost:9092`. 브로커 주소. **켜져 있어도 발행기가 잠겨 있으면 안 쓰인다** |
+| `STORAGE_ENDPOINT` | `http://localhost:9000`. 파일 저장소 주소. **배포는 Cloudflare R2 다**(사용자 결정 2026-09-18) — S3 호환이라 코드는 같고 이 값과 키 셋만 갈린다 |
+| `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | `shop` / `shopshop`. **배포는 R2 가 내주는 것을 넣는다** |
+| `STORAGE_REGION` | `auto`. MinIO 는 안 보지만 SDK 가 서명할 때 값을 요구한다. R2 도 `auto` 를 받는다 |
+| `STORAGE_PATH_STYLE` | `true`. `버킷.호스트` 대신 경로로 부른다 |
+| `STORAGE_PUBLIC_BUCKET` / `STORAGE_PRIVATE_BUCKET` | `shop-public` / `shop-private`. 갈래마다 하나다(`media-rules.md`) |
+| `STORAGE_BOOTSTRAP` | `false`. `true` 면 기동 뒤에 버킷 둘을 만든다. **켜는 것은 저장소를 띄운 로컬과 그 테스트뿐이다** |
 | `EVENTS_SINK` | `none`. `kafka` 로 켜면 아웃박스 표의 사건이 브로커로 나간다. **배포는 `none` 이다** — 브로커를 안 올린다 |
 
 ## 호스팅에 올릴 때

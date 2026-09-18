@@ -1245,6 +1245,35 @@ management:
 
 **고친 줄을 눈으로 본다.** 치환한 뒤 그 줄을 다시 찍어서 바뀐 것을 확인하고 넘어간다.
 
+### MinIO 이미지는 Docker Hub 에 없다
+
+`minio/minio` 를 받으려 하면 **「repository does not exist」**로 떨어진다. `quay.io/minio/minio` 가
+지금 자리다(2026-09-18 실측, `26`).
+
+**Testcontainers 가 한 겹 더 막는다.** `MinIOContainer` 의 기본 좌표가 `minio/minio` 라,
+다른 레지스트리 이름을 주면 **이미지를 받기 전에** 거부한다.
+
+```
+Failed to verify that image 'quay.io/minio/minio:…' is a compatible substitute for 'minio/minio'
+```
+
+**받을 수 없다는 뜻이 아니라 이름이 다르다는 뜻**이라 메시지가 원인에서 멀다.
+`DockerImageName.parse(…).asCompatibleSubstituteFor("minio/minio")` 로 같은 것이라고 말해 준다.
+
+### 재사용 컨테이너는 지난 실행의 흔적을 보여 준다
+
+`withReuse(true)` 를 건 컨테이너에서 **고정된 이름**(버킷·토픽·스키마)을 쓰면,
+만드는 코드를 지워도 테스트가 **지난 실행이 남긴 것**을 보고 초록이 된다.
+
+`26` 이 실측으로 밟았다 — 버킷을 만드는 줄을 지우고 돌렸는데 통과했고,
+그때 테스트가 재던 것은 자기가 만든 것이 아니라 남은 흔적이었다.
+
+**이름에 pid 를 넣는다.** `KafkaTestBase` 의 토픽이 먼저 같은 수를 썼고, 부수 효과로
+**fork 끼리도 안 겹친다**(느린 레인은 fork 가 여럿이고 컨테이너는 하나다).
+
+**게이트를 세우면 한 번 부숴 본다.** 이 자리는 부숴 보지 않으면 안 드러난다 —
+초록은 「막고 있다」와 「볼 것이 없다」를 구별해 주지 않는다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
