@@ -1,6 +1,5 @@
 package com.projectshop.shop.support;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -39,8 +38,11 @@ import com.projectshop.shop.PostgresTestBase;
  * 이미 <b>fork 마다 논리 DB 를 가른다</b>({@code 2i-2}) — pid 접두어는 같은 일을 한 번 더 하는 것이고,
  * 정작 <b>같은 fork 안의 다음 클래스</b>와는 값이 같아서 실제 실패 모드를 못 막았다. 그래서 걷었다.
  *
- * <p><b>막는 것은 {@link #카운터를_치운다} 하나다.</b> 이 시험이 상한을 넘긴 채 끝나면
- * 창 1분 안에 {@code /api/auth/*} 를 치는 다음 것이 429 를 받는다 — 실제로 {@code AuthLoginTest} 가 그 자리다.
+ * <p><b>막는 것은 {@link #카운터를_치운다} 하나고, 지키는 대상은 이 클래스 안이다.</b>
+ * 저장소에서 제한을 켜는 것이 여기 하나뿐이라({@code SecurityConfig} 가 꺼져 있으면 필터를
+ * <b>등록 자체를 안 한다</b>) 다른 클래스는 카운터가 남아도 429 를 받을 길이 없다 —
+ * 처음에는 「{@code AuthLoginTest} 가 그 자리다」라고 적었는데 <b>거짓이었다</b>
+ * (마무리 28차 독립 리뷰). <b>제한을 켜는 클래스가 둘이 되는 날</b> 이 정리가 그 둘 사이를 지킨다.
  */
 @TestPropertySource(properties = "shop.rate-limit.enabled=true")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -89,13 +91,21 @@ class RateLimitFilterTest extends PostgresTestBase {
      * 이 시험이 첫 요청부터 429 를 받는다 — 실제 저장소에서는 그 다음 것이
      * {@code AuthLoginTest} 고, 거기서는 401 을 기대한 자리에 429 가 온다.
      *
-     * <p>순서를 {@link Order} 로 고정한다. 앞이 먼저 돌지 않으면 아무것도 안 재는 시험이 된다.
+     * <p>순서를 {@link Order} 로 고정한다. 앞이 먼저 돌지 않으면 아무것도 안 재는 시험이 된다 —
+     * <b>이 메서드만 따로 돌리면 그렇게 된다.</b> 그래서 들어올 때 카운터가 비어 있는지를 먼저 못박는다.
      */
     @Test
     @Order(2)
     @DisplayName("앞 시험이 상한을 넘겨도 다음 것은 안 막힌다")
     void 다음_것은_안_막힌다() throws Exception {
+        org.assertj.core.api.Assertions.assertThat(redis.keys(keyPrefix + "*"))
+                .as("앞 시험의 @AfterEach 가 돌았어야 한다 — 이 메서드만 따로 돌리면 이 단언이 알려 준다")
+                .isEmpty();
+
+        // **401 을 기대한다.** 인증이 없어서 진입점이 끊는 자리고, 그것이 이 시험에
+        // 필요한 전부다 — 요청이 제한 필터를 지나 그 뒤까지 갔다는 뜻이다.
+        // `not(429)` 로 두면 500 이나 경로가 사라진 것에도 초록이라 아무것도 안 잰다.
         mvc.perform(get("/api/auth/session"))
-                .andExpect(status().is(org.hamcrest.Matchers.not(429)));
+                .andExpect(status().isUnauthorized());
     }
 }

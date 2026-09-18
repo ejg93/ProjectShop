@@ -3,6 +3,7 @@ package com.projectshop.shop.support;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -96,7 +97,18 @@ class DatabaseRestoreTest extends PostgresTestBase {
                 .as("심은 행이 돌아와야 한다 — 스키마만 돌아온 복구는 빈 쇼핑몰과 같다")
                 .isOne();
 
-        jdbc.sql("delete from seller where code = :code").param("code", marker).update();
+    }
+
+    /**
+     * <b>심은 행을 여기서 지운다.</b> 본문 마지막 줄에 두면 앞 단언이 하나라도 실패했을 때
+     * 안 돌고, 이 클래스는 {@code NOT_SUPPORTED} 라 롤백도 없다 —
+     * <b>재사용 컨테이너의 fork DB 에 그 행이 영구히 남는다</b>(마무리 28차 독립 리뷰).
+     */
+    @AfterEach
+    void 심은_행을_지운다() {
+        jdbc.sql("delete from seller where code like :prefix")
+                .param("prefix", "restore-%")
+                .update();
     }
 
     private long markerRows(String code) {
