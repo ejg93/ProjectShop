@@ -83,7 +83,7 @@ public class RefundController {
             @Pattern(regexp = "cancelled|supply_failed|admin_cancelled|withdrawal|payment_error")
             String reasonCode,
             List<@Valid LineRequest> lines,
-            @Size(max = 500) String reason) {
+            @Size(min = 1, max = 500) String reason) {
     }
 
     /**
@@ -93,7 +93,7 @@ public class RefundController {
      * 공유해서고, 반려 쪽 검사는 {@link RefundService#reject} 와
      * {@code refund_rejection_reason_check} 두 겹이 한다(`D23` 축 2).
      */
-    public record DecisionRequest(@Size(max = 500) String reason) {
+    public record DecisionRequest(@Size(min = 1, max = 500) String reason) {
     }
 
     /**

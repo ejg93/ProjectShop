@@ -60,7 +60,7 @@ class LengthConstraintTest extends PostgresTestBase {
      * <p><b>{@code between 1 and N} 을 그대로 찾으면 안 걸린다</b> — {@code pg_get_constraintdef} 가
      * {@code (length(x) >= 1) AND (length(x) <= N)} 으로 풀어서 돌려준다.
      */
-    private static final Pattern LOWER_BOUND = Pattern.compile(">= 1\b");
+    private static final Pattern LOWER_BOUND = Pattern.compile(">= ([0-9]+)");
 
     @Autowired
     private JdbcClient jdbc;
@@ -262,7 +262,7 @@ class LengthConstraintTest extends PostgresTestBase {
     @DisplayName("@NotBlank 인 칸은 제약도 빈 문자열을 막는다")
     void blankHandlingMatchesRequestRecords(String constraintName, List<RecordComponent> components) {
         String definition = ConstraintValues.definitionOf(jdbc, constraintName);
-        boolean constraintRejectsBlank = LOWER_BOUND.matcher(definition).find();
+        boolean constraintRejectsBlank = rejectsBlankIn(definition);
 
         for (RecordComponent component : components) {
             assertThat(constraintRejectsBlank)
@@ -271,16 +271,38 @@ class LengthConstraintTest extends PostgresTestBase {
                             rejectsBlank(component) ? "붙었다" : "안 붙었다",
                             constraintName,
                             constraintRejectsBlank ? "막는다" : "받는다",
-                            "둘을 맞춘다(coding-rules.md 「길이」)")
+                            "둘을 맞춘다(coding-rules.md 「길이」). 정의: " + definition)
                     .isEqualTo(rejectsBlank(component));
         }
     }
 
-    /** 요청 칸이 빈 문자열을 거절하나. {@code @Size} 와 같은 이유로 <b>필드에서</b> 읽는다 */
+
+    /**
+     * 제약이 빈 문자열을 막나. <b>아래쪽 경계가 하나라도 있으면 막는다</b> —
+     * 수가 1 일 필요는 없다({@code email_change_request_new_email_length_check} 는 3 이다).
+     *
+     * <p>{@code between 1 and N} 을 글자로 찾으면 안 걸린다 — {@code pg_get_constraintdef} 가
+     * {@code (length(x) >= 1) AND (length(x) <= N)} 으로 풀어서 돌려준다.
+     */
+    private static boolean rejectsBlankIn(String definition) {
+        Matcher lower = LOWER_BOUND.matcher(definition);
+        return lower.find() && Integer.parseInt(lower.group(1)) >= 1;
+    }
+
+    /**
+     * 요청 칸이 빈 문자열을 거절하나.
+     *
+     * <p><b>두 가지가 같은 일을 한다.</b> {@code @NotBlank} 는 {@code null} 도 같이 막고,
+     * {@code @Size(min = 1)} 은 <b>안 보내는 것은 두고 빈 값만</b> 막는다 — 선택 입력이
+     * 그 모양이라 사유 칸 넷이 여기 해당한다.
+     *
+     * <p>{@code @Size} 와 같은 이유로 <b>필드에서</b> 읽는다(record component 에는 안 남는다).
+     */
     private static boolean rejectsBlank(RecordComponent component) {
-        return annotationsOn(component).stream()
-                .anyMatch(annotation -> annotation.annotationType()
-                        == jakarta.validation.constraints.NotBlank.class);
+        return annotationsOn(component).stream().anyMatch(annotation ->
+                annotation.annotationType() == jakarta.validation.constraints.NotBlank.class
+                        || (annotation instanceof jakarta.validation.constraints.Size size
+                                && size.min() >= 1));
     }
     private static int capIn(String definition) {
         Matcher number = LAST_NUMBER.matcher(definition);
