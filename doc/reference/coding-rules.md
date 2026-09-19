@@ -479,8 +479,24 @@ EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of)
 `RECORD_COMPONENT` 가 없어서 컴파일러가 필드로 보낸다 — `RecordComponent.getAnnotation`
 만 보면 **열 칸이 「없다」로 나오고 대조가 통째로 헛돈다**(`stack.md`).
 
-**빈 문자열 허용 여부를 앱과 맞춘다.** `@NotBlank` 가 붙은 칸은 `between 1 and N`,
-안 붙은 칸은 `<= N` 이다. 갈리면 **앱이 받은 것을 DB 가 거부해서 그 요청이 500 이 된다.**
+**빈 문자열 허용 여부를 앱과 맞춘다.** 빈 값을 막는 칸은 아래쪽 경계가 있는 제약
+(`between 1 and N`)이고, 안 막는 칸은 `<= N` 이다. 갈리면 **앱이 받은 것을 DB 가 거부해서
+그 요청이 500 이 된다.**
+
+**앱 쪽 표기가 둘이다**(`Q108`). 갈리는 것은 **안 보내는 것을 어떻게 볼 것인가**다.
+
+| 애너테이션 | 무엇을 막나 | 짝인 제약 |
+|---|---|---|
+| `@NotBlank` | `null` 과 빈 값 둘 다 | `length(x) between 1 and N` |
+| `@Size(min = 1)` | **빈 값만** — 안 보내는 것은 둔다 | `x is null or length(x) between 1 and N` |
+
+**선택 입력은 아래쪽이다.** 사유 칸 여덟이 그 자리인데 `@Size(max = N)` 만 달고 있어서
+**빈 사유가 앱을 지나 DB 에서 터졌다**(400 이 아니라 500). `@NotBlank` 로 고치면
+**안 보내는 것까지 막혀서** 선택 입력이 아니게 된다.
+
+**아래쪽 경계가 1 이 아닐 수 있다.** `email_change_request_new_email_length_check` 는
+`between 3 and 254` 다 — 이메일이 그보다 짧을 수 없어서고, 「빈 값을 막나」를 `>= 1` 로만
+물으면 이 자리를 놓친다. `LengthConstraintTest` 는 그래서 **경계의 수**를 읽는다.
 
 **수마다 출처를 제약 옆에 적는다.** 표준에서 온 값과 우리가 찍은 값이 코드에서 안 갈린다 —
 제약은 한 번 들어가면 `alter` 로만 고쳐지므로 그때는 이미 관례가 되어 있다.
