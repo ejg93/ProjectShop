@@ -47,6 +47,15 @@ need_docker() {
 # `origin/main` 이 아니라 **배포 기준점**이라 축이 다르다.
 bash scripts/migration-immutable.sh || exit 1
 
+# **`doc/erd` 는 어느 레인이 돌든 빠른 단계에서 느린 시험 하나를 문다**(`Q110` 선택지 ①). 그 폴더는 `SchemaErdTest` 가
+# 스스로 만드는 생성물이라 **손으로 고친 것이 곧 잡을 사건**이고, 값(컨테이너 30초)은 그 폴더를 건드린 청크에만 붙는다.
+# 빠른 backend 레인(`gradlew test`)은 `@Tag("db")` 를 안 돌므로 **backend 를 같이 고쳤어도** 이 시험은 따로 돈다 —
+# 마무리 31차 독립 리뷰가 그 구멍을 짚었다. full 은 `gradlew build` 가 포함한다.
+# Docker 가 없으면 **아무것도 돌리기 전에 빨갛다** — 건너뛴 초록은 이 문이 막으려는 바로 그것이고,
+# 테스트가 빨간 것과 Docker 가 없는 것이 한 줄에 섞이지 않게 먼저 본다.
+erd_differs=0; path_differs doc/erd && erd_differs=1
+[ "$level" = fast ] && [ "$erd_differs" -eq 1 ] && need_docker "doc/erd 가 다르다 — SchemaErdTest 가 컨테이너를 띄운다(Q110)"
+
 ran=0; ok=1
 if changed backend; then
   ran=1
@@ -79,13 +88,9 @@ fi
 # `Q88` 이 문서 둘에 문을 팠고, 같은 묶음에서 `66` 의 `doc/erd` 가 그 문 밖에 있었다(`Q110`). 이제 셋째 지문이
 # 그 파일들을 통째로 든다 — 목록이 `build.gradle.kts` 의 신고와 갈리면 `BuildInputTest` 가 빨갛다.
 #
-# **backend 레인이 이미 돌았으면 건너뛴다** — 그 레인이 이 대조를 포함한다.
+# **backend 레인이 이미 돌았으면 건너뛴다** — 그 레인이 이 대조를 포함한다(`doc/erd` 는 위·아래에서 따로 든다).
 # **빠른 단계는 빠른 레인 전부**(10초)고, full 은 `gradlew build`(느린 레인의 대조 — `RequirementEnforcementTest`·
 # `IdentifierReferenceTest`·`DataLifecycleCoverageTest` — 까지). 시험 이름을 여기 안 적는다 — 적으면 새 대조가 생길 때 빠진다.
-#
-# **`doc/erd` 는 빠른 단계에서도 느린 시험 하나를 문다**(`Q110` 선택지 ①). 그 폴더는 `SchemaErdTest` 가
-# 스스로 만드는 생성물이라 **손으로 고친 것이 곧 잡을 사건**이고, 값(컨테이너 30초)은 그 폴더를 건드린 청크에만 붙는다.
-# Docker 가 없으면 **건너뛰지 않고 빨갛다** — 건너뛴 초록은 이 문이 막으려는 바로 그것이다.
 if ! changed backend && changed compare; then
   ran=1
   if [ "$level" = full ]; then
@@ -95,12 +100,12 @@ if ! changed backend && changed compare; then
   else
     echo "== 대조 지문이 origin/main 과 다르다 → ./gradlew test (빠른 레인의 대조)"
     (cd backend && ./gradlew test -q) || ok=0
-    if path_differs doc/erd; then
-      need_docker "doc/erd 가 다르다 — SchemaErdTest 가 컨테이너를 띄운다(Q110)"
-      echo "== doc/erd 가 origin/main 과 다르다 → ./gradlew integrationTest --tests '*SchemaErdTest'"
-      (cd backend && ./gradlew integrationTest -q --tests '*SchemaErdTest') || ok=0
-    fi
   fi
+fi
+if [ "$level" = fast ] && [ "$erd_differs" -eq 1 ]; then
+  ran=1
+  echo "== doc/erd 가 origin/main 과 다르다 → ./gradlew integrationTest --tests '*SchemaErdTest'"
+  (cd backend && ./gradlew integrationTest -q --tests '*SchemaErdTest') || ok=0
 fi
 
 [ "$ran" -eq 0 ] && echo "세 지문이 origin/main 과 같다 — 돌릴 것이 없다"

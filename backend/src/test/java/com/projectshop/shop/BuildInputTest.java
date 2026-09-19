@@ -154,13 +154,24 @@ class BuildInputTest {
                 .as("verify-fingerprint.sh 에 `lane compare …` 줄이 한 줄로 있어야 한다")
                 .isNotEmpty();
 
-        List<String> uncovered = declaredInputs().stream()
+        List<String> declared = declaredInputs();
+        List<String> uncovered = declared.stream()
                 .filter(d -> !d.startsWith("backend/") && !d.startsWith("src/"))
                 .filter(d -> compareLane.stream().noneMatch(c -> covers(c, d)))
                 .toList();
         assertThat(uncovered)
                 .as("신고했는데 대조 레인에 없는 경로. scripts/verify-fingerprint.sh 의 `lane compare` 줄에 더한다 —"
                         + " 안 더하면 그 파일만 고친 청크에서 verify.sh 가 아무것도 안 돌리고 도장을 찍는다")
+                .isEmpty();
+
+        // 반대 방향도 본다(마무리 31차 독립 리뷰). 대조 레인에는 있는데 신고에 없으면 verify.sh 는 gradlew test 를
+        // 부르지만 Gradle 이 UP-TO-DATE 로 건너뛴다 — 돌린 것처럼 보이는 도장이라 위와 같은 거짓 초록이다.
+        List<String> undeclared = compareLane.stream()
+                .filter(c -> declared.stream().noneMatch(d -> covers(d, c)))
+                .toList();
+        assertThat(undeclared)
+                .as("대조 레인에 있는데 Gradle 에 신고 안 된 경로. build.gradle.kts 의 comparedInFastLane·comparedInSlowLane 에"
+                        + " 그 경로(또는 그것을 담은 폴더)를 더한다 — 안 더하면 verify.sh 가 test 를 불러도 UP-TO-DATE 로 건너뛴다")
                 .isEmpty();
     }
 
