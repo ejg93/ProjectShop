@@ -1364,6 +1364,24 @@ Could not resolve placeholder 'local.server.port'
 **게이트를 세우면 한 번 부숴 본다.** 이 자리는 부숴 보지 않으면 안 드러난다 —
 초록은 「막고 있다」와 「볼 것이 없다」를 구별해 주지 않는다.
 
+### `pg_get_constraintdef` 는 `between` 을 풀어서 돌려준다
+
+마이그레이션에 `check (length(email) between 1 and 254)` 라고 써도 DB 에서 다시 읽으면
+`CHECK (((length(email) >= 1) AND (length(email) <= 254)))` 다. **제약 정의를 글자로 찾는 시험은
+그래서 헛돈다** — `Q108` 이 「`between 1 and` 가 있나」로 시작했다가 열여섯 개가 한꺼번에
+빨개졌다. 정의는 **모양이 아니라 수**로 읽는다.
+
+**아래쪽 경계가 1 이 아닌 자리가 있다.** `email_change_request_new_email_length_check` 는
+`between 3 and 254` 다 — 이메일이 그보다 짧을 수 없어서고, 「빈 문자열을 막나」를 `>= 1` 로만
+물으면 이 자리를 놓친다.
+
+### 자바 문자열 안의 정규식은 백슬래시가 둘이다
+
+`Pattern.compile(">= 1\b")` 은 **정규식 경계가 아니라 백스페이스 문자**를 찾는다(자바 문자열
+이스케이프가 먼저 먹는다). 경계를 쓰려면 `"\b"` 다. **컴파일도 시험도 안 걸리고 조용히
+0건을 돌려주는** 자리라, 애초에 백슬래시가 필요 없는 식으로 쓰는 편이 싸다 —
+`Q108` 은 `">= ([0-9]+)"` 로 바꿨다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
