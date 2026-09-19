@@ -74,6 +74,9 @@ class BuildInputTest {
 
     private static final Path TEST_SOURCES = Path.of("src", "test", "java");
 
+    /** 대조 레인의 원본. 이 파일 자체도 신고 대상이라 {@code comparedInFastLane} 에 있다 */
+    private static final Path FINGERPRINT_SCRIPT = Path.of("..", "scripts", "verify-fingerprint.sh");
+
     /** {@code Path.of(...)} 한 자리. 괄호 안에 또 괄호가 없는 꼴만 본다 */
     private static final Pattern PATH_OF = Pattern.compile("Path\\.of\\(([^()]*)\\)");
 
@@ -141,11 +144,44 @@ class BuildInputTest {
     }
 
     @Test
+    @DisplayName("verify-fingerprint.sh 의 대조 레인이 backend 밖 신고 경로를 전부 덮는다")
+    void compareLaneCoversEveryOutsideDeclaredInput() throws IOException {
+        // 신고 목록이 Gradle 의 UP-TO-DATE 를 막는다면, 대조 레인은 verify.sh 의 「돌릴 것이 없다」를 막는다(Q111).
+        // 둘은 같은 파일 목록을 다른 말로 든다 — 한쪽에 더하고 한쪽을 빠뜨리면 그 파일만 고친 청크가
+        // 로컬에서 초록 도장을 받는다. Q88·Q110 이 그 모양이었다.
+        List<String> compareLane = compareLanePaths();
+        assertThat(compareLane)
+                .as("verify-fingerprint.sh 에 `lane compare …` 줄이 한 줄로 있어야 한다")
+                .isNotEmpty();
+
+        List<String> uncovered = declaredInputs().stream()
+                .filter(d -> !d.startsWith("backend/") && !d.startsWith("src/"))
+                .filter(d -> compareLane.stream().noneMatch(c -> covers(c, d)))
+                .toList();
+        assertThat(uncovered)
+                .as("신고했는데 대조 레인에 없는 경로. scripts/verify-fingerprint.sh 의 `lane compare` 줄에 더한다 —"
+                        + " 안 더하면 그 파일만 고친 청크에서 verify.sh 가 아무것도 안 돌리고 도장을 찍는다")
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("걷은 경로가 실제 대조 수만큼 있다")
     void enoughUsagesWereCollected() {
         // 걷는 쪽이 고장나면 0개를 찾고 조용히 통과한다. 그쪽이 신고가 빠진 것보다 나쁘다.
         // 2026-09-14 실측이 아홉 자리였다.
         assertThat(usages()).hasSizeGreaterThan(7);
+    }
+
+    /** {@code verify-fingerprint.sh} 의 {@code lane compare} 줄. 이름 뒤의 토큰이 경로다 */
+    private static List<String> compareLanePaths() throws IOException {
+        for (String line : Files.readAllLines(FINGERPRINT_SCRIPT)) {
+            if (line.startsWith("lane compare ")) {
+                return Stream.of(line.substring("lane compare ".length()).trim().split("\\s+"))
+                        .filter(s -> !s.isEmpty())
+                        .toList();
+            }
+        }
+        return List.of();
     }
 
     /** 신고 목록. {@code ../} 를 떼어 저장소 뿌리 기준으로 맞춘다 */

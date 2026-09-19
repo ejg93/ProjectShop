@@ -8,13 +8,15 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 **무엇을 건드렸는지가 무엇을 돌릴지 정한다.** 아래 표의 「언제」 칸이 그 답이고,
 청크를 닫기 전에 걸리는 줄을 **전부** 돌린다.
 
-**먼저 `bash scripts/verify.sh`**(`2z`). `origin/main` 대비 레인 지문(코드·빌드 파일만 — `scripts/verify-fingerprint.sh`, `2z-1`)이 다르면 그 레인을 돌리고,
-초록이면 `.git/verify-stamp` 에 지문을 찍는다. **도장이 두 단계다**(`2z-2`):
+**먼저 `bash scripts/verify.sh`**(`2z`). `origin/main` 대비 레인 지문이 다르면 그 레인을 돌리고,
+초록이면 `.git/verify-stamp` 에 지문을 찍는다. **지문이 셋이다**(`scripts/verify-fingerprint.sh`) — backend·frontend 는 코드·빌드 파일(`2z-1`)이고,
+**대조**는 backend 테스트가 읽기만 하는 파일(화면 소스·`docker-compose.yml`·`PLAN.md`·`PROGRESS.md`·`doc/reference`·`doc/erd`, `Q111`)이다.
+**그래서 문서·화면·컴포즈만 고친 청크도 돈다** — 그전에는 「돌릴 것이 없다」로 초록 도장이 찍혔다. **도장이 두 단계다**(`2z-2`):
 
 | 단계 | 명령 | 무엇이 도나 | 누가 요구하나 |
 |---|---|---|---|
-| **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test | **Stop hook** — 청크를 닫을 때 |
-| **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(두 레인) · frontend `next build`·lint·test | **push hook** — 미는 것은 마무리 앞 한 번 |
+| **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test · **대조만 다르면** backend `gradlew test`(대조 포함), `doc/erd` 가 다르면 `SchemaErdTest` 까지(Docker 를 문다, `Q110`) | **Stop hook** — 청크를 닫을 때 |
+| **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(두 레인) · frontend `next build`·lint·test · **대조만 다르면** backend `gradlew build`(느린 레인의 대조까지) | **push hook** — 미는 것은 마무리 앞 한 번 |
 
 **full 은 Docker 를 먼저 본다**(`2z-3`). 안 떠 있으면 한 줄로 끝낸다 — 그전에는 느린 레인이 전부 FAILED 로 뜨고
 진짜 원인은 XML 리포트를 파야 나왔다.
