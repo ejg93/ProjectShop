@@ -43,6 +43,11 @@ class PlanProgressConsistencyTest {
     /** 칸 구분자. 정규식 특수문자라 그대로 못 쓴다. */
     private static final Pattern CELL_SEPARATOR = Pattern.compile(Pattern.quote("|"));
 
+    /** 백틱으로 감싼 인용. <b>그 안의 {@code |} 는 칸 구분자가 아니다</b> — 규칙을 인용하면 표가 갈린 것처럼 보인다. */
+    private static final Pattern CODE_SPAN = Pattern.compile("`[^`]*`");
+    /** 머리글 바로 아래의 {@code |---|} 줄. 칸 수를 세는 대상이 아니다. */
+    private static final Pattern SEPARATOR_ROW = Pattern.compile("\\|[-: |]+\\|");
+
     /** 마이그레이션 파일이 사는 곳. 테스트의 작업 디렉터리가 {@code backend/} 라 상대 경로다. */
     private static final Path MIGRATIONS = Path.of("src", "main", "resources", "db", "migration");
     /** 데모 시드. 번호 체계가 900번대로 따로 논다 — 여기 있는 번호는 예약이 아니다. */
@@ -132,6 +137,69 @@ class PlanProgressConsistencyTest {
     /** 칸에서 값만 남긴다 — 굵게 표시와 홑따옴표는 번호가 아니라 꾸밈이다. */
     private static String strip(String cell) {
         return cell.replace("**", "").replace("`", "").trim();
+    }
+
+    /**
+     * 표의 모든 줄이 머리글과 같은 칸 수인지 본다.
+     *
+     * <p><b>위 대조들이 칸 모자란 줄을 조용히 건너뛴다</b> — {@code cells.length < 4} 로 거르는데,
+     * 그 거르기는 <b>표가 아닌 줄</b>을 빼려고 있는 것이라 형식이 틀린 <b>표 줄까지 같이 빠진다.</b>
+     * 실제로 {@code Q88} 의 이력 줄을 커밋 칸 없이 3칸으로 적었더니 대조가 초록이었고,
+     * 칸을 채우자 바로 빨개졌다 — <b>막으려던 거짓 초록이 막는 도구 안에 있었다.</b>
+     *
+     * <p>거르기 자체는 안 없앤다. 표가 아닌 줄을 빼는 데 필요하다. 대신 <b>센다.</b>
+     * 세울 때 {@code PLAN} 셋과 {@code PROGRESS} 열둘이 걸렸다 — 앞은 산문에 쓴 날 {@code |} 고
+     * 뒤는 커밋 칸을 빠뜨린 이력 줄이다.
+     */
+    @Test
+    @DisplayName("표의 모든 줄이 머리글과 같은 칸 수다")
+    void tableRowsHaveHeaderCellCount() throws IOException {
+        List<String> ragged = new ArrayList<>(raggedRows(PLAN));
+        ragged.addAll(raggedRows(PROGRESS));
+
+        assertThat(ragged)
+                .describedAs("칸 수가 머리글과 다른 표 줄. 대조가 이 줄을 통째로 건너뛴다 — "
+                        + "빠진 칸은 채우고, 본문에 쓴 `|` 는 백틱으로 감싼다")
+                .isEmpty();
+    }
+
+    /**
+     * 한 파일에서 칸 수가 머리글과 다른 줄을 {@code 파일:줄 (칸 n, 머리글 m)} 꼴로 모은다.
+     *
+     * <p>코드 울타리 안은 표가 아니고, 백틱 인용 안의 {@code |} 는 칸 구분자가 아니다.
+     */
+    private static List<String> raggedRows(Path file) throws IOException {
+        List<String> ragged = new ArrayList<>();
+        List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        boolean fenced = false;
+        boolean inTable = false;
+        int header = 0;
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            if (line.startsWith("```")) {
+                fenced = !fenced;
+                inTable = false;
+                continue;
+            }
+            if (fenced || !line.startsWith("|")) {
+                inTable = false;
+                continue;
+            }
+            String masked = CODE_SPAN.matcher(line).replaceAll("X").trim();
+            if (SEPARATOR_ROW.matcher(masked).matches()) {
+                continue;
+            }
+            int cells = cellsOf(masked).length;
+            if (!inTable) {
+                header = cells;
+                inTable = true;
+                continue;
+            }
+            if (cells != header) {
+                ragged.add(file.getFileName() + ":" + (i + 1) + " (칸 " + cells + ", 머리글 " + header + ")");
+            }
+        }
+        return ragged;
     }
 
     /**
