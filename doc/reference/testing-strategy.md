@@ -68,6 +68,8 @@
 | `StackVersionConsistencyTest` | `stack.md` 버전 표의 값 = 그 칸이 가리키는 파일 안의 값 |
 | `PlanProgressConsistencyTest` | `PLAN.md` 의 청크 번호 = `PROGRESS.md` 이력의 번호 |
 | `DocumentMapConsistencyTest` | `document-map.md` 의 완료 행 = 실재하는 파일 · `doc/reference/` 의 목록 = 지도가 부르는 이름 · `create table` 의 표 이름 = `domain-model.md` 가 부르는 이름 (`Q48`) |
+| `PlanProgressConsistencyTest` | 표 한 줄의 칸 수 = 그 표 머리글의 칸 수 (`Q109`) |
+| `TriggerCoverageTest` | `pg_trigger` 의 트리거 쉰 = 회계 표의 줄 (`Q107`). **양방향이다** — 빠진 것과 늙은 것을 같이 본다 |
 
 **방향이 둘이다.** 버전과 완료 행은 **문서에서 파일로** 내려가고, 폴더 목록과 표 이름은
 **실물에서 문서로** 올라간다. 후자가 없으면 **빠진 것을 못 찾는다** — 문서를 아무리 훑어도
