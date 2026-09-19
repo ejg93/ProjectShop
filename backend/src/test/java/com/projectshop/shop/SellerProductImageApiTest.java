@@ -157,9 +157,7 @@ class SellerProductImageApiTest extends HttpTestBase {
         Response response = session.postFile("/api/seller/products/" + productId + "/images",
                 "file", "photo.jpg", "이건 그냥 글자다".getBytes(StandardCharsets.UTF_8));
 
-        assertThat(response.is(415))
-                .as("실제 상태 코드는 %s 였다", response.status())
-                .isTrue();
+        assertProblem(response, 415, "image-type-not-allowed");
     }
 
     @Test
@@ -171,9 +169,94 @@ class SellerProductImageApiTest extends HttpTestBase {
         Response response = session.postFile(
                 "/api/seller/products/" + productId + "/images", "file", "photo.jpg", jpeg(40, 30));
 
-        assertThat(response.is(401))
-                .as("실제 상태 코드는 %s 였다", response.status())
+        assertProblem(response, 401, "unauthenticated");
+    }
+
+    /**
+     * <b>앱 검증이 봉투보다 먼저 걸리는지를 잰다.</b> 5 MiB 를 한 바이트 넘기면
+     * 우리가 정한 413 이 나가야 한다 — 봉투 상한(6MB)을 한 뼘 크게 잡아 둬서다.
+     *
+     * <p>진짜 사진을 안 쓴다. {@code ProductImageService} 가 <b>크기를 형식보다 먼저</b>
+     * 본다. 무작위 바이트는 크기가 정확해서 봉투 상한과 앱 상한 사이의 좁은 구간을
+     * 맞히는 데 운이 안 낀다 — 사진은 압축 결과를 미리 못 정한다.
+     */
+    @Test
+    @DisplayName("5 MiB 를 넘으면 413 이다")
+    void 오_메비바이트를_넘으면_413_이다() {
+        Session session = logIn();
+
+        byte[] tooBig = new byte[5 * 1024 * 1024 + 1];
+        new java.util.Random(2).nextBytes(tooBig);
+
+        Response response = session.postFile(
+                "/api/seller/products/" + productId + "/images", "file", "too-big.jpg", tooBig);
+
+        assertProblem(response, 413, "image-too-large");
+    }
+
+    /**
+     * 열한 장째는 422 다. 장수 제한은 우리 규칙이라 HTTP 가 뜻을 정해 둔 코드가 없다.
+     *
+     * <p><b>열 장을 행으로만 채운다.</b> 실제로 열 번 올리면 저장소 왕복이 스무 번인데,
+     * 이 시험이 재는 것은 저장 경로가 아니라 <b>장수를 세는 자리와 그 응답</b>이다 —
+     * 저장 경로는 201 을 보는 시험 둘이 이미 지난다.
+     */
+    @Test
+    @DisplayName("열한 장째는 422 다")
+    void 열한_장째는_422_다() {
+        Session session = logIn();
+        fillImageRows(10);
+
+        Response response = session.postFile("/api/seller/products/" + productId + "/images",
+                "file", "eleventh.jpg", jpeg(40, 30));
+
+        assertProblem(response, 422, "image-limit-reached");
+    }
+
+    @Test
+    @DisplayName("셀러가 자기 사진을 지우면 204 다")
+    void 셀러가_자기_사진을_지우면_204_다() {
+        Session session = logIn();
+        long productImageId = uploadOne(session);
+
+        Response response = session.delete("/api/seller/products/images/" + productImageId);
+
+        assertThat(response.is(204))
+                .as("실제 상태 코드는 %s 였다 — 본문: %s", response.status(), response.body())
                 .isTrue();
+        assertThat(imageCount())
+                .as("행이 남아 있으면 지운 것이 아니다")
+                .isZero();
+    }
+
+    /**
+     * 남의 사진은 못 지운다. <b>로그인은 됐는데 그 셀러 소속이 아닌 계정</b>이라
+     * 401 이 아니라 403 이다.
+     */
+    @Test
+    @DisplayName("남의 사진은 못 지운다")
+    void 남의_사진은_못_지운다() {
+        long productImageId = uploadOne(logIn());
+
+        Response response = strangerSession().delete("/api/seller/products/images/" + productImageId);
+
+        assertProblem(response, 403, "product-forbidden");
+        assertThat(imageCount())
+                .as("거부됐는데 행이 사라지면 안 된다")
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("로그인 없이는 못 지운다")
+    void 로그인_없이는_못_지운다() {
+        long productImageId = uploadOne(logIn());
+
+        Session session = newSession();
+        session.get("/api/health");
+
+        Response response = session.delete("/api/seller/products/images/" + productImageId);
+
+        assertProblem(response, 401, "unauthenticated");
     }
 
     /**
@@ -206,6 +289,90 @@ class SellerProductImageApiTest extends HttpTestBase {
                 {"email": "%s", "password": "%s"}
                 """.formatted(email, PASSWORD));
         return session;
+    }
+
+    /** 사진 하나를 실제로 올리고 그 번호를 돌려준다. 지우기 시험의 준비다 */
+    private long uploadOne(Session session) {
+        Response response = session.postFile("/api/seller/products/" + productId + "/images",
+                "file", "photo.jpg", jpeg(80, 60));
+
+        assertThat(response.is(201))
+                .as("준비가 실패했다 — 실제 상태 코드는 %s 였다", response.status())
+                .isTrue();
+
+        return jdbc.sql("select product_image_id from product_image where product_id = :id")
+                .param("id", productId)
+                .query(Long.class)
+                .single();
+    }
+
+    /** 로그인은 됐지만 이 셀러와 아무 관계가 없는 계정. 403 과 401 을 가르는 자리다 */
+    private Session strangerSession() {
+        Session session = newSession();
+        session.get("/api/health");
+
+        String email = EMAIL_PREFIX + "img-stranger@test.local";
+        session.post("/api/auth/signup", """
+                {
+                  "email": "%s",
+                  "password": "%s",
+                  "display_name": "남",
+                  "consents": {"terms_of_service": true, "privacy_collect": true}
+                }
+                """.formatted(email, PASSWORD));
+
+        session.post("/api/auth/login", """
+                {"email": "%s", "password": "%s"}
+                """.formatted(email, PASSWORD));
+        return session;
+    }
+
+    /**
+     * 사진 행을 그 수만큼 채운다. <b>저장소에는 아무것도 안 올린다</b> —
+     * 장수를 세는 자리만 재는 준비라 파일이 실재할 필요가 없다.
+     */
+    private void fillImageRows(int count) {
+        for (int index = 0; index < count; index++) {
+            String folder = "product/q105-" + productId + "-" + index;
+            jdbc.sql("""
+                            insert into product_image
+                                (product_id, object_key, thumbnail_key, original_name,
+                                 content_type, byte_size, sort_no)
+                            values (:productId, :objectKey, :thumbnailKey, :originalName,
+                                    'image/jpeg', 1024, :sortNo)
+                            """)
+                    .param("productId", productId)
+                    .param("objectKey", folder + "/original.jpg")
+                    .param("thumbnailKey", folder + "/thumbnail.jpg")
+                    .param("originalName", "채움-" + index + ".jpg")
+                    .param("sortNo", index)
+                    .update();
+        }
+    }
+
+    private int imageCount() {
+        return jdbc.sql("select count(*) from product_image where product_id = :id")
+                .param("id", productId)
+                .query(Integer.class)
+                .single();
+    }
+
+    /**
+     * 오류 응답의 <b>본문</b>까지 잰다({@code D5} 「오류 응답」).
+     *
+     * <p><b>슬러그를 글자 그대로 박는다.</b> {@link com.projectshop.shop.error.ErrorCode} 를
+     * 참조하면 그 값을 바꿔도 시험이 같이 따라가서 <b>계약이 바뀐 것을 아무도 못 본다</b> —
+     * 화면은 상태 코드가 아니라 이 값으로 분기한다.
+     */
+    private static void assertProblem(Response response, int status, String slug) {
+        assertThat(response.is(status))
+                .as("실제 상태 코드는 %s 였다 — 본문: %s", response.status(), response.body())
+                .isTrue();
+
+        assertThat(response.body())
+                .as("본문이 RFC 9457 형식이 아니다")
+                .contains("\"type\":\"tag:projectshop.example,2026:error:" + slug + "\"")
+                .contains("\"trace_id\":");
     }
 
     private static ProductService.Command tshirt(long sellerId) {

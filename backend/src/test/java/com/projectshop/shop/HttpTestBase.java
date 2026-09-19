@@ -297,6 +297,22 @@ abstract class HttpTestBase {
         }
 
         /**
+         * 지우기 요청 하나({@code Q105}). CSRF 토큰을 자동으로 싣는다.
+         *
+         * <p><b>토큰을 빠뜨리면 403 으로 튕긴다.</b> 그러면 권한이 없어서 거부된 것과
+         * 구분이 안 되고, 403 을 기대한 시험이 <b>엉뚱한 이유로</b> 초록이 된다.
+         */
+        public Response delete(String path) {
+            RestClient.RequestHeadersSpec<?> spec = client.delete().uri(path);
+
+            String token = cookies.get(CSRF_COOKIE);
+            if (token != null) {
+                spec = spec.header(CSRF_HEADER, token);
+            }
+            return exchange(spec);
+        }
+
+        /**
          * 파일 하나를 멀티파트로 올린다({@code Q97}).
          *
          * <p><b>MockMvc 로는 이 자리를 못 잰다.</b> 그쪽은 봉투를 서블릿 컨테이너가 아니라
