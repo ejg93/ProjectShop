@@ -55,6 +55,8 @@ curl localhost:8080/actuator/health
 | `STORAGE_PUBLIC_BUCKET` / `STORAGE_PRIVATE_BUCKET` | `shop-public` / `shop-private`. 갈래마다 하나다(`media-rules.md`) |
 | `STORAGE_BOOTSTRAP` | `false`. `true` 면 기동 뒤에 버킷 둘을 만든다. **켜는 것은 저장소를 띄운 로컬과 그 테스트뿐이다** |
 | `EVENTS_SINK` | `none`. `kafka` 로 켜면 아웃박스 표의 사건이 브로커로 나간다. **배포는 `none` 이다** — 브로커를 안 올린다 |
+| `RATE_LIMIT_ENABLED` | `true`. 끄면 로그인·가입 입구의 요청 제한 필터가 아예 안 붙는다(`SecurityConfig`). **배포에서 끄지 않는다** — 느린 레인이 401 자리에 429 를 받아서 끄는 값이라 시험 전용이다 |
+| `RATE_LIMIT_KEY_PREFIX` | `rate:`. 제한 열쇠 앞에 붙는다. **관리형 Redis 를 남과 나눠 쓸 때만 고친다** — 세션의 `shop:session` 과 안 섞이게 갈라 둔 값이다 |
 
 ## 호스팅에 올릴 때
 
