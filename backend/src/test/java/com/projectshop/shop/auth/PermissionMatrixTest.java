@@ -60,6 +60,14 @@ class PermissionMatrixTest {
     void matrixMatchesSnapshot() throws IOException {
         String rendered = render();
 
+        // **생성물에 CR 이 있으면 안 된다**(`Q115`). 파일은 `.gitattributes` 가 `eol=lf` 로 박는데
+        // 생성이 플랫폼 개행(`%n`·`lineSeparator`)을 쓰면 **Windows 에서만** 갈려서,
+        // 리눅스 CI 가 초록인 채로 새 clone 이 빨개진다. 파일이 아니라 **생성 쪽**을 재야
+        // 어느 플랫폼에서 돌리든 같은 답이 나온다.
+        assertThat(rendered)
+                .as("스냅샷 생성이 플랫폼 개행을 썼다. `%%n` 을 `\\n` 으로 바꾼다(Q115)")
+                .doesNotContain("\r");
+
         if (Boolean.getBoolean("snapshot.update")) {
             Files.createDirectories(SNAPSHOT.getParent());
             Files.writeString(SNAPSHOT, rendered, StandardCharsets.UTF_8);
@@ -138,7 +146,10 @@ class PermissionMatrixTest {
 
         for (List<Rule> rules : samples) {
             for (Column column : COLUMNS) {
-                out.append("| %s | %s | %s |%n".formatted(
+                // `%n` 이 아니라 `\n` 이다(`Q115`). `%n` 은 **플랫폼 개행**이라 Windows 에서 `\r\n` 을 낸다 —
+                // 스냅샷 파일은 `.gitattributes` 가 `eol=lf` 로 못 박아서, 리눅스 CI 는 초록인데
+                // **새 Windows clone 은 이 시험 하나로 빨갰다.** 아래 CR 검사가 재발을 막는다.
+                out.append("| %s | %s | %s |\n".formatted(
                         rules.isEmpty() ? "(없음)" : join(rules),
                         column.label(),
                         decide(rules, column.target()).reason()));

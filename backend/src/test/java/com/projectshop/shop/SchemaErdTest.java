@@ -113,6 +113,11 @@ class SchemaErdTest extends PostgresTestBase {
         List<String> drifted = new ArrayList<>();
         Path index = ERD_DIR.resolve("index.md");
         String renderedIndex = renderIndex(edges);
+        // **생성물에 CR 이 있으면 안 된다**(`Q115`, `PermissionMatrixTest` 와 같은 틀).
+        // 플랫폼 개행을 쓰면 Windows 에서만 갈려서 리눅스 CI 가 초록인 채로 새 clone 이 빨개진다.
+        assertThat(renderedIndex)
+                .as("ERD 생성이 플랫폼 개행을 썼다. `%%n` 을 `\\n` 으로 바꾼다(Q115)")
+                .doesNotContain("\r");
         if (update) {
             Files.writeString(index, renderedIndex, StandardCharsets.UTF_8);
         } else if (!Files.exists(index)) {
@@ -124,6 +129,9 @@ class SchemaErdTest extends PostgresTestBase {
         for (String group : GROUPS.keySet()) {
             Path file = ERD_DIR.resolve(group + ".md");
             String rendered = render(group, edges);
+            assertThat(rendered)
+                    .as("ERD 생성이 플랫폼 개행을 썼다. `%%n` 을 `\\n` 으로 바꾼다(Q115)")
+                    .doesNotContain("\r");
             if (update) {
                 Files.writeString(file, rendered, StandardCharsets.UTF_8);
                 continue;
