@@ -128,7 +128,18 @@ class LengthConstraintTest extends PostgresTestBase {
                 Arguments.of("refund_note_request_reason_length_check", List.of(
                         component(com.projectshop.shop.payment.RefundController.RefundRequest.class, "reason"))),
                 Arguments.of("refund_note_decision_reason_length_check", List.of(
-                        component(com.projectshop.shop.payment.RefundController.DecisionRequest.class, "reason"))));
+                        component(com.projectshop.shop.payment.RefundController.DecisionRequest.class, "reason"))),
+                // 신고 입구는 로그인 없이 지난다(`Q94`). 앱 검증이 유일한 앞단이라
+                // 여기서 갈리면 바깥에서 들어온 값이 그대로 DB 제약에 부딪혀 500 이 된다.
+                Arguments.of("copyright_report_reporter_name_length_check", List.of(
+                        component(com.projectshop.shop.product.CopyrightReportController.ReportRequest.class,
+                                "reporterName"))),
+                Arguments.of("copyright_report_reporter_email_length_check", List.of(
+                        component(com.projectshop.shop.product.CopyrightReportController.ReportRequest.class,
+                                "reporterEmail"))),
+                Arguments.of("copyright_report_claimed_work_length_check", List.of(
+                        component(com.projectshop.shop.product.CopyrightReportController.ReportRequest.class,
+                                "claimedWork"))));
     }
 
     /**
@@ -166,7 +177,12 @@ class LengthConstraintTest extends PostgresTestBase {
             Map.entry("payment_decline_reason_length_check", "결제 대행사가 준 값이다"),
             Map.entry("refund_gateway_refund_number_length_check", "결제 대행사가 준 값이다"),
             Map.entry("return_note_inspection_note_length_check", "쓰는 코드가 아직 없다 — 검수 소견을 남기는 입구가 `43a` 다. 그 입구가 서면 pairs() 로 옮긴다"),
-            Map.entry("return_note_request_reason_length_check", "쓰는 코드가 아직 없다 — 반품 접수 입구가 `43a` 다. 그 입구가 서면 pairs() 로 옮긴다")));
+            Map.entry("return_note_request_reason_length_check", "쓰는 코드가 아직 없다 — 반품 접수 입구가 `43a` 다. 그 입구가 서면 pairs() 로 옮긴다"),
+            Map.entry("product_image_object_key_length_check",
+                    "저장소 열쇠는 앱이 만든다(`product/{UUID}/{이름}.{확장자}`) — 요청에 그런 칸이 없다"),
+            Map.entry("product_image_thumbnail_key_length_check", "〃"),
+            Map.entry("product_image_original_name_length_check",
+                    "올린 파일의 이름이라 요청 본문이 아니라 멀티파트 봉투에서 온다")));
 
     /**
      * 모든 {@code length} 제약이 <b>대조되거나 이유가 적혀 있다</b>(`Q28`).
