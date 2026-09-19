@@ -56,14 +56,24 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /** 나머지 API. 목록을 넘기며 읽는 것이 정상이라 넉넉하다 */
     private static final int API_LIMIT = 120;
 
-    private static final String KEY_PREFIX = "rate:";
+    /**
+     * 열쇠 앞에 붙는다. <b>Redis 하나를 나눠 쓰는 것들과 안 섞이게</b> 한다 —
+     * 세션이 {@code shop:session} 을 쓰는 것과 같은 자리다.
+     *
+     * <p><b>설정으로 뺀 이유는 배포다</b>({@code Q104} 정정). 처음에는 시험 때문이라고 적었는데
+     * 전제가 틀렸다 — {@code PostgresTestBase.forkRedis} 가 이미 fork 마다 논리 DB 를 가르므로
+     * ({@code 2i-2}) 시험은 이 값을 안 건드린다. 남긴 것은 <b>관리형 Redis 를 남과 나눠 쓰는 날</b>
+     * 을 위해서고, 그날은 이 한 줄이 열쇠 공간을 가른다.
+     */
+    private final String keyPrefix;
 
     private final StringRedisTemplate redis;
     private final ProblemWriter problems;
 
-    public RateLimitFilter(StringRedisTemplate redis, ProblemWriter problems) {
+    public RateLimitFilter(StringRedisTemplate redis, ProblemWriter problems, String keyPrefix) {
         this.redis = redis;
         this.problems = problems;
+        this.keyPrefix = keyPrefix;
     }
 
     @Override
@@ -71,7 +81,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             FilterChain chain) throws ServletException, IOException {
 
         int limit = limitFor(request.getRequestURI());
-        String key = KEY_PREFIX + limit + ":" + request.getRemoteAddr();
+        String key = keyPrefix + limit + ":" + request.getRemoteAddr();
 
         if (over(key, limit)) {
             // RFC 6585 가 429 를 정하고 RFC 9110 이 Retry-After 를 이 상태에 둔다.

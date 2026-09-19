@@ -13,7 +13,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -292,6 +294,48 @@ abstract class HttpTestBase {
             RestClient.RequestBodySpec spec = client.post().uri(path)
                     .contentType(MediaType.APPLICATION_JSON);
             return exchange(json == null ? spec : spec.body(json));
+        }
+
+        /**
+         * 지우기 요청 하나({@code Q105}). CSRF 토큰을 자동으로 싣는다.
+         *
+         * <p><b>토큰을 빠뜨리면 403 으로 튕긴다.</b> 그러면 권한이 없어서 거부된 것과
+         * 구분이 안 되고, 403 을 기대한 시험이 <b>엉뚱한 이유로</b> 초록이 된다.
+         */
+        public Response delete(String path) {
+            RestClient.RequestHeadersSpec<?> spec = client.delete().uri(path);
+
+            String token = cookies.get(CSRF_COOKIE);
+            if (token != null) {
+                spec = spec.header(CSRF_HEADER, token);
+            }
+            return exchange(spec);
+        }
+
+        /**
+         * 파일 하나를 멀티파트로 올린다({@code Q97}).
+         *
+         * <p><b>MockMvc 로는 이 자리를 못 잰다.</b> 그쪽은 봉투를 서블릿 컨테이너가 아니라
+         * 테스트가 직접 만들어서 {@code spring.servlet.multipart} 의 크기 상한을 안 지난다 —
+         * 실제로 그 상한이 기본값 1 MB 인 채로 있었는데 아무 시험도 안 걸렸다(마무리 26차).
+         */
+        public Response postFile(String path, String partName, String filename, byte[] content) {
+            MultipartBodyBuilder body = new MultipartBodyBuilder();
+            body.part(partName, new ByteArrayResource(content) {
+                @Override
+                public String getFilename() {
+                    return filename;
+                }
+            }).contentType(MediaType.APPLICATION_OCTET_STREAM);
+
+            RestClient.RequestBodySpec spec = client.post().uri(path)
+                    .contentType(MediaType.MULTIPART_FORM_DATA);
+
+            String token = cookies.get(CSRF_COOKIE);
+            if (token != null) {
+                spec = spec.header(CSRF_HEADER, token);
+            }
+            return exchange(spec.body(body.build()));
         }
 
         /** 쿠키는 제대로 들고 있는데 헤더 값만 남의 것인 경우 */

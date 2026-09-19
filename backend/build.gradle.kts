@@ -208,7 +208,10 @@ val comparedInSlowLane = listOf(
 	"../doc/reference",
 	// **javadoc 만 고치면 클래스 파일이 같다.** 같은 테스트가 주석도 읽으므로 소스를 입력으로 건다 —
 	// 안 걸면 이름이 틀린 주석을 넣어도 `integrationTest` 가 UP-TO-DATE 로 건너뛴다(실측, `Q83`).
-	"src/main/java")
+	"src/main/java",
+	// **그림이 대조 대상이다**(`66`). `SchemaErdTest` 가 DB 에서 뽑은 것을 이 폴더의 글과 견주는데,
+	// 안 걸면 **그림을 손으로 고쳐도 UP-TO-DATE 로 넘어간다** — 스냅샷을 쓰는 자리의 기본 함정이다.
+	"../doc/erd")
 val comparedInFastLane = listOf(
 	"../PLAN.md",
 	"../PROGRESS.md",

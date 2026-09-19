@@ -22,3 +22,9 @@ Boot 4는 Spring Security 7을 끌고 오는데, 권한 설정 API가 3.x 시절
 - Security 설정은 람다 DSL만 쓴다. 3.x 예제의 체이닝 방식은 컴파일이 안 된다
 - 스타터 이름이 갈렸다. 웹은 `spring-boot-starter-webmvc`, 테스트는 모듈별 `*-test` 스타터를 쓴다
 - 로컬 `JAVA_HOME` 이 JDK 17 미만이면 Gradle 자체가 안 뜬다. 이건 저장소가 아니라 실행 환경 문제라 README에 적었다
+
+## 그 뒤 (2026-09-19, 청크 67)
+
+**Boot 가 4.1.0 에서 4.1.1 로 올라갔다.** Java 25 와 Gradle 툴체인 못박기는 그대로다.
+버전의 단일 진실은 이 문서가 아니라 `doc/reference/stack.md` 고,
+`StackVersionConsistencyTest` 가 그 표와 빌드 파일을 대조한다 — **여기 적힌 수는 그날의 기록이다.**

@@ -1247,6 +1247,21 @@ management:
 
 **고친 줄을 눈으로 본다.** 치환한 뒤 그 줄을 다시 찍어서 바뀐 것을 확인하고 넘어간다.
 
+### 파일 저장소로 MinIO 를 골랐다
+
+**S3 API 를 말하는 것 중에 가장 가볍다**(`26`). 고르는 기준이 하나였다 —
+**배포(Cloudflare R2)와 같은 API 여야 클라이언트가 하나**다. 로컬만 다른 것을 쓰면
+업로드 코드가 두 벌이 되고, 그중 한 벌은 배포에서 처음 돌아 본다.
+
+| 후보 | 왜 안 골랐나 |
+|---|---|
+| LocalStack | AWS 를 통째로 흉내 내느라 **우리가 안 쓰는 서비스 수십 개**를 같이 띄운다 |
+| 파일 시스템 | 배포에서 그 코드가 안 돈다 — R2 로 바꿀 때 **저장·읽기·삭제를 다시 쓴다** |
+| R2 를 로컬에서도 | 개발마다 바깥을 부르고 **과금이 붙는다**. 오프라인에서 못 돈다 |
+
+**관례라 근거만 대면 버린다**(4순위). 버리는 날은 **S3 API 를 안 쓰기로 할 때**고,
+그때는 `ObjectStorage` 하나만 고치면 되게 파사드를 뒀다.
+
 ### MinIO 이미지는 Docker Hub 에 없다
 
 `minio/minio` 를 받으려 하면 **「repository does not exist」**로 떨어진다. `quay.io/minio/minio` 가
@@ -1280,6 +1295,15 @@ Detected resolved migration not applied to database: 78.
 **배포에서는 이 제약이 값을 한다** — 되돌리기가 맨 뒤 한 칸으로 제한되면
 「어디까지 되돌렸나」가 한 줄로 답해진다.
 
+### 시험 트랜잭션을 연 채로 `drop schema` 를 부르면 멈춘다
+
+`PostgresTestBase` 는 `@Transactional` 이다. 그 트랜잭션이 표를 잠근 채
+**다른 연결로** `drop schema public cascade` 를 부르면 둘이 서로를 기다린다 —
+타임아웃이 없어서 **회차가 통째로 멈춘다**(`Q101` 실측, 10분을 넘겨도 안 끝났다).
+
+증상이 「느리다」라 원인이 안 읽힌다. 스키마를 건드리는 시험은
+`@Transactional(propagation = NOT_SUPPORTED)` 로 트랜잭션을 아예 안 연다.
+
 ### 덤프는 그때의 마이그레이션 판에 묶인다
 
 되살린 DB 로 앱을 띄우면 Flyway 가 **기록된 체크섬과 지금 파일**을 대조한다.
@@ -1302,6 +1326,30 @@ Migration checksum mismatch for migration version 70
 **덤프는 코드와 짝이다.** 되살릴 곳이 어느 커밋을 도는지 같이 본다.
 배포 뒤에는 이 문제가 사라진다 — 기준점 뒤로 마이그레이션이 못 바뀌기 때문이다.
 
+### MockMvc 는 멀티파트 봉투를 안 지난다
+
+`spring.servlet.multipart.max-file-size` 는 **서블릿 컨테이너가 본문을 풀 때** 걸린다.
+MockMvc 는 그 봉투를 테스트가 직접 만들어 넣어서 **그 상한을 아예 안 지난다.**
+
+`27` 이 그렇게 지나갔다 — 5 MiB 를 문서·코드·DB 세 자리에 박아 놓고
+**실제 상한은 Boot 기본값 1 MB** 였는데, 서비스를 직접 부르는 시험도 MockMvc 시험도
+전부 초록이었다. 마무리 26차 독립 리뷰가 소스를 읽어서 찾았다.
+
+**업로드 입구는 실제 HTTP 로 잰다**(`HttpTestBase.postFile`, `Q97`).
+
+### 하위 클래스에 `@SpringBootTest` 를 다시 달면 바탕의 설정이 사라진다
+
+`webEnvironment` 는 **가장 가까운 애너테이션 하나가 정한다.** 바탕이
+`RANDOM_PORT` 를 걸어 뒀어도 하위 클래스가 `@SpringBootTest(properties = …)` 를 달면
+**MOCK 으로 떨어지고** 실제 서버가 안 뜬다.
+
+```
+Could not resolve placeholder 'local.server.port'
+```
+
+메시지가 포트 이야기라 **애너테이션을 겹쳐 단 것**이 원인으로 안 읽힌다.
+속성만 더할 때는 `@TestPropertySource` 를 쓴다.
+
 ### 재사용 컨테이너는 지난 실행의 흔적을 보여 준다
 
 `withReuse(true)` 를 건 컨테이너에서 **고정된 이름**(버킷·토픽·스키마)을 쓰면,
@@ -1315,6 +1363,24 @@ Migration checksum mismatch for migration version 70
 
 **게이트를 세우면 한 번 부숴 본다.** 이 자리는 부숴 보지 않으면 안 드러난다 —
 초록은 「막고 있다」와 「볼 것이 없다」를 구별해 주지 않는다.
+
+### `pg_get_constraintdef` 는 `between` 을 풀어서 돌려준다
+
+마이그레이션에 `check (length(email) between 1 and 254)` 라고 써도 DB 에서 다시 읽으면
+`CHECK (((length(email) >= 1) AND (length(email) <= 254)))` 다. **제약 정의를 글자로 찾는 시험은
+그래서 헛돈다** — `Q108` 이 「`between 1 and` 가 있나」로 시작했다가 열여섯 개가 한꺼번에
+빨개졌다. 정의는 **모양이 아니라 수**로 읽는다.
+
+**아래쪽 경계가 1 이 아닌 자리가 있다.** `email_change_request_new_email_length_check` 는
+`between 3 and 254` 다 — 이메일이 그보다 짧을 수 없어서고, 「빈 문자열을 막나」를 `>= 1` 로만
+물으면 이 자리를 놓친다.
+
+### 자바 문자열 안의 정규식은 백슬래시가 둘이다
+
+`Pattern.compile(">= 1\b")` 은 **정규식 경계가 아니라 백스페이스 문자**를 찾는다(자바 문자열
+이스케이프가 먼저 먹는다). 경계를 쓰려면 `"\b"` 다. **컴파일도 시험도 안 걸리고 조용히
+0건을 돌려주는** 자리라, 애초에 백슬래시가 필요 없는 식으로 쓰는 편이 싸다 —
+`Q108` 은 `">= ([0-9]+)"` 로 바꿨다.
 
 ## 데이터 접근은 `JdbcClient` 다
 

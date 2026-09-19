@@ -66,8 +66,9 @@
 | 테스트 | 무엇을 대조하나 |
 |---|---|
 | `StackVersionConsistencyTest` | `stack.md` 버전 표의 값 = 그 칸이 가리키는 파일 안의 값 |
-| `PlanProgressConsistencyTest` | `PLAN.md` 의 청크 번호 = `PROGRESS.md` 이력의 번호 |
+| `PlanProgressConsistencyTest` | `PLAN.md` 의 청크 번호 = `PROGRESS.md` 이력의 번호 · 표 한 줄의 칸 수 = 그 표 머리글의 칸 수 (`Q109`) |
 | `DocumentMapConsistencyTest` | `document-map.md` 의 완료 행 = 실재하는 파일 · `doc/reference/` 의 목록 = 지도가 부르는 이름 · `create table` 의 표 이름 = `domain-model.md` 가 부르는 이름 (`Q48`) |
+| `SchemaErdTest` | DB 카탈로그의 표·외래키 = `doc/erd/` 의 그림 (`66`). 표가 어느 묶음에도 없으면 같이 빨갛다 |
 
 **방향이 둘이다.** 버전과 완료 행은 **문서에서 파일로** 내려가고, 폴더 목록과 표 이름은
 **실물에서 문서로** 올라간다. 후자가 없으면 **빠진 것을 못 찾는다** — 문서를 아무리 훑어도
@@ -79,6 +80,25 @@
 **이 대조들도 입력에 걸려 있다** — `doc/reference` 폴더와 마이그레이션 폴더가
 `comparedInFastLane` 에 있다. **폴더로 거는 것이 요점이다**: 파일 하나씩 걸면
 새 문서가 생긴 날 입력이 안 바뀌어서 정작 그 문서가 안 잡힌다.
+
+**`SchemaErdTest` 만 레인이 다르다** — DB 카탈로그를 읽어서 느린 레인이고,
+그래서 `doc/erd` 는 `comparedInFastLane` 이 아니라 `comparedInSlowLane` 에 걸렸다.
+**그래서 이 하나는 청크를 닫을 때가 아니라 `--full` 에서 잡힌다**(`Q110` 이 그 간격을 다룬다).
+
+#### 카탈로그 회계 — 실물을 전부 걷어 세는 것
+
+**위 표와 다르다.** 저쪽은 **문서**와 실물을 견주고, 이쪽은 **실물을 전부 걷어** 테스트가
+든 목록과 견준다. 견주는 상대가 문서가 아니라 **시험 소스 안의 표**라, 새 것이 들어오면
+그 표를 고치는 것까지가 한 청크다.
+
+| 테스트 | 무엇을 전부 걷나 |
+|---|---|
+| `EnumConstraintTest` | 열거형과 그것을 닫는 `check` 제약 |
+| `LengthConstraintTest` | 길이 제약과 요청 record 의 `@Size` |
+| `TriggerCoverageTest` | `pg_trigger` 의 트리거 쉰 (`Q107`). **양방향이라** 빠진 것과 늙은 것을 같이 본다 |
+
+**이 갈래가 메우는 자리가 따로 있다.** JPA 를 안 써서 「엔티티와 스키마가 어긋나면 기동이
+실패한다」가 없고(`ADR 0001` 의 「그 뒤」), 그 방벽을 이 넷이 나눠 진다.
 
 **브라우저가 아니다.** jsdom 이라 프록시·세션 쿠키·CSRF 는 못 밟는다. 그쪽은 `HttpFlowTest` 가
 백엔드에서 보고, **화면까지 관통하는 층은 `Q18` 이 세웠다** — 아래 「E2E」.

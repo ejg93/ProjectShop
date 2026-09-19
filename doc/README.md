@@ -9,6 +9,7 @@
 | `doc/reference/` | 여러 청크가 같이 참조하는 기준 문서(D1~D21) | 그 결정에 걸린 청크를 잡은 사람 |
 | `.claude/skills/` | **세션이 따르는 절차** — 트리거 단어를 들으면 스킬로 든다(`2r`) | `/warmup`·`/explain`·`/verify`·`/wrapup`·`/inspection` 을 받은 사람 |
 | `doc/adr/` | 한 번 정하고 되돌릴 때 근거가 필요한 결정 | 그 결정을 뒤집으려는 사람 |
+| `doc/erd/` | **스키마에서 뽑은 그림.** 손으로 안 고친다 — `SchemaErdTest` 가 대조하고 `-Dsnapshot.update=true` 로만 갱신한다 | 표 사이 관계를 보려는 사람 |
 | `doc/notes/` | 읽을거리. **청크 실행 때 안 본다** | 읽고 싶은 사람 |
 | `PLAN.md` | 만들 대상과 청크 분할표 | 다음 청크를 고르는 사람 |
 | `PROGRESS.md` | 청크별 완료·진행중 로그 | 세션을 재개하는 사람 |

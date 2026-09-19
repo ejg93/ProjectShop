@@ -28,3 +28,13 @@ DB를 지우고 다시 만들어도 같은 순서로 재현된다.
 - 이미 적용된 마이그레이션 파일은 고치지 않는다. 체크섬이 어긋나면 기동이 막힌다. 바꿀 것은 새 번호로 추가한다
 - 엔티티에 필드를 더하면 마이그레이션도 같이 써야 한다. `validate` 가 안 맞으면 앱이 아예 안 뜬다
 - 로컬 스키마가 꼬이면 `docker compose down -v` 로 볼륨째 지우고 다시 올린다
+
+## 그 뒤 (2026-09-19, 청크 67)
+
+**결정은 살아 있고 근거 한 줄이 죽었다.** 스키마를 번호 붙은 SQL 로 관리하는 것은 그대로다
+(마이그레이션 77개). 다만 **JPA 를 안 쓴다** — `spring-boot-starter-data-jpa` 의존이 없고
+`ddl-auto` 설정도 없다. 조회는 `JdbcClient` 로 한다(`coding-rules.md` 「SQL」).
+
+그래서 「엔티티와 스키마가 어긋나면 기동이 실패한다」는 방벽은 **이 저장소에 없다.**
+그 자리를 메우는 것은 `SchemaNamingTest`·`EnumConstraintTest`·`LengthConstraintTest`·
+`TriggerCoverageTest` 처럼 **카탈로그를 직접 걷는 회계**다.

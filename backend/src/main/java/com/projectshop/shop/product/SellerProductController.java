@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -71,6 +72,21 @@ public class SellerProductController {
             @RequestPart("file") MultipartFile file) {
 
         return productImageService.upload(user.id(), productId, incoming(file));
+    }
+
+    /**
+     * 자기 상품의 사진을 지운다({@code Q95}). <b>저장소의 객체까지 사라진다.</b>
+     *
+     * <p>경로가 상품 아래가 아니라 사진 번호 하나다 — 사진은 이미 어느 상품의 것인지를
+     * 자기 행에 들고 있어서, 상품 번호를 또 받으면 <b>둘이 어긋난 요청</b>이 성립한다.
+     */
+    @DeleteMapping("/images/{productImageId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteImage(
+            @AuthenticationPrincipal ShopUser user,
+            @PathVariable long productImageId) {
+
+        productImageService.delete(user.id(), productImageId);
     }
 
     /**
