@@ -10,7 +10,7 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 
 **먼저 `bash scripts/verify.sh`**(`2z`). `origin/main` 대비 레인 지문이 다르면 그 레인을 돌리고,
 초록이면 `.git/verify-stamp` 에 지문을 찍는다. **지문이 셋이다**(`scripts/verify-fingerprint.sh`) — backend·frontend 는 코드·빌드 파일(`2z-1`)이고,
-**대조**는 backend 테스트가 읽기만 하는 파일(화면 소스·`docker-compose.yml`·`PLAN.md`·`PROGRESS.md`·`doc/reference`·`doc/erd`, `Q111`)이다.
+**대조**는 backend 테스트가 읽기만 하는 파일(화면 소스·`docker-compose.yml`·`PLAN.md`·`PROGRESS.md`·`doc/reference`·`doc/erd`, 그리고 지문 스크립트 자신, `Q111`)이다.
 **그래서 문서·화면·컴포즈만 고친 청크도 돈다** — 그전에는 「돌릴 것이 없다」로 초록 도장이 찍혔다. **도장이 두 단계다**(`2z-2`):
 
 | 단계 | 명령 | 무엇이 도나 | 누가 요구하나 |
