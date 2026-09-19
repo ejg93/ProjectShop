@@ -833,6 +833,19 @@ main 에 머지 ──▶ 그래프 갱신              ──▶ 경보가 fixe
 **머지 직후 셋이 한꺼번에 `fixed`** 가 됐다. **오탐(`commons-lang3`)은 이 경로와 무관하다** —
 그건 사람이 `inaccurate` 로 닫는 것이고 `gh api -X PATCH .../dependabot/alerts/N` 이 그 명령이다.
 
+### Gradle 에 잠금 파일을 안 둔다
+
+`npm ci` 처럼 전이 의존까지 박아 두고 싶어지는 자리다 — Gradle 에도 `dependencyLocking` 과
+`gradle.lockfile` 이 있다. **안 든다**(점검 R, 2026-09-19).
+
+**Dependabot 의 Gradle 갱신이 lockfile 을 안 건드린다.** 선언(`build.gradle.kts`)만 올리므로
+잠그면 갱신 PR 마다 잠금과 선언이 어긋나고, 잠금 모드가 그것을 빌드 실패로 만들어
+**자동 머지(`2f-3`)가 매주 빨개진다.** 잠금이 지키려는 것보다 잃는 것이 크다.
+
+전이 의존이 무엇인지는 `dependency-submission.yml` 이 `main` 에서 그래프에 올리고 Dependabot 경보가 본다(위 절).
+**막지는 못한다** — `npm audit` 의 짝이 Gradle 쪽에 없는 것은 그대로다(`quality-gates.md` 「Dependabot 경보」 행).
+드는 날은 Dependabot 이 Gradle lockfile 을 갱신하기 시작하는 날이다.
+
 ### `@Size` 는 record component 에 안 남는다
 
 리플렉션으로 요청 record 의 검증 규칙을 읽을 때 걸린다(`Q22`).
