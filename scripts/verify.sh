@@ -36,6 +36,28 @@ changed() { [ "$(echo "$fp_work" | grep "^$1 ")" != "$(echo "$fp_main" | grep "^
 # `origin/main` 이 아니라 **배포 기준점**이라 축이 다르다.
 bash scripts/migration-immutable.sh || exit 1
 
+# **문서만 고친 청크도 표 대조를 받는다**(`Q88`). 지문은 코드·빌드 파일만 봐서(`2z-1`) 문서만 고치면
+# 두 레인이 다 「돌릴 것이 없다」로 빠지고, 표가 어긋난 것은 **push 뒤 CI 에서야** 빨개진다.
+# 거짓 초록이라 빨간 것보다 나쁘다 — 잰 적이 없는데 잰 것으로 보인다.
+#
+# **지문에 문서를 안 넣는다.** `PLAN.md`·`PROGRESS.md` 는 청크마다 딸려 오는 파일이라, 넣으면
+# 모든 청크가 backend 레인을 끌고 와서 레인 판정이 무의미해진다. 그래서 위 마이그레이션 검사처럼
+# **레인 판정 밖**에 문을 하나 둔다.
+#
+# **backend 가 이미 도는 청크에서는 건너뛴다** — 그 레인이 이 시험 둘을 포함한다.
+# Gradle 배선은 이미 있다(`Q48`·`Q83`) — `comparedInFastLane` 이 두 파일과 `doc/reference` 를
+# `test` 의 입력으로 걸어서 문서만 바뀌어도 `UP-TO-DATE` 로 안 건너뛴다(`Q25`).
+doc_fp() {
+  for p in PLAN.md PROGRESS.md doc/reference; do
+    printf '%s %s\n' "$p" "$(git rev-parse -q --verify "$1:$p" 2>/dev/null || echo -)"
+  done | git hash-object --stdin
+}
+if ! changed backend && [ "$(doc_fp "$tree")" != "$(doc_fp origin/main)" ]; then
+  echo "== 문서가 origin/main 과 다르다 → 표 대조 시험 (레인 판정 밖)"
+  (cd backend && ./gradlew test -q --tests '*PlanProgressConsistencyTest' --tests '*DocumentMapConsistencyTest') \
+    || { echo "빨갛다 — 도장을 안 찍는다"; exit 1; }
+fi
+
 ran=0; ok=1
 if changed backend; then
   ran=1
