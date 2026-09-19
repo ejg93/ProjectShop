@@ -470,7 +470,7 @@ EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of)
 `5c-1` 과 `43a-4b` 가 셋을 더하면서 문서를 안 따라 고쳤고, **테스트는 그것을 안 센다.**
 
 **사유 컬럼 넷은 `Q46` 이 이었다.** 서비스가 요청의 사유를 옮겨 담는 자리라 호출 사슬을 따라가야
-찾아진다. **`order_status_history_note.reason` 은 입구가 넷**이고 넷을 다 적었다 — 하나만 이으면
+찾아진다. **`order_status_history_note.reason` 은 입구가 다섯**이고 다섯을 다 적었다 — 하나만 이으면
 나머지 셋이 갈려도 안 걸린다.
 
 **갈렸던 적이 있다**(`점검 L`). 같은 이메일을 가입이 254 로, 변경이 320 으로 재고 있었다.
@@ -483,21 +483,26 @@ EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of)
 (`between 1 and N`)이고, 안 막는 칸은 `<= N` 이다. 갈리면 **앱이 받은 것을 DB 가 거부해서
 그 요청이 500 이 된다.**
 
-**앱 쪽 표기가 둘이다**(`Q108`). 갈리는 것은 **안 보내는 것을 어떻게 볼 것인가**다.
+**빈 값을 막는 자리가 셋이다**(`Q108`). 셋 중 **하나라도** 막으면 빈 값은 DB 에 안 남는다.
 
-| 애너테이션 | 무엇을 막나 | 짝인 제약 |
+| 어디 | 무엇을 막나 | 빈 값이 받는 답 |
 |---|---|---|
-| `@NotBlank` | `null` 과 빈 값 둘 다 | `length(x) between 1 and N` |
-| `@Size(min = 1)` | **빈 값만** — 안 보내는 것은 둔다 | `x is null or length(x) between 1 and N` |
+| `@NotBlank` | `null` 과 빈 값 둘 다 | **400** `validation-failed` |
+| `@Size(min = 1)` | 빈 값만 — 안 보내는 것은 둔다 | **400** `validation-failed` |
+| 서비스 | 그 자원의 규칙대로 | **422** — 형식은 맞고 값이 규칙에 안 맞는다 |
 
-**선택 입력은 아래쪽이다.** 사유 칸 여덟이 그 자리인데 `@Size(max = N)` 만 달고 있어서
-**빈 사유가 앱을 지나 DB 에서 터졌다**(400 이 아니라 500). `@NotBlank` 로 고치면
-**안 보내는 것까지 막혀서** 선택 입력이 아니게 된다.
+**사유 칸은 셋째다.** `ShipmentController.RejectReturnRequest` 의 javadoc 이 그 결정을 든다 —
+「`@NotBlank` 를 안 건다. 걸면 빈 사유가 400 으로 떨어지는데 **422 다**(`D5`)」.
+`@Size(min = 1)` 도 같은 400 을 만들므로 같이 안 쓴다.
 
-**아래쪽 경계가 1 이 아닐 수 있다.** `email_change_request_new_email_length_check` 는
-`between 3 and 254` 다 — 이메일이 그보다 짧을 수 없어서고, 「빈 값을 막나」를 `>= 1` 로만
-물으면 이 자리를 놓친다. `LengthConstraintTest` 는 그래서 **경계의 수**를 읽는다.
+**그래서 입구만 보고 「앱이 헐겁다」고 판정하면 틀린다.** `LengthConstraintTest` 는 그 넷을
+`BLANK_GUARDED_BY_SERVICE` 에 두고 **어느 서비스가 무슨 코드로 막나**를 값으로 적는다 —
+답이 안 되면 그때는 정말로 새는 자리다.
 
+**어느 쪽이든 DB 제약은 아래쪽 경계를 둔다.** 앱이 막는 것과 무관하게 배치·`psql` 에는
+앞단이 없다. **경계가 1 이 아닐 수 있다** — `email_change_request_new_email_length_check` 는
+`between 3 and 254` 고(이메일이 그보다 짧을 수 없다), 「빈 값을 막나」를 `>= 1` 로만 물으면
+이 자리를 놓친다. 그래서 그 시험은 **경계의 수**를 읽는다.
 **수마다 출처를 제약 옆에 적는다.** 표준에서 온 값과 우리가 찍은 값이 코드에서 안 갈린다 —
 제약은 한 번 들어가면 `alter` 로만 고쳐지므로 그때는 이미 관례가 되어 있다.
 

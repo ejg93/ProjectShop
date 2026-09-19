@@ -121,7 +121,7 @@ class LengthConstraintTest extends PostgresTestBase {
                                 "answer"))),
                 // Q46 이 이은 넷. 서비스가 요청의 사유를 옮겨 담는 자리라 호출 사슬을 따라가 찾았다.
                 //
-                // `order_status_history_note.reason` 은 **입구가 넷**이다 — 상태를 옮기는 모든
+                // `order_status_history_note.reason` 은 **입구가 다섯**이다 — 상태를 옮기는 모든
                 // 동작이 같은 칸에 사유를 쌓는다. 하나만 이으면 나머지 셋이 갈려도 안 걸린다.
                 Arguments.of("order_status_history_note_reason_length_check", List.of(
                         component(com.projectshop.shop.order.ShipmentController.ActionRequest.class, "reason"),
@@ -129,7 +129,8 @@ class LengthConstraintTest extends PostgresTestBase {
                                 "reason"),
                         component(com.projectshop.shop.order.ShipmentController.RejectReturnRequest.class,
                                 "reason"),
-                        component(com.projectshop.shop.order.ReturnController.ReceiveRequest.class, "reason"))),
+                        component(com.projectshop.shop.order.ReturnController.ReceiveRequest.class, "reason"),
+                        component(com.projectshop.shop.order.ShipmentController.ReturnRequest.class, "reason"))),
                 Arguments.of("return_note_decision_reason_length_check", List.of(
                         component(com.projectshop.shop.order.ShipmentController.RejectReturnRequest.class,
                                 "decisionReason"))),
@@ -226,6 +227,13 @@ class LengthConstraintTest extends PostgresTestBase {
         assertThat(accounted.stream().filter(name -> !declared.contains(name)).sorted().toList())
                 .as("없어진 제약이 목록에 남으면 그 목록이 무엇을 덮는지 아무도 모른다")
                 .isEmpty();
+
+        assertThat(BLANK_GUARDED_BY_SERVICE.keySet().stream()
+                .filter(name -> pairs().map(arguments -> (String) arguments.get()[0])
+                        .noneMatch(name::equals))
+                .sorted().toList())
+                .as("서비스가 막는다고 적어 둔 제약이 pairs() 에 없으면 그 글이 무엇을 덮는지 모른다")
+                .isEmpty();
     }
 
     @ParameterizedTest(name = "{0}")
@@ -264,6 +272,17 @@ class LengthConstraintTest extends PostgresTestBase {
         String definition = ConstraintValues.definitionOf(jdbc, constraintName);
         boolean constraintRejectsBlank = rejectsBlankIn(definition);
 
+        String guard = BLANK_GUARDED_BY_SERVICE.get(constraintName);
+        if (guard != null) {
+            // 입구가 일부러 안 막는 자리다. 그러면 DB 가 유일한 마지막 방벽이라 그쪽은 반드시 막아야 한다.
+            assertThat(constraintRejectsBlank)
+                    .describedAs("%s 는 입구가 안 막고 서비스가 막는다(%s). DB 도 안 막으면"
+                            + " 그 서비스 하나가 유일한 방벽이라, 배치·psql 에는 아무것도 없다",
+                            constraintName, guard)
+                    .isTrue();
+            return;
+        }
+
         for (RecordComponent component : components) {
             assertThat(constraintRejectsBlank)
                     .describedAs("%s.%s 는 @NotBlank 가 %s. 제약(%s)은 빈 문자열을 %s — %s",
@@ -276,6 +295,28 @@ class LengthConstraintTest extends PostgresTestBase {
         }
     }
 
+
+    /**
+     * <b>입구가 아니라 서비스가 빈 값을 막는 자리</b>({@code Q108}, 마무리 29차 독립 리뷰가 잡았다).
+     *
+     * <p>여기 있는 넷은 요청 record 에 일부러 {@code @NotBlank} 를 <b>안 건다.</b>
+     * 걸면 빈 사유가 <b>400 으로 떨어지는데, 형식은 맞고 값이 규칙에 안 맞는 것이라 422 다</b>
+     * ({@code D5}, {@code ShipmentController.RejectReturnRequest} 의 javadoc 이 그 결정을 든다).
+     * {@code @Size(min = 1)} 도 같은 400 을 만들므로 같이 안 쓴다.
+     *
+     * <p><b>값은 「어느 서비스가 무슨 코드로 막나」다.</b> 답이 안 되면 그 자리는 정말로
+     * 빈 값이 새는 자리라 입구를 고쳐야 한다.
+     */
+    private static final Map<String, String> BLANK_GUARDED_BY_SERVICE = Map.of(
+            "order_status_history_note_reason_length_check",
+            "OrderActionService.actorOf 가 TRANSITION_REASON_REQUIRED(422) 로 막고,"
+                    + " OrderStatusService.writeNote 는 빈 값이면 행을 아예 안 쓴다",
+            "return_note_decision_reason_length_check",
+            "ReturnRequestService 가 RETURN_DECISION_REASON_REQUIRED(422) 로 막는다",
+            "refund_note_decision_reason_length_check",
+            "RefundService#reject 가 TRANSITION_REASON_REQUIRED(422) 로 막는다",
+            "refund_note_request_reason_length_check",
+            "RefundService 가 blankToNull 로 빈 값을 null 로 바꿔서 넣는다");
 
     /**
      * 제약이 빈 문자열을 막나. <b>아래쪽 경계가 하나라도 있으면 막는다</b> —

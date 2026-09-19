@@ -36,7 +36,7 @@ public class ReturnController {
     }
 
     /** 관리자가 대신 적을 때만 채운다(`D7`) */
-    public record ReceiveRequest(@Size(min = 1, max = 500) String reason) {
+    public record ReceiveRequest(@Size(max = 500) String reason) {
     }
 
     /**

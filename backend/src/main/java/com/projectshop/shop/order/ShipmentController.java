@@ -50,7 +50,7 @@ public class ShipmentController {
      * <p>본문 자체가 선택이라 고객·셀러는 빈 요청을 보낸다. 필수로 두면 버튼 하나 누르는 데
      * 본문을 만들어야 하고, 그 자리를 채우려고 화면이 빈 문자열을 넣기 시작한다.
      */
-    public record ActionRequest(@Size(min = 1, max = 500) String reason) {
+    public record ActionRequest(@Size(max = 500) String reason) {
     }
 
     /**
@@ -62,7 +62,7 @@ public class ShipmentController {
      * @param returnReason {@code CHANGE_OF_MIND} 또는 {@code DEFECT}. 열거값이라 대문자다(`D5`)
      */
     public record ReturnRequest(
-            @Size(min = 1, max = 500) String reason,
+            @Size(max = 500) String reason,
             OrderStatusService.ReturnReason returnReason) {
     }
 
@@ -77,7 +77,7 @@ public class ShipmentController {
      */
     public record ApproveReturnRequest(
             @NotNull Boolean restock,
-            @Size(min = 1, max = 500) String reason) {
+            @Size(max = 500) String reason) {
     }
 
     /**
@@ -92,8 +92,8 @@ public class ShipmentController {
      * @param reason         관리자 전이의 근거(`D7`)
      */
     public record RejectReturnRequest(
-            @Size(min = 1, max = 500) String decisionReason,
-            @Size(min = 1, max = 500) String reason) {
+            @Size(max = 500) String decisionReason,
+            @Size(max = 500) String reason) {
     }
 
     /** 셀러가 물건을 보냈다 */
