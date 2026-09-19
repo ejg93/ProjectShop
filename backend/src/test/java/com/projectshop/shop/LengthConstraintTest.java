@@ -54,6 +54,14 @@ class LengthConstraintTest extends PostgresTestBase {
     /** 정의 안의 마지막 정수가 상한이다 — {@code between 1 and 200} 도 {@code <= 200} 도 그렇다. */
     private static final Pattern LAST_NUMBER = Pattern.compile("(\\d+)(?!.*\\d)", Pattern.DOTALL);
 
+    /**
+     * 빈 문자열을 막는 아래쪽 경계({@code Q108}).
+     *
+     * <p><b>{@code between 1 and N} 을 그대로 찾으면 안 걸린다</b> — {@code pg_get_constraintdef} 가
+     * {@code (length(x) >= 1) AND (length(x) <= N)} 으로 풀어서 돌려준다.
+     */
+    private static final Pattern LOWER_BOUND = Pattern.compile(">= 1\b");
+
     @Autowired
     private JdbcClient jdbc;
 
@@ -236,6 +244,44 @@ class LengthConstraintTest extends PostgresTestBase {
         }
     }
 
+
+    /**
+     * <b>빈 문자열 허용 여부가 앱과 DB 에서 같다</b>({@code Q108}).
+     *
+     * <p>규칙은 `coding-rules.md` 「길이 상한은 앱과 DB 양쪽에 둔다」가 정한다 —
+     * {@code @NotBlank} 가 붙은 칸은 {@code between 1 and N}, 안 붙은 칸은 {@code <= N} 이다.
+     * 갈리면 <b>앱이 거절하는 값을 DB 가 받는다</b>(배치·{@code psql} 에는 앞단이 없다).
+     *
+     * <p><b>이 자리는 비어 있었다.</b> 「검증 조합 전체를 알아야 한다」가 그 이유였는데,
+     * {@link #pairs()} 가 제약과 record 칸을 이미 이어 놔서 <b>그 칸의 애너테이션 하나만</b>
+     * 보면 된다 — 조합을 알 필요가 없다. 비어 있는 동안 {@code V78}·{@code V79} 가
+     * {@code not null} 컬럼에 {@code <= N} 을 달았고 <b>아무것도 안 걸렸다</b>({@code Q106}).
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("pairs")
+    @DisplayName("@NotBlank 인 칸은 제약도 빈 문자열을 막는다")
+    void blankHandlingMatchesRequestRecords(String constraintName, List<RecordComponent> components) {
+        String definition = ConstraintValues.definitionOf(jdbc, constraintName);
+        boolean constraintRejectsBlank = LOWER_BOUND.matcher(definition).find();
+
+        for (RecordComponent component : components) {
+            assertThat(constraintRejectsBlank)
+                    .describedAs("%s.%s 는 @NotBlank 가 %s. 제약(%s)은 빈 문자열을 %s — %s",
+                            component.getDeclaringRecord().getSimpleName(), component.getName(),
+                            rejectsBlank(component) ? "붙었다" : "안 붙었다",
+                            constraintName,
+                            constraintRejectsBlank ? "막는다" : "받는다",
+                            "둘을 맞춘다(coding-rules.md 「길이」)")
+                    .isEqualTo(rejectsBlank(component));
+        }
+    }
+
+    /** 요청 칸이 빈 문자열을 거절하나. {@code @Size} 와 같은 이유로 <b>필드에서</b> 읽는다 */
+    private static boolean rejectsBlank(RecordComponent component) {
+        return annotationsOn(component).stream()
+                .anyMatch(annotation -> annotation.annotationType()
+                        == jakarta.validation.constraints.NotBlank.class);
+    }
     private static int capIn(String definition) {
         Matcher number = LAST_NUMBER.matcher(definition);
         assertThat(number.find()).describedAs("제약 정의에 수가 없다: %s", definition).isTrue();
