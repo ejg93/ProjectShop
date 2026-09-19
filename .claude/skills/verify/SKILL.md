@@ -8,13 +8,15 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 **무엇을 건드렸는지가 무엇을 돌릴지 정한다.** 아래 표의 「언제」 칸이 그 답이고,
 청크를 닫기 전에 걸리는 줄을 **전부** 돌린다.
 
-**먼저 `bash scripts/verify.sh`**(`2z`). `origin/main` 대비 레인 지문(코드·빌드 파일만 — `scripts/verify-fingerprint.sh`, `2z-1`)이 다르면 그 레인을 돌리고,
-초록이면 `.git/verify-stamp` 에 지문을 찍는다. **도장이 두 단계다**(`2z-2`):
+**먼저 `bash scripts/verify.sh`**(`2z`). `origin/main` 대비 레인 지문이 다르면 그 레인을 돌리고,
+초록이면 `.git/verify-stamp` 에 지문을 찍는다. **지문이 셋이다**(`scripts/verify-fingerprint.sh`) — backend·frontend 는 코드·빌드 파일(`2z-1`)이고,
+**대조**는 backend 테스트가 읽기만 하는 파일(화면 소스·`docker-compose.yml`·`PLAN.md`·`PROGRESS.md`·`doc/reference`·`doc/erd`, 그리고 지문 스크립트 자신, `Q111`)이다.
+**그래서 문서·화면·컴포즈만 고친 청크도 돈다** — 그전에는 「돌릴 것이 없다」로 초록 도장이 찍혔다. **도장이 두 단계다**(`2z-2`):
 
 | 단계 | 명령 | 무엇이 도나 | 누가 요구하나 |
 |---|---|---|---|
-| **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test | **Stop hook** — 청크를 닫을 때 |
-| **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(두 레인) · frontend `next build`·lint·test | **push hook** — 미는 것은 마무리 앞 한 번 |
+| **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test · **대조만 다르면** backend `gradlew test`(대조 포함), `doc/erd` 가 다르면 `SchemaErdTest` 까지(Docker 를 문다, `Q110`) | **Stop hook** — 청크를 닫을 때 |
+| **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(두 레인) · frontend `next build`·lint·test · **대조만 다르면** backend `gradlew build`(느린 레인의 대조까지) | **push hook** — 미는 것은 마무리 앞 한 번 |
 
 **full 은 Docker 를 먼저 본다**(`2z-3`). 안 떠 있으면 한 줄로 끝낸다 — 그전에는 느린 레인이 전부 FAILED 로 뜨고
 진짜 원인은 XML 리포트를 파야 나왔다.
@@ -48,7 +50,7 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | 시드·데모 데이터를 건드렸으면 | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. 계정 6·셀러 2, 비밀번호는 전부 `demo-password-1234`. **`local` 없이 뜨면 시드가 안 들어간다** |
 | 로그·추적을 건드렸으면 | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
 | **`CLAUDE.md`·`doc/reference/*` 를 고쳤으면** | **안 돌려도 된다** — `.claude/settings.json` 의 훅이 편집 직후에 돌린다(`2j`). 손으로 돌리려면 `bash scripts/doc-lint.sh` | 통과하면 아무 말이 없고, 깨지면 **편집한 그 자리에서 막힌다.** 잡는 것이 여섯이다 — 제목 파편(`batch-catalog.md`·`state-machines.md`·`PLAN.md` 가 실제로 이렇게 부서졌었다), 완전 중복 문장(`frontend-rules.md` 사례), **존댓말**(`2k-1`), **기준 문서 제목의 날짜**(`2c-2`. `external-references.md` 는 날짜가 내용이라 뺀다) |
-| **요건표(`D2`)에 R 을 더했으면** | `bash scripts/req-coverage.sh` | 리포트라 안 빨개진다(`2v`). 새 R 이 「언급하지 않는 요건」에 뜨면 테스트를 세우거나 요건표 「강제 지점」 칸이 왜 없는지를 답한다 |
+| **요건표(`D2`)에 R 을 더했으면** | `bash scripts/req-coverage.sh` | **게이트다**(`Q60`) — 테스트가 언급하지 않는 R 이 기준선 0 을 넘으면 `exit 1` 이고 CI `docs` 잡도 빨갛다. 새 R 은 테스트에 그 번호를 적거나, 요건표 「강제 지점」 칸을 미착수 · 조건 · 일부러 안 다룬다 · 문서뿐 중 하나로 굵게 선언한다 |
 
 프론트 명령은 전부 `frontend/` 안에서 돌린다.
 

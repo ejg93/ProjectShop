@@ -215,6 +215,8 @@ val comparedInSlowLane = listOf(
 val comparedInFastLane = listOf(
 	"../PLAN.md",
 	"../PROGRESS.md",
+	// `BuildInputTest` 가 `lane compare` 줄을 읽어 신고 목록과 맞춘다(`Q111`). 그 줄만 고쳐도 다시 돌아야 한다.
+	"../scripts/verify-fingerprint.sh",
 	"../doc/reference/stack.md",
 	"../docker-compose.yml",
 	// **폴더로 건다**(`Q48`). `DocumentMapConsistencyTest` 의 둘째가 `doc/reference/` 를
