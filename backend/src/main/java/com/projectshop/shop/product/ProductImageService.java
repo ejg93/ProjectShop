@@ -8,7 +8,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import javax.imageio.ImageIO;
@@ -51,11 +50,7 @@ public class ProductImageService {
     /** 긴 변. 비율은 원본을 지키고 잘라내지 않는다 */
     private static final int THUMBNAIL_LONG_EDGE = 600;
 
-    /**
-     * 받는 것과 저장하는 것이 같은 형식이다. <b>WebP 가 없는 것은 JDK 가 읽지도 쓰지도 못해서다</b>
-     * (네이티브 라이브러리를 안 들였다 — 사용자 결정 2026-09-18).
-     */
-    private static final List<String> ALLOWED = List.of("image/jpeg", "image/png");
+    // 받는 것과 저장하는 것이 같은 형식이고, 그 목록은 `ImageContentType` 이 든다(`Q120`).
 
     private static final String INSERT_IMAGE = """
             insert into product_image
@@ -116,29 +111,33 @@ public class ProductImageService {
         }
 
         byte[] bytes = file.bytes();
-        String contentType = detect(bytes);
+        ImageContentType contentType = detect(bytes);
         requireMatchingExtension(file.originalName(), contentType);
         BufferedImage source = read(bytes);
 
-        String extension = contentType.equals("image/png") ? "png" : "jpg";
+        ImageContentType thumbnailType = ImageContentType.JPEG;
         // **키에 상품 번호를 안 넣는다**(media-rules.md 「두는 곳」). 이 키는 서명 URL 에
         // 그대로 실려 나가므로, 순번을 넣으면 사는 사람이 주소만 보고 상품 총량과
         // 증가 속도를 읽는다(identifier-rules.md 와 같은 이유). 어느 상품의 사진인지는
         // product_image 행이 답한다 — 키가 답할 일이 아니다.
         String folder = "product/" + UUID.randomUUID();
-        String objectKey = folder + "/original." + extension;
-        String thumbnailKey = folder + "/thumbnail.jpg";
+        String objectKey = folder + "/original." + contentType.extension();
+        // 썸네일은 원본 형식과 무관하게 JPEG 다 — 투명도를 버리는 대신 크기가 작다.
+        // **열쇠의 꼬리도 그 형식에서 뽑는다**(마무리 34차 독립 리뷰) — 글자로 박아 두면
+        // 확장자를 바꾸는 날 열쇠만 옛 값으로 남는다.
+        String thumbnailKey = folder + "/thumbnail." + thumbnailType.extension();
 
-        byte[] original = encode(source, extension);
-        storage.put(Visibility.PUBLIC, objectKey, original, contentType);
-        storage.put(Visibility.PUBLIC, thumbnailKey, encode(thumbnail(source), "jpg"), "image/jpeg");
+        byte[] original = encode(source, contentType);
+        storage.put(Visibility.PUBLIC, objectKey, original, contentType.code());
+        storage.put(Visibility.PUBLIC, thumbnailKey,
+                encode(thumbnail(source), thumbnailType), thumbnailType.code());
 
         long id = jdbc.sql(INSERT_IMAGE)
                 .param("productId", productId)
                 .param("objectKey", objectKey)
                 .param("thumbnailKey", thumbnailKey)
                 .param("originalName", file.originalName())
-                .param("contentType", contentType)
+                .param("contentType", contentType.code())
                 .param("byteSize", (long) original.length)
                 .query(Long.class)
                 .single();
@@ -196,20 +195,16 @@ public class ProductImageService {
      * <b>내용으로 판별한다.</b> {@link ImageIO} 가 읽어 낸 형식 이름이 답이고,
      * 요청이 뭐라고 적었는지는 안 본다.
      */
-    private String detect(byte[] bytes) {
+    private ImageContentType detect(byte[] bytes) {
         try (ByteArrayInputStream in = new ByteArrayInputStream(bytes);
                 ImageInputStream stream = ImageIO.createImageInputStream(in)) {
             var readers = ImageIO.getImageReaders(stream);
             if (!readers.hasNext()) {
                 throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
             }
-            String format = readers.next().getFormatName().toLowerCase(Locale.ROOT);
-            String contentType = switch (format) {
-                case "jpeg", "jpg" -> "image/jpeg";
-                case "png" -> "image/png";
-                default -> null;
-            };
-            if (contentType == null || !ALLOWED.contains(contentType)) {
+            ImageContentType contentType =
+                    ImageContentType.ofFormat(readers.next().getFormatName());
+            if (contentType == null) {
                 throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
             }
             return contentType;
@@ -236,20 +231,14 @@ public class ProductImageService {
      * {@code check} 로 쓰면 확장자 목록을 SQL 에 박게 된다 — 형식을 하나 더 받는 날
      * 고칠 자리가 하나 는다.
      */
-    private void requireMatchingExtension(String originalName, String contentType) {
+    private void requireMatchingExtension(String originalName, ImageContentType contentType) {
         int dot = originalName == null ? -1 : originalName.lastIndexOf('.');
         if (dot < 0 || dot == originalName.length() - 1) {
             throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
         }
 
         String extension = originalName.substring(dot + 1).toLowerCase(Locale.ROOT);
-        boolean matches = switch (contentType) {
-            case "image/jpeg" -> extension.equals("jpg") || extension.equals("jpeg");
-            case "image/png" -> extension.equals("png");
-            default -> false;
-        };
-
-        if (!matches) {
+        if (!contentType.matchesName(extension)) {
             throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
         }
     }
@@ -284,10 +273,9 @@ public class ProductImageService {
      * <b>JPEG 에는 알파 채널이 없다.</b> 알파가 있는 이미지를 그대로 JPEG 로 쓰면
      * 색이 뒤집힌 그림이 나온다 — 흰 바탕에 눌러 두고 쓴다.
      */
-    private byte[] encode(BufferedImage image, String extension) {
-        boolean jpeg = extension.equals("jpg");
+    private byte[] encode(BufferedImage image, ImageContentType type) {
         BufferedImage target = image;
-        if (jpeg && image.getColorModel().hasAlpha()) {
+        if (type.opaqueOnly() && image.getColorModel().hasAlpha()) {
             BufferedImage opaque = new BufferedImage(
                     image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
             Graphics2D g = opaque.createGraphics();
@@ -297,7 +285,7 @@ public class ProductImageService {
         }
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
-            if (!ImageIO.write(target, jpeg ? "jpeg" : extension, out)) {
+            if (!ImageIO.write(target, type.imageIoName(), out)) {
                 throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
             }
         } catch (IOException e) {

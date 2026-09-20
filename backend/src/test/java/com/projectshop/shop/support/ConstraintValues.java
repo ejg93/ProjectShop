@@ -60,11 +60,18 @@ public final class ConstraintValues {
      * 그 전까지 값이 전부 한 낱말이라 점을 빼고 훑었고, 그러면 <b>목록이 통째로 비어서</b>
      * 대조가 「DB 쪽에 값이 없다」로 빨개진다. 실물로 밟았다.
      *
+     * <p><b>빗금도 받는다</b>(`Q120`). 사진 형식이 {@code image/jpeg} 라 빗금이 들어가고,
+     * 그 전까지는 빠져서 <b>목록이 통째로 비었다</b> — 점 때와 같은 모양이고 이번에도 실물로 밟았다.
+     *
+     * <p><b>못 받는 글자가 있는 값은 조용히 빠진다.</b> 한 제약의 값이 전부 빠지면 위처럼 빨개지지만,
+     * <b>일부만 빠지면 줄어든 목록으로 견준다</b> — 그때는 열거형 쪽도 같이 줄여야 통과하므로
+     * 대조가 헐거워진다. 값에 새 글자가 들어오는 날 이 목록부터 본다.
+     *
      * @param definitionFragment 제약 정의 또는 그 일부
      */
     public static List<String> valuesIn(String definitionFragment) {
         return Arrays.stream(definitionFragment.split("'"))
-                .filter(part -> part.matches("[a-z0-9_.]+"))
+                .filter(part -> part.matches("[a-z0-9_./]+"))
                 .distinct()
                 .toList();
     }

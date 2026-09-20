@@ -135,6 +135,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("seller.MailOrderExemption", List.of("seller_exempt_reason_check"));
         pairs.put("product.ProductStatus", List.of("product_status_check"));
         pairs.put("product.SkuStatus", List.of("sku_status_check"));
+        pairs.put("product.ImageContentType", List.of("product_image_content_type_check"));
         pairs.put("product.WithdrawalRestrictionReason", List.of("product_withdrawal_reason_check"));
         pairs.put("product.StockReason", List.of("sku_stock_movement_reason_check"));
         pairs.put("order.OrderTransitions$Payment", List.of("shop_order_status_check"));
@@ -195,9 +196,10 @@ class EnumConstraintTest extends PostgresTestBase {
                 .query(String.class)
                 .single();
 
-        // 점을 받는다 — `ConstraintValues.valuesIn` 과 같은 이유이자 **같은 값 범위**여야 한다.
-        // 한쪽만 넓히면 점 든 값이 생성 열에 오는 날 이쪽이 조용히 빠뜨린다(마무리 18차 독립 리뷰).
-        Matcher produced = Pattern.compile("\\bTHEN\\s+'([a-z0-9_.]+)'", Pattern.CASE_INSENSITIVE)
+        // 점과 빗금을 받는다 — `ConstraintValues.valuesIn` 과 같은 이유이자 **같은 값 범위**여야 한다.
+        // 한쪽만 넓히면 그 글자가 든 값이 생성 열에 오는 날 이쪽이 조용히 빠뜨린다(마무리 18차 독립 리뷰).
+        // **`Q120` 이 빗금을 넓히며 이쪽을 빠뜨렸고 마무리 34차 독립 리뷰가 잡았다** — 같은 사고를 두 번 냈다.
+        Matcher produced = Pattern.compile("\\bTHEN\\s+'([a-z0-9_./]+)'", Pattern.CASE_INSENSITIVE)
                 .matcher(expression);
         List<String> values = new ArrayList<>();
         while (produced.find()) {
