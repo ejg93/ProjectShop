@@ -312,8 +312,12 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
 **상한이 박힌 목록은 껍데기를 안 쓴다.** 그냥 배열이다. 쪽이 하나뿐인데 `page`·`size`·`total`
 을 주면 **넘길 수 없는 쪽 번호**를 계약에 적는 것이 된다. 지금 넷이 이 모양이다 —
-동의 항목(`ConsentItemController`), 내 권한과 내 동의(`MeController` 둘),
+동의 항목(`ConsentItemController`), 내 소속 셀러와 내 동의(`MeController` 둘),
 상품 사진(`SellerProductController`, 열 장 상한 — `Q139`).
+
+**`/me/permissions` 는 여기 안 든다**(PR #63 리뷰가 잡았다). 그쪽은 맨 배열이 아니라
+`user_id` 를 낀 객체다 — 목록에 딸린 값이 있으면 그것을 담을 자리가 필요하고,
+그건 쪽 껍데기와 다른 이야기다.
 
 **가르는 기준은 상한이 데이터가 아니라 규칙에서 오나**다. 사진은 열 장이 제약이고 동의 항목은
 우리가 정한 목록이다 — 늘어나도 쪽을 넘길 일이 없다. 반대로 주문·상품은 손님이 늘리는 것이라
