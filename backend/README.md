@@ -99,6 +99,19 @@ docker run -e BACKEND_ORIGIN=http://backend:8080 -p 3000:3000 shop-frontend
 
 **루프백은 못 준다.** 컨테이너 안의 `localhost` 는 자기 자신이라 백엔드가 없다 — 그 값은 빌드가 거절한다.
 
+
+### 머지하면 배포된다 — 2026-09-20 부터
+
+**두 서비스가 `main` 에 붙어 있다.** 머지하면 알아서 올라간다.
+
+**그전에는 안 됐고 왜 안 됐는지는 `stack.md` 「머지가 배포를 안 걸고 있었다」가 든다** —
+손으로 거는 법, `redeploy` 가 왜 소용없는지, 건드리면 안 되는 연동까지 거기 한 자리에 있다.
+여기 옮겨 적지 않는다(`Q89` — 사본은 원본이 바뀌어도 안 따라온다).
+
+**배포가 나갔는지 보는 법**: `curl https://frontend-production-b83c.up.railway.app/api/health` 의
+`applied_migrations` 가 **`db/migration` 파일 수 + `db/seed` 파일 수**와 같아야 한다.
+`SPRING_PROFILES_ACTIVE=demo` 가 빠지면 시드 몫만큼 모자란다(`Q134`).
+
 ### 2026-09-20 에 실제로 한 순서
 
 **첫 배포가 이 순서로 됐다**(`Q39`). 프로젝트 하나에 넷을 세운다 — Postgres·Redis·`backend`·`frontend`.
