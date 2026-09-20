@@ -33,6 +33,15 @@
  */
 const ERROR_TYPE_PREFIX = "tag:projectshop.example,2026:error:";
 
+/**
+ * 서버가 지목한 칸 하나(`Q129`). {@code errors} 배열의 원소다.
+ *
+ * <p><b>{@code field} 는 요청에 쓴 이름이다</b> — 본문 칸이면 snake_case 고 중첩이면
+ * 점 표기({@code shipping.postal_code})이며, 헤더면 헤더 이름 그대로다(`D5`).
+ * 화면이 이 이름으로 자기 칸을 찾으므로 <b>여기서 표기를 바꾸지 않는다.</b>
+ */
+export type FieldError = { field: string; message: string };
+
 export class ApiError extends Error {
   /**
    * 접두어를 뗀 오류 이름. <b>화면은 이것으로 분기한다</b>(`D5`·`D20`).
@@ -47,6 +56,13 @@ export class ApiError extends Error {
     readonly type: string,
     readonly detail: string,
     readonly traceId?: string,
+    /**
+     * 어느 칸이 왜 틀렸나. <b>검증 실패가 아니면 빈 배열이다</b>(`Q129`).
+     *
+     * <p>선택 값으로 두지 않는다 — 부르는 쪽마다 {@code ?? []} 를 붙이게 되고,
+     * 한 화면이 그것을 빠뜨리는 날 그 화면만 터진다.
+     */
+    readonly errors: FieldError[] = [],
   ) {
     super(detail);
     this.name = "ApiError";
@@ -212,6 +228,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
       type?: string;
       detail?: string;
       trace_id?: string;
+      errors?: { field?: unknown; message?: unknown }[];
     };
 
     return new ApiError(
@@ -219,6 +236,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
       body.type ?? "about:blank",
       body.detail ?? "요청을 처리하지 못했습니다.",
       body.trace_id,
+      fieldErrorsOf(body.errors),
     );
   } catch {
     return new ApiError(
@@ -230,15 +248,39 @@ export async function toApiError(response: Response): Promise<ApiError> {
 }
 
 /**
+ * {@code errors} 를 걸러서 담는다.
+ *
+ * <p><b>모양을 여기서 한 번만 믿는다.</b> 이 값은 서버가 보낸 JSON 이라 타입 선언이
+ * 보장해 주지 않는다 — 걸러 두지 않으면 {@code undefined} 인 {@code field} 가
+ * 화면까지 가서 <b>아무 칸에도 안 붙는 문구</b>가 된다.
+ */
+function fieldErrorsOf(raw: { field?: unknown; message?: unknown }[] | undefined): FieldError[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .filter((entry) => typeof entry?.field === "string" && typeof entry?.message === "string")
+    .map((entry) => ({ field: entry.field as string, message: entry.message as string }));
+}
+
+/**
  * 키만 바꾼다. <b>값은 손대지 않는다.</b>
  *
  * <p>`allowed_actions` 의 `REQUEST_RETURN` 같은 값이 열거값이라 그렇다(`D5`).
  * 값까지 바꾸면 화면이 서버가 모르는 이름으로 동작을 부른다.
  */
 export function toCamel(value: Json): Json {
-  return mapKeys(value, (key) =>
-    key.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase()),
-  );
+  return mapKeys(value, camelCase);
+}
+
+/**
+ * 밑줄 표기를 낙타 표기로. <b>키 하나를 옮기는 규칙이 여기 하나다</b>.
+ *
+ * <p>{@link toCamel} 이 응답 전체에 쓰고 {@code lib/field-errors} 가 서버가 지목한 칸 이름에
+ * 쓴다 — 같은 정규식을 두 벌 두면 한쪽만 고치는 날이 온다(`Q129` 독립 리뷰가 그 사본을 짚었다).
+ */
+export function camelCase(key: string): string {
+  return key.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase());
 }
 
 function toSnake(value: Json): Json {

@@ -17,7 +17,11 @@ lane() {
 # **다만 빠른 레인은 SpotBugs 를 안 돈다**(`gradlew test` 에 안 달려 있다). 그래서 이 경로가
 # 실제로 막는 것은 **push 앞 `--full`** 이고, 그 전까지는 「도장을 다시 받아야 한다」까지다.
 lane backend  backend/src backend/config backend/Dockerfile backend/build.gradle.kts backend/settings.gradle.kts backend/gradle backend/gradlew backend/gradle.properties
-lane frontend frontend/src frontend/e2e frontend/package.json frontend/package-lock.json frontend/tsconfig.json \
+# **`db/seed` 가 frontend 레인에도 있다**(`Q131`). `demo-accounts.test.ts` 가 시드 SQL 을 읽어
+# 로그인 화면의 계정 목록과 대조하는데, 그 파일은 backend 레인에만 있어서 **시드만 고친 청크가
+# 그 시험을 안 돌리고 초록으로 닫혔다.** 대조 레인은 반대 방향(backend 시험이 바깥 파일을 읽는 것)이라
+# 여기에 못 쓴다 — 이쪽은 frontend 시험이 backend 파일을 읽는다.
+lane frontend frontend/src frontend/e2e backend/src/main/resources/db/seed frontend/package.json frontend/package-lock.json frontend/tsconfig.json \
               frontend/next.config.ts frontend/eslint.config.mjs frontend/vitest.config.ts frontend/vitest.setup.ts \
               frontend/playwright.config.ts frontend/postcss.config.mjs frontend/Dockerfile frontend/scripts
 # **대조 레인**(`Q111`). backend 테스트가 **읽기만 하는** 저장소 밖 파일이다 — 화면 소스·컴포즈·계획·문서·ERD.

@@ -1,17 +1,28 @@
 package com.projectshop.shop.error;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSourceResolvable;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.method.ParameterErrors;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -51,20 +62,103 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      *
      * <p><b>어느 필드가 왜 틀렸는지를 담는다.</b> "요청 형식이 맞지 않는다" 만 주면
      * 클라이언트가 어디를 고쳐야 할지 몰라서 사람이 눈으로 찾게 된다.
+     *
+     * <p><b>객체 전체에 걸린 것도 담는다</b>(`Q127` 독립 리뷰). 클래스 단위 제약은 칸 하나를
+     * 못 짚어서 {@code getGlobalErrors} 로 오는데, 그것만 빠뜨리면 <b>같은 검증 실패가
+     * 두 모양</b>이 된다 — 아래 형제 핸들러는 그것을 담고 있었다.
+     *
+     * <p>그 자리의 이름은 객체 이름이다. 화면은 요청 본문에 그런 칸이 없으므로 짚지 못하고,
+     * 폼 전체 오류로 그린다(`13h` 「모르는 칸을 지목하지 않는다」).
      */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException e, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
 
+        List<FieldError> errors = new ArrayList<>();
+        e.getBindingResult().getFieldErrors().forEach(error -> errors.add(
+                new FieldError(toSnakeCase(error.getField()), error.getDefaultMessage())));
+        e.getBindingResult().getGlobalErrors().forEach(error -> errors.add(
+                new FieldError(toSnakeCase(error.getObjectName()), error.getDefaultMessage())));
+
+        return validationFailed(errors, request);
+    }
+
+    /**
+     * 메서드 파라미터에 걸린 제약이 깨졌다(`Q127`).
+     *
+     * <p><b>같은 검증 실패인데 예외가 갈린다.</b> 입구에 {@code @RequestHeader @Size} 처럼
+     * <b>파라미터 자체에 붙은 제약</b>이 하나라도 있으면 Spring 은 그 메서드를 메서드 검증으로
+     * 돌리고, 본문 검증 실패까지 묶어 이 예외로 던진다 — {@link MethodArgumentNotValidException}
+     * 이 아니다.
+     *
+     * <p>이 자리를 안 덮으면 {@link #createResponseEntity} 가 400 을
+     * {@code MALFORMED_REQUEST} 로 옮기고 {@code errors} 도 사라진다. 그러면 화면은
+     * 어느 칸이 틀렸는지 모른 채 「잠시 후 다시 시도해 주세요」를 띄우는데,
+     * <b>다시 시도해도 같은 값이면 또 틀린다</b>(`D20`).
+     *
+     * <p><b>주문 입구가 실제로 그랬다</b> — 배포한 사이트에서 우편번호를 잘못 적으면
+     * 결제가 시작도 안 하고 「결제하지 못했습니다」가 떴다.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(
+            HandlerMethodValidationException e, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+
+        List<FieldError> errors = new ArrayList<>();
+        for (ParameterValidationResult result : e.getParameterValidationResults()) {
+            if (result instanceof ParameterErrors bean) {
+                // 본문 객체다. 칸 이름이 요청에 쓴 이름과 같아야 화면이 그 칸을 찾는다.
+                bean.getFieldErrors().forEach(error -> errors.add(
+                        new FieldError(toSnakeCase(error.getField()), error.getDefaultMessage())));
+                bean.getGlobalErrors().forEach(error -> errors.add(
+                        new FieldError(parameterNameOf(result.getMethodParameter()),
+                                error.getDefaultMessage())));
+                continue;
+            }
+            // 헤더·질의 파라미터·경로 변수다. 본문 칸이 아니므로 본문 표기로 안 바꾼다.
+            String name = parameterNameOf(result.getMethodParameter());
+            for (MessageSourceResolvable error : result.getResolvableErrors()) {
+                errors.add(new FieldError(name, error.getDefaultMessage()));
+            }
+        }
+        return validationFailed(errors, request);
+    }
+
+    /**
+     * 검증 실패 응답을 만든다. <b>예외가 무엇이든 한 이름으로 나간다</b>(`D5` — 프론트는
+     * 상태 코드가 아니라 {@code type} 으로 분기한다).
+     */
+    private ResponseEntity<Object> validationFailed(List<FieldError> errors, WebRequest request) {
         ProblemDetail problem = problems.create(
                 ErrorCode.VALIDATION_FAILED, null, servletRequestOf(request));
-
-        problem.setProperty("errors", e.getBindingResult().getFieldErrors().stream()
-                .map(error -> new FieldError(toSnakeCase(error.getField()), error.getDefaultMessage()))
-                .toList());
+        problem.setProperty("errors", errors);
 
         return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.status()).body(problem);
+    }
+
+    /**
+     * 파라미터를 <b>요청에 쓴 이름</b>으로 부른다.
+     *
+     * <p>헤더는 {@code Idempotency-Key} 고 질의 파라미터는 {@code page} 다 — Java 이름을 그대로
+     * 주면 보낸 쪽에 없는 이름이라 화면이 짚을 칸을 못 찾는다(`D20` 「모르는 칸을 지목하지 않는다」).
+     * 애너테이션이 이름을 안 적었으면 Java 이름을 snake_case 로 바꿔 쓴다.
+     */
+    private static String parameterNameOf(MethodParameter parameter) {
+        RequestHeader header = parameter.getParameterAnnotation(RequestHeader.class);
+        if (header != null && !header.name().isEmpty()) {
+            return header.name();
+        }
+        RequestParam param = parameter.getParameterAnnotation(RequestParam.class);
+        if (param != null && !param.name().isEmpty()) {
+            return param.name();
+        }
+        PathVariable path = parameter.getParameterAnnotation(PathVariable.class);
+        if (path != null && !path.name().isEmpty()) {
+            return path.name();
+        }
+        String name = parameter.getParameterName();
+        return name == null ? "" : toSnakeCase(name);
     }
 
     /** @param field 요청 본문의 필드 이름. 중첩이면 점 표기다 */

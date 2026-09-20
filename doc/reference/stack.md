@@ -1417,6 +1417,19 @@ Could not resolve placeholder 'local.server.port'
 0건을 돌려주는** 자리라, 애초에 백슬래시가 필요 없는 식으로 쓰는 편이 싸다 —
 `Q108` 은 `">= ([0-9]+)"` 로 바꿨다.
 
+
+### 배포 기준점이 「나중에 지운다」고 적힌 파일도 묶는다
+
+`V901__test_account.sql` 은 머리에 **「배포가 생기면 이 파일을 지운다」**고 적어 뒀는데,
+`Q51` 의 마이그레이션 불변 게이트가 `db/seed` 의 삭제(`D`)를 막는다. 먼저 적은 계획이
+나중에 선 게이트와 부딪힌 자리다.
+
+**게이트가 맞다** — 남의 DB 에 그 체크섬이 박혀 있어서 지우면 Flyway 가 멈춘다.
+그래서 `test@test.local`(비밀번호 `test-account-1234`)은 **배포된 DB 에 그대로 있다.**
+`Q130` 이 세운 아홉과 달리 로그인 화면 안내에는 안 실린다.
+
+**계정을 못 쓰게 하려면 파일이 아니라 행을 지운다** — 새 `V9xx` 에서
+`delete from app_user where lower(email) = 'test@test.local'` 이고, 그것이 덧대는 길이다.
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고

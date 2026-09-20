@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, api } from "@/lib/api";
 
+import { DEMO_PASSWORD } from "./demo-accounts";
 import { LoginForm } from "./login-form";
 
 // 서버를 진짜로 부르지 않는다. `ApiError` 는 진짜를 그대로 둔다 — 화면이 그 타입으로 분기한다.
@@ -37,6 +38,13 @@ afterEach(() => {
 const submitForm = (container: HTMLElement) =>
   // **버튼이 아니라 폼에 건다.** 버튼에 걸면 제출이 안 일어나고 조용히 아무 일도 안 한다(`D15`).
   fireEvent.submit(container.querySelector("form")!);
+
+/**
+ * 제출 버튼. **폼 안으로 범위를 좁힌다** — `Q131` 이 폼 위에 계정 안내를 붙이면서
+ * 화면에 버튼이 열이 됐고, 범위를 안 좁히면 「버튼 하나」라는 전제가 깨진다.
+ */
+const submitButton = (container: HTMLElement) =>
+  within(container.querySelector("form")!).getByRole("button");
 
 /**
  * 로그인 화면이 무엇을 고르나(`Q20`).
@@ -108,14 +116,14 @@ describe("로그인 화면", () => {
       vi.mocked(api).mockReturnValue(new Promise((resolve) => { release = resolve; }));
 
       const { container } = render(<LoginForm />);
-      expect(screen.getByRole("button")).toBeEnabled();
+      expect(submitButton(container)).toBeEnabled();
 
       submitForm(container);
 
       // 버튼을 미리 잡아 두지 않는다 — 다시 그리면 잡아 둔 노드가 화면 밖의 것이 된다.
-      await waitFor(() => expect(screen.getByRole("button")).toBeDisabled());
+      await waitFor(() => expect(submitButton(container)).toBeDisabled());
       // 문구도 같이 바뀐다 — 잠긴 이유를 말 안 하면 고장으로 본다(`D20`).
-      expect(screen.getByRole("button")).toHaveTextContent("확인하는 중");
+      expect(submitButton(container)).toHaveTextContent("확인하는 중");
 
       release({ userId: 1, email: "a@b.local" });
     });
@@ -130,8 +138,8 @@ describe("로그인 화면", () => {
 
       // `13-2a` 가 그 반대를 실물로 밟았다 — 버튼이 「확인하는 중」에 멈춰서
       // 사용자 눈에는 아무 일도 안 난 것으로 보였다.
-      await waitFor(() => expect(screen.getByRole("button")).toBeEnabled());
-      expect(screen.getByRole("button")).toHaveTextContent("로그인");
+      await waitFor(() => expect(submitButton(container)).toBeEnabled());
+      expect(submitButton(container)).toHaveTextContent("로그인");
     });
   });
 
@@ -156,13 +164,39 @@ describe("로그인 화면", () => {
 
       vi.mocked(api).mockResolvedValue({ userId: 1, email: "a@b.local" });
       // 앞 제출이 끝나 버튼이 풀린 뒤라야 두 번째가 나간다.
-      await waitFor(() => expect(screen.getByRole("button")).toBeEnabled());
+      await waitFor(() => expect(submitButton(container)).toBeEnabled());
       submitForm(container);
 
       await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
       // **남는 쪽도 같이 본다**(`D15` 「조용히 실패하는 자리 셋」) — 안 지우면
       // 성공한 뒤에도 「맞지 않습니다」가 화면에 남는다.
       await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    });
+  });
+
+  describe("데모 계정 안내", () => {
+    it("고른 계정 그대로 로그인한다", async () => {
+      const { container } = render(<LoginForm />);
+
+      // 접혀 있어도 목록은 문서에 있다. 누르는 것이 곧 칸을 채우는 것이다.
+      fireEvent.click(screen.getByRole("button", { name: "구매자1 계정으로 칸 채우기" }));
+
+      submitForm(container);
+
+      // 안내에 적은 값이 그대로 나가는지를 본다 — 여기가 갈리면 안내가 거짓말이 된다(`Q131`).
+      await waitFor(() =>
+        expect(vi.mocked(api)).toHaveBeenCalledWith("/api/auth/login", {
+          method: "POST",
+          body: { email: "buyer1@example.com", password: DEMO_PASSWORD },
+        }));
+    });
+
+    it("시스템관리자도 공개돼 있다고 적는다", () => {
+      render(<LoginForm />);
+
+      // **무엇을 공개했는지가 화면에 있어야 한다**(`D20`). 관리자 계정을 함께 여는 것은
+      // 이 화면의 의도라, 적어 두지 않으면 사용자가 그것을 사고로 본다.
+      expect(screen.getByText(/누구나 관리자 화면을 여실 수 있습니다/)).toBeInTheDocument();
     });
   });
 });

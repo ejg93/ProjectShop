@@ -90,6 +90,31 @@ describe("셸의 머리", () => {
     expect(screen.queryByRole("link", { name: "정산서" })).not.toBeInTheDocument();
   });
 
+
+  it("감사 기록 링크는 그 권한이 있어야 보인다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "audit", action: "read", scopes: ["ALL"] }],
+    });
+
+    render(await SiteHeader());
+
+    // **관리자에게 갈 화면이 여기 하나뿐이다**(`Q132`). 이 링크가 없으면 관리자로 들어온
+    // 사람이 자기 권한에 닿을 입구를 화면에서 못 찾는다.
+    expect(screen.getByRole("link", { name: "감사 기록" })).toBeInTheDocument();
+  });
+
+  it("사는 사람에게는 감사 기록 링크가 없다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "order", action: "read", scopes: ["OWN"] }],
+    });
+
+    render(await SiteHeader());
+
+    // 남이 무엇을 했는지는 사는 사람도 파는 사람도 볼 것이 아니다(`V12`).
+    expect(screen.queryByRole("link", { name: "감사 기록" })).not.toBeInTheDocument();
+  });
   it("상품과 장바구니는 로그인 전에도 있다", async () => {
     apiSessionOptional.mockResolvedValue(null);
 

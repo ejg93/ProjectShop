@@ -39,6 +39,16 @@ function canReadSettlements(me: Me | null): boolean {
 }
 
 /**
+ * 감사 기록으로 갈 수 있나.
+ *
+ * <p>`audit:read` 는 관리자와 감사자에게만 열려 있다(`V12`). 파는 사람도 사는 사람도
+ * 이 자원에는 권한이 없다 — 남이 무엇을 했는지는 그 둘이 볼 것이 아니다.
+ */
+function canReadAuditLogs(me: Me | null): boolean {
+  return can(me, "audit", "read");
+}
+
+/**
  * 모든 화면이 쓰는 머리. 어디에 있든 상품·장바구니·계정으로 갈 수 있다.
  *
  * <p><b>이름은 안 쓴다</b> — 머리에 이름을 그리면 폭이 사람마다 달라진다.
@@ -101,6 +111,14 @@ export async function SiteHeader() {
           */}
           {canReadSettlements(me) ? (
             <HeaderLink href="/seller/settlements">정산서</HeaderLink>
+          ) : null}
+          {/*
+            감사 기록은 관리자·감사자만 본다(`V12`). **관리자에게 갈 화면이 여기 하나뿐이다**
+            (`Q132`) — 역할은 셋인데 화면군이 둘이라, 이 링크가 없으면 관리자로 들어온 사람은
+            자기 권한에 닿을 입구를 화면에서 못 찾는다.
+          */}
+          {canReadAuditLogs(me) ? (
+            <HeaderLink href="/admin/audit">감사 기록</HeaderLink>
           ) : null}
         </nav>
 
