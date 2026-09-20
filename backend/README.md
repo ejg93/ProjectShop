@@ -125,6 +125,7 @@ docker run -e BACKEND_ORIGIN=http://backend:8080 -p 3000:3000 shop-frontend
 | 5 | **프론트에만** 공개 도메인 | 백엔드는 도메인을 안 만든다 |
 | 6 | 데모 데이터를 붓는다 | 아래 |
 | 7 | `deployed-baseline` 에 그때 커밋 해시를 적고 커밋 | 그 순간부터 마이그레이션 불변 게이트가 실제로 잰다 |
+| 8 | **객체 저장소를 붙인다** | 아래 「저장소는 사람이 붙인다」. 안 하면 업로드가 통째로 안 된다 |
 
 **포트를 서비스 변수로 못 박는다.** `PORT=8080`(backend)·`PORT=3000`(frontend). Railway 가 주입하는
 `PORT` 가 `Dockerfile` 의 `ENV` 를 이기므로, 안 박으면 컨테이너와 도메인의 포트가 어긋나 **502** 다
@@ -152,6 +153,29 @@ bash scripts/db-restore.sh build/demo.dump "postgresql://postgres:<PGPASSWORD>@<
 ```
 
 **부은 DB 는 기본 프로필로 뜬다** — 시드가 `V900+` 로 적용돼 있어도 Flyway 가 막지 않는다(실측).
+
+
+### 저장소는 사람이 붙인다 — 2026-09-20 에 한 것
+
+**버킷도 열쇠도 콘솔에서 만든다.** 저장소에 남는 것은 이 표뿐이라, 여기가 비면 다음 사람이
+업로드가 왜 안 되는지부터 찾는다.
+
+| 무엇 | 값 |
+|---|---|
+| 쓰는 것 | Cloudflare R2(사용자 결정 2026-09-18). S3 호환이라 값만 갈린다 |
+| 만들 버킷 | `shop-public` · `shop-private`. **공개 접근은 둘 다 끈다** |
+| 토큰 | R2 → Account Details → API Tokens → **Create Account API token**, 권한 **Object Read & Write**, 대상은 그 두 버킷 |
+| 넣을 변수 | `STORAGE_ENDPOINT`(= 화면의 S3 API 주소) · `STORAGE_ACCESS_KEY` · `STORAGE_SECRET_KEY` |
+| 안 넣는 것 | `STORAGE_REGION`·`STORAGE_PATH_STYLE`·버킷 이름. **기본값이 R2 에 맞다** |
+| 안 켜는 것 | `STORAGE_BOOTSTRAP`. 위 「버킷은 사람이 만든다」가 이유를 든다 |
+
+**Secret Access Key 는 만든 화면을 벗어나면 다시 못 본다.** 놓치면 토큰을 새로 만든다.
+
+**Account 쪽이지 User 쪽이 아니다.** User 토큰은 그 사람 계정에 묶여서 떠나면 죽는다 —
+서버가 쓰는 자격증명을 사람 계정에 매달지 않는다(Cloudflare 도 Account 쪽을 권한다).
+
+**됐는지 재는 법**: 판매자 세션으로 `POST /api/seller/products/{id}/images` 에 진짜 이미지를 올려
+`201` 과 객체 키 둘이 오면 된다. `NoSuchBucket` 이면 버킷 이름이, `403` 이면 토큰 대상이 어긋난 것이다.
 
 ### 버킷은 사람이 만든다 — 첫 업로드가 `NoSuchBucket` 이 안 되게
 

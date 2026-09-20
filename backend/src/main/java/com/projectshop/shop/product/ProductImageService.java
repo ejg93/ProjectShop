@@ -157,16 +157,17 @@ public class ProductImageService {
      * <p><b>판정은 {@link #delete} 와 같은 규칙이다</b> — `product:update` 를 그 셀러 범위로 가졌나.
      * 사진을 보는 것과 지우는 것을 다른 권한으로 가르면, 보이는데 못 지우는 줄이 화면에 생긴다.
      *
-     * <p><b>상품이 소프트 삭제됐어도 준다.</b> 판매자가 내린 상품의 사진을 정리하는 자리라,
-     * 여기서 가리면 그 사진들이 저장소에 남은 채 화면에서 사라진다.
+     * <p><b>내린 상품은 안 준다.</b> {@link #sellerIdOf} 를 그대로 쓰므로 {@code deleted_at} 이
+     * 찬 상품은 {@code PRODUCT_NOT_FOUND} 다 — {@code upload} 와 {@code ProductQuery.findForSeller}
+     * 가 이미 그 규칙이고, 여기만 열어 두면 <b>올리지도 못하는 상품의 사진이 목록에만 뜬다.</b>
+     *
+     * <p><b>처음엔 열어 뒀다가 독립 리뷰가 짚어서 닫았다</b>(마무리 39차) — 「내린 상품의 사진을
+     * 정리한다」는 이유를 댔는데 <b>거기 닿는 화면 경로가 없었다.</b> 정리할 자리가 생기면
+     * 그때 세 자리를 같이 연다.
      */
     @Transactional(readOnly = true)
     public List<Image> find(long actorUserId, long productId) {
-        long sellerId = jdbc.sql("select seller_id from product where product_id = :id")
-                .param("id", productId)
-                .query(Long.class)
-                .optional()
-                .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
+        long sellerId = sellerIdOf(productId);
 
         if (!evaluator.decide(actorUserId, "product", "update", Target.ofSeller(sellerId)).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
@@ -189,7 +190,7 @@ public class ProductImageService {
 
     /**
      * 목록 한 줄. <b>원본이 아니라 썸네일 URL 이다</b> — 관리 화면은 격자로 훑는 자리라
-     * 원본을 열 장 내려받을 이유가 없다({@code media-rules.md} 「여는 법」).
+     * 원본을 열 장 내려받을 이유가 없다({@code media-rules.md} 「썸네일 — 업로드 때 한 장」).
      *
      * @param thumbnailUrl 만료 5분 서명 URL. 버킷은 비공개다
      */

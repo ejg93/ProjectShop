@@ -272,6 +272,37 @@ class ProductImageServiceTest extends StorageTestBase {
                 .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_FORBIDDEN);
     }
 
+    /**
+     * <b>내린 상품은 안 준다</b>(마무리 39차 독립 리뷰).
+     *
+     * <p>처음엔 「내린 상품의 사진을 정리한다」며 열어 뒀는데 <b>거기 닿는 화면 경로가 없었다</b> —
+     * 셀러 목록이 내린 상품을 거르고, {@code upload} 도 404 다. 열어 두면 <b>올리지도 못하는
+     * 상품의 사진이 목록에만 뜨는</b> 자리가 생긴다.
+     *
+     * <p><b>이 시험이 그 결정을 든다.</b> 누가 중복이라며 {@code sellerIdOf} 를 안 쓰는 질의로
+     * 되돌리면 여기가 빨개진다 — 그 전에는 셋 다 초록이라 조용히 뒤집혔다.
+     */
+    @Test
+    @DisplayName("내린 상품의 사진은 안 준다")
+    void 내린_상품의_사진은_안_준다() {
+        service.upload(ownerA, productA, jpeg("a.jpg", 100, 100));
+        productService.delete(ownerA, productA);
+
+        assertThatThrownBy(() -> service.find(ownerA, productA))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("없는 상품이면 못 찾았다고 한다")
+    void 없는_상품이면_못_찾았다고_한다() {
+        // 권한 오류가 아니라 없음이다. 남의 상품인지 없는 상품인지를 여기서 안 가른다 —
+        // 가르면 번호를 훑어서 남의 상품 존재를 알아낼 수 있다.
+        assertThatThrownBy(() -> service.find(ownerA, 999_999L))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_NOT_FOUND);
+    }
+
     private static ProductImageService.Incoming jpeg(String name, int width, int height) {
         return new ProductImageService.Incoming(name, ProductImageFixture.jpegBytes(width, height));
     }
