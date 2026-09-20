@@ -34,16 +34,13 @@ RUN npm run build
 
 # **굳은 목적지가 준 값과 같은지 여기서 잰다**(`Q116` 의 강제 지점).
 #
-# 위 `ARG` 는 **안 줘도 빌드가 지나간다** — 그러면 기본값이 굳어서 고치기 전과 같아진다.
-# 그래서 산출물을 열어 확인하고, 아니면 **이미지 빌드를 세운다.** 재는 자리가 빌드 안이라
-# 로컬 `npm run build` 는 영향을 안 받는다(거기는 기본값이 맞다).
-RUN node -e "\
-const m=require('./.next/routes-manifest.json');\
-const want=process.env.BACKEND_ORIGIN;\
-const got=(m.rewrites.afterFiles||[]).map(r=>r.destination).join(' ');\
-if(!want){console.error('BACKEND_ORIGIN 을 빌드 인자로 안 줬다. --build-arg BACKEND_ORIGIN=http://<백엔드>:8080 (Q116)');process.exit(1);}\
-if(!got.includes(want)){console.error('굳은 목적지가 준 값과 다르다. 준 값: '+want+' / 산출물: '+got+' (Q116)');process.exit(1);}\
-console.log('프록시 목적지가 굳었다: '+got);"
+# 위 `ARG` 는 **안 줘도 빌드가 지나간다** — 그래서 산출물을 열어 확인하고 아니면 **빌드를 세운다.**
+# 재는 자리가 빌드 안이라 로컬 `npm run build` 는 영향을 안 받는다(거기는 기본값이 맞다).
+#
+# **「줬나」만 보면 안 된다**(마무리 33차 독립 리뷰) — `http://localhost:8080` 을 그대로 줘도
+# 통과해서 막으려던 결함이 그대로 재현된다. 스크립트가 넷을 잰다: 값·주소 모양·루프백 여부·
+# `/api/:path*` 규칙의 목적지. 읽는 것은 **실려 나가는 `standalone` 사본**이다.
+RUN node scripts/verify-proxy-target.mjs
 
 FROM node:22-alpine
 WORKDIR /app
@@ -65,4 +62,9 @@ COPY --from=build /src/public ./public
 ENV PORT=3000
 EXPOSE 3000
 # `standalone` 이 만드는 서버 진입점. `next start` 가 아니라 이것을 부른다.
-CMD ["node", "server.js"]
+#
+# **`BACKEND_ORIGIN` 이 없으면 안 뜬다**(`Q116` 의 런타임 절반). 서버가 직접 부르는 자리
+# (`api.ts`·`api-session.ts`)는 이 값을 런타임에 읽고, 없으면 **조용히 로컬 주소로 떨어져서**
+# 서버가 그리는 페이지가 500 이 된다 — 브라우저 경로는 멀쩡해서 절반만 깨진 것으로 보인다.
+# 컨테이너에서는 이 값이 늘 있어야 하므로 없는 채로 뜨지 않는다.
+CMD ["sh", "-c", "[ -n \"$BACKEND_ORIGIN\" ] || { echo '[Q116] BACKEND_ORIGIN 이 없다. 빌드 인자와 런타임 환경변수 둘 다에 준다' >&2; exit 1; }; exec node server.js"]
