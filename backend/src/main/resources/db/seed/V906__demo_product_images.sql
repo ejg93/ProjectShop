@@ -21,8 +21,8 @@
 --
 -- **`V900`~`V905` 를 직접 안 고친다**(`Q51`). 배포 기준점 뒤라 체크섬이 남의 DB 에 박혀 있다.
 --
--- **아웃박스를 안 건드린다.** `product_image` 에는 사건을 내는 트리거가 없다(`V70` 은
--- 주문·재고·환불·반품·정산·배치만 본다). `V905` 가 마지막 시드인 이유는 그쪽이 재고를 움직여서다.
+-- **`V905` 에서 마지막 자리를 넘겨받는다.** 그쪽이 마지막이었던 이유는 재고를 움직여서
+-- 아웃박스에 사건을 남기기 때문인데, 이 파일이 뒤에 서면 그 그물이 여기를 본다 — 파일 끝을 본다.
 insert into product_image (product_id, object_key, thumbnail_key, original_name,
                            content_type, byte_size, sort_no)
 select p.product_id, v.object_key, v.thumbnail_key, v.original_name,
