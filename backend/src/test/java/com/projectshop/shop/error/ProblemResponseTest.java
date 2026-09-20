@@ -9,14 +9,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.projectshop.shop.PostgresTestBase;
+import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 
 /**
  * 오류 응답의 모양(`D5`·`D16`).
@@ -29,6 +33,9 @@ class ProblemResponseTest extends PostgresTestBase {
 
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private JdbcClient jdbc;
 
     @Nested
     @DisplayName("형식")
@@ -81,6 +88,18 @@ class ProblemResponseTest extends PostgresTestBase {
     @DisplayName("입력 검증")
     class Validation {
 
+        /**
+         * 실제로 있는 계정이어야 한다. 세션 생존 검사가 앞이라 없는 사용자 ID 로 보내면
+         * 검증에 닿기 전에 401 이다.
+         */
+        private ShopUser buyer;
+
+        @BeforeEach
+        void makeBuyer() {
+            long userId = new AuthFixture(jdbc).insertUser("q127@test.local", "검증");
+            buyer = new ShopUser(userId, "q127@test.local", null, true);
+        }
+
         @Test
         @DisplayName("어느 필드가 왜 틀렸는지 알려준다")
         void namesTheBadFields() throws Exception {
@@ -96,6 +115,63 @@ class ProblemResponseTest extends PostgresTestBase {
                     .andExpect(jsonPath("$.errors").isNotEmpty())
                     // 요청에 쓴 이름과 오류에 나온 이름이 다르면 화면이 그 필드를 못 찾는다.
                     .andExpect(jsonPath("$.errors[?(@.field == 'display_name')]").exists());
+        }
+
+        /**
+         * 파라미터에 걸린 제약이 있는 입구(`Q127`).
+         *
+         * <p>주문 입구는 헤더에 {@code @Size} 가 붙어 있어서 Spring 이 본문 검증까지
+         * {@code HandlerMethodValidationException} 으로 묶어 던진다. <b>같은 검증 실패인데
+         * 예외가 갈리는 자리</b>라, 여기서 이름이 하나로 나오는지를 못박는다.
+         */
+        @Test
+        @DisplayName("헤더 제약이 있는 입구에서도 검증 실패는 같은 이름으로 나간다")
+        void methodValidationKeepsTheSameType() throws Exception {
+            mvc.perform(post("/api/orders")
+                            .with(user(buyer))
+                            .with(csrf())
+                            .header("Idempotency-Key", "11111111-2222-3333-4444-555555555555")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"cart_item_ids":[1],
+                                     "shipping":{"receiver_name":"홍길동",
+                                                 "receiver_phone":"010-0000-0000",
+                                                 "postal_code":"우편번호아님",
+                                                 "address1":"서울특별시 강남구"}}
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    // 그전에는 malformed-request 였다. 화면에 validation-failed 갈래가
+                    // 이미 있는데 그 이름이 안 와서 "결제하지 못했습니다" 로 떨어졌다.
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:validation-failed"))
+                    // 중첩 본문이라 점 표기다. 화면이 이 이름으로 칸을 찾는다.
+                    .andExpect(jsonPath("$.errors[?(@.field == 'shipping.postal_code')]").exists());
+        }
+
+        /**
+         * 본문 칸이 아닌 것이 틀린 경우.
+         *
+         * <p><b>Java 이름이 아니라 보낸 이름으로 부른다</b> — 헤더는 요청에
+         * {@code Idempotency-Key} 로 실려 있었고, {@code idempotency_key} 를 주면
+         * 화면이 없는 칸을 짚는다(`D20` 「모르는 칸을 지목하지 않는다」).
+         */
+        @Test
+        @DisplayName("헤더가 틀리면 헤더 이름을 그대로 짚는다")
+        void namesTheHeaderAsSent() throws Exception {
+            mvc.perform(post("/api/orders")
+                            .with(user(buyer))
+                            .with(csrf())
+                            .header("Idempotency-Key", "")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"cart_item_ids":[1],
+                                     "shipping":{"receiver_name":"홍길동",
+                                                 "receiver_phone":"010-0000-0000",
+                                                 "postal_code":"06134",
+                                                 "address1":"서울특별시 강남구"}}
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:validation-failed"))
+                    .andExpect(jsonPath("$.errors[?(@.field == 'Idempotency-Key')]").exists());
         }
     }
 
