@@ -257,7 +257,8 @@ class ProductImageServiceTest extends StorageTestBase {
     @Test
     @DisplayName("사진이 없으면 빈 목록이다")
     void 사진이_없으면_빈_목록이다() {
-        // `null` 을 안 쓴다. 「없다」를 빈 목록이 말하고 `null` 은 「모른다」로도 읽힌다(`D23`).
+        // `null` 을 안 쓴다. 「없다」를 빈 목록이 말하고 `null` 은 「모른다」로도 읽힌다.
+        // 출처는 `D5` 다 — `api-guidelines.md` 「빈 목록은 `[]` 다」(`D23` 을 인용하던 것을 PR #63 리뷰가 잡았다).
         assertThat(service.find(ownerA, productA)).isEmpty();
     }
 
