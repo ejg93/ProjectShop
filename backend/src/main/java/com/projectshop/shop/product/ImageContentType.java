@@ -20,17 +20,24 @@ import java.util.Set;
  */
 enum ImageContentType {
 
-    /** 이름은 {@code .jpg} 와 {@code .jpeg} 둘 다 정당하다. 저장할 때는 앞엣것으로 쓴다 */
-    JPEG("image/jpeg", "jpg", Set.of("jpg", "jpeg")),
-    PNG("image/png", "png", Set.of("png"));
+    /**
+     * 이름은 {@code .jpg} 와 {@code .jpeg} 둘 다 정당하다. 저장할 때는 앞엣것으로 쓴다.
+     *
+     * <p><b>{@link javax.imageio.ImageIO} 에 넘기는 이름은 또 다르다</b>({@code jpeg}) — 확장자와 같지 않아서
+     * 따로 든다. 하나로 뭉치면 확장자를 바꾸는 날 인코딩이 조용히 깨진다.
+     */
+    JPEG("image/jpeg", "jpg", "jpeg", Set.of("jpg", "jpeg")),
+    PNG("image/png", "png", "png", Set.of("png"));
 
     private final String code;
     private final String extension;
+    private final String imageIoName;
     private final Set<String> names;
 
-    ImageContentType(String code, String extension, Set<String> names) {
+    ImageContentType(String code, String extension, String imageIoName, Set<String> names) {
         this.code = code;
         this.extension = extension;
+        this.imageIoName = imageIoName;
         this.names = names;
     }
 
@@ -42,9 +49,19 @@ enum ImageContentType {
         return code;
     }
 
-    /** 저장할 때 쓰는 확장자. {@code ImageIO} 에 넘기는 형식 이름이기도 하다 */
+    /** 저장할 때 쓰는 확장자. 객체 열쇠의 꼬리가 이 값이다 */
     String extension() {
         return extension;
+    }
+
+    /** {@link javax.imageio.ImageIO#write} 에 넘기는 형식 이름. JPEG 만 확장자와 다르다 */
+    String imageIoName() {
+        return imageIoName;
+    }
+
+    /** 알파 채널을 못 싣는 형식인가. 실으면 저장할 때 평탄화해야 한다 */
+    boolean opaqueOnly() {
+        return this == JPEG;
     }
 
     /** 올린 파일 이름의 확장자가 이 형식과 짝인가. 대소문자는 부른 쪽이 맞춰서 준다 */
@@ -69,19 +86,7 @@ enum ImageContentType {
                 .orElse(null);
     }
 
-    /**
-     * DB 에서 읽은 값으로 고른다.
-     *
-     * <p>제약이 값을 닫아 뒀으므로 <b>모르는 값은 표가 깨진 것</b>이다. 그래서 {@code null} 이 아니라 던진다 —
-     * 다른 열거형의 {@code of()} 와 같은 약속이다.
-     */
-    static ImageContentType of(String code) {
-        if (code == null) {
-            return null;
-        }
-        return Arrays.stream(values())
-                .filter(type -> type.code.equals(code))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("모르는 이미지 형식이다: " + code));
-    }
+    // **`of(String code)` 를 안 둔다**(마무리 34차 독립 리뷰). 다른 열거형은 DB 에서 읽은 값을
+    // 되돌리려고 그것을 두는데, `content_type` 을 열거형으로 읽는 자리가 아직 없다 — 두면 죽은 코드다.
+    // 읽는 자리가 생기는 날 그때 만든다.
 }

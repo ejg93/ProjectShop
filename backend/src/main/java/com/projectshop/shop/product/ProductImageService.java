@@ -115,21 +115,22 @@ public class ProductImageService {
         requireMatchingExtension(file.originalName(), contentType);
         BufferedImage source = read(bytes);
 
-        String extension = contentType.extension();
+        ImageContentType thumbnailType = ImageContentType.JPEG;
         // **키에 상품 번호를 안 넣는다**(media-rules.md 「두는 곳」). 이 키는 서명 URL 에
         // 그대로 실려 나가므로, 순번을 넣으면 사는 사람이 주소만 보고 상품 총량과
         // 증가 속도를 읽는다(identifier-rules.md 와 같은 이유). 어느 상품의 사진인지는
         // product_image 행이 답한다 — 키가 답할 일이 아니다.
         String folder = "product/" + UUID.randomUUID();
-        String objectKey = folder + "/original." + extension;
-        String thumbnailKey = folder + "/thumbnail.jpg";
-
-        byte[] original = encode(source, extension);
-        storage.put(Visibility.PUBLIC, objectKey, original, contentType.code());
+        String objectKey = folder + "/original." + contentType.extension();
         // 썸네일은 원본 형식과 무관하게 JPEG 다 — 투명도를 버리는 대신 크기가 작다.
+        // **열쇠의 꼬리도 그 형식에서 뽑는다**(마무리 34차 독립 리뷰) — 글자로 박아 두면
+        // 확장자를 바꾸는 날 열쇠만 옛 값으로 남는다.
+        String thumbnailKey = folder + "/thumbnail." + thumbnailType.extension();
+
+        byte[] original = encode(source, contentType);
+        storage.put(Visibility.PUBLIC, objectKey, original, contentType.code());
         storage.put(Visibility.PUBLIC, thumbnailKey,
-                encode(thumbnail(source), ImageContentType.JPEG.extension()),
-                ImageContentType.JPEG.code());
+                encode(thumbnail(source), thumbnailType), thumbnailType.code());
 
         long id = jdbc.sql(INSERT_IMAGE)
                 .param("productId", productId)
@@ -272,10 +273,9 @@ public class ProductImageService {
      * <b>JPEG 에는 알파 채널이 없다.</b> 알파가 있는 이미지를 그대로 JPEG 로 쓰면
      * 색이 뒤집힌 그림이 나온다 — 흰 바탕에 눌러 두고 쓴다.
      */
-    private byte[] encode(BufferedImage image, String extension) {
-        boolean jpeg = extension.equals("jpg");
+    private byte[] encode(BufferedImage image, ImageContentType type) {
         BufferedImage target = image;
-        if (jpeg && image.getColorModel().hasAlpha()) {
+        if (type.opaqueOnly() && image.getColorModel().hasAlpha()) {
             BufferedImage opaque = new BufferedImage(
                     image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
             Graphics2D g = opaque.createGraphics();
@@ -285,7 +285,7 @@ public class ProductImageService {
         }
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
-            if (!ImageIO.write(target, jpeg ? "jpeg" : extension, out)) {
+            if (!ImageIO.write(target, type.imageIoName(), out)) {
                 throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
             }
         } catch (IOException e) {
