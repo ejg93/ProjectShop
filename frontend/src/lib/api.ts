@@ -268,9 +268,17 @@ function fieldErrorsOf(raw: { field?: unknown; message?: unknown }[] | undefined
  *
  * <p>`allowed_actions` 의 `REQUEST_RETURN` 같은 값이 열거값이라 그렇다(`D5`).
  * 값까지 바꾸면 화면이 서버가 모르는 이름으로 동작을 부른다.
+ *
+ * @param opaque <b>안을 안 들여다볼 칸의 이름</b>(`Q135`). 서버가 쓴 이름 그대로 적는다 —
+ *     이 판정은 바꾸기 전에 한다. 그 칸의 <b>값 전체가 그대로</b> 지나가고, 칸 이름 자체는
+ *     다른 칸과 똑같이 바뀐다.
+ *
+ *     <p><b>임의 JSON 을 드는 칸이 여기 온다.</b> 그런 칸의 열쇠는 <b>우리 응답 계약이 아니라
+ *     데이터</b>다 — `audit_log.detail` 에 `item_code` 로 적혔으면 감사 기록이 말하는 것은
+ *     그 글자고, 화면이 `itemCode` 로 보여 주면 <b>적힌 적 없는 것을 적혔다고 말한다</b>(`D16`).
  */
-export function toCamel(value: Json): Json {
-  return mapKeys(value, camelCase);
+export function toCamel(value: Json, opaque: readonly string[] = []): Json {
+  return mapKeys(value, camelCase, new Set(opaque));
 }
 
 /**
@@ -287,9 +295,13 @@ function toSnake(value: Json): Json {
   return mapKeys(value, (key) => key.replace(/[A-Z]/g, (char) => `_${char.toLowerCase()}`));
 }
 
-function mapKeys(value: Json, rename: (key: string) => string): Json {
+function mapKeys(
+  value: Json,
+  rename: (key: string) => string,
+  opaque: ReadonlySet<string> = EMPTY_OPAQUE,
+): Json {
   if (Array.isArray(value)) {
-    return value.map((item) => mapKeys(item, rename));
+    return value.map((item) => mapKeys(item, rename, opaque));
   }
 
   // null 도 object 다. 걸러내지 않으면 Object.entries 가 터진다.
@@ -300,7 +312,12 @@ function mapKeys(value: Json, rename: (key: string) => string): Json {
   return Object.fromEntries(
     Object.entries(value as Record<string, Json>).map(([key, item]) => [
       rename(key),
-      mapKeys(item, rename),
+      // 이름으로만 판정한다. 「값이 임의 JSON 처럼 생겼나」로 고르면 같은 칸이
+      // 내용에 따라 다르게 나와서, 화면이 그 둘을 다 다뤄야 한다.
+      opaque.has(key) ? item : mapKeys(item, rename, opaque),
     ]),
   );
 }
+
+/** 안 들여다볼 칸이 하나도 없을 때. 부를 때마다 `new Set()` 을 만들지 않는다 */
+const EMPTY_OPAQUE: ReadonlySet<string> = new Set();

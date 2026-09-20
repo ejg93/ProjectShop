@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { forbidden, redirect } from "next/navigation";
 
 import { BACKEND_ORIGIN, toApiError, toCamel } from "./api";
 
@@ -52,13 +52,26 @@ const LOGIN_REQUIRED = "/login?reason=login-required";
 /**
  * 세션을 실어서 부른다.
  *
- * <p><b>401 을 여기서 잡는다</b>(`D24` 「오류를 어느 층이 잡나」). 화면마다 잡으면
+ * <p><b>401 과 403 을 여기서 잡는다</b>(`D24` 「오류를 어느 층이 잡나」). 화면마다 잡으면
  * 한 화면이 빠뜨렸을 때 <b>그 화면만 조용히 빈 목록</b>이 된다.
  *
+ * <p><b>403 은 {@code forbidden()} 이다</b>(`Q133`). {@code app/forbidden.tsx} 를 페이지 전체로
+ * 그린다 — `D24` 가 「403 은 페이지 전체를 바꿔 그린다」고 정한 그 모양이고,
+ * <b>왜 오류 경계에서는 못 가르는지</b>도 그 문서가 든다(「오류 경계는 {@code app/error.tsx} 다」).
+ *
+ * <p><b>다른 두 입구는 안 그렇다</b> — {@link apiSessionOptional} 과 브라우저 입구는 403 을
+ * 그대로 던진다. 이유는 `D24` 의 그 절에 표로 있다.
+ *
+ * <p><b>404 는 여기서 안 잡는다.</b> 「없다」와 「내 것이 아니다」를 가르는 것은 화면마다 다르고,
+ * 주문 상세처럼 <b>존재를 숨기려고 일부러 404 로 답하는</b> 자리가 있다.
+ *
  * @param path `/api` 로 시작하는 경로
- * @throws ApiError 401 말고 2xx 가 아닌 것. 403·404 는 부르는 화면이 잡는다
+ * @param opaqueKeys <b>안을 안 들여다볼 칸의 이름</b>(`Q135`). {@link toCamel} 에 그대로 넘긴다 —
+ *     임의 JSON 을 드는 칸이 여기 온다. 빠뜨리면 그 칸의 열쇠가 <b>조용히</b> 낙타 표기로 바뀌고,
+ *     화면은 바뀐 줄 모른다.
+ * @throws ApiError 401·403 말고 2xx 가 아닌 것. 404 는 부르는 화면이 잡는다
  */
-export async function apiSession<T>(path: string): Promise<T> {
+export async function apiSession<T>(path: string, opaqueKeys: readonly string[] = []): Promise<T> {
   const response = await carry(path);
 
   if (response.status === 401) {
@@ -66,11 +79,15 @@ export async function apiSession<T>(path: string): Promise<T> {
     redirect((await cookies()).get(SESSION_COOKIE) ? SESSION_EXPIRED : LOGIN_REQUIRED);
   }
 
+  if (response.status === 403) {
+    forbidden();
+  }
+
   if (!response.ok) {
     throw await toApiError(response);
   }
 
-  return toCamel(await response.json()) as T;
+  return toCamel(await response.json(), opaqueKeys) as T;
 }
 
 /**

@@ -64,3 +64,80 @@ describe("서버가 지목한 칸 붙이기", () => {
     expect(firstBadField(placed, FIELDS)).toBe("receiverName");
   });
 });
+
+describe("목록 색인이 낀 이름", () => {
+  const FLAT = ["priceInclVat", "stockCount"] as const;
+  const ROWS = ["skus.0.priceInclVat", "skus.1.priceInclVat"] as const;
+
+  it("줄을 안 가리는 폼은 마지막 마디로 붙는다", () => {
+    // 옵션 없는 상품이 그 모양이다 — 조합이 하나뿐이라 화면이 펴서 그린다(`Q136`).
+    const placed = placeErrors(
+      validationFailed([{ field: "skus[0].price_incl_vat", message: "0 이상이어야 합니다" }]),
+      FLAT,
+    );
+
+    expect(placed.byField.priceInclVat).toBe("0 이상이어야 합니다");
+    expect(placed.rest).toEqual([]);
+  });
+
+  it("줄을 가리는 폼은 그 줄에 붙는다", () => {
+    const placed = placeErrors(
+      validationFailed([
+        { field: "skus[0].price_incl_vat", message: "첫 줄" },
+        { field: "skus[1].price_incl_vat", message: "둘째 줄" },
+      ]),
+      ROWS,
+    );
+
+    expect(placed.byField["skus.0.priceInclVat"]).toBe("첫 줄");
+    expect(placed.byField["skus.1.priceInclVat"]).toBe("둘째 줄");
+    expect(placed.rest).toEqual([]);
+  });
+
+  it("점 표기로 와도 같게 붙는다", () => {
+    // 서버가 `skus[0]` 을 쓰든 `skus.0` 을 쓰든 화면이 달라지면 안 된다.
+    const placed = placeErrors(
+      validationFailed([{ field: "skus.0.price_incl_vat", message: "첫 줄" }]),
+      ROWS,
+    );
+
+    expect(placed.byField["skus.0.priceInclVat"]).toBe("첫 줄");
+  });
+
+  it("줄이 여럿인데 폼이 한 칸이면 나머지를 안 버린다", () => {
+    // 덮어쓰면 둘째 줄 사유가 아무 데도 안 남는다 — 그것이 이 청크가 막는 모양이다.
+    const placed = placeErrors(
+      validationFailed([
+        { field: "skus[0].price_incl_vat", message: "첫 줄" },
+        { field: "skus[1].price_incl_vat", message: "둘째 줄" },
+      ]),
+      FLAT,
+    );
+
+    expect(placed.byField.priceInclVat).toBe("첫 줄");
+    expect(placed.rest).toEqual(["둘째 줄"]);
+  });
+
+  it("같은 경로가 두 번 오면 첫 것만 쓴다", () => {
+    // 한 칸에 두 줄을 겹치면 칸 높이가 들쭉날쭉해지고, 하나를 고치면 보통 나머지도 풀린다.
+    const placed = placeErrors(
+      validationFailed([
+        { field: "skus[0].price_incl_vat", message: "0 이상" },
+        { field: "skus[0].price_incl_vat", message: "정수" },
+      ]),
+      FLAT,
+    );
+
+    expect(placed.byField.priceInclVat).toBe("0 이상");
+    expect(placed.rest).toEqual([]);
+  });
+
+  it("중간 마디까지만 아는 폼에도 붙는다", () => {
+    const placed = placeErrors(
+      validationFailed([{ field: "substantiations[0].claim", message: "너무 깁니다" }]),
+      ["substantiations.claim"] as const,
+    );
+
+    expect(placed.byField["substantiations.claim"]).toBe("너무 깁니다");
+  });
+});

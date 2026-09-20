@@ -26,26 +26,42 @@ import org.junit.jupiter.api.Test;
  *
  * <p><b>그물이 성기다.</b> 그 문장이 <b>가장 나중</b>에 도는지는 번호로만 보장되고,
  * 시드가 그 뒤에 또 사건을 낳으면 안 걸린다. 강제 지점을 더 못 내리는 자리라 그것을 여기 적어 둔다.
+ *
+ * <p><b>마지막 자리는 옮겨 다닌다.</b> 지금은 {@code V906} 이고 그전에는 {@code V905} 였다(`Q141`).
+ * <b>{@code V905} 의 머리 주석은 아직 「시드 중 마지막이다」라고 말한다</b> — 배포 기준점 뒤라
+ * {@code migration-immutable.sh} 가 그 파일을 지켜서 못 고친다(`Q51`). 시드를 더할 때는
+ * 그 주석이 아니라 <b>번호가 가장 큰 파일</b>을 본다.
  */
 @DisplayName("시드와 아웃박스")
 class SeedOutboxTest {
 
-    private static final Path SEEDS = Path.of("src", "main", "resources", "db", "seed");
+    /**
+     * 시드가 있는 자리 전부. <b>프로필마다 싣는 묶음이 다르다</b>(`Q143`) —
+     * {@code local} 은 {@code db/seed} 만, {@code demo} 는 {@code db/seed-demo} 까지 싣는다.
+     *
+     * <p><b>그래서 마지막 파일도 프로필마다 다르다.</b> 한 자리만 보면 다른 프로필의 마지막이
+     * 아웃박스를 안 비우고 지나간다 — 자리마다 각자 본다.
+     */
+    private static final List<Path> SEED_ROOTS = List.of(
+            Path.of("src", "main", "resources", "db", "seed"),
+            Path.of("src", "main", "resources", "db", "seed-demo"));
 
     @Test
-    @DisplayName("시드가 아웃박스를 비우고 끝난다")
+    @DisplayName("시드 묶음마다 마지막이 아웃박스를 비우고 끝난다")
     void seedClearsTheOutbox() {
-        List<Path> files = seedFiles();
+        for (Path root : SEED_ROOTS) {
+            List<Path> files = seedFiles(root);
 
-        assertThat(files)
-                .as("시드가 하나도 없으면 이 대조가 아무것도 안 잰다")
-                .isNotEmpty();
+            assertThat(files)
+                    .as("%s 가 비면 이 대조가 아무것도 안 잰다", root)
+                    .isNotEmpty();
 
-        Path last = files.get(files.size() - 1);
+            Path last = files.get(files.size() - 1);
 
-        assertThat(readString(last).replace(" ", ""))
-                .as("시드가 남긴 사건은 사실이 아니다. 마지막 시드가 outbox_event 를 비운다 (`Q67`)")
-                .contains("deletefromoutbox_event");
+            assertThat(readString(last).replace(" ", ""))
+                    .as("시드가 남긴 사건은 사실이 아니다. %s 의 마지막이 outbox_event 를 비운다 (`Q67`)", root)
+                    .contains("deletefromoutbox_event");
+        }
     }
 
     /**
@@ -68,11 +84,11 @@ class SeedOutboxTest {
     }
 
     /** 번호순. Flyway 가 그 순서로 돌리므로 마지막 파일이 마지막에 돈다. */
-    private static List<Path> seedFiles() {
-        try (Stream<Path> files = Files.list(SEEDS)) {
+    private static List<Path> seedFiles(Path root) {
+        try (Stream<Path> files = Files.list(root)) {
             return files.filter(path -> path.toString().endsWith(".sql")).sorted().toList();
         } catch (IOException e) {
-            throw new UncheckedIOException("시드를 못 읽었다: " + SEEDS.toAbsolutePath(), e);
+            throw new UncheckedIOException("시드를 못 읽었다: " + root.toAbsolutePath(), e);
         }
     }
 

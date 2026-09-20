@@ -52,6 +52,9 @@ class PlanProgressConsistencyTest {
     private static final Path MIGRATIONS = Path.of("src", "main", "resources", "db", "migration");
     /** 데모 시드. 번호 체계가 900번대로 따로 논다 — 여기 있는 번호는 예약이 아니다. */
     private static final Path SEEDS = Path.of("src", "main", "resources", "db", "seed");
+
+    /** `Q142` 를 세울 때 커밋 칸이 비어 있던 완료 행의 수. **채워서 줄면 같이 내린다** */
+    private static final int EMPTY_COMMIT_BASELINE = 225;
     /** {@code V74__permission_kind.sql} 의 번호. <b>예약은 이 꼴로만 적는다</b> — 아래 두 테스트가 그것만 본다. */
     private static final Pattern VERSIONED = Pattern.compile("V([0-9]+)__");
 
@@ -161,6 +164,80 @@ class PlanProgressConsistencyTest {
                 .describedAs("칸 수가 머리글과 다른 표 줄. 대조가 이 줄을 통째로 건너뛴다 — "
                         + "빠진 칸은 채우고, 본문에 쓴 `|` 는 백틱으로 감싼다")
                 .isEmpty();
+    }
+
+
+    /**
+     * 완료 이력 행의 커밋 칸이 비었나(`Q142`).
+     *
+     * <p><b>기록만으로는 안 지켜졌다.</b> `PROGRESS.md` 「기록 규칙」이 「해시까지」를 요구하는데
+     * <b>2026-09-20 하루에 세 번 샜다</b> — PR #61 의 GitHub 리뷰가 한 번, 마무리 38차 손 대조가
+     * 한 번, 39차가 또 한 번 잡았다. {@link #tableRowsHaveHeaderCellCount} 는 <b>칸 수만 세서</b>
+     * 빈 칸을 통과시킨다 — `Q109` 가 닫으려던 「조용히 건너뛰기」가 한 칸 안쪽에 남아 있었다.
+     *
+     * <h2>즉시 터지는 게이트를 못 만든다</h2>
+     *
+     * <p><b>청크의 마지막 커밋은 자기 해시를 모른다.</b> 그래서 해시는 늘 뒤따르는 커밋이 채우고,
+     * 「비면 빨갛다」로 만들면 그 커밋 자체가 막힌다. <b>맨 마지막 완료 행 하나를 면제</b>하는 이유다.
+     *
+     * <h2>옛 행은 안 고친다</h2>
+     *
+     * <p>세울 때 {@code 225} 개가 비어 있었다. <b>이력은 그때의 사실이라 소급해서 안 채운다</b> —
+     * `2c-2` 가 같은 이유로 이력을 안 고친다. 그래서 래칫이다: <b>이 수를 넘으면 빨갛다.</b>
+     * 채워서 줄면 {@link #EMPTY_COMMIT_BASELINE} 를 같이 내린다.
+     *
+     * <h2>무엇을 막고 무엇을 못 막나</h2>
+     *
+     * <p><b>막는 것</b>: 빈 행이 <b>둘 이상 동시에</b> 흐르는 것. 오늘 샌 셋이 정확히 그 모양이었다.
+     *
+     * <p><b>못 막는 것 하나</b>: 묶음의 <b>마지막 한 행</b>. 면제 대상이라 안 채우고 지나갈 수 있다 —
+     * 그것은 마무리가 본다(`/wrapup` 「한 일을 적는다」).
+     *
+     * <p><b>못 막는 것 둘</b>: <b>수를 세지 어느 행인지를 안 본다.</b> 같은 변경에서 옛 행 하나를
+     * 채우고 새 행 하나를 비우면 수가 그대로라 초록이다 — 새 빈 행이 옛 빈 행 뒤에 숨는다.
+     * 행을 기억시키면 막을 수 있지만 그러려면 <b>225개의 목록을 이 파일에 적어야</b> 하고,
+     * 그것이 곧 「손으로 적은 목록」이라 다른 자리에서 같은 값을 잃는다.
+     *
+     * <p><b>완전히 못 내린 이유를 여기 적어 둔다</b>(`D25`).
+     */
+    @Test
+    @DisplayName("완료 이력 행의 커밋 칸이 새로 비지 않는다")
+    void completedHistoryRowsCarryTheirCommit() throws IOException {
+        List<String> empty = emptyCommitRows();
+
+        assertThat(empty)
+                .describedAs("커밋 칸이 빈 완료 이력 행. 맨 마지막 하나는 면제다(자기 해시를 모른다) — "
+                        + "그 앞 것부터 `git log --oneline` 으로 채운다. "
+                        + "옛 행을 채워서 줄었으면 EMPTY_COMMIT_BASELINE 도 같이 내린다")
+                .hasSizeLessThanOrEqualTo(EMPTY_COMMIT_BASELINE);
+    }
+
+    /**
+     * 커밋 칸이 빈 완료 행을 {@code 날짜 청크} 꼴로 모은다. <b>맨 마지막 하나는 뺀다.</b>
+     *
+     * <p>이력은 날짜순으로 덧붙이므로 파일에서 마지막에 나온 완료 행이 방금 친 청크다.
+     */
+    private static List<String> emptyCommitRows() throws IOException {
+        List<String> empty = new ArrayList<>();
+        String newest = null;
+
+        for (String line : Files.readAllLines(PROGRESS, StandardCharsets.UTF_8)) {
+            String[] cells = cellsOf(line);
+            if (cells.length < 4 || !HISTORY_DATE.matcher(cells[0]).matches()) {
+                continue;
+            }
+            if (!cells[2].startsWith("완료")) {
+                continue;
+            }
+            String label = cells[0] + " " + cells[1];
+            newest = label;
+            if (cells[cells.length - 1].isEmpty()) {
+                empty.add(label);
+            }
+        }
+
+        empty.remove(newest);
+        return empty;
     }
 
     /**

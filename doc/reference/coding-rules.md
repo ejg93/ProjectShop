@@ -797,7 +797,7 @@ alter table seller add column commission_bp int not null default 1000;
 **이 절은 규칙이 아니라 게이트다**(`Q51`). 위의 「배포가 나가면 끝난다」가 문서로만 있었고,
 그동안 `V8`·`V9` 를 지웠고 `V13` 을 여덟 번 고쳤다 — **막는 것이 사람의 기억뿐이었다.**
 
-`scripts/migration-immutable.sh` 가 `db/migration` 과 `db/seed` 를 본다.
+`scripts/migration-immutable.sh` 가 `db/migration`·`db/seed`·`db/seed-demo` 를 본다.
 
 | 기준점 파일(`backend/src/main/resources/db/deployed-baseline`) | 결과 |
 |---|---|

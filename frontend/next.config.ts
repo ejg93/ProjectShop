@@ -20,6 +20,20 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   /**
+   * `forbidden()` 과 `app/forbidden.tsx` 를 켠다(`Q133`).
+   *
+   * **왜 경계에서 못 가르고 여기까지 오나는 `D24` 「오류 경계는 `app/error.tsx` 다」가 든다.**
+   *
+   * **`experimental` 인 것을 알고 켠다.** 대안은 화면 열일곱 곳이 각자 `try/catch` 로 403 을
+   * 잡는 것인데, 하나가 빠뜨리면 그 화면만 다시 「실패했습니다」가 된다 — 기억에 맡기는
+   * 자리를 하나 더 만드는 셈이다(`D23` 축 2). **끄면 `forbidden.test.tsx` 가 빨개진다** —
+   * Next 를 올릴 때 이 플래그가 살아 있는지 그 시험이 대신 본다.
+   */
+  experimental: {
+    authInterrupts: true,
+  },
+
+  /**
    * 이 폴더가 프로젝트 뿌리다.
    *
    * 안 적으면 Turbopack 이 상위 폴더까지 훑다가 저장소 밖의 `package-lock.json` 을 집어
