@@ -23,6 +23,10 @@ npm run lint    # 접근성 규칙 포함(D20)
 
 주소는 `next.config.ts` 의 `BACKEND_ORIGIN` 환경변수로 바꾼다. 기본값이 `http://localhost:8080` 이다.
 
+**컨테이너로 올릴 때는 빌드 때도 줘야 한다**(`Q116`). 이 프록시의 목적지를 Next 가 **빌드 산출물에 굳혀서**
+런타임 값이 그 경로에는 안 닿는다 — 서버가 직접 부르는 자리만 런타임 값을 읽는다.
+어디에 어떻게 주는지는 `backend/README.md` 「`BACKEND_ORIGIN` 은 빌드와 런타임 둘 다에 든다」가 든다.
+
 CORS 를 여는 대신 프록시를 쓴 이유는 `next.config.ts` 주석에 있다.
 
 ## 구성

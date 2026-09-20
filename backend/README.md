@@ -79,6 +79,25 @@ curl localhost:8080/actuator/health
 `docker build frontend` 로 이미지가 만들어지고, `BACKEND_ORIGIN` 을 그 망의 주소로 주면
 **백엔드는 공개 도메인이 없어진다.** 둘째 줄(바깥)은 그때 안 고르는 것이 된다.
 
+### `BACKEND_ORIGIN` 은 빌드와 런타임 **둘 다**에 든다
+
+**런타임에만 주면 화면의 조작이 전부 죽는다**(`Q116`). 경로가 둘이고 값을 읽는 시점이 다르다.
+
+| 무엇이 부르나 | 어디서 값을 읽나 | 빠뜨리면 |
+|---|---|---|
+| 브라우저(`api()`) — 상대 경로라 Next 의 `rewrites()` 프록시를 탄다 | **빌드 때 굳는다.** Next 가 목적지를 `.next/routes-manifest.json` 에 박고 `standalone` 은 설정 파일을 안 진다 | **이미지 빌드가 선다.** 값이 없거나 루프백이면 `frontend/scripts/verify-proxy-target.mjs` 가 세운다 — 안 세우면 이미지가 로컬 주소를 지고 나가서 로그인·장바구니가 500 이고, 페이지는 떠서 성공처럼 보인다 |
+| 서버(`apiPublic`·`apiSession`) | **런타임에 `process.env` 를 읽는다** | **컨테이너가 안 뜬다.** 없으면 진입점이 거절한다 — 그냥 두면 서버가 그리는 페이지만 500 이라 절반만 깨진 것으로 보인다 |
+
+**Railway 는 서비스 변수 하나로 둘 다 덮는다** — 선언한 `ARG` 에 같은 이름의 변수를 빌드 때 넣어 주고,
+런타임에도 환경변수로 들어간다. **`ARG` 선언이 그 전제다**(`frontend/Dockerfile`). 손으로 빌드할 때는 두 번 적는다.
+
+```
+docker build --build-arg BACKEND_ORIGIN=http://backend:8080 -t shop-frontend ./frontend
+docker run -e BACKEND_ORIGIN=http://backend:8080 -p 3000:3000 shop-frontend
+```
+
+**루프백은 못 준다.** 컨테이너 안의 `localhost` 는 자기 자신이라 백엔드가 없다 — 그 값은 빌드가 거절한다.
+
 ### 버킷은 사람이 만든다 — 첫 업로드가 `NoSuchBucket` 이 안 되게
 
 **버킷 만들기는 기본이 꺼짐이다**(`STORAGE_BOOTSTRAP=false`). 켜는 것은 저장소를 띄운 로컬과
