@@ -68,13 +68,9 @@ public class PaymentService {
     public record Result(String orderNumber, String status, String method, long amount,
             String approvalNumber, String cardIssuer, String cardLast4, String declineReason) {
 
-        /** 응답 표기다. <b>저장값과 다르다</b> — `D5` 가 열거값을 대문자 스네이크로 정했다 */
-        static final String APPROVED = "APPROVED";
-        static final String FAILED = "FAILED";
-
-        /** {@code payment.status} 에 들어가는 값(`V22`) */
-        static final String APPROVED_CODE = "approved";
-        static final String FAILED_CODE = "failed";
+        // 값 목록을 여기 안 둔다(`Q122`). 저장값도 응답 표기도 `PaymentStatus` 하나에서 나온다 —
+        // 저장은 `code()`(소문자), 응답은 `name()`(대문자, `D5`)이고 **둘이 같은 상수에 매달려서**
+        // 한쪽만 바뀌는 일이 없다. 그전에는 상수 넷이 있었고 응답 쪽은 판정을 따로 쳤다.
     }
 
     /**
@@ -191,7 +187,9 @@ public class PaymentService {
      * <b>승인은 적혔는데 주문은 결제 대기</b>인 행이 남고, 그 주문은 만료 배치가 취소한다.
      */
     private Result settle(Payable payable, String method, MockPaymentGateway.Result verdict) {
-        String status = verdict.approved() ? Result.APPROVED_CODE : Result.FAILED_CODE;
+        // **안쪽은 열거형이다**(`Q122`, 사용자 결정 2026-09-20). 경계(응답 record)는 문자열 그대로고
+        // DB 로 나갈 때만 `code()` 로 되돌린다 — JSON 도 상태 코드도 안 바뀐다.
+        PaymentStatus status = verdict.approved() ? PaymentStatus.APPROVED : PaymentStatus.FAILED;
 
         long paymentId = jdbc.sql("""
                         insert into payment (order_id, status, method, amount,
@@ -201,7 +199,7 @@ public class PaymentService {
                         returning payment_id
                         """)
                 .param("orderId", payable.orderId())
-                .param("status", status)
+                .param("status", status.code())
                 .param("method", method)
                 .param("amount", payable.amount())
                 .param("approvalNumber", verdict.approvalNumber())
@@ -230,8 +228,11 @@ public class PaymentService {
 
         // 응답은 저장값이 아니라 표기다(`D5`). 거절 사유는 안 올린다 —
         // 우리 열거값이 아니라 PG 가 준 코드라 그 규칙이 안 걸린다.
+        // **표기도 같은 값에서 뽑는다**(마무리 35차 독립 리뷰). 삼항을 두 번 치면 저장값과 응답이
+        // 갈리는 것을 아무것도 안 막는다 — 「응답은 APPROVED 인데 저장은 failed」가 성립한다.
+        // `D5` 의 대문자 표기가 곧 열거형 이름이라 `name()` 이 그 규칙이다.
         return new Result(payable.orderNumber(),
-                verdict.approved() ? Result.APPROVED : Result.FAILED,
+                status.name(),
                 method.toUpperCase(Locale.ROOT), payable.amount(),
                 verdict.approvalNumber(), verdict.cardIssuer(), verdict.cardLast4(),
                 verdict.declineReason());

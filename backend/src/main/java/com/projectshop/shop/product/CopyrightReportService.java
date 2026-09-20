@@ -1,6 +1,5 @@
 package com.projectshop.shop.product;
 
-import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -90,11 +89,7 @@ public class CopyrightReportService {
      * 그 줄이고, 없으면 「절차가 있다」를 문서로만 주장하게 된다.
      */
     @Transactional
-    public void decide(long actorUserId, long reportId, String decision) {
-        if (!List.of("taken_down", "rejected").contains(decision)) {
-            throw new ShopException(ErrorCode.VALIDATION_FAILED);
-        }
-
+    public void decide(long actorUserId, long reportId, CopyrightDecision decision) {
         Pending pending = jdbc.sql(FIND_PENDING)
                 .param("id", reportId)
                 .query(Pending.class)
@@ -110,7 +105,7 @@ public class CopyrightReportService {
 
         // 사진이 이미 사라졌으면 내릴 것이 없다. 판정은 그대로 기록한다 —
         // 「이미 없어서 안 내렸다」와 「판정을 안 했다」는 다른 말이다.
-        if (decision.equals("taken_down") && pending.productImageId() != null) {
+        if (decision == CopyrightDecision.TAKEN_DOWN && pending.productImageId() != null) {
             takeDown(pending.productImageId());
         }
 
@@ -120,14 +115,14 @@ public class CopyrightReportService {
                                decided_by_user_id = :actor
                          where copyright_report_id = :id
                         """)
-                .param("decision", decision)
+                .param("decision", decision.code())
                 .param("actor", actorUserId)
                 .param("id", reportId)
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "copyright.decided", actorUserId,
                 new AuditLog.Target("copyright_report", reportId),
-                Map.of("decision", decision));
+                Map.of("decision", decision.code()));
     }
 
     /** @param productImageId 사진이 이미 사라졌으면 {@code null} 이다 */

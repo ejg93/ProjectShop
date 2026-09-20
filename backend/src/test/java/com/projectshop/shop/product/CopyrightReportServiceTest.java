@@ -75,7 +75,7 @@ class CopyrightReportServiceTest extends StorageTestBase {
     void 게시_중단하면_저장소에서도_사라진다() {
         long reportId = report();
 
-        service.decide(admin, reportId, "taken_down");
+        service.decide(admin, reportId, CopyrightDecision.TAKEN_DOWN);
 
         assertThatThrownBy(() -> s3.headObject(b -> b.bucket(PUBLIC_BUCKET).key(image.objectKey())))
                 .isInstanceOf(NoSuchKeyException.class);
@@ -90,7 +90,7 @@ class CopyrightReportServiceTest extends StorageTestBase {
     void 기각하면_사진이_그대로_남는다() {
         long reportId = report();
 
-        service.decide(admin, reportId, "rejected");
+        service.decide(admin, reportId, CopyrightDecision.REJECTED);
 
         assertThat(imageRows()).isOne();
     }
@@ -101,7 +101,7 @@ class CopyrightReportServiceTest extends StorageTestBase {
     void 사진을_지워도_신고_기록은_남는다() {
         long reportId = report();
 
-        service.decide(admin, reportId, "taken_down");
+        service.decide(admin, reportId, CopyrightDecision.TAKEN_DOWN);
 
         String decision = jdbc.sql("""
                         select decision from copyright_report where copyright_report_id = :id
@@ -118,7 +118,7 @@ class CopyrightReportServiceTest extends StorageTestBase {
     void 셀러는_스스로_판정하지_못한다() {
         long reportId = report();
 
-        assertThatThrownBy(() -> service.decide(owner, reportId, "rejected"))
+        assertThatThrownBy(() -> service.decide(owner, reportId, CopyrightDecision.REJECTED))
                 .isInstanceOf(ShopException.class)
                 .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_FORBIDDEN);
     }
@@ -136,7 +136,7 @@ class CopyrightReportServiceTest extends StorageTestBase {
                 .param("id", image.productImageId())
                 .update();
 
-        service.decide(admin, reportId, "rejected");
+        service.decide(admin, reportId, CopyrightDecision.REJECTED);
 
         String decision = jdbc.sql("""
                         select decision from copyright_report where copyright_report_id = :id

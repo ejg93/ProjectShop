@@ -131,7 +131,9 @@ public class InquiryController {
     @PostMapping("/api/inquiries/{inquiryNumber}/block")
     public ResponseEntity<Void> block(@AuthenticationPrincipal ShopUser user,
             @PathVariable String inquiryNumber, @Valid @RequestBody BlockRequest request) {
-        inquiries.block(user.id(), inquiryNumber, storedEnum(request.reason()));
+        // **경계에서 바꾼다**(`Q123`, `Q121` 이 굳힌 모양). 대문자·소문자 변환도 그 열거형이 든다 —
+        // `storedEnum` 은 값 목록을 모르는 도우미라 차단 사유에는 안 쓴다.
+        inquiries.block(user.id(), inquiryNumber, BlockReason.ofRequest(request.reason()));
         return ResponseEntity.noContent().build();
     }
 

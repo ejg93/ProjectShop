@@ -1,4 +1,4 @@
-package com.projectshop.shop.product;
+package com.projectshop.shop.support;
 
 import java.util.Arrays;
 
@@ -12,11 +12,15 @@ import java.util.Arrays;
  * <p>R4 가 열거한 다섯 중 셋만 여기 있다. 나머지 둘은 <b>받은 물건의 상태 판단</b>이라
  * 상품 속성이 아니다 - 조문을 통째로 옮기지 않고 데이터가 되는 것만 골랐다(`D23`).
  *
- * <p><b>읽는 쪽에만 쓰인다.</b> 등록·수정은 아직 문자열을 그대로 받고 {@code check} 제약이 막는다.
- * 강제 지점이 이미 2위(DB 제약)에 있어서 급하지 않지만, 쓰는 쪽도 이 타입을 지나게 하는 것이
- * 맞다 - 상품 등록 화면(`13f`)이 이 목록을 골라 보내게 되면 그때 같이 옮긴다.
+ * <p><b>{@code support} 에 산다</b>(`Q125`). 상품이 값을 정하고 주문이 그것을 쓰므로 소비자가 둘이고,
+ * {@code ActorType} 이 같은 이유로 여기 왔다(`43a-17`). 도메인 패키지에 둔 채로 열면
+ * 그 패키지가 조용히 공용이 된다.
+ *
+ * <p><b>아직 문자열인 자리가 남았다.</b> 주문 쓰기 경로는 `Q125` 가 이 타입으로 돌렸지만
+ * 상품 등록·수정({@code ProductService})은 문자열을 그대로 받고 {@code check} 제약이 막는다 —
+ * 강제 지점이 2위에 있어 급하지 않고, 상품 등록 화면(`13f`)이 이 목록을 골라 보내게 되면 그때 옮긴다.
  */
-enum WithdrawalRestrictionReason {
+public enum WithdrawalRestrictionReason {
 
     /** 복제가 가능한 음반·영상·소프트웨어의 포장을 훼손한 경우 */
     COPYABLE_MEDIA,
@@ -28,7 +32,7 @@ enum WithdrawalRestrictionReason {
     MADE_TO_ORDER;
 
     /** 저장값. DB 는 소문자고 응답은 대문자다(`D5` 「형식」) */
-    String code() {
+    public String code() {
         return name().toLowerCase();
     }
 
@@ -38,7 +42,7 @@ enum WithdrawalRestrictionReason {
      * <p><b>모르는 값이면 터진다.</b> 조용히 통과시키면 화면이 처음 보는 값을 받아
      * 아무 안내도 못 그리는데, 그 자리는 법이 고지를 요구하는 자리다.
      */
-    static WithdrawalRestrictionReason of(String code) {
+    public static WithdrawalRestrictionReason of(String code) {
         if (code == null) {
             return null;
         }

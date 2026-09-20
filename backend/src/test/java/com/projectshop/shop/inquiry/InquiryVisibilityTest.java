@@ -732,7 +732,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void isDoneByAnAdmin() {
             String number = ask(askerId, true);
 
-            assertThatCode(() -> inquiries.block(adminId, number, "advertisement"))
+            assertThatCode(() -> inquiries.block(adminId, number, BlockReason.ADVERTISEMENT))
                     .doesNotThrowAnyException();
             assertThat(query.findPublic(productId, new Paging(0, 20)).items())
                     .as("제50조의7 이 요구하는 것은 게시 중단이다")
@@ -749,7 +749,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void refusesTheSellerEvenOnOwnProduct() {
             String number = ask(askerId, true);
 
-            assertThatThrownBy(() -> inquiries.block(sellerOwnerId, number, "advertisement"))
+            assertThatThrownBy(() -> inquiries.block(sellerOwnerId, number, BlockReason.ADVERTISEMENT))
                     .isInstanceOf(ShopException.class);
         }
 
@@ -758,7 +758,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         void refusesTheAuthor() {
             String number = ask(askerId, true);
 
-            assertThatThrownBy(() -> inquiries.block(askerId, number, "abuse"))
+            assertThatThrownBy(() -> inquiries.block(askerId, number, BlockReason.ABUSE))
                     .isInstanceOf(ShopException.class);
         }
 
@@ -768,7 +768,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
             String number = ask(askerId, true);
             inquiries.answer(sellerOwnerId, number, "내일 발송합니다");
 
-            assertThatCode(() -> inquiries.block(adminId, number, "advertisement"))
+            assertThatCode(() -> inquiries.block(adminId, number, BlockReason.ADVERTISEMENT))
                     .as("광고에 답을 달았다고 그 광고가 남을 이유가 없다")
                     .doesNotThrowAnyException();
         }
@@ -777,9 +777,9 @@ class InquiryVisibilityTest extends PostgresTestBase {
         @DisplayName("두 번은 못 내린다")
         void cannotBeBlockedTwice() {
             String number = ask(askerId, true);
-            inquiries.block(adminId, number, "advertisement");
+            inquiries.block(adminId, number, BlockReason.ADVERTISEMENT);
 
-            assertThatThrownBy(() -> inquiries.block(adminId, number, "abuse"))
+            assertThatThrownBy(() -> inquiries.block(adminId, number, BlockReason.ABUSE))
                     .as("조건부 UPDATE 라 상태가 곧 판정이다")
                     .isInstanceOf(ShopException.class);
         }
@@ -788,7 +788,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         @DisplayName("낸 사람에게는 그대로 보인다")
         void staysVisibleToTheAuthor() {
             String number = ask(askerId, true);
-            inquiries.block(adminId, number, "advertisement");
+            inquiries.block(adminId, number, BlockReason.ADVERTISEMENT);
 
             assertThat(query.findMine(askerId, new Paging(0, 20)).items())
                     .as("제50조의7 은 게시 중단을 요구하지 작성자에게서 감추라고 하지 않는다")

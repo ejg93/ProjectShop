@@ -64,6 +64,8 @@ public class CopyrightReportController {
             @PathVariable long reportId,
             @Valid @RequestBody CopyrightDecisionRequest request) {
 
-        service.decide(user.id(), reportId, request.decision());
+        // **경계에서 바꾼다**(`Q121`, 사용자 결정 2026-09-20). 요청 record 는 문자열을 그대로 들고
+        // 여기서 열거형이 된다 — 모르는 값은 `ofRequest` 가 400 을 내서 고치기 전과 답이 같다.
+        service.decide(user.id(), reportId, CopyrightDecision.ofRequest(request.decision()));
     }
 }

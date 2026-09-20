@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.product.StockReason;
+import com.projectshop.shop.support.WithdrawalRestrictionReason;
 import com.projectshop.shop.support.ExposedNumber;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -351,6 +352,11 @@ public class OrderService {
                     orderId, sellerId, shippingFees.get(sellerId), leadDays, agreedDays);
 
             for (Line line : sellerLines) {
+                // **한 번만 고른다**(`Q125`). 그전에는 같은 판정을 두 번 불러서, 한쪽만 고치면
+                // 사유와 동의 시각이 갈리는 자리였다.
+                WithdrawalRestrictionReason agreedReason = WithdrawalRestriction.agreed(
+                        WithdrawalRestrictionReason.of(line.withdrawalRestrictionReason()),
+                        restrictionAgreed);
                 jdbc.sql("""
                                 insert into order_item (seller_order_id, sku_id, product_name, option_label,
                                                         unit_price_incl_vat, quantity, line_amount,
@@ -370,9 +376,9 @@ public class OrderService {
                         .param("lineAmount", line.lineAmount())
                         .param("bp", line.commissionBp())
                         .param("commission", line.commissionAmount())
-                        .param("restrictionReason", WithdrawalRestriction.agreed(line.withdrawalRestrictionReason(), restrictionAgreed))
+                        .param("restrictionReason", agreedReason == null ? null : agreedReason.code())
                         .param("noticeAgreedAt",
-                                WithdrawalRestriction.MADE_TO_ORDER.equals(WithdrawalRestriction.agreed(line.withdrawalRestrictionReason(), restrictionAgreed))
+                                agreedReason == WithdrawalRestrictionReason.MADE_TO_ORDER
                                         ? OffsetDateTime.now() : null)
                         .update();
             }
