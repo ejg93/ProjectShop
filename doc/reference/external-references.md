@@ -390,6 +390,27 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | Zalando RESTful API Guidelines | MIT | 규칙을 따르고 **벗어난 넷**을 명시했다 — 페이징·전체 개수(`SHOULD`) 와 버전 위치·운반(`MUST` 115·114, 청크 `72`). 목록과 근거는 `api-guidelines.md` 「기준에서 벗어난 것」이 든다 |
 | `design-taste-frontend` 스킬 (Leonxlnx/taste-skill) | **MIT** | 사본이 `.agents/skills/design-taste-frontend/` 에 있다. **고지를 그 옆 `LICENSE` 에 뒀다**(`2l-1`) — MIT 는 사본에 저작권 고지가 있어야 성립한다 |
 
+### 데모 상품 사진
+
+**`Q141` 이 올린 다섯이다.** 전부 Wikimedia Commons 에서 받았고 **`db/seed/V906` 이 그 열쇠를 든다.**
+
+| 상품 | 라이선스 | 저작자 | 파일 |
+|---|---|---|---|
+| 데모 티셔츠 | **CC0** | EdaBojci | [T-shirt mocup.jpg](https://commons.wikimedia.org/wiki/File:T-shirt_mocup.jpg) |
+| 데모 에코백 | **CC0** | Jasmina El Bouamraoui 외 | [Wikipedia20 tote.png](https://commons.wikimedia.org/wiki/File:Wikipedia20_tote.png) |
+| 데모 니트 | **Public domain** | Durene Association of America | [Sweater knit dress 1967.jpg](https://commons.wikimedia.org/wiki/File:Sweater_knit_dress_1967.jpg) |
+| 데모 원목 도마 | **CC0** | Fructibus | [Wooden cutting board 2017.jpg](https://commons.wikimedia.org/wiki/File:Wooden_cutting_board_2017.jpg) |
+| 데모 도안 파일 | **Public domain** | Ministry of Information Photo Division | [A woman cuts out sections…1942. D11594.jpg](https://commons.wikimedia.org/wiki/File:A_woman_cuts_out_sections_of_material_from_a_large_piece_of_curtain_or_other_such_fabric,_using_paper_patterns_as_a_guide,_1942._D11594.jpg) |
+
+**`ND` 를 쓸 수 없다.** 업로드가 썸네일을 만드는데 **그 자체가 파생물**이라 조건을 어긴다.
+처음 본 자동 출처(`loremflickr`)가 `cc-nc-nd` 를 내줘서 버렸다.
+
+**귀속이 필요한데 이름이 없으면 버린다.** 니트로 처음 고른 `Grey knitted sweater.jpg` 가
+`CC BY 2.0` 에 `AttributionRequired: true` 인데 **저작자 칸이 비어 있었다** — 지킬 수 없는
+조건이라 Public domain 인 것으로 바꿨다. 올린 뒤에 갈아서 옛 객체는 지웠다.
+
+**골라 쓴 기준**: `CC0` 또는 Public domain 을 먼저 보고, 귀속이 필요하면 **이름이 적혀 있을 때만**.
+
 ### 의존성
 
 `build.gradle.kts` 에 줄을 추가할 때 본다. **GPL 계열은 0건**이다.
