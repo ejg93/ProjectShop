@@ -154,6 +154,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("payment.RefundStatus", List.of("refund_status_check"));
         pairs.put("inquiry.InquiryKind", List.of("inquiry_kind_check"));
         pairs.put("inquiry.InquiryStatus", List.of("inquiry_status_check"));
+        pairs.put("inquiry.BlockReason", List.of("inquiry_blocked_reason_check"));
         pairs.put("notification.NotificationKind", List.of("notification_kind_check",
                                                           "notification_template_kind_check"));
         pairs.put("notification.NotificationEventType", List.of("notification_event_type_check"));

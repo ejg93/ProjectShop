@@ -42,9 +42,8 @@ public class InquiryService {
      */
     private static final int PROCESSING_STOP_DUE_DAYS = 10;
 
-    /** {@code inquiry.blocked_reason} 에 들어가는 값(`V53`) */
-    static final String REASON_ADVERTISEMENT = "advertisement";
-    static final String REASON_ABUSE = "abuse";
+    // `inquiry.blocked_reason` 에 들어가는 값은 `BlockReason` 이 든다(`Q123`).
+    // 여기 상수로 두면 사본이 둘이 되고 그중 하나만 회계를 받는다.
 
     private static final String RESOURCE = "inquiry";
     private static final String CREATE = "create";
@@ -225,7 +224,7 @@ public class InquiryService {
      *               개정될 때 무엇을 고쳐야 하는지 모른다
      */
     @Transactional
-    public void block(long userId, String inquiryNumber, String reason) {
+    public void block(long userId, String inquiryNumber, BlockReason reason) {
         Row row = find(inquiryNumber);
 
         if (!evaluator.decide(userId, RESOURCE, BLOCK, row.target()).allowed()) {
@@ -241,7 +240,7 @@ public class InquiryService {
                          where inquiry_number = :number and status <> :blocked
                         """)
                 .param("blocked", InquiryStatus.BLOCKED.code())
-                .param("reason", reason)
+                .param("reason", reason.code())
                 .param("number", inquiryNumber)
                 .update();
 
