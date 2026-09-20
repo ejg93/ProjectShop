@@ -72,9 +72,10 @@ public class PaymentService {
         static final String APPROVED = "APPROVED";
         static final String FAILED = "FAILED";
 
-        /** {@code payment.status} 에 들어가는 값(`V22`) */
-        static final String APPROVED_CODE = "approved";
-        static final String FAILED_CODE = "failed";
+        // 저장값은 여기 안 둔다(`Q122`). `PaymentStatus` 가 이미 그 목록을 들고
+        // `EnumConstraintTest` 가 DB 제약과 대조한다 — 여기 상수로 또 두면 사본이 둘이 되고,
+        // 그중 하나만 회계를 받는다. 응답 표기와 저장값이 다른 것이 이 자리의 뜻이라
+        // **위 둘만 남긴다.**
     }
 
     /**
@@ -191,7 +192,9 @@ public class PaymentService {
      * <b>승인은 적혔는데 주문은 결제 대기</b>인 행이 남고, 그 주문은 만료 배치가 취소한다.
      */
     private Result settle(Payable payable, String method, MockPaymentGateway.Result verdict) {
-        String status = verdict.approved() ? Result.APPROVED_CODE : Result.FAILED_CODE;
+        // **안쪽은 열거형이다**(`Q122`, 사용자 결정 2026-09-20). 경계(응답 record)는 문자열 그대로고
+        // DB 로 나갈 때만 `code()` 로 되돌린다 — JSON 도 상태 코드도 안 바뀐다.
+        PaymentStatus status = verdict.approved() ? PaymentStatus.APPROVED : PaymentStatus.FAILED;
 
         long paymentId = jdbc.sql("""
                         insert into payment (order_id, status, method, amount,
@@ -201,7 +204,7 @@ public class PaymentService {
                         returning payment_id
                         """)
                 .param("orderId", payable.orderId())
-                .param("status", status)
+                .param("status", status.code())
                 .param("method", method)
                 .param("amount", payable.amount())
                 .param("approvalNumber", verdict.approvalNumber())
