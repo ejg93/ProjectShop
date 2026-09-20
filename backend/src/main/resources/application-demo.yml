@@ -15,4 +15,4 @@
 spring:
   flyway:
     # 기본 location 을 다시 적어야 한다. 이 키는 합쳐지지 않고 덮어쓴다.
-    locations: classpath:db/migration,classpath:db/seed
+    locations: classpath:db/migration,classpath:db/seed,classpath:db/seed-demo

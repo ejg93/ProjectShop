@@ -15,7 +15,7 @@
 set -euo pipefail
 
 baseline_file=backend/src/main/resources/db/deployed-baseline
-watched="backend/src/main/resources/db/migration backend/src/main/resources/db/seed"
+watched="backend/src/main/resources/db/migration backend/src/main/resources/db/seed backend/src/main/resources/db/seed-demo"
 
 if [ ! -f "$baseline_file" ]; then
     echo "배포 전이다 — 잴 기준점이 없다. 첫 배포 때 $baseline_file 을 만든다(Q39)."

@@ -392,7 +392,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 
 ### 데모 상품 사진
 
-**`Q141` 이 올린 다섯이다.** 전부 Wikimedia Commons 에서 받았고 **`db/seed/V906` 이 그 열쇠를 든다.**
+**`Q141` 이 올린 다섯이다.** 전부 Wikimedia Commons 에서 받았고 **`db/seed-demo/V906` 이 그 열쇠를 든다.**
 
 | 상품 | 라이선스 | 저작자 | 파일 |
 |---|---|---|---|

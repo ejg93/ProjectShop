@@ -109,7 +109,8 @@ docker run -e BACKEND_ORIGIN=http://backend:8080 -p 3000:3000 shop-frontend
 여기 옮겨 적지 않는다(`Q89` — 사본은 원본이 바뀌어도 안 따라온다).
 
 **배포가 나갔는지 보는 법**: `curl https://frontend-production-b83c.up.railway.app/api/health` 의
-`applied_migrations` 가 **`db/migration` 파일 수 + `db/seed` 파일 수**와 같아야 한다.
+`applied_migrations` 가 **`db/migration` + `db/seed` + `db/seed-demo` 파일 수**와 같아야 한다.
+**`db/seed-demo` 는 `demo` 프로필에만 실린다**(`Q143`) — 로컬(`local`)은 그만큼 적다.
 `SPRING_PROFILES_ACTIVE=demo` 가 빠지면 시드 몫만큼 모자란다(`Q134`).
 
 ### 2026-09-20 에 실제로 한 순서

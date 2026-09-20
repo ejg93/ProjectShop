@@ -227,7 +227,9 @@ val comparedInFastLane = listOf(
 	"src/main/resources/db/migration",
 	// `PlanProgressConsistencyTest` 의 예약 번호 검사가 **시드도 센다**(`Q69`) — 거기 있는 번호는
 	// 예약이 아니라 인용이라 걷어내야 한다. 시드가 하나 늘면 그 판정이 바뀌므로 입력이다.
-	"src/main/resources/db/seed")
+	"src/main/resources/db/seed",
+	// 배포에만 붓는 시드(`Q143`). 같은 이유로 입력이고, `SeedOutboxTest` 도 이쪽을 읽는다.
+	"src/main/resources/db/seed-demo")
 val comparedScreenRoot = "../frontend/src"
 val declaredComparedInputs = comparedInSlowLane + comparedInFastLane + comparedScreenRoot
 
