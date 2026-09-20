@@ -6,6 +6,9 @@ import { Field } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { ApiError, api } from "@/lib/api";
 
+import { DemoAccountsPanel } from "./demo-accounts-panel";
+import { DEMO_PASSWORD, type DemoAccount } from "./demo-accounts";
+
 /**
  * 로그인 응답. 지금 화면이 쓰는 것은 없지만 형태를 적어 둔다.
  *
@@ -50,6 +53,15 @@ function messageOf(error: unknown): string {
 export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * 안내에서 고른 계정(`Q131`). 고르면 두 칸의 기본값이 바뀐다.
+   *
+   * <p><b>칸을 제어 요소로 안 바꾼다.</b> `Field` 는 네 화면이 같이 쓰는데, 값과 변경 처리를
+   * 밖으로 빼면 그 넷이 다 상태를 들게 된다. 대신 `key` 를 바꿔 입력을 다시 그린다 —
+   * 「고를 때만 값이 바뀐다」가 이 화면에서 필요한 전부다.
+   */
+  const [picked, setPicked] = useState<DemoAccount | null>(null);
+
   // **제출 중인지를 여기서 안 든다**(`Q20-1`). `SubmitButton` 이 `useFormStatus` 로 읽는다 —
   // 폼 `action` 은 전환 안에서 돌아서 여기서 `setState` 를 해도 액션이 끝날 때까지 안 비친다.
   async function submit(form: FormData) {
@@ -81,32 +93,40 @@ export function LoginForm() {
   }
 
   return (
-    <form action={submit} className="grid gap-5">
+    <div className="grid gap-6">
       {/*
-        `invalid` 를 안 넘긴다. 로그인 실패는 **어느 칸이 틀렸는지 서버가 안 알려주는 오류**라
-        칸을 지목할 근거가 없다(`D20` 「모르는 칸을 지목하지 않는다」).
-
-        두 칸에 다 걸었더니 화면낭독기가 **맞은 이메일까지 「잘못된 입력」이라고 읽었다.**
-        `aria-invalid` 의 뜻은 「이 칸의 값이 유효하지 않다」고, 그건 여기서 사실이 아니다.
+        폼 위에 둔다. 아래에 두면 「계정이 없다」고 판단한 사람이 이미 회원가입으로 간 뒤다.
       */}
-      <Field name="email" type="email" label="이메일" autoComplete="email"
-              defaultValue={TEST_ACCOUNT?.email} maxLength={254} />
+      <DemoAccountsPanel onPick={setPicked} />
 
-      <Field name="password" type="password" label="비밀번호" autoComplete="current-password"
-              defaultValue={TEST_ACCOUNT?.password} />
+      <form action={submit} className="grid gap-5">
+        {/*
+          `invalid` 를 안 넘긴다. 로그인 실패는 **어느 칸이 틀렸는지 서버가 안 알려주는 오류**라
+          칸을 지목할 근거가 없다(`D20` 「모르는 칸을 지목하지 않는다」).
 
-      {/*
-        폼 전체 오류를 입력칸 아래, 버튼 위에 둔다. 위쪽에 두면 스크롤한 화면에서 안 보이고,
-        role=alert 라 화면낭독기가 나타나는 순간 읽는다(`D20`).
-      */}
-      {error && (
-        <p role="alert" className="text-sm text-danger-text">
-          {error}
-        </p>
-      )}
+          두 칸에 다 걸었더니 화면낭독기가 **맞은 이메일까지 「잘못된 입력」이라고 읽었다.**
+          `aria-invalid` 의 뜻은 「이 칸의 값이 유효하지 않다」고, 그건 여기서 사실이 아니다.
+        */}
+        <Field key={`email-${picked?.email ?? ""}`}
+                name="email" type="email" label="이메일" autoComplete="email"
+                defaultValue={picked?.email ?? TEST_ACCOUNT?.email} maxLength={254} />
 
-      <SubmitButton label="로그인" pendingLabel="확인하는 중" />
-    </form>
+        <Field key={`password-${picked?.email ?? ""}`}
+                name="password" type="password" label="비밀번호" autoComplete="current-password"
+                defaultValue={picked ? DEMO_PASSWORD : TEST_ACCOUNT?.password} />
+
+        {/*
+          폼 전체 오류를 입력칸 아래, 버튼 위에 둔다. 위쪽에 두면 스크롤한 화면에서 안 보이고,
+          role=alert 라 화면낭독기가 나타나는 순간 읽는다(`D20`).
+        */}
+        {error && (
+          <p role="alert" className="text-sm text-danger-text">
+            {error}
+          </p>
+        )}
+
+        <SubmitButton label="로그인" pendingLabel="확인하는 중" />
+      </form>
+    </div>
   );
 }
-
