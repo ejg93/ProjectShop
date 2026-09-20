@@ -61,6 +61,12 @@ export function SignupForm({
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FormField, string>>>({});
 
   /**
+   * 칸을 못 찾은 사유(`Q129`). <b>동의 항목이 그리로 온다</b> — 서버가 칸 이름이 아니라
+   * 항목 코드로 말해서 붙일 입력칸이 없다. 버리면 「다시 확인해 주세요」만 남는다.
+   */
+  const [unplaced, setUnplaced] = useState<string[]>([]);
+
+  /**
    * 부모를 끄면 종속도 같이 꺼진다(`D2` R14).
    *
    * <p>서버가 어차기 같이 거두지만 화면이 켜진 채로 두면 <b>보낼 수 없는 동의가 켜져 보인다.</b>
@@ -84,6 +90,7 @@ export function SignupForm({
   async function submit(form: FormData) {
     setError(null);
     setFieldErrors({});
+    setUnplaced([]);
 
     try {
       await api("/api/auth/signup", {
@@ -106,6 +113,7 @@ export function SignupForm({
     } catch (thrown) {
       const placed = placeErrors(thrown, FORM_FIELDS);
       setFieldErrors(placed.byField);
+      setUnplaced(placed.rest);
       setError(messageOf(thrown));
 
       // 첫 칸으로 보낸다. 안 보내면 어디가 빨간지 찾아 내려가야 한다(WCAG 3.3.1).
@@ -159,9 +167,16 @@ export function SignupForm({
         위에 두면 스크롤한 화면에서 안 보인다(`D20`).
       */}
       {error ? (
-        <p role="alert" className="text-sm text-danger-text">
-          {error}
-        </p>
+        <div role="alert" className="grid gap-1 text-sm text-danger-text">
+          <p>{error}</p>
+          {/*
+            칸을 못 찾은 사유를 같이 그린다(`Q129`). 동의 항목처럼 입력칸이 아닌 것이
+            여기로 오고, 안 그리면 사용자는 무엇을 확인할지 모른다.
+          */}
+          {unplaced.map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </div>
       ) : null}
 
       {missingRequired.length > 0 ? (

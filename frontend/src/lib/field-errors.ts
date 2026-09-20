@@ -1,4 +1,4 @@
-import { ApiError } from "./api";
+import { ApiError, camelCase } from "./api";
 
 /**
  * 서버가 지목한 칸을 폼의 칸에 붙인다(`Q129`).
@@ -34,7 +34,7 @@ export function placeErrors<Field extends string>(
   const rest: string[] = [];
 
   for (const { field, message } of error.errors) {
-    const name = camelOf(field.slice(field.lastIndexOf(".") + 1));
+    const name = camelCase(field.slice(field.lastIndexOf(".") + 1));
     const known = fields.find((candidate) => candidate === name);
 
     if (known) {
@@ -55,8 +55,4 @@ export function firstBadField<Field extends string>(
   fields: readonly Field[],
 ): Field | undefined {
   return fields.find((field) => placed.byField[field] !== undefined);
-}
-
-function camelOf(snake: string): string {
-  return snake.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase());
 }

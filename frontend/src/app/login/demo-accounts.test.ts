@@ -27,6 +27,14 @@ const SEED = readFileSync(
   "utf8",
 );
 
+/**
+ * 주석을 걷은 SQL. <b>문구가 주석에만 있어도 통과하던 것을 막는다</b>(독립 리뷰).
+ *
+ * <p>이 파일의 머리말이 비밀번호를 그대로 적어 두어서, 그냥 찾으면 `crypt(...)` 를 지워도
+ * 초록이다 — 대조가 재려는 것은 <b>시드가 실제로 만드는 값</b>이다.
+ */
+const SEED_SQL = SEED.split("\n").filter((line) => !line.trimStart().startsWith("--")).join("\n");
+
 describe("데모 계정 안내", () => {
   it("아홉이고 그룹마다 셋이다", () => {
     expect(DEMO_GROUPS).toHaveLength(3);
@@ -38,8 +46,8 @@ describe("데모 계정 안내", () => {
   it("안내에 적은 계정이 시드에 다 있다", () => {
     for (const group of DEMO_GROUPS) {
       for (const account of group.accounts) {
-        expect(SEED, `${account.name} 이 시드에 없다`).toContain(`'${account.email}'`);
-        expect(SEED, `${account.name} 의 이름이 시드와 다르다`).toContain(`'${account.name}'`);
+        expect(SEED_SQL, `${account.name} 이 시드에 없다`).toContain(`'${account.email}'`);
+        expect(SEED_SQL, `${account.name} 의 이름이 시드와 다르다`).toContain(`'${account.name}'`);
       }
     }
   });
@@ -47,7 +55,9 @@ describe("데모 계정 안내", () => {
   it("시드가 만든 계정이 안내에 다 있다", () => {
     // 시드의 `values` 줄에서 이메일을 걷는다. 안내에만 없는 계정이 생기면
     // **로그인 화면에 안 실려서** 세션이 겹치는 문제가 그대로 남는다.
-    const seeded = [...SEED.matchAll(/\('([a-z0-9]+@example\.com)',/g)].map((match) => match[1]);
+    // **좁게 잡으면 못 보고 지나간다**(독립 리뷰). `-`·`_`·대문자가 든 주소나 다른 도메인을
+    // 시드에 넣으면 이 대조가 그것을 아예 안 세고, 안내에 없는 계정이 조용히 생긴다.
+    const seeded = [...SEED_SQL.matchAll(/\('([^']+@[^']+)',\s*'/g)].map((match) => match[1]);
     const listed = DEMO_GROUPS.flatMap((group) => group.accounts.map((it) => it.email));
 
     expect(seeded.length).toBeGreaterThan(0);
@@ -55,6 +65,6 @@ describe("데모 계정 안내", () => {
   });
 
   it("비밀번호가 시드가 만든 것과 같다", () => {
-    expect(SEED).toContain(`crypt('${DEMO_PASSWORD}'`);
+    expect(SEED_SQL).toContain(`crypt('${DEMO_PASSWORD}'`);
   });
 });

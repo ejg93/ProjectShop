@@ -46,6 +46,7 @@ curl localhost:8080/actuator/health
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` |
 | `REDIS_PASSWORD` | 빈 값(인증 없음). 관리형 Redis 는 넣어야 붙는다 |
 | `SESSION_COOKIE_SECURE` | `false`. **https 로 올리면 `true` 가 필수다** — 안 켜면 세션 쿠키가 평문으로 흐른다. **프록시가 루프백 밖인데 꺼져 있으면 서버가 안 뜬다**(`Q44`) |
+| `SPRING_PROFILES_ACTIVE` | 없음. **보여 주려고 올린 배포에는 `demo` 를 준다**(`Q134`) — 기본 프로필은 `db/migration` 만 봐서 `V900+` 시드가 통째로 안 돌고, 그러면 연습용 계정 아홉(`Q130`)과 데모 재고(`Q128`)가 그 DB 에 안 생긴다. 로컬에서 손으로 볼 때는 `local` 이다 |
 | `TRUSTED_PROXIES` | 루프백. `X-Forwarded-For` 를 믿어 줄 상대의 정규식. **아무 주소나 물게 넓히면 서버가 안 뜬다**(`Q44`, `SecuritySettingsCheck`) |
 | `KAFKA_BOOTSTRAP` | `localhost:9092`. 브로커 주소. **켜져 있어도 발행기가 잠겨 있으면 안 쓰인다** |
 | `STORAGE_ENDPOINT` | `http://localhost:9000`. 파일 저장소 주소. **배포는 Cloudflare R2 다**(사용자 결정 2026-09-18) — S3 호환이라 코드는 같고 이 값과 키 셋만 갈린다 |

@@ -53,7 +53,7 @@ export const DEMO_GROUPS: DemoGroup[] = [
   },
   {
     title: "시스템관리자",
-    note: "모든 판매사의 자료를 보고 환불을 승인할 수 있습니다.",
+    note: "감사 기록에서 누가 언제 무엇을 했는지 보실 수 있습니다. 판매자 화면도 모든 판매사의 것이 보입니다.",
     accounts: [
       { email: "admin1@example.com", name: "시스템관리자1" },
       { email: "admin2@example.com", name: "시스템관리자2" },

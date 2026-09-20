@@ -270,9 +270,17 @@ function fieldErrorsOf(raw: { field?: unknown; message?: unknown }[] | undefined
  * 값까지 바꾸면 화면이 서버가 모르는 이름으로 동작을 부른다.
  */
 export function toCamel(value: Json): Json {
-  return mapKeys(value, (key) =>
-    key.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase()),
-  );
+  return mapKeys(value, camelCase);
+}
+
+/**
+ * 밑줄 표기를 낙타 표기로. <b>키 하나를 옮기는 규칙이 여기 하나다</b>.
+ *
+ * <p>{@link toCamel} 이 응답 전체에 쓰고 {@code lib/field-errors} 가 서버가 지목한 칸 이름에
+ * 쓴다 — 같은 정규식을 두 벌 두면 한쪽만 고치는 날이 온다(`Q129` 독립 리뷰가 그 사본을 짚었다).
+ */
+export function camelCase(key: string): string {
+  return key.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase());
 }
 
 function toSnake(value: Json): Json {

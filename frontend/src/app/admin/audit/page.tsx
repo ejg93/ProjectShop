@@ -45,6 +45,11 @@ type AuditLogPage = {
  * 여기까지 와도 응답이 안 온다 — 셸이 링크를 가리는 것은 <b>갈 곳이 있는 것처럼 보이지
  * 않게</b> 하는 것이지 방어가 아니다(`D20` 「권한 없는 것은 숨긴다」).
  *
+ * <p><b>{@code detail} 의 열쇠 이름은 원본이 아니다.</b> {@code api-session} 이 응답 전체에
+ * {@code toCamel} 을 걸고 그것이 중첩 객체까지 파고들어서, DB 에 {@code item_code} 로 적힌 것이
+ * 화면에서는 {@code itemCode} 로 보인다 — 감사 기록에는 <b>적힌 그대로</b>가 맞는데 지금은 아니다.
+ * 고치려면 임의 JSON 을 표기 변환에서 빼야 하고 그건 {@code api} 의 계약이라 `Q135` 로 세웠다.
+ *
  * <p>바깥 틀은 {@code admin/layout.tsx} 가 진다. 컨테이너를 여기서 다시 만들지 않는다.
  */
 export default async function AdminAuditPage({

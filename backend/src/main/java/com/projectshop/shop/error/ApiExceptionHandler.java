@@ -62,18 +62,26 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      *
      * <p><b>어느 필드가 왜 틀렸는지를 담는다.</b> "요청 형식이 맞지 않는다" 만 주면
      * 클라이언트가 어디를 고쳐야 할지 몰라서 사람이 눈으로 찾게 된다.
+     *
+     * <p><b>객체 전체에 걸린 것도 담는다</b>(`Q127` 독립 리뷰). 클래스 단위 제약은 칸 하나를
+     * 못 짚어서 {@code getGlobalErrors} 로 오는데, 그것만 빠뜨리면 <b>같은 검증 실패가
+     * 두 모양</b>이 된다 — 아래 형제 핸들러는 그것을 담고 있었다.
+     *
+     * <p>그 자리의 이름은 객체 이름이다. 화면은 요청 본문에 그런 칸이 없으므로 짚지 못하고,
+     * 폼 전체 오류로 그린다(`13h` 「모르는 칸을 지목하지 않는다」).
      */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException e, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
 
-        return validationFailed(
-                e.getBindingResult().getFieldErrors().stream()
-                        .map(error -> new FieldError(
-                                toSnakeCase(error.getField()), error.getDefaultMessage()))
-                        .toList(),
-                request);
+        List<FieldError> errors = new ArrayList<>();
+        e.getBindingResult().getFieldErrors().forEach(error -> errors.add(
+                new FieldError(toSnakeCase(error.getField()), error.getDefaultMessage())));
+        e.getBindingResult().getGlobalErrors().forEach(error -> errors.add(
+                new FieldError(toSnakeCase(error.getObjectName()), error.getDefaultMessage())));
+
+        return validationFailed(errors, request);
     }
 
     /**
