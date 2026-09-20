@@ -66,9 +66,12 @@ const LOGIN_REQUIRED = "/login?reason=login-required";
  * 주문 상세처럼 <b>존재를 숨기려고 일부러 404 로 답하는</b> 자리가 있다.
  *
  * @param path `/api` 로 시작하는 경로
+ * @param opaqueKeys <b>안을 안 들여다볼 칸의 이름</b>(`Q135`). {@link toCamel} 에 그대로 넘긴다 —
+ *     임의 JSON 을 드는 칸이 여기 온다. 빠뜨리면 그 칸의 열쇠가 <b>조용히</b> 낙타 표기로 바뀌고,
+ *     화면은 바뀐 줄 모른다.
  * @throws ApiError 401·403 말고 2xx 가 아닌 것. 404 는 부르는 화면이 잡는다
  */
-export async function apiSession<T>(path: string): Promise<T> {
+export async function apiSession<T>(path: string, opaqueKeys: readonly string[] = []): Promise<T> {
   const response = await carry(path);
 
   if (response.status === 401) {
@@ -84,7 +87,7 @@ export async function apiSession<T>(path: string): Promise<T> {
     throw await toApiError(response);
   }
 
-  return toCamel(await response.json()) as T;
+  return toCamel(await response.json(), opaqueKeys) as T;
 }
 
 /**

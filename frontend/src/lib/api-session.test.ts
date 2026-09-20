@@ -87,6 +87,29 @@ describe("apiSession", () => {
     expect(forbidden).not.toHaveBeenCalled();
   });
 
+  it("안 들여다볼 칸을 일러 주면 그 열쇠가 그대로 온다", async () => {
+    // 감사 기록이 그 자리다. DB 에 적힌 글자가 곧 기록의 내용이라 바꾸면
+    // 적힌 적 없는 것을 적혔다고 말하게 된다(`Q135`·`D16`).
+    answer(200, { audit_log_id: 1, detail: { item_code: "A-1" } });
+
+    const body = await apiSession<{ auditLogId: number; detail: Record<string, unknown> }>(
+      "/api/audit-logs",
+      ["detail"],
+    );
+
+    expect(body.auditLogId).toBe(1);
+    expect(Object.keys(body.detail)).toEqual(["item_code"]);
+  });
+
+  it("안 일러 주면 중첩까지 바뀐다", async () => {
+    // 기본값이 이것이라야 나머지 응답 열일곱 개가 지금 모양 그대로 돈다.
+    answer(200, { audit_log_id: 1, detail: { item_code: "A-1" } });
+
+    const body = await apiSession<{ detail: Record<string, unknown> }>("/api/audit-logs");
+
+    expect(Object.keys(body.detail)).toEqual(["itemCode"]);
+  });
+
   it("500 도 부르는 화면이 아니라 오류 경계로 간다", async () => {
     answer(500, { type: "urn:problem-type:internal", detail: "터졌다" });
 
