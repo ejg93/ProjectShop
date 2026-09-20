@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import javax.imageio.ImageIO;
@@ -143,6 +144,57 @@ public class ProductImageService {
                 .single();
 
         return new Uploaded(id, objectKey, thumbnailKey);
+    }
+
+
+    /**
+     * 판매자가 자기 상품의 사진을 훑는다(`Q139`).
+     *
+     * <p><b>공개 상세와 주는 것이 다르다.</b> 저쪽은 서명 URL 목록만 주는데(`ProductQuery.findImageUrls`)
+     * 그것으로는 <b>지울 수가 없다</b> — 지우는 입구가 {@code productImageId} 를 받고, 그 번호를
+     * 판매자에게 내주는 자리가 어디에도 없었다. 그래서 사진을 올리는 화면을 만들 수가 없었다.
+     *
+     * <p><b>판정은 {@link #delete} 와 같은 규칙이다</b> — `product:update` 를 그 셀러 범위로 가졌나.
+     * 사진을 보는 것과 지우는 것을 다른 권한으로 가르면, 보이는데 못 지우는 줄이 화면에 생긴다.
+     *
+     * <p><b>내린 상품은 안 준다.</b> {@link #sellerIdOf} 를 그대로 쓰므로 {@code deleted_at} 이
+     * 찬 상품은 {@code PRODUCT_NOT_FOUND} 다 — {@code upload} 와 {@code ProductQuery.findForSeller}
+     * 가 이미 그 규칙이고, 여기만 열어 두면 <b>올리지도 못하는 상품의 사진이 목록에만 뜬다.</b>
+     *
+     * <p><b>처음엔 열어 뒀다가 독립 리뷰가 짚어서 닫았다</b>(마무리 39차) — 「내린 상품의 사진을
+     * 정리한다」는 이유를 댔는데 <b>거기 닿는 화면 경로가 없었다.</b> 정리할 자리가 생기면
+     * 그때 세 자리를 같이 연다.
+     */
+    @Transactional(readOnly = true)
+    public List<Image> find(long actorUserId, long productId) {
+        long sellerId = sellerIdOf(productId);
+
+        if (!evaluator.decide(actorUserId, "product", "update", Target.ofSeller(sellerId)).allowed()) {
+            throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
+        }
+
+        return jdbc.sql("""
+                        select product_image_id, thumbnail_key, original_name, sort_no
+                          from product_image
+                         where product_id = :id
+                         order by sort_no, product_image_id
+                        """)
+                .param("id", productId)
+                .query((rs, n) -> new Image(
+                        rs.getLong("product_image_id"),
+                        storage.presignedUrl(rs.getString("thumbnail_key")),
+                        rs.getString("original_name"),
+                        rs.getInt("sort_no")))
+                .list();
+    }
+
+    /**
+     * 목록 한 줄. <b>원본이 아니라 썸네일 URL 이다</b> — 관리 화면은 격자로 훑는 자리라
+     * 원본을 열 장 내려받을 이유가 없다({@code media-rules.md} 「썸네일 — 업로드 때 한 장」).
+     *
+     * @param thumbnailUrl 만료 5분 서명 URL. 버킷은 비공개다
+     */
+    public record Image(long productImageId, String thumbnailUrl, String originalName, int sortNo) {
     }
 
     /**

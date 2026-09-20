@@ -1458,6 +1458,25 @@ Railway 응답이 `NO_INSTALLATION` 이었고 **토글을 켤 수조차 없는 �
 **Vercel 연동을 건드리지 않는다.** 같은 Integrations 화면에 있는데, 하는 일이
 **Railway 변수를 Vercel 프로젝트로 복사**하는 것이다. `POSTGRES_PASSWORD`·`REDIS_PASSWORD` 가
 관련 없는 곳으로 나간다. 우리는 Vercel 에 아무것도 안 올린다.
+
+### `curl` 이 `/tmp` 경로를 못 읽는다
+
+Git Bash 에서 `curl -F "file=@/tmp/x.png"` 는 **`curl: (26) Failed to open/read local data`** 다.
+이 기계의 `curl` 은 Windows 실행파일이라 Git Bash 가 만든 `/tmp` 를 모른다.
+
+**스크래치패드의 Windows 경로를 쓴다** — `C:/Users/.../scratchpad/x.png`.
+`-o /tmp/out.json` 쪽은 셸이 여는 것이라 그대로 된다. **읽는 쪽만 걸린다.**
+
+### 손으로 찍은 PNG 로 업로드를 시험하지 않는다
+
+바이트를 손으로 조립한 PNG 는 CRC 나 zlib 스트림이 틀리기 쉽고, 그러면 업로드가 **500** 이다
+(`javax.imageio.IIOException` → `ZipException: invalid distance too far back`).
+저장소 설정이 틀린 것처럼 보이지만 **이미지가 깨진 것**이다.
+
+**`zlib` 로 제대로 만든다** — `deflateSync` 한 IDAT 와 계산한 CRC. 2026-09-20 에 실제로 한 번 헛짚었다.
+
+**원인은 배포 로그에서 추적 ID 로 찾았다.** 응답의 `trace_id` 를 그대로
+`get-logs` 의 필터에 넣으면 그 요청의 줄만 나온다 — `D16` 이 세운 고리가 이 자리에서 값을 했다.
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고

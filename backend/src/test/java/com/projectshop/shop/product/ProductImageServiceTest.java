@@ -228,6 +228,82 @@ class ProductImageServiceTest extends StorageTestBase {
                 .hasMessageContaining("Q102");
     }
 
+    /**
+     * 목록을 내주는 자리(`Q139`).
+     *
+     * <p><b>왜 `Q95` 의 삭제만으로는 부족했나</b> — 지우는 입구가 {@code productImageId} 를 받는데
+     * 그 번호를 판매자에게 내주는 자리가 없었다. 공개 상세는 서명 URL 목록만 준다.
+     * 그래서 <b>올리기만 하고 지울 수 없는 화면</b>밖에 못 만들었다.
+     */
+    @Test
+    @DisplayName("올린 사진을 번호와 함께 돌려준다")
+    void 올린_사진을_번호와_함께_돌려준다() {
+        ProductImageService.Uploaded first = service.upload(ownerA, productA, jpeg("a.jpg", 100, 100));
+        ProductImageService.Uploaded second = service.upload(ownerA, productA, jpeg("b.jpg", 100, 100));
+
+        List<ProductImageService.Image> images = service.find(ownerA, productA);
+
+        // 번호가 있어야 지울 수 있다. 이것이 이 입구의 존재 이유다.
+        assertThat(images).extracting(ProductImageService.Image::productImageId)
+                .containsExactly(first.productImageId(), second.productImageId());
+        // 올린 순서가 곧 화면 순서다(`sort_no`).
+        assertThat(images).extracting(ProductImageService.Image::sortNo).containsExactly(0, 1);
+        assertThat(images).extracting(ProductImageService.Image::originalName)
+                .containsExactly("a.jpg", "b.jpg");
+        // 원본이 아니라 썸네일이다 — 격자로 훑는 자리라 원본을 열 장 내려받을 이유가 없다.
+        assertThat(images.getFirst().thumbnailUrl()).contains("/thumbnail.jpg");
+    }
+
+    @Test
+    @DisplayName("사진이 없으면 빈 목록이다")
+    void 사진이_없으면_빈_목록이다() {
+        // `null` 을 안 쓴다. 「없다」를 빈 목록이 말하고 `null` 은 「모른다」로도 읽힌다.
+        // 출처는 `D5` 다 — `api-guidelines.md` 「빈 목록은 `[]` 다」(`D23` 을 인용하던 것을 PR #63 리뷰가 잡았다).
+        assertThat(service.find(ownerA, productA)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("남의 상품 사진은 못 본다")
+    void 남의_상품_사진은_못_본다() {
+        service.upload(ownerA, productA, jpeg("a.jpg", 100, 100));
+
+        // 보는 권한과 지우는 권한을 가르지 않는다 — 가르면 보이는데 못 지우는 줄이 화면에 생긴다.
+        assertThatThrownBy(() -> service.find(ownerB, productA))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_FORBIDDEN);
+    }
+
+    /**
+     * <b>내린 상품은 안 준다</b>(마무리 39차 독립 리뷰).
+     *
+     * <p>처음엔 「내린 상품의 사진을 정리한다」며 열어 뒀는데 <b>거기 닿는 화면 경로가 없었다</b> —
+     * 셀러 목록이 내린 상품을 거르고, {@code upload} 도 404 다. 열어 두면 <b>올리지도 못하는
+     * 상품의 사진이 목록에만 뜨는</b> 자리가 생긴다.
+     *
+     * <p><b>이 시험이 그 결정을 든다.</b> 누가 중복이라며 {@code sellerIdOf} 를 안 쓰는 질의로
+     * 되돌리면 여기가 빨개진다 — 그 전에는 셋 다 초록이라 조용히 뒤집혔다.
+     */
+    @Test
+    @DisplayName("내린 상품의 사진은 안 준다")
+    void 내린_상품의_사진은_안_준다() {
+        service.upload(ownerA, productA, jpeg("a.jpg", 100, 100));
+        productService.delete(ownerA, productA);
+
+        assertThatThrownBy(() -> service.find(ownerA, productA))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("없는 상품이면 못 찾았다고 한다")
+    void 없는_상품이면_못_찾았다고_한다() {
+        // 권한 오류가 아니라 없음이다. 남의 상품인지 없는 상품인지를 여기서 안 가른다 —
+        // 가르면 번호를 훑어서 남의 상품 존재를 알아낼 수 있다.
+        assertThatThrownBy(() -> service.find(ownerA, 999_999L))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_NOT_FOUND);
+    }
+
     private static ProductImageService.Incoming jpeg(String name, int width, int height) {
         return new ProductImageService.Incoming(name, ProductImageFixture.jpegBytes(width, height));
     }
