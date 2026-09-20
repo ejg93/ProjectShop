@@ -137,7 +137,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("product.SkuStatus", List.of("sku_status_check"));
         pairs.put("product.ImageContentType", List.of("product_image_content_type_check"));
         pairs.put("product.CopyrightDecision", List.of("copyright_report_decision_check"));
-        pairs.put("product.WithdrawalRestrictionReason", List.of("product_withdrawal_reason_check"));
+        pairs.put("support.WithdrawalRestrictionReason", List.of("product_withdrawal_reason_check"));
         pairs.put("product.StockReason", List.of("sku_stock_movement_reason_check"));
         pairs.put("order.OrderTransitions$Payment", List.of("shop_order_status_check"));
         pairs.put("order.OrderTransitions$Shipment", List.of("seller_order_status_check"));
@@ -152,6 +152,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("payment.PaymentStatus", List.of("payment_status_check"));
         pairs.put("payment.RefundReason", List.of("refund_reason_code_check"));
         pairs.put("payment.RefundStatus", List.of("refund_status_check"));
+        pairs.put("payment.RefundApprover", List.of("refund_approved_by_type_check"));
         pairs.put("inquiry.InquiryKind", List.of("inquiry_kind_check"));
         pairs.put("inquiry.InquiryStatus", List.of("inquiry_status_check"));
         pairs.put("inquiry.BlockReason", List.of("inquiry_blocked_reason_check"));

@@ -52,22 +52,8 @@ public class RefundService {
     private static final int DUE_BUSINESS_DAYS = 3;
 
 
-    /**
-     * {@code refund.approved_by_type} 쪽이 쓰는 「시스템」.
-     *
-     * <p><b>요청자({@code requested_by_type})는 이것을 안 쓴다</b>(`43a-17`) —
-     * 그쪽은 {@link ActorType} 이 값을 댄다. 승인자는 목록이 {@code admin}·{@code system} 둘이라
-     * <b>요청자와 값 집합이 달라</b> 같은 타입으로 못 묶는다(`V51`).
-     */
-    static final String BY_SYSTEM = "system";
-
-    /**
-     * {@code refund.approved_by_type} 에 들어가는 값(`V51`).
-     *
-     * <p><b>요청자 목록보다 좁다.</b> 승인·반려는 관리자와 시스템만 한다 —
-     * {@code V24} 의 do 블록이 {@code payment:refund} 를 관리자 밖으로 못 나가게 지킨다(`D2` R5).
-     */
-    static final String BY_ADMIN = "admin";
+    // 승인 주체의 값 목록은 `RefundApprover` 가 든다(`Q124`). 여기 상수로 두면 사본이 둘이 되고
+    // 그중 하나만 회계를 받는다 — 요청자(`ActorType`)와 값 집합이 다른 이유는 그 열거형에 적었다.
 
     /**
      * 사유마다 묶음이 어느 상태여야 하나.
@@ -265,7 +251,7 @@ public class RefundService {
         Pending pending = findPending(userId, refundNumber);
         requireNotSelf(userId, pending);
 
-        return settle(refundNumber, pending, userId, BY_ADMIN, blankToNull(reason));
+        return settle(refundNumber, pending, userId, RefundApprover.ADMIN, blankToNull(reason));
     }
 
     /**
@@ -289,7 +275,7 @@ public class RefundService {
         Pending pending = loadPending(refundNumber);
         requireRequested(pending);
 
-        return settle(refundNumber, pending, null, BY_SYSTEM, null);
+        return settle(refundNumber, pending, null, RefundApprover.SYSTEM, null);
     }
 
     /**
@@ -299,10 +285,10 @@ public class RefundService {
      * 우리가 못 정한다({@link #delayInterest} 가 한 곳인 것과 같은 이유).
      *
      * @param approverUserId 시스템이면 {@code null}. {@code refund_approved_by_user_check} 가 짝을 강제한다
-     * @param approverType   {@link #BY_ADMIN} 또는 {@link #BY_SYSTEM}
+     * @param approverType   승인한 주체. 값 목록은 {@link RefundApprover} 가 든다
      */
     private Refund settle(String refundNumber, Pending pending, Long approverUserId,
-            String approverType, String decisionReason) {
+            RefundApprover approverType, String decisionReason) {
         // 시각을 한 번 잡아서 이자 계산과 `decided_at` 이 같은 순간을 쓰게 한다.
         // 각자 `now()` 를 부르면 그 사이의 간격만큼 이자와 기록이 어긋난다.
         OffsetDateTime decidedAt = OffsetDateTime.now();
@@ -327,7 +313,7 @@ public class RefundService {
                 .param("approved", RefundStatus.APPROVED.code())
                 .param("decidedAt", decidedAt)
                 .param("delayInterest", delayInterest)
-                .param("approverType", approverType)
+                .param("approverType", approverType.code())
                 .param("userId", approverUserId)
                 .param("gatewayNumber", result.refundNumber())
                 .param("number", refundNumber)
@@ -368,7 +354,7 @@ public class RefundService {
                          where refund_number = :number and status = :requested
                         """)
                 .param("rejected", RefundStatus.REJECTED.code())
-                .param("approverType", BY_ADMIN)
+                .param("approverType", RefundApprover.ADMIN.code())
                 .param("userId", userId)
                 .param("number", refundNumber)
                 .param("requested", RefundStatus.REQUESTED.code())
