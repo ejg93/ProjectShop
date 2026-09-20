@@ -1,4 +1,4 @@
-package com.projectshop.shop.product;
+package com.projectshop.shop.support;
 
 import java.util.Arrays;
 
@@ -16,7 +16,7 @@ import java.util.Arrays;
  * 강제 지점이 이미 2위(DB 제약)에 있어서 급하지 않지만, 쓰는 쪽도 이 타입을 지나게 하는 것이
  * 맞다 - 상품 등록 화면(`13f`)이 이 목록을 골라 보내게 되면 그때 같이 옮긴다.
  */
-enum WithdrawalRestrictionReason {
+public enum WithdrawalRestrictionReason {
 
     /** 복제가 가능한 음반·영상·소프트웨어의 포장을 훼손한 경우 */
     COPYABLE_MEDIA,
@@ -28,7 +28,7 @@ enum WithdrawalRestrictionReason {
     MADE_TO_ORDER;
 
     /** 저장값. DB 는 소문자고 응답은 대문자다(`D5` 「형식」) */
-    String code() {
+    public String code() {
         return name().toLowerCase();
     }
 
@@ -38,7 +38,7 @@ enum WithdrawalRestrictionReason {
      * <p><b>모르는 값이면 터진다.</b> 조용히 통과시키면 화면이 처음 보는 값을 받아
      * 아무 안내도 못 그리는데, 그 자리는 법이 고지를 요구하는 자리다.
      */
-    static WithdrawalRestrictionReason of(String code) {
+    public static WithdrawalRestrictionReason of(String code) {
         if (code == null) {
             return null;
         }

@@ -1,6 +1,7 @@
 package com.projectshop.shop.product;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import com.projectshop.shop.support.WithdrawalRestrictionReason;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

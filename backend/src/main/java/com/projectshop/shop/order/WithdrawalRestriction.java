@@ -1,51 +1,47 @@
 package com.projectshop.shop.order;
 
+import com.projectshop.shop.support.WithdrawalRestrictionReason;
+
 /**
- * 청약철회 제한이 이 주문 항목에 실제로 성립하나(`D2` R4, 전자상거래법 제17조제2항).
+ * 주문 항목에 박을 청약철회 제한 사유를 고른다(`Q125`, 전자상거래법 제17조제2항).
  *
- * <p><b>계산이라 서비스 밖으로 뺐다</b>(`Q68`). 값이 입력만으로 정해지고 DB·시계를 안 본다 —
- * 그런 것이 서비스 안에 있으면 <b>그 규칙만 따로 시험할 수가 없다</b>(`D15`).
+ * <p><b>상품이 든 사유가 그대로 가지 않는다.</b> 주문 시점에 성립하는 것만 박고 나머지는 비운다 —
+ * {@code order_item_withdrawal_reason_check} 가 그 목록을 닫아 두고, 왜 좁은지는 {@code V32} 가 적었다.
  *
- * <p><b>둘이 다르다.</b> 복제 가능한 매체는 상품 속성만으로 제한이 서고,
- * 주문 제작은 <b>소비자가 동의해야</b> 선다 — 제17조제2항 단서가 「미리 알리고 동의를 받은 경우」로
- * 그 둘을 갈랐다. 동의가 없으면 제한이 아예 없는 것이고 {@code null} 이 그 뜻이다.
+ * <h2>값이 문자열이 아니라 열거형이다</h2>
+ *
+ * <p>`점검 T` 전에는 여기가 {@code String} 상수 둘을 들고 있었다 — DB 는 값을 닫았는데
+ * <b>타입이 안 닫아서</b> 틀린 값이 실행해 봐야 걸렸다(`D23` 축 2: 타입 1위).
+ *
+ * <p>쓰는 열거형은 {@code support} 에 산다. 상품이 정하고 주문이 쓰는 값이라
+ * <b>소비자가 둘</b>이고, {@code ActorType} 이 같은 이유로 그리 옮겼다(`43a-17`, 사용자 결정 2026-09-20).
  */
 final class WithdrawalRestriction {
-
-    /** 복제 가능한 매체. 포장을 뜯으면 되돌릴 수 없어 동의가 필요 없다 */
-    static final String DIGITAL_CONTENT = "digital_content";
-    /** 주문 제작. <b>동의가 성립 요건이다</b> */
-    static final String MADE_TO_ORDER = "made_to_order";
 
     private WithdrawalRestriction() {
     }
 
     /**
-     * 이 거래에서 <b>실제로 성립한</b> 청약철회 제한(`Q5`, `D2` R4).
+     * 주문 시점에 성립하는 제한만 돌려준다. 성립 안 하면 {@code null} 이고, 그것이 「제한 없음」이다.
      *
-     * <p>상품에 붙은 것은 「이 사유에 해당할 수 있다」는 표시고, 제한이 서려면
-     * <b>사유마다 다른 조건</b>이 차야 한다(전자상거래법 제17조제2항).
+     * <p>{@code DIGITAL_CONTENT} 는 그대로 선다 — 배송완료에서만 반품이 열려서 공급이 전제고,
+     * 주문 시점에 성립한 것으로 본다({@code V32}).
      *
-     * <ul>
-     *   <li>{@code digital_content}(5호) — 제공이 개시돼야 한다. 반품 접수가 배송완료에서만
-     *       열려서({@code OrderStatusPolicy}) 공급이 전제고, 주문 시점에 성립한 것으로 본다</li>
-     *   <li>{@code made_to_order}(시행령 제21조) — <b>거래마다 별도 고지와 소비자의 동의</b>가
-     *       요건이다. 안 받았으면 제한이 없는 주문이고, 나중에 무를 수 있다</li>
-     *   <li>{@code copyable_media}(4호) — <b>여기서는 절대 성립하지 않는다.</b> 포장 훼손은
-     *       물건이 돌아와야 아는 사실이고 제17조제5항이 그 입증을 우리에게 지웠다.
-     *       판단은 반품 검수 축(43·44)이 한다</li>
-     * </ul>
+     * <p>{@code MADE_TO_ORDER} 는 <b>동의를 받았을 때만</b> 선다. 시행령 제21조가 요구한 동의라
+     * 안 받았으면 제한이 없는 주문이다.
      *
-     * @param reason           상품에 박힌 제한 사유. 없으면 {@code null}
-     * @param restrictionAgreed 소비자가 그 제한에 동의했나
+     * <p>{@code COPYABLE_MEDIA} 는 여기서 절대 안 선다 — 포장 훼손은 물건이 돌아와야 아는 사실이고
+     * 그 입증은 우리 몫이다(제17조제5항). 그래서 목록에도 없다.
      */
-    static String agreed(String reason, boolean restrictionAgreed) {
+    static WithdrawalRestrictionReason agreed(
+            WithdrawalRestrictionReason reason, boolean restrictionAgreed) {
         if (reason == null) {
             return null;
         }
-        if (DIGITAL_CONTENT.equals(reason)) {
-            return reason;
-        }
-        return MADE_TO_ORDER.equals(reason) && restrictionAgreed ? reason : null;
+        return switch (reason) {
+            case DIGITAL_CONTENT -> reason;
+            case MADE_TO_ORDER -> restrictionAgreed ? reason : null;
+            case COPYABLE_MEDIA -> null;
+        };
     }
 }
