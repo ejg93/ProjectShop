@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 
 import { Field } from "@/components/field";
 import { ApiError, api } from "@/lib/api";
+import { firstBadField, placeErrors } from "@/lib/field-errors";
 import { priceText } from "@/lib/format";
 
 /** 셀러 묶음 하나의 금액. 화면이 이미 계산해 둔 것을 폼이 그대로 쓴다 */
@@ -13,6 +14,19 @@ export type OrderLine = { sellerId: number; itemsAmount: number; shippingFee: nu
 /** 승인되는 모의 카드. 뒷 4자리가 결과를 가른다(`MockPaymentGateway`) */
 const SAMPLE_APPROVED = "4242-4242-4242-4242";
 const SAMPLE_DECLINED = "4242-4242-4242-0000";
+
+/**
+ * 이 폼이 가진 칸 이름(`Q129`). <b>서버가 지목한 칸을 여기 있는 것에만 붙인다</b> —
+ * 왜 목록이 필요한지는 {@code lib/field-errors} 가 적었다.
+ *
+ * <p>순서가 화면 순서와 같다. 틀린 칸이 여럿일 때 <b>위에 있는 칸으로</b> 초점을 보낸다.
+ */
+const FORM_FIELDS = [
+  "receiverName", "receiverPhone", "postalCode", "address1", "address2", "deliveryMemo",
+  "cardNumber",
+] as const;
+
+type FormField = (typeof FORM_FIELDS)[number];
 
 /**
  * 배송지를 적고 결제한다.
@@ -47,6 +61,15 @@ export function CheckoutForm({
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null);
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+
+  /**
+   * 어느 칸이 왜 틀렸나(`Q129`). 서버가 준 것을 이 폼의 칸 이름으로 옮겨 담는다.
+   *
+   * <p><b>칸을 못 찾은 것은 {@link #unplaced} 로 간다.</b> 버리면 사용자는
+   * 「다시 확인해 주세요」만 보고 무엇을 확인할지 모른다.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FormField, string>>>({});
+  const [unplaced, setUnplaced] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
 
   // 주문제작 상품의 청약철회 제한에 동의했나. 시행령 제21조가 거래마다 요구하는 것이라
@@ -63,6 +86,8 @@ export function CheckoutForm({
 
     setSending(true);
     setFailure(null);
+    setFieldErrors({});
+    setUnplaced([]);
 
     try {
       const orderNumber = placedOrderNumber ?? (await placeOrder(form));
@@ -70,7 +95,17 @@ export function CheckoutForm({
 
       setResult(await pay(orderNumber, text(form, "cardNumber")));
     } catch (error) {
+      const placed = placeErrors(error, FORM_FIELDS);
+      setFieldErrors(placed.byField);
+      setUnplaced(placed.rest);
       setFailure(messageFor(error));
+
+      // 첫 칸으로 보낸다. 안 보내면 칸이 열인 폼에서 **어디가 빨간지 찾아 내려가야 한다**
+      // (WCAG 3.3.1 은 알리라고만 하지만, 알리고 데려다주는 것이 이 폼에서 값이 싸다).
+      const first = firstBadField(placed, FORM_FIELDS);
+      if (first) {
+        document.getElementById(first)?.focus();
+      }
     } finally {
       setSending(false);
     }
@@ -117,9 +152,11 @@ export function CheckoutForm({
       <fieldset className="grid gap-4">
         <legend className="mb-2 text-sm font-semibold">배송지</legend>
 
-        <Field name="receiverName" type="text" label="받는 분" autoComplete="name" maxLength={50} />
+        <Field name="receiverName" type="text" label="받는 분" autoComplete="name" maxLength={50}
+                error={fieldErrors.receiverName} />
         <Field
           name="receiverPhone"
+          error={fieldErrors.receiverPhone}
           type="text"
           label="연락처"
           autoComplete="tel"
@@ -128,6 +165,7 @@ export function CheckoutForm({
         />
         <Field
           name="postalCode"
+          error={fieldErrors.postalCode}
           type="text"
           label="우편번호"
           autoComplete="postal-code"
@@ -136,6 +174,7 @@ export function CheckoutForm({
         />
         <Field
           name="address1"
+          error={fieldErrors.address1}
           type="text"
           label="주소"
           autoComplete="address-line1"
@@ -143,6 +182,7 @@ export function CheckoutForm({
         />
         <Field
           name="address2"
+          error={fieldErrors.address2}
           type="text"
           label="상세 주소"
           autoComplete="address-line2"
@@ -151,6 +191,7 @@ export function CheckoutForm({
         />
         <Field
           name="deliveryMemo"
+          error={fieldErrors.deliveryMemo}
           type="text"
           label="배송 요청사항"
           autoComplete="off"
@@ -174,6 +215,7 @@ export function CheckoutForm({
         */}
         <Field
           name="cardNumber"
+          error={fieldErrors.cardNumber}
           type="text"
           label="카드번호"
           autoComplete="off"
@@ -235,10 +277,18 @@ export function CheckoutForm({
         </div>
       ) : null}
 
-      {/* 폼 전체 오류는 제출 버튼 위, 입력칸 아래다(`D20`) */}
-      <p role="alert" className="text-sm text-danger-text">
-        {failure}
-      </p>
+      {/*
+        폼 전체 오류는 제출 버튼 위, 입력칸 아래다(`D20`).
+
+        **칸을 못 찾은 사유를 여기 같이 붙인다**(`Q129`). 서버가 지목한 것 중 화면에 칸이
+        없는 것(`cart_item_ids` 같은 것)이라, 버리면 「다시 확인해 주세요」만 남는다.
+      */}
+      <div role="alert" className="grid gap-1 text-sm text-danger-text">
+        <p>{failure}</p>
+        {unplaced.map((message) => (
+          <p key={message}>{message}</p>
+        ))}
+      </div>
 
       <button
         type="submit"

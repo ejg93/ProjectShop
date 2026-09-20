@@ -33,6 +33,15 @@
  */
 const ERROR_TYPE_PREFIX = "tag:projectshop.example,2026:error:";
 
+/**
+ * 서버가 지목한 칸 하나(`Q129`). {@code errors} 배열의 원소다.
+ *
+ * <p><b>{@code field} 는 요청에 쓴 이름이다</b> — 본문 칸이면 snake_case 고 중첩이면
+ * 점 표기({@code shipping.postal_code})이며, 헤더면 헤더 이름 그대로다(`D5`).
+ * 화면이 이 이름으로 자기 칸을 찾으므로 <b>여기서 표기를 바꾸지 않는다.</b>
+ */
+export type FieldError = { field: string; message: string };
+
 export class ApiError extends Error {
   /**
    * 접두어를 뗀 오류 이름. <b>화면은 이것으로 분기한다</b>(`D5`·`D20`).
@@ -47,6 +56,13 @@ export class ApiError extends Error {
     readonly type: string,
     readonly detail: string,
     readonly traceId?: string,
+    /**
+     * 어느 칸이 왜 틀렸나. <b>검증 실패가 아니면 빈 배열이다</b>(`Q129`).
+     *
+     * <p>선택 값으로 두지 않는다 — 부르는 쪽마다 {@code ?? []} 를 붙이게 되고,
+     * 한 화면이 그것을 빠뜨리는 날 그 화면만 터진다.
+     */
+    readonly errors: FieldError[] = [],
   ) {
     super(detail);
     this.name = "ApiError";
@@ -212,6 +228,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
       type?: string;
       detail?: string;
       trace_id?: string;
+      errors?: { field?: unknown; message?: unknown }[];
     };
 
     return new ApiError(
@@ -219,6 +236,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
       body.type ?? "about:blank",
       body.detail ?? "요청을 처리하지 못했습니다.",
       body.trace_id,
+      fieldErrorsOf(body.errors),
     );
   } catch {
     return new ApiError(
@@ -227,6 +245,22 @@ export async function toApiError(response: Response): Promise<ApiError> {
       `서버가 ${response.status} 로 답했습니다.`,
     );
   }
+}
+
+/**
+ * {@code errors} 를 걸러서 담는다.
+ *
+ * <p><b>모양을 여기서 한 번만 믿는다.</b> 이 값은 서버가 보낸 JSON 이라 타입 선언이
+ * 보장해 주지 않는다 — 걸러 두지 않으면 {@code undefined} 인 {@code field} 가
+ * 화면까지 가서 <b>아무 칸에도 안 붙는 문구</b>가 된다.
+ */
+function fieldErrorsOf(raw: { field?: unknown; message?: unknown }[] | undefined): FieldError[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .filter((entry) => typeof entry?.field === "string" && typeof entry?.message === "string")
+    .map((entry) => ({ field: entry.field as string, message: entry.message as string }));
 }
 
 /**

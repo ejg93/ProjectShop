@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Field } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { ApiError, api } from "@/lib/api";
+import { firstBadField, placeErrors } from "@/lib/field-errors";
 
 /** 동의받을 항목 하나(`13d-1`). 본문은 여기 없고 서버가 그려서 넘긴다 */
 export type ConsentItem = {
@@ -35,6 +36,17 @@ const PASSWORD_HINT = "15자 이상 64자 이하, 영문·숫자·기호를 쓸 
  * @param items 동의받을 항목. <b>순서를 서버가 정했다</b>(`13d-1`) — 필수 먼저, 종속은 부모 뒤
  * @param bodies 항목 코드 → 서버가 그린 본문. 없는 항목은 키가 없다
  */
+/**
+ * 이 폼이 가진 칸 이름(`Q129`). 순서가 화면 순서와 같아서, 틀린 칸이 여럿이면
+ * <b>위에 있는 칸으로</b> 초점이 간다. 왜 목록이 필요한지는 {@code lib/field-errors} 가 적었다.
+ *
+ * <p>동의 항목은 여기 없다. 그쪽은 서버가 칸 이름이 아니라 <b>항목 코드</b>로 말하고,
+ * 화면도 입력칸이 아니라 체크박스 줄이라 붙일 자리가 다르다.
+ */
+const FORM_FIELDS = ["email", "password", "displayName"] as const;
+
+type FormField = (typeof FORM_FIELDS)[number];
+
 export function SignupForm({
   items,
   bodies,
@@ -44,6 +56,9 @@ export function SignupForm({
 }) {
   const [granted, setGranted] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+
+  /** 어느 칸이 왜 틀렸나(`Q129`). 서버가 지목한 것을 이 폼의 칸에 붙인다 */
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FormField, string>>>({});
 
   /**
    * 부모를 끄면 종속도 같이 꺼진다(`D2` R14).
@@ -68,6 +83,7 @@ export function SignupForm({
   // **제출 중인지를 여기서 안 든다**(`Q20-1`). `SubmitButton` 이 `useFormStatus` 로 읽는다.
   async function submit(form: FormData) {
     setError(null);
+    setFieldErrors({});
 
     try {
       await api("/api/auth/signup", {
@@ -88,22 +104,33 @@ export function SignupForm({
       // 로그인 화면이 그 값을 못 알아보고 가입한 사람에게 아무 말도 안 했다.
       window.location.replace("/login?reason=signed-up");
     } catch (thrown) {
+      const placed = placeErrors(thrown, FORM_FIELDS);
+      setFieldErrors(placed.byField);
       setError(messageOf(thrown));
+
+      // 첫 칸으로 보낸다. 안 보내면 어디가 빨간지 찾아 내려가야 한다(WCAG 3.3.1).
+      const first = firstBadField(placed, FORM_FIELDS);
+      if (first) {
+        document.getElementById(first)?.focus();
+      }
     }
   }
 
   return (
     <form action={submit} className="grid gap-8">
       <div className="grid gap-5">
-        <Field name="email" type="email" label="이메일" autoComplete="email" maxLength={254} />
+        <Field name="email" type="email" label="이메일" autoComplete="email" maxLength={254}
+                error={fieldErrors.email} />
         <Field
           name="password"
+          error={fieldErrors.password}
           type="password"
           label="비밀번호"
           autoComplete="new-password"
           hint={PASSWORD_HINT}
         />
-        <Field name="displayName" type="text" label="이름" autoComplete="name" maxLength={50} />
+        <Field name="displayName" type="text" label="이름" autoComplete="name" maxLength={50}
+                error={fieldErrors.displayName} />
       </div>
 
       <fieldset className="grid gap-4">
