@@ -14,7 +14,7 @@
 | record·DTO·조회 결과 | 「값」·「빈 값에 뜻을 싣지 않는다」 | 「Java › DB 컬럼과 Java 필드」·「식별자 필드는 어디까지 컬럼명을 따르나」 | |
 | SQL(`JdbcClient`) | 「SQL」 | 「SQL」 | |
 | 마이그레이션 `V*.sql` | 「마이그레이션」·「열거값을 어디에 두나」·「법·규정에서 온 것」 | 「기준에서 벗어난 것」·「SQL」 | 시드가 `V900+` 라 **빈 DB 로 기동 확인**(`/verify`) |
-| 열거형 | 「열거값을 어디에 두나」 | | `EnumConstraintTest` 의 `PAIRS`·`GENERATED`·`EXEMPT` 에 행을 더하는 것까지가 한 청크 |
+| 열거형 | 「열거값을 어디에 두나」 | | `EnumConstraintTest` 의 `PAIRS`·`GENERATED`·`EXEMPT` 에 행을 더하는 것까지가 한 청크. **응답 훑기는 안 적어도 된다**(`Q126`) — `MainEnums` 가 `main` 을 걷어서 `code()` 가 있는 것을 다 센다. 응답에 실려도 되는 값이면 그때만 `ResponseEnumCaseTest.NOT_STORED` 에 이유와 함께 적는다 |
 | 상수·설정값 | 「설정과 상수」. 법에서 온 값은 옆에 `D2` 의 R번호 | | |
 | 새 패키지 | 「패키지」 — 자원 단위로 판다 | | |
 | 테스트 | 「테스트」 | 「Java › 축약하지 않는다」 | `testing-strategy.md`(D15) 「무엇을 어느 층에」. 빠른 레인(`test`)에 둘 수 있으면 거기 |

@@ -15,6 +15,7 @@ import com.projectshop.shop.product.StockReason;
 import com.projectshop.shop.order.OrderTransitions.Payment;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
 import com.projectshop.shop.support.BusinessCalendar;
+import com.projectshop.shop.support.WithdrawalRestrictionReason;
 import com.projectshop.shop.support.ActorType;
 
 /**
@@ -488,8 +489,12 @@ public class OrderStatusService {
                 .orElse(null);
 
         if (restriction != null) {
+            // **저장값을 그대로 안 붙인다**(`D5` 「값의 형식」·`Q126`). 응답으로 나가는 글자는
+            // 대문자 스네이크고, `of` 를 지나므로 **DB 에 모르는 값이 있으면 여기서 터진다** —
+            // 조용히 올려 보내면 화면이 처음 보는 값을 받는다(`43a-7` 이 같은 판단을 했다).
             throw new ShopException(ErrorCode.WITHDRAWAL_RESTRICTED,
-                    "청약철회가 제한된 상품이 들어 있다: " + restriction);
+                    "청약철회가 제한된 상품이 들어 있다: "
+                            + WithdrawalRestrictionReason.of(restriction).name());
         }
     }
 

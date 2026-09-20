@@ -26,10 +26,9 @@ import com.projectshop.shop.order.OrderTransitions.Payment;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
 import com.projectshop.shop.payment.PaymentMethod;
 import com.projectshop.shop.payment.PaymentService;
-import com.projectshop.shop.payment.PaymentStatus;
-import com.projectshop.shop.payment.RefundReason;
-import com.projectshop.shop.payment.RefundStatus;
 import com.projectshop.shop.support.ActorType;
+import com.projectshop.shop.support.MainEnums;
+import com.projectshop.shop.support.WithdrawalRestrictionReason;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -54,6 +53,21 @@ class ResponseEnumCaseTest extends PostgresTestBase {
 
     private static final long PRICE = 12_000;
     private static final String GOOD_CARD = "4242-4242-4242-4242";
+
+    /**
+     * 응답에 실려도 되는 값을 내는 열거형. <b>이유를 같이 적는다</b> —
+     * 안 적으면 다음 사람이 빠뜨린 것과 못 가른다({@code EnumConstraintTest} 의 {@code EXEMPT} 와 같은 규칙).
+     */
+    private static final Set<String> NOT_STORED = Set.of();
+
+    /**
+     * 훑을 저장값 전부. <b>손으로 안 적는다</b>(`Q126`).
+     *
+     * <p>그전에는 아홉을 손으로 적었고, 이 메서드의 주석이 「손으로 적으면 열거형이 늘어날 때
+     * 빠뜨린다」고 <b>스스로 적어 둔 채로 빠뜨리고 있었다.</b> {@link WithdrawalRestrictionReason}
+     * 이 그렇게 밖에 남아서 저장값이 오류 본문으로 나갔고, `Q121`~`Q125` 가 만든 셋도 같이 밖이었다.
+     */
+    private static final Set<String> STORED_CODES = MainEnums.codes(NOT_STORED);
 
     @Autowired
     private OrderService orderService;
@@ -255,6 +269,25 @@ class ResponseEnumCaseTest extends PostgresTestBase {
     }
 
     /**
+     * 걷기가 <b>손으로 적던 목록보다 넓나</b>(`Q126`).
+     *
+     * <p><b>증인이지 목록이 아니다.</b> {@link WithdrawalRestrictionReason} 은 손으로 적던
+     * 아홉 밖에 있었고, 그래서 저장값이 오류 본문으로 나갔다 —
+     * 그 열거형이 다시 밖으로 나가면 여기가 빨개진다.
+     *
+     * <p>수를 안 센다. 열거형이 늘 때마다 고쳐야 하는 수는 <b>그 자체로 손으로 적는 목록</b>이다.
+     */
+    @Test
+    @DisplayName("손으로 적던 아홉 밖의 열거형도 걷힌다")
+    void scanReachesBeyondTheOldList() {
+        assertThat(STORED_CODES)
+                .as("`code()` 가 있는 main 의 열거형은 등록 없이 들어와야 한다")
+                .containsAll(Arrays.stream(WithdrawalRestrictionReason.values())
+                        .map(WithdrawalRestrictionReason::code)
+                        .toList());
+    }
+
+    /**
      * 이 테스트가 진짜로 잡는지 확인하는 자리다. <b>저장값을 일부러 실어 보고 걸리는지 본다</b> —
      * 안 그러면 「훑었는데 아무것도 안 나왔다」와 「훑는 코드가 죽어 있다」가 안 갈린다.
      */
@@ -275,20 +308,9 @@ class ResponseEnumCaseTest extends PostgresTestBase {
      * <p>저장값 집합도 열거형에서 뽑는다. 손으로 적으면 열거형이 늘어날 때 빠뜨린다.
      */
     private List<String> leakedValues(JsonNode node) {
-        Set<String> storedCodes = new LinkedHashSet<>();
-        Arrays.stream(Shipment.values()).map(Shipment::code).forEach(storedCodes::add);
-        Arrays.stream(Payment.values()).map(Payment::code).forEach(storedCodes::add);
-        Arrays.stream(ReturnReason.values()).map(ReturnReason::code).forEach(storedCodes::add);
-        Arrays.stream(ActorType.values()).map(ActorType::code).forEach(storedCodes::add);
-        Arrays.stream(ContractClause.values()).map(ContractClause::code).forEach(storedCodes::add);
-        Arrays.stream(PaymentStatus.values()).map(PaymentStatus::code).forEach(storedCodes::add);
-        Arrays.stream(PaymentMethod.values()).map(PaymentMethod::code).forEach(storedCodes::add);
-        Arrays.stream(RefundStatus.values()).map(RefundStatus::code).forEach(storedCodes::add);
-        Arrays.stream(RefundReason.values()).map(RefundReason::code).forEach(storedCodes::add);
-
         List<String> found = new ArrayList<>();
         collectStrings(node, found);
-        return found.stream().filter(storedCodes::contains).collect(Collectors.toList());
+        return found.stream().filter(STORED_CODES::contains).collect(Collectors.toList());
     }
 
     /**

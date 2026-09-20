@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.support.ConstraintValues;
+import com.projectshop.shop.support.MainEnums;
 
 /**
  * 열거형의 값 목록과 DB 가 닫아 둔 목록을 전부 대조한다
@@ -238,44 +239,15 @@ class EnumConstraintTest extends PostgresTestBase {
     /**
      * {@code main} 에 있는 열거형 전부를 준다.
      *
-     * <p>클래스패스가 아니라 <b>{@code main} 이 컴파일된 자리</b>에서 걷는다 —
-     * 클래스패스에는 테스트 클래스와 라이브러리가 같이 있어서, 이름으로 거르면
-     * <b>거르는 규칙이 다음에 틀린다.</b>
+     * <p><b>걷기 자체는 {@link MainEnums} 가 한다</b>(`Q126`). 그전에는 여기에만 있었는데
+     * {@code ResponseEnumCaseTest} 도 같은 것이 필요해졌다 — 두 벌이 되면 한쪽만 고치는 날이 온다.
      */
     private static List<String> enumsInMain() {
-        try {
-            Path root = Path.of(BackendApplication.class.getProtectionDomain()
-                    .getCodeSource().getLocation().toURI());
+        List<String> names = MainEnums.names();
 
-            try (Stream<Path> files = Files.walk(root)) {
-                List<String> names = files
-                        .filter(path -> path.toString().endsWith(".class"))
-                        .map(path -> root.relativize(path).toString()
-                                .replace('\\', '/')
-                                .replace('/', '.')
-                                .replaceAll("\\.class$", ""))
-                        .filter(name -> name.startsWith(PACKAGE))
-                        .filter(EnumConstraintTest::isEnum)
-                        .map(name -> name.substring(PACKAGE.length()))
-                        .sorted()
-                        .toList();
-
-                assertThat(names)
-                        .as("한 개도 못 찾았으면 걷는 자리가 틀린 것이라 이 테스트가 헛돈다: %s", root)
-                        .isNotEmpty();
-                return names;
-            }
-        } catch (Exception e) {
-            throw new IllegalStateException("main 의 열거형을 못 걸었다", e);
-        }
-    }
-
-    private static boolean isEnum(String className) {
-        try {
-            return Class.forName(className, false, EnumConstraintTest.class.getClassLoader())
-                    .isEnum();
-        } catch (Throwable ignored) {
-            return false;
-        }
+        assertThat(names)
+                .as("한 개도 못 찾았으면 걷는 자리가 틀린 것이라 이 테스트가 헛돈다")
+                .isNotEmpty();
+        return names;
     }
 }

@@ -248,6 +248,30 @@ class OrderActionTest extends PostgresTestBase {
                             assertThat(e.code()).isEqualTo(ErrorCode.WITHDRAWAL_RESTRICTED));
         }
 
+        /**
+         * 오류 본문에 <b>저장값이 그대로 실리지 않는다</b>(`D5` 「값의 형식」·`Q126`).
+         *
+         * <p><b>`ResponseEnumCaseTest` 의 훑기가 여기까지 안 온다.</b> 그쪽은 조회 응답 둘을
+         * 훑는데 이 글자는 예외를 타고 오류 본문으로 나간다 — 같은 규칙인데 지나는 길이 다르다.
+         * 그래서 그 자리를 여기서 못박는다.
+         */
+        @Test
+        @DisplayName("제한 사유가 오류 본문에 저장값으로 안 실린다")
+        void restrictionReasonIsNotStoredCase() {
+            long restrictedSku = insertSku(alpha, "디지털 콘텐츠", "digital_content");
+            String number = deliveredShipment(restrictedSku);
+
+            assertThatThrownBy(() -> actions.run(buyer, number, Action.REQUEST_RETURN, null))
+                    .isInstanceOfSatisfying(ShopException.class, e -> {
+                        assertThat(e.getMessage())
+                                .as("화면이 소문자로 읽게 되고, 표기를 고치는 날 둘 다 고쳐야 한다")
+                                .doesNotContain("digital_content");
+                        assertThat(e.getMessage())
+                                .as("`D5` 「값의 형식」 — 열거값은 대문자 스네이크다")
+                                .contains("DIGITAL_CONTENT");
+                    });
+        }
+
         /** 묶음 하나에 섞여 있어도 막는다. 취소·반품의 최소 단위가 셀러 묶음이다(`D7`) */
         @Test
         @DisplayName("한 항목만 제한이어도 묶음 전체가 막힌다")
