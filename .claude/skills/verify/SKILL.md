@@ -40,7 +40,7 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | **화면을 건드렸으면, push 앞에** | `cd frontend && npm run build`(= `verify.sh --full`) | `Compiled successfully` + `Finished TypeScript`. 청크를 닫을 땐 `tsc --noEmit` 으로 타입만 본다(`2z-2`) |
 | 〃 | `npm run lint` | 출력 없음. **접근성 규칙이 포함돼 있다**(`D20`) |
 | 〃 | `npm test` | 실패 0 |
-| **로그인·상품·장바구니 화면을 건드렸으면** | 백엔드를 `local` 로 띄운 뒤 `cd frontend && npm run build && npm run e2e` | 통과. CI 는 PR 에서 자동으로 돈다(`Q18-1`). 손으로 걸려면 `gh workflow run e2e.yml --ref <가지>` — **`e2e.yml` 이 `main` 에 있어야 뜬다** |
+| **로그인·상품·장바구니·주문서 화면을 건드렸으면** | 백엔드를 `local` 로 띄운 뒤 `cd frontend && npm run build && npm run e2e`. **3000 이 물려 있으면 `E2E_PORT=3010` 을 앞에 붙인다**(`Q137`) — 안 붙이면 `reuseExistingServer` 가 **남의 서버를 재사용해서 엉뚱한 앱에 초록이 난다** | 통과. CI 는 PR 에서 자동으로 돈다(`Q18-1`). 손으로 걸려면 `gh workflow run e2e.yml --ref <가지>` — **`e2e.yml` 이 `main` 에 있어야 뜬다** |
 | **푸시했으면** | 아래 「CI」 | 초록. **빨가면 다음 청크보다 먼저 친다** |
 | **고치는 중·청크를 닫을 때** | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**. 대신 **DB 를 타는 것은 여기서 안 돈다** — 그것은 push 앞의 `--full` 이 돈다(`2z-2`) |
 | 스키마·서비스만 볼 때 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(**70초대**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
