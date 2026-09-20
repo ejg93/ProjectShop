@@ -1,6 +1,7 @@
 package com.projectshop.shop.product;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -34,14 +35,15 @@ enum CopyrightDecision {
      * 제약 목록과 대조한다 — 그래서 이름을 바꾸지 않는다.
      */
     String code() {
-        return name().toLowerCase();
+        return name().toLowerCase(Locale.ROOT);
     }
 
     /**
      * 바깥에서 온 값으로 고른다. <b>모르면 400 이다.</b>
      *
-     * <p>{@link #of} 와 갈라 둔 이유: 저쪽은 DB 에서 읽은 값이라 모르는 값이 <b>표가 깨진 것</b>이고,
-     * 이쪽은 남이 보낸 값이라 <b>요청이 틀린 것</b>이다. 같은 실패로 묶으면 500 과 400 이 섞인다.
+     * <p><b>DB 에서 읽는 자리와 갈라 둘 이름이다.</b> 저쪽은 모르는 값이 표가 깨진 것(500)이고
+     * 이쪽은 남이 보낸 값이라 요청이 틀린 것(400)이다 — 같은 실패로 묶으면 둘이 섞인다.
+     * 그래서 읽는 자리가 생기면 이 메서드가 아니라 {@code of} 를 따로 만든다.
      */
     static CopyrightDecision ofRequest(String code) {
         return Arrays.stream(values())
@@ -50,14 +52,7 @@ enum CopyrightDecision {
                 .orElseThrow(() -> new ShopException(ErrorCode.VALIDATION_FAILED));
     }
 
-    /** DB 에서 읽은 값으로 고른다. 제약이 값을 닫아 뒀으므로 모르는 값은 표가 깨진 것이다 */
-    static CopyrightDecision of(String code) {
-        if (code == null) {
-            return null;
-        }
-        return Arrays.stream(values())
-                .filter(decision -> decision.code().equals(code))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("모르는 저작권 판정이다: " + code));
-    }
+    // **`of(String code)` 를 안 둔다**(마무리 35차 독립 리뷰). 다른 열거형은 DB 에서 읽은 값을
+    // 되돌리려고 그것을 두는데, 이 값을 열거형으로 읽는 자리가 아직 없다 — 두면 죽은 코드다.
+    // `Q120` 이 `ImageContentType` 에서 같은 판단을 했다. 읽는 자리가 생기는 날 그때 만든다.
 }

@@ -68,14 +68,9 @@ public class PaymentService {
     public record Result(String orderNumber, String status, String method, long amount,
             String approvalNumber, String cardIssuer, String cardLast4, String declineReason) {
 
-        /** 응답 표기다. <b>저장값과 다르다</b> — `D5` 가 열거값을 대문자 스네이크로 정했다 */
-        static final String APPROVED = "APPROVED";
-        static final String FAILED = "FAILED";
-
-        // 저장값은 여기 안 둔다(`Q122`). `PaymentStatus` 가 이미 그 목록을 들고
-        // `EnumConstraintTest` 가 DB 제약과 대조한다 — 여기 상수로 또 두면 사본이 둘이 되고,
-        // 그중 하나만 회계를 받는다. 응답 표기와 저장값이 다른 것이 이 자리의 뜻이라
-        // **위 둘만 남긴다.**
+        // 값 목록을 여기 안 둔다(`Q122`). 저장값도 응답 표기도 `PaymentStatus` 하나에서 나온다 —
+        // 저장은 `code()`(소문자), 응답은 `name()`(대문자, `D5`)이고 **둘이 같은 상수에 매달려서**
+        // 한쪽만 바뀌는 일이 없다. 그전에는 상수 넷이 있었고 응답 쪽은 판정을 따로 쳤다.
     }
 
     /**
@@ -233,8 +228,11 @@ public class PaymentService {
 
         // 응답은 저장값이 아니라 표기다(`D5`). 거절 사유는 안 올린다 —
         // 우리 열거값이 아니라 PG 가 준 코드라 그 규칙이 안 걸린다.
+        // **표기도 같은 값에서 뽑는다**(마무리 35차 독립 리뷰). 삼항을 두 번 치면 저장값과 응답이
+        // 갈리는 것을 아무것도 안 막는다 — 「응답은 APPROVED 인데 저장은 failed」가 성립한다.
+        // `D5` 의 대문자 표기가 곧 열거형 이름이라 `name()` 이 그 규칙이다.
         return new Result(payable.orderNumber(),
-                verdict.approved() ? Result.APPROVED : Result.FAILED,
+                status.name(),
                 method.toUpperCase(Locale.ROOT), payable.amount(),
                 verdict.approvalNumber(), verdict.cardIssuer(), verdict.cardLast4(),
                 verdict.declineReason());

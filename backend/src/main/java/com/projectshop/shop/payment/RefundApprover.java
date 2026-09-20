@@ -38,14 +38,7 @@ enum RefundApprover {
         return name().toLowerCase(Locale.ROOT);
     }
 
-    /** DB 에서 읽은 값으로 고른다. 제약이 값을 닫아 뒀으므로 모르는 값은 표가 깨진 것이다 */
-    static RefundApprover of(String code) {
-        if (code == null) {
-            return null;
-        }
-        return Arrays.stream(values())
-                .filter(approver -> approver.code().equals(code))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("모르는 환불 승인 주체다: " + code));
-    }
+    // **`of(String code)` 를 안 둔다**(마무리 35차 독립 리뷰). 다른 열거형은 DB 에서 읽은 값을
+    // 되돌리려고 그것을 두는데, 이 값을 열거형으로 읽는 자리가 아직 없다 — 두면 죽은 코드다.
+    // `Q120` 이 `ImageContentType` 에서 같은 판단을 했다. 읽는 자리가 생기는 날 그때 만든다.
 }

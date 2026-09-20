@@ -15,6 +15,13 @@ import com.projectshop.shop.support.WithdrawalRestrictionReason;
  *
  * <p>쓰는 열거형은 {@code support} 에 산다. 상품이 정하고 주문이 쓰는 값이라
  * <b>소비자가 둘</b>이고, {@code ActorType} 이 같은 이유로 그리 옮겼다(`43a-17`, 사용자 결정 2026-09-20).
+ *
+ * <h2>주문 쪽 목록이 더 좁고 그것을 여기가 지킨다</h2>
+ *
+ * <p>{@code order_item_withdrawal_reason_check} 는 값이 <b>둘</b>이고 상품 쪽은 셋이다.
+ * <b>{@code EnumConstraintTest} 는 그 좁은 제약을 안 본다</b> — 회계는 열거형과 제약을 <b>정확히</b>
+ * 맞추는데 값 수가 달라서 짝이 안 된다({@code ActorType} 이 제약 둘을 다는 모양을 여기엔 못 쓴다).
+ * 그래서 아래 {@code switch} 와 {@code WithdrawalRestrictionTest} 가 그 좁힘을 지키는 전부다.
  */
 final class WithdrawalRestriction {
 

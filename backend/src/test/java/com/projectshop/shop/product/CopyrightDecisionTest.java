@@ -41,12 +41,4 @@ class CopyrightDecisionTest {
         assertThat(CopyrightDecision.ofRequest("taken_down")).isEqualTo(CopyrightDecision.TAKEN_DOWN);
         assertThat(CopyrightDecision.ofRequest("rejected")).isEqualTo(CopyrightDecision.REJECTED);
     }
-
-    @Test
-    @DisplayName("DB 에서 읽은 모르는 값은 표가 깨진 것이라 다르게 터진다")
-    void DB_값은_상태_오류다() {
-        assertThatThrownBy(() -> CopyrightDecision.of("taken-down"))
-                .as("제약이 값을 닫아 뒀으므로 이쪽은 요청이 틀린 것이 아니다 — 둘을 같은 실패로 묶으면 400 과 500 이 섞인다")
-                .isInstanceOf(IllegalStateException.class);
-    }
 }

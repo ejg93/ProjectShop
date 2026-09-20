@@ -46,8 +46,8 @@ enum BlockReason {
     /**
      * 바깥에서 온 값으로 고른다. <b>대문자 표기를 받고 모르면 400 이다.</b>
      *
-     * <p>{@link #of} 와 갈라 둔 이유는 `Q121` 과 같다 — 저쪽은 DB 값이라 모르는 값이 표가 깨진 것이고
-     * 이쪽은 요청이 틀린 것이다.
+     * <p><b>DB 에서 읽는 자리와 갈라 둘 이름이다</b>(`Q121` 과 같다) — 저쪽은 모르는 값이 표가 깨진 것(500)이고
+     * 이쪽은 요청이 틀린 것(400)이다. 읽는 자리가 생기면 {@code of} 를 따로 만든다.
      */
     static BlockReason ofRequest(String name) {
         return Arrays.stream(values())
@@ -56,14 +56,7 @@ enum BlockReason {
                 .orElseThrow(() -> new ShopException(ErrorCode.VALIDATION_FAILED));
     }
 
-    /** DB 에서 읽은 값으로 고른다. 제약이 값을 닫아 뒀으므로 모르는 값은 표가 깨진 것이다 */
-    static BlockReason of(String code) {
-        if (code == null) {
-            return null;
-        }
-        return Arrays.stream(values())
-                .filter(reason -> reason.code().equals(code))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("모르는 차단 사유다: " + code));
-    }
+    // **`of(String code)` 를 안 둔다**(마무리 35차 독립 리뷰). 다른 열거형은 DB 에서 읽은 값을
+    // 되돌리려고 그것을 두는데, 이 값을 열거형으로 읽는 자리가 아직 없다 — 두면 죽은 코드다.
+    // `Q120` 이 `ImageContentType` 에서 같은 판단을 했다. 읽는 자리가 생기는 날 그때 만든다.
 }
