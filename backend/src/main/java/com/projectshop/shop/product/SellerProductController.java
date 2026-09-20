@@ -2,6 +2,7 @@ package com.projectshop.shop.product;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -54,6 +55,23 @@ public class SellerProductController {
             @ParameterObject Paging paging) {
 
         return productQuery.findForSeller(user.id(), sellerId, sort, paging);
+    }
+
+    /**
+     * 자기 상품의 사진을 훑는다(`Q139`).
+     *
+     * <p><b>공개 상세로는 이 화면을 못 만든다.</b> 그쪽은 서명 URL 목록만 주는데
+     * 지우는 입구가 {@code productImageId} 를 받아서, 그 번호를 내주는 자리가 없으면
+     * <b>올리기만 하고 지울 수 없는 화면</b>이 된다.
+     *
+     * <p>경로가 상품 아래다 — 올리는 입구와 같은 모양이고, 어느 상품의 것인지를 경로가 든다.
+     */
+    @GetMapping("/{productId}/images")
+    public List<ProductImageService.Image> images(
+            @AuthenticationPrincipal ShopUser user,
+            @PathVariable long productId) {
+
+        return productImageService.find(user.id(), productId);
     }
 
     /**

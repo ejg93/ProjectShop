@@ -228,6 +228,50 @@ class ProductImageServiceTest extends StorageTestBase {
                 .hasMessageContaining("Q102");
     }
 
+    /**
+     * 목록을 내주는 자리(`Q139`).
+     *
+     * <p><b>왜 `Q95` 의 삭제만으로는 부족했나</b> — 지우는 입구가 {@code productImageId} 를 받는데
+     * 그 번호를 판매자에게 내주는 자리가 없었다. 공개 상세는 서명 URL 목록만 준다.
+     * 그래서 <b>올리기만 하고 지울 수 없는 화면</b>밖에 못 만들었다.
+     */
+    @Test
+    @DisplayName("올린 사진을 번호와 함께 돌려준다")
+    void 올린_사진을_번호와_함께_돌려준다() {
+        ProductImageService.Uploaded first = service.upload(ownerA, productA, jpeg("a.jpg", 100, 100));
+        ProductImageService.Uploaded second = service.upload(ownerA, productA, jpeg("b.jpg", 100, 100));
+
+        List<ProductImageService.Image> images = service.find(ownerA, productA);
+
+        // 번호가 있어야 지울 수 있다. 이것이 이 입구의 존재 이유다.
+        assertThat(images).extracting(ProductImageService.Image::productImageId)
+                .containsExactly(first.productImageId(), second.productImageId());
+        // 올린 순서가 곧 화면 순서다(`sort_no`).
+        assertThat(images).extracting(ProductImageService.Image::sortNo).containsExactly(0, 1);
+        assertThat(images).extracting(ProductImageService.Image::originalName)
+                .containsExactly("a.jpg", "b.jpg");
+        // 원본이 아니라 썸네일이다 — 격자로 훑는 자리라 원본을 열 장 내려받을 이유가 없다.
+        assertThat(images.getFirst().thumbnailUrl()).contains("/thumbnail.jpg");
+    }
+
+    @Test
+    @DisplayName("사진이 없으면 빈 목록이다")
+    void 사진이_없으면_빈_목록이다() {
+        // `null` 을 안 쓴다. 「없다」를 빈 목록이 말하고 `null` 은 「모른다」로도 읽힌다(`D23`).
+        assertThat(service.find(ownerA, productA)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("남의 상품 사진은 못 본다")
+    void 남의_상품_사진은_못_본다() {
+        service.upload(ownerA, productA, jpeg("a.jpg", 100, 100));
+
+        // 보는 권한과 지우는 권한을 가르지 않는다 — 가르면 보이는데 못 지우는 줄이 화면에 생긴다.
+        assertThatThrownBy(() -> service.find(ownerB, productA))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_FORBIDDEN);
+    }
+
     private static ProductImageService.Incoming jpeg(String name, int width, int height) {
         return new ProductImageService.Incoming(name, ProductImageFixture.jpegBytes(width, height));
     }
