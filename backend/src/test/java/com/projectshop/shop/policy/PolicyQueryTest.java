@@ -105,14 +105,21 @@ class PolicyQueryTest extends PostgresTestBase {
          * <p>{@code effective_at <= now()} 만 보면 새로 넣은 것이 이기리라 착각하기 쉽다.
          * 정렬이 <b>버전이 아니라 시행 시각</b>이라 그렇다 — 그래야 옛 판을 다시 넣는 실수가
          * 지금 걸린 방침을 갈아 끼우지 않는다.
+         *
+         * <p><b>기준을 벽시계가 아니라 지금 걸린 판에서 뽑는다</b>(`2p` 첫 합치기가 잡았다).
+         * {@code now() - interval '1 day'} 로 박아 두면 <b>시드가 하루보다 오래된 DB</b> 에서
+         * 그 값이 오히려 더 새로워져서 넣은 판이 이긴다 — 테스트가 스스로 뒤집힌다.
+         * 재사용 컨테이너는 워커 DB 를 며칠씩 들고 있어서 실제로 그 상태가 된다(55개 중 10개였다).
          */
         @Test
         @DisplayName("시행 시각이 더 이른 판은 안 걸린다 — 번호가 커도 그렇다")
         void ignoresBackdatedRevision() {
             jdbc.sql("""
                             insert into policy_document (code, title, version, body, effective_at)
-                            values ('privacy_policy', '개인정보처리방침', 90, '## 뒤늦게 넣은 옛 판',
-                                    now() - interval '1 day')
+                            select 'privacy_policy', '개인정보처리방침', 90, '## 뒤늦게 넣은 옛 판',
+                                   min(effective_at) - interval '1 day'
+                              from policy_document
+                             where code = 'privacy_policy'
                             """)
                     .update();
 
