@@ -20,6 +20,22 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   /**
+   * `forbidden()` 과 `app/forbidden.tsx` 를 켠다(`Q133`).
+   *
+   * **이것 없이는 403 이 `error.tsx` 로 떨어진다.** 거기서는 갈라 볼 것이 없다 — Next 가
+   * **운영 빌드에서 서버 컴포넌트의 오류를 경계에 넘기기 전에 메시지를 지우고 `digest` 만
+   * 남기기** 때문에, `ApiError.slug` 가 도착하지 않는다. 그래서 권한 문제가 「화면을 여는 데
+   * 실패했습니다 · 다시 시도」로 보였고 다시 시도해도 같은 답이 왔다.
+   *
+   * **`experimental` 인 것을 알고 켠다.** 대안은 화면 열일곱 곳이 각자 `try/catch` 로 403 을
+   * 잡는 것인데, 하나가 빠뜨리면 그 화면만 다시 「실패했습니다」가 된다 — 기억에 맡기는
+   * 자리를 하나 더 만드는 셈이다(`D23` 축 2). Next 를 올릴 때 이 플래그가 살아 있는지 본다.
+   */
+  experimental: {
+    authInterrupts: true,
+  },
+
+  /**
    * 이 폴더가 프로젝트 뿌리다.
    *
    * 안 적으면 Turbopack 이 상위 폴더까지 훑다가 저장소 밖의 `package-lock.json` 을 집어

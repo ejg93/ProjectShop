@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { forbidden, redirect } from "next/navigation";
 
 import { BACKEND_ORIGIN, toApiError, toCamel } from "./api";
 
@@ -52,11 +52,21 @@ const LOGIN_REQUIRED = "/login?reason=login-required";
 /**
  * 세션을 실어서 부른다.
  *
- * <p><b>401 을 여기서 잡는다</b>(`D24` 「오류를 어느 층이 잡나」). 화면마다 잡으면
+ * <p><b>401 과 403 을 여기서 잡는다</b>(`D24` 「오류를 어느 층이 잡나」). 화면마다 잡으면
  * 한 화면이 빠뜨렸을 때 <b>그 화면만 조용히 빈 목록</b>이 된다.
  *
+ * <p><b>403 은 {@code forbidden()} 이다</b>(`Q133`). 예외로 올리면 {@code error.tsx} 가 받는데,
+ * Next 는 <b>운영 빌드에서 서버 컴포넌트의 오류를 경계에 넘기기 전에 메시지를 지우고
+ * {@code digest} 만 남긴다</b> — 경계에는 갈라 볼 {@code slug} 가 없다. 그래서 거기서는
+ * 권한 문제도 「실패했습니다 · 다시 시도」로 보였고, <b>다시 시도해도 같은 답</b>이 왔다.
+ * {@code forbidden()} 은 {@code app/forbidden.tsx} 를 페이지 전체로 그린다 —
+ * `D24` 가 「403 은 페이지 전체를 바꿔 그린다」고 정한 그 모양이다.
+ *
+ * <p><b>404 는 여기서 안 잡는다.</b> 「없다」와 「내 것이 아니다」를 가르는 것은 화면마다 다르고,
+ * 주문 상세처럼 <b>존재를 숨기려고 일부러 404 로 답하는</b> 자리가 있다.
+ *
  * @param path `/api` 로 시작하는 경로
- * @throws ApiError 401 말고 2xx 가 아닌 것. 403·404 는 부르는 화면이 잡는다
+ * @throws ApiError 401·403 말고 2xx 가 아닌 것. 404 는 부르는 화면이 잡는다
  */
 export async function apiSession<T>(path: string): Promise<T> {
   const response = await carry(path);
@@ -64,6 +74,10 @@ export async function apiSession<T>(path: string): Promise<T> {
   if (response.status === 401) {
     // 던지지 않고 여기서 보낸다. 예외로 올리면 화면마다 같은 처리를 다시 적게 된다.
     redirect((await cookies()).get(SESSION_COOKIE) ? SESSION_EXPIRED : LOGIN_REQUIRED);
+  }
+
+  if (response.status === 403) {
+    forbidden();
   }
 
   if (!response.ok) {
