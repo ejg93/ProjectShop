@@ -98,6 +98,47 @@ docker run -e BACKEND_ORIGIN=http://backend:8080 -p 3000:3000 shop-frontend
 
 **루프백은 못 준다.** 컨테이너 안의 `localhost` 는 자기 자신이라 백엔드가 없다 — 그 값은 빌드가 거절한다.
 
+### 2026-09-20 에 실제로 한 순서
+
+**첫 배포가 이 순서로 됐다**(`Q39`). 프로젝트 하나에 넷을 세운다 — Postgres·Redis·`backend`·`frontend`.
+
+| 순서 | 무엇 | 걸린 것 |
+|---|---|---|
+| 1 | Postgres·Redis 템플릿 배포 | 각 10초 |
+| 2 | 빈 서비스 둘을 만들고 **변수를 먼저 넣는다** | 소스를 붙이면 바로 빌드가 돌고, `BACKEND_ORIGIN` 이 없으면 그 빌드가 선다(`Q116`) |
+| 3 | Root Directory 를 `backend`·`frontend` 로, backend 에 healthcheck `/actuator/health` | |
+| 4 | 저장소를 붙인다(`main`) | 프론트 52초, 백엔드 2분 |
+| 5 | **프론트에만** 공개 도메인 | 백엔드는 도메인을 안 만든다 |
+| 6 | 데모 데이터를 붓는다 | 아래 |
+| 7 | `deployed-baseline` 에 그때 커밋 해시를 적고 커밋 | 그 순간부터 마이그레이션 불변 게이트가 실제로 잰다 |
+
+**포트를 서비스 변수로 못 박는다.** `PORT=8080`(backend)·`PORT=3000`(frontend). Railway 가 주입하는
+`PORT` 가 `Dockerfile` 의 `ENV` 를 이기므로, 안 박으면 컨테이너와 도메인의 포트가 어긋나 **502** 다
+(`stack.md` 「Railway 는 `PORT` 를 주입한다」).
+
+**DB·Redis 는 참조로 건다** — `DB_HOST=${{Postgres.PGHOST}}` 식으로 전부. 주소를 손으로 적은 자리가 없다.
+
+**`TRUSTED_PROXIES` 는 사설망 대역이다.** Railway 사설망이 IPv6 ULA 라 `fd[0-9a-f]{2}:[0-9a-f:]*` 를 썼고,
+`SESSION_COOKIE_SECURE=true` 와 짝이다 — 안 켜면 `SecuritySettingsCheck` 가 기동을 세운다(`Q44`).
+
+**데모 데이터를 붓는 자리에 사람 손이 든다.** 덤프는 로컬에서 뜨고 복구는 이 기계에서 도는데,
+`postgres.railway.internal` 은 Railway 안에서만 닿는다. 그래서 **임시 TCP 프록시**를 열고 붓고 닫는다.
+MCP 로는 비밀번호를 못 읽으므로(`valuesRedacted`) 그 한 줄은 사람이 돌린다.
+
+```
+# 1. 빈 DB 에 처음부터 올려 시드까지 채운다 — 쓰던 DB 는 V900+ 때문에 Flyway 가 막는다
+docker compose exec -T db psql -U shop -d postgres -c 'create database shop_demo owner shop'
+POSTGRES_DB=shop_demo ./gradlew bootRun --args='--spring.profiles.active=local'   # 뜨면 끈다
+
+# 2. 뜬다
+bash scripts/db-dump.sh "postgres://shop:shop@localhost:5432/shop_demo" build/demo.dump
+
+# 3. 붓는다 — Git Bash 에서. WSL 은 docker 가 안 잡힌다
+bash scripts/db-restore.sh build/demo.dump "postgresql://postgres:<PGPASSWORD>@<프록시>/railway"
+```
+
+**부은 DB 는 기본 프로필로 뜬다** — 시드가 `V900+` 로 적용돼 있어도 Flyway 가 막지 않는다(실측).
+
 ### 버킷은 사람이 만든다 — 첫 업로드가 `NoSuchBucket` 이 안 되게
 
 **버킷 만들기는 기본이 꺼짐이다**(`STORAGE_BOOTSTRAP=false`). 켜는 것은 저장소를 띄운 로컬과
