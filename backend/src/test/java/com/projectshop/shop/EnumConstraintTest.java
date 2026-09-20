@@ -3,8 +3,6 @@ package com.projectshop.shop;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;

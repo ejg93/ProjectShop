@@ -18,10 +18,10 @@ const SOURCE = readFileSync(resolve(import.meta.dirname, "page.tsx"), "utf8");
 
 describe("감사 화면의 detail 열쇠", () => {
   it("안 들여다볼 칸으로 detail 을 든다", () => {
-    expect(SOURCE).toMatch(/const OPAQUE = [[^]]*"detail"/);
+    expect(SOURCE).toMatch(/const OPAQUE = \[[^\]]*"detail"/);
   });
 
   it("그 목록을 부를 때 실제로 넘긴다", () => {
-    expect(SOURCE).toMatch(/apiSession<AuditLogPage>([^)]*OPAQUE)/);
+    expect(SOURCE).toMatch(/apiSession<AuditLogPage>\([^)]*OPAQUE\)/);
   });
 });
