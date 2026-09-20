@@ -871,6 +871,28 @@ component.getDeclaringRecord().getDeclaredField(component.getName()).getAnnotati
 **메타 애너테이션도 같이 본다.** 규칙을 하나로 모으면(`@Password`·`@EmailAddress`)
 `@Size` 가 그 안에 들어가므로, 직접 붙은 것만 훑으면 모은 칸이 통째로 빠진다.
 
+### Railway 는 `PORT` 를 주입하고 그것이 이미지의 기본값을 이긴다
+
+`Dockerfile` 에 `ENV PORT=3000` 을 적어 둬도 **Railway 가 주는 값이 덮는다.** 첫 배포에서
+프론트가 8080 에서 듣고 도메인은 3000 으로 보내서 **502** 가 났다(`Q39`, 2026-09-20).
+
+```
+▲ Next.js 16.3.5
+- Local:  http://ca5f00b74061:8080      ← Dockerfile 은 3000 이라 적었다
+```
+
+**서비스 변수로 못 박는다.** `PORT=3000`(프론트)·`PORT=8080`(백엔드)을 서비스에 직접 넣으면
+그 값이 이긴다. 사설망으로 서로 부르는 주소(`BACKEND_ORIGIN`)도 그 포트와 같아야 한다.
+
+**증상이 애매하다** — 컨테이너는 `online` 이고 로그도 정상인데 공개 주소만 502 다.
+로그의 `Local:` 줄과 도메인의 target port 를 견주는 것이 제일 빠르다.
+
+### MCP 로는 DB 비밀번호를 못 읽는다
+
+`list-variables` 가 이름만 주고 값은 가린다(`valuesRedacted: true`) — OAuth 앱으로 붙어서다.
+그래서 **덤프를 호스팅에 붓는 것은 사람 손이 필요하다**: 대시보드에서 `DATABASE_PUBLIC_URL` 을
+꺼내 `db-restore.sh` 에 넘긴다. `Q39` 가 「계정·비밀은 사용자」로 가른 경계가 실물로 이렇게 나온다.
+
 ### 시드를 한 번 넣은 로컬 DB 는 다음 마이그레이션에서 기동을 막는다
 
 `local` 프로필의 시드가 `V900`·`V901`·`V902`·`V903` 이라 **번호가 실제 마이그레이션보다 위**다.

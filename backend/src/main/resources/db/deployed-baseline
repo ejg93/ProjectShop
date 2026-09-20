@@ -1,0 +1,8 @@
+# 배포 기준점(`Q39`·`Q51`). 이 커밋 뒤로는 `db/migration` 과 `db/seed` 의 파일을
+# 고치거나 지울 수 없다 — 남의 DB 에 그 체크섬이 박혀 있다.
+#
+# 새 것은 더해도 된다. `migration-immutable.sh` 가 `A` 는 통과시키고 `M`·`D`·`R` 만 막는다.
+#
+# 2026-09-20 첫 배포. Railway 프로젝트 `projectshop`(Postgres·Redis·backend·frontend).
+# 이 해시가 그날 두 서비스가 빌드한 커밋이다.
+47c0ce8a9a0e38e3c50fe9a05847ebc4ac0f5b5d
