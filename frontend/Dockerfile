@@ -16,9 +16,34 @@ WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# **백엔드 주소는 런타임이 아니라 여기서 받는다**(`Q116`, 사용자 선택 ①).
+#
+# `next.config.ts` 의 `rewrites()` 가 이 값을 목적지로 쓰는데, Next 가 그것을
+# **빌드 산출물에 굳힌다**(`.next/routes-manifest.json`·`required-server-files.json`).
+# `standalone` 은 설정 파일을 안 지고 그 산출물만 지므로 **호스팅에서 환경변수로 줘도 안 바뀐다.**
+# 안 주고 빌드하면 이미지가 `http://localhost:8080` 을 지고 나가고, 배포된 화면의
+# 브라우저 호출이 전부 자기 컨테이너를 때려 500 이 된다 — 페이지는 떠서 성공처럼 보인다.
+#
+# Railway 는 선언한 `ARG` 에 같은 이름의 서비스 변수를 빌드 때 넣어 준다.
+ARG BACKEND_ORIGIN
+ENV BACKEND_ORIGIN=$BACKEND_ORIGIN
+
 COPY . .
 # 타입 검사·린트·테스트는 CI 가 돈다(`ci.yml`). 이미지 빌드는 산출물만 만든다.
 RUN npm run build
+
+# **굳은 목적지가 준 값과 같은지 여기서 잰다**(`Q116` 의 강제 지점).
+#
+# 위 `ARG` 는 **안 줘도 빌드가 지나간다** — 그러면 기본값이 굳어서 고치기 전과 같아진다.
+# 그래서 산출물을 열어 확인하고, 아니면 **이미지 빌드를 세운다.** 재는 자리가 빌드 안이라
+# 로컬 `npm run build` 는 영향을 안 받는다(거기는 기본값이 맞다).
+RUN node -e "\
+const m=require('./.next/routes-manifest.json');\
+const want=process.env.BACKEND_ORIGIN;\
+const got=(m.rewrites.afterFiles||[]).map(r=>r.destination).join(' ');\
+if(!want){console.error('BACKEND_ORIGIN 을 빌드 인자로 안 줬다. --build-arg BACKEND_ORIGIN=http://<백엔드>:8080 (Q116)');process.exit(1);}\
+if(!got.includes(want)){console.error('굳은 목적지가 준 값과 다르다. 준 값: '+want+' / 산출물: '+got+' (Q116)');process.exit(1);}\
+console.log('프록시 목적지가 굳었다: '+got);"
 
 FROM node:22-alpine
 WORKDIR /app
@@ -30,6 +55,12 @@ COPY --from=build /src/.next/standalone ./
 COPY --from=build /src/.next/static ./.next/static
 COPY --from=build /src/public ./public
 
+# **`BACKEND_ORIGIN` 은 런타임에도 줘야 한다**(`Q116` 실측). 위 빌드 인자는 브라우저가 쓰는
+# 프록시 목적지를 굳히는 것이고, **서버가 직접 부르는 자리**(`api.ts`·`api-session.ts`)는
+# `process.env` 를 그때그때 읽는다 — 런타임 값이 없으면 그쪽이 로컬 주소로 가서
+# **화면이 500 이다**(브라우저 경로는 멀쩡해서 절반만 깨진 것으로 보인다).
+# Railway 는 서비스 변수 하나가 빌드와 런타임에 다 들어가므로 적는 자리는 한 곳이다.
+#
 # 호스팅이 주는 포트를 그대로 쓴다. 없으면 로컬과 같은 3000 이다.
 ENV PORT=3000
 EXPOSE 3000
