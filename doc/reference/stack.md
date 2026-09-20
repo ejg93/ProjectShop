@@ -1430,6 +1430,34 @@ Could not resolve placeholder 'local.server.port'
 
 **계정을 못 쓰게 하려면 파일이 아니라 행을 지운다** — 새 `V9xx` 에서
 `delete from app_user where lower(email) = 'test@test.local'` 이고, 그것이 덧대는 길이다.
+
+### 머지가 배포를 안 걸고 있었다
+
+**2026-09-20 에 실측했다.** PR #61 을 머지하고 10분을 기다렸는데 두 서비스 다 새 배포가 없었다.
+`main` 은 `2b5eb0b` 인데 backend 는 `b566b79`, frontend 는 `47c0ce8` 에 멈춰 있었다.
+
+**원인은 저장소에 Railway GitHub App 이 없던 것이다.** 웹훅을 못 받으니 푸시를 모른다.
+Railway 응답이 `NO_INSTALLATION` 이었고 **토글을 켤 수조차 없는 상태**였다.
+
+**그때까지 나간 배포는 전부 사람이 건 것이었다** — 환경변수를 고치면 재빌드가 딸려 오는데,
+그것을 자동 배포로 착각하고 있었다. `Q39` 이후 배포가 세 번 나갔지만 셋 다 변수 변경의 부산물이다.
+
+**같은 값으로 변수를 다시 써도 안 걸린다.** Railway 가 변화 없음으로 보고 무시한다(실측).
+
+| 무엇 | 어떻게 |
+|---|---|
+| 손으로 한 번 배포 | 대시보드에서 `Cmd/Ctrl + K` → **Deploy Latest Commit** |
+| MCP 로 배포 | `railway-agent` 에 커밋 SHA 를 주고 시킨다. `redeploy` 는 **기존 빌드를 재사용**해서 새 커밋을 안 가져온다 |
+| 자동 배포를 켜는 자리 | 서비스 **Settings → Source → Branch connected to production**. `Enable` 버튼이 아니라 **브랜치를 환경에 연결**하는 모양이다 |
+
+**`railway-agent` 는 읽기만 확실히 한다.** 자동 배포를 켜라고 네 번 시켰는데 매번 「켜겠다」고만
+하고 도구를 안 불렀다. 상태 조회와 배포 트리거는 실제로 돈다 — **시킨 뒤 원시 결과를 받아 확인한다.**
+
+**앱을 갓 붙이면 브랜치 목록이 비어 있다**(`Could not load branches`). 그 자리의 `Retry` 가 캐시를 다시 당긴다.
+
+**Vercel 연동을 건드리지 않는다.** 같은 Integrations 화면에 있는데, 하는 일이
+**Railway 변수를 Vercel 프로젝트로 복사**하는 것이다. `POSTGRES_PASSWORD`·`REDIS_PASSWORD` 가
+관련 없는 곳으로 나간다. 우리는 Vercel 에 아무것도 안 올린다.
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
