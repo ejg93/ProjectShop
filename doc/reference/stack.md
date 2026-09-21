@@ -1373,6 +1373,21 @@ MockMvc 는 그 봉투를 테스트가 직접 만들어 넣어서 **그 상한�
 
 **업로드 입구는 실제 HTTP 로 잰다**(`HttpTestBase.postFile`, `Q97`).
 
+### jsdom 에서 파일을 고르는 시늉은 조용히 안 먹는다
+
+`HTMLInputElement.files` 는 읽기 전용이라 `fireEvent.change(input, { target: { files: [file] } })` 의
+그 대입이 **버려진다.** 이벤트는 나가고 핸들러는 도는데 `event.target.files` 가 비어서,
+「고르면 올린다」 코드가 첫 줄에서 돌아 나온다 — **아무 일도 안 났는데 시험이 초록이다.**
+
+```ts
+Object.defineProperty(input, "files", { value: [file], configurable: true });
+fireEvent.change(input);
+```
+
+`Q140` 이 실측으로 밟았다. 같은 청크에서 **두 번째 거짓 초록**도 나왔는데 그쪽은 도구가 아니라
+단언 문자열 탓이다 — 오류 문구를 「5MB까지」로 찾으면 **입력 위 도움말**이 먼저 걸려서
+오류가 안 떠도 통과한다. **단언 문자열은 그 화면에서 유일한 것으로 고른다.**
+
 ### 하위 클래스에 `@SpringBootTest` 를 다시 달면 바탕의 설정이 사라진다
 
 `webEnvironment` 는 **가장 가까운 애너테이션 하나가 정한다.** 바탕이
