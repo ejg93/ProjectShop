@@ -64,6 +64,106 @@ dated_title_files=(
   doc/reference/*.md
 )
 
+# **표 행은 문장 중복 검사가 안 본다** — 아래 루프가 `|` 로 시작하는 줄을 걷어낸다. 그 구멍으로
+# 2026-09-21 첫 합치기가 `PROGRESS.md` 이력 다섯 행을 **바이트까지 같은 채로** 두 번씩 넣었고
+# 그 가지의 CI 가 전부 초록이었다 — `PlanProgressConsistencyTest` 는 칸 수와 커밋 칸만 봐서
+# 같은 행이 둘인 것을 안 센다. 원인은 `awk 'NR==N{print; print "새 행"} {print}'` 의 `next` 누락이라
+# **사람이 다시 낼 수 있는 모양**이다.
+#
+# **표 머리는 뺀다** — 다음 줄이 구분선(`|---|`)이면 머리다. 같은 머리가 여러 표에 정당하게 반복된다
+# (`PLAN.md` 의 `| # | 청크 | 무엇을 하나 | 선행 |` 이 실측 셋이다).
+# **40자 미만도 뺀다** — `| 〃 | 〃 |` 같은 짧은 칸은 반복이 정상이다.
+dup_table_rows() {
+  awk '/^```/{c=!c; next} !c' "$1" \
+    | awk '{L[NR]=$0} END{for(i=1;i<=NR;i++){nx=(i<NR?L[i+1]:""); if (nx ~ /^[[:space:]]*\|[-:| ]+$/) continue; print L[i]}}' \
+    | grep -E '^[[:space:]]*\|' \
+    | grep -vE '^[[:space:]]*\|[-:| ]+$' \
+    | awk 'length($0) >= 40' \
+    | sort | uniq -d
+}
+
+# **게이트를 세워 놓고 게이트 표에 안 올리는 것**(`Q147`, `D25`). 2026-09-21 하루에 세 번 났고
+# 세 번 다 PR 리뷰가 잡았다 — 규칙은 `quality-gates.md` 에 이미 있는데 청크마다 적용이 갈렸다.
+#
+# **무엇이 게이트인가를 「저장소 원문을 읽나」로 가른다.** 기능 시험은 자기가 넣은 데이터를 보고
+# 게이트는 소스·스키마·문서를 읽어서 저장소 전체의 불변을 잰다. 실측이 그 잣대를 지지한다 —
+# 원문을 읽는 시험 22개 중 **19개가 이미 표에 있다**(2026-09-21). 새로 생긴 `*Test.java` 전부를
+# 재면 절반이 기능 시험이라 노이즈가 된다.
+#
+# **기준선은 내리기만 한다.** `Q153` 이 남은 셋(`SchemaErdTest`·`PermissionMatrixTest`·`DataLifecycleCoverageTest`)을
+# 열어 보고 셋 다 게이트라 표에 올렸다 — 그래서 지금은 0이다.
+gate_rows_missing() { # 시험 뿌리, 게이트 표
+  grep -rl 'Files\.read\|Path\.of("\|Paths\.get("' "$1" --include=*.java 2>/dev/null \
+    | while read -r f; do
+        n=$(basename "$f" .java)
+        grep -q "$n" "$2" || echo "$n"
+      done | sort
+}
+
+# 원문을 정규식으로 읽는 게이트는 자기 시험을 같이 세운다(`quality-gates.md`). **빠진 것은
+# 게이트가 스스로 못 알려 준다** — 실물이 초록인 것은 「구멍이 없다」와 「정규식이 아무것도 안 잡는다」가
+# 구별이 안 된다.
+if [ "${1:-}" = "--selftest" ]; then
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  st_fail=0
+  st_check() { # 이름, 본문, 걸려야 하나(1/0)
+    printf '%s\n' "$2" > "$tmp/doc.md"
+    got=$(dup_table_rows "$tmp/doc.md" | grep -c . || true)
+    if { [ "$3" = 1 ] && [ "$got" -eq 0 ]; } || { [ "$3" = 0 ] && [ "$got" -ne 0 ]; }; then
+      echo "  [실패] $1 — 걸려야 하나=$3 실제=$got"; st_fail=1
+    else
+      echo "  [통과] $1"
+    fi
+  }
+  echo "중복 표 행 검사 다섯 모양을 잰다:"
+  st_check "같은 이력 행이 두 번 — 걸려야 한다" \
+'| 2026-09-21 | `Q144` 시행 시각 시험이 벽시계에 매달린다 | 데이터 기준으로 바꿨다 | abc1234 |
+| 2026-09-21 | `Q144` 시행 시각 시험이 벽시계에 매달린다 | 데이터 기준으로 바꿨다 | abc1234 |' 1
+  st_check "같은 표 머리가 두 표에 — 안 걸려야 한다" \
+'| # | 청크 | 무엇을 하나 | 선행 |
+|---|---|---|---|
+| 1 | 첫째 | 무엇 | 없음 |
+
+| # | 청크 | 무엇을 하나 | 선행 |
+|---|---|---|---|
+| 2 | 둘째 | 무엇 | 없음 |' 0
+  st_check "구분선이 여러 번 — 안 걸려야 한다" \
+'| 가 | 나 | 다 | 라 | 마 | 바 | 사 | 아 | 자 | 차 |
+|---|---|---|---|---|---|---|---|---|---|
+| 가 | 나 | 다 | 라 | 마 | 바 | 사 | 아 | 자 | 차차 |
+|---|---|---|---|---|---|---|---|---|---|' 0
+  st_check "40자 미만 짧은 행이 반복 — 안 걸려야 한다" \
+'| 〃 | 없다 |
+| 〃 | 없다 |' 0
+  st_check "코드펜스 안의 중복 표 행 — 안 걸려야 한다" \
+'```
+| 2026-09-21 | `Q144` 시행 시각 시험이 벽시계에 매달린다 | 데이터 기준 | abc1234 |
+| 2026-09-21 | `Q144` 시행 시각 시험이 벽시계에 매달린다 | 데이터 기준 | abc1234 |
+```' 0
+  st_gate() { # 이름, 시험 본문, 표 본문, 걸려야 하나(1/0)
+    rm -rf "$tmp/t"; mkdir -p "$tmp/t"
+    printf '%s\n' "$2" > "$tmp/t/SomeGateTest.java"
+    printf '%s\n' "$3" > "$tmp/gates.md"
+    got=$(gate_rows_missing "$tmp/t" "$tmp/gates.md" | grep -c . || true)
+    if { [ "$4" = 1 ] && [ "$got" -eq 0 ]; } || { [ "$4" = 0 ] && [ "$got" -ne 0 ]; }; then
+      echo "  [실패] $1 — 걸려야 하나=$4 실제=$got"; st_fail=1
+    else
+      echo "  [통과] $1"
+    fi
+  }
+  echo "게이트 표 누락 검사 세 모양을 잰다:"
+  st_gate "원문을 읽는데 표에 없다 — 걸려야 한다" \
+    'var text = Files.readString(Path.of("PLAN.md"));' '| 다른 게이트 | 4 테스트 |' 1
+  st_gate "원문을 읽고 표에도 있다 — 안 걸려야 한다" \
+    'var text = Files.readString(Path.of("PLAN.md"));' '| `SomeGateTest` | 4 테스트 |' 0
+  st_gate "원문을 안 읽는 기능 시험 — 표에 없어도 안 걸려야 한다" \
+    'var order = repository.save(new Order());' '| 다른 게이트 | 4 테스트 |' 0
+
+  [ "$st_fail" -eq 0 ] && echo "자기 시험 통과"
+  exit "$st_fail"
+fi
+
 fail=0
 
 for f in "${title_check_files[@]}"; do
@@ -94,6 +194,13 @@ for f in "${dup_check_files[@]}"; do
   if [ -n "$dups" ]; then
     echo "[중복 문장] $f:"
     echo "$dups" | sed 's/^/    /'
+    fail=1
+  fi
+
+  rows=$(dup_table_rows "$f")
+  if [ -n "$rows" ]; then
+    echo "[중복 표 행] $f — 같은 행이 두 번이다. 합치다 겹친 것이면 한쪽을 지운다:"
+    echo "$rows" | cut -c1-160 | sed 's/^/    /'
     fail=1
   fi
 done
@@ -151,7 +258,7 @@ plan_open_rows() {
 # 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
 # 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
 # 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
-plan_open_incomplete_baseline=34
+plan_open_incomplete_baseline=33
 plan_open_incomplete=$(plan_open_rows | awk '
     $0 !~ /\*\*축\*\*/ || $0 !~ /\*\*강제 지점\*\*/ || $0 !~ /\*\*닫힘\*\*/ {k++}
   END{print k+0}')
@@ -276,6 +383,30 @@ fi
 state_lines=$(awk '/^## 현재 상태$/{on=1; next} /^## /{on=0} on' PROGRESS.md | wc -l)
 if [ "$state_lines" -gt 25 ]; then
   echo "[현재 상태 비대] PROGRESS.md — 「현재 상태」가 ${state_lines}줄이다(상한 25). 표만 남기고 서사는 이력으로(PROGRESS.md 「기록 규칙」)"
+  fail=1
+fi
+
+# 게이트를 세웠으면 게이트 표에 행이 있나(`Q147`). 위 `gate_rows_missing` 이 잣대를 든다.
+gate_missing_baseline=0
+gate_missing=$(gate_rows_missing backend/src/test doc/reference/quality-gates.md)
+gate_missing_count=$(printf '%s' "$gate_missing" | grep -c . || true)
+if [ "$gate_missing_count" -gt "$gate_missing_baseline" ]; then
+  echo "[게이트 표 누락] 저장소 원문을 읽는 시험인데 quality-gates.md 에 이름이 없다 (${gate_missing_count}개, 기준선 ${gate_missing_baseline}):"
+  printf '%s\n' "$gate_missing" | sed 's/^/    /'
+  echo "    「지금 무엇이 어디에 걸려 있나」 표에 행을 세운다 — 층·어디서 도나·무엇을 막나·부순 날(quality-gates.md)"
+  fail=1
+elif [ "$gate_missing_count" -lt "$gate_missing_baseline" ]; then
+  echo "[기준선 내릴 것] 게이트 표 누락이 ${gate_missing_count}개로 줄었다. scripts/doc-lint.sh 의 gate_missing_baseline 을 그 수로 내린다"
+fi
+
+# CI 가 돌리는 스크립트도 게이트다. **이쪽은 0 기준이다** — 실측이 0이라 과거 부채가 없다.
+script_missing=$(grep -oE 'scripts/[a-z-]+\.sh' .github/workflows/ci.yml | sort -u | while read -r s; do
+  n=$(basename "$s" .sh)
+  grep -q "$n" doc/reference/quality-gates.md || echo "$n"
+done)
+if [ -n "${script_missing//[$'\n' ]/}" ]; then
+  echo "[게이트 표 누락] CI 가 돌리는데 quality-gates.md 에 이름이 없는 스크립트:"
+  printf '%s\n' "$script_missing" | sed 's/^/    /'
   fail=1
 fi
 

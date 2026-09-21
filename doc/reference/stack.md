@@ -713,16 +713,32 @@ JVM 당 하나라 앞 테스트의 잔여물을 그대로 물려받는다.
 
 Redis 를 쓰는 테스트는 `@BeforeEach` 에서 자기 키를 지운다.
 
-### Redis 의존성을 넣어도 캐시가 자동으로 안 넘어간다
+### 캐시 구현은 자동설정이 아니라 우리 빈이 정한다
 
 `spring-boot-starter-data-redis` 를 넣으면 Spring Boot 가 `RedisCacheManager` 를 자동설정할 수 있다.
-그러면 **판정 캐시(청크 4a)가 아무도 모르게 Redis 로 옮겨 간다** — 이관은 청크 39 의 일이다.
+그 자동설정은 `@ConditionalOnMissingBean` 이라 **`PermissionCacheConfig` 가 선언한 `CacheManager` 빈이
+있는 동안 안 뜬다** — 구현을 고르는 것은 그 빈 하나다.
 
-여기서는 안 넘어간다. `PermissionCacheConfig` 가 `CacheManager` 빈을 **명시적으로** 선언했고
-자동설정이 `@ConditionalOnMissingBean` 이라 뜨지 않기 때문이다.
+**아직 Caffeine 이다.** 청크 `39` 가 2026-09-21 에 Redis 로 바꿔 봤다가 되돌렸다 —
+`RedisCacheManager` 로 갈면 **규칙 캐시가 한 번도 안 차는데 아무 신호가 없다.** 강등 핸들러가
+그 실패를 삼켜서 「도는 척」이 되고, 값 직렬화를 JSON(타입 정보 포함)·JDK 둘 다 대 봐도 같았다.
+**빈 것과 안 도는 것을 구별할 방법이 캐시 밖에 없는 것**이 이 자리의 함정이다.
 
-**이건 우연히 성립한 안전장치라 테스트로 고정해 뒀다**(`RedisConnectionTest`).
-누가 그 빈을 지우면 캐시 구현이 조용히 바뀌는데, 그건 코드 어디에도 안 보인다.
+누가 그 빈을 지우면 구현이 조용히 자동설정으로 넘어가는데 코드 어디에도 안 보여서,
+**지금 무엇이 도는지를 테스트가 고정한다**(`RedisConnectionTest`).
+
+### 재사용 컨테이너의 워커 DB 는 며칠 산다
+
+`withReuse(true)` 라 컨테이너가 살아남고, fork 마다 가른 DB 도 같이 남는다. 그래서
+**마이그레이션이 심은 행의 시각은 그 DB 를 처음 만든 날에 굳는다** — 며칠 지나면 `now()` 와
+그 값 사이가 그만큼 벌어진다.
+
+시험이 `now() - interval '1 day'` 로 「시드보다 이른 행」을 만들면 그 값이 **오히려 더 새것**이 되고
+「더 이른」이 「더 늦은」으로 뒤집힌다. 2026-09-21 에 워커 DB 55개 중 **10개**가 그 상태였다(`Q144`).
+
+**CI 는 이 모양을 구조적으로 못 본다** — 거기는 컨테이너가 매번 새것이라 둘 사이가 늘 0에 가깝다.
+**로컬만 빨갛고 CI 는 초록**이라 「로컬 탓」으로 읽기 쉽다. 기준은 벽시계가 아니라 그 표에서 뽑고,
+새로 생기는 것은 `SqlTextTest` 가 막는다(`Q146`).
 
 ### `.next/types` 는 빌드 산출물인데 `tsc` 가 그것을 읽는다
 
@@ -1373,6 +1389,21 @@ MockMvc 는 그 봉투를 테스트가 직접 만들어 넣어서 **그 상한�
 
 **업로드 입구는 실제 HTTP 로 잰다**(`HttpTestBase.postFile`, `Q97`).
 
+### jsdom 에서 파일을 고르는 시늉은 조용히 안 먹는다
+
+`HTMLInputElement.files` 는 읽기 전용이라 `fireEvent.change(input, { target: { files: [file] } })` 의
+그 대입이 **버려진다.** 이벤트는 나가고 핸들러는 도는데 `event.target.files` 가 비어서,
+「고르면 올린다」 코드가 첫 줄에서 돌아 나온다 — **아무 일도 안 났는데 시험이 초록이다.**
+
+```ts
+Object.defineProperty(input, "files", { value: [file], configurable: true });
+fireEvent.change(input);
+```
+
+`Q140` 이 실측으로 밟았다. 같은 청크에서 **두 번째 거짓 초록**도 나왔는데 그쪽은 도구가 아니라
+단언 문자열 탓이다 — 오류 문구를 「5MB까지」로 찾으면 **입력 위 도움말**이 먼저 걸려서
+오류가 안 떠도 통과한다. **단언 문자열은 그 화면에서 유일한 것으로 고른다.**
+
 ### 하위 클래스에 `@SpringBootTest` 를 다시 달면 바탕의 설정이 사라진다
 
 `webEnvironment` 는 **가장 가까운 애너테이션 하나가 정한다.** 바탕이
@@ -1500,7 +1531,7 @@ Git Bash 에서 `curl -F "file=@/tmp/x.png"` 는 **`curl: (26) Failed to open/re
 | 서버 상태 관리 | `@tanstack/react-query`·`swr` | **서버 컴포넌트가 기본이라 캐시 계층이 겹친다**(`D24`). 목록·상세는 서버가 그리고, 조작 뒤 갱신은 `router.refresh()` 가 서버에게 다시 물어본다 — 클라이언트가 들고 있을 상태가 없다 |
 | 폼 | `react-hook-form` | 칸이 적고 검증이 **서버가 유일한 출처**다(`5-2`). 화면 검사는 편의고 판정이 아니라, 비제어 `FormData` 로 충분하다 |
 | 날짜 | `date-fns`·`dayjs` | 로케일이 하나(`ko-KR`)고 시간대가 하나(`Asia/Seoul`)다. `toLocaleDateString` 이 그 둘을 다 받는다(`lib/format.ts`) |
-| HTTP | `axios` | 입구가 셋뿐이고(`api.ts`) 인터셉터로 할 일을 그 셋이 이미 한다 — 표기 변환·CSRF·401 처리 |
+| HTTP | `axios` | 입구가 넷뿐이고(`api.ts`·`api-session.ts`) 인터셉터로 할 일을 그것들이 이미 한다 — 표기 변환·CSRF·401·204 처리 |
 
 **넷 다 값이 오르면 다시 본다.** 화면이 늘어 같은 데이터를 여러 곳에서 부르기 시작하거나,
 칸이 많은 폼이 생기거나, 로케일이 둘이 되면 그때가 그 시점이다.

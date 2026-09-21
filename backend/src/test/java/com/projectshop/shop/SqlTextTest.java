@@ -7,8 +7,10 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -163,6 +165,109 @@ class SqlTextTest {
                 .as("마커는 주석 한 줄로 검사를 끄는 수단이라, 미리 뿌리거나 남겨 두면"
                         + " 무엇을 덮고 있는지 아무도 모르게 된다")
                 .isEmpty();
+    }
+
+    /**
+     * 「테스트」 — 마이그레이션이 심어 둔 표에 <b>과거 방향 상대 시각</b>으로 행을 넣지 않는다(`Q146`).
+     *
+     * <p><b>재사용 컨테이너의 워커 DB 가 며칠 산다.</b> 마이그레이션이 심은 행의 시각은 그 DB 를
+     * 처음 만든 날 굳는데, 시험이 {@code now() - interval '1 day'} 로 「더 이른 행」을 만들면
+     * 며칠 지난 DB 에서 그 값이 <b>오히려 더 새것</b>이 된다. 「더 이른」이 「더 늦은」이 되고
+     * 시험이 스스로 뒤집힌다 — 2026-09-21 에 워커 DB 55개 중 10개가 그 상태였다(`Q144`).
+     *
+     * <p><b>CI 는 구조적으로 못 본다.</b> 거기는 컨테이너가 매번 새것이라 둘 사이가 늘 0에 가깝다.
+     * 로컬만 빨갛고 CI 는 초록이라 「로컬 탓」으로 읽기 쉽다 — 그날 그 오독을 두 번 했다.
+     *
+     * <p><b>미래 방향과 맨 {@code now()} 는 안 본다.</b> 낡은 DB 는 심긴 행을 더 <b>오래된</b>
+     * 쪽으로만 밀기 때문에, 「지금 시행됨」이나 「아직 시행 전」을 주장하는 자리는 흔들리지 않는다.
+     * 뒤집히는 것은 <b>심긴 행보다 이르다</b>고 주장하는 자리 하나뿐이다.
+     *
+     * <p>고치는 법은 기준을 데이터에서 뽑는 것이다 —
+     * {@code min(effective_at) - interval '1 day' from policy_document}.
+     */
+    @Test
+    @DisplayName("시험이 시드 표의 시각을 벽시계로 거슬러 만들지 않는다")
+    void testsDoNotBackdateSeededRows() {
+        List<String> violations = new ArrayList<>();
+        Set<String> seeded = tablesSeededByMigrations();
+        for (Path path : testSources()) {
+            String text = JavaSourceText.withoutComments(readText(path));
+            Matcher matcher = PAST_RELATIVE.matcher(text);
+            while (matcher.find()) {
+                String prefix = text.substring(0, matcher.start());
+                String table = lastStatementTarget(prefix);
+                if (table == null || !seeded.contains(table)) {
+                    continue;
+                }
+                long line = prefix.chars().filter(c -> c == '\n').count() + 1;
+                violations.add(path + ":" + line + " — " + table);
+            }
+        }
+        assertThat(violations)
+                .as("마이그레이션이 심은 행의 시각은 워커 DB 를 만든 날 굳는다."
+                        + " 그보다 이르다고 주장하려면 기준을 벽시계가 아니라 그 표에서 뽑는다 (Q146)")
+                .isEmpty();
+    }
+
+    /** 시각을 거슬러 잡는 SQL. 미래 방향({@code now() + interval})은 안 뒤집혀서 안 본다. */
+    private static final Pattern PAST_RELATIVE =
+            Pattern.compile("(?i)(?:now\\(\\)|current_timestamp)\\s*-\\s*interval");
+
+    private static final Pattern STATEMENT_TARGET =
+            Pattern.compile("(?i)(?:insert\\s+into|update)\\s+([a-z_]+)");
+
+    private static final Pattern MIGRATION_INSERT =
+            Pattern.compile("(?i)insert\\s+into\\s+([a-z_]+)");
+
+    private static final Path TEST = Path.of("src", "test", "java");
+
+    private static final Path MIGRATIONS = Path.of("src", "main", "resources", "db", "migration");
+
+    /**
+     * 상대 시각이 어느 표로 가나. <b>가장 가까운 앞쪽</b>의 {@code insert into}·{@code update} 를 문다.
+     *
+     * <p>SQL 이 문자열로 조립되면 그 짝이 어긋날 수 있다({@code OrderContractTest} 의
+     * {@code insertPolicy} 가 시각만 인자로 받는다). 그래도 <b>두 표가 다 시드 표</b>라 판정은 같다 —
+     * 어긋나서 통과하는 쪽이 아니라 어긋나서 잡히는 쪽이다.
+     */
+    private static String lastStatementTarget(String prefix) {
+        Matcher matcher = STATEMENT_TARGET.matcher(prefix);
+        String table = null;
+        while (matcher.find()) {
+            table = matcher.group(1).toLowerCase();
+        }
+        return table;
+    }
+
+    private static Set<String> tablesSeededByMigrations() {
+        Set<String> tables = new LinkedHashSet<>();
+        try (Stream<Path> files = Files.walk(MIGRATIONS)) {
+            for (Path path : files.filter(p -> p.toString().endsWith(".sql")).toList()) {
+                Matcher matcher = MIGRATION_INSERT.matcher(readText(path));
+                while (matcher.find()) {
+                    tables.add(matcher.group(1).toLowerCase());
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("마이그레이션을 못 읽었다: " + MIGRATIONS.toAbsolutePath(), e);
+        }
+        return tables;
+    }
+
+    private static List<Path> testSources() {
+        try (Stream<Path> files = Files.walk(TEST)) {
+            return files.filter(path -> path.toString().endsWith(".java")).toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException("테스트 소스를 못 읽었다: " + TEST.toAbsolutePath(), e);
+        }
+    }
+
+    private static String readText(Path path) {
+        try {
+            return Files.readString(path);
+        } catch (IOException e) {
+            throw new UncheckedIOException(path + " 를 못 읽었다", e);
+        }
     }
 
     @Test

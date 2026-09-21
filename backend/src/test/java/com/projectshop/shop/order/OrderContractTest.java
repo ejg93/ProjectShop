@@ -366,7 +366,7 @@ class OrderContractTest extends PostgresTestBase {
     }
 
     private void insertEffectivePolicy(String code, int version) {
-        insertPolicy(code, version, "now() - interval '1 second'");
+        insertPolicy(code, version, "now()");
     }
 
     private void insertPolicy(String code, int version, String effectiveAt) {
