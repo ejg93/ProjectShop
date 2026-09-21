@@ -203,6 +203,7 @@ ISO 4217 이 통화 코드 표준(`KRW`, `USD`)이고 `java.util.Currency` 가 �
 |---|---|---|
 | PostgreSQL 17 격리 수준 | https://www.postgresql.org/docs/17/transaction-iso.html | 기본이 **Read Committed**. Repeatable Read 와 Serializable 을 쓰려면 명시해야 한다 |
 | Stripe 멱등 요청 | https://docs.stripe.com/api/idempotent_requests | 멱등키 설계의 실물 |
+| `Idempotency-Key` 초안 | https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/ | **`draft-ietf-httpapi-idempotency-key-header-07`**, 2025-10-15 개정, **상태 Expired**(2026-04-18 만료. 2026-09-21 확인). 만료된 I-D 는 **표준이 아니다** — 출처 축에서 관례(4순위)로 놓고 우리 규약(3순위)이 이긴다 |
 
 Postgres 문서에서 확인한 것
 
@@ -217,6 +218,16 @@ Stripe 멱등키에서 확인한 것 — 우리 청크 12(모의 결제)가 그�
 - 키는 24시간 뒤 지운다
 - 같은 키에 다른 파라미터가 오면 오류를 낸다. 실수로 재사용하는 것을 막는다
 - POST 만 받는다. GET·DELETE 는 정의상 멱등이라 키가 무의미하다
+
+초안 원문에서 확인한 것 — 우리 규약과 **넷 중 셋이 같다**(2026-09-21, `Q61`)
+
+- 헤더 이름 `Idempotency-Key` — 같다
+- §2.7 「같은 키에 다른 본문이면 **422**」 — 같다(`IDEMPOTENCY_KEY_REUSED`)
+- §2.7 「처리 중이면 **409**」 — 같다(`IDEMPOTENCY_IN_PROGRESS`)
+- §2.6 「완료 뒤 재시도는 앞 결과를 그대로 준다」 — 같다
+- **갈리는 하나는 값의 문법이다.** §2.1 이 「Item Structured Header([RFC 8941])고 값은 String」이라
+  큰따옴표로 감싸야 하는데, 우리는 생 문자열 1~255자를 받는다. 갈래와 근거는 `concurrency-rules.md` 가 든다
+- §2.3·§2.5.2 는 **키 범위를 사용자·자원으로 안 묶고** 만료 정책을 자원이 정해서 공개하라고만 한다 — 우리는 24시간이다
 
 ## D12 이벤트 카탈로그
 

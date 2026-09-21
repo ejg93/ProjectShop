@@ -206,6 +206,43 @@ class HttpFlowTest extends HttpTestBase {
                     .contains("\"visible_field_groups\"");
         }
 
+        /**
+         * 「표준」 — 인증된 응답은 공유 캐시에 안 남는다(RFC 9111 §3, `Q61`).
+         *
+         * <p><b>플랫폼 기본값에만 걸려 있던 자리다.</b> {@code SecurityConfig} 에 {@code .headers(}
+         * 커스텀이 없어서 Spring Security 가 {@code no-cache, no-store, max-age=0, must-revalidate}
+         * 를 붙여 준다 — 우리가 정한 것이 아니라 <b>남이 정한 기본값을 쓰고 있었고 잰 적이 없다.</b>
+         * 기본값이 바뀌거나 누가 {@code cacheControl().disable()} 을 넣으면 세션이 붙은 응답이
+         * 프록시에 남는데, 그것은 <b>다음 사람에게 남의 내 정보가 보이는 사고</b>다.
+         *
+         * <p><b>MockMvc 로는 못 잰다</b> — 필터 사슬을 지나는 진짜 요청이라야 한다({@code HttpTestBase}).
+         *
+         * <p>공개 목록도 같은 헤더를 받는 것이 <b>지금의 사실</b>이다. 캐시를 켜는 날 여기가 갈리고,
+         * 그때 고칠 자리를 {@code frontend-rules.md} 「캐시」가 든다.
+         */
+        @Test
+        @DisplayName("로그인한 응답은 캐시에 안 남는다")
+        void authenticatedResponsesAreNotStored() {
+            Session session = newSession();
+            session.get("/api/health");
+            signUp(session, "cache");
+            logIn(session, "cache");
+
+            Response me = session.get("/api/me");
+
+            assertThat(me.is(200)).isTrue();
+            assertThat(me.headers().getFirst("Cache-Control"))
+                    .as("세션이 붙은 응답이 공유 캐시에 남으면 다음 사람이 남의 정보를 본다 (RFC 9111 §3)")
+                    .contains("no-store");
+
+            Response products = session.get("/api/products");
+
+            assertThat(products.headers().getFirst("Cache-Control"))
+                    .as("공개 목록도 같은 헤더를 받는 것이 지금의 사실이다."
+                            + " 캐시를 켜는 날 갈릴 자리라 값을 박아 둔다 (D24 「캐시」)")
+                    .contains("no-store");
+        }
+
         @Test
         @DisplayName("권한 없는 조회가 거부되고 그 거부가 기록된다")
         void deniedAccessIsRecorded() {
