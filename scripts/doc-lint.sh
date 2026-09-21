@@ -90,7 +90,8 @@ dup_table_rows() {
 # 원문을 읽는 시험 22개 중 **19개가 이미 표에 있다**(2026-09-21). 새로 생긴 `*Test.java` 전부를
 # 재면 절반이 기능 시험이라 노이즈가 된다.
 #
-# **기준선은 내리기만 한다.** 남은 셋은 `Q153` 이 가른다.
+# **기준선은 내리기만 한다.** `Q153` 이 남은 셋(`SchemaErdTest`·`PermissionMatrixTest`·`DataLifecycleCoverageTest`)을
+# 열어 보고 셋 다 게이트라 표에 올렸다 — 그래서 지금은 0이다.
 gate_rows_missing() { # 시험 뿌리, 게이트 표
   grep -rl 'Files\.read\|Path\.of("\|Paths\.get("' "$1" --include=*.java 2>/dev/null \
     | while read -r f; do
@@ -386,7 +387,7 @@ if [ "$state_lines" -gt 25 ]; then
 fi
 
 # 게이트를 세웠으면 게이트 표에 행이 있나(`Q147`). 위 `gate_rows_missing` 이 잣대를 든다.
-gate_missing_baseline=3
+gate_missing_baseline=0
 gate_missing=$(gate_rows_missing backend/src/test doc/reference/quality-gates.md)
 gate_missing_count=$(printf '%s' "$gate_missing" | grep -c . || true)
 if [ "$gate_missing_count" -gt "$gate_missing_baseline" ]; then
