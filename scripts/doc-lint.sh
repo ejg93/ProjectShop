@@ -172,6 +172,25 @@ if [ "${1:-}" = "--selftest" ]; then
   st_gate "원문을 안 읽는 기능 시험 — 표에 없어도 안 걸려야 한다" \
     'var order = repository.save(new Order());' '| 다른 게이트 | 4 테스트 |' 0
 
+  st_screen() { # 이름, 시험 본문, 표 본문, 걸려야 하나(1/0)
+    rm -rf "$tmp/s"; mkdir -p "$tmp/s"
+    printf '%s\n' "$2" > "$tmp/s/some-gate.test.ts"
+    printf '%s\n' "$3" > "$tmp/gates.md"
+    got=$(gate_rows_missing_screen "$tmp/s" "$tmp/gates.md" | grep -c . || true)
+    if { [ "$4" = 1 ] && [ "$got" -eq 0 ]; } || { [ "$4" = 0 ] && [ "$got" -ne 0 ]; }; then
+      echo "  [실패] $1 — 걸려야 하나=$4 실제=$got"; st_fail=1
+    else
+      echo "  [통과] $1"
+    fi
+  }
+  echo "화면 게이트 표 누락 검사 세 모양을 잰다:"
+  st_screen "원문을 읽는데 표에 없다 — 걸려야 한다" \
+    'const SOURCE = readFileSync(resolve(dir, "page.tsx"), "utf8");' '| 다른 게이트 | 4 테스트 |' 1
+  st_screen "원문을 읽고 표에도 있다 — 안 걸려야 한다" \
+    'const SOURCE = readFileSync(resolve(dir, "page.tsx"), "utf8");' '| `some-gate.test.ts` | 4 테스트 |' 0
+  st_screen "원문을 안 읽는 화면 시험 — 표에 없어도 안 걸려야 한다" \
+    'render(<Form />); expect(screen.getByRole("button")).toBeTruthy();' '| 다른 게이트 | 4 테스트 |' 0
+
   [ "$st_fail" -eq 0 ] && echo "자기 시험 통과"
   exit "$st_fail"
 fi
