@@ -131,8 +131,7 @@ class PolicyQueryTest extends PostgresTestBase {
         void keepsOldRevisions() {
             jdbc.sql("""
                             insert into policy_document (code, title, version, body, effective_at)
-                            values ('privacy_policy', '개인정보처리방침', 90, '## 새 판',
-                                    now() - interval '1 day')
+                            values ('privacy_policy', '개인정보처리방침', 90, '## 새 판', now())
                             """)
                     .update();
 
