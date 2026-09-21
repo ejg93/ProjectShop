@@ -82,6 +82,23 @@ dup_table_rows() {
     | sort | uniq -d
 }
 
+# **게이트를 세워 놓고 게이트 표에 안 올리는 것**(`Q147`, `D25`). 2026-09-21 하루에 세 번 났고
+# 세 번 다 PR 리뷰가 잡았다 — 규칙은 `quality-gates.md` 에 이미 있는데 청크마다 적용이 갈렸다.
+#
+# **무엇이 게이트인가를 「저장소 원문을 읽나」로 가른다.** 기능 시험은 자기가 넣은 데이터를 보고
+# 게이트는 소스·스키마·문서를 읽어서 저장소 전체의 불변을 잰다. 실측이 그 잣대를 지지한다 —
+# 원문을 읽는 시험 22개 중 **19개가 이미 표에 있다**(2026-09-21). 새로 생긴 `*Test.java` 전부를
+# 재면 절반이 기능 시험이라 노이즈가 된다.
+#
+# **기준선은 내리기만 한다.** 남은 셋은 `Q153` 이 가른다.
+gate_rows_missing() { # 시험 뿌리, 게이트 표
+  grep -rl 'Files\.read\|Path\.of("\|Paths\.get("' "$1" --include=*.java 2>/dev/null \
+    | while read -r f; do
+        n=$(basename "$f" .java)
+        grep -q "$n" "$2" || echo "$n"
+      done | sort
+}
+
 # 원문을 정규식으로 읽는 게이트는 자기 시험을 같이 세운다(`quality-gates.md`). **빠진 것은
 # 게이트가 스스로 못 알려 준다** — 실물이 초록인 것은 「구멍이 없다」와 「정규식이 아무것도 안 잡는다」가
 # 구별이 안 된다.
@@ -123,6 +140,25 @@ if [ "${1:-}" = "--selftest" ]; then
 | 2026-09-21 | `Q144` 시행 시각 시험이 벽시계에 매달린다 | 데이터 기준 | abc1234 |
 | 2026-09-21 | `Q144` 시행 시각 시험이 벽시계에 매달린다 | 데이터 기준 | abc1234 |
 ```' 0
+  st_gate() { # 이름, 시험 본문, 표 본문, 걸려야 하나(1/0)
+    rm -rf "$tmp/t"; mkdir -p "$tmp/t"
+    printf '%s\n' "$2" > "$tmp/t/SomeGateTest.java"
+    printf '%s\n' "$3" > "$tmp/gates.md"
+    got=$(gate_rows_missing "$tmp/t" "$tmp/gates.md" | grep -c . || true)
+    if { [ "$4" = 1 ] && [ "$got" -eq 0 ]; } || { [ "$4" = 0 ] && [ "$got" -ne 0 ]; }; then
+      echo "  [실패] $1 — 걸려야 하나=$4 실제=$got"; st_fail=1
+    else
+      echo "  [통과] $1"
+    fi
+  }
+  echo "게이트 표 누락 검사 세 모양을 잰다:"
+  st_gate "원문을 읽는데 표에 없다 — 걸려야 한다" \
+    'var text = Files.readString(Path.of("PLAN.md"));' '| 다른 게이트 | 4 테스트 |' 1
+  st_gate "원문을 읽고 표에도 있다 — 안 걸려야 한다" \
+    'var text = Files.readString(Path.of("PLAN.md"));' '| `SomeGateTest` | 4 테스트 |' 0
+  st_gate "원문을 안 읽는 기능 시험 — 표에 없어도 안 걸려야 한다" \
+    'var order = repository.save(new Order());' '| 다른 게이트 | 4 테스트 |' 0
+
   [ "$st_fail" -eq 0 ] && echo "자기 시험 통과"
   exit "$st_fail"
 fi
@@ -346,6 +382,30 @@ fi
 state_lines=$(awk '/^## 현재 상태$/{on=1; next} /^## /{on=0} on' PROGRESS.md | wc -l)
 if [ "$state_lines" -gt 25 ]; then
   echo "[현재 상태 비대] PROGRESS.md — 「현재 상태」가 ${state_lines}줄이다(상한 25). 표만 남기고 서사는 이력으로(PROGRESS.md 「기록 규칙」)"
+  fail=1
+fi
+
+# 게이트를 세웠으면 게이트 표에 행이 있나(`Q147`). 위 `gate_rows_missing` 이 잣대를 든다.
+gate_missing_baseline=3
+gate_missing=$(gate_rows_missing backend/src/test doc/reference/quality-gates.md)
+gate_missing_count=$(printf '%s' "$gate_missing" | grep -c . || true)
+if [ "$gate_missing_count" -gt "$gate_missing_baseline" ]; then
+  echo "[게이트 표 누락] 저장소 원문을 읽는 시험인데 quality-gates.md 에 이름이 없다 (${gate_missing_count}개, 기준선 ${gate_missing_baseline}):"
+  printf '%s\n' "$gate_missing" | sed 's/^/    /'
+  echo "    「지금 무엇이 어디에 걸려 있나」 표에 행을 세운다 — 층·어디서 도나·무엇을 막나·부순 날(quality-gates.md)"
+  fail=1
+elif [ "$gate_missing_count" -lt "$gate_missing_baseline" ]; then
+  echo "[기준선 내릴 것] 게이트 표 누락이 ${gate_missing_count}개로 줄었다. scripts/doc-lint.sh 의 gate_missing_baseline 을 그 수로 내린다"
+fi
+
+# CI 가 돌리는 스크립트도 게이트다. **이쪽은 0 기준이다** — 실측이 0이라 과거 부채가 없다.
+script_missing=$(grep -oE 'scripts/[a-z-]+\.sh' .github/workflows/ci.yml | sort -u | while read -r s; do
+  n=$(basename "$s" .sh)
+  grep -q "$n" doc/reference/quality-gates.md || echo "$n"
+done)
+if [ -n "${script_missing//[$'\n' ]/}" ]; then
+  echo "[게이트 표 누락] CI 가 돌리는데 quality-gates.md 에 이름이 없는 스크립트:"
+  printf '%s\n' "$script_missing" | sed 's/^/    /'
   fail=1
 fi
 
