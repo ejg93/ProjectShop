@@ -59,7 +59,7 @@ dependencies {
 	// 「막고 있다」고 읽힌다」와 같은 자리다. 압축을 켜는 날 이 경보를 다시 만나는 것보다
 	// 지금 한 줄이 싸고, **버전이 올라가면 이 제약이 저절로 무의미해진다**(아래가 더 낮으면 진다).
 	constraints {
-		implementation("at.yawk.lz4:lz4-java:1.11.1")
+		implementation("at.yawk.lz4:lz4-java:1.11.3")
 	}
 
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
