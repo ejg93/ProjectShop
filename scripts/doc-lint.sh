@@ -100,6 +100,18 @@ gate_rows_missing() { # 시험 뿌리, 게이트 표
       done | sort
 }
 
+# **화면 쪽도 같은 잣대다**(`Q156`). `Q147` 이 backend 만 봐서, 오늘 선 프론트 게이트 둘을
+# 사람이 손으로 표에 올렸다 — **그것이 `Q147` 이 막으려던 바로 그 모양**이다.
+# 여기서도 「저장소 원문을 읽나」로 가른다(`readFileSync`). **파일 이름을 확장자째 쓴다** —
+# `.ts` 와 `.tsx` 가 섞여 있어서 떼면 서로 다른 게이트가 한 이름이 된다.
+gate_rows_missing_screen() { # 화면 뿌리, 게이트 표
+  grep -rl "readFileSync" "$1" --include=*.ts --include=*.tsx 2>/dev/null \
+    | while read -r f; do
+        n=$(basename "$f")
+        grep -q "$n" "$2" || echo "$n"
+      done | sort
+}
+
 # 원문을 정규식으로 읽는 게이트는 자기 시험을 같이 세운다(`quality-gates.md`). **빠진 것은
 # 게이트가 스스로 못 알려 준다** — 실물이 초록인 것은 「구멍이 없다」와 「정규식이 아무것도 안 잡는다」가
 # 구별이 안 된다.
@@ -159,6 +171,25 @@ if [ "${1:-}" = "--selftest" ]; then
     'var text = Files.readString(Path.of("PLAN.md"));' '| `SomeGateTest` | 4 테스트 |' 0
   st_gate "원문을 안 읽는 기능 시험 — 표에 없어도 안 걸려야 한다" \
     'var order = repository.save(new Order());' '| 다른 게이트 | 4 테스트 |' 0
+
+  st_screen() { # 이름, 시험 본문, 표 본문, 걸려야 하나(1/0)
+    rm -rf "$tmp/s"; mkdir -p "$tmp/s"
+    printf '%s\n' "$2" > "$tmp/s/some-gate.test.ts"
+    printf '%s\n' "$3" > "$tmp/gates.md"
+    got=$(gate_rows_missing_screen "$tmp/s" "$tmp/gates.md" | grep -c . || true)
+    if { [ "$4" = 1 ] && [ "$got" -eq 0 ]; } || { [ "$4" = 0 ] && [ "$got" -ne 0 ]; }; then
+      echo "  [실패] $1 — 걸려야 하나=$4 실제=$got"; st_fail=1
+    else
+      echo "  [통과] $1"
+    fi
+  }
+  echo "화면 게이트 표 누락 검사 세 모양을 잰다:"
+  st_screen "원문을 읽는데 표에 없다 — 걸려야 한다" \
+    'const SOURCE = readFileSync(resolve(dir, "page.tsx"), "utf8");' '| 다른 게이트 | 4 테스트 |' 1
+  st_screen "원문을 읽고 표에도 있다 — 안 걸려야 한다" \
+    'const SOURCE = readFileSync(resolve(dir, "page.tsx"), "utf8");' '| `some-gate.test.ts` | 4 테스트 |' 0
+  st_screen "원문을 안 읽는 화면 시험 — 표에 없어도 안 걸려야 한다" \
+    'render(<Form />); expect(screen.getByRole("button")).toBeTruthy();' '| 다른 게이트 | 4 테스트 |' 0
 
   [ "$st_fail" -eq 0 ] && echo "자기 시험 통과"
   exit "$st_fail"
@@ -397,6 +428,15 @@ if [ "$gate_missing_count" -gt "$gate_missing_baseline" ]; then
   fail=1
 elif [ "$gate_missing_count" -lt "$gate_missing_baseline" ]; then
   echo "[기준선 내릴 것] 게이트 표 누락이 ${gate_missing_count}개로 줄었다. scripts/doc-lint.sh 의 gate_missing_baseline 을 그 수로 내린다"
+fi
+
+# 화면 쪽도 **0 기준이다**(`Q156`) — `Q156` 이 셀 때 둘이 빠져 있었고 같은 청크가 그 둘을 표에 올렸다.
+screen_gate_missing=$(gate_rows_missing_screen frontend/src doc/reference/quality-gates.md)
+if [ -n "${screen_gate_missing//[$'\n' ]/}" ]; then
+  echo "[게이트 표 누락] 저장소 원문을 읽는 화면 시험인데 quality-gates.md 에 이름이 없다:"
+  printf '%s\n' "$screen_gate_missing" | sed 's/^/    /'
+  echo "    「지금 무엇이 어디에 걸려 있나」 표에 행을 세운다 — 층·어디서 도나·무엇을 막나·부순 날(quality-gates.md)"
+  fail=1
 fi
 
 # CI 가 돌리는 스크립트도 게이트다. **이쪽은 0 기준이다** — 실측이 0이라 과거 부채가 없다.

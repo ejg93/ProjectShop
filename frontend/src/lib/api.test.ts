@@ -85,3 +85,53 @@ describe("표기 변환", () => {
     });
   });
 });
+
+/**
+ * 입구 둘이 <b>같은 방어를 들고 있나</b>(`Q155`).
+ *
+ * <p>`apiUpload` 는 `api()` 를 못 쓴다 — 그쪽이 본문을 `JSON.stringify` 로 굳혀서 파일이 `{}` 가 된다.
+ * 그래서 규칙이 <b>한 벌이 아니라 두 벌</b>이고, <b>한쪽만 고치는 날 갈린다.</b>
+ * 실제로 갈렸다 — `Q140` 이 낸 `apiUpload` 에 204 분기가 없어서 본문 없는 2xx 에 터지는 것을
+ * 마무리 41차 리뷰가 잡았다. 사람이 잡은 것은 다음에도 사람이 잡아야 한다.
+ *
+ * <p><b>글자로 잰다.</b> 두 함수를 실제로 돌리려면 `fetch`·쿠키·`location` 을 다 흉내 내야 하는데,
+ * 그렇게 재는 것은 <b>흉내가 맞나</b>를 같이 재게 된다. 여기서 묻는 것은 그것이 아니라
+ * <b>같은 자리가 양쪽에 있나</b>다.
+ *
+ * <p><b>못 보는 것</b>: 자리는 있는데 <b>다르게 구는 것</b>. 예를 들어 한쪽이 401 에서 다른 곳으로
+ * 보내면 이 대조는 통과한다. 그것까지 보려면 층이 달라진다(`D15`).
+ */
+describe("입구 둘이 같은 방어를 든다", () => {
+  const source = readFileSync(resolve(process.cwd(), "src/lib/api.ts"), "utf8");
+
+  /** 두 입구 모두에 있어야 하는 자리와, 없으면 무엇이 나는가 */
+  const guards: [string, string][] = [
+    ['credentials: "same-origin"', "세션 쿠키가 안 실려서 로그인만 조용히 안 된다"],
+    ["CSRF_HEADER", "토큰이 안 실려서 쓰기가 전부 401 이다"],
+    ["status === 401", "세션이 끊겼을 때 로그인으로 안 보내고 화면마다 다른 오류가 뜬다"],
+    ["status === 204", "본문 없는 2xx 에 response.json() 이 그 자리에서 터진다"],
+    ["toApiError", "오류가 ApiError 가 아니라서 화면의 슬러그 분기가 전부 기본 문구로 떨어진다"],
+    ["toCamel", "응답 표기가 안 바뀌어서 화면이 snake_case 를 읽는다"],
+  ];
+
+  const bodyOf = (name: string) => {
+    const start = source.indexOf(`export async function ${name}<T>(`);
+    expect(start, `${name} 를 못 찾았다. 이름이 바뀌면 이 대조가 0자를 재고 통과한다`).toBeGreaterThan(-1);
+    const next = source.indexOf("\nexport ", start + 1);
+    return source.slice(start, next < 0 ? source.length : next);
+  };
+
+  const api = bodyOf("api");
+  const upload = bodyOf("apiUpload");
+
+  it.each(guards)("%s 가 두 입구에 다 있다", (guard, cost) => {
+    const missing = [
+      ["api()", api.includes(guard)] as const,
+      ["apiUpload()", upload.includes(guard)] as const,
+    ]
+      .filter(([, present]) => !present)
+      .map(([entry]) => entry);
+
+    expect(missing, `한쪽에만 있다: ${missing.join(", ")} 에 없다. 그러면 ${cost}`).toEqual([]);
+  });
+});
