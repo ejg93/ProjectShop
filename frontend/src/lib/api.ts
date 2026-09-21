@@ -4,11 +4,11 @@
  * <p>여기를 안 거치는 `fetch` 를 쓰지 않는다(`D5`). 표기 변환과 CSRF 헤더가 여기에만 있어서,
  * 직접 부르면 어떤 응답은 바뀌고 어떤 것은 안 바뀐 채로 화면에 닿는다.
  *
- * <p>입구가 셋이다(`D24` 「서버를 부르는 입구가 둘이다」에서 하나 늘었다).
- * <b>도는 곳과 누구의 것이냐로 갈린다.</b>
+ * <p>입구가 넷이다(`D24` 「서버를 부르는 입구」). <b>도는 곳과 누구의 것이냐로 갈린다.</b>
  *
  * <pre>
- * api()        클라이언트 컴포넌트 · 상대경로 · 쿠키를 브라우저가 붙인다 · CSRF 를 싣는다
+ * api()        클라이언트 컴포넌트 · 상대경로 · 쿠키를 브라우저가 붙인다 · CSRF 를 싣는다 · JSON
+ * apiUpload()  클라이언트 컴포넌트 · 상대경로 · 〃                        · 〃              · 파일 하나
  * apiPublic()  서버 컴포넌트       · 절대주소 · 쿠키 없음               · 읽기 전용
  * apiSession() 서버 컴포넌트       · 절대주소 · 쿠키를 손으로 싣는다     · 읽기 전용
  * </pre>
@@ -18,7 +18,7 @@
  *
  * <p><b>{@link apiSession} 만 파일이 다르다</b>(`api-session.ts`). `next/headers` 를 쓰는데,
  * 그것을 여기 들이면 이 파일을 가져다 쓰는 <b>클라이언트 컴포넌트가 전부 빌드에서 깨진다.</b>
- * 세 입구가 같은 변환·같은 오류 처리를 쓰도록 아래 셋을 내보낸다.
+ * 입구들이 같은 변환·같은 오류 처리를 쓰도록 아래 것들을 내보낸다.
  */
 
 /**
@@ -158,7 +158,8 @@ export async function api<T>(
  * 여기는 `FormData` 를 그대로 싣고 <b>`Content-Type` 을 안 정한다</b> — 정하면 브라우저가 붙이는
  * 멀티파트 경계(boundary)가 빠져서 서버가 본문을 못 가른다.
  *
- * <p>세션 쿠키·CSRF·401 처리는 같은 규칙을 쓴다. 입구가 둘이어도 규칙이 둘이면 안 된다(`D24`).
+ * <p>세션 쿠키·CSRF·401·204 를 `api()` 와 같은 규칙으로 다룬다(`D24`). **한 벌이 아니라 두 벌이라**
+ * 한쪽만 고치면 그날 갈린다 — 실제로 마무리 41차 독립 리뷰가 빠진 204 분기를 짚었다.
  *
  * @param field 서버가 받는 파트 이름. 상품 사진은 `file` 이다(`SellerProductController`)
  */
@@ -180,6 +181,11 @@ export async function apiUpload<T>(path: string, file: File, field = "file"): Pr
 
   if (!response.ok) {
     throw await toApiError(response);
+  }
+
+  // 204 는 본문이 없다. `api()` 와 같은 자리를 여기서도 본다 — 한쪽만 고치면 그날 갈린다.
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return toCamel(await response.json()) as T;

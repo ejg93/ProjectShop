@@ -139,6 +139,12 @@ export function ImageManager({
                   대체 텍스트를 파일 이름으로 안 쓴다(WCAG 1.1.1). 여기서 사진은 「무엇이 걸려 있나」를
                   가리키는 미리보기라, 순서가 곧 그 뜻이다.
                 */}
+                {/*
+                  **여기만 `next/image` 를 안 쓴다.** 그쪽은 `next.config.ts` 의 `remotePatterns` 에
+                  적힌 출처만 최적화하는데, 사진 주소는 **서명 URL** 이라 호스트가 저장소 설정에 매달린다 —
+                  목록에 얹으려면 R2 도메인을 코드에 박아야 하고, 그러면 저장소를 옮기는 날 화면이 깨진다.
+                  미리보기 열 장이라 최적화로 버는 것보다 그 결합이 비싸다.
+                */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={image.thumbnailUrl}

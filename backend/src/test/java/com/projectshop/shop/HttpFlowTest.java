@@ -207,7 +207,7 @@ class HttpFlowTest extends HttpTestBase {
         }
 
         /**
-         * 「표준」 — 인증된 응답은 공유 캐시에 안 남는다(RFC 9111 §3, `Q61`).
+         * 「표준」 — 로그인한 응답이 캐시에 안 남는다(RFC 9111, `Q61`).
          *
          * <p><b>플랫폼 기본값에만 걸려 있던 자리다.</b> {@code SecurityConfig} 에 {@code .headers(}
          * 커스텀이 없어서 Spring Security 가 {@code no-cache, no-store, max-age=0, must-revalidate}
@@ -232,7 +232,8 @@ class HttpFlowTest extends HttpTestBase {
 
             assertThat(me.is(200)).isTrue();
             assertThat(me.headers().getFirst("Cache-Control"))
-                    .as("세션이 붙은 응답이 공유 캐시에 남으면 다음 사람이 남의 정보를 본다 (RFC 9111 §3)")
+                    .as("세션이 붙은 응답이 공유 캐시에 남으면 다음 사람이 남의 정보를 본다"
+                            + " (RFC 9111 §5.2.2.5 no-store. §3.5 는 Authorization 헤더 기준이라 쿠키에는 안 걸린다)")
                     .contains("no-store");
 
             Response products = session.get("/api/products");

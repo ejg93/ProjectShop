@@ -11,6 +11,7 @@
 |---|---|---|
 | RFC 9110 HTTP Semantics | https://www.rfc-editor.org/rfc/rfc9110.html | 메서드와 상태 코드의 정의 원본 |
 | RFC 9457 Problem Details | https://www.rfc-editor.org/rfc/rfc9457.html | 오류 응답 본문 형식. 청크 7b 에서 채택 |
+| RFC 9111 HTTP Caching | https://www.rfc-editor.org/rfc/rfc9111.html | **§3.5 는 `Authorization` 헤더 기준이라 쿠키 세션에 그대로 안 걸린다**(2026-09-21 원문 확인, `Q61`). 로그인한 응답을 지키는 것은 §5.2.2.5 의 `no-store` 를 우리가 내보내는 것이고 `HttpFlowTest` 가 그것을 잰다 |
 | OpenAPI 3.1 | https://spec.openapis.org/oas/v3.1.0.html | 청크 2a 의 springdoc 이 이 형식으로 뽑는다 |
 
 ## D5 API 설계 규약
