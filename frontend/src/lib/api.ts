@@ -152,6 +152,40 @@ export async function api<T>(
 }
 
 /**
+ * 파일 하나를 올린다(`Q140`).
+ *
+ * <p><b>{@link api} 로는 못 보낸다.</b> 그쪽은 본문을 `JSON.stringify` 로 굳혀서 파일이 `{}` 가 된다.
+ * 여기는 `FormData` 를 그대로 싣고 <b>`Content-Type` 을 안 정한다</b> — 정하면 브라우저가 붙이는
+ * 멀티파트 경계(boundary)가 빠져서 서버가 본문을 못 가른다.
+ *
+ * <p>세션 쿠키·CSRF·401 처리는 같은 규칙을 쓴다. 입구가 둘이어도 규칙이 둘이면 안 된다(`D24`).
+ *
+ * @param field 서버가 받는 파트 이름. 상품 사진은 `file` 이다(`SellerProductController`)
+ */
+export async function apiUpload<T>(path: string, file: File, field = "file"): Promise<T> {
+  const body = new FormData();
+  body.append(field, file);
+
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { [CSRF_HEADER]: await csrfToken() },
+    credentials: "same-origin",
+    body,
+  });
+
+  if (response.status === 401) {
+    window.location.replace("/login?reason=session-expired");
+    await new Promise(() => {});
+  }
+
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+
+  return toCamel(await response.json()) as T;
+}
+
+/**
  * 백엔드 주소. `next.config.ts` 의 rewrite 가 쓰는 것과 같은 값에서 온다.
  *
  * <p>서버 컴포넌트는 프록시를 안 지난다. 브라우저가 아니라 Next 서버가 부르는 것이라

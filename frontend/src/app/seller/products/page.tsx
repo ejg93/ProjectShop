@@ -101,7 +101,7 @@ function ProductTable({ items }: { items: SellerProduct[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[44rem] border-collapse text-sm">
-        <caption className="sr-only">내 상품 목록. 이름, 상태, 최저가, 재고, 등록일 순</caption>
+        <caption className="sr-only">내 상품 목록. 이름, 상태, 최저가, 재고, 등록일, 사진 순</caption>
         <thead>
           <tr className="border-b border-border text-left text-xs text-text-muted">
             <Th>상품</Th>
@@ -109,6 +109,7 @@ function ProductTable({ items }: { items: SellerProduct[] }) {
             <Th align="right">최저가</Th>
             <Th align="right">재고</Th>
             <Th>등록</Th>
+            <Th>사진</Th>
           </tr>
         </thead>
         <tbody>
@@ -125,6 +126,18 @@ function ProductTable({ items }: { items: SellerProduct[] }) {
                 <Stock count={product.totalStock} />
               </Td>
               <Td muted>{dateTimeText(product.createdAt)}</Td>
+              <Td>
+                {/* 줄에서 사진으로 간다(`Q140`). 상품 이름은 이 줄이 이미 들고 있어서 저쪽이 안 그려도 된다 */}
+                <Link
+                  href={`/seller/products/${product.productId}/images`}
+                  className="
+                    text-sm underline-offset-4 hover:text-accent-text hover:underline
+                    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
+                  "
+                >
+                  사진<span className="sr-only"> — {product.name}</span>
+                </Link>
+              </Td>
             </tr>
           ))}
         </tbody>
