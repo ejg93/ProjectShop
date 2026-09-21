@@ -56,11 +56,12 @@ class RedisConnectionTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("판정 캐시는 아직 Caffeine 이다")
-    void permissionCacheStaysOnCaffeine() {
+    @DisplayName("판정 캐시가 Redis 에 있다")
+    void permissionCacheLivesInRedis() {
         assertThat(cacheManager.getClass().getSimpleName())
-                .as("의존성을 넣었다고 캐시가 조용히 Redis 로 넘어가면 안 된다 — 이관은 청크 39 다. "
-                        + "명시적 CacheManager 빈이 자동설정을 막고 있는지를 여기서 고정한다")
-                .isEqualTo("CaffeineCacheManager");
+                .as("프로세스 안에 두면 역할을 회수해도 그 요청을 받은 인스턴스만 지운다 — "
+                        + "다른 인스턴스는 TTL 이 끝날 때까지 계속 허용한다(청크 39). "
+                        + "한 대로 돌 때는 안 보이다가 늘리는 순간 조용히 틀리는 자리다")
+                .isEqualTo("RedisCacheManager");
     }
 }

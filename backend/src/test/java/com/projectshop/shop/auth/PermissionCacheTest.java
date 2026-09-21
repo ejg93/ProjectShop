@@ -2,181 +2,153 @@ package com.projectshop.shop.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.Set;
+import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.cache.interceptor.CacheErrorHandler;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 
 import com.projectshop.shop.PostgresTestBase;
-import com.projectshop.shop.auth.PermissionEvaluator.Decision;
-import com.projectshop.shop.auth.PermissionEvaluator.Target;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 /**
- * 캐시가 판정을 바꾸지 않는지, 그리고 회수가 즉시 먹는지 본다.
+ * 판정 캐시가 프로세스 밖에 있고, 그 밖이 죽어도 판정이 산다(`39`).
  *
- * <p>캐시의 위험은 빨라지는 쪽이 아니라 <b>틀린 답이 남는 쪽</b>이다.
- * 권한을 회수했는데 캐시가 옛 규칙을 들고 있으면 회수가 안 먹는다.
- *
- * <p>테스트마다 캐시를 비우고 시작한다. 안 그러면 앞 테스트가 채운 값이 뒤 테스트의 답이 된다.
+ * <p><b>두 가지가 짝이다.</b> 캐시를 밖으로 내면 무효화가 모든 인스턴스에 퍼지는 대신
+ * <b>캐시가 죽으면 판정이 죽는</b> 고장이 새로 생긴다. 앞엣것만 하고 뒤를 안 하면
+ * 캐시를 「빠르게 하려고」 넣어 놓고 그것 때문에 서비스가 멈춘다.
  */
+@DisplayName("판정 캐시")
 class PermissionCacheTest extends PostgresTestBase {
 
     @Autowired
-    PermissionEvaluator evaluator;
+    private CacheManager cacheManager;
 
     @Autowired
-    PermissionRuleLoader loader;
+    private RedisConnectionFactory connectionFactory;
 
     @Autowired
-    CacheManager cacheManager;
+    private CacheErrorHandler cacheErrorHandler;
 
-    @Autowired
-    JdbcClient jdbc;
-
-    AuthFixture fixture;
-    long alpha;
-    long seller;
+    private ListAppender<ILoggingEvent> captured;
 
     @BeforeEach
-    void setUp() {
-        PermissionCacheConfig.cacheNames()
-                .forEach(name -> cacheManager.getCache(name).clear());
-
-        fixture = new AuthFixture(jdbc);
-        alpha = fixture.insertSeller("alpha", "알파상회");
-        seller = fixture.insertUser("alpha-seller@test.local", "알파 대표");
-        fixture.joinSeller(alpha, seller);
-        fixture.grantOrg(seller, "seller_owner", alpha);
+    void captureLogs() {
+        captured = new ListAppender<>();
+        captured.start();
+        cacheLogger().addAppender(captured);
     }
 
-    @Nested
-    @DisplayName("캐시가 채워지나")
-    class Filling {
-
-        @Test
-        @DisplayName("같은 조회를 두 번 하면 두 번째는 캐시에서 온다")
-        void secondCallHitsCache() {
-            loader.loadRules(seller, "order", "read");
-
-            assertThat(cachedRules(seller, "order", "read"))
-                    .as("첫 조회 뒤 규칙 캐시에 항목이 있어야 한다")
-                    .isNotNull();
-        }
-
-        @Test
-        @DisplayName("소속 캐시는 사용자 하나를 키로 쓴다")
-        void membershipCacheIsKeyedByUser() {
-            loader.loadSellerMemberships(seller);
-
-            assertThat(cached(PermissionCacheConfig.MEMBERSHIPS, seller))
-                    .isEqualTo(Set.of(alpha));
-        }
-
-        @Test
-        @DisplayName("판정 결과는 캐시하지 않는다")
-        void decisionIsNotCached() {
-            evaluator.decide(seller, "order", "read", Target.ofSeller(alpha));
-
-            // 캐시를 늘릴 때 여기가 깨진다. 그것이 이 단언의 목적이다 —
-            // 새 캐시의 키에 대상 행이 들어가면 상태 축(11a)이 붙을 때 조용히 틀린다.
-            // 지금 셋은 전부 키가 사용자(와 자원·동작)까지고 행이 안 들어간다.
-            assertThat(PermissionCacheConfig.cacheNames())
-                    .as("판정 결과를 캐시하면 안 된다. 키에 대상 행이 들어가는 캐시가 그것이다")
-                    .containsExactly(
-                            PermissionCacheConfig.RULES,
-                            PermissionCacheConfig.MEMBERSHIPS,
-                            PermissionCacheConfig.LIVENESS);
-        }
+    @AfterEach
+    void stopCapturing() {
+        cacheLogger().detachAppender(captured);
+        captured.stop();
     }
 
-    @Nested
-    @DisplayName("회수가 즉시 먹나")
-    class Revocation {
+    /**
+     * 캐시한 값이 <b>이 프로세스 밖</b>에 있나. 키가 Redis 에 보이면 다른 인스턴스도 같은 것을 읽고,
+     * 한쪽이 지우면 모두에게 간다 — 그것이 이 이관의 전부다.
+     */
+    @Test
+    @DisplayName("한 인스턴스가 캐시한 것을 다른 인스턴스가 읽고 무효화도 함께 받는다")
+    void cacheIsSharedBetweenInstances() {
+        long userId = 4242L;
+        Cache here = cacheManager.getCache(PermissionCacheConfig.MEMBERSHIPS);
+        Cache overThere = secondInstance().getCache(PermissionCacheConfig.MEMBERSHIPS);
+        assertThat(here).isNotNull();
+        assertThat(overThere).isNotNull();
+        here.evict(userId);
 
-        @Test
-        @DisplayName("역할을 회수하고 무효화하면 그 다음 판정이 거부한다")
-        void revokedRoleIsDeniedAfterEvict() {
-            assertThat(decide().allowed())
-                    .as("회수 전에는 허용이어야 뒤의 검증이 뜻을 갖는다")
-                    .isTrue();
+        here.put(userId, List.of(1L, 2L));
 
-            fixture.revokeAllRoles(seller);
-            loader.evict(seller);
+        // **쓰기가 실패해도 강등 핸들러가 삼킨다.** 그러면 아래 단언이 「없다」로 빨개지는데
+        // 진짜 원인(직렬화·연결)은 로그에만 있다. 여기서 먼저 물어야 그 줄이 실패 메시지에 뜬다.
+        assertThat(warnings())
+                .as("캐시 쓰기가 강등됐다. 아래 단언이 아니라 이 줄이 원인이다")
+                .isEmpty();
 
-            assertThat(decide().allowed()).isFalse();
-        }
+        assertThat(overThere.get(userId))
+                .as("프로세스 안에 두면 다른 인스턴스는 자기 것만 본다 — 같은 값을 두 번 읽는다")
+                .isNotNull();
 
-        @Test
-        @DisplayName("무효화를 안 하면 회수해도 옛 판정이 남는다")
-        void staleDecisionSurvivesWithoutEvict() {
-            decide();
-            fixture.revokeAllRoles(seller);
+        here.evict(userId);
 
-            assertThat(decide().allowed())
-                    .as("""
-                            캐시의 실패 모드를 고정한다. 무효화를 부르지 않으면 회수가 안 먹는다.
-                            그래서 역할을 건드리는 곳은 반드시 evict 를 부르고(청크 16),
-                            빠뜨려도 TTL 이 지나면 맞아진다.
-                            """)
-                    .isTrue();
-        }
-
-        @Test
-        @DisplayName("소속이 끊기고 무효화하면 소속 조회가 비어서 돌아온다")
-        void membershipChangeTakesEffectAfterEvict() {
-            assertThat(loader.loadSellerMemberships(seller)).containsExactly(alpha);
-
-            fixture.leaveSeller(alpha, seller);
-
-            assertThat(loader.loadSellerMemberships(seller))
-                    .as("무효화 전에는 캐시가 옛 소속을 들고 있다")
-                    .containsExactly(alpha);
-
-            loader.evict(seller);
-
-            assertThat(loader.loadSellerMemberships(seller)).isEmpty();
-        }
-
-        @Test
-        @DisplayName("한 사용자를 무효화하면 다른 사용자의 규칙 캐시도 같이 비워진다")
-        void evictClearsRuleCacheForEveryone() {
-            long other = fixture.insertUser("other@test.local", "다른 사람");
-            fixture.grantGlobal(other, "customer");
-
-            loader.loadRules(seller, "order", "read");
-            loader.loadRules(other, "order", "read");
-
-            loader.evict(seller);
-
-            assertThat(cachedRules(other, "order", "read"))
-                    .as("""
-                            Caffeine 에 키 패턴 삭제가 없어서 규칙 캐시는 통째로 비운다.
-                            다른 사용자가 다음 조회에서 DB 를 한 번 더 읽을 뿐이라 틀리는 쪽보다 낫다.
-                            """)
-                    .isNull();
-            assertThat(cached(PermissionCacheConfig.MEMBERSHIPS, other))
-                    .as("소속 캐시는 키가 사용자 하나라 남의 것을 안 건드린다")
-                    .isNull();
-        }
+        assertThat(goneWithin(here, userId))
+                .as("이쪽에서도 안 지워졌다. 강등 로그: " + warnings())
+                .isTrue();
+        assertThat(goneWithin(overThere, userId))
+                .as("무효화가 저쪽까지 안 가면 역할을 회수해도 저쪽은 TTL 동안 계속 허용한다")
+                .isTrue();
     }
 
-    private Decision decide() {
-        return evaluator.decide(seller, "order", "read", Target.ofSeller(alpha));
+    /**
+     * 같은 Redis 를 보는 <b>두 번째 인스턴스</b>. 인스턴스를 늘렸을 때 무엇이 보이는지를
+     * 한 JVM 에서 재는 방법이고, 바탕은 운영과 같은 빈({@link PermissionCacheConfig})이 만든다.
+     */
+    private CacheManager secondInstance() {
+        return new PermissionCacheConfig().permissionCacheManager(connectionFactory);
     }
 
-    /** 규칙 캐시의 키는 인자 셋을 묶은 것이다. 캐시에 실제로 그 키가 있는지만 본다 */
-    private Object cachedRules(long userId, String resource, String action) {
-        return cached(PermissionCacheConfig.RULES,
-                new org.springframework.cache.interceptor.SimpleKey(userId, resource, action));
+    /**
+     * <b>부순 증거가 여기 붙는다.</b> 이 핸들러를 안 걸면 Spring 기본이 예외를 그대로 던져서
+     * 캐시를 읽는 모든 요청이 500 이 된다.
+     */
+    @Test
+    @DisplayName("캐시가 죽으면 예외를 삼키고 WARN 한 줄을 남긴다")
+    void cacheFailureDegradesToDatabase() {
+        Cache cache = cacheManager.getCache(PermissionCacheConfig.RULES);
+        assertThat(cache).isNotNull();
+
+        cacheErrorHandler.handleCacheGetError(
+                new RedisConnectionFailureException("연결이 끊겼다"), cache, "9999");
+
+        assertThat(captured.list)
+                .as("삼키기만 하고 안 알리면 「느려졌다」는 민원만 오고 원인이 캐시라는 것을 아무도 모른다 (D16)")
+                .anyMatch(event -> event.getLevel() == Level.WARN
+                        && event.getFormattedMessage().contains(PermissionCacheConfig.RULES));
+
+        assertThat(captured.list)
+                .as("키에는 사용자 번호가 들어 있다. 로그에 식별자 말고 값을 적지 않는다 (D16)")
+                .noneMatch(event -> event.getFormattedMessage().contains("9999"));
     }
 
-    private Object cached(String cacheName, Object key) {
-        var wrapper = cacheManager.getCache(cacheName).get(key);
-        return wrapper == null ? null : wrapper.get();
+    /**
+     * 그 키가 사라졌나. <b>바로 안 사라질 수 있어서 잠깐 기다린다</b> — 무효화를 낸 직후에
+     * 읽으면 아직 보이는 회차가 있었다(`39` 실측, 절반). 기다려도 남으면 그것은 진짜 실패다.
+     */
+    private static boolean goneWithin(Cache cache, Object key) {
+        for (int attempt = 0; attempt < 40; attempt++) {
+            if (cache.get(key) == null) {
+                return true;
+            }
+            try {
+                Thread.sleep(25);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /** 이 회차에 남은 경고. 캐시가 조용히 강등되면 여기 뜬다 */
+    private List<ILoggingEvent> warnings() {
+        return captured.list.stream().filter(event -> event.getLevel() == Level.WARN).toList();
+    }
+
+    private static Logger cacheLogger() {
+        return (Logger) LoggerFactory.getLogger(PermissionCacheConfig.class);
     }
 }

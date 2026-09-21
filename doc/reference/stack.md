@@ -713,16 +713,43 @@ JVM 당 하나라 앞 테스트의 잔여물을 그대로 물려받는다.
 
 Redis 를 쓰는 테스트는 `@BeforeEach` 에서 자기 키를 지운다.
 
-### Redis 의존성을 넣어도 캐시가 자동으로 안 넘어간다
+### 캐시 구현은 자동설정이 아니라 우리 빈이 정한다
 
 `spring-boot-starter-data-redis` 를 넣으면 Spring Boot 가 `RedisCacheManager` 를 자동설정할 수 있다.
-그러면 **판정 캐시(청크 4a)가 아무도 모르게 Redis 로 옮겨 간다** — 이관은 청크 39 의 일이다.
+그 자동설정은 `@ConditionalOnMissingBean` 이라 **`PermissionCacheConfig` 가 선언한 `CacheManager` 빈이
+있는 동안 안 뜬다** — 구현을 고르는 것은 그 빈 하나다.
 
-여기서는 안 넘어간다. `PermissionCacheConfig` 가 `CacheManager` 빈을 **명시적으로** 선언했고
-자동설정이 `@ConditionalOnMissingBean` 이라 뜨지 않기 때문이다.
+**청크 39 가 그 빈 안에서 Caffeine 을 Redis 로 바꿨다.** 바뀐 것은 저장소고, 무엇이 캐시를
+정하느냐는 그대로다. 누가 그 빈을 지우면 구현이 조용히 자동설정으로 넘어가는데 코드 어디에도
+안 보여서, **지금 무엇이 도는지를 테스트가 고정한다**(`RedisConnectionTest`).
 
-**이건 우연히 성립한 안전장치라 테스트로 고정해 뒀다**(`RedisConnectionTest`).
-누가 그 빈을 지우면 캐시 구현이 조용히 바뀌는데, 그건 코드 어디에도 안 보인다.
+### 캐시 무효화는 낸 직후에 안 보일 수 있다
+
+`Cache.evict` 를 부른 **바로 다음 줄**에서 같은 키를 읽으면 옛 값이 오는 회차가 있다.
+`39` 에서 실측했다 — 같은 코드로 여덟 번 돌려 넷이 그랬고, **강등 로그는 한 줄도 안 났다**(실패가 아니다).
+25ms 씩 최대 1초를 기다리면 네 번 중 네 번 사라진다.
+
+**뜻**: 역할을 회수한 직후의 요청 하나가 옛 판정을 볼 수 있다. 창은 밀리초 단위고 상한은
+`PermissionCacheConfig.TTL` 이다. **시험에서는 무효화 직후를 단정하지 않는다** — 기다렸다가 본다.
+
+### 캐시 값에 타입을 안 실으면 되읽기가 매번 실패한다
+
+`GenericJackson2JsonRedisSerializer` 를 기본으로 쓰면 `List<Long>` 이 그냥 배열로 적히고,
+되읽을 때 `Could not read JSON: Unexpected token (START_ARRAY), expected VALUE_STRING` 으로 죽는다.
+**강등 핸들러가 그것을 삼키면 캐시는 매번 빗나가고 WARN 만 쌓인다** — 도는 것처럼 보이는데 값이 0이다.
+
+`activateDefaultTyping` 으로 타입을 같이 싣되 **검증자를 좁힌다**(`39`) — 열어 두면
+Redis 에 쓸 수 있는 쪽이 클래스 이름을 골라 역직렬화를 시킨다.
+
+### 캐시를 프로세스 밖에 두면 캐시 장애가 서비스 장애가 된다
+
+Spring 의 기본 `CacheErrorHandler` 는 **예외를 그대로 던진다.** 프로세스 안 캐시에서는 그 예외가
+날 일이 없어서 안 보이던 자리인데, Redis 로 옮기는 순간 **연결이 끊기면 캐시를 읽는 모든 요청이
+500 이 된다** — 빠르게 하려고 넣은 것이 서비스를 멈춘다.
+
+`39` 가 `CachingConfigurer.errorHandler()` 로 그것을 강등으로 바꿨다. 삼키고 DB 로 내려가고
+`WARN` 한 줄을 남긴다. **`CachingConfigurer` 의 메서드 이름은 `errorHandler` 다** —
+`cacheErrorHandler` 로 적으면 `@Override` 가 컴파일에서 죽는다.
 
 ### `.next/types` 는 빌드 산출물인데 `tsc` 가 그것을 읽는다
 
