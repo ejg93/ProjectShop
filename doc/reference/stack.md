@@ -1531,7 +1531,7 @@ Git Bash 에서 `curl -F "file=@/tmp/x.png"` 는 **`curl: (26) Failed to open/re
 | 서버 상태 관리 | `@tanstack/react-query`·`swr` | **서버 컴포넌트가 기본이라 캐시 계층이 겹친다**(`D24`). 목록·상세는 서버가 그리고, 조작 뒤 갱신은 `router.refresh()` 가 서버에게 다시 물어본다 — 클라이언트가 들고 있을 상태가 없다 |
 | 폼 | `react-hook-form` | 칸이 적고 검증이 **서버가 유일한 출처**다(`5-2`). 화면 검사는 편의고 판정이 아니라, 비제어 `FormData` 로 충분하다 |
 | 날짜 | `date-fns`·`dayjs` | 로케일이 하나(`ko-KR`)고 시간대가 하나(`Asia/Seoul`)다. `toLocaleDateString` 이 그 둘을 다 받는다(`lib/format.ts`) |
-| HTTP | `axios` | 입구가 셋뿐이고(`api.ts`) 인터셉터로 할 일을 그 셋이 이미 한다 — 표기 변환·CSRF·401 처리 |
+| HTTP | `axios` | 입구가 넷뿐이고(`api.ts`·`api-session.ts`) 인터셉터로 할 일을 그것들이 이미 한다 — 표기 변환·CSRF·401·204 처리 |
 
 **넷 다 값이 오르면 다시 본다.** 화면이 늘어 같은 데이터를 여러 곳에서 부르기 시작하거나,
 칸이 많은 폼이 생기거나, 로케일이 둘이 되면 그때가 그 시점이다.
