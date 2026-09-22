@@ -1,0 +1,217 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+
+import { ApiError, api } from "@/lib/api";
+import { dateTimeText } from "@/lib/format";
+
+import type { SellerMembers } from "./page";
+
+/**
+ * 부를 수 있는 역할(`V3`·`V82`).
+ *
+ * <p><b>조직 역할만이다.</b> 전역 역할은 여기서 못 준다 — 표의 트리거가 막고(`V82`),
+ * 관리자 화면이 그 자리다(`16`).
+ */
+const ROLES = [
+  { code: "seller_staff", name: "담당자" },
+  { code: "seller_owner", name: "대표" },
+] as const;
+
+/**
+ * 멤버와 초대를 그리고 바꾼다.
+ *
+ * <p><b>여기만 클라이언트 컴포넌트다</b>(`D24` 「경계를 잎사귀로 내린다」).
+ *
+ * <p><b>초대 링크를 화면에 띄운다.</b> 메일 배관이 아직 없어서 부른 사람이 그 링크를 직접
+ * 전한다 — <b>한 번만 보인다</b>: 표에는 해시만 있어서 다시 꺼낼 수가 없고, 놓치면 거두고
+ * 다시 부른다. 메일을 붙이는 날 이 자리가 없어진다.
+ *
+ * <p><b>거두기에 확인을 안 붙인다.</b> `D20` 이 확인을 요구하는 것은 되돌리기 어려운
+ * 조작인데, 거둔 초대는 다시 부르면 그만이다 — 아직 아무도 들어오지 않았다.
+ */
+export function MemberPanel({ sellerId, data }: { sellerId: number; data: SellerMembers }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+
+  const [email, setEmail] = useState("");
+  const [roleCode, setRoleCode] = useState<string>(ROLES[0].code);
+
+  const manages = data.canManage;
+
+  const run = (call: () => Promise<unknown>) => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await call();
+        router.refresh();
+      } catch (caught) {
+        setError(
+          caught instanceof ApiError && caught.detail
+            ? caught.detail
+            : "처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
+        );
+      }
+    });
+  };
+
+  const invite = (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setLink(null);
+    startTransition(async () => {
+      try {
+        const issued = await api<{ invitationId: number; token: string }>(
+          `/api/sellers/${sellerId}/invitations`,
+          { method: "POST", body: { email, roleCode } },
+        );
+        setLink(`${window.location.origin}/invitations/${issued.token}`);
+        setEmail("");
+        router.refresh();
+      } catch (caught) {
+        setError(
+          caught instanceof ApiError && caught.detail
+            ? caught.detail
+            : "초대하지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
+        );
+      }
+    });
+  };
+
+  const revoke = (invitationId: number) =>
+    run(() =>
+      api(`/api/sellers/${sellerId}/invitations/${invitationId}`, { method: "DELETE" }),
+    );
+
+  return (
+    <section className="grid gap-6">
+      {error ? (
+        <p role="alert" className="rounded-ui border border-border px-4 py-3 text-sm">
+          {error}
+        </p>
+      ) : null}
+
+      <table className="w-full border-collapse text-sm">
+        <caption className="sr-only">멤버 목록. 이름, 주소, 역할 순</caption>
+        <thead>
+          <tr className="border-b border-border text-left text-xs text-text-muted">
+            <th scope="col" className="px-3 py-2 font-medium">이름</th>
+            <th scope="col" className="px-3 py-2 font-medium">주소</th>
+            <th scope="col" className="px-3 py-2 font-medium">역할</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.members.map((member) => (
+            <tr key={member.userId} className="border-b border-border">
+              <td className="px-3 py-2">{member.displayName}</td>
+              <td className="px-3 py-2 text-text-muted">{member.email}</td>
+              <td className="px-3 py-2">
+                {member.roleCodes.length > 0
+                  ? member.roleCodes
+                      .map((code) => ROLES.find((role) => role.code === code)?.name ?? code)
+                      .join(", ")
+                  : "없음"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {manages ? (
+        <div className="grid gap-4">
+          <form className="flex flex-wrap items-end gap-3" onSubmit={invite}>
+            <div className="grid gap-1">
+              <label className="text-xs text-text-muted" htmlFor="email">
+                부를 사람의 주소
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                maxLength={254}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="w-72 rounded-ui border border-border bg-surface px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="grid gap-1">
+              <label className="text-xs text-text-muted" htmlFor="roleCode">
+                줄 역할
+              </label>
+              <select
+                id="roleCode"
+                value={roleCode}
+                onChange={(event) => setRoleCode(event.target.value)}
+                className="rounded-ui border border-border bg-surface px-3 py-2 text-sm"
+              >
+                {ROLES.map((role) => (
+                  <option key={role.code} value={role.code}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-ui border border-border px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              부르기
+            </button>
+          </form>
+
+          {link ? (
+            <div className="grid gap-1 rounded-ui border border-border bg-surface-raised px-4 py-3">
+              <p className="text-sm font-medium">초대 링크</p>
+              <p className="text-xs text-text-muted">
+                이 링크는 지금 한 번만 보입니다. 부른 사람에게 직접 전해 주세요.
+              </p>
+              <code className="break-all text-xs">{link}</code>
+            </div>
+          ) : null}
+
+          {data.invitations.length > 0 ? (
+            <table className="w-full border-collapse text-sm">
+              <caption className="sr-only">보낸 초대 목록. 주소, 역할, 만료, 조작 순</caption>
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-text-muted">
+                  <th scope="col" className="px-3 py-2 font-medium">주소</th>
+                  <th scope="col" className="px-3 py-2 font-medium">역할</th>
+                  <th scope="col" className="px-3 py-2 font-medium">만료</th>
+                  <th scope="col" className="px-3 py-2 font-medium">조작</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.invitations.map((invitation) => (
+                  <tr key={invitation.invitationId} className="border-b border-border">
+                    <td className="px-3 py-2">{invitation.email}</td>
+                    <td className="px-3 py-2">
+                      {ROLES.find((role) => role.code === invitation.roleCode)?.name ??
+                        invitation.roleCode}
+                    </td>
+                    <td className="px-3 py-2 text-text-muted">
+                      {dateTimeText(invitation.expiresAt)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => revoke(invitation.invitationId)}
+                        className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
+                      >
+                        거두기
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}

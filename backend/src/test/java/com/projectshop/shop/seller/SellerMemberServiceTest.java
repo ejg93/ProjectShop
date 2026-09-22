@@ -93,7 +93,7 @@ class SellerMemberServiceTest extends PostgresTestBase {
         @DisplayName("거둔 초대는 못 받는다")
         void 거둔_초대는_못_받는다() {
             var invitation = service.invite(seller, "staff@example.com", "seller_staff", owner);
-            service.revoke(invitation.invitationId(), owner);
+            service.revoke(seller, invitation.invitationId(), owner);
 
             assertThatThrownBy(() -> service.accept(invitation.token(), invitee))
                     .isInstanceOf(ShopException.class);
@@ -121,7 +121,7 @@ class SellerMemberServiceTest extends PostgresTestBase {
         @DisplayName("거둔 뒤에는 다시 부를 수 있다")
         void 거둔_뒤에는_다시_부를_수_있다() {
             var first = service.invite(seller, "staff@example.com", "seller_staff", owner);
-            service.revoke(first.invitationId(), owner);
+            service.revoke(seller, first.invitationId(), owner);
 
             var second = service.invite(seller, "staff@example.com", "seller_staff", owner);
 
@@ -140,6 +140,88 @@ class SellerMemberServiceTest extends PostgresTestBase {
             assertThatThrownBy(() -> service.invite(seller, "staff@example.com", "admin", owner))
                     .isInstanceOf(DataAccessException.class)
                     .hasMessageContaining("조직 역할만");
+        }
+    }
+
+    /**
+     * 조직 경계(`16a`, `Q162` 흡수).
+     *
+     * <p><b>화면이 셀러 번호를 넘기는 것을 막지 않는다</b> — 막을 수가 없고(주소에 실려 온다)
+     * 막을 필요도 없다. 남의 번호를 넣으면 <b>판정이 거부한다.</b>
+     *
+     * <p>둘째가 판정만으로는 안 막히는 자리다. 판정은 「이 셀러를 다룰 수 있나」를 답했지
+     * <b>「이 초대 번호가 그 셀러 것인가」</b>를 안 봤다 — 그것은 조회 조건이 든다.
+     */
+    @Nested
+    @DisplayName("조직 경계")
+    class OrgBoundary {
+
+        @Test
+        @DisplayName("남의 셀러에는 초대를 못 낸다")
+        void 남의_셀러에는_초대를_못_낸다() {
+            long other = fixture.insertSeller("id-b", "B셀러");
+
+            assertThatThrownBy(() -> service.invite(other, "x@example.com", "seller_staff", owner))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.SELLER_MEMBER_FORBIDDEN);
+        }
+
+        @Test
+        @DisplayName("권한 없는 사람은 초대를 못 낸다")
+        void 권한_없는_사람은_초대를_못_낸다() {
+            long stranger = fixture.insertUser("nobody@example.com", "남");
+
+            assertThatThrownBy(() -> service.invite(seller, "x@example.com", "seller_staff", stranger))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.SELLER_MEMBER_FORBIDDEN);
+        }
+
+        /** 번호만 보고 지우면 판정을 지난 사람이 남의 셀러 초대를 거둔다 */
+        @Test
+        @DisplayName("남의 셀러 초대는 번호를 알아도 못 거둔다")
+        void 남의_셀러_초대는_번호를_알아도_못_거둔다() {
+            long other = fixture.insertSeller("id-c", "C셀러");
+            long otherOwner = fixture.insertUser("owner-c@example.com", "다른대표");
+            fixture.joinSeller(other, otherOwner);
+            fixture.grantOrg(otherOwner, "seller_owner", other);
+
+            var theirs = service.invite(other, "x@example.com", "seller_staff", otherOwner);
+
+            // 자기 셀러 번호로 부르므로 판정은 지난다. 막는 것은 조회 조건이다.
+            assertThatThrownBy(() -> service.revoke(seller, theirs.invitationId(), owner))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.SELLER_INVITATION_INVALID);
+        }
+
+        /** 담당자는 멤버를 못 바꾼다 — 그 권한을 안 받는다(`5a`) */
+        @Test
+        @DisplayName("담당자는 초대를 못 낸다")
+        void 담당자는_초대를_못_낸다() {
+            long staff = fixture.insertUser("staff-member@example.com", "담당자");
+            fixture.joinSeller(seller, staff);
+            fixture.grantOrg(staff, "seller_staff", seller);
+
+            assertThatThrownBy(() -> service.invite(seller, "x@example.com", "seller_staff", staff))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.SELLER_MEMBER_FORBIDDEN);
+        }
+
+        /** 주소가 실려서다 — 아직 회원이 아닐 수 있는 사람의 개인정보다(`D13`) */
+        @Test
+        @DisplayName("담당자에게는 초대 목록이 안 보인다")
+        void 담당자에게는_초대_목록이_안_보인다() {
+            service.invite(seller, "invitee@example.com", "seller_staff", owner);
+
+            long staff = fixture.insertUser("staff-view@example.com", "담당자");
+            fixture.joinSeller(seller, staff);
+            fixture.grantOrg(staff, "seller_staff", seller);
+
+            assertThat(service.find(staff, seller).invitations()).isEmpty();
+            assertThat(service.find(owner, seller).invitations()).hasSize(1);
         }
     }
 

@@ -53,6 +53,11 @@ function canEditRoles(me: Me | null): boolean {
   return can(me, "role", "read");
 }
 
+/** 멤버 화면(`16a`). 속한 사람이면 본다 — 부르고 거두는 것은 그 안에서 갈린다 */
+function canSeeMembers(me: Me | null): boolean {
+  return can(me, "seller_member", "read");
+}
+
 /**
  * 모든 화면이 쓰는 머리. 어디에 있든 상품·장바구니·계정으로 갈 수 있다.
  *
@@ -109,6 +114,14 @@ export async function SiteHeader() {
           */}
           {canManageProducts(me) ? (
             <HeaderLink href="/seller/inquiries">받은 문의</HeaderLink>
+          ) : null}
+          {/*
+            멤버는 **속한 사람이면 본다**(`16a`). 부르고 거두는 것은 대표만이고, 그 갈림은
+            응답의 `canManage` 가 든다 — 링크를 대표에게만 보이면 담당자가 같이 일하는 사람을
+            못 보게 된다.
+          */}
+          {canSeeMembers(me) ? (
+            <HeaderLink href="/seller/members">멤버</HeaderLink>
           ) : null}
           {/*
             정산서는 파는 쪽과 관리자·감사자가 같이 본다(`20-1`). 사는 사람은 이 자원에
