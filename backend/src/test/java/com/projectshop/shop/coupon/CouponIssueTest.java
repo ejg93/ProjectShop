@@ -109,7 +109,7 @@ class CouponIssueTest extends PostgresTestBase {
             long issueId = coupons.register(buyerId, "TAKE-3000");
 
             assertThat(issueId).isPositive();
-            assertThat(query.findMine(buyerId, new Paging(0, 20)).items())
+            assertThat(query.findMine(buyerId, buyerId, new Paging(0, 20)).items())
                     .singleElement()
                     .satisfies(item -> {
                         assertThat(item.name()).isEqualTo("첫 구매 쿠폰");
@@ -244,7 +244,24 @@ class CouponIssueTest extends PostgresTestBase {
                     .anySatisfy(item -> assertThat(item.code()).isEqualTo("LISTED-3000"));
         }
 
-        /** 남의 쿠폰함이 내 것에 안 섞인다 — 경계가 SQL 의 {@code user_id} 다 */
+        /**
+         * <b>부여가 실제로 막는다</b>(마무리 44차 독립 리뷰). `user_id` 로 좁히는 것만으로는
+         * `coupon_issue:read` 가 아무것도 안 막고, `V91` 이 「감사자에게는 안 준다」고 적어 둔
+         * 근거가 글로만 남는다.
+         */
+        @Test
+        @DisplayName("감사자는 쿠폰함을 못 읽는다")
+        void 감사자는_쿠폰함을_못_읽는다() {
+            long auditor = auth.insertUser("coupon-auditor@example.com", "감사자");
+            auth.grantGlobal(auditor, "auditor");
+
+            assertThatThrownBy(() -> query.findMine(auditor, auditor, new Paging(0, 20)))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.ACCESS_DENIED);
+        }
+
+        /** 남의 쿠폰함이 내 것에 안 섞인다 — 경계가 판정의 {@code own} 과 SQL 둘이다 */
         @Test
         @DisplayName("쿠폰함은 자기 것만 나온다")
         void 쿠폰함은_자기_것만_나온다() {
@@ -253,8 +270,8 @@ class CouponIssueTest extends PostgresTestBase {
             coupons.define(adminId, mallCoupon("MINE-3000"));
             coupons.register(other, "MINE-3000");
 
-            assertThat(query.findMine(buyerId, new Paging(0, 20)).items()).isEmpty();
-            assertThat(query.findMine(other, new Paging(0, 20)).total()).isEqualTo(1);
+            assertThat(query.findMine(buyerId, buyerId, new Paging(0, 20)).items()).isEmpty();
+            assertThat(query.findMine(other, other, new Paging(0, 20)).total()).isEqualTo(1);
         }
     }
 

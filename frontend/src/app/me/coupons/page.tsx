@@ -25,6 +25,8 @@ type MyCoupon = {
   expiresAt: string;
   /** 썼으면 그 시각. 안 썼으면 null */
   usedAt: string | null;
+  /** 기한이 지났나. **서버가 재서 내려준다** — 화면이 시계를 보면 서버와 갈린다 */
+  expired: boolean;
 };
 
 type MyCouponPage = {
@@ -46,8 +48,16 @@ type MyCouponPage = {
 export default async function MyCouponsPage() {
   const page = await apiSession<MyCouponPage>("/api/me/coupons?page=0&size=50");
 
-  const usable = page.items.filter((coupon) => coupon.usedAt === null);
-  const finished = page.items.filter((coupon) => coupon.usedAt !== null);
+  // **기한도 같이 본다**(마무리 44차 독립 리뷰). `usedAt` 하나로 가르면 지난 쿠폰이
+  // 「…까지」 문구와 함께 쓸 수 있는 칸에 그려지고, 주문에서 고르면 그때 막힌다(`D20`).
+  //
+  // **지났는지는 서버가 재서 내려준다** — 화면이 시계를 보면 서버가 쓸 수 있는지
+  // 판단할 때 쓰는 시계와 갈린다.
+  //
+  // **내려간 쿠폰은 여기서 못 가른다** — 응답에 그 사실이 없다. 서버가 쓸 때 거절하고
+  // (`CouponService.withdraw`), 화면이 미리 가리려면 그 칸을 계약에 더해야 한다.
+  const usable = page.items.filter((coupon) => coupon.usedAt === null && !coupon.expired);
+  const finished = page.items.filter((coupon) => coupon.usedAt !== null || coupon.expired);
 
   return (
     <div className="mx-auto grid w-full max-w-3xl flex-1 content-start gap-8 px-4 py-16">
@@ -84,7 +94,7 @@ export default async function MyCouponsPage() {
           className="grid gap-3 border-t border-border pt-6"
         >
           <h2 id="finished-heading" className="text-lg font-semibold">
-            다 쓰신 쿠폰
+            다 쓰셨거나 기한이 지난 쿠폰
           </h2>
           <ul className="grid gap-3">
             {finished.map((coupon) => (
@@ -103,11 +113,12 @@ export default async function MyCouponsPage() {
  */
 function CouponCard({ coupon }: { coupon: MyCoupon }) {
   const used = coupon.usedAt !== null;
+  const expired = coupon.expired;
 
   return (
     <li
       className={`grid gap-1 rounded-ui border border-border px-4 py-3 ${
-        used ? "bg-surface text-text-muted" : "bg-surface-raised"
+        used || expired ? "bg-surface text-text-muted" : "bg-surface-raised"
       }`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -125,7 +136,9 @@ function CouponCard({ coupon }: { coupon: MyCoupon }) {
       </p>
 
       <p className="text-xs text-text-muted">
-        {used ? `${dateTimeText(coupon.usedAt!)}에 사용` : `${dateTimeText(coupon.expiresAt)}까지`}
+        {used
+          ? `${dateTimeText(coupon.usedAt!)}에 사용`
+          : `${dateTimeText(coupon.expiresAt)}${expired ? "에 기한이 지났습니다" : "까지"}`}
       </p>
     </li>
   );

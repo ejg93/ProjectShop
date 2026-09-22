@@ -36,8 +36,11 @@ public class ReviewQuery {
     /**
      * 후기 한 줄.
      *
-     * @param mine 지금 보는 사람이 쓴 것인가. <b>안 로그인이면 전부 거짓</b>이고,
-     *        화면이 고치기·지우기 버튼을 그 값으로 가른다(`D20`)
+     * @param mine 지금 보는 사람이 쓴 것인가. <b>안 로그인이면 전부 거짓</b>이다.
+     *        <b>지금 이 값을 쓰는 화면은 상품 상세의 라벨 하나뿐이고</b>, 그 화면은
+     *        {@code apiPublic} 으로 부르므로 쿠키가 안 실려 <b>언제나 거짓</b>이다 —
+     *        고치기·지우기 자리는 {@code Q167} 이 세우고 그때 세션을 싣는 입구로 옮긴다.
+     *        <b>여기서 계약을 안 지운다</b>: 지우면 그 청크가 서버부터 다시 연다
      */
     @Schema(name = "ProductReview")
     public record Item(long reviewId, String writerName, int rating, String body,

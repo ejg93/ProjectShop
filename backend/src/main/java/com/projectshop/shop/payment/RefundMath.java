@@ -36,7 +36,6 @@ final class RefundMath {
     private RefundMath() {
     }
 
-    /** 주문 항목 하나와 그 항목에서 이미 나간 누계 */
     /**
      * 주문 항목 하나와 그 항목에서 이미 나간 누계.
      *
@@ -105,17 +104,6 @@ final class RefundMath {
     }
 
     /**
-     * 이 항목에서 포기할 수수료.
-     *
-     * <p><b>절사 잔액을 마지막 수량에 몰아 준다</b>(사용자 선택). {@code commission_amount} 가
-     * 항목 단위로 이미 잘린 값이라(`D8`) 수량으로 또 나누면 1원씩 남는데, 그것을 그대로 두면
-     * 통째로 환불했는데 수수료가 덜 돌아가서 <b>정산에 우리 몫이 남는다.</b>
-     *
-     * <p>마지막 수량인지는 <b>누계로 판단한다</b> — 3개를 1개씩 세 번 돌려주는 것과
-     * 한 번에 세 개 돌려주는 것이 같은 값이어야 하고, 그 등식을 테스트가 지킨다
-     * (`money-invariants` 「통째로 환불하면 {@code commission_refund = commission_amount}」).
-     */
-    /**
      * 이 항목에서 돌려줄 대금. <b>배분된 할인을 뺀다</b>(`Q164`).
      *
      * <p><b>잔액을 마지막 수량에 몰아 준다</b> — {@link #commissionRefund} 와 같은 모양이고
@@ -130,6 +118,17 @@ final class RefundMath {
                 : item.refundable() * quantity / item.quantity();
     }
 
+    /**
+     * 이 항목에서 포기할 수수료.
+     *
+     * <p><b>절사 잔액을 마지막 수량에 몰아 준다</b>(사용자 선택). {@code commission_amount} 가
+     * 항목 단위로 이미 잘린 값이라(`D8`) 수량으로 또 나누면 1원씩 남는데, 그것을 그대로 두면
+     * 통째로 환불했는데 수수료가 덜 돌아가서 <b>정산에 우리 몫이 남는다.</b>
+     *
+     * <p>마지막 수량인지는 <b>누계로 판단한다</b> — 3개를 1개씩 세 번 돌려주는 것과
+     * 한 번에 세 개 돌려주는 것이 같은 값이어야 하고, 그 등식을 테스트가 지킨다
+     * (`money-invariants` 「통째로 환불하면 {@code commission_refund = commission_amount}」).
+     */
     static long commissionRefund(Item item, int quantity) {
         boolean last = item.refundedQuantity() + quantity == item.quantity();
 

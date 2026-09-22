@@ -75,11 +75,12 @@ public class ReviewController {
     @PostMapping("/api/reviews")
     ResponseEntity<ReviewCreated> create(@AuthenticationPrincipal ShopUser user,
             @Valid @RequestBody NewReviewRequest request) {
-        long reviewId = reviews.create(user.id(),
+        ReviewService.Created written = reviews.create(user.id(),
                 new ReviewService.NewReview(request.orderItemId(), request.rating(), request.body()));
 
-        return ResponseEntity.created(URI.create("/api/reviews/" + reviewId))
-                .body(new ReviewCreated(reviewId));
+        return ResponseEntity
+                .created(URI.create("/api/products/" + written.productId() + "/reviews"))
+                .body(new ReviewCreated(written.reviewId()));
     }
 
     @PatchMapping("/api/reviews/{reviewId}")

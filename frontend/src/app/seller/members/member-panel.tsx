@@ -106,6 +106,12 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
     run(() => api(`/api/sellers/${sellerId}/members/${userId}`, { method: "DELETE" }));
   };
 
+  // 대표가 몇인가. 서버가 마지막 대표를 막는데(`Q165`) 그 상태를 응답의 역할 목록으로
+  // 셀 수 있어서, 못 누를 버튼을 아예 안 그린다.
+  const ownerCount = data.members.filter((member) =>
+    member.roleCodes.includes("seller_owner"),
+  ).length;
+
   return (
     <section className="grid gap-6">
       {error ? (
@@ -124,7 +130,17 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
           </tr>
         </thead>
         <tbody>
-          {data.members.map((member) => (
+          {data.members.map((member) => {
+            /*
+              **마지막 대표에게는 두 버튼을 안 그린다**(마무리 44차 독립 리뷰).
+              서버가 SELLER_LAST_OWNER 로 막는 자리라 눌러야 422 가 오고,
+              그건 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20`).
+              대표가 둘 이상이면 하나는 내려올 수 있어서 그때는 그린다.
+            */
+            const lastOwner =
+              member.roleCodes.includes("seller_owner") && ownerCount === 1;
+
+            return (
             <tr key={member.userId} className="border-b border-border">
               <td className="px-3 py-2">{member.displayName}</td>
               <td className="px-3 py-2">
@@ -136,29 +152,40 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
               </td>
               {manages ? (
                 <td className="flex flex-wrap gap-2 px-3 py-2">
-                  {ROLES.filter((role) => !member.roleCodes.includes(role.code)).map((role) => (
-                    <button
-                      key={role.code}
-                      type="button"
-                      disabled={pending}
-                      onClick={() => changeRole(member.userId, role.code)}
-                      className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
-                    >
-                      {role.name}로
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => remove(member.userId, member.displayName)}
-                    className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
-                  >
-                    내보내기
-                  </button>
+                  {lastOwner ? (
+                    <span className="text-xs text-text-muted">
+                      한 분뿐인 대표라 바꾸거나 내보낼 수 없습니다
+                    </span>
+                  ) : (
+                    <>
+                      {ROLES.filter((role) => !member.roleCodes.includes(role.code)).map(
+                        (role) => (
+                          <button
+                            key={role.code}
+                            type="button"
+                            disabled={pending}
+                            onClick={() => changeRole(member.userId, role.code)}
+                            className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
+                          >
+                            {role.name}로
+                          </button>
+                        ),
+                      )}
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => remove(member.userId, member.displayName)}
+                        className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
+                      >
+                        내보내기
+                      </button>
+                    </>
+                  )}
                 </td>
               ) : null}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
 

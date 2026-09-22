@@ -65,11 +65,11 @@ public class CouponController {
     public record NewCouponRequest(
             @NotBlank @Size(max = 50) @Pattern(regexp = "[A-Z0-9-]+") String code,
             @NotBlank @Size(max = 100) String name,
-            @Pattern(regexp = "amount|percent") String discountKind,
+            @NotBlank @Pattern(regexp = "amount|percent") String discountKind,
             @Min(1) long discountValue,
             @Min(1) Long maxDiscountAmount,
             @PositiveOrZero long minOrderAmount,
-            @Pattern(regexp = "mall|seller") String bearer,
+            @NotBlank @Pattern(regexp = "mall|seller") String bearer,
             @Min(1) Long sellerId,
             @Min(1) @Max(3650) int validDays) {}
 
@@ -135,6 +135,6 @@ public class CouponController {
     @GetMapping("/api/me/coupons")
     CouponQuery.IssuedPage mine(@AuthenticationPrincipal ShopUser user,
             @ParameterObject Paging paging) {
-        return query.findMine(user.id(), paging);
+        return query.findMine(user.id(), user.id(), paging);
     }
 }

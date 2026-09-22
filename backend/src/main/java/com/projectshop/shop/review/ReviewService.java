@@ -2,6 +2,7 @@ package com.projectshop.shop.review;
 
 import java.util.Map;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,13 +45,23 @@ public class ReviewService {
     public record NewReview(long orderItemId, int rating, String body) {}
 
     /**
+     * 쓰고 난 결과.
+     *
+     * <p><b>상품 번호가 같이 나간다.</b> 후기 단건 조회가 없어서 {@code Location} 이
+     * <b>그 상품의 후기 목록</b>을 가리키는데, 부르는 쪽은 주문 줄만 알고 상품은 모른다 —
+     * 안 주면 컨트롤러가 그 주소를 못 짓는다(`Q166` 의 「가리키는 주소를 실제로 읽을 수
+     * 있어야 헤더가 뜻을 가진다」).
+     */
+    public record Created(long reviewId, long productId) {}
+
+    /**
      * 후기를 쓴다.
      *
      * <p><b>상품과 작성자를 여기서 안 받는다.</b> 주문 줄이 이미 그 둘을 안다 —
      * 받으면 어긋난 값이 들어올 수 있고, 그것을 막는 트리거가 500 으로 답한다(`46`).
      */
     @Transactional
-    public long create(long actorUserId, NewReview command) {
+    public Created create(long actorUserId, NewReview command) {
         Line line = lineOf(command.orderItemId());
 
         if (line.buyerUserId() != actorUserId) {
@@ -63,24 +74,32 @@ public class ReviewService {
             throw new ShopException(ErrorCode.REVIEW_ALREADY_WRITTEN);
         }
 
-        long reviewId = jdbc.sql("""
-                        insert into review (order_item_id, product_id, user_id, rating, body)
-                        values (:orderItem, :product, :user, :rating, :body)
-                        returning review_id
-                        """)
-                .param("orderItem", command.orderItemId())
-                .param("product", line.productId())
-                .param("user", actorUserId)
-                .param("rating", command.rating())
-                .param("body", command.body())
-                .query(Long.class)
-                .single();
+        long reviewId;
+        try {
+            reviewId = jdbc.sql("""
+                            insert into review (order_item_id, product_id, user_id, rating, body)
+                            values (:orderItem, :product, :user, :rating, :body)
+                            returning review_id
+                            """)
+                    .param("orderItem", command.orderItemId())
+                    .param("product", line.productId())
+                    .param("user", actorUserId)
+                    .param("rating", command.rating())
+                    .param("body", command.body())
+                    .query(Long.class)
+                    .single();
+        } catch (DuplicateKeyException e) {
+            // **선검사만으로는 두 번 눌러 겹치는 것을 못 막는다**(마무리 44차 독립 리뷰).
+            // `review_live_per_order_item` 이 그때 올라오는데, 안 잡으면 이 클래스가 내건
+            // 「제약에 맡기면 500 이 나가서 부르는 쪽이 모른다」가 이 경로에서 그대로 성립한다.
+            throw new ShopException(ErrorCode.REVIEW_ALREADY_WRITTEN);
+        }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.written", actorUserId,
                 AuditLog.Target.of("review", reviewId),
                 Map.of("product_id", line.productId()));
 
-        return reviewId;
+        return new Created(reviewId, line.productId());
     }
 
     /**

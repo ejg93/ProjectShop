@@ -44,11 +44,14 @@ public class CouponQuery {
      *
      * @param discountValue 정액이면 원, 정률이면 bp. 뜻은 {@code discountKind} 가 정한다
      * @param usedAt        썼으면 그 시각. 안 썼으면 {@code null} 이다
+     * @param expired       기한이 지났나. <b>화면이 시계를 안 본다</b> — 서버가 쓸 수 있는지
+     *        판단할 때 보는 것과 같은 시계라야 「쓸 수 있다고 그려 놓고 고르면 막히는」
+     *        자리가 안 생긴다(`D20`)
      */
     @Schema(name = "MyCoupon")
     public record Issued(long couponIssueId, String name, String discountKind, long discountValue,
             Long maxDiscountAmount, long minOrderAmount, OffsetDateTime expiresAt,
-            OffsetDateTime usedAt) {}
+            OffsetDateTime usedAt, boolean expired) {}
 
     /** 관리자가 보는 정의 한 줄. <b>여기에는 코드가 있다</b> — 그것을 알려 주는 것이 이 목록의 일이다 */
     @Schema(name = "CouponDefinition")
@@ -60,8 +63,15 @@ public class CouponQuery {
     @Schema(name = "MyCouponPage")
     public record IssuedPage(List<Issued> items, int page, int size, long total) {}
 
+    /**
+     * @param canCreate 만들 수 있나. <b>읽기와 만들기가 다른 권한이라 칸으로 가른다</b> —
+     *        감사자는 {@code coupon:read} 만 받고 쓰기는 트리거가 거부로 막는데(`V91`),
+     *        안 내리면 화면이 <b>눌러야 403 이 오는 폼</b>을 그린다(`D20`, `16` 의 {@code canAssign}
+     *        과 같은 판단)
+     */
     @Schema(name = "CouponDefinitionPage")
-    public record DefinitionPage(List<Definition> items, int page, int size, long total) {}
+    public record DefinitionPage(List<Definition> items, int page, int size, long total,
+            boolean canCreate) {}
 
     /**
      * 내 쿠폰함.
@@ -69,11 +79,20 @@ public class CouponQuery {
      * <p><b>쓴 것과 지난 것도 같이 준다.</b> 안 보여 주면 「분명히 받았는데 없다」에 답할 자리가
      * 없고, 화면이 그 셋을 갈라 그린다(`D20`).
      */
-    public IssuedPage findMine(long userId, Paging paging) {
+    public IssuedPage findMine(long actorUserId, long userId, Paging paging) {
+        // **판정을 지난다**(마무리 44차 독립 리뷰). `user_id` 로 좁히는 것만으로는
+        // `coupon_issue:read` 부여가 **아무것도 안 막고**, `V91` 이 「감사자에게는 안 준다」고
+        // 적어 둔 근거가 글로만 남는다. 대상에 주인을 실어야 `own` 이 덮는다.
+        if (!evaluator.decide(actorUserId, "coupon_issue", "read", Target.ownedBy(userId))
+                .allowed()) {
+            throw new ShopException(ErrorCode.ACCESS_DENIED);
+        }
+
         List<Issued> items = jdbc.sql("""
                         select ci.coupon_issue_id, c.name, c.discount_kind, c.discount_value,
                                c.max_discount_amount, c.min_order_amount,
-                               ci.expires_at, ci.used_at
+                               ci.expires_at, ci.used_at,
+                               ci.expires_at <= now() as expired
                           from coupon_issue ci
                           join coupon c on c.coupon_id = ci.coupon_id
                          where ci.user_id = :userId
@@ -91,7 +110,8 @@ public class CouponQuery {
                         (Long) rs.getObject("max_discount_amount"),
                         rs.getLong("min_order_amount"),
                         rs.getObject("expires_at", OffsetDateTime.class),
-                        rs.getObject("used_at", OffsetDateTime.class)))
+                        rs.getObject("used_at", OffsetDateTime.class),
+                        rs.getBoolean("expired")))
                 .list();
 
         long total = jdbc.sql("select count(*) from coupon_issue where user_id = :userId")
@@ -145,6 +165,10 @@ public class CouponQuery {
                 .query(Long.class)
                 .single();
 
-        return new DefinitionPage(items, paging.page(), paging.size(), total);
+        boolean canCreate = evaluator
+                .decide(actorUserId, "coupon", "create", new Target(null, null, null))
+                .allowed();
+
+        return new DefinitionPage(items, paging.page(), paging.size(), total, canCreate);
     }
 }

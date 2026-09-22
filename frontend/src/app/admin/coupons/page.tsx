@@ -36,6 +36,8 @@ type CouponDefinitionPage = {
   page: number;
   size: number;
   total: number;
+  /** 만들 수 있나. **읽기와 만들기가 다른 권한이라** 칸으로 가른다(청크 16 의 canAssign 과 같다) */
+  canCreate: boolean;
 };
 
 /**
@@ -61,10 +63,15 @@ export default async function AdminCouponsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">쿠폰 관리</h1>
         <p className="text-sm text-text-muted">
           만든 쿠폰은 코드를 알려 준 사람만 받습니다. 목록을 공개하지 않습니다.
+          {page.canCreate ? "" : " 보기만 하실 수 있습니다."}
         </p>
       </div>
 
-      <NewCouponForm />
+      {/*
+        감사자는 `coupon:read` 만 받고 쓰기는 거부다(`V91`). 폼을 그리면 눌러야 403 이
+        오는 자리가 되고, 그건 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20`).
+      */}
+      {page.canCreate ? <NewCouponForm /> : null}
 
       <section aria-labelledby="coupon-list-heading" className="grid gap-3">
         <h2 id="coupon-list-heading" className="text-lg font-semibold">

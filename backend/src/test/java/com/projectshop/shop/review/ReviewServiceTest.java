@@ -56,7 +56,7 @@ class ReviewServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("산 사람이 쓴다")
         void 산_사람이_쓴다() {
-            long reviewId = reviews.create(buyerId, new ReviewService.NewReview(
+            long reviewId = createdId(buyerId, new ReviewService.NewReview(
                     orderItemId, 5, "받아 보니 사진과 같습니다"));
 
             assertThat(reviewId).isPositive();
@@ -108,7 +108,7 @@ class ReviewServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("자기 후기는 고친다")
         void 자기_후기는_고친다() {
-            long reviewId = reviews.create(buyerId,
+            long reviewId = createdId(buyerId,
                     new ReviewService.NewReview(orderItemId, 5, "처음 쓴 후기입니다"));
 
             reviews.update(buyerId, reviewId, 3, "다시 써 본 후기입니다");
@@ -119,7 +119,7 @@ class ReviewServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("남의 후기는 못 고친다")
         void 남의_후기는_못_고친다() {
-            long reviewId = reviews.create(buyerId,
+            long reviewId = createdId(buyerId,
                     new ReviewService.NewReview(orderItemId, 5, "처음 쓴 후기입니다"));
             long stranger = fixture.insertUser("stranger@example.com");
 
@@ -131,7 +131,7 @@ class ReviewServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("지우면 목록에서 빠지고 다시 쓸 수 있다")
         void 지우면_목록에서_빠지고_다시_쓸_수_있다() {
-            long reviewId = reviews.create(buyerId,
+            long reviewId = createdId(buyerId,
                     new ReviewService.NewReview(orderItemId, 5, "처음 쓴 후기입니다"));
 
             reviews.delete(buyerId, reviewId);
@@ -182,7 +182,7 @@ class ReviewServiceTest extends PostgresTestBase {
         @Test
         @DisplayName("내려간 후기는 목록에 안 든다")
         void 내려간_후기는_목록에_안_든다() {
-            long reviewId = reviews.create(buyerId,
+            long reviewId = createdId(buyerId,
                     new ReviewService.NewReview(orderItemId, 5, "곧 내려갈 후기입니다"));
             jdbc.sql("""
                             update review set blocked_at = now(), blocked_reason = 'abuse'
@@ -196,6 +196,11 @@ class ReviewServiceTest extends PostgresTestBase {
             assertThat(result.items()).isEmpty();
             assertThat(result.summary().count()).isZero();
         }
+    }
+
+    /** 반환이 record 라 번호만 꺼내 쓴다 — 시험이 재는 것은 그 번호뿐이다 */
+    private long createdId(long actorUserId, ReviewService.NewReview command) {
+        return reviews.create(actorUserId, command).reviewId();
     }
 
     private int ratingOf(long reviewId) {

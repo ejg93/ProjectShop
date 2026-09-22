@@ -46,6 +46,10 @@ class UserRoleServiceTest extends PostgresTestBase {
         fixture.grantGlobal(admin, "admin");
 
         target = fixture.insertUser("target@example.com", "대상");
+        // 손으로 넣은 계정에는 기본 역할이 없다 — 실제 가입은 `SignupService` 가 `customer` 를
+        // 준다. 안 주면 **가입으로는 안 생기는 상태**를 재게 되고, 본인 조회가 지나는
+        // `user:read own` 도 없어서 이 시험이 실물과 다른 것을 잰다(마무리 44차 독립 리뷰).
+        fixture.grantGlobal(target, "customer");
     }
 
     @Nested
@@ -148,7 +152,10 @@ class UserRoleServiceTest extends PostgresTestBase {
 
         /**
          * 가입 응답의 {@code Location} 이 이 주소를 가리킨다(`Q166`).
-         * 역할 권한을 요구하면 <b>갓 가입한 사람이 자기 것을 못 읽는다.</b>
+         * {@code role:read} 를 요구하면 <b>갓 가입한 사람이 자기 것을 못 읽는다.</b>
+         *
+         * <p><b>판정을 안 지나는 것이 아니라 다른 판정을 지난다</b>(마무리 44차 독립 리뷰) —
+         * {@code user:read} 의 {@code own} 이고, 가입이 주는 {@code customer} 가 그것을 든다.
          */
         @Test
         @DisplayName("본인은 역할 권한 없이 읽는다")
