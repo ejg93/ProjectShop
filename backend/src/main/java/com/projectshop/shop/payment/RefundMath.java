@@ -37,11 +37,25 @@ final class RefundMath {
     }
 
     /** 주문 항목 하나와 그 항목에서 이미 나간 누계 */
+    /**
+     * 주문 항목 하나와 그 항목에서 이미 나간 누계.
+     *
+     * @param discountAmount 그 항목에 배분된 할인(`50`). <b>돌려줄 것은 실제로 받은 값</b>이라
+     *        이만큼 덜 준다 — 안 빼면 소비자가 낸 것보다 많이 돌려주고, 전액 환불은
+     *        결제액 상한에 걸려 <b>아예 막힌다</b>(`Q164`)
+     * @param refundedAmount 이미 돌려준 대금 누계. 마지막 수량에서 잔액을 맞추는 데 쓴다
+     */
     record Item(long orderItemId, int quantity, long unitPriceInclVat,
-            long commissionAmount, int refundedQuantity, long refundedCommission) {
+            long commissionAmount, long discountAmount, int refundedQuantity,
+            long refundedCommission, long refundedAmount) {
 
         int remaining() {
             return quantity - refundedQuantity;
+        }
+
+        /** 이 항목에서 돌려줄 수 있는 전부. 소비자가 그 항목에 실제로 낸 값이다 */
+        long refundable() {
+            return unitPriceInclVat * quantity - discountAmount;
         }
     }
 
@@ -85,7 +99,7 @@ final class RefundMath {
                                 .formatted(item.remaining(), item.orderItemId()));
             }
             portions.add(new Portion(item.orderItemId(), line.quantity(),
-                    item.unitPriceInclVat() * line.quantity(), commissionRefund(item, line.quantity())));
+                    amountRefund(item, line.quantity()), commissionRefund(item, line.quantity())));
         }
         return portions;
     }
@@ -101,6 +115,21 @@ final class RefundMath {
      * 한 번에 세 개 돌려주는 것이 같은 값이어야 하고, 그 등식을 테스트가 지킨다
      * (`money-invariants` 「통째로 환불하면 {@code commission_refund = commission_amount}」).
      */
+    /**
+     * 이 항목에서 돌려줄 대금. <b>배분된 할인을 뺀다</b>(`Q164`).
+     *
+     * <p><b>잔액을 마지막 수량에 몰아 준다</b> — {@link #commissionRefund} 와 같은 모양이고
+     * 같은 이유다. 할인이 항목 단위로 이미 잘린 값이라(`50`) 수량으로 또 나누면 1원씩 남고,
+     * 그것을 그대로 두면 <b>통째로 환불했는데 낸 것보다 덜 돌아간다.</b>
+     */
+    static long amountRefund(Item item, int quantity) {
+        boolean last = item.refundedQuantity() + quantity == item.quantity();
+
+        return last
+                ? item.refundable() - item.refundedAmount()
+                : item.refundable() * quantity / item.quantity();
+    }
+
     static long commissionRefund(Item item, int quantity) {
         boolean last = item.refundedQuantity() + quantity == item.quantity();
 

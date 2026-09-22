@@ -160,9 +160,13 @@
 | `sum(refund.amount) <= payment.amount` | `assert_refund_within_payment` |
 | `refund.amount = sum(refund_item.amount) + refund.shipping_fee_refund` | `assert_refund_totals` |
 | `sum(refund_item.quantity) <= order_item.quantity` | `assert_refund_item_within_order_item` |
-| `sum(refund_item.amount) <= order_item.line_amount` | `assert_refund_item_within_order_item` |
+| `sum(refund_item.amount) <= order_item.line_amount - order_item.discount_amount` | `assert_refund_item_within_order_item` |
 | `sum(refund_item.commission_refund) <= order_item.commission_amount` | `assert_refund_item_within_order_item` |
 | 항목을 통째로 환불하면 `sum(commission_refund) = order_item.commission_amount` | 테스트 |
+
+**천장이 「실제로 받은 값」이다**(`Q164`). `50` 이 결제액을 「항목합 + 배송비합 − 할인합」으로 줄였는데
+환불 쪽이 할인 전 값을 그대로 쓰고 있었다 — **전액 환불은 결제액 상한에 걸려 막히고**, 부분 환불은
+**소비자가 낸 것보다 많이 돌려줬다.** 앱의 환불액도 같이 고쳐서 배분된 할인을 뺀다(`RefundMath.amountRefund`).
 
 부등호인 것이 여기의 성질이다. 주문·정산 축은 합이 정확히 맞아야 하지만 환불은 **여러 번 날 수 있고
 매번 일부만 낼 수 있다.** 그래서 상한만 건다.

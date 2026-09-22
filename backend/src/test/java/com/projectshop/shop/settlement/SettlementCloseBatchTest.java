@@ -141,6 +141,45 @@ class SettlementCloseBatchTest extends PostgresTestBase {
             assertThat(payoutAmount()).isEqualTo(PRICE - COMMISSION + SHIPPING_FEE - 1_000);
         }
 
+        /**
+         * 안 되돌리면 <b>거래가 없어졌는데 부담만 남는다</b> — 1월에
+         * {@code +판매 −수수료 −쿠폰} 이 서고 2월에 {@code −판매 +수수료} 만 서면
+         * 순 {@code −쿠폰} 이 셀러에게 남는다(마무리 43차 독립 리뷰, `Q164`).
+         */
+        @Test
+        @DisplayName("정산 뒤 환불하면 쿠폰 부담이 0으로 돌아온다")
+        void 정산_뒤_환불하면_쿠폰_부담이_0으로_돌아온다() {
+            long sellerOrderId = confirmedOrderWithCoupon(PERIOD_END, "seller", 1_000);
+            prerequisiteSucceeded(PERIOD_END);
+            batch.close(PERIOD_END);
+
+            // 다음 달에 환불이 승인된다. 그 회차가 되돌림을 세운다.
+            LocalDate nextEnd = PERIOD_END.plusMonths(1).withDayOfMonth(
+                    PERIOD_END.plusMonths(1).lengthOfMonth());
+            approveRefund(sellerOrderId, nextEnd);
+            prerequisiteSucceeded(nextEnd);
+            batch.close(nextEnd);
+
+            long net = jdbc.sql("""
+                            select coalesce(sum(i.amount), 0) from settlement_item i
+                             where i.kind in ('coupon_discount', 'coupon_discount_reversal')
+                               and (i.order_item_id in (select order_item_id from order_item
+                                                         where seller_order_id = :id)
+                                    or i.refund_item_id in (
+                                        select ri.refund_item_id from refund_item ri
+                                          join order_item oi
+                                            on oi.order_item_id = ri.order_item_id
+                                         where oi.seller_order_id = :id))
+                            """)
+                    .param("id", sellerOrderId)
+                    .query(Long.class)
+                    .single();
+
+            assertThat(net)
+                    .as("되돌림이 없으면 셀러가 할인을 영구히 문다")
+                    .isZero();
+        }
+
         @Test
         @DisplayName("몰이 문 쿠폰은 줄이 안 선다")
         void 몰이_문_쿠폰은_줄이_안_선다() {
