@@ -244,7 +244,9 @@ class ScreenLengthTest {
                     "type=number 다. maxLength 가 안 걸리고 범위는 min/max 가 든다"),
             Map.entry("app/seller/products/new/product-form.tsx  stockCount", "〃"),
             Map.entry("app/seller/products/[productId]/images/image-manager.tsx  file",
-                    "type=file 이다. 글자가 아니라 파일이고 크기·형식은 서버가 막는다(`Q140`)")));
+                    "type=file 이다. 글자가 아니라 파일이고 크기·형식은 서버가 막는다(`Q140`)"),
+            Map.entry("app/admin/roles/page.tsx  userId",
+                    "type=number 다. maxLength 가 안 걸리고 아래쪽은 min 이 든다(`16`)")));
 
     /**
      * 화면 칸 중 {@code maxLength} 가 없는 것을 찾는다.

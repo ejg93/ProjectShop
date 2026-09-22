@@ -48,6 +48,11 @@ function canReadAuditLogs(me: Me | null): boolean {
   return can(me, "audit", "read");
 }
 
+/** 역할 편집 화면(`16`). `role:read` 를 가진 사람만 그 화면이 뜬다 */
+function canEditRoles(me: Me | null): boolean {
+  return can(me, "role", "read");
+}
+
 /**
  * 모든 화면이 쓰는 머리. 어디에 있든 상품·장바구니·계정으로 갈 수 있다.
  *
@@ -119,6 +124,10 @@ export async function SiteHeader() {
           */}
           {canReadAuditLogs(me) ? (
             <HeaderLink href="/admin/audit">감사 기록</HeaderLink>
+          ) : null}
+
+          {canEditRoles(me) ? (
+            <HeaderLink href="/admin/roles">역할 편집</HeaderLink>
           ) : null}
         </nav>
 

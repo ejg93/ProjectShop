@@ -80,6 +80,28 @@ public enum ErrorCode {
     CONSENT_FORBIDDEN(HttpStatus.FORBIDDEN, "consent-forbidden", "동의 내역을 다룰 권한이 없다"),
     AUDIT_FORBIDDEN(HttpStatus.FORBIDDEN, "audit-forbidden", "감사 로그를 볼 권한이 없다"),
 
+    // 역할 편집(`16`)
+    ROLE_FORBIDDEN(HttpStatus.FORBIDDEN, "role-forbidden", "역할을 다룰 권한이 없다"),
+
+    /**
+     * 그 사람이 없다.
+     *
+     * <p><b>숨기지 않는다.</b> 이 입구는 역할을 편집할 수 있는 사람만 지나고, 그 사람에게
+     * 계정의 존재는 이미 보이는 것이다 — 감추면 <b>없는 번호와 못 보는 번호</b>가 같아져서
+     * 관리자가 오타를 못 알아챈다.
+     */
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "user-not-found", "그런 사용자가 없다"),
+
+    /**
+     * 이 입구로 줄 수 있는 역할이 아니다.
+     *
+     * <p>조직 역할은 소속과 함께 들어가야 해서 {@code SellerMemberService} 가 든다(`5a`).
+     * 여기서 주면 {@code V4} 의 트리거가 막는데 그것은 <b>500</b> 이라, 부르는 쪽이 고칠 수 있는
+     * 오류로 먼저 답한다.
+     */
+    ROLE_NOT_ASSIGNABLE(HttpStatus.UNPROCESSABLE_CONTENT, "role-not-assignable",
+            "이 입구로 줄 수 있는 역할이 아니다"),
+
     // 상품
     //
     // 403 이다. 상품은 공개 목록에 있어서 존재를 숨길 이유가 없다(`D5` 의 자원별 표).
