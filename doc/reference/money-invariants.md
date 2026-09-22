@@ -23,7 +23,9 @@
 | `order_item.unit_price_incl_vat >= 0` | `check` |
 | `order_item.commission_bp between 0 and 10000` | `check` |
 | `seller_order.shipping_fee >= 0` | `check` |
-| `shop_order.payable_amount = shop_order.total_amount + shop_order.shipping_fee_total` | `check` |
+| `order_item.discount_amount between 0 and order_item.line_amount` | `check` |
+| `shop_order.payable_amount = shop_order.total_amount + shop_order.shipping_fee_total - shop_order.discount_total` | `check` |
+| `shop_order.discount_total = sum(order_item.discount_amount)` | 트리거 |
 
 **결제 금액이 여기 있는 것은 배송비 합을 컬럼으로 뒀기 때문이다.** 처음에는 셋 다 트리거로 잡았는데,
 합을 컬럼에 두면 등식이 한 행 안에서 끝나서 한 칸 아래로 내려간다(`coding-rules.md` 「가장 낮은 층에 건다」).

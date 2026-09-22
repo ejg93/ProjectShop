@@ -94,6 +94,85 @@ class OrderServiceTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 쿠폰을 끼운 주문(`50`).
+     *
+     * <p><b>등식이 이 절의 닫힘이다.</b> {@code assert_order_amounts} 가 커밋 때
+     * 「결제액 = 항목합 + 배송비합 − 할인합」과 「할인합 = 항목별 배분액의 합」을 재므로,
+     * 배분이 1원이라도 어긋나면 <b>주문 자체가 안 선다.</b>
+     */
+    @Nested
+    @DisplayName("쿠폰을 끼우면")
+    class WithCoupon {
+
+        @Test
+        @DisplayName("할인이 결제액에서 빠지고 등식이 선다")
+        void 할인이_결제액에서_빠지고_등식이_선다() {
+            long cartItemId = addToCart(skuA, 2);
+            long issue = issueCoupon("k1", "amount", 3_000, "mall", null);
+
+            OrderService.Created created = orderWithCoupon(List.of(cartItemId), issue);
+
+            // 10,000 × 2 = 20,000, 배송비 3,000, 할인 3,000
+            assertThat(created.payableAmount()).isEqualTo(20_000L);
+            assertThat(orderOf(created.orderId(), "discount_total")).isEqualTo(3_000L);
+            assertThat(itemOf(created.orderId(), "discount_amount")).isEqualTo(3_000L);
+        }
+
+        /** 정의가 바뀌어도 지나간 주문은 안 움직인다 — 수수료를 금액으로 박은 것과 같다 */
+        @Test
+        @DisplayName("할인액을 박제한다")
+        void 할인액을_박제한다() {
+            long cartItemId = addToCart(skuA, 1);
+            long issue = issueCoupon("k2", "amount", 2_000, "mall", null);
+
+            OrderService.Created created = orderWithCoupon(List.of(cartItemId), issue);
+            jdbc.sql("update coupon set discount_value = 9_999").update();
+
+            assertThat(itemOf(created.orderId(), "discount_amount")).isEqualTo(2_000L);
+        }
+
+        @Test
+        @DisplayName("쓴 쿠폰이 그 주문을 가리킨다")
+        void 쓴_쿠폰이_그_주문을_가리킨다() {
+            long cartItemId = addToCart(skuA, 1);
+            long issue = issueCoupon("k3", "amount", 1_000, "mall", null);
+
+            OrderService.Created created = orderWithCoupon(List.of(cartItemId), issue);
+
+            Long usedOrderId = jdbc.sql("""
+                            select used_order_id from coupon_issue where coupon_issue_id = :id
+                            """)
+                    .param("id", issue)
+                    .query(Long.class)
+                    .single();
+            assertThat(usedOrderId).isEqualTo(created.orderId());
+        }
+
+        /** 나누어떨어지지 않는 값이라야 잔차가 드러난다 */
+        @Test
+        @DisplayName("셀러가 둘이어도 배분의 합이 정확하다")
+        void 셀러가_둘이어도_배분의_합이_정확하다() {
+            long cartA = addToCart(skuA, 1);
+            long cartB = addToCart(skuB, 1);
+            long issue = issueCoupon("k4", "amount", 1_001, "mall", null);
+
+            OrderService.Created created = orderWithCoupon(List.of(cartA, cartB), issue);
+
+            long itemSum = jdbc.sql("""
+                            select coalesce(sum(oi.discount_amount), 0) from order_item oi
+                              join seller_order so on so.seller_order_id = oi.seller_order_id
+                             where so.order_id = :id
+                            """)
+                    .param("id", created.orderId())
+                    .query(Long.class)
+                    .single();
+
+            assertThat(itemSum).isEqualTo(1_001L);
+            assertThat(orderOf(created.orderId(), "discount_total")).isEqualTo(1_001L);
+        }
+    }
+
     @Nested
     @DisplayName("금액은")
     class Amounts {
@@ -352,6 +431,39 @@ class OrderServiceTest extends PostgresTestBase {
         return orderService.create(userId, command(List.of(cartItemId)));
     }
 
+    /** 쿠폰을 끼워 주문한다(`50`) */
+    private OrderService.Created orderWithCoupon(List<Long> cartItemIds, long couponIssueId) {
+        return orderService.create(userId, new OrderService.Command(cartItemIds,
+                new OrderService.Shipping("홍길동", "010-0000-0000", "06134", "서울시 강남구", "101호", null),
+                false, couponIssueId));
+    }
+
+    private long issueCoupon(String code, String kind, long value, String bearer, Long sellerId) {
+        long couponId = jdbc.sql("""
+                        insert into coupon (code, name, discount_kind, discount_value,
+                                            bearer, seller_id)
+                        values (:code, :code, :kind, :value, :bearer, :seller)
+                        returning coupon_id
+                        """)
+                .param("code", code)
+                .param("kind", kind)
+                .param("value", value)
+                .param("bearer", bearer)
+                .param("seller", sellerId)
+                .query(Long.class)
+                .single();
+
+        return jdbc.sql("""
+                        insert into coupon_issue (coupon_id, user_id, expires_at)
+                        values (:coupon, :user, now() + interval '30 days')
+                        returning coupon_issue_id
+                        """)
+                .param("coupon", couponId)
+                .param("user", userId)
+                .query(Long.class)
+                .single();
+    }
+
     private OrderService.Command command(List<Long> cartItemIds) {
         return new OrderService.Command(cartItemIds,
                 new OrderService.Shipping("홍길동", "010-0000-0000", "06134", "서울시 강남구", "101호", null));
@@ -418,6 +530,14 @@ class OrderServiceTest extends PostgresTestBase {
                 .param("cartId", cartId)
                 .param("skuId", skuId)
                 .param("quantity", quantity)
+                .query(Long.class)
+                .single();
+    }
+
+    /** 주문 머리의 칸 하나. 컬럼 이름을 문자열로 받는 것은 {@link #itemOf} 와 같은 이유다 */
+    private long orderOf(long orderId, String column) {
+        return jdbc.sql("select %s from shop_order where order_id = :orderId".formatted(column))
+                .param("orderId", orderId)
                 .query(Long.class)
                 .single();
     }

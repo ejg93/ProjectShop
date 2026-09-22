@@ -111,6 +111,24 @@ public enum ErrorCode {
     SELLER_INVITATION_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, "seller-invitation-invalid",
             "쓸 수 없는 초대 토큰이다"),
 
+    /**
+     * 쿠폰을 쓸 수 없다.
+     *
+     * <p><b>넷을 안 가른다.</b> 없는 발급·남의 발급·이미 쓴 것·기한이 지난 것이 같은 응답이다 —
+     * 가르면 번호를 두드려 <b>남이 무슨 쿠폰을 받았는지</b>를 알아낼 수 있다(`D14`).
+     */
+    COUPON_NOT_USABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-not-usable", "쓸 수 없는 쿠폰이다"),
+
+    /**
+     * 쿠폰은 살아 있는데 이 주문에 안 맞는다.
+     *
+     * <p>{@link #COUPON_NOT_USABLE} 과 가르는 이유는 <b>고칠 수 있는 쪽이라서</b>다 —
+     * 최소 주문 금액에 못 미치거나 대상 셀러의 상품이 없는 것은 장바구니를 바꾸면 통과한다.
+     * 여기서는 아무것도 안 흘린다: 그 쿠폰은 이미 자기 것이다.
+     */
+    COUPON_NOT_APPLICABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-not-applicable",
+            "이 주문에 쓸 수 없는 쿠폰이다"),
+
     // 장바구니
     //
     // 담긴 것을 못 찾는 것은 404 다. 장바구니는 주인만 만지고 주인은 요청이 가리키므로
