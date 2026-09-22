@@ -16,12 +16,21 @@ for f in .claude/skills/*/SKILL.md; do
   case "$f" in *design-taste-frontend*) ;; *) skill_files+=("$f") ;; esac
 done
 
+# 세션을 여는 말(`Q158`)도 같은 종류다 — 스킬이 「세션이 따르는 절차」라면 이쪽은
+# 「사람이 붙여넣는 말」이고, 둘 다 저장소가 드는 규칙 문서다. 올려 놓고 검사에서 빼면
+# **기계가 안 보는 규칙 문서 종류가 하나 생긴다**(마무리 43차 독립 리뷰).
+prompt_files=()
+for f in .claude/prompts/*.md; do
+  [ -e "$f" ] && prompt_files+=("$f")
+done
+
 title_check_files=(
   CLAUDE.md
   backend/CLAUDE.md
   PLAN.md
   PROGRESS.md
   "${skill_files[@]}"
+  "${prompt_files[@]}"
   doc/reference/*.md
 )
 
@@ -33,6 +42,7 @@ dup_check_files=(
   backend/CLAUDE.md
   frontend/AGENTS.md
   "${skill_files[@]}"
+  "${prompt_files[@]}"
   doc/reference/*.md
 )
 
@@ -49,6 +59,7 @@ honorific_check_files=(
   backend/CLAUDE.md
   frontend/AGENTS.md
   "${skill_files[@]}"
+  "${prompt_files[@]}"
   doc/reference/*.md
 )
 
@@ -289,7 +300,7 @@ plan_open_rows() {
 # 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
 # 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
 # 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
-plan_open_incomplete_baseline=28
+plan_open_incomplete_baseline=24
 plan_open_incomplete=$(plan_open_rows | awk '
     $0 !~ /\*\*축\*\*/ || $0 !~ /\*\*강제 지점\*\*/ || $0 !~ /\*\*닫힘\*\*/ {k++}
   END{print k+0}')

@@ -37,7 +37,7 @@ class OrderRecordTextTest {
                 KST_NOON, KST_NOON, KST_NOON, KST_NOON, KST_NOON, false,
                 List.of(item), List.of("CONFIRM"));
 
-        return new OrderQuery.Detail("20260821-7QX4P4", "PAID", 58_000L, 3_000L, 61_000L,
+        return new OrderQuery.Detail("20260821-7QX4P4", "PAID", 58_000L, 3_000L, 0L, 61_000L,
                 KST_NOON, List.of(sellerOrder),
                 List.of(new OrderQuery.HistoryEntry("데모셀러", "PREPARING", "SHIPPING",
                         "seller", KST_NOON)),
@@ -114,7 +114,8 @@ class OrderRecordTextTest {
                     source.payment().approvalNumber(), null, null, null, KST_NOON);
             OrderQuery.Detail withoutCard = new OrderQuery.Detail(source.orderNumber(),
                     source.status(), source.totalAmount(), source.shippingFeeTotal(),
-                    source.payableAmount(), source.createdAt(), source.sellerOrders(),
+                    source.discountTotal(), source.payableAmount(), source.createdAt(),
+                    source.sellerOrders(),
                     source.history(), source.shipping(), purged, source.refunds(),
                     source.contractDocuments(), source.visibleFieldGroups());
 

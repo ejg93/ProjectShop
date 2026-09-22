@@ -122,6 +122,10 @@ final class OrderRecordText {
         out.append("[ 결제 금액 ]\n");
         row(out, "상품 합계", money(detail.totalAmount()));
         row(out, "배송비 합계", money(detail.shippingFeeTotal()));
+        // 할인이 없으면 줄을 안 그린다. 0원 줄은 「안 깎았다」를 말하려고 자리를 차지한다.
+        if (detail.discountTotal() > 0) {
+            row(out, "할인 금액", "-" + money(detail.discountTotal()));
+        }
         row(out, "결제 금액", money(detail.payableAmount()));
         out.append('\n');
     }

@@ -12,10 +12,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.auth.PermissionEvaluator;
+import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.auth.PermissionRuleLoader;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.support.CommaCodes;
 
 /**
  * 셀러에 사람을 붙인다 — 초대를 내고, 받은 사람이 수락하면 소속과 역할이 같이 생긴다(`5a`).
@@ -55,14 +60,16 @@ public class SellerMemberService {
     private final JdbcClient jdbc;
     private final PasswordEncoder passwordEncoder;
     private final PermissionRuleLoader ruleLoader;
+    private final PermissionEvaluator evaluator;
     private final AuditLog auditLog;
     private final SecureRandom random = new SecureRandom();
 
     SellerMemberService(JdbcClient jdbc, PasswordEncoder passwordEncoder,
-            PermissionRuleLoader ruleLoader, AuditLog auditLog) {
+            PermissionRuleLoader ruleLoader, PermissionEvaluator evaluator, AuditLog auditLog) {
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
         this.ruleLoader = ruleLoader;
+        this.evaluator = evaluator;
         this.auditLog = auditLog;
     }
 
@@ -77,6 +84,8 @@ public class SellerMemberService {
      */
     @Transactional
     public Invitation invite(long sellerId, String email, String roleCode, long invitedByUserId) {
+        requireManage(invitedByUserId, sellerId);
+
         long roleId = jdbc.sql("select role_id from role where code = :code")
                 .param("code", roleCode)
                 .query(Long.class)
@@ -191,13 +200,19 @@ public class SellerMemberService {
      * <b>내보내는 것이 다른 일</b>이고 그 입구는 `16a` 가 만든다.
      */
     @Transactional
-    public void revoke(long invitationId, long actorUserId) {
+    public void revoke(long sellerId, long invitationId, long actorUserId) {
+        requireManage(actorUserId, sellerId);
+
+        // **셀러를 조건에 넣는다.** 번호만 보고 지우면 판정을 지난 사람이 **남의 셀러 초대**를
+        // 거둔다 — 판정은 「이 셀러를 다룰 수 있나」를 답했지 「이 번호가 그 셀러 것인가」를
+        // 안 봤다. 인자를 안 주면 못 부르는 자리라 강제 지점이 1위다(`Q162`).
         int closed = jdbc.sql("""
                         update seller_invitation set revoked_at = now()
-                         where seller_invitation_id = :id
+                         where seller_invitation_id = :id and seller_id = :sellerId
                            and accepted_at is null and revoked_at is null
                         """)
                 .param("id", invitationId)
+                .param("sellerId", sellerId)
                 .update();
         if (closed == 0) {
             throw new ShopException(ErrorCode.SELLER_INVITATION_INVALID, "거둘 수 없는 초대다");
@@ -205,6 +220,132 @@ public class SellerMemberService {
 
         auditLog.record(AuditLog.Kind.OUTCOME, "seller_member.invitation_revoked", actorUserId,
                 AuditLog.Target.of("seller_invitation", invitationId), Map.of());
+    }
+
+    /**
+     * 셀러에 속한 사람 하나와 그 셀러에서 받은 역할.
+     *
+     * <p><b>주소를 안 싣는다</b>(마무리 43차 독립 리뷰). `V7` 이 감사자의 {@code user:read} 를
+     * {@code basic} 으로 묶어 연락처를 뺐는데, {@code seller_member:read} 로 그것을 꺼내면
+     * <b>자원 이름을 바꿔 같은 값에 닿는</b> 것이 된다 — 감사자는 이 권한이 {@code all} 스코프라
+     * 더 넓다(`V82`).
+     *
+     * <p><b>마스킹이 아니라 계약에서 뺐다.</b> 같이 일하는 사람을 알아보는 데 이름과 번호면
+     * 충분하고, 갈리지 않는데 마스킹을 걸면 새 칸을 더할 때 그 규칙을 빠뜨린다(`D23`).
+     * <b>부른 주소는 초대 목록에 있고</b> 그쪽은 관리 권한이 있어야 보인다.
+     */
+    @Schema(name = "SellerMemberRow")
+    public record Member(long userId, String displayName, List<String> roleCodes) {}
+
+    /** 아직 살아 있는 초대 하나 */
+    @Schema(name = "SellerInvitationRow")
+    public record PendingInvitation(long invitationId, String email, String roleCode,
+            OffsetDateTime expiresAt) {}
+
+    /**
+     * 멤버 화면이 한 번에 받는 것.
+     *
+     * @param canManage 부르고 거둘 수 있나. <b>빈 초대 목록과 권한 없음이 같은 모양이라</b>
+     *        칸으로 가른다 — 화면이 그것을 못 가르면 못 누를 버튼을 그린다(`D20`)
+     */
+    @Schema(name = "SellerMembers")
+    public record Members(List<Member> members, List<PendingInvitation> invitations,
+            boolean canManage) {}
+
+    /**
+     * 내가 속한 셀러.
+     *
+     * <p><b>화면이 셀러 번호를 알 이유가 없다.</b> 사람은 「내 셀러」를 알지 번호를 모르고,
+     * 번호를 화면에 적게 하면 <b>남의 번호를 적는 길</b>이 같이 열린다 — 판정이 그것을 거부하지만
+     * 거부를 보는 것이 화면의 정상 상태가 되면 안 된다.
+     *
+     * <p>여럿이면 전부 돌려준다. 고르는 칸은 <b>실제로 둘 이상인 계정이 생길 때</b> 만든다 —
+     * 지금 만들면 무엇을 고르는지 모르는 채로 만든다.
+     */
+    public List<Long> mySellerIds(long userId) {
+        return jdbc.sql("""
+                        select seller_id from seller_member
+                         where user_id = :id order by seller_id
+                        """)
+                .param("id", userId)
+                .query(Long.class)
+                .list();
+    }
+
+    /**
+     * 그 셀러의 사람과 살아 있는 초대.
+     *
+     * <p><b>초대는 관리 권한이 있어야 보인다.</b> 주소가 실려서고, 그것은 아직 회원이 아닐 수
+     * 있는 사람의 개인정보다(`D13`) — 멤버 목록을 보는 것과 <b>누구를 불렀는지 보는 것</b>은
+     * 다른 일이다.
+     */
+    public Members find(long actorUserId, long sellerId) {
+        requirePermission(actorUserId, sellerId, "read");
+
+        List<Member> members = jdbc.sql("""
+                        select u.user_id, u.display_name,
+                               coalesce(string_agg(r.code, ',' order by r.code), '') as role_codes
+                          from seller_member sm
+                          join app_user u on u.user_id = sm.user_id
+                          left join user_role ur
+                                 on ur.user_id = sm.user_id and ur.seller_id = sm.seller_id
+                          left join role r on r.role_id = ur.role_id
+                         where sm.seller_id = :sellerId
+                         group by u.user_id, u.display_name
+                         order by u.user_id
+                        """)
+                .param("sellerId", sellerId)
+                .query((rs, rowNum) -> new Member(
+                        rs.getLong("user_id"),
+                        rs.getString("display_name"),
+                        CommaCodes.split(rs.getString("role_codes"))))
+                .list();
+
+        boolean manages = allowed(actorUserId, sellerId, "manage");
+        List<PendingInvitation> invitations = manages ? pendingOf(sellerId) : List.of();
+
+        return new Members(members, invitations, manages);
+    }
+
+    private List<PendingInvitation> pendingOf(long sellerId) {
+        return jdbc.sql("""
+                        select si.seller_invitation_id, si.email, r.code, si.expires_at
+                          from seller_invitation si
+                          join role r on r.role_id = si.role_id
+                         where si.seller_id = :sellerId
+                           and si.accepted_at is null and si.revoked_at is null
+                           and si.expires_at > now()
+                         order by si.issued_at desc
+                        """)
+                .param("sellerId", sellerId)
+                .query((rs, rowNum) -> new PendingInvitation(
+                        rs.getLong("seller_invitation_id"),
+                        rs.getString("email"),
+                        rs.getString("code"),
+                        rs.getObject("expires_at", OffsetDateTime.class)))
+                .list();
+    }
+
+    /**
+     * <b>판정 엔진이 조직 경계를 자른다.</b> 대상에 셀러를 실어 보내면 조직 역할로 받은 사람은
+     * <b>받은 그 셀러에서만</b> 통과한다({@code Scope.SELLER} 의 뜻이 부여 방식에 따라 갈린다).
+     *
+     * <p><b>화면이 셀러 번호를 넘기는 것을 막지 않는다.</b> 막을 수가 없고 — 번호는 주소에
+     * 실려 온다 — 막을 필요도 없다. 남의 번호를 넣으면 <b>판정이 거부한다.</b>
+     */
+    private void requirePermission(long actorUserId, long sellerId, String action) {
+        if (!allowed(actorUserId, sellerId, action)) {
+            throw new ShopException(ErrorCode.SELLER_MEMBER_FORBIDDEN);
+        }
+    }
+
+    private void requireManage(long actorUserId, long sellerId) {
+        requirePermission(actorUserId, sellerId, "manage");
+    }
+
+    private boolean allowed(long actorUserId, long sellerId, String action) {
+        return evaluator.decide(actorUserId, "seller_member", action, Target.ofSeller(sellerId))
+                .allowed();
     }
 
     /**

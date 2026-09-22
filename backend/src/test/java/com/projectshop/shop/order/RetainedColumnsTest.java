@@ -41,16 +41,17 @@ class RetainedColumnsTest extends PostgresTestBase {
      * <b>`check` 로 닫힌 열거값</b>이라 사람 글이 안 들어온다 — 처음부터 자유 텍스트가 아니었다.
      */
     private static final Map<String, List<String>> RETAINED = Map.of(
-            "shop_order", List.of("commission_total", "created_at", "order_id", "order_number",
-                    "payable_amount", "shipping_fee_total", "status", "total_amount",
-                    "updated_at", "user_id"),
+            "shop_order", List.of("commission_total", "created_at", "discount_total", "order_id",
+                    "order_number", "payable_amount", "shipping_fee_total", "status",
+                    "total_amount", "updated_at", "user_id"),
             "seller_order", List.of("agreed_lead_days", "auto_confirm_at", "closed_at",
                     "created_at", "delivered_at", "order_id", "return_reason", "seller_id",
                     "seller_order_id", "seller_order_number", "ship_due_at", "shipped_at",
                     "shipping_fee", "status", "supply_lead_days", "updated_at",
                     "withdrawal_expire_at"),
             "order_item", List.of("commission_amount", "commission_bp", "created_at",
-                    "line_amount", "option_label", "order_item_id", "product_name", "quantity",
+                    "discount_amount", "line_amount", "option_label", "order_item_id",
+                    "product_name", "quantity",
                     "seller_order_id", "sku_id", "unit_price_incl_vat",
                     "withdrawal_notice_agreed_at", "withdrawal_restriction_reason"),
             "payment", List.of("amount", "approval_number", "created_at", "decline_reason",

@@ -125,6 +125,36 @@ class SettlementCloseBatchTest extends PostgresTestBase {
                     .isEqualTo(PRICE - COMMISSION + SHIPPING_FEE);
         }
 
+        /**
+         * 부담 주체가 줄의 유무를 정한다(`51`). 셀러 부담이면 그 셀러가 할인을 무는 것이라
+         * 지급액에서 빠지고, <b>몰 부담이면 셀러는 정가대로 받는다.</b>
+         */
+        @Test
+        @DisplayName("셀러가 문 쿠폰은 지급액에서 빠진다")
+        void 셀러가_문_쿠폰은_지급액에서_빠진다() {
+            long sellerOrderId = confirmedOrderWithCoupon(PERIOD_END, "seller", 1_000);
+            prerequisiteSucceeded(PERIOD_END);
+
+            batch.close(PERIOD_END);
+
+            assertThat(couponLineAmount(sellerOrderId)).isEqualTo(-1_000L);
+            assertThat(payoutAmount()).isEqualTo(PRICE - COMMISSION + SHIPPING_FEE - 1_000);
+        }
+
+        @Test
+        @DisplayName("몰이 문 쿠폰은 줄이 안 선다")
+        void 몰이_문_쿠폰은_줄이_안_선다() {
+            long sellerOrderId = confirmedOrderWithCoupon(PERIOD_END, "mall", 1_000);
+            prerequisiteSucceeded(PERIOD_END);
+
+            batch.close(PERIOD_END);
+
+            assertThat(couponLineAmount(sellerOrderId)).isZero();
+            assertThat(payoutAmount())
+                    .as("몰이 문 할인은 셀러 지급액을 안 건드린다")
+                    .isEqualTo(PRICE - COMMISSION + SHIPPING_FEE);
+        }
+
         @Test
         @DisplayName("지급일이 다음 달 10일이고 쉬는 날이면 밀린다")
         void freezesThePayoutDate() {
@@ -441,6 +471,74 @@ class SettlementCloseBatchTest extends PostgresTestBase {
      *
      * @return 만든 {@code seller_order_id}
      */
+    /**
+     * 쿠폰을 쓴 구매확정 주문 하나(`51`).
+     *
+     * <p>주문 경로를 안 거치고 손으로 넣는다 — 여기서 보려는 것은 <b>마감이 부담 주체를
+     * 어떻게 읽나</b>고, 배분이 맞는지는 `50` 의 시험이 이미 잰다.
+     */
+    private long confirmedOrderWithCoupon(LocalDate confirmedOn, String bearer, long discount) {
+        long sellerOrderId = confirmedOrder(confirmedOn);
+
+        long orderId = jdbc.sql("select order_id from seller_order where seller_order_id = :id")
+                .param("id", sellerOrderId)
+                .query(Long.class)
+                .single();
+
+        jdbc.sql("""
+                        update order_item set discount_amount = :discount
+                         where seller_order_id = :sellerOrderId
+                        """)
+                .param("discount", discount)
+                .param("sellerOrderId", sellerOrderId)
+                .update();
+        jdbc.sql("""
+                        update shop_order
+                           set discount_total = :discount,
+                               payable_amount = total_amount + shipping_fee_total - :discount
+                         where order_id = :orderId
+                        """)
+                .param("discount", discount)
+                .param("orderId", orderId)
+                .update();
+
+        long couponId = jdbc.sql("""
+                        insert into coupon (code, name, discount_kind, discount_value,
+                                            bearer, seller_id)
+                        values (:code, :code, 'amount', :value, :bearer, :seller)
+                        returning coupon_id
+                        """)
+                .param("code", "settle-" + bearer + "-" + discount)
+                .param("value", discount)
+                .param("bearer", bearer)
+                .param("seller", "seller".equals(bearer) ? sellerId : null)
+                .query(Long.class)
+                .single();
+
+        jdbc.sql("""
+                        insert into coupon_issue (coupon_id, user_id, expires_at,
+                                                  used_at, used_order_id)
+                        values (:coupon, :user, now() + interval '30 days', now(), :orderId)
+                        """)
+                .param("coupon", couponId)
+                .param("user", userId)
+                .param("orderId", orderId)
+                .update();
+
+        return sellerOrderId;
+    }
+
+    private long couponLineAmount(long sellerOrderId) {
+        return jdbc.sql("""
+                        select coalesce(sum(i.amount), 0) from settlement_item i
+                          join order_item oi on oi.order_item_id = i.order_item_id
+                         where i.kind = 'coupon_discount' and oi.seller_order_id = :id
+                        """)
+                .param("id", sellerOrderId)
+                .query(Long.class)
+                .single();
+    }
+
     private long confirmedOrder(LocalDate confirmedOn) {
         long orderId = jdbc.sql("""
                         insert into shop_order (order_number, user_id, total_amount,

@@ -65,11 +65,15 @@ public class OrderController {
      *        시행령 제21조가 요구하는 것은 동의고 침묵은 동의가 아니다.
      *        <b>{@code Boolean} 인 이유는 Jackson 이 빠진 원시 타입을 못 채워서다</b> —
      *        {@code boolean} 으로 두면 이 칸을 안 보내는 기존 클라이언트가 400 을 받는다
+     * @param couponIssueId 쓸 쿠폰. <b>안 보내면 안 쓴 것</b>이고 그러면 할인이 0 이다(`50`).
+     *        번호는 내 쿠폰함이 내려준 것이고, 남의 것이면 쓸 수 없는 쿠폰과 같은 응답이 간다 —
+     *        가르면 번호를 두드려 남이 무슨 쿠폰을 받았는지 알아낼 수 있다(`D14`)
      */
     public record CreateRequest(
             @NotEmpty @Size(max = 100) List<Long> cartItemIds,
             @NotNull @Valid ShippingRequest shipping,
-            Boolean withdrawalRestrictionAgreed) {
+            Boolean withdrawalRestrictionAgreed,
+            Long couponIssueId) {
     }
 
     /**
@@ -207,6 +211,7 @@ public class OrderController {
                 new OrderService.Shipping(shipping.receiverName(), shipping.receiverPhone(),
                         shipping.postalCode(), shipping.address1(), shipping.address2(),
                         shipping.deliveryMemo()),
-                Boolean.TRUE.equals(request.withdrawalRestrictionAgreed()));
+                Boolean.TRUE.equals(request.withdrawalRestrictionAgreed()),
+                request.couponIssueId());
     }
 }

@@ -11,6 +11,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.coupon.CouponService;
+import com.projectshop.shop.coupon.CouponService.Applied;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.product.StockReason;
@@ -51,9 +53,11 @@ public class OrderService {
     private static final int LEGAL_SUPPLY_LEAD_DAYS = 3;
 
     private final JdbcClient jdbc;
+    private final CouponService coupons;
 
-    OrderService(JdbcClient jdbc) {
+    OrderService(JdbcClient jdbc, CouponService coupons) {
         this.jdbc = jdbc;
+        this.coupons = coupons;
     }
 
     /**
@@ -63,7 +67,13 @@ public class OrderService {
      *        그 주문에는 제한이 안 걸린다(`Q5`). 화면이 그 칸을 내는 것은 `Q6` 다
      */
     public record Command(List<Long> cartItemIds, Shipping shipping,
-            boolean withdrawalRestrictionAgreed) {
+            boolean withdrawalRestrictionAgreed, Long couponIssueId) {
+
+        /** 쿠폰을 안 쓰는 부름. 대부분이 이쪽이다 */
+        public Command(List<Long> cartItemIds, Shipping shipping,
+                boolean withdrawalRestrictionAgreed) {
+            this(cartItemIds, shipping, withdrawalRestrictionAgreed, null);
+        }
 
         /**
          * 동의를 안 밝히면 <b>안 받은 것</b>이다.
@@ -73,7 +83,7 @@ public class OrderService {
          * `D23` 의 「기본이 열림이면 안 된다」와 같은 방향이다.
          */
         public Command(List<Long> cartItemIds, Shipping shipping) {
-            this(cartItemIds, shipping, false);
+            this(cartItemIds, shipping, false, null);
         }
     }
 
@@ -124,10 +134,17 @@ public class OrderService {
             throw new ShopException(ErrorCode.ORDER_EMPTY);
         }
 
-        long orderId = insertOrder(userId, lines);
+        // 쿠폰을 안 쓰면 null 이다. **쓰는 표시는 주문 번호가 나온 뒤에 한다** —
+        // 여기서 먼저 찍으면 뒤에서 재고가 모자라 롤백돼도 쿠폰만 쓴 것이 될 수 있다(`50`).
+        Applied applied = applyCoupon(userId, command.couponIssueId(), lines);
+
+        long orderId = insertOrder(userId, lines, applied);
         recordCreated(orderId, userId);
         decreaseStock(orderId, lines);
-        insertSellerOrdersAndItems(orderId, lines, command.withdrawalRestrictionAgreed());
+        insertSellerOrdersAndItems(orderId, lines, command.withdrawalRestrictionAgreed(), applied);
+        if (applied != null) {
+            coupons.markUsed(applied.couponIssueId(), orderId);
+        }
         insertShipping(orderId, command.shipping());
         insertContractDocuments(orderId);
         removeOrderedFromCart(userId, command.cartItemIds());
@@ -303,15 +320,18 @@ public class OrderService {
      * <p>합계를 따로 계산하는 게 아니라 <b>항목의 합이 곧 주문 총액</b>이다(`D8`).
      * 어긋나면 커밋할 때 지연 트리거가 잡는다.
      */
-    private long insertOrder(long userId, List<Line> lines) {
+    private long insertOrder(long userId, List<Line> lines, Applied applied) {
         long totalAmount = lines.stream().mapToLong(Line::lineAmount).sum();
         long commissionTotal = lines.stream().mapToLong(Line::commissionAmount).sum();
         long shippingTotal = shippingFeeBySeller(lines).values().stream().mapToLong(Long::longValue).sum();
+        long discountTotal = applied == null ? 0 : applied.total();
 
         return ExposedNumber.insert("", "shop_order_number_unique", number -> jdbc.sql("""
                                 insert into shop_order (order_number, user_id, total_amount,
-                                                        commission_total, shipping_fee_total, payable_amount)
-                                values (:number, :userId, :total, :commission, :shipping, :payable)
+                                                        commission_total, shipping_fee_total,
+                                                        discount_total, payable_amount)
+                                values (:number, :userId, :total, :commission, :shipping,
+                                        :discount, :payable)
                                 returning order_id
                                 """)
                 .param("number", number)
@@ -319,13 +339,40 @@ public class OrderService {
                 .param("total", totalAmount)
                 .param("commission", commissionTotal)
                 .param("shipping", shippingTotal)
-                .param("payable", totalAmount + shippingTotal)
+                .param("discount", discountTotal)
+                .param("payable", totalAmount + shippingTotal - discountTotal)
                 .query(Long.class)
                 .single());
     }
 
-    private void insertSellerOrdersAndItems(long orderId, List<Line> lines, boolean restrictionAgreed) {
+    /**
+     * 쿠폰을 재 본다. <b>배송비에는 안 걸린다</b> — 할인은 상품값에 붙는 것이고,
+     * 배송비는 셀러 몫이라 수수료를 안 매기는 값과 같은 축이다(`D3`).
+     *
+     * @return 안 쓰면 {@code null}
+     */
+    private Applied applyCoupon(long userId, Long couponIssueId, List<Line> lines) {
+        if (couponIssueId == null) {
+            return null;
+        }
+        List<CouponService.CouponLine> couponLines = lines.stream()
+                .map(line -> new CouponService.CouponLine(line.sellerId(), line.lineAmount()))
+                .toList();
+        return coupons.apply(userId, couponIssueId, couponLines);
+    }
+
+    private void insertSellerOrdersAndItems(long orderId, List<Line> lines, boolean restrictionAgreed,
+            Applied applied) {
         Map<Long, Long> shippingFees = shippingFeeBySeller(lines);
+
+        // 배분액을 줄 객체로 찾는다. **값으로 찾으면 안 된다** — 같은 SKU 를 같은 수량으로
+        // 두 줄에 담으면 두 Line 이 서로 같아서, 한 줄의 배분액이 다른 줄에도 붙는다.
+        Map<Line, Long> discounts = new java.util.IdentityHashMap<>();
+        if (applied != null) {
+            for (int i = 0; i < lines.size(); i++) {
+                discounts.put(lines.get(i), applied.perLine().get(i));
+            }
+        }
 
         Map<Long, List<Line>> bySeller = new LinkedHashMap<>();
         for (Line line : lines) {
@@ -360,13 +407,14 @@ public class OrderService {
                 jdbc.sql("""
                                 insert into order_item (seller_order_id, sku_id, product_name, option_label,
                                                         unit_price_incl_vat, quantity, line_amount,
-                                                        commission_bp, commission_amount,
+                                                        commission_bp, commission_amount, discount_amount,
                                                         withdrawal_restriction_reason,
                                                         withdrawal_notice_agreed_at)
                                 values (:sellerOrderId, :skuId, :productName, :optionLabel,
                                         :unitPriceInclVat, :quantity, :lineAmount, :bp, :commission,
-                                        :restrictionReason, :noticeAgreedAt)
+                                        :discount, :restrictionReason, :noticeAgreedAt)
                                 """)
+                        .param("discount", discounts.getOrDefault(line, 0L))
                         .param("sellerOrderId", sellerOrderId)
                         .param("skuId", line.skuId())
                         .param("productName", line.productName())

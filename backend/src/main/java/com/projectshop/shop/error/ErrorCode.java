@@ -80,6 +80,28 @@ public enum ErrorCode {
     CONSENT_FORBIDDEN(HttpStatus.FORBIDDEN, "consent-forbidden", "동의 내역을 다룰 권한이 없다"),
     AUDIT_FORBIDDEN(HttpStatus.FORBIDDEN, "audit-forbidden", "감사 로그를 볼 권한이 없다"),
 
+    // 역할 편집(`16`)
+    ROLE_FORBIDDEN(HttpStatus.FORBIDDEN, "role-forbidden", "역할을 다룰 권한이 없다"),
+
+    /**
+     * 그 사람이 없다.
+     *
+     * <p><b>숨기지 않는다.</b> 이 입구는 역할을 편집할 수 있는 사람만 지나고, 그 사람에게
+     * 계정의 존재는 이미 보이는 것이다 — 감추면 <b>없는 번호와 못 보는 번호</b>가 같아져서
+     * 관리자가 오타를 못 알아챈다.
+     */
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "user-not-found", "그런 사용자가 없다"),
+
+    /**
+     * 이 입구로 줄 수 있는 역할이 아니다.
+     *
+     * <p>조직 역할은 소속과 함께 들어가야 해서 {@code SellerMemberService} 가 든다(`5a`).
+     * 여기서 주면 {@code V4} 의 트리거가 막는데 그것은 <b>500</b> 이라, 부르는 쪽이 고칠 수 있는
+     * 오류로 먼저 답한다.
+     */
+    ROLE_NOT_ASSIGNABLE(HttpStatus.UNPROCESSABLE_CONTENT, "role-not-assignable",
+            "이 입구로 줄 수 있는 역할이 아니다"),
+
     // 상품
     //
     // 403 이다. 상품은 공개 목록에 있어서 존재를 숨길 이유가 없다(`D5` 의 자원별 표).
@@ -110,6 +132,33 @@ public enum ErrorCode {
      */
     SELLER_INVITATION_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, "seller-invitation-invalid",
             "쓸 수 없는 초대 토큰이다"),
+
+    /**
+     * 그 셀러의 멤버를 다룰 권한이 없다(`16a`).
+     *
+     * <p><b>없는 셀러와 남의 셀러가 같은 응답이다.</b> 가르면 번호를 두드려 어느 셀러가
+     * 있는지 셀 수 있고, 조직 경계는 그 수를 안 흘리는 것까지가 경계다(`D14`).
+     */
+    SELLER_MEMBER_FORBIDDEN(HttpStatus.FORBIDDEN, "seller-member-forbidden",
+            "셀러의 멤버를 다룰 권한이 없다"),
+
+    /**
+     * 쿠폰을 쓸 수 없다.
+     *
+     * <p><b>넷을 안 가른다.</b> 없는 발급·남의 발급·이미 쓴 것·기한이 지난 것이 같은 응답이다 —
+     * 가르면 번호를 두드려 <b>남이 무슨 쿠폰을 받았는지</b>를 알아낼 수 있다(`D14`).
+     */
+    COUPON_NOT_USABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-not-usable", "쓸 수 없는 쿠폰이다"),
+
+    /**
+     * 쿠폰은 살아 있는데 이 주문에 안 맞는다.
+     *
+     * <p>{@link #COUPON_NOT_USABLE} 과 가르는 이유는 <b>고칠 수 있는 쪽이라서</b>다 —
+     * 최소 주문 금액에 못 미치거나 대상 셀러의 상품이 없는 것은 장바구니를 바꾸면 통과한다.
+     * 여기서는 아무것도 안 흘린다: 그 쿠폰은 이미 자기 것이다.
+     */
+    COUPON_NOT_APPLICABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-not-applicable",
+            "이 주문에 쓸 수 없는 쿠폰이다"),
 
     // 장바구니
     //
