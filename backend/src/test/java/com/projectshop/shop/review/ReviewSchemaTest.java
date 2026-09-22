@@ -12,8 +12,6 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
-import com.projectshop.shop.auth.AuthFixture;
-import com.projectshop.shop.order.OrderFixture;
 
 /**
  * 후기 표가 무엇을 막나(`46`).
@@ -31,86 +29,18 @@ class ReviewSchemaTest extends PostgresTestBase {
     @Autowired
     private JdbcClient jdbc;
 
-    private AuthFixture auth;
-    private long sellerId;
+    private ReviewFixture fixture;
     private long orderItemId;
     private long productId;
     private long buyerId;
 
     @BeforeEach
     void setUp() {
-        auth = new AuthFixture(jdbc);
-        sellerId = auth.insertSeller("review-seller", "후기셀러");
-        buyerId = auth.insertUser("buyer@example.com", "산사람");
-
-        productId = insertProduct("후기 상품");
-        orderItemId = placeOrder(productId);
-    }
-
-    /** 주문 사슬을 손으로 세운다. 여기서 관심사는 후기 표뿐이라 껍데기면 된다 */
-    private long placeOrder(long product) {
-        long orderId = jdbc.sql("""
-                        insert into shop_order (order_number, user_id, total_amount,
-                                                commission_total, shipping_fee_total, payable_amount)
-                        values (:number, :userId, 10000, 1000, 0, 10000)
-                        returning order_id
-                        """)
-                .param("number", OrderFixture.sellerOrderNumber().substring(2))
-                .param("userId", buyerId)
-                .query(Long.class)
-                .single();
-        // `V31` 이 서면 없는 주문을 막는다(전자상거래법 제13조제2항 후단).
-        OrderFixture.attachContractDocuments(jdbc, orderId);
-
-        long sellerOrderId = jdbc.sql("""
-                        insert into seller_order (seller_order_number, order_id, seller_id, shipping_fee)
-                        values (:number, :orderId, :sellerId, 0)
-                        returning seller_order_id
-                        """)
-                .param("number", OrderFixture.sellerOrderNumber())
-                .param("orderId", orderId)
-                .param("sellerId", sellerId)
-                .query(Long.class)
-                .single();
-
-        // 재고 행이 없는 sku 를 커밋이 막는다(`V41`).
-        long skuId = jdbc.sql("""
-                        with new_sku as (
-                            insert into sku (product_id, price_incl_vat) values (:productId, 10000)
-                            returning sku_id
-                        )
-                        insert into sku_stock (sku_id, on_hand)
-                        select sku_id, 10 from new_sku
-                        returning sku_id
-                        """)
-                .param("productId", product)
-                .query(Long.class)
-                .single();
-
-        return jdbc.sql("""
-                        insert into order_item (seller_order_id, sku_id, product_name,
-                                                unit_price_incl_vat, quantity, line_amount,
-                                                commission_bp, commission_amount)
-                        values (:sellerOrderId, :skuId, '후기 상품', 10000, 1, 10000, 1000, 1000)
-                        returning order_item_id
-                        """)
-                .param("sellerOrderId", sellerOrderId)
-                .param("skuId", skuId)
-                .query(Long.class)
-                .single();
-    }
-
-    private long insertProduct(String name) {
-        return jdbc.sql("""
-                        insert into product (seller_id, created_by_user_id, name)
-                        values (:sellerId, :userId, :name)
-                        returning product_id
-                        """)
-                .param("sellerId", sellerId)
-                .param("userId", buyerId)
-                .param("name", name)
-                .query(Long.class)
-                .single();
+        fixture = new ReviewFixture(jdbc);
+        productId = fixture.insertProduct("후기 상품");
+        // 받아 본 뒤에만 쓴다(`47`). 그 조건은 `ReviewEligibilityTest` 가 잰다.
+        orderItemId = fixture.placeOrder(productId, "delivered");
+        buyerId = fixture.buyerId();
     }
 
     @Nested
@@ -120,7 +50,7 @@ class ReviewSchemaTest extends PostgresTestBase {
         @Test
         @DisplayName("산 줄에 붙은 후기는 들어간다")
         void 산_줄에_붙은_후기는_들어간다() {
-            insert(orderItemId, productId, buyerId, 5, "잘 받았다");
+            fixture.insertReview(orderItemId, productId, buyerId, 5, "잘 받았다");
 
             assertThat(count()).isEqualTo(1);
         }
@@ -133,9 +63,9 @@ class ReviewSchemaTest extends PostgresTestBase {
         @Test
         @DisplayName("주문 줄과 다른 상품에는 못 붙는다")
         void 주문_줄과_다른_상품에는_못_붙는다() {
-            long other = insertProduct("다른 상품");
+            long other = fixture.insertProduct("다른 상품");
 
-            assertThatThrownBy(() -> insert(orderItemId, other, buyerId, 5, "잘 받았다"))
+            assertThatThrownBy(() -> fixture.insertReview(orderItemId, other, buyerId, 5, "잘 받았다"))
                     .isInstanceOf(DataAccessException.class)
                     .hasMessageContaining("주문 줄과 다르다");
         }
@@ -143,9 +73,10 @@ class ReviewSchemaTest extends PostgresTestBase {
         @Test
         @DisplayName("주문자가 아닌 사람은 못 쓴다")
         void 주문자가_아닌_사람은_못_쓴다() {
-            long stranger = auth.insertUser("stranger@example.com", "남");
+            long stranger = fixture.insertUser("stranger@example.com");
 
-            assertThatThrownBy(() -> insert(orderItemId, productId, stranger, 5, "잘 받았다"))
+            assertThatThrownBy(
+                    () -> fixture.insertReview(orderItemId, productId, stranger, 5, "잘 받았다"))
                     .isInstanceOf(DataAccessException.class)
                     .hasMessageContaining("주문자가 아니다");
         }
@@ -153,31 +84,18 @@ class ReviewSchemaTest extends PostgresTestBase {
         @Test
         @DisplayName("별은 1~5 밖으로 못 나간다")
         void 별은_1에서_5_밖으로_못_나간다() {
-            assertThatThrownBy(() -> insert(orderItemId, productId, buyerId, 6, "잘 받았다"))
+            assertThatThrownBy(() -> fixture.insertReview(orderItemId, productId, buyerId, 6, "잘"))
                     .isInstanceOf(DataAccessException.class);
-            assertThatThrownBy(() -> insert(orderItemId, productId, buyerId, 0, "잘 받았다"))
+            assertThatThrownBy(() -> fixture.insertReview(orderItemId, productId, buyerId, 0, "잘"))
                     .isInstanceOf(DataAccessException.class);
         }
 
         @Test
         @DisplayName("빈 본문은 못 들어간다")
         void 빈_본문은_못_들어간다() {
-            assertThatThrownBy(() -> insert(orderItemId, productId, buyerId, 5, ""))
+            assertThatThrownBy(() -> fixture.insertReview(orderItemId, productId, buyerId, 5, ""))
                     .isInstanceOf(DataAccessException.class);
         }
-    }
-
-    private void insert(long orderItem, long product, long user, int rating, String body) {
-        jdbc.sql("""
-                        insert into review (order_item_id, product_id, user_id, rating, body)
-                        values (:orderItem, :product, :user, :rating, :body)
-                        """)
-                .param("orderItem", orderItem)
-                .param("product", product)
-                .param("user", user)
-                .param("rating", rating)
-                .param("body", body)
-                .update();
     }
 
     private int count() {
