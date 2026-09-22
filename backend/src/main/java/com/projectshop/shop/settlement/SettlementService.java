@@ -254,6 +254,48 @@ public class SettlementService {
                 .param("start", periodStart)
                 .param("end", periodEnd)
                 .update();
+
+        insertCouponLines(settlementId, sellerId, periodStart, periodEnd);
+    }
+
+    /**
+     * 셀러가 문 쿠폰 할인(`51`).
+     *
+     * <p><b>부담 주체가 줄의 유무를 정한다.</b> 셀러 부담이면 그 셀러가 할인을 무는 것이라
+     * 판매액에서 빠지는 줄이 서고, <b>몰 부담이면 셀러가 정가대로 받으므로 줄이 안 선다</b> —
+     * 0 원 줄을 만들어 「부담이 없었다」를 적지 않는다({@code settlement_item_amount_check} 가
+     * 막기도 하고, 그것이 맞다).
+     *
+     * <p><b>배분액을 그대로 읽는다.</b> 주문 시점에 항목마다 박아 둔 값이라(`50`),
+     * 여기서 다시 나누면 그 절사가 주문 때와 다를 수 있다 — 수수료를 요율이 아니라
+     * 금액으로 읽는 것과 같은 이유다.
+     *
+     * <p>할인이 0 인 항목은 줄이 안 선다. 쿠폰이 안 걸린 항목이라 적을 것이 없다.
+     */
+    private void insertCouponLines(long settlementId, long sellerId,
+            LocalDate periodStart, LocalDate periodEnd) {
+        jdbc.sql("""
+                        insert into settlement_item (settlement_id, kind, amount, order_item_id)
+                        select :settlementId, 'coupon_discount', -oi.discount_amount, oi.order_item_id
+                          from order_item oi
+                          join seller_order so on so.seller_order_id = oi.seller_order_id
+                          join coupon_issue ci on ci.used_order_id = so.order_id
+                          join coupon c on c.coupon_id = ci.coupon_id
+                         where so.seller_id = :sellerId
+                           and so.status = 'confirmed'
+                           and c.bearer = 'seller'
+                           and oi.discount_amount > 0
+                           and (so.closed_at at time zone 'Asia/Seoul')::date
+                               between :start and :end
+                           and not exists (select 1 from settlement_item i
+                                            where i.kind = 'coupon_discount'
+                                              and i.order_item_id = oi.order_item_id)
+                        """)
+                .param("settlementId", settlementId)
+                .param("sellerId", sellerId)
+                .param("start", periodStart)
+                .param("end", periodEnd)
+                .update();
     }
 
     /**
