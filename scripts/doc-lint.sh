@@ -16,12 +16,21 @@ for f in .claude/skills/*/SKILL.md; do
   case "$f" in *design-taste-frontend*) ;; *) skill_files+=("$f") ;; esac
 done
 
+# 세션을 여는 말(`Q158`)도 같은 종류다 — 스킬이 「세션이 따르는 절차」라면 이쪽은
+# 「사람이 붙여넣는 말」이고, 둘 다 저장소가 드는 규칙 문서다. 올려 놓고 검사에서 빼면
+# **기계가 안 보는 규칙 문서 종류가 하나 생긴다**(마무리 43차 독립 리뷰).
+prompt_files=()
+for f in .claude/prompts/*.md; do
+  [ -e "$f" ] && prompt_files+=("$f")
+done
+
 title_check_files=(
   CLAUDE.md
   backend/CLAUDE.md
   PLAN.md
   PROGRESS.md
   "${skill_files[@]}"
+  "${prompt_files[@]}"
   doc/reference/*.md
 )
 
@@ -33,6 +42,7 @@ dup_check_files=(
   backend/CLAUDE.md
   frontend/AGENTS.md
   "${skill_files[@]}"
+  "${prompt_files[@]}"
   doc/reference/*.md
 )
 
@@ -49,6 +59,7 @@ honorific_check_files=(
   backend/CLAUDE.md
   frontend/AGENTS.md
   "${skill_files[@]}"
+  "${prompt_files[@]}"
   doc/reference/*.md
 )
 

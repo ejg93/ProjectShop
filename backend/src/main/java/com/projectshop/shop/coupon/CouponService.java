@@ -85,21 +85,11 @@ public class CouponService {
             throw new ShopException(ErrorCode.COUPON_NOT_APPLICABLE, "최소 주문 금액에 못 미친다");
         }
 
-        long total = Math.min(discountOf(definition, base), base);
+        DiscountAllocation.Result allocated = DiscountAllocation.of(
+                lines.stream().map(CouponLine::amount).toList(),
+                targets, base, discountOf(definition, base));
 
-        List<Long> perLine = new ArrayList<>(java.util.Collections.nCopies(lines.size(), 0L));
-        long assigned = 0;
-        for (int index = 0; index < targets.size() - 1; index++) {
-            int lineIndex = targets.get(index);
-            // 내림이다. 항목값 비율로 나누고 원 미만은 버린다.
-            long share = total * lines.get(lineIndex).amount() / base;
-            perLine.set(lineIndex, share);
-            assigned += share;
-        }
-        // 마지막이 잔차를 먹는다. 이 한 줄이 합을 정확히 맞춘다.
-        perLine.set(targets.get(targets.size() - 1), total - assigned);
-
-        return new Applied(couponIssueId, total, perLine);
+        return new Applied(couponIssueId, allocated.total(), allocated.perLine());
     }
 
     /**

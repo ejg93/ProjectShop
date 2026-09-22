@@ -188,7 +188,7 @@ public class OrderQuery {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Schema(name = "OrderDetail")
     public record Detail(String orderNumber, String status, long totalAmount,
-            long shippingFeeTotal, long payableAmount, OffsetDateTime createdAt,
+            long shippingFeeTotal, long discountTotal, long payableAmount, OffsetDateTime createdAt,
             List<SellerOrder> sellerOrders, List<HistoryEntry> history, Shipping shipping,
             Payment payment, List<Refund> refunds, List<ContractDocument> contractDocuments,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
@@ -196,7 +196,8 @@ public class OrderQuery {
 
     /** DB 에서 읽은 주문 머리. 무엇을 내릴지는 판정이 정한다 */
     private record OrderRow(long orderId, String orderNumber, long userId, String status,
-            long totalAmount, long shippingFeeTotal, long payableAmount, OffsetDateTime createdAt) {
+            long totalAmount, long shippingFeeTotal, long discountTotal, long payableAmount,
+            OffsetDateTime createdAt) {
     }
 
     /** 항목이 어느 셀러 묶음에 붙는지를 들고 오는 중간 값. {@code seller_order_id} 는 응답에 안 나간다(`D9`) */
@@ -257,7 +258,7 @@ public class OrderQuery {
     public Detail findByNumber(long userId, String orderNumber) {
         OrderRow order = jdbc.sql("""
                         select order_id, order_number, user_id, status, total_amount,
-                               shipping_fee_total, payable_amount, created_at
+                               shipping_fee_total, discount_total, payable_amount, created_at
                           from shop_order
                          where order_number = :orderNumber
                         """)
@@ -269,6 +270,7 @@ public class OrderQuery {
                         rs.getString("status"),
                         rs.getLong("total_amount"),
                         rs.getLong("shipping_fee_total"),
+                        rs.getLong("discount_total"),
                         rs.getLong("payable_amount"),
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .optional()
@@ -286,6 +288,7 @@ public class OrderQuery {
                 EnumValue.of(order.status(), OrderTransitions.Payment::of),
                 order.totalAmount(),
                 order.shippingFeeTotal(),
+                order.discountTotal(),
                 order.payableAmount(),
                 order.createdAt(),
                 sellerOrdersOf(order.orderId(), userId, order.userId()),
@@ -512,7 +515,7 @@ public class OrderQuery {
     private long requireReadableOrderId(long userId, String orderNumber) {
         OrderRow order = jdbc.sql("""
                         select order_id, order_number, user_id, status, total_amount,
-                               shipping_fee_total, payable_amount, created_at
+                               shipping_fee_total, discount_total, payable_amount, created_at
                           from shop_order
                          where order_number = :orderNumber
                         """)
@@ -524,6 +527,7 @@ public class OrderQuery {
                         rs.getString("status"),
                         rs.getLong("total_amount"),
                         rs.getLong("shipping_fee_total"),
+                        rs.getLong("discount_total"),
                         rs.getLong("payable_amount"),
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .optional()

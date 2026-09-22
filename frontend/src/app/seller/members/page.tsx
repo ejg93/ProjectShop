@@ -11,7 +11,6 @@ export type SellerMembers = {
   members: {
     userId: number;
     displayName: string;
-    email: string;
     /** 이 셀러에서 받은 역할. 소속만 있고 역할이 없으면 빈 배열이다 */
     roleCodes: string[];
   }[];

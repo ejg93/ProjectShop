@@ -222,9 +222,20 @@ public class SellerMemberService {
                 AuditLog.Target.of("seller_invitation", invitationId), Map.of());
     }
 
-    /** 셀러에 속한 사람 하나와 그 셀러에서 받은 역할 */
+    /**
+     * 셀러에 속한 사람 하나와 그 셀러에서 받은 역할.
+     *
+     * <p><b>주소를 안 싣는다</b>(마무리 43차 독립 리뷰). `V7` 이 감사자의 {@code user:read} 를
+     * {@code basic} 으로 묶어 연락처를 뺐는데, {@code seller_member:read} 로 그것을 꺼내면
+     * <b>자원 이름을 바꿔 같은 값에 닿는</b> 것이 된다 — 감사자는 이 권한이 {@code all} 스코프라
+     * 더 넓다(`V82`).
+     *
+     * <p><b>마스킹이 아니라 계약에서 뺐다.</b> 같이 일하는 사람을 알아보는 데 이름과 번호면
+     * 충분하고, 갈리지 않는데 마스킹을 걸면 새 칸을 더할 때 그 규칙을 빠뜨린다(`D23`).
+     * <b>부른 주소는 초대 목록에 있고</b> 그쪽은 관리 권한이 있어야 보인다.
+     */
     @Schema(name = "SellerMemberRow")
-    public record Member(long userId, String displayName, String email, List<String> roleCodes) {}
+    public record Member(long userId, String displayName, List<String> roleCodes) {}
 
     /** 아직 살아 있는 초대 하나 */
     @Schema(name = "SellerInvitationRow")
@@ -272,7 +283,7 @@ public class SellerMemberService {
         requirePermission(actorUserId, sellerId, "read");
 
         List<Member> members = jdbc.sql("""
-                        select u.user_id, u.display_name, u.email,
+                        select u.user_id, u.display_name,
                                coalesce(string_agg(r.code, ',' order by r.code), '') as role_codes
                           from seller_member sm
                           join app_user u on u.user_id = sm.user_id
@@ -280,14 +291,13 @@ public class SellerMemberService {
                                  on ur.user_id = sm.user_id and ur.seller_id = sm.seller_id
                           left join role r on r.role_id = ur.role_id
                          where sm.seller_id = :sellerId
-                         group by u.user_id, u.display_name, u.email
+                         group by u.user_id, u.display_name
                          order by u.user_id
                         """)
                 .param("sellerId", sellerId)
                 .query((rs, rowNum) -> new Member(
                         rs.getLong("user_id"),
                         rs.getString("display_name"),
-                        rs.getString("email"),
                         CommaCodes.split(rs.getString("role_codes"))))
                 .list();
 

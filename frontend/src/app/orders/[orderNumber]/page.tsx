@@ -79,6 +79,8 @@ type OrderDetail = {
   status: string;
   totalAmount: number;
   shippingFeeTotal: number;
+  /** 쿠폰으로 깎인 합계. 안 썼으면 0 이다(`50`) */
+  discountTotal: number;
   payableAmount: number;
   createdAt: string;
   sellerOrders: SellerOrder[];
@@ -296,6 +298,16 @@ function Amounts({ order }: { order: OrderDetail }) {
         <span className="text-text-muted">배송비</span>
         <span>{priceText(order.shippingFeeTotal)}</span>
       </p>
+      {/*
+        할인이 없으면 줄을 안 그린다. 0원 줄은 「안 깎았다」를 말하려고 자리를 차지하고,
+        **안 그리면 상품금액 + 배송비 = 결제금액**이라 사람이 그대로 더해 본다(`50`).
+      */}
+      {order.discountTotal > 0 ? (
+        <p className="flex justify-between text-sm">
+          <span className="text-text-muted">할인</span>
+          <span>-{priceText(order.discountTotal)}</span>
+        </p>
+      ) : null}
       <p className="flex justify-between border-t border-border pt-2 text-base font-semibold">
         <span>결제 금액</span>
         <span>{priceText(order.payableAmount)}</span>

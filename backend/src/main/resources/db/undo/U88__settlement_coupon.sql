@@ -2,6 +2,16 @@
 -- `kind` 검사가 그 값을 모르게 되므로 먼저 그 줄을 지워야 하고, 지우면
 -- 그 달 정산액이 달라진다. 마감 전에만 되돌린다.
 
+-- **줄을 지우면 지급액도 같이 고쳐야 한다.** `settlement_item_amounts_check` 는
+-- delete 에도 걸린 지연 제약이라, 안 고치면 커밋 때 「지급액이 항목 합과 다르다」로 터진다 —
+-- **되돌릴 수 있다고 적어 두고 실제로는 못 되돌리는** 자리였다(마무리 43차 독립 리뷰).
+update settlement s
+   set payout_amount = s.payout_amount + coalesce(
+           (select sum(-i.amount) from settlement_item i
+             where i.settlement_id = s.settlement_id and i.kind = 'coupon_discount'), 0)
+ where exists (select 1 from settlement_item i
+                where i.settlement_id = s.settlement_id and i.kind = 'coupon_discount');
+
 delete from settlement_item where kind = 'coupon_discount';
 
 alter table settlement_item drop column supplier;

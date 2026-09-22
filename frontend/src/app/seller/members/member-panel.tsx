@@ -95,11 +95,10 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
       ) : null}
 
       <table className="w-full border-collapse text-sm">
-        <caption className="sr-only">멤버 목록. 이름, 주소, 역할 순</caption>
+        <caption className="sr-only">멤버 목록. 이름, 역할 순</caption>
         <thead>
           <tr className="border-b border-border text-left text-xs text-text-muted">
             <th scope="col" className="px-3 py-2 font-medium">이름</th>
-            <th scope="col" className="px-3 py-2 font-medium">주소</th>
             <th scope="col" className="px-3 py-2 font-medium">역할</th>
           </tr>
         </thead>
@@ -107,7 +106,6 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
           {data.members.map((member) => (
             <tr key={member.userId} className="border-b border-border">
               <td className="px-3 py-2">{member.displayName}</td>
-              <td className="px-3 py-2 text-text-muted">{member.email}</td>
               <td className="px-3 py-2">
                 {member.roleCodes.length > 0
                   ? member.roleCodes
@@ -129,6 +127,7 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
                 required
                 maxLength={254}
@@ -143,6 +142,7 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
               </label>
               <select
                 id="roleCode"
+                name="roleCode"
                 value={roleCode}
                 onChange={(event) => setRoleCode(event.target.value)}
                 className="rounded-ui border border-border bg-surface px-3 py-2 text-sm"

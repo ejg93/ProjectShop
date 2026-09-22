@@ -78,6 +78,27 @@ class CouponApplicationTest extends PostgresTestBase {
             assertThat(applied.perLine()).containsExactly(33L, 33L, 34L);
         }
 
+        /**
+         * 마지막 줄이 작으면 앞 줄들의 내림이 쌓인 잔차가 그 줄의 값보다 커진다.
+         * 그러면 {@code order_item_discount_amount_check} 가 주문 생성을 500 으로 떨어뜨린다 —
+         * 마무리 43차 독립 리뷰가 실측 예로 짚은 자리다.
+         */
+        @Test
+        @DisplayName("잔차가 항목값을 넘으면 앞으로 되돌려 흘린다")
+        void 잔차가_항목값을_넘으면_앞으로_되돌려_흘린다() {
+            long issue = issueAmountCoupon("a4", 49_900);
+
+            var applied = coupons.apply(userId, issue, List.of(
+                    new CouponLine(sellerA, 25_050),
+                    new CouponLine(sellerA, 24_850),
+                    new CouponLine(sellerA, 100)));
+
+            assertThat(applied.perLine().get(2))
+                    .as("항목값을 넘으면 DB 제약이 주문을 통째로 막는다")
+                    .isLessThanOrEqualTo(100L);
+            assertThat(sum(applied.perLine())).isEqualTo(applied.total());
+        }
+
         /** 항목값보다 큰 할인은 음수 결제액을 만든다. 거스름을 줄 방법이 없다 */
         @Test
         @DisplayName("할인이 대상 금액을 못 넘는다")

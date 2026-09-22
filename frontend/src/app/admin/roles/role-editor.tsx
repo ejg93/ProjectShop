@@ -76,9 +76,7 @@ export function RoleEditor({ user }: { user: UserDetail }) {
           {user.displayName}
           {user.deleted ? <span className="ml-2 text-xs text-text-muted">(탈퇴한 계정)</span> : null}
         </p>
-        <p className="text-xs text-text-muted">
-          {user.email} · 번호 {user.userId}
-        </p>
+        <p className="text-xs text-text-muted">번호 {user.userId}</p>
       </div>
 
       {error ? (
@@ -104,14 +102,16 @@ export function RoleEditor({ user }: { user: UserDetail }) {
                 <td className="px-3 py-2">{role.name}</td>
                 <td className="px-3 py-2">{has ? "예" : "아니오"}</td>
                 <td className="px-3 py-2">
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => (has ? revoke(role.code, role.name) : grant(role.code))}
-                    className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
-                  >
-                    {has ? "회수" : "부여"}
-                  </button>
+                  {user.canAssign ? (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => (has ? revoke(role.code, role.name) : grant(role.code))}
+                      className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
+                    >
+                      {has ? "회수" : "부여"}
+                    </button>
+                  ) : null}
                 </td>
               </tr>
             );

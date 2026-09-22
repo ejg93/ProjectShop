@@ -11,10 +11,11 @@ export const metadata: Metadata = { title: "역할 편집 · ProjectShop" };
  */
 export type UserDetail = {
   userId: number;
-  email: string;
   displayName: string;
   /** 탈퇴한 계정. 감사에서 「누가 무엇을 가졌었나」를 물으면 이미 나갔을 수 있다 */
   deleted: boolean;
+  /** 주거나 회수할 수 있나. **조회와 편집이 다른 권한이라** 칸으로 가른다 */
+  canAssign: boolean;
   roles: {
     roleCode: string;
     roleName: string;

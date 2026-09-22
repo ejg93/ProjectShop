@@ -1,5 +1,7 @@
 package com.projectshop.shop.seller;
 
+import java.net.URI;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -96,12 +98,19 @@ class SellerMemberController {
         }
     }
 
+    /**
+     * <b>201 이다.</b> 새 자원(초대)이 서고 가리킬 주소가 있다(`D5` 「상태 코드」).
+     * 역할 부여가 204 인 것과 갈리는 자리 — 그쪽은 목록을 바꾸는 것이고 새 자원이 아니다.
+     */
     @PostMapping("/invitations")
     ResponseEntity<InviteResponse> invite(@AuthenticationPrincipal ShopUser actor,
             @PathVariable long sellerId, @Valid @RequestBody InviteRequest request) {
         SellerMemberService.Invitation issued =
                 members.invite(sellerId, request.email(), request.roleCode(), actor.id());
-        return ResponseEntity.ok(new InviteResponse(issued.invitationId(), issued.token()));
+        return ResponseEntity
+                .created(URI.create("/api/sellers/" + sellerId + "/invitations/"
+                        + issued.invitationId()))
+                .body(new InviteResponse(issued.invitationId(), issued.token()));
     }
 
     @DeleteMapping("/invitations/{invitationId}")

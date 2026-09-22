@@ -56,10 +56,28 @@ public class UserRoleService {
     @Schema(name = "UserRoleGrant")
     public record Grant(String roleCode, String roleName, Long sellerId, String sellerName) {}
 
-    /** 관리자 화면이 보는 한 사람 */
+    /**
+     * 관리자 화면이 보는 한 사람.
+     *
+     * <p><b>주소를 안 싣는다</b>(마무리 43차 독립 리뷰). `V7` 이 감사자의 {@code user:read} 를
+     * {@code basic} 으로 묶으며 「연락처를 볼 이유는 없다」고 적어 뒀는데, 여기서 {@code role:read}
+     * 만 보고 주소를 실으면 <b>자원 이름을 바꿔 그 결정을 우회하는 것</b>이 된다.
+     *
+     * <p><b>마스킹이 아니라 계약에서 뺐다.</b> 역할을 편집하는 데 필요한 것은 <b>누구인지</b>고
+     * 이름과 번호면 충분하다 — 갈리지 않는데 마스킹을 걸면 규칙이 하나 늘고, 새 칸을 더할 때
+     * 그 규칙에 넣는 것을 빠뜨리면 조용히 샌다(`D23` 「어느 쪽을 언제 쓰나」).
+     *
+     * <p>연락처가 필요하면 계정 조회(`/api/accounts/{id}`)가 그 자리고, 그쪽은 필드그룹을 지난다.
+     */
     @Schema(name = "UserDetail")
-    public record Detail(long userId, String email, String displayName, boolean deleted,
-            List<Grant> roles) {}
+    /**
+     * @param canAssign 주거나 회수할 수 있나. <b>조회와 편집이 다른 권한이다</b> —
+     *        감사자는 {@code role:read} 는 allow 고 {@code role:assign} 은 deny 라(`V5`),
+     *        칸으로 안 가르면 <b>못 누를 버튼이 그려진다</b>(`D20` 「권한 없는 것은 숨긴다」).
+     *        `16a` 가 같은 물음을 {@code canManage} 로 푼 것과 같은 답이다
+     */
+    public record Detail(long userId, String displayName, boolean deleted,
+            List<Grant> roles, boolean canAssign) {}
 
     /**
      * 한 사람과 그가 가진 역할.
@@ -71,21 +89,20 @@ public class UserRoleService {
         requirePermission(actorUserId, "read");
 
         Detail user = jdbc.sql("""
-                        select user_id, email, display_name, deleted_at
+                        select user_id, display_name, deleted_at
                           from app_user where user_id = :id
                         """)
                 .param("id", userId)
                 .query((rs, rowNum) -> new Detail(
                         rs.getLong("user_id"),
-                        rs.getString("email"),
                         rs.getString("display_name"),
                         rs.getTimestamp("deleted_at") != null,
-                        List.of()))
+                        List.of(), false))
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.USER_NOT_FOUND));
 
-        return new Detail(user.userId(), user.email(), user.displayName(), user.deleted(),
-                grantsOf(userId));
+        return new Detail(user.userId(), user.displayName(), user.deleted(),
+                grantsOf(userId), allowed(actorUserId, "assign"));
     }
 
     /**
@@ -179,8 +196,12 @@ public class UserRoleService {
     }
 
     private void requirePermission(long actorUserId, String action) {
-        if (!evaluator.decide(actorUserId, "role", action, NO_TARGET).allowed()) {
+        if (!allowed(actorUserId, action)) {
             throw new ShopException(ErrorCode.ROLE_FORBIDDEN);
         }
+    }
+
+    private boolean allowed(long actorUserId, String action) {
+        return evaluator.decide(actorUserId, "role", action, NO_TARGET).allowed();
     }
 }
