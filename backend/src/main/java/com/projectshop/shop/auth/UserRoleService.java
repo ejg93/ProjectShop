@@ -82,11 +82,20 @@ public class UserRoleService {
     /**
      * 한 사람과 그가 가진 역할.
      *
+     * <p><b>본인은 역할 권한 없이 읽는다</b>(`Q166`) — 가입 응답의 {@code Location} 이 이 주소를
+     * 가리키고, 그 사람은 아직 아무 역할도 없다.
+     *
      * <p><b>탈퇴한 계정도 보인다.</b> 감사에서 「누가 무엇을 가졌었나」를 물으면 그 계정이
      * 이미 나갔을 수 있다 — 안 보이면 그 물음에 답할 자리가 없다. 나간 것은 칸으로 밝힌다.
      */
     public Detail find(long actorUserId, long userId) {
-        requirePermission(actorUserId, "read");
+        // **본인은 `role:read` 없이도 읽는다**(`Q166`). 가입 응답의 `Location` 이 이 주소를
+        // 가리키는데, 역할 권한을 요구하면 **갓 가입한 사람이 자기 것을 못 읽는다**.
+        //
+        // 판정을 하나 더 안 만든다 — `user:read` 의 `own` 스코프가 이미 「자기 것」을 뜻한다.
+        if (actorUserId != userId) {
+            requirePermission(actorUserId, "read");
+        }
 
         Detail user = jdbc.sql("""
                         select user_id, display_name, deleted_at

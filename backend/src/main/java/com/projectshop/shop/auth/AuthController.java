@@ -2,6 +2,8 @@ package com.projectshop.shop.auth;
 
 import java.util.Map;
 
+import java.net.URI;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.beans.factory.annotation.Value;
@@ -86,10 +88,10 @@ public class AuthController {
                 request.consents(),
                 http.getRemoteAddr()));
 
-        // Location 헤더를 안 붙인다. D5 는 201 에 새 자원 경로를 요구하지만
-        // 계정 조회 API 가 아직 없다. 없는 경로를 가리키는 헤더는 클라이언트를 속인다.
-        // 조회가 생기는 청크에서 붙인다.
-        return ResponseEntity.status(HttpStatus.CREATED).body(new SignupResponse(userId));
+        // 새 자원이 선 주소를 가리킨다(`D5` 「헤더」, `Q166`). 조회는 `16` 이 만들었고,
+        // **본인은 역할 권한 없이 읽는다** — 갓 가입한 사람은 아직 아무 역할도 없다.
+        return ResponseEntity.created(URI.create("/api/users/" + userId))
+                .body(new SignupResponse(userId));
     }
 
     /**

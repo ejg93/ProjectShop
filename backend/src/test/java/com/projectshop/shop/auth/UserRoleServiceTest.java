@@ -146,6 +146,32 @@ class UserRoleServiceTest extends PostgresTestBase {
     @DisplayName("조회")
     class Read {
 
+        /**
+         * 가입 응답의 {@code Location} 이 이 주소를 가리킨다(`Q166`).
+         * 역할 권한을 요구하면 <b>갓 가입한 사람이 자기 것을 못 읽는다.</b>
+         */
+        @Test
+        @DisplayName("본인은 역할 권한 없이 읽는다")
+        void 본인은_역할_권한_없이_읽는다() {
+            UserRoleService.Detail detail = roles.find(target, target);
+
+            assertThat(detail.userId()).isEqualTo(target);
+            assertThat(detail.canAssign())
+                    .as("읽을 수는 있어도 바꿀 수는 없다")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("남의 것은 여전히 권한이 있어야 읽는다")
+        void 남의_것은_여전히_권한이_있어야_읽는다() {
+            long stranger = fixture.insertUser("nobody@example.com", "남");
+
+            assertThatThrownBy(() -> roles.find(stranger, target))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.ROLE_FORBIDDEN);
+        }
+
         /** 감사에서 「누가 무엇을 가졌었나」를 물으면 그 계정이 이미 나갔을 수 있다 */
         @Test
         @DisplayName("탈퇴한 계정도 보이고 나간 것이 칸으로 드러난다")
