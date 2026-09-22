@@ -243,13 +243,15 @@ public class SellerOrderQuery {
 
     private List<OrderQuery.Item> itemsOf(long sellerOrderId) {
         return jdbc.sql("""
-                        select product_name, option_label, quantity, unit_price_incl_vat, line_amount
+                        select order_item_id, product_name, option_label, quantity,
+                               unit_price_incl_vat, line_amount
                           from order_item
                          where seller_order_id = :sellerOrderId
                          order by order_item_id
                         """)
                 .param("sellerOrderId", sellerOrderId)
                 .query((rs, rowNum) -> new OrderQuery.Item(
+                        rs.getLong("order_item_id"),
                         rs.getString("product_name"),
                         rs.getString("option_label"),
                         rs.getInt("quantity"),

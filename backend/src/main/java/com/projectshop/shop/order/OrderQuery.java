@@ -83,7 +83,15 @@ public class OrderQuery {
 
     /** 산 것 한 줄. 주문 시점에 박제된 값이라 상품이 바뀌어도 안 바뀐다 */
     @Schema(name = "OrderItem")
-    public record Item(String productName, String optionLabel, int quantity,
+    /**
+     * 주문 줄 하나.
+     *
+     * @param orderItemId <b>내부 번호를 싣는다</b>(`Q160`). 환불 요청이 이미 이 값을 받고
+     *        (`RefundController.LineRequest`), 후기도 <b>이 줄에 붙는다</b> — 클라이언트가
+     *        알아야 부를 수 있는 값이다. `D9` 가 감추라고 한 것은 <b>바깥 시스템이 부르는
+     *        단위</b>(주문번호·셀러주문번호)고 이것은 그 축이 아니며, <b>자기 주문에서만 보인다</b>
+     */
+    public record Item(long orderItemId, String productName, String optionLabel, int quantity,
             long unitPriceInclVat, long lineAmount) {
     }
 
@@ -311,7 +319,7 @@ public class OrderQuery {
     private List<SellerOrder> sellerOrdersOf(long orderId, long viewerId, long buyerUserId) {
         Map<Long, List<Item>> itemsBySellerOrder = new LinkedHashMap<>();
         jdbc.sql("""
-                        select oi.seller_order_id, oi.product_name, oi.option_label,
+                        select oi.seller_order_id, oi.order_item_id, oi.product_name, oi.option_label,
                                oi.quantity, oi.unit_price_incl_vat, oi.line_amount
                           from order_item oi
                           join seller_order so on so.seller_order_id = oi.seller_order_id
@@ -322,6 +330,7 @@ public class OrderQuery {
                 .query((rs, rowNum) -> new ItemRow(
                         rs.getLong("seller_order_id"),
                         new Item(
+                                rs.getLong("order_item_id"),
                                 rs.getString("product_name"),
                                 rs.getString("option_label"),
                                 rs.getInt("quantity"),

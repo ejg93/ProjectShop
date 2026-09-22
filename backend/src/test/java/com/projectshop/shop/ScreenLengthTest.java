@@ -248,7 +248,9 @@ class ScreenLengthTest {
             Map.entry("app/admin/roles/page.tsx  userId",
                     "type=number 다. maxLength 가 안 걸리고 아래쪽은 min 이 든다(`16`)"),
             Map.entry("app/seller/members/member-panel.tsx  roleCode",
-                    "select 다. 고를 수 있는 값이 목록으로 닫혀 있다(`16a`)")));
+                    "select 다. 고를 수 있는 값이 목록으로 닫혀 있다(`16a`)"),
+            Map.entry("app/orders/[orderNumber]/review-form.tsx  rating",
+                    "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q160`)")));
 
     /**
      * 화면 칸 중 {@code maxLength} 가 없는 것을 찾는다.

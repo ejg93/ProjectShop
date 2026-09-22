@@ -162,6 +162,22 @@ public enum ErrorCode {
      */
     COUPON_NOT_USABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-not-usable", "쓸 수 없는 쿠폰이다"),
 
+    // 후기(`Q160`)
+    /**
+     * 이 후기를 쓰거나 고칠 수 없다.
+     *
+     * <p><b>넷을 안 가른다.</b> 없는 주문 줄·남의 주문 줄·아직 안 받은 것·권한이 없는 것이
+     * 같은 응답이다 — 가르면 주문 줄 번호를 두드려 <b>남이 무엇을 샀는지</b> 셀 수 있다(`D14`).
+     */
+    REVIEW_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_CONTENT, "review-not-allowed",
+            "이 주문에 후기를 쓸 수 없다"),
+
+    /** 한 주문 줄에 살아 있는 후기는 하나다(`47`). 고치거나 지우고 다시 쓴다 */
+    REVIEW_ALREADY_WRITTEN(HttpStatus.CONFLICT, "review-already-written",
+            "이미 후기를 쓴 주문이다"),
+
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "review-not-found", "그런 후기가 없다"),
+
     /**
      * 쿠폰은 살아 있는데 이 주문에 안 맞는다.
      *

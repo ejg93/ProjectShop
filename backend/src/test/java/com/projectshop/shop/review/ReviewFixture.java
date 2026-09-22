@@ -26,6 +26,9 @@ class ReviewFixture {
         this.auth = new AuthFixture(jdbc);
         this.sellerId = auth.insertSeller("review-seller", "후기셀러");
         this.buyerId = auth.insertUser("buyer@example.com", "산사람");
+        // 손으로 넣은 계정에는 기본 역할이 없다 — `SignupService` 가 주는 것이라,
+        // 안 주면 후기 입구의 판정이 거부한다(`Q160`).
+        auth.grantGlobal(buyerId, "customer");
 
         this.sellerMemberId = auth.insertUser("seller@example.com", "파는이");
         auth.joinSeller(sellerId, sellerMemberId);
@@ -41,7 +44,9 @@ class ReviewFixture {
     }
 
     long insertUser(String email) {
-        return auth.insertUser(email, "남");
+        long userId = auth.insertUser(email, "남");
+        auth.grantGlobal(userId, "customer");
+        return userId;
     }
 
     long insertProduct(String name) {

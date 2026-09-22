@@ -31,7 +31,7 @@ class OrderRecordTextTest {
             OffsetDateTime.of(2026, 8, 21, 12, 0, 0, 0, ZoneOffset.ofHours(9));
 
     private static OrderQuery.Detail detail() {
-        OrderQuery.Item item = new OrderQuery.Item("데모 티셔츠", "검정 / M", 2, 29_000L, 58_000L);
+        OrderQuery.Item item = new OrderQuery.Item(7L, "데모 티셔츠", "검정 / M", 2, 29_000L, 58_000L);
         OrderQuery.SellerOrder sellerOrder = new OrderQuery.SellerOrder(
                 "20260821-7QX4P4-1", "데모셀러", "DELIVERED", 3_000L,
                 KST_NOON, KST_NOON, KST_NOON, KST_NOON, KST_NOON, false,

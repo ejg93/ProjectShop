@@ -113,6 +113,12 @@ class LengthConstraintTest extends PostgresTestBase {
                 Arguments.of("product_substantiation_evidence_length_check", List.of(
                         component(com.projectshop.shop.product.ProductController.SubstantiationRequest.class,
                                 "evidence"))),
+                // 후기는 입구가 둘이다(`Q160`) — 쓰기와 고치기. 하나만 이으면 나머지가 갈려도 안 걸린다.
+                Arguments.of("review_body_length_check", List.of(
+                        component(com.projectshop.shop.review.ReviewController.NewReviewRequest.class,
+                                "body"),
+                        component(com.projectshop.shop.review.ReviewController.EditReviewRequest.class,
+                                "body"))),
                 Arguments.of("inquiry_question_length_check", List.of(
                         component(com.projectshop.shop.inquiry.InquiryController.NewInquiryRequest.class,
                                 "question"))),
@@ -169,10 +175,8 @@ class LengthConstraintTest extends PostgresTestBase {
                     "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5a`)"),
             Map.entry("seller_invitation_email_length_check",
                     "초대 입구가 아직 없다(`16a`). 값은 짝인 app_user.email 과 같은 254 다"),
-            Map.entry("review_body_length_check",
-                    "후기를 쓰는 입구가 아직 없다(`Q160`). 그 청크가 record 를 만들 때 pairs() 로 옮긴다"),
             Map.entry("review_reply_body_length_check",
-                    "답글 입구가 아직 없다(`Q160`). 값은 짝인 review.body 와 같다"),
+                    "답글 입구가 아직 없다(`Q167`). 값은 짝인 review.body 와 같다"),
             Map.entry("coupon_code_length_check",
                     "쿠폰을 만드는 입구가 아직 없다(`Q163`). 그 청크가 record 를 만들 때 pairs() 로 옮긴다"),
             Map.entry("coupon_name_length_check",
