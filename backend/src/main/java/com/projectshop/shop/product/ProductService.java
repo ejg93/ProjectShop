@@ -141,8 +141,9 @@ public class ProductService {
      */
     @Transactional
     public Created replace(long actorUserId, long productId, Command command) {
-        long sellerId = sellerIdOf(productId);
-        requirePermission(actorUserId, "update", sellerId);
+        Owned owned = ownerOf(productId);
+        long sellerId = owned.sellerId();
+        requirePermission(actorUserId, "update", owned);
         verifySkus(command);
 
         jdbc.sql("""
@@ -195,37 +196,62 @@ public class ProductService {
     /** 내린다. 행은 남는다 — 과거 주문이 이 상품을 가리킨다(`D13`). */
     @Transactional
     public void delete(long actorUserId, long productId) {
-        long sellerId = sellerIdOf(productId);
-        requirePermission(actorUserId, "delete", sellerId);
+        Owned owned = ownerOf(productId);
+        requirePermission(actorUserId, "delete", owned);
 
         jdbc.sql("update product set deleted_at = now() where product_id = :id and deleted_at is null")
                 .param("id", productId)
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "product.deleted", actorUserId,
-                AuditLog.Target.of("product", productId), Map.of("seller_id", sellerId));
+                AuditLog.Target.of("product", productId), Map.of("seller_id", owned.sellerId()));
     }
 
     /**
-     * 대상은 <b>셀러</b>다. 상품에는 주인 계정이 없다(`ADR 0004`).
+     * 대상은 <b>셀러와 등록자</b>다(`Q161`).
      *
      * <p>{@code seller} 스코프의 뜻이 부여 방식에 따라 갈린다 — 조직 역할로 받았으면 그 셀러만,
      * 전역으로 받았으면 소속한 모든 셀러를 덮는다. 그 판단은 {@link PermissionEvaluator} 가 한다.
      *
-     * <p>등록자(`created_by_user_id`)를 대상에 안 담는다. {@code own} 을 쓰는 역할이 아직 없어서다 —
-     * {@code seller_staff} 가 생기는 청크 5a 에서 여기에 그 값을 넣는다.
+     * <p><b>등록자를 대상에 담는다</b>(`Q161`). 안 담으면 {@code ownerUserId} 가 {@code null} 이라
+     * <b>{@code own} 스코프가 아무것도 안 덮고</b>, 담당자에게 준 상품 수정·삭제가 죽은 부여가 된다.
+     *
+     * <p><b>등록에는 이 자리가 없다</b> — 만들기 전에는 주인이 없어서 {@code own} 이 뜻이 없고,
+     * `5a` 도 등록만 {@code seller} 로 줬다.
      */
-    private void requirePermission(long actorUserId, String action, long sellerId) {
-        if (!evaluator.decide(actorUserId, "product", action, Target.ofSeller(sellerId)).allowed()) {
+    private void requirePermission(long actorUserId, String action, Owned owned) {
+        Target target = new Target(owned.createdByUserId(), owned.sellerId(), null);
+        if (!evaluator.decide(actorUserId, "product", action, target).allowed()) {
             // 403 이다. 상품은 어차피 공개 목록에 있어서 존재를 숨길 이유가 없다(`D5`).
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
     }
 
-    private long sellerIdOf(long productId) {
-        return jdbc.sql("select seller_id from product where product_id = :id and deleted_at is null")
+    /** 등록은 주인이 없다. 셀러만 본다 */
+    private void requirePermission(long actorUserId, String action, long sellerId) {
+        if (!evaluator.decide(actorUserId, "product", action, Target.ofSeller(sellerId)).allowed()) {
+            throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
+        }
+    }
+
+    /**
+     * 판정에 필요한 이 상품의 두 값.
+     *
+     * <p><b>등록자가 여기 들어오는 것이 `Q161` 이다.</b> 전에는 셀러만 읽어서
+     * {@code Target.ofSeller} 로 판정을 불렀는데, 그러면 {@code ownerUserId} 가 {@code null} 이라
+     * <b>{@code own} 스코프가 아무것도 안 덮는다</b> — `5a` 가 담당자에게 준 상품 수정·삭제가
+     * 통째로 죽은 부여였다({@code Scope} 가 경고한 「준 사람은 줬다고 믿는데 아무도 안 통과한다」).
+     */
+    private record Owned(long sellerId, long createdByUserId) {}
+
+    private Owned ownerOf(long productId) {
+        return jdbc.sql("""
+                        select seller_id, created_by_user_id from product
+                         where product_id = :id and deleted_at is null
+                        """)
                 .param("id", productId)
-                .query(Long.class)
+                .query((rs, rowNum) -> new Owned(
+                        rs.getLong("seller_id"), rs.getLong("created_by_user_id")))
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
     }
