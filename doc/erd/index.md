@@ -4,6 +4,7 @@
 
 ```mermaid
 flowchart LR
+    account -->|1| permission
     ops -->|3| account
     ops -->|3| order
     ops -->|1| product
@@ -22,7 +23,7 @@ flowchart LR
 
 - [[order]] — 표 18개
 - [[product]] — 표 10개
-- [[account]] — 표 8개
+- [[account]] — 표 9개
 - [[settlement]] — 표 6개
 - [[permission]] — 표 6개
 - [[ops]] — 표 8개

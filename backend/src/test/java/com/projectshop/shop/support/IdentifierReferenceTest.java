@@ -61,7 +61,8 @@ class IdentifierReferenceTest extends PostgresTestBase {
      */
     private static final Map<String, String> NOT_A_COLUMN = Map.of(
             "role.granted", "감사 사건 이름이다(`AuditLog` 의 점 표기). 표와 무관하다",
-            "permission.denied", "〃");
+            "permission.denied", "〃",
+            "seller_member.invited", "〃");
 
     @Autowired
     private JdbcClient jdbc;

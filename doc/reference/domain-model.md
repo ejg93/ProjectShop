@@ -62,6 +62,7 @@ where deleted_at is null     -- 업무 상태가 몇 개로 늘든 안 바뀐다
 
 ```
 Seller ─┬─ SellerMember          소속. 셀러가 사라지면 의미가 없다
+        ├─ SellerInvitation     부름. 소속이 되기 전 단계라 같은 덩어리다
         └─ Product ─┬─ ProductOption
                     └─ Sku
 
@@ -116,6 +117,9 @@ SKU 를 물리 삭제하지 않으므로(수명 컬럼을 쓴다) 실제로 걸�
 |---|---|---|
 | `seller_member` → `seller` | cascade | 셀러가 없으면 소속이 무의미 |
 | `seller_member` → `app_user` | cascade | 계정이 없으면 소속이 무의미 |
+| `seller_invitation` → `seller` | cascade | 셀러가 없으면 초대도 무의미 |
+| `seller_invitation` → `role` | **restrict** | 초대가 가리키는 역할은 먼저 못 지운다 |
+| `seller_invitation` → `app_user`(초대한 사람) | **restrict** | 누가 불렀는지가 사라지면 출처를 못 찾는다 |
 | `user_role` → `app_user` | cascade | 같은 이유 |
 | `user_role` → `role` | **restrict** | 사용자가 달린 역할은 회수부터 하게 만든다 |
 | `role_permission` → `role` | cascade | 역할이 사라지면 권한 부여도 사라진다 |

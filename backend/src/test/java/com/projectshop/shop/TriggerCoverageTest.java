@@ -96,6 +96,8 @@ class TriggerCoverageTest extends PostgresTestBase {
                     "역할을 읽기 전용으로 돌릴 때 쓰기 권한이 남아 있으면 막는다. `PermissionEvaluatorTest` 가 지난다"),
             Map.entry("user_role.user_role_check_target",
                     "역할의 스코프와 붙이는 대상이 어긋나면 막는다. `AuthSignupTest`·`HttpFlowTest` 가 지난다"),
+            Map.entry("seller_invitation.seller_invitation_role_check",
+                    "초대가 전역 역할을 가리키는 것을 막는다. `SellerMemberServiceTest` 가 지난다"),
             Map.entry("product.product_check_sale_allowed",
                     "팔 수 없는 상태의 상품을 판매중으로 못 돌리게 막는다. `ProductQueryTest` 가 지난다"),
             Map.entry("product_image.product_image_limit",
