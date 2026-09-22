@@ -56,7 +56,7 @@ class SchemaErdTest extends PostgresTestBase {
                 "compensation", "compensation_note", "payment", "payment_card",
                 "idempotency_key", "cart", "cart_item"));
         GROUPS.put("product", List.of(
-                "review",
+                "review", "review_reply", "review_report",
                 "product", "product_image", "product_option", "product_option_value",
                 "product_substantiation", "sku", "sku_option_value", "sku_stock",
                 "sku_stock_movement", "copyright_report"));

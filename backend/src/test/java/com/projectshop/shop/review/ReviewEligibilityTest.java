@@ -126,12 +126,21 @@ class ReviewEligibilityTest extends PostgresTestBase {
             assertThat(scopeOf("customer", "read")).isEqualTo("all");
         }
 
-        /** 답글·신고는 `48` 이 연다. 여기서 같이 열면 그 청크가 무엇을 정하는지가 흐려진다 */
+        /**
+         * 셀러는 후기를 읽되 <b>쓰지도 고치지도 지우지도 못한다.</b>
+         *
+         * <p><b>「읽기만」으로 재지 않는다.</b> 답글·신고는 `48` 이 여는데, 그것을 열면
+         * 「읽기만」이 거짓이 되어 <b>뒤 청크가 앞 청크의 시험을 낡게 만든다</b>
+         * (PR #68 의 지적 둘이 그 모양이었다). 이 청크가 주장한 것은 <b>쓰기 셋을 안 준다</b>이고,
+         * 그것만 잰다.
+         */
         @Test
-        @DisplayName("셀러는 읽기만 받는다")
-        void 셀러는_읽기만_받는다() {
-            assertThat(actionsOf("seller_owner")).containsExactly("read");
-            assertThat(actionsOf("seller_staff")).containsExactly("read");
+        @DisplayName("셀러는 후기를 쓰지도 고치지도 지우지도 못한다")
+        void 셀러는_후기를_쓰지도_고치지도_지우지도_못한다() {
+            assertThat(actionsOf("seller_owner")).contains("read")
+                    .doesNotContain("create", "update", "delete");
+            assertThat(actionsOf("seller_staff")).contains("read")
+                    .doesNotContain("create", "update", "delete");
         }
 
         /**

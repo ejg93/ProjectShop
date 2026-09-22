@@ -19,16 +19,25 @@ class ReviewFixture {
 
     private final long sellerId;
     private final long buyerId;
+    private final long sellerMemberId;
 
     ReviewFixture(JdbcClient jdbc) {
         this.jdbc = jdbc;
         this.auth = new AuthFixture(jdbc);
         this.sellerId = auth.insertSeller("review-seller", "후기셀러");
         this.buyerId = auth.insertUser("buyer@example.com", "산사람");
+
+        this.sellerMemberId = auth.insertUser("seller@example.com", "파는이");
+        auth.joinSeller(sellerId, sellerMemberId);
     }
 
     long buyerId() {
         return buyerId;
+    }
+
+    /** 이 상품을 파는 셀러에 속한 계정. 답글을 달 수 있는 쪽이다(`48`) */
+    long sellerMemberId() {
+        return sellerMemberId;
     }
 
     long insertUser(String email) {
