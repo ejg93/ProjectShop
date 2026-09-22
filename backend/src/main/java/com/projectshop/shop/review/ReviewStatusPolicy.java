@@ -27,7 +27,7 @@ import com.projectshop.shop.auth.StatusPolicy;
 class ReviewStatusPolicy implements StatusPolicy {
 
     /**
-     * 쓰기 셋이 같은 상태에서 열린다.
+     * <b>{@code create} 하나만 상태를 본다.</b>
      *
      * <p><b>{@code returned} 를 뺐다.</b> 반품으로 끝난 줄은 물건을 안 가진 사람의 후기라
      * 「써 본 사람의 말」이 아니다. {@code cancelled} 도 같다 — 받은 적이 없다.
@@ -35,13 +35,19 @@ class ReviewStatusPolicy implements StatusPolicy {
      * <p><b>{@code confirmed} 를 넣는다.</b> 구매확정은 우리가 정한 기한이 지난 것이지
      * 후기를 닫을 이유가 아니다 — 오히려 그때가 제일 할 말이 많은 시점이다.
      *
+     * <p><b>{@code update}·{@code delete} 는 상태를 안 본다.</b> 넣었다가 뺐다 —
+     * 배송 상태는 후기가 달린 뒤에도 움직여서({@code delivered} → {@code return_requested}),
+     * 상태로 막으면 <b>반품을 넣는 순간 자기 글을 못 고치고 못 지운다.</b> 그럴 근거가 없다.
+     * 자기 것만 건드리는 것은 {@code own} 스코프가 이미 든다.
+     *
+     * <p>공개한 운영정책도 「직접 삭제할 수 있습니다」로 적혀 있다(`V85`) —
+     * 법이 요구해서 공개한 문서라 그것과 코드가 갈리면 그냥 오타가 아니다(`D2` `R27`).
+     *
      * <p>{@code read} 는 표에 없다. 후기는 공개 글이라 상태를 안 본다 —
      * {@code Allowed.everything()} 으로 떨어진다.
      */
     private static final Map<String, Allowed<String>> BY_ACTION = Map.of(
-            "create", Allowed.only(Set.of("delivered", "confirmed")),
-            "update", Allowed.only(Set.of("delivered", "confirmed")),
-            "delete", Allowed.only(Set.of("delivered", "confirmed")));
+            "create", Allowed.only(Set.of("delivered", "confirmed")));
 
     @Override
     public Allowed<String> allowedStatuses(String resource, String action) {

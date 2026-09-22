@@ -122,7 +122,7 @@ SKU 를 물리 삭제하지 않으므로(수명 컬럼을 쓴다) 실제로 걸�
 | `review` → `product`·`app_user` | **restrict** | 같은 이유. 어긋나는 것은 `review_check_target` 이 막는다 |
 | `review_reply`·`review_report` → `review` | cascade | 후기가 없으면 답글도 신고도 가리킬 것이 없다. 애그리거트 안쪽 |
 | `seller_invitation` → `role` | **restrict** | 초대가 가리키는 역할은 먼저 못 지운다 |
-| `seller_invitation` → `app_user`(초대한 사람) | **restrict** | 누가 불렀는지가 사라지면 출처를 못 찾는다 |
+| `seller_invitation` → `app_user`(초대한 사람) | **restrict** | 살아 있는 30일 안에 가리킬 곳을 잃지 않게. 오래 드는 것은 감사 로그다 |
 | `user_role` → `app_user` | cascade | 같은 이유 |
 | `user_role` → `role` | **restrict** | 사용자가 달린 역할은 회수부터 하게 만든다 |
 | `role_permission` → `role` | cascade | 역할이 사라지면 권한 부여도 사라진다 |

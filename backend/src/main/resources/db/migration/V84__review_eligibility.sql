@@ -15,6 +15,10 @@
 -- **부분 유니크다.** 지운 뒤에는 다시 쓸 수 있다 — 전체 유니크로 두면 실수로 지운 사람이
 -- 영영 못 쓰고, 그 구제가 운영 문의가 된다. 낮은 별을 지우고 다시 쓰는 길이 열리지만
 -- 자기 후기는 어차피 고칠 수 있어서(`review:update`) 그 길로 새로 얻는 것이 없다.
+--
+-- **내려간 것(`blocked_at`)은 자리를 그대로 차지한다**(`48` 이 노출 인덱스만 좁혔다).
+-- 조건에 안 넣은 것이 의도다 — 넣으면 신고로 내려간 사람이 **새 후기로 갈아치워** 제재를
+-- 우회한다. 되살리는 길은 관리자가 `blocked_at` 을 푸는 것이고 그때 원래 글이 돌아온다.
 create unique index review_live_per_order_item
     on review (order_item_id)
     where deleted_at is null;
@@ -52,7 +56,12 @@ begin
     end if;
 
     -- 반품으로 끝난 줄도 막는다. 물건을 안 가진 사람의 후기라 「써 본 사람의 말」이 아니다.
-    if shipment_status not in ('delivered', 'confirmed') then
+    --
+    -- **쓰는 순간에만 본다.** 배송 상태는 후기가 달린 뒤에도 움직여서
+    -- (`delivered` → `return_requested` → `returned`), 갱신까지 덮으면 그 뒤로
+    -- **그 행의 모든 UPDATE 가 터진다** — 관리자가 신고를 받아들여도 못 내리고,
+    -- 작성자가 고치지도 지우지도 못한다. 「받아 본 뒤에만 **쓴다**」는 INSERT 축의 결정이다.
+    if tg_op = 'INSERT' and shipment_status not in ('delivered', 'confirmed') then
         raise exception '받아 본 뒤에만 후기를 쓴다 (order_item_id=%, status=%)',
             new.order_item_id, shipment_status;
     end if;

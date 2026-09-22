@@ -39,8 +39,10 @@ create table review (
     constraint review_rating_check
         check (rating between 1 and 5),
 
-    -- 상한은 화면이 접지 않고 읽는 크기다. **하한을 안 둔다** — 몇 글자부터 후기인가는
-    -- 입구가 정할 일이고(`47`), 제약으로 내리면 그 결정을 스키마가 먼저 해 버린다.
+    -- 상한은 화면이 접지 않고 읽는 크기다.
+    --
+    -- **하한은 「빈 것을 막는다」까지다.** 몇 글자부터 후기인가는 입구가 정할 일이고
+    -- (`Q160`), 그 수를 제약으로 내리면 스키마가 그 결정을 먼저 해 버린다.
     constraint review_body_length_check
         check (length(body) between 1 and 2000)
 );

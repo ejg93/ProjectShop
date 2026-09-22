@@ -23,10 +23,18 @@ create table seller_invitation (
     -- 전역 역할이 여기로 들어오면 셀러 하나를 가리키는 초대가 전역 권한을 주게 된다.
     role_id bigint not null references role (role_id) on delete restrict,
 
-    -- 초대한 사람. 누가 불렀는지가 남아야 잘못 들어온 계정의 출처를 찾는다.
+    -- 초대한 사람. **이 표가 「누가 누구를 불렀나」를 오래 드는 자리는 아니다** —
+    -- 그것은 감사 로그가 들고 이 표는 30일에 사라진다(`D13`). 여기 두는 이유는
+    -- **살아 있는 초대를 누가 냈는지**를 화면이 보여 주기 위해서고,
+    -- `restrict` 는 그 30일 안에 가리킬 곳을 잃지 않게 하려는 것이다.
     invited_by_user_id bigint not null references app_user (user_id) on delete restrict,
 
     -- 토큰 원문의 해시. 대조는 이 값으로만 한다.
+    --
+    -- **유니크가 토큰 중복을 막는 것이 아니다.** 인코더가 매번 다른 소금을 써서
+    -- 같은 원문도 해시가 달라 충돌이 안 난다 — 중복을 막는 것은 `SecureRandom` 32바이트이고,
+    -- 이 유니크는 **같은 해시 행이 둘 서는 것**만 막는다(`V67` 도 같은 모양이다).
+    -- 이 표에서 DB 가 실제로 드는 자격은 아래 `seller_invitation_live_unique` 다.
     token_hash text not null,
 
     issued_at  timestamptz not null default now(),

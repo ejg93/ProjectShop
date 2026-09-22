@@ -176,11 +176,15 @@ where p.resource = 'review' and p.action = 'report';
 
 -- 내리는 것은 관리자만이다. **셀러에게 열면 불리한 후기를 내리는 자리가 같이 생긴다** —
 -- `inquiry:block` 을 관리자만으로 둔 것과 같은 판단(`V58`).
+--
+-- **`reply` 는 관리자에게도 안 준다.** 위 트리거가 셀러 소속이 아닌 계정의 답글을 막으므로
+-- 줘도 100% 실패한다 — **권한은 있는데 실행이 안 되는 부여**가 제일 나쁜 모양이다.
+-- 관리자가 셀러를 대신해 답해야 할 일이 생기면 임퍼소네이션(`16b`)으로 간다.
 insert into role_permission (role_id, permission_id, scope)
 select r.role_id, p.permission_id, 'all'
 from permission p
 join role r on r.code = 'admin'
-where p.resource = 'review' and p.action in ('reply', 'report', 'moderate');
+where p.resource = 'review' and p.action in ('report', 'moderate');
 
 -- ---------------------------------------------------------------------------
 -- 4. R27 — 규칙을 공개한다
@@ -192,8 +196,9 @@ insert into policy_document (code, version, title, body, effective_at) values
     ('review_policy', 1, '후기 운영정책', $doc$
 ## 게시기간
 
-후기는 게시된 때부터 **거래 기록이 보존되는 5년** 동안 게시됩니다.
-주문 기록이 보존기간을 지나 파기되면 그 주문에 달린 후기도 함께 사라집니다.
+후기는 **그 주문의 거래 기록이 보존되는 동안** 게시됩니다.
+거래 기록은 주문이 끝난 날부터 5년간 보존되며, 그 기간이 지나 주문 기록이 파기되면
+같은 때에 후기도 함께 사라집니다.
 
 ## 등급평가 기준
 
@@ -204,7 +209,7 @@ insert into policy_document (code, version, title, body, effective_at) values
 
 다음 두 가지 경우에 후기가 내려갑니다.
 
-1. **작성자가 직접 삭제한 경우.** 본인이 쓴 후기는 언제든 삭제할 수 있습니다.
+1. **작성자가 직접 삭제한 경우.** 본인이 쓴 후기는 직접 삭제할 수 있습니다.
 2. **신고가 접수되어 관리자가 아래 사유에 해당한다고 판단한 경우.**
    - 광고 또는 홍보 목적의 게시물
    - 욕설·비방 등 타인을 해치는 표현
@@ -215,7 +220,8 @@ insert into policy_document (code, version, title, body, effective_at) values
 
 ## 삭제 시 이의제기 절차
 
-후기가 내려가면 작성자에게 그 사실과 사유를 알립니다.
+후기가 내려가면 내 후기 목록에서 그 사실과 사유를 확인할 수 있습니다.
+
 이의가 있으면 **고객센터 문의**로 접수해 주세요. 접수된 이의는 관리자가 다시 확인하고,
-판단이 뒤집히면 후기를 원래대로 되돌립니다.
+판단이 뒤집히면 후기를 다시 게시합니다. 확인 결과는 문의에 대한 답변으로 알려 드립니다.
 $doc$, now());

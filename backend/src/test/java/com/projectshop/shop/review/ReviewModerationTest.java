@@ -72,6 +72,26 @@ class ReviewModerationTest extends PostgresTestBase {
                     .hasMessageContaining("자기 상품의 후기에만");
         }
 
+        /**
+         * 트리거가 셀러 소속이 아닌 계정을 막으므로, 관리자에게 줘도 100% 실패한다.
+         * <b>권한은 있는데 실행이 안 되는 부여</b>가 제일 나쁜 모양이라 아예 안 준다.
+         */
+        @Test
+        @DisplayName("관리자는 답글 권한을 안 받는다")
+        void 관리자는_답글_권한을_안_받는다() {
+            int granted = jdbc.sql("""
+                            select count(*) from role_permission rp
+                              join role r on r.role_id = rp.role_id
+                              join permission p on p.permission_id = rp.permission_id
+                             where r.code = 'admin' and p.resource = 'review'
+                               and p.action = 'reply' and rp.effect = 'allow'
+                            """)
+                    .query(Integer.class)
+                    .single();
+
+            assertThat(granted).isZero();
+        }
+
         /** 여러 개를 허용하면 셀러가 같은 자리에 글을 쌓아 후기를 밀어낸다 */
         @Test
         @DisplayName("후기 하나에 답글 하나다")
@@ -121,6 +141,39 @@ class ReviewModerationTest extends PostgresTestBase {
                     .param("id", reviewId)
                     .update())
                     .isInstanceOf(DataAccessException.class);
+        }
+
+        /**
+         * 배송 상태는 후기가 달린 뒤에도 움직인다({@code delivered} → {@code returned}).
+         * 그때 트리거가 갱신까지 덮으면 <b>관리자가 신고를 받아들여도 못 내리고</b>
+         * 작성자도 자기 글을 못 고친다 — 마무리 42차 독립 리뷰가 찾은 자리다.
+         *
+         * <p>{@code returned} 로 미는 것은 {@code seller_order_return_reason_required_check} 가
+         * {@code return_requested} 에만 사유를 요구해서다 — 그 제약이 「returned 에도 걸면
+         * CS 처리가 막힌다」고 적어 뒀다. 여기서 재는 것은 <b>배송 상태가 후기 밖에서
+         * 움직였다</b>는 것뿐이라 어느 종착이든 같다.
+         */
+        @Test
+        @DisplayName("주문이 반품으로 끝나도 내릴 수 있다")
+        void 주문이_반품으로_끝나도_내릴_수_있다() {
+            jdbc.sql("""
+                            update seller_order set status = 'returned'
+                             where seller_order_id in (
+                                 select oi.seller_order_id from order_item oi
+                                   join review r on r.order_item_id = oi.order_item_id
+                                  where r.review_id = :id)
+                            """)
+                    .param("id", reviewId)
+                    .update();
+
+            jdbc.sql("""
+                            update review set blocked_at = now(), blocked_reason = 'abuse'
+                             where review_id = :id
+                            """)
+                    .param("id", reviewId)
+                    .update();
+
+            assertThat(visibleCount()).isZero();
         }
 
         @Test
