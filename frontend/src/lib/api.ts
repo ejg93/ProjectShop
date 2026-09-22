@@ -124,13 +124,31 @@ export async function api<T>(
     body: init.body === undefined ? undefined : JSON.stringify(toSnake(init.body)),
   });
 
-  // 세션이 끊겼다. 화면마다 문구를 만들지 않고 로그인으로 보낸다(`D20` 「401 은 조용히 보내지 않는다」).
-  //
-  // 로그인·가입 경로는 뺀다. 거기서 나는 401 은 「세션이 없다」가 아니라 「이번 시도가 틀렸다」라
-  // 보내 봐야 같은 화면이고, 대신 그 폼이 어느 칸도 지목하지 않는 오류로 그린다(`D20`).
-  //
-  // 서버 컴포넌트 쪽은 `api-session.ts` 가 같은 일을 한다. 층이 둘이라 두 군데인 것이지
-  // 규칙이 둘인 것이 아니다.
+  return readResponse<T>(path, response);
+}
+
+/**
+ * 응답을 읽는 규칙. <b>두 입구가 이 함수 하나를 쓴다</b>(`Q157`).
+ *
+ * <p><b>요청 쪽은 갈라야 하는 것이 맞다</b> — {@link api} 는 `JSON.stringify` 로 굳히고
+ * {@link apiUpload} 는 `FormData` 를 그대로 싣는다. 그러나 <b>응답 쪽은 그 차이와 무관하게</b>
+ * 401·204·오류·표기 변환이 똑같고, 두 벌로 두면 한쪽만 고치는 날이 온다 —
+ * 마무리 41차 독립 리뷰가 실제로 빠진 204 분기를 짚었다.
+ *
+ * <p><b>강제 지점이 테스트에서 구조로 내려왔다.</b> 전에는 두 벌이 같은지를 원문 대조가
+ * 글자로만 쟀는데(`Q155`), 그 시험은 <b>양쪽에 같은 문자열을 넣기만 하면 통과하고 행동이
+ * 갈리는 것은 못 본다</b>(자기 한계로 적어 뒀다). 한 곳으로 모으면 <b>복사할 자리가 없어진다.</b>
+ *
+ * <p><b>401 에서 경로를 보는 조건을 그대로 들고 왔다.</b> 로그인·가입에서 나는 401 은
+ * 「세션이 없다」가 아니라 「이번 시도가 틀렸다」라 보내 봐야 같은 화면이고, 대신 그 폼이
+ * 어느 칸도 지목하지 않는 오류로 그린다(`D20`). 업로드 경로는 `/api/auth/` 에 닿을 일이
+ * 없으므로 <b>이 조건이 있어도 그쪽 행동은 안 바뀐다</b> — 조건을 뺀 판을 따로 두는 것보다
+ * 한 벌이 낫다.
+ *
+ * <p>서버 컴포넌트 쪽은 `api-session.ts` 가 같은 일을 한다. <b>층이 둘이라 두 군데인 것이지
+ * 규칙이 둘인 것이 아니다.</b>
+ */
+async function readResponse<T>(path: string, response: Response): Promise<T> {
   if (response.status === 401 && !path.startsWith("/api/auth/")) {
     window.location.replace("/login?reason=session-expired");
 
@@ -158,8 +176,8 @@ export async function api<T>(
  * 여기는 `FormData` 를 그대로 싣고 <b>`Content-Type` 을 안 정한다</b> — 정하면 브라우저가 붙이는
  * 멀티파트 경계(boundary)가 빠져서 서버가 본문을 못 가른다.
  *
- * <p>세션 쿠키·CSRF·401·204 를 `api()` 와 같은 규칙으로 다룬다(`D24`). **한 벌이 아니라 두 벌이라**
- * 한쪽만 고치면 그날 갈린다 — 실제로 마무리 41차 독립 리뷰가 빠진 204 분기를 짚었다.
+ * <p>응답은 {@link readResponse} 한 벌을 쓴다(`Q157`). 전에는 두 벌이었고 한쪽만 고치는
+ * 날이 실제로 왔다 — 마무리 41차 독립 리뷰가 빠진 204 분기를 짚었다.
  *
  * @param field 서버가 받는 파트 이름. 상품 사진은 `file` 이다(`SellerProductController`)
  */
@@ -174,21 +192,7 @@ export async function apiUpload<T>(path: string, file: File, field = "file"): Pr
     body,
   });
 
-  if (response.status === 401) {
-    window.location.replace("/login?reason=session-expired");
-    await new Promise(() => {});
-  }
-
-  if (!response.ok) {
-    throw await toApiError(response);
-  }
-
-  // 204 는 본문이 없다. `api()` 와 같은 자리를 여기서도 본다 — 한쪽만 고치면 그날 갈린다.
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return toCamel(await response.json()) as T;
+  return readResponse<T>(path, response);
 }
 
 /**
