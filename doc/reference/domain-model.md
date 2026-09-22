@@ -118,6 +118,8 @@ SKU 를 물리 삭제하지 않으므로(수명 컬럼을 쓴다) 실제로 걸�
 | `seller_member` → `seller` | cascade | 셀러가 없으면 소속이 무의미 |
 | `seller_member` → `app_user` | cascade | 계정이 없으면 소속이 무의미 |
 | `seller_invitation` → `seller` | cascade | 셀러가 없으면 초대도 무의미 |
+| `review` → `order_item` | **restrict** | 무엇에 대한 후기인가가 끊기면 안 된다. 거래 기록이 5년 남는다(`R6`) |
+| `review` → `product`·`app_user` | **restrict** | 같은 이유. 어긋나는 것은 `review_check_target` 이 막는다 |
 | `seller_invitation` → `role` | **restrict** | 초대가 가리키는 역할은 먼저 못 지운다 |
 | `seller_invitation` → `app_user`(초대한 사람) | **restrict** | 누가 불렀는지가 사라지면 출처를 못 찾는다 |
 | `user_role` → `app_user` | cascade | 같은 이유 |

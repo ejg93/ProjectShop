@@ -25,6 +25,7 @@ erDiagram
     return_request }o..|| app_user : "decided_by_user_id"
     return_request }o..|| app_user : "inspected_by_user_id"
     return_request }o..|| app_user : "requested_by_user_id"
+    review }o..|| app_user : "user_id"
     seller_invitation }o--|| app_user : "accepted_user_id"
     seller_invitation }o--|| app_user : "invited_by_user_id"
     seller_invitation }o..|| role : "role_id"

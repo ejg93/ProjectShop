@@ -404,6 +404,21 @@ public class TransactionPurgeService {
             return 0;
         }
 
+        // 후기가 주문 줄을 restrict 로 잡는다(`46`). 안 지우면 아래 delete 가 통째로 실패한다.
+        //
+        // **후기만 남기는 선택지가 없다.** `review.order_item_id` 가 `not null` 이라
+        // 떼어 놓을 자리가 없고, 그것이 「산 사람만 쓴다」를 DB 가 드는 방식이다 —
+        // 남기려고 널을 허용하면 그 강제 지점이 사라진다.
+        jdbc.sql("""
+                        delete from review
+                         where order_item_id in (
+                             select order_item_id from order_item
+                              where seller_order_id in (
+                                  select seller_order_id from seller_order where order_id in (:ids)))
+                        """)
+                .param("ids", orderIds)
+                .update();
+
         jdbc.sql("""
                         delete from order_item
                          where seller_order_id in (

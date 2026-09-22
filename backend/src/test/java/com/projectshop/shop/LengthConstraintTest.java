@@ -169,6 +169,8 @@ class LengthConstraintTest extends PostgresTestBase {
                     "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5a`)"),
             Map.entry("seller_invitation_email_length_check",
                     "초대 입구가 아직 없다(`16a`). 값은 짝인 app_user.email 과 같은 254 다"),
+            Map.entry("review_body_length_check",
+                    "후기를 쓰는 입구가 아직 없다(`47`). 그 청크가 record 를 만들 때 pairs() 로 옮긴다"),
             Map.entry("compensation_note_reason_length_check",
                     "쓰는 코드가 아직 없다 — 배상을 넣는 입구가 `43a-4c` 다. 그 입구가 서면 pairs() 로 옮긴다"),
             Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),

@@ -38,6 +38,7 @@ erDiagram
     return_request }o--|| seller_order : "seller_order_id"
     return_request_item }o--|| order_item : "order_item_id"
     return_request_item }o--|| return_request : "return_request_id"
+    review }o..|| order_item : "order_item_id"
     seller_order }o--|| shop_order : "order_id"
     seller_order }o..|| seller : "seller_id"
     settlement_item }o..|| compensation : "compensation_id+compensation_bearer"
