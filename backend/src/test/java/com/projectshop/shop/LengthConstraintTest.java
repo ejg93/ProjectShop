@@ -119,6 +119,16 @@ class LengthConstraintTest extends PostgresTestBase {
                                 "body"),
                         component(com.projectshop.shop.review.ReviewController.EditReviewRequest.class,
                                 "body"))),
+                // 쿠폰 코드는 입구가 둘이다(`Q163`) — 만드는 쪽과 받는 쪽. 받는 쪽이 더 길면
+                // 화면이 통과시킨 코드가 서버에서 못 찾는 코드가 된다.
+                Arguments.of("coupon_code_length_check", List.of(
+                        component(com.projectshop.shop.coupon.CouponController.NewCouponRequest.class,
+                                "code"),
+                        component(com.projectshop.shop.coupon.CouponController.RegisterCouponRequest.class,
+                                "code"))),
+                Arguments.of("coupon_name_length_check", List.of(
+                        component(com.projectshop.shop.coupon.CouponController.NewCouponRequest.class,
+                                "name"))),
                 Arguments.of("inquiry_question_length_check", List.of(
                         component(com.projectshop.shop.inquiry.InquiryController.NewInquiryRequest.class,
                                 "question"))),
@@ -177,10 +187,6 @@ class LengthConstraintTest extends PostgresTestBase {
                     "초대 입구가 아직 없다(`16a`). 값은 짝인 app_user.email 과 같은 254 다"),
             Map.entry("review_reply_body_length_check",
                     "답글 입구가 아직 없다(`Q167`). 값은 짝인 review.body 와 같다"),
-            Map.entry("coupon_code_length_check",
-                    "쿠폰을 만드는 입구가 아직 없다(`Q163`). 그 청크가 record 를 만들 때 pairs() 로 옮긴다"),
-            Map.entry("coupon_name_length_check",
-                    "쿠폰을 만드는 입구가 아직 없다(`Q163`). 그 청크가 record 를 만들 때 pairs() 로 옮긴다"),
             Map.entry("compensation_note_reason_length_check",
                     "쓰는 코드가 아직 없다 — 배상을 넣는 입구가 `43a-4c` 다. 그 입구가 서면 pairs() 로 옮긴다"),
             Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),

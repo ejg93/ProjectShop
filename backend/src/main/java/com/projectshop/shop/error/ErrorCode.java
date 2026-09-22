@@ -188,6 +188,22 @@ public enum ErrorCode {
     COUPON_NOT_APPLICABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-not-applicable",
             "이 주문에 쓸 수 없는 쿠폰이다"),
 
+    /**
+     * 그 코드로 받을 쿠폰이 없다(`Q163`).
+     *
+     * <p><b>셋을 안 가른다.</b> 없는 코드·내려간 쿠폰·발급 기간이 아닌 것이 같은 응답이다 —
+     * 가르면 코드를 찍어 보며 <b>어떤 쿠폰이 존재하는지</b>를 알아낼 수 있다(`D14`).
+     * 코드는 밖에서 듣고 와서 치는 값이라 맞히기가 목록을 뿌린 것과 같아진다.
+     */
+    COUPON_CODE_NOT_ISSUABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-code-not-issuable",
+            "지금 받을 수 없는 쿠폰 코드다"),
+
+    /** 한 사람이 같은 쿠폰을 한 번만 받는다(`coupon_issue_once`, `49`) */
+    COUPON_ALREADY_ISSUED(HttpStatus.CONFLICT, "coupon-already-issued", "이미 받은 쿠폰이다"),
+
+    /** 같은 코드의 쿠폰이 이미 있다(`coupon.code` 유니크) */
+    COUPON_CODE_TAKEN(HttpStatus.CONFLICT, "coupon-code-taken", "이미 쓰는 쿠폰 코드다"),
+
     // 장바구니
     //
     // 담긴 것을 못 찾는 것은 404 다. 장바구니는 주인만 만지고 주인은 요청이 가리키므로
