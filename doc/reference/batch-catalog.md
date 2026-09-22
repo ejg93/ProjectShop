@@ -11,8 +11,8 @@
 |---|---|---|---|---|
 | 결제 만료 | 결제가 안 끝난 주문을 만료시키고 재고를 푼다 | 5분 `fixedDelay` | 경과 시간 30분 | `OrderStatusBatch.expireUnpaidOrders` |
 | 자동 구매확정 | 자동확정 예정일이 지난 셀러 주문을 확정한다 | 매일 04:00 KST | `seller_order.auto_confirm_at` 박제값 | `OrderStatusBatch.confirmDeliveredOrders` |
-| 개인정보 파기 | 탈퇴 유예가 지난 계정 정보·동의 IP·방치된 비로그인 장바구니·보관 기간이 지난 토큰 둘·만료 멱등키를 지운다 | 매일 04:00 KST | 전날 24시 | `AccountPurgeBatch.purge` |
-| 거래기록 파기 | 보존 기간이 지난 배송지·정산·배상·문의·주문·감사 로그를 **그 순서로** 지운다 | **매월 1일** 04:00 KST | 전날 24시 | `TransactionPurgeBatch.purge` |
+| 개인정보 파기 | 탈퇴 유예가 지난 계정 정보·동의 IP·방치된 비로그인 장바구니·보관 기간이 지난 토큰 셋(재설정·주소변경·셀러 초대)·만료 멱등키를 지운다 | 매일 04:00 KST | 전날 24시 | `AccountPurgeBatch.purge` |
+| 거래기록 파기 | 보존 기간이 지난 배송지·정산·배상·문의·후기·쿠폰·주문·감사 로그를 **그 순서로** 지운다 | **매월 1일** 04:00 KST | 전날 24시 | `TransactionPurgeBatch.purge` |
 | 환불 요청 스위퍼 | 닫혔는데 환불 요청이 없는 묶음에 요청을 만들고, 자기가 만든 요청을 승인해 돈을 내보낸다 | 5분 `fixedDelay` | `seller_order.closed_at` 이 있고 그 묶음에 `refund` 가 없다. 승인 대상은 `requested_by_type = 'system'` 인 대기 | `RefundSweeper.sweep` |
 | 거래 통지 스위퍼 | 법이 요구하는 통지 넷을 아직 안 나간 건에 보낸다. **안전망이다** — 소비자(`33a`)가 사건을 받아 즉시 남기고 이것은 그 뒤를 집는다 | 5분 `fixedDelay` | 청약 접수·대금 지급·공급 곤란·환급의 상태인데 `notification` 이 없다. **조회 하한(바닥)을 통지 기능이 선 시각으로 잡아서** 배치가 멈춰도 안 놓친다(`56a`) | `NotificationSweeper.sweep` |
 | 수신동의 확인 | 2년이 지난 광고 수신동의에 확인 통지를 보낸다 | 매일 04:30 KST | `coalesce(reconfirmed_at, acted_at)` 이 2년 전보다 오래됨 | `ConsentReconfirmSweeper.sweep` |

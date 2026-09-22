@@ -114,6 +114,25 @@ Postgres 는 `create view` 시점의 컬럼 목록을 굳힌다. `select so.*` �
 `create or replace view` 는 컬럼을 <b>뒤에 더할 때만</b> 되고 순서를 바꾸거나
 중간에 끼우면 거부한다 — 그래서 `drop` 후 재생성이 정해진 방법이다.
 
+### 옛 마이그레이션을 베끼면 그때의 스키마를 베낀다
+
+새 권한·역할을 넣을 때 `V3__auth_seed.sql` 을 본보기로 삼는 것이 자연스러운데,
+**그 파일은 `V3` 시점의 표를 안다.** 뒤 마이그레이션이 붙인 것을 모른다.
+
+`5a` 가 그 자리에서 두 번 걸렸다.
+
+| 베낀 것 | 그 뒤에 무엇이 붙었나 |
+|---|---|
+| `insert into permission (resource, action, description)` | `V75` 가 `kind` 를 **`not null` 로** 붙였다. 기본값이 없어서 기동이 죽는다 |
+| 감사자 거부 행을 손으로 넣는 것(`V5`·`V12`) | `V75` 의 `permission_denies_read_only_roles` 트리거가 **자동으로 단다**(`Q59`) |
+
+앞엣것은 `not null` 이 바로 깨뜨려서 싸다. **뒤엣것이 비싸다** — 손으로 넣어도
+`on conflict do nothing` 이라 조용히 통과하고, 그 마이그레이션은 **트리거가 막는 구멍을
+사람이 다시 여는 자리**가 된다.
+
+**본보기는 최근 것에서 고른다.** `V3` 이 아니라 그 표를 마지막으로 건드린 마이그레이션이다 —
+`git log -- backend/src/main/resources/db/migration | head` 가 그것을 든다.
+
 ### Boot 4 는 스타터 이름이 3.x 와 다르다
 
 `build.gradle.kts` 에 실제로 들어 있는 이름이다.

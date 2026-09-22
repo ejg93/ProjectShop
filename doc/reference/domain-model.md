@@ -62,6 +62,7 @@ where deleted_at is null     -- 업무 상태가 몇 개로 늘든 안 바뀐다
 
 ```
 Seller ─┬─ SellerMember          소속. 셀러가 사라지면 의미가 없다
+        ├─ SellerInvitation     부름. 소속이 되기 전 단계라 같은 덩어리다
         └─ Product ─┬─ ProductOption
                     └─ Sku
 
@@ -116,6 +117,14 @@ SKU 를 물리 삭제하지 않으므로(수명 컬럼을 쓴다) 실제로 걸�
 |---|---|---|
 | `seller_member` → `seller` | cascade | 셀러가 없으면 소속이 무의미 |
 | `seller_member` → `app_user` | cascade | 계정이 없으면 소속이 무의미 |
+| `seller_invitation` → `seller` | cascade | 셀러가 없으면 초대도 무의미 |
+| `review` → `order_item` | **restrict** | 무엇에 대한 후기인가가 끊기면 안 된다. 거래 기록이 5년 남는다(`R6`) |
+| `review` → `product`·`app_user` | **restrict** | 같은 이유. 어긋나는 것은 `review_check_target` 이 막는다 |
+| `review_reply`·`review_report` → `review` | cascade | 후기가 없으면 답글도 신고도 가리킬 것이 없다. 애그리거트 안쪽 |
+| `coupon_issue` → `coupon`·`app_user` | **restrict** | 나간 쿠폰이 가리킬 곳을 잃으면 안 된다. 정의를 지우려면 발급부터 거둔다 |
+| `coupon_issue` → `shop_order`(쓴 주문) | **restrict** | 할인액이 정산의 근거라 주문이 먼저 사라지면 안 된다 |
+| `seller_invitation` → `role` | **restrict** | 초대가 가리키는 역할은 먼저 못 지운다 |
+| `seller_invitation` → `app_user`(초대한 사람) | **restrict** | 살아 있는 30일 안에 가리킬 곳을 잃지 않게. 오래 드는 것은 감사 로그다 |
 | `user_role` → `app_user` | cascade | 같은 이유 |
 | `user_role` → `role` | **restrict** | 사용자가 달린 역할은 회수부터 하게 만든다 |
 | `role_permission` → `role` | cascade | 역할이 사라지면 권한 부여도 사라진다 |

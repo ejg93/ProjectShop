@@ -53,7 +53,7 @@ class PurgeBlockerTest extends PostgresTestBase {
      */
     private static final Set<String> HANDLED = Set.of(
             // 주문과 함께, 자식부터
-            "order_item", "order_status_history", "seller_order",
+            "order_item", "order_status_history", "seller_order", "review", "coupon_issue",
             // 주문보다 먼저 + 주문 고르는 조건이 본다
             "settlement_item", "compensation", "inquiry");
 

@@ -101,6 +101,16 @@ public enum ErrorCode {
     // 심사 중인 셀러가 존재한다는 것을 알아낼 수 있다.
     SELLER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-not-found", "그런 셀러가 없다"),
 
+    /**
+     * 초대 토큰이 못 쓰는 것이다.
+     *
+     * <p><b>넷을 안 가른다.</b> 만료·취소·이미 수락·없는 토큰이 같은 응답이다 —
+     * 가르면 남의 초대 링크를 주워 온 사람이 <b>그 셀러가 누구를 불렀는지</b>를 알게 된다
+     * ({@link #PASSWORD_RESET_TOKEN_INVALID} 와 같은 판단, `D14`).
+     */
+    SELLER_INVITATION_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, "seller-invitation-invalid",
+            "쓸 수 없는 초대 토큰이다"),
+
     // 장바구니
     //
     // 담긴 것을 못 찾는 것은 404 다. 장바구니는 주인만 만지고 주인은 요청이 가리키므로

@@ -54,14 +54,16 @@ class SchemaErdTest extends PostgresTestBase {
                 "order_status_history", "order_status_history_note", "order_contract_document",
                 "return_request", "return_request_item", "return_note", "return_pickup",
                 "compensation", "compensation_note", "payment", "payment_card",
-                "idempotency_key", "cart", "cart_item"));
+                "idempotency_key", "cart", "cart_item", "coupon", "coupon_issue"));
         GROUPS.put("product", List.of(
+                "review", "review_reply", "review_report",
                 "product", "product_image", "product_option", "product_option_value",
                 "product_substantiation", "sku", "sku_option_value", "sku_stock",
                 "sku_stock_movement", "copyright_report"));
         GROUPS.put("account", List.of(
                 "app_user", "user_consent", "consent_item", "policy_document",
-                "email_change_request", "password_reset_token", "seller", "seller_member"));
+                "email_change_request", "password_reset_token", "seller", "seller_member",
+                "seller_invitation"));
         GROUPS.put("settlement", List.of(
                 "settlement", "settlement_cycle", "settlement_item",
                 "refund", "refund_item", "refund_note"));

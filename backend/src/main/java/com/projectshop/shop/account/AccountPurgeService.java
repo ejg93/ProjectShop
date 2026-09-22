@@ -147,7 +147,7 @@ public class AccountPurgeService {
     }
 
     /**
-     * 토큰 둘을 발급일 기준으로 지운다(`Q62`, `D13` 「30일」).
+     * 토큰 셋을 발급일 기준으로 지운다(`Q62`·`5a`, `D13` 「30일」).
      *
      * <p><b>수집하는 코드가 파기하는 코드보다 먼저 나왔다</b> — `5c-1`·`5e-1` 이 표를 세우고
      * {@code data-lifecycle.md} 가 「30일 물리 삭제」로 적었는데 <b>지우는 자리가 없었다</b>.
@@ -167,7 +167,12 @@ public class AccountPurgeService {
         int emails = jdbc.sql("delete from email_change_request where issued_at < :issuedBefore")
                 .param("issuedBefore", issuedBefore)
                 .update();
-        return resets + emails;
+        // 초대는 계정 파기를 못 따라간다 — 주소의 주인이 아직 회원이 아닐 수 있어서
+        // 지울 계정이 없다. 그래서 이 배치가 유일한 파기 자리다(`5a`).
+        int invitations = jdbc.sql("delete from seller_invitation where issued_at < :issuedBefore")
+                .param("issuedBefore", issuedBefore)
+                .update();
+        return resets + emails + invitations;
     }
 
     /**

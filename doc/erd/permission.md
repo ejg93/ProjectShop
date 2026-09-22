@@ -9,6 +9,7 @@ erDiagram
     role_permission }o--|| role : "role_id"
     role_permission_field }o--|| permission_field_group : "permission_field_group_id"
     role_permission_field }o--|| role_permission : "role_id+permission_id+effect"
+    seller_invitation }o..|| role : "role_id"
     user_role }o--|| role : "role_id"
     user_role }o..|| seller : "seller_id"
     user_role }o..|| app_user : "user_id"
