@@ -404,6 +404,14 @@ public class TransactionPurgeService {
             return 0;
         }
 
+        // 쓴 쿠폰이 주문을 restrict 로 잡는다(`49`). 쓴 쿠폰은 거래의 일부라 주문과 같이 간다 —
+        // 할인액이 정산의 근거고(`51`), 근거만 남기고 주문을 지우면 그 정산서를 못 읽는다.
+        //
+        // **안 쓴 발급은 안 건드린다.** 주문을 안 가리키므로 여기 걸릴 것이 없다.
+        jdbc.sql("delete from coupon_issue where used_order_id in (:ids)")
+                .param("ids", orderIds)
+                .update();
+
         // 후기가 주문 줄을 restrict 로 잡는다(`46`). 안 지우면 아래 delete 가 통째로 실패한다.
         //
         // **후기만 남기는 선택지가 없다.** `review.order_item_id` 가 `not null` 이라

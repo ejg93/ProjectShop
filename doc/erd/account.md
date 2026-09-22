@@ -9,6 +9,8 @@ erDiagram
     compensation }o..|| app_user : "decided_by_user_id"
     consent_item }o--|| consent_item : "depends_on_id"
     copyright_report }o..|| app_user : "decided_by_user_id"
+    coupon }o..|| seller : "seller_id"
+    coupon_issue }o..|| app_user : "user_id"
     email_change_request }o--|| app_user : "user_id"
     idempotency_key }o..|| app_user : "user_id"
     inquiry }o..|| app_user : "user_id"

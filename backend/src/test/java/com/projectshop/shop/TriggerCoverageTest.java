@@ -107,6 +107,7 @@ class TriggerCoverageTest extends PostgresTestBase {
                     TOUCH + ". `ReviewModerationTest` 가 지난다"),
             Map.entry("review_report.review_report_transition_check",
                     "처리한 신고를 다시 여는 것을 막는다. `ReviewModerationTest` 가 지난다"),
+            Map.entry("coupon.coupon_set_updated_at", TOUCH + ". `CouponSchemaTest` 가 지난다"),
             Map.entry("product.product_check_sale_allowed",
                     "팔 수 없는 상태의 상품을 판매중으로 못 돌리게 막는다. `ProductQueryTest` 가 지난다"),
             Map.entry("product_image.product_image_limit",
