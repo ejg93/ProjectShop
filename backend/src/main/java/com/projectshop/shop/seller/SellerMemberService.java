@@ -197,7 +197,7 @@ public class SellerMemberService {
 
     /**
      * 초대를 거둬들인다. 수락된 것은 못 거둔다 — 그건 이미 멤버라
-     * <b>내보내는 것이 다른 일</b>이고 그 입구는 `16a` 가 만든다.
+     * <b>내보내는 것이 다른 일</b>이고 {@link #remove} 가 한다(`Q165`).
      */
     @Transactional
     public void revoke(long sellerId, long invitationId, long actorUserId) {
@@ -251,6 +251,123 @@ public class SellerMemberService {
     @Schema(name = "SellerMembers")
     public record Members(List<Member> members, List<PendingInvitation> invitations,
             boolean canManage) {}
+
+    /**
+     * 멤버의 조직 역할을 바꾼다(`Q165`).
+     *
+     * <p><b>소속은 안 건드린다.</b> 역할만 바꾸는 것이라 그 사람은 계속 이 셀러 사람이다 —
+     * 내보내는 것은 {@link #remove} 고, 둘을 한 입구에 두면 <b>역할을 바꾸려다 내보내는</b>
+     * 실수가 성립한다.
+     *
+     * <p><b>마지막 대표는 못 내린다.</b> 대표가 0이 되면 그 셀러는 <b>멤버를 부를 수도 뺄 수도
+     * 없는 상태</b>로 잠긴다 — 푸는 길이 관리자의 직접 개입뿐이라 그 자리를 안 만든다.
+     */
+    @Transactional
+    public void changeRole(long sellerId, long userId, String roleCode, long actorUserId) {
+        requireManage(actorUserId, sellerId);
+        requireMember(sellerId, userId);
+
+        long roleId = orgRoleId(roleCode);
+        if (!"seller_owner".equals(roleCode)) {
+            requireAnotherOwnerRemains(sellerId, userId);
+        }
+
+        jdbc.sql("delete from user_role where user_id = :userId and seller_id = :sellerId")
+                .param("userId", userId)
+                .param("sellerId", sellerId)
+                .update();
+
+        jdbc.sql("""
+                        insert into user_role (user_id, role_id, seller_id)
+                        values (:userId, :roleId, :sellerId)
+                        """)
+                .param("userId", userId)
+                .param("roleId", roleId)
+                .param("sellerId", sellerId)
+                .update();
+
+        ruleLoader.evict(userId);
+        auditLog.record(AuditLog.Kind.OUTCOME, "seller_member.role_changed", actorUserId,
+                AuditLog.Target.of("seller", sellerId),
+                Map.of("user_id", userId, "role_code", roleCode));
+    }
+
+    /**
+     * 멤버를 내보낸다(`Q165`).
+     *
+     * <p><b>소속과 역할을 같이 지운다.</b> 역할만 지우면 <b>아무것도 못 하는 소속</b>이 남고,
+     * 소속만 지우면 {@code V4} 의 트리거가 걸린 조직 역할이 갈 곳을 잃는다 —
+     * {@link #accept} 가 둘을 같이 넣는 것과 짝이다.
+     *
+     * <p><b>마지막 대표는 못 나간다.</b> 나가면 그 셀러가 잠긴다.
+     */
+    @Transactional
+    public void remove(long sellerId, long userId, long actorUserId) {
+        requireManage(actorUserId, sellerId);
+        requireMember(sellerId, userId);
+        requireAnotherOwnerRemains(sellerId, userId);
+
+        jdbc.sql("delete from user_role where user_id = :userId and seller_id = :sellerId")
+                .param("userId", userId)
+                .param("sellerId", sellerId)
+                .update();
+
+        jdbc.sql("delete from seller_member where seller_id = :sellerId and user_id = :userId")
+                .param("sellerId", sellerId)
+                .param("userId", userId)
+                .update();
+
+        ruleLoader.evict(userId);
+        auditLog.record(AuditLog.Kind.OUTCOME, "seller_member.removed", actorUserId,
+                AuditLog.Target.of("seller", sellerId), Map.of("user_id", userId));
+    }
+
+    private void requireMember(long sellerId, long userId) {
+        boolean member = Boolean.TRUE.equals(jdbc.sql("""
+                        select exists(select 1 from seller_member
+                                       where seller_id = :sellerId and user_id = :userId)
+                        """)
+                .param("sellerId", sellerId)
+                .param("userId", userId)
+                .query(Boolean.class)
+                .single());
+        if (!member) {
+            throw new ShopException(ErrorCode.SELLER_MEMBER_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 이 사람 말고 대표가 하나라도 남나.
+     *
+     * <p><b>0이 되면 그 셀러가 잠긴다</b> — 멤버를 부를 수도 뺄 수도 없고, 푸는 길이
+     * 관리자의 직접 개입뿐이다.
+     */
+    private void requireAnotherOwnerRemains(long sellerId, long userId) {
+        boolean remains = Boolean.TRUE.equals(jdbc.sql("""
+                        select exists(
+                            select 1 from user_role ur
+                              join role r on r.role_id = ur.role_id
+                             where ur.seller_id = :sellerId and ur.user_id <> :userId
+                               and r.code = 'seller_owner')
+                        """)
+                .param("sellerId", sellerId)
+                .param("userId", userId)
+                .query(Boolean.class)
+                .single());
+        if (!remains) {
+            throw new ShopException(ErrorCode.SELLER_LAST_OWNER);
+        }
+    }
+
+    /** 조직 역할만 온다. 전역 역할은 관리자 화면이 든다(`16`) */
+    private long orgRoleId(String roleCode) {
+        return jdbc.sql("select role_id from role where code = :code and is_org_role")
+                .param("code", roleCode)
+                .query(Long.class)
+                .optional()
+                .orElseThrow(() -> new ShopException(ErrorCode.SELLER_MEMBER_FORBIDDEN,
+                        "조직 역할이 아니거나 없는 역할이다"));
+    }
 
     /**
      * 내가 속한 셀러.

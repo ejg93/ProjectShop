@@ -86,6 +86,26 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
       api(`/api/sellers/${sellerId}/invitations/${invitationId}`, { method: "DELETE" }),
     );
 
+
+  const changeRole = (userId: number, roleCode: string) =>
+    run(() =>
+      api(`/api/sellers/${sellerId}/members/${userId}`, {
+        method: "PATCH",
+        body: { roleCode },
+      }),
+    );
+
+  /**
+   * 내보내기에 확인을 붙인다. `D20` 이 확인을 요구하는 것은 되돌리기 어려운 조작인데,
+   * **다시 부르려면 초대를 새로 내야 하고 그 사람이 다시 수락해야 한다.**
+   */
+  const remove = (userId: number, name: string) => {
+    if (!window.confirm(`${name} 님을 내보냅니다. 다시 부르려면 초대를 새로 보내야 합니다.`)) {
+      return;
+    }
+    run(() => api(`/api/sellers/${sellerId}/members/${userId}`, { method: "DELETE" }));
+  };
+
   return (
     <section className="grid gap-6">
       {error ? (
@@ -95,11 +115,12 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
       ) : null}
 
       <table className="w-full border-collapse text-sm">
-        <caption className="sr-only">멤버 목록. 이름, 역할 순</caption>
+        <caption className="sr-only">멤버 목록. 이름, 역할, 조작 순</caption>
         <thead>
           <tr className="border-b border-border text-left text-xs text-text-muted">
             <th scope="col" className="px-3 py-2 font-medium">이름</th>
             <th scope="col" className="px-3 py-2 font-medium">역할</th>
+            {manages ? <th scope="col" className="px-3 py-2 font-medium">조작</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -113,6 +134,29 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
                       .join(", ")
                   : "없음"}
               </td>
+              {manages ? (
+                <td className="flex flex-wrap gap-2 px-3 py-2">
+                  {ROLES.filter((role) => !member.roleCodes.includes(role.code)).map((role) => (
+                    <button
+                      key={role.code}
+                      type="button"
+                      disabled={pending}
+                      onClick={() => changeRole(member.userId, role.code)}
+                      className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
+                    >
+                      {role.name}로
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => remove(member.userId, member.displayName)}
+                    className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
+                  >
+                    내보내기
+                  </button>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>

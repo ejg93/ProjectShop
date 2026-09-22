@@ -142,6 +142,18 @@ public enum ErrorCode {
     SELLER_MEMBER_FORBIDDEN(HttpStatus.FORBIDDEN, "seller-member-forbidden",
             "셀러의 멤버를 다룰 권한이 없다"),
 
+    SELLER_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-member-not-found",
+            "그 셀러에 속한 사람이 아니다"),
+
+    /**
+     * 마지막 대표는 못 내린다(`Q165`).
+     *
+     * <p>대표가 0이 되면 그 셀러는 <b>멤버를 부를 수도 뺄 수도 없는 상태</b>로 잠긴다 —
+     * 푸는 길이 관리자의 직접 개입뿐이라 그 자리를 안 만든다.
+     */
+    SELLER_LAST_OWNER(HttpStatus.UNPROCESSABLE_CONTENT, "seller-last-owner",
+            "마지막 대표는 내보내거나 역할을 바꿀 수 없다"),
+
     /**
      * 쿠폰을 쓸 수 없다.
      *

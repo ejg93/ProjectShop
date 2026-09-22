@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -111,6 +112,30 @@ class SellerMemberController {
                 .created(URI.create("/api/sellers/" + sellerId + "/invitations/"
                         + issued.invitationId()))
                 .body(new InviteResponse(issued.invitationId(), issued.token()));
+    }
+
+    /** 멤버의 조직 역할을 바꾼다(`Q165`). 소속은 그대로다 */
+    record RoleRequest(@NotBlank @Size(max = 50) String roleCode) {}
+
+    @PatchMapping("/members/{userId}")
+    ResponseEntity<Void> changeRole(@AuthenticationPrincipal ShopUser actor,
+            @PathVariable long sellerId, @PathVariable long userId,
+            @Valid @RequestBody RoleRequest request) {
+        members.changeRole(sellerId, userId, request.roleCode(), actor.id());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 멤버를 내보낸다(`Q165`). <b>소속과 역할이 같이 사라진다.</b>
+     *
+     * <p>초대를 거두는 것과 경로가 갈린다 — 그쪽은 아직 아무도 안 들어온 것이고
+     * 여기는 이미 들어온 사람이다.
+     */
+    @DeleteMapping("/members/{userId}")
+    ResponseEntity<Void> remove(@AuthenticationPrincipal ShopUser actor,
+            @PathVariable long sellerId, @PathVariable long userId) {
+        members.remove(sellerId, userId, actor.id());
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/invitations/{invitationId}")
