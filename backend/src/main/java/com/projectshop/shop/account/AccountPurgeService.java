@@ -209,7 +209,7 @@ public class AccountPurgeService {
     private List<Long> clearAccountFields(OffsetDateTime graceEnd) {
         return jdbc.sql("""
                         update app_user
-                           set email = null, display_name = null, password_hash = null
+                           set email = null, display_name = null, password_hash = null, birth_date = null
                          where deleted_at is not null
                            and deleted_at < :graceEnd
                            and email is not null

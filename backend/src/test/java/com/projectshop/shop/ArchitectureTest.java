@@ -353,7 +353,11 @@ class ArchitectureTest {
             MockPaymentGateway.class.getName(), MockNotificationSender.class.getName(),
             // 브로커도 바깥이다(`33b`). 발행기가 ack 를 기다리는 동안 트랜잭션이 열려 있으면
             // 그 잠금이 손님 요청을 막는다 — 그래서 집기·보내기·도장을 셋으로 갈랐다.
-            org.springframework.kafka.core.KafkaTemplate.class.getName());
+            org.springframework.kafka.core.KafkaTemplate.class.getName(),
+            // 셀러 웹훅 주소도 바깥이다(`30`). 받는 쪽이 늦으면 타임아웃만큼 트랜잭션이 열려 있게 된다.
+            "com.projectshop.shop.webhook.WebhookSender",
+            // 주소 검사도 바깥이다 — 셀러가 고른 이름을 DNS 로 푼다(마무리 47차 독립 리뷰). 느린 이름 서버가 연결을 쥔다.
+            "com.projectshop.shop.webhook.WebhookUrlPolicy");
 
     private static DescribedPredicate<JavaMethod> 본문을_받는다() {
         return DescribedPredicate.describe("@RequestBody 를 받는",

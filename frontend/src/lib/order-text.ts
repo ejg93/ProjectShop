@@ -47,6 +47,19 @@ const RETURN_REASON: Record<string, string> = {
 };
 
 /**
+ * 반품 표의 상태(`V63`, `43a-5`). <b>묶음 상태와 다른 층이다</b> — 묶음은 「반품 중인가」만 답하고(`D7`)
+ * 물건이 들어왔나·판정이 났나는 이쪽이 든다.
+ */
+const RETURN_STATUS: Record<string, string> = {
+  REQUESTED: "접수됨",
+  PICKED_UP: "수거됨",
+  RECEIVED: "입고됨",
+  INSPECTED: "검수 마침",
+  APPROVED: "반품 승인",
+  REJECTED: "반품 거절",
+};
+
+/**
  * 택배사(`57`). 발송 폼이 고르는 값이고 사는 사람 화면이 그대로 읽는다 — 목록이 둘이면 한쪽만 늘어나는 날이 온다.
  */
 export const CARRIERS: Record<string, string> = {
@@ -67,6 +80,10 @@ export function shipmentStatusText(status: string): string {
 
 export function returnReasonText(reason: string): string {
   return RETURN_REASON[reason] ?? reason;
+}
+
+export function returnStatusText(status: string): string {
+  return RETURN_STATUS[status] ?? status;
 }
 
 export function carrierText(carrier: string): string {

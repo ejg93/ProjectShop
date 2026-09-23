@@ -111,6 +111,17 @@ function canReadSalesStats(me: Me | null): boolean {
   return can(me, "sales_stats", "read");
 }
 
+/**
+ * 웹훅을 건다(`Q175`). <b>{@code can} 으로 못 가른다</b> — 관리자도 {@code webhook:manage} 를 {@code ALL} 로 갖는데(`V110`),
+ * 이 화면은 내가 속한 셀러의 것을 다뤄서 관리자가 누르면 「속한 셀러가 없다」만 본다. {@code SELLER} 인 사람에게만 연다
+ */
+function canManageWebhooks(me: Me | null): boolean {
+  return me !== null
+    && me.permissions.some(
+      (granted) => granted.resource === "webhook" && granted.action === "manage" && granted.scopes.includes("SELLER"),
+    );
+}
+
 /** 후기 신고를 처리한다(`Q171`). 관리자만이다 — 셀러에게 열면 불리한 후기를 내리는 자리가 된다 */
 function canModerateReviews(me: Me | null): boolean {
   return can(me, "review", "moderate");
@@ -205,6 +216,9 @@ export async function SiteHeader() {
           ) : null}
           {canReadSalesStats(me) ? (
             <HeaderLink href="/seller/sales">매출</HeaderLink>
+          ) : null}
+          {canManageWebhooks(me) ? (
+            <HeaderLink href="/seller/webhooks">웹훅</HeaderLink>
           ) : null}
           {/*
             감사 기록은 관리자·감사자만 본다(`V12`). **관리자에게 갈 화면이 여기 하나뿐이다**

@@ -87,6 +87,9 @@ public enum ErrorCode {
     UNKNOWN_CONSENT_ITEM(HttpStatus.UNPROCESSABLE_CONTENT, "unknown-consent-item", "모르는 동의 항목이다"),
     REQUIRED_CONSENT_MISSING(HttpStatus.UNPROCESSABLE_CONTENT, "required-consent-missing",
             "필수 동의 항목이다"),
+    /** 만 19세 미만(`11b`). 형식은 맞는데 값이 규칙에 안 맞아서 422 다(`D5`) */
+    UNDERAGE_SIGNUP(HttpStatus.UNPROCESSABLE_CONTENT, "underage-signup",
+            "만 19세 미만은 가입할 수 없다"),
     CONSENT_DEPENDENCY(HttpStatus.UNPROCESSABLE_CONTENT, "consent-dependency",
             "먼저 동의해야 하는 항목이 있다"),
     REQUIRED_CONSENT_REVOKE(HttpStatus.UNPROCESSABLE_CONTENT, "required-consent-revoke",
@@ -332,6 +335,21 @@ public enum ErrorCode {
     // 나중에 데이터가 왜 이 모양인지 아무도 모른다.
     TRANSITION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "transition-reason-required",
             "관리자 처리에는 사유가 필요하다"),
+
+    // 웹훅(`29`). 키가 없으면 앱은 뜨고 웹훅만 멈춘다 — 기본 키를 코드에 두지 않는다(`D14`).
+    WEBHOOK_KEY_MISSING(HttpStatus.SERVICE_UNAVAILABLE, "webhook-key-missing",
+            "웹훅 시크릿 키가 설정되지 않았다"),
+    WEBHOOK_URL_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_CONTENT, "webhook-url-not-allowed",
+            "받을 수 없는 웹훅 주소다(https 만, 안쪽 대역 금지)"),
+    WEBHOOK_ENDPOINT_LIMIT(HttpStatus.UNPROCESSABLE_CONTENT, "webhook-endpoint-limit",
+            "셀러 하나에 걸 수 있는 웹훅 엔드포인트 수를 넘었다"),
+    WEBHOOK_ENDPOINT_DUPLICATE(HttpStatus.CONFLICT, "webhook-endpoint-duplicate", "이미 건 웹훅 주소다"),
+    WEBHOOK_ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "webhook-endpoint-not-found", "그런 웹훅 엔드포인트가 없다"),
+    WEBHOOK_FORBIDDEN(HttpStatus.FORBIDDEN, "webhook-forbidden", "그 셀러의 웹훅을 다룰 권한이 없다"),
+    WEBHOOK_DELIVERY_NOT_FOUND(HttpStatus.NOT_FOUND, "webhook-delivery-not-found", "그런 웹훅 발송이 없다"),
+    // 실패로 닫힌 발송만 다시 보낸다(`31`). 가는 중이거나 간 것을 다시 보내면 받는 쪽에 두 번 간다.
+    WEBHOOK_DELIVERY_NOT_RESENDABLE(HttpStatus.CONFLICT, "webhook-delivery-not-resendable",
+            "실패로 닫힌 웹훅 발송만 다시 보낼 수 있다"),
 
     // 배상 판정에 이은 문의가 그 묶음의 것이 아니다(`43a-4c`). 이으면 분쟁 기록이 다른 거래를 가리킨다.
     COMPENSATION_INQUIRY_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "compensation-inquiry-mismatch",

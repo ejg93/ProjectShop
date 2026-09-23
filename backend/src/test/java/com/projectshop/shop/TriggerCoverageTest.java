@@ -81,7 +81,9 @@ class TriggerCoverageTest extends PostgresTestBase {
             Map.entry("consent_item.consent_item_immutable",
                     "효력이 시작된 동의 항목을 못 고치게 막는다. `ConsentSchemaTest` 가 지난다"),
 
-            // 4. 자격·상태를 판정한다 — 아홉
+            // 4. 자격·상태를 판정한다 — 열
+            Map.entry("app_user.app_user_adult_only",
+                    "생년월일이 만 19세 미만이면 막는다(`11b`). `AuthSignupTest.AdultOnly` 가 입구를 안 지나고 넣어 밟는다"),
             Map.entry("app_user.app_user_email_needs_confirmation",
                     "확인 안 된 메일로 못 바꾸게 막는다. `EmailChangeTest` 가 지난다"),
             Map.entry("email_change_request.email_change_request_used_once",

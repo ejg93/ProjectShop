@@ -47,8 +47,8 @@ public class OrderActionService {
      */
     public enum Action {
 
-        SHIP("update_status", Shipment.SHIPPING),
-        DELIVER("update_status", Shipment.DELIVERED),
+        SHIP("update_status", Shipment.SHIPPING, Party.SELLER),
+        DELIVER("update_status", Shipment.DELIVERED, Party.SELLER),
 
         /**
          * 반품을 인정한다. 묶음이 닫힌다.
@@ -60,7 +60,7 @@ public class OrderActionService {
          * <p>승인까지 관리자인 근거는 제17조제5항이다(`D2` R37) — 훼손 책임의 입증이
          * 우리에게 있으므로 셀러의 소견이 곧 결론이 되면 안 된다.
          */
-        APPROVE_RETURN("approve_return", Shipment.RETURNED),
+        APPROVE_RETURN("approve_return", Shipment.RETURNED, Party.ADMIN),
 
         /**
          * 반품을 인정하지 않는다. 물건이 소비자에게 돌아가고 묶음은 배송완료로 되돌아간다.
@@ -68,28 +68,28 @@ public class OrderActionService {
          * <p><b>기산점은 안 움직인다</b>(`D7`) — {@code delivered} 로 갈 때 박제한 값이라
          * 다시 안 센다. {@link OrderStatusService} 가 이 복귀에서 기한을 다시 안 박는다.
          */
-        REJECT_RETURN("reject_return", Shipment.DELIVERED),
+        REJECT_RETURN("reject_return", Shipment.DELIVERED, Party.ADMIN),
 
         /**
          * 자기 주문을 스스로 무른다.
          *
-         * <p><b>미성년자 취소권(민법 제5조, `D2` R13)은 여기 없다.</b> 안 빠뜨린 것이고
-         * 일부러 안 넣었다 — 그 취소는 <b>주문한 사람이 아닌 제3자(법정대리인)가 부른다</b>.
-         * {@code scope=own} 으로는 표현할 방법이 없어서 계정에 생년월일과 대리인 관계가 먼저 있어야 한다.
-         *
-         * <p>그 축이 서는 것은 청크 `11b` 다. <b>그때까지 이 경로는 본인 취소만 받는다.</b>
+         * <p><b>미성년자 취소권(민법 제5조, `D2` R13)은 여기 없다</b> — 가입 입구가 생년월일을 받아 만 19세 미만을 막아서(`11b`)
+         * 법정대리인이 부를 거래가 안 생긴다. 생년월일이 빈 옛 계정·시드는 그 전에 만든 것이다. 그래서 이 경로는 본인 취소만 받는다.
+         * 미성년자 가입을 여는 날 이 동작의 주체가 는다.
          * 근거를 여기 적는 이유는, `D2` 에만 두면 이 코드를 고치는 사람이 문서를 안 열고 지나서다.
          */
-        CANCEL("cancel", Shipment.CANCELLED),
-        CONFIRM("confirm", Shipment.CONFIRMED),
-        REQUEST_RETURN("request_return", Shipment.RETURN_REQUESTED);
+        CANCEL("cancel", Shipment.CANCELLED, Party.BUYER_OR_SELLER),
+        CONFIRM("confirm", Shipment.CONFIRMED, Party.BUYER),
+        REQUEST_RETURN("request_return", Shipment.RETURN_REQUESTED, Party.BUYER);
 
         private final String permission;
         private final Shipment to;
+        private final Party party;
 
-        Action(String permission, Shipment to) {
+        Action(String permission, Shipment to, Party party) {
             this.permission = permission;
             this.to = to;
+            this.party = party;
         }
 
         public String permission() {
@@ -98,6 +98,31 @@ public class OrderActionService {
 
         Shipment to() {
             return to;
+        }
+    }
+
+    /**
+     * 동작이 누구 몫인가(`Q202`). <b>판정과 다른 물음이다</b> — 관리자는 모든 권한을 {@code all} 로 가져서
+     * 판정만으로는 구매확정·발송까지 관리자에게 열린다. 버튼을 고르는 {@link #allowedActions} 가 이것으로 한 번 더 거른다.
+     * 입구 판정은 그대로다 — {@code Q198} 이 상품에서 한 것과 같은 모양이다.
+     */
+    enum Party {
+        /** 주문한 사람 몫 */
+        BUYER,
+        /** 그 셀러 소속 몫 */
+        SELLER,
+        /** 둘 다 부를 수 있다 */
+        BUYER_OR_SELLER,
+        /** 주문자도 소속도 아닌 사람(관리자) 몫 — 반품 판정 */
+        ADMIN;
+
+        boolean offeredTo(boolean buyer, boolean member) {
+            return switch (this) {
+                case BUYER -> buyer;
+                case SELLER -> member;
+                case BUYER_OR_SELLER -> buyer || member;
+                case ADMIN -> !buyer && !member;
+            };
         }
     }
 
@@ -162,8 +187,8 @@ public class OrderActionService {
     /**
      * 이 사람이 이 묶음을 강제로 옮길 수 있는 곳(`16c`). 권한이 없으면 비어 있다.
      *
-     * <p>{@link #allowedActions} 와 따로 둔다 — 관리자는 모든 권한을 {@code all} 로 가져서 거기에 구매확정·반품 요청
-     * 같은 고객 동작까지 섞여 온다(`Q176`). 강제 전이 버튼은 이 판정 하나로 고른다.
+     * <p>{@link #allowedActions} 와 따로 둔다 — 그쪽은 전이표 안의 화살표만 권하고(관리자에게는 반품 판정만, `Q202`)
+     * 강제 전이는 전이표 밖의 이동이다. 강제 전이 버튼은 이 판정 하나로 고른다.
      */
     public List<String> forcibleStatuses(long userId, long buyerUserId, long sellerId, String status) {
         Target target = Target.of(buyerUserId, sellerId).inStatus(status);
@@ -233,7 +258,7 @@ public class OrderActionService {
      *
      * <p><b>{@link Action} 이 아니다.</b> 입고는 반품 표 안의 진행이고 묶음을 안 옮긴다 —
      * {@code Action} 은 옮겨 놓을 상태를 들고 있어야 해서 여기 안 들어온다.
-     * 그래서 {@code allowed_actions} 에도 안 실린다(`43a-3` 이 반품 진행 화면에서 답한다).
+     * 그래서 묶음의 {@code allowed_actions} 에 안 실리고 반품 진행의 목록({@link #returnActions})에 실린다(`43a-5`).
      *
      * <p>대신 <b>판정과 행위자 결정은 같은 자리를 지난다</b>. 갈라 두면 이 경로만
      * 스코프를 안 보게 되는 날이 온다.
@@ -241,7 +266,7 @@ public class OrderActionService {
      * <p><b>입고 시각이 환급 기산점이다</b> — 제18조제2항 1호(`D2` R5).
      */
     @Transactional
-    public void receiveReturn(long userId, String sellerOrderNumber, String reason) {
+    public void receiveReturn(long userId, String sellerOrderNumber, String reason, String inspectionNote) {
         Row row = find(sellerOrderNumber);
 
         Target target = Target.of(row.buyerUserId(), row.sellerId()).inStatus(row.status());
@@ -249,7 +274,7 @@ public class OrderActionService {
             throw notFound(sellerOrderNumber);
         }
 
-        returns.receive(row.sellerOrderId(), actorOf(userId, row, reason));
+        returns.receive(row.sellerOrderId(), actorOf(userId, row, reason), inspectionNote);
     }
 
     /**
@@ -267,9 +292,30 @@ public class OrderActionService {
      * <p>이름은 {@link Action} 그대로다. <b>소문자·하이픈으로 바꾸면 경로가 된다</b> —
      * {@code REQUEST_RETURN} 이 {@code /api/shipments/{번호}/request-return} 이다.
      * 화면이 동작마다 경로를 표로 들고 있지 않게 하려는 것이다.
+     *
+     * @param returnRequest 이 묶음의 반품 진행. 없으면 null — 승인을 권할지가 입고에 걸려 있다
      */
-    public List<String> allowedActions(long userId, long buyerUserId, long sellerId, String status) {
+    public List<String> allowedActions(long userId, long buyerUserId, long sellerId, String status,
+            ReturnRequestQuery.Progress returnRequest) {
+        return allowedActions(userId, memberOf(userId), buyerUserId, sellerId, status, returnRequest);
+    }
+
+    /**
+     * 소속을 미리 읽어 온 판(`Q202`). 주문 상세처럼 묶음이 여럿이면 부르는 쪽이 {@link #memberOf} 를 한 번 읽어 넘긴다 —
+     * 묶음마다 읽으면 묶음 수만큼 질의가 는다.
+     *
+     * <p><b>누구 몫인지로 거른다</b>({@link Party}). 판정을 통과한 동작 중에서 주문자에게는 주문자 몫을, 소속에게는
+     * 셀러 몫을, 둘 다 아닌 사람(관리자)에게는 관리자 몫(반품 판정)만 권한다.
+     *
+     * <p><b>입고 전에는 승인을 안 권한다</b>(`43a-5`). 판정이 입고를 요구해서({@code RETURN_NOT_RECEIVED}, `V63`)
+     * 권하면 누르는 순간 튕기는 버튼이 된다. 거절은 입고 없이도 된다.
+     */
+    public List<String> allowedActions(long userId, Set<Long> memberOf, long buyerUserId, long sellerId,
+            String status, ReturnRequestQuery.Progress returnRequest) {
         Shipment from = Shipment.of(status);
+        boolean buyer = userId == buyerUserId;
+        boolean member = memberOf.contains(sellerId);
+        boolean received = returnRequest != null && returnRequest.received();
         Target target = Target.of(buyerUserId, sellerId).inStatus(status);
 
         Set<String> permitted = evaluator.allowedActions(userId, "order",
@@ -281,8 +327,38 @@ public class OrderActionService {
         return Arrays.stream(Action.values())
                 .filter(action -> permitted.contains(action.permission()))
                 .filter(action -> OrderTransitions.allows(from, action.to()))
+                .filter(action -> action.party.offeredTo(buyer, member))
+                .filter(action -> action != Action.APPROVE_RETURN || received)
                 .map(Enum::name)
                 .toList();
+    }
+
+    /**
+     * 반품 진행 안에서 이 사람이 할 수 있는 것(`43a-5`). 지금은 입고({@code RECEIVE}) 하나다.
+     *
+     * <p><b>묶음의 목록과 가른다.</b> 입고는 묶음을 안 옮기고 경로가 {@code /api/returns/{번호}/receive} 라
+     * 묶음 목록의 「이름이 곧 경로」 짝에 못 들어간다({@link ReturnController}).
+     *
+     * <p><b>셀러 몫이다</b> — 물건이 왔는지는 받아 본 쪽이 안다. 관리자는 사유를 달고 입구를 직접 부를 수 있지만
+     * 화면이 권하지는 않는다({@link Party} 와 같은 판단).
+     */
+    public List<String> returnActions(long userId, Set<Long> memberOf, long buyerUserId, long sellerId,
+            String status, ReturnRequestQuery.Progress returnRequest) {
+        if (returnRequest == null || !returnRequest.receivable() || !memberOf.contains(sellerId)) {
+            return List.of();
+        }
+        Target target = Target.of(buyerUserId, sellerId).inStatus(status);
+        return evaluator.allowedActions(userId, "order", Set.of("receive_return"), target).contains("receive_return")
+                ? List.of("RECEIVE")
+                : List.of();
+    }
+
+    /** 이 사람이 속한 셀러들. 버튼을 고를 때 한 번 읽는다 */
+    public Set<Long> memberOf(long userId) {
+        return jdbc.sql("select seller_id from seller_member where user_id = :userId")
+                .param("userId", userId)
+                .query(Long.class)
+                .set();
     }
 
     private Row find(String sellerOrderNumber) {

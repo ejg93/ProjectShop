@@ -1,5 +1,6 @@
 package com.projectshop.shop.account;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -55,6 +56,8 @@ public class AccountService {
      *
      * @param displayName {@code basic} 그룹
      * @param createdAt   {@code basic} 그룹
+     * @param birthDate   {@code birth} 그룹. 가입 때 받는다(`11b`) — 그 전에 가입한 계정은 없어서 키가 빠진다.
+     *                    받아 둔 값이라 열람 대상이다(개인정보 보호법 제35조, `D2` R28)
      * @param email       {@code contact} 그룹
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -62,12 +65,13 @@ public class AccountService {
             long userId,
             String displayName,
             OffsetDateTime createdAt,
+            LocalDate birthDate,
             String email,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
     }
 
     /** DB 에서 읽은 그대로. 무엇을 내릴지는 판정이 정한다. */
-    private record Row(String displayName, String email, OffsetDateTime createdAt) {
+    private record Row(String displayName, String email, OffsetDateTime createdAt, LocalDate birthDate) {
     }
 
     public Account read(long userId) {
@@ -79,7 +83,7 @@ public class AccountService {
         // RowMapper 로 읽는다. Map 으로 받으면 timestamptz 가 java.sql.Timestamp 로 와서
         // OffsetDateTime 으로 캐스팅할 수 없다.
         Row row = jdbc.sql("""
-                        select display_name, email, created_at
+                        select display_name, email, created_at, birth_date
                           from app_user
                          where user_id = :id and deleted_at is null
                         """)
@@ -87,13 +91,15 @@ public class AccountService {
                 .query((rs, rowNum) -> new Row(
                         rs.getString("display_name"),
                         rs.getString("email"),
-                        rs.getObject("created_at", OffsetDateTime.class)))
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        rs.getObject("birth_date", LocalDate.class)))
                 .single();
 
         return new Account(
                 userId,
                 decision.canSee(UserFields.BASIC) ? row.displayName() : null,
                 decision.canSee(UserFields.BASIC) ? row.createdAt() : null,
+                decision.canSee(UserFields.BIRTH) ? row.birthDate() : null,
                 decision.canSee(UserFields.CONTACT) ? row.email() : null,
                 // 제한이 없으면 빈 배열로 나간다. 그 값이 응답에서 "전부 본다" 를 뜻하는 것은
                 // 안쪽에서 타입으로 가른 것과 달리 여전히 모호하다 — 화면 청크(13b)가 그걸 정한다.

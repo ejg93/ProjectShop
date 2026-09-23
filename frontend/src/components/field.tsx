@@ -33,7 +33,7 @@ export function Field({
   maxLength,
 }: {
   name: string;
-  type: "email" | "password" | "text";
+  type: "email" | "password" | "text" | "date";
   label: string;
   autoComplete: string;
   invalid?: boolean;

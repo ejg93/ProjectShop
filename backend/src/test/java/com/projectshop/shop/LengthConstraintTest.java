@@ -74,6 +74,8 @@ class LengthConstraintTest extends PostgresTestBase {
      */
     static Stream<Arguments> pairs() {
         return Stream.of(
+                Arguments.of("webhook_endpoint_url_length_check", List.of(
+                        component(com.projectshop.shop.webhook.WebhookEndpointController.RegisterRequest.class, "url"))),
                 Arguments.of("app_user_email_length_check", List.of(
                         component(com.projectshop.shop.auth.AuthController.SignupRequest.class, "email"),
                         component(com.projectshop.shop.account.MeController.EmailRequest.class, "email"))),
@@ -154,6 +156,16 @@ class LengthConstraintTest extends PostgresTestBase {
                 Arguments.of("return_note_decision_reason_length_check", List.of(
                         component(com.projectshop.shop.order.ShipmentController.RejectReturnRequest.class,
                                 "decisionReason"))),
+                Arguments.of("compensation_note_reason_length_check", List.of(
+                        component(com.projectshop.shop.compensation.CompensationController.DecideRequest.class,
+                                "basis"))),
+                Arguments.of("seller_invitation_email_length_check", List.of(
+                        // 컨트롤러가 패키지 전용이라 이름으로 읽는다 — 시험 때문에 운영 코드의 가시성을 안 연다.
+                        component(recordNamed("com.projectshop.shop.seller.SellerMemberController$InviteRequest"),
+                                "email"))),
+                Arguments.of("return_note_inspection_note_length_check", List.of(
+                        component(com.projectshop.shop.order.ReturnController.ReceiveRequest.class,
+                                "inspectionNote"))),
                 Arguments.of("refund_note_request_reason_length_check", List.of(
                         component(com.projectshop.shop.payment.RefundController.RefundRequest.class, "reason"))),
                 Arguments.of("refund_note_decision_reason_length_check", List.of(
@@ -181,27 +193,25 @@ class LengthConstraintTest extends PostgresTestBase {
      * <p>값이 「왜 앱 검증과 대조할 것이 없나」다. 답이 안 되면 {@code pairs()} 로 가야 한다.
      */
     private static final Map<String, String> NOT_COMPARED = new java.util.TreeMap<>(Map.ofEntries(
+            Map.entry("webhook_delivery_last_error_length_check",
+                    "요청으로 안 들어온다 — 발송기가 짧은 문장만 적는다(`30`). 받는 쪽의 응답 본문은 안 담는다"),
             Map.entry("email_change_request_token_hash_length_check",
                     "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5e-1`)"),
             Map.entry("password_reset_token_hash_length_check",
                     "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5c-1`)"),
             Map.entry("seller_invitation_token_hash_length_check",
                     "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5a`)"),
-            Map.entry("seller_invitation_email_length_check",
-                    "초대 입구가 아직 없다(`16a`). 값은 짝인 app_user.email 과 같은 254 다"),
-            Map.entry("compensation_note_reason_length_check",
-                    "쓰는 코드가 아직 없다 — 배상을 넣는 입구가 `43a-4c` 다. 그 입구가 서면 pairs() 로 옮긴다"),
             Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),
             Map.entry("idempotency_key_length_check", "헤더로 받은 키를 그대로 저장한다. 요청 record 의 칸이 아니다"),
-            // 수거지 넷은 **아직 요청 입구가 없다**(`Q73`). 표는 `V63` 이 세웠고 화면과 입구는
-            // `43a-5` 가 연다 — 그 청크가 record 를 만들 때 이 넷을 위 pairs() 로 옮긴다.
+            // 수거지 넷은 **요청 입구를 안 세운다**(2026-09-23 결정, `43a-5`) — 배송지를 수거지로 쓰고 다른 곳 수거는
+            // 문의로 받는다. 표는 `V63` 이 세운 채 남았다. 입구를 세우는 날 이 넷을 위 pairs() 로 옮긴다.
             // 값은 짝인 order_shipping 과 맞춰 뒀으므로 그때 새로 정할 것이 없다.
             // 상한이 **목록 원소**에 붙어 있다 — `List<@NotBlank @Size(max = 50) String> values`.
             // 이 대조는 record 칸의 애노테이션을 읽으므로 원소 쪽은 안 보인다. 수는 옵션 이름과 같은 50 이고
             // 갈리면 ProductOptionTest 가 잡는다. 원소까지 읽게 만드는 것은 이 대조가 아니라 청크가 할 일이다.
             Map.entry("product_option_value_value_length_check",
                     "상한이 ProductController.OptionRequest.values 의 원소 @Size 라 record 칸이 아니다"),
-            Map.entry("return_pickup_sender_name_length_check", "수거지 입구가 아직 없다(`43a-5`). 값은 order_shipping 과 같다"),
+            Map.entry("return_pickup_sender_name_length_check", "수거지 입구를 안 세운다(`43a-5` 결정). 값은 order_shipping 과 같다"),
             Map.entry("return_pickup_address1_length_check", "〃"),
             Map.entry("return_pickup_address2_length_check", "〃"),
             Map.entry("return_pickup_pickup_memo_length_check", "〃"),
@@ -209,8 +219,8 @@ class LengthConstraintTest extends PostgresTestBase {
             Map.entry("payment_card_issuer_length_check", "결제 대행사가 준 값이다"),
             Map.entry("payment_decline_reason_length_check", "결제 대행사가 준 값이다"),
             Map.entry("refund_gateway_refund_number_length_check", "결제 대행사가 준 값이다"),
-            Map.entry("return_note_inspection_note_length_check", "쓰는 코드가 아직 없다 — 검수 소견을 남기는 입구가 `43a` 다. 그 입구가 서면 pairs() 로 옮긴다"),
-            Map.entry("return_note_request_reason_length_check", "쓰는 코드가 아직 없다 — 반품 접수 입구가 `43a` 다. 그 입구가 서면 pairs() 로 옮긴다"),
+            Map.entry("return_note_request_reason_length_check",
+                    "쓰는 코드가 없다 — 반품 접수의 글은 order_status_history_note 로 간다(`43a`, ShipmentController.ReturnRequest.reason)"),
             Map.entry("product_image_object_key_length_check",
                     "저장소 열쇠는 앱이 만든다(`product/{UUID}/{이름}.{확장자}`) — 요청에 그런 칸이 없다"),
             Map.entry("product_image_thumbnail_key_length_check", "〃"),
@@ -323,7 +333,7 @@ class LengthConstraintTest extends PostgresTestBase {
     /**
      * <b>입구가 아니라 서비스가 빈 값을 막는 자리</b>({@code Q108}, 마무리 29차 독립 리뷰가 잡았다).
      *
-     * <p>여기 있는 넷은 요청 record 에 일부러 {@code @NotBlank} 를 <b>안 건다.</b>
+     * <p>여기 있는 다섯은 요청 record 에 일부러 {@code @NotBlank} 를 <b>안 건다.</b>
      * 걸면 빈 사유가 <b>400 으로 떨어지는데, 형식은 맞고 값이 규칙에 안 맞는 것이라 422 다</b>
      * ({@code D5}, {@code ShipmentController.RejectReturnRequest} 의 javadoc 이 그 결정을 든다).
      * {@code @Size(min = 1)} 도 같은 400 을 만들므로 같이 안 쓴다.
@@ -340,7 +350,9 @@ class LengthConstraintTest extends PostgresTestBase {
             "refund_note_decision_reason_length_check",
             "RefundService#reject 가 TRANSITION_REASON_REQUIRED(422) 로 막는다",
             "refund_note_request_reason_length_check",
-            "RefundService 가 blankToNull 로 빈 값을 null 로 바꿔서 넣는다");
+            "RefundService 가 blankToNull 로 빈 값을 null 로 바꿔서 넣는다",
+            "return_note_inspection_note_length_check",
+            "ReturnRequestService#receive 가 빈 소견이면 행을 안 쓰고 입고만 적는다 — 소견은 고르는 칸이다(`43a-5`)");
 
     /**
      * 제약이 빈 문자열을 막나. <b>아래쪽 경계가 하나라도 있으면 막는다</b> —
@@ -417,6 +429,14 @@ class LengthConstraintTest extends PostgresTestBase {
             throw new AssertionError("record 인데 칸에 맞는 필드가 없다: " + component, e);
         }
         return found;
+    }
+
+    private static Class<?> recordNamed(String binaryName) {
+        try {
+            return Class.forName(binaryName);
+        } catch (ClassNotFoundException e) {
+            throw new AssertionError(binaryName + " 가 없다 — 요청 record 가 옮겨졌으면 이 줄도 고친다", e);
+        }
     }
 
     private static RecordComponent component(Class<?> record, String name) {

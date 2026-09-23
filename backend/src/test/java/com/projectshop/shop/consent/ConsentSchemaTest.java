@@ -99,6 +99,8 @@ class ConsentSchemaTest extends PostgresTestBase {
             Map<String, Object> row = jdbc.sql("""
                             select purpose, collected_items, retention_period, refusal_disadvantage
                               from consent_item where code = 'privacy_collect'
+                             order by effective_at desc, version desc
+                             limit 1
                             """)
                     .query()
                     .singleRow();
@@ -111,14 +113,29 @@ class ConsentSchemaTest extends PostgresTestBase {
         @Test
         @DisplayName("수집 항목에 접속 IP 가 적혀 있다")
         void discloseActedIp() {
-            String items = jdbc.sql(
-                            "select collected_items from consent_item where code = 'privacy_collect'")
-                    .query(String.class)
-                    .single();
-
-            assertThat(items)
+            assertThat(currentCollectedItems())
                     .as("user_consent.acted_ip 를 실제로 받고 있다. 스키마에 있는데 고지에 없으면 근거 없이 받는 것이다")
                     .contains("IP");
+        }
+
+        @Test
+        @DisplayName("수집 항목에 생년월일이 적혀 있다")
+        void discloseBirthDate() {
+            assertThat(currentCollectedItems())
+                    .as("가입 때 app_user.birth_date 를 받는다(`11b`). 고지에 없으면 알리지 않고 받는 것이다")
+                    .contains("생년월일");
+        }
+
+        /** 지금 효력 있는 판. 판이 쌓이므로 코드만으로 고르면 여럿이 나온다 */
+        private String currentCollectedItems() {
+            return jdbc.sql("""
+                            select collected_items from consent_item
+                             where code = 'privacy_collect' and effective_at <= now()
+                             order by effective_at desc, version desc
+                             limit 1
+                            """)
+                    .query(String.class)
+                    .single();
         }
 
         @Test

@@ -454,6 +454,29 @@ class OrderActionTest extends PostgresTestBase {
             assertThat(allowedForBuyer(number)).containsExactly("CANCEL");
         }
 
+        /**
+         * 관리자에게는 관리자 몫만 권한다(`Q202`). 모든 권한을 {@code all} 로 가져서 판정만으로는 구매확정·발송까지
+         * 열린다 — 고객 화면은 누가 열든 이 목록을 그려서, 관리자가 남의 주문을 확정하는 버튼을 받았다.
+         */
+        @Test
+        @DisplayName("관리자에게는 남의 몫 동작이 안 내려가고 반품 판정만 내려간다")
+        void adminGetsOnlyAdminActions() {
+            long admin = fixture.insertUser("oa-q202-admin@test.local", "관리자");
+            fixture.grantGlobal(admin, "admin");
+
+            String paid = paidShipment();
+            assertThat(orders.findByNumber(admin, orderNumberOf(paid)).sellerOrders().getFirst().allowedActions())
+                    .as("발송·취소는 셀러와 고객 몫이다").isEmpty();
+
+            actions.run(alphaOwner, paid, Action.SHIP, null);
+            actions.run(alphaOwner, paid, Action.DELIVER, null);
+            assertThat(allowedFor(admin, paid)).as("구매확정·반품 요청은 고객 몫이다").isEmpty();
+
+            actions.run(buyer, paid, Action.REQUEST_RETURN, null);
+            assertThat(allowedFor(admin, paid)).as("승인은 입고 뒤에 선다(`43a-5`)").containsExactly("REJECT_RETURN");
+            assertThat(allowedForBuyer(paid)).as("고객은 판정을 못 받는다").isEmpty();
+        }
+
         @Test
         @DisplayName("고객은 배송받으면 확정과 반품접수가 열린다")
         void buyerAtDelivered() {

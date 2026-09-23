@@ -70,7 +70,7 @@ class EmailAddressTest {
 
     private static AuthController.SignupRequest signupWith(String email) {
         return new AuthController.SignupRequest(
-                email, "aaaaaaaaaaaaaaaa", "이름", Map.of("terms", true));
+                email, "aaaaaaaaaaaaaaaa", "이름", java.time.LocalDate.of(1990, 1, 1), Map.of("terms", true));
     }
 
     private static MeController.EmailRequest changeWith(String email) {

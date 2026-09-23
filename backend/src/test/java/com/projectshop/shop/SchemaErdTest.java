@@ -63,7 +63,7 @@ class SchemaErdTest extends PostgresTestBase {
         GROUPS.put("account", List.of(
                 "app_user", "user_consent", "consent_item", "policy_document",
                 "email_change_request", "password_reset_token", "seller", "seller_member",
-                "seller_invitation"));
+                "seller_invitation", "webhook_endpoint", "webhook_delivery"));
         GROUPS.put("settlement", List.of(
                 "settlement", "settlement_cycle", "settlement_item",
                 "refund", "refund_item", "refund_note", "seller_daily_sales"));

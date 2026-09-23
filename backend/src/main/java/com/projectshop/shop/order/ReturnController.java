@@ -23,7 +23,8 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  * <p><b>판정 둘은 여기 없다.</b> 승인·거절은 묶음을 옮기므로 {@code ShipmentController} 가
  * {@code approve-return}·{@code reject-return} 으로 받는다.
  *
- * <p>지금 하나뿐인 이유는 수거지·검수 소견이 아직 없어서다 — `43a-3` 이 세운다.
+ * <p>하나뿐인 이유는 검수를 입고 안에서 받아서다(`43a-5`) — 소견을 적으면 한 번에 검수까지 간다.
+ * 수거지는 배송지를 쓴다(2026-09-23 결정).
  */
 @RestController
 @RequestMapping("/api/returns")
@@ -35,8 +36,12 @@ public class ReturnController {
         this.actions = actions;
     }
 
-    /** 관리자가 대신 적을 때만 채운다(`D7`) */
-    public record ReceiveRequest(@Size(max = 500) String reason) {
+    /**
+     * @param reason         관리자가 대신 적을 때만 채운다(`D7`)
+     * @param inspectionNote 검수 소견(`43a-5`). 적으면 한 번에 검수까지 가고, 비우면 입고만 적는다.
+     *                       상한은 {@code return_note_inspection_note_length_check} 와 같다
+     */
+    public record ReceiveRequest(@Size(max = 500) String reason, @Size(max = 500) String inspectionNote) {
     }
 
     /**
@@ -55,7 +60,8 @@ public class ReturnController {
             @Valid @RequestBody(required = false) ReceiveRequest request) {
 
         actions.receiveReturn(user.id(), sellerOrderNumber,
-                request == null ? null : request.reason());
+                request == null ? null : request.reason(),
+                request == null ? null : request.inspectionNote());
 
         return ResponseEntity.noContent().build();
     }

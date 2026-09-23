@@ -116,22 +116,34 @@ public class ReturnRequestService {
      * 정했다(`D2` R5). 승인이 입고를 요구하는 것도 같은 이유고, `V63` 의
      * {@code return_request_timeline_check} 가 그것을 막고 있다.
      *
-     * @param actor 입고를 적은 사람. 받아 본 셀러다
+     * <p><b>소견을 같이 적으면 한 번에 검수까지 간다</b>(`43a-5`). 받아 본 사람이 곧 검수한 사람이라
+     * {@code inspected_at}·{@code inspected_by_user_id} 가 입고와 같은 시각·같은 사람이다. 소견은 제17조제5항의
+     * 훼손 책임을 입증하는 근거라(`D2` R37) 글로 남긴다. 소견 없는 입고는 {@code received} 에 멈추고,
+     * 판정은 어느 쪽이든 {@code received_at} 만 본다.
+     *
+     * @param actor          입고를 적은 사람. 받아 본 셀러다
+     * @param inspectionNote 검수 소견. 비었으면 입고만 적는다
      */
-    void receive(long sellerOrderId, Actor actor) {
+    void receive(long sellerOrderId, Actor actor, String inspectionNote) {
         actorMustBePerson(actor, "입고");
 
         long returnRequestId = openReturnIdOf(sellerOrderId);
+        boolean inspected = inspectionNote != null && !inspectionNote.isBlank();
 
         int moved = jdbc.sql("""
                         update return_request
-                           set status = :received, received_at = now()
+                           set status               = :to,
+                               received_at          = now(),
+                               inspected_at         = case when :inspected then now() end,
+                               inspected_by_user_id = case when :inspected then cast(:userId as bigint) end
                          where return_request_id = :id
                            and status in (:requested, :pickedUp)
                         """)
                 // **열거형이 값을 댄다**(`43a-18`). 리터럴로 두면 타입을 고쳐도 이 쓸이
                 // 옛 글자를 물고 **조용히 아무도 안 걸린다**.
-                .param("received", ReturnStatus.RECEIVED.code())
+                .param("to", (inspected ? ReturnStatus.INSPECTED : ReturnStatus.RECEIVED).code())
+                .param("inspected", inspected)
+                .param("userId", actor.userId())
                 .param("requested", ReturnStatus.REQUESTED.code())
                 .param("pickedUp", ReturnStatus.PICKED_UP.code())
                 .param("id", returnRequestId)
@@ -141,6 +153,18 @@ public class ReturnRequestService {
             // 이미 입고됐거나 검수까지 갔다. 대상 행의 현재 상태와의 충돌이라 409 다(`D5`).
             throw new ShopException(ErrorCode.ORDER_TRANSITION_NOT_ALLOWED,
                     "이미 입고된 반품이다 (return_request_id=%d)".formatted(returnRequestId));
+        }
+
+        if (inspected) {
+            jdbc.sql("""
+                            insert into return_note (return_request_id, inspection_note)
+                            values (:id, :note)
+                            on conflict (return_request_id)
+                                do update set inspection_note = excluded.inspection_note
+                            """)
+                    .param("id", returnRequestId)
+                    .param("note", inspectionNote)
+                    .update();
         }
     }
 

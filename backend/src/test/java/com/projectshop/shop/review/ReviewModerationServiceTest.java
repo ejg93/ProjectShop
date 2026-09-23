@@ -319,6 +319,24 @@ class ReviewModerationServiceTest extends PostgresTestBase {
                     .isEqualTo("accepted");
         }
 
+        /**
+         * 내린 뒤 쓴 사람이 지운 후기를 관리자가 풀면 자리만 풀린다(`Q203`, 사용자 결정). 글은 지운 채다 —
+         * 스스로 지운 글을 우리가 되살리지 않는다. 풀리기 전에는 `V105` 트리거가 새 후기를 막는다.
+         */
+        @Test
+        @DisplayName("내린 뒤 지운 후기를 풀면 같은 주문에 새로 쓸 수 있고 글은 지운 채다")
+        void 지운_후기를_풀면_자리가_풀린다() {
+            block();
+            reviews.delete(buyerId, reviewId);
+
+            moderation.restore(adminId, reviewId, "이의제기 Q-20260923-ABCDEF 를 받아들였다");
+            reviews.create(buyerId, new ReviewService.NewReview(orderItemId(), 5, "다시 씁니다 열 자 넘게"));
+
+            assertThat(jdbc.sql("select deleted_at is not null from review where review_id = :id")
+                    .param("id", reviewId).query(Boolean.class).single())
+                    .as("풀어도 글은 안 돌아온다").isTrue();
+        }
+
         private void block() {
             jdbc.sql("update review set blocked_at = now(), blocked_reason = 'abuse' where review_id = :id")
                     .param("id", reviewId)

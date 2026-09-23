@@ -124,6 +124,7 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `order` | `payment` | 결제 수단, 승인번호 |
 | `user` | `basic` | 표시 이름, 가입일 |
 | `user` | `contact` | 전자우편, 연락처 |
+| `user` | `birth` | 생년월일(`11b`, `V112`). `contact` 를 받는 역할만 받는다 — 감사자는 못 본다 |
 
 ## 지금 데이터 — 역할 × 권한 매트릭스
 
@@ -151,6 +152,7 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `payment:refund` | | | A/all | D/all |
 | `compensation:read` | | | A/all | A/all |
 | `compensation:decide` | | | A/all | D/all |
+| `webhook:manage` | | A/seller(대표만) | A/all | D/all |
 | `user:read` | A/own | A/own | A/all | A/all |
 | `user:update` | A/own | A/own | A/all | D/all |
 | `role:read` | | | A/all | A/all |
@@ -165,8 +167,8 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | seller | `order:read` | basic, shipping |
 | auditor | `order:read` | basic, shipping |
 | admin | `order:read` | 연결 없음 → 제한 없음 |
-| customer | `user:read` | basic, contact |
-| seller | `user:read` | basic, contact |
+| customer | `user:read` | basic, contact, birth |
+| seller | `user:read` | basic, contact, birth |
 | auditor | `user:read` | basic |
 | admin | `user:read` | 연결 없음 → 제한 없음 |
 

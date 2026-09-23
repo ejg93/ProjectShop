@@ -58,8 +58,11 @@ export function ReportActions({ reportId }: { reportId: number }) {
 /**
  * 내린 후기를 되살린다(`Q171`). <b>이유를 적어야 누른다</b> — 이 이유가 감사에 남고(`Q167`),
  * 「누가 왜 되살렸나」에 답하는 자리가 이것뿐이다.
+ *
+ * <p><b>쓴 분이 지운 후기는 「자리 풀기」다</b>(`Q203`). 같은 입구를 부르지만 글은 안 돌아오고 내림만 걷힌다 —
+ * 그 주문에 새 후기를 쓸 수 있게 된다. 문구를 가르는 이유는 누르는 사람이 글이 살아난다고 믿지 않게다.
  */
-export function RestoreForm({ reviewId }: { reviewId: number }) {
+export function RestoreForm({ reviewId, deleted = false }: { reviewId: number; deleted?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -87,7 +90,7 @@ export function RestoreForm({ reviewId }: { reviewId: number }) {
         onClick={() => setOpen(true)}
         className="justify-self-start rounded-ui border border-border px-3 py-1 text-xs font-medium"
       >
-        후기 되살리기
+        {deleted ? "자리 풀기" : "후기 되살리기"}
       </button>
     );
   }
@@ -95,7 +98,7 @@ export function RestoreForm({ reviewId }: { reviewId: number }) {
   return (
     <form onSubmit={submit} className="grid gap-2">
       <label className="grid gap-1.5">
-        <span className="font-medium">되살리는 이유</span>
+        <span className="font-medium">{deleted ? "자리를 푸는 이유" : "되살리는 이유"}</span>
         {/* 상한을 상수로 안 뺀다 — `ScreenLengthTest` 가 이 숫자를 서버 `@Size` 와 맞댄다 */}
         <textarea
           name="note"
@@ -106,7 +109,10 @@ export function RestoreForm({ reviewId }: { reviewId: number }) {
           onChange={(event) => setNote(event.target.value)}
           className="rounded-ui border border-border bg-surface px-3 py-2 text-sm"
         />
-        <span className="text-text-muted">이의제기 문의 번호나 판단 근거를 적어 주세요.</span>
+        <span className="text-text-muted">
+          이의제기 문의 번호나 판단 근거를 적어 주세요.
+          {deleted ? " 글은 쓴 분이 지워서 돌아오지 않고, 같은 주문에 새 후기를 쓸 수 있게 됩니다." : null}
+        </span>
       </label>
       <p role="alert" className="text-sm text-danger-text">
         {failure}
@@ -117,7 +123,7 @@ export function RestoreForm({ reviewId }: { reviewId: number }) {
           disabled={pending}
           className="rounded-ui border border-border px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
-          되살리기
+          {deleted ? "자리 풀기" : "되살리기"}
         </button>
         <button
           type="button"

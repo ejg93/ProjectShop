@@ -3,12 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { OrderActions } from "@/components/order-actions";
+import { type ReturnProgress, ReturnProgressView } from "@/components/return-progress";
 import { ApiError } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
 import { carrierText, returnReasonText, shipmentStatusText } from "@/lib/order-text";
 
 import { SELLER_ACTIONS } from "../actions";
+import { ReceiveForm } from "./receive-form";
 import { ShipForm } from "./ship-form";
 
 export const metadata: Metadata = { title: "받은 주문 상세 · ProjectShop" };
@@ -48,6 +50,8 @@ type SellerOrderDetail = {
   createdAt: string;
   /** 반품이 아니면 응답에 아예 없다(`11c-2c`) */
   returnReason?: string;
+  /** 가장 최근 반품의 진행(`43a-5`). 반품이 없으면 응답에 없다 */
+  returnRequest?: ReturnProgress;
   items: Item[];
   allowedActions: string[];
   shipping?: Shipping;
@@ -99,6 +103,7 @@ export default async function SellerOrderDetailPage({
       </div>
 
       {order.returnReason ? <ReturnNotice reason={order.returnReason} /> : null}
+      {order.returnRequest ? <ReturnProgressView progress={order.returnRequest} /> : null}
 
       <Section title="처리 시각">
         <Facts
@@ -166,6 +171,9 @@ export default async function SellerOrderDetailPage({
       ) : null}
 
       {order.allowedActions.includes("SHIP") ? <ShipForm sellerOrderNumber={order.sellerOrderNumber} /> : null}
+      {order.returnRequest?.allowedActions.includes("RECEIVE") ? (
+        <ReceiveForm sellerOrderNumber={order.sellerOrderNumber} />
+      ) : null}
 
       <OrderActions
         sellerOrderNumber={order.sellerOrderNumber}
@@ -183,7 +191,8 @@ export default async function SellerOrderDetailPage({
  * 기한도 3개월이라, 그 사실을 화면 위쪽에 둔다 — 아래에 묻으면 못 보고 처리한다.
  */
 function ReturnNotice({ reason }: { reason: string }) {
-  const defect = reason === "defect";
+  // 응답은 대문자다(`43a-6`). 소문자와 비교하던 동안 하자 반품에도 「구매자 부담」이 떴다(`43a-5` 에서 드러났다).
+  const defect = reason === "DEFECT";
 
   return (
     <div className="grid gap-1 rounded-ui border border-border bg-surface-raised p-4">

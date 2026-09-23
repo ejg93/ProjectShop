@@ -15,6 +15,7 @@
 | 거래기록 파기 | 보존 기간이 지난 배송지·정산·배상·문의·후기·쿠폰·주문·감사 로그를 **그 순서로** 지운다 | **매월 1일** 04:00 KST | 전날 24시 | `TransactionPurgeBatch.purge` |
 | 환불 요청 스위퍼 | 닫혔는데 환불 요청이 없는 묶음에 요청을 만들고, 자기가 만든 요청을 승인해 돈을 내보낸다 | 5분 `fixedDelay` | `seller_order.closed_at` 이 있고 그 묶음에 `refund` 가 없다. 승인 대상은 `requested_by_type = 'system'` 인 대기 | `RefundSweeper.sweep` |
 | 거래 통지 스위퍼 | 법이 요구하는 통지 넷을 아직 안 나간 건에 보낸다. **안전망이다** — 소비자(`33a`)가 사건을 받아 즉시 남기고 이것은 그 뒤를 집는다 | 5분 `fixedDelay` | 청약 접수·대금 지급·공급 곤란·환급의 상태인데 `notification` 이 없다. **조회 하한(바닥)을 통지 기능이 선 시각으로 잡아서** 배치가 멈춰도 안 놓친다(`56a`) | `NotificationSweeper.sweep` |
+| 웹훅 발송 | 셀러가 구독한 사건을 발송 줄로 펼치고, 차례가 된 줄을 서명해 보낸다(`30`). 키가 없으면 안 돈다 | 30초 `fixedDelay` | 줄의 `next_attempt_at` | `WebhookSweeper.sweep` |
 | 수신동의 확인 | 2년이 지난 광고 수신동의에 확인 통지를 보낸다 | 매일 04:30 KST | `coalesce(reconfirmed_at, acted_at)` 이 2년 전보다 오래됨 | `ConsentReconfirmSweeper.sweep` |
 | 방치 묶음 마감 | 셀러가 손을 놓은 묶음을 닫아 보존 기간이 흐르게 한다 | 매일 04:45 KST | `preparing` 이 발송 기한 + 7일, `shipping` 이 발송 + 30일 | `StaleBundleBatch.close` |
 | 회차 재시도 스위퍼 | 일시적으로 실패한 회차를 다시 돌린다 | 10분 `fixedDelay` | `batch_run` 의 마지막 회차가 `transient` 실패이거나 `skipped` 이고 시도가 셋 미만 | `BatchRetrySweeper.sweep` |
@@ -269,7 +270,7 @@ JVM 이 죽은 회차가 영영 `running` 으로 남고 그 행을 치우는 배
 3. 선행 배치가 있나 본다. 있으면 3층이 걸린다
 4. 04:00 규칙에 드는지 빠지는지 정한다(`D10`). 빠지려면 판정이 경과 시간이어야 한다
 5. **기준 시각을 받는 오버로드를 만든다.** 테스트가 시간을 통제하고, 두 번 불러 결과가 같은지 본다
-6. **스케줄 풀 크기를 같이 올린다**(`application.yml`). 안 올리면 새 배치가 남의 자리를 뺏는다 — `BatchSchedulingTest` 가 그 자리에서 빨개진다
+6. **스케줄 풀 크기를 같이 올린다**(`application.yml`). 안 올리면 새 배치가 남의 자리를 뺏는다 — `BatchSchedulingTest` 가 그 자리에서 빨개진다. **다만 조건부 발행기 몫 한 칸 때문에 기본 컨텍스트는 한 칸 늦게 빨개진다** — 그 한 칸은 카프카를 켠 `OutboxPublisherTest` 가 세는데 느린 레인이라 청크의 빠른 검증에는 안 걸린다(`30` 이 밟았고 마무리 47차 풀 레인이 잡았다)
 
 ## 지금 안 하는 것
 

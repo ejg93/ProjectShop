@@ -129,20 +129,22 @@ class PolicyQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("옛 판을 안 지운다 — 어느 판이 적용됐는지가 남아야 한다")
         void keepsOldRevisions() {
+            Integer before = revisionCount();
             jdbc.sql("""
                             insert into policy_document (code, title, version, body, effective_at)
                             values ('privacy_policy', '개인정보처리방침', 90, '## 새 판', now())
                             """)
                     .update();
 
-            Integer kept = jdbc.sql(
-                            "select count(*) from policy_document where code = 'privacy_policy'")
+            // 이 검사가 보는 것은 개수가 아니라 **옛 판이 안 지워졌다**는 사실이다 — 마이그레이션이 판을 더할 때마다
+            // 수를 고치지 않게 앞뒤를 잰다(`V34`·`V112` 가 개정판을 넣었다).
+            assertThat(revisionCount()).isEqualTo(before + 1);
+        }
+
+        private Integer revisionCount() {
+            return jdbc.sql("select count(*) from policy_document where code = 'privacy_policy'")
                     .query(Integer.class)
                     .single();
-
-            // `V34` 가 유예 5일 개정판을 이미 넣어 뒀다. 여기서 더한 것까지 셋이다 —
-            // 이 검사가 보는 것은 개수가 아니라 **옛 판이 안 지워졌다**는 사실이다.
-            assertThat(kept).isEqualTo(3);
         }
     }
 

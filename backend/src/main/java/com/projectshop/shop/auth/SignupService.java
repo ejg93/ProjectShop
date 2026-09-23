@@ -1,5 +1,6 @@
 package com.projectshop.shop.auth;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,12 +49,17 @@ public class SignupService {
             String email,
             String password,
             String displayName,
+            LocalDate birthDate,
             Map<String, Boolean> consents,
             String actorIp) {
     }
 
     @Transactional
     public long signUp(Command command) {
+        // 동의보다 먼저 본다 — 가입할 수 없는 사람에게 동의 항목의 오류부터 돌려주면 고쳐도 안 되는 것을 고치게 한다.
+        if (!Adulthood.isAdult(command.birthDate(), Adulthood.todayKst())) {
+            throw unprocessable(ErrorCode.UNDERAGE_SIGNUP, "만 19세 미만은 가입할 수 없다");
+        }
         List<ConsentItem> items = currentConsentItems();
         verifyConsents(command.consents(), items);
 
@@ -124,13 +130,14 @@ public class SignupService {
         // 어차피 유니크 인덱스가 최종 판단이다. 둘 다 두면 같은 규칙이 두 군데가 된다.
         try {
             return jdbc.sql("""
-                            insert into app_user (email, password_hash, display_name)
-                            values (:email, :passwordHash, :displayName)
+                            insert into app_user (email, password_hash, display_name, birth_date)
+                            values (:email, :passwordHash, :displayName, :birthDate)
                             returning user_id
                             """)
                     .param("email", command.email())
                     .param("passwordHash", passwordEncoder.encode(command.password()))
                     .param("displayName", command.displayName())
+                    .param("birthDate", command.birthDate())
                     .query(Long.class)
                     .single();
         } catch (org.springframework.dao.DuplicateKeyException e) {

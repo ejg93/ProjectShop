@@ -273,6 +273,7 @@ class SellerProductImageApiTest extends HttpTestBase {
                   "email": "%s",
                   "password": "%s",
                   "display_name": "업로드",
+                  "birth_date": "1990-01-01",
                   "consents": {"terms_of_service": true, "privacy_collect": true}
                 }
                 """.formatted(email, PASSWORD));
@@ -317,6 +318,7 @@ class SellerProductImageApiTest extends HttpTestBase {
                   "email": "%s",
                   "password": "%s",
                   "display_name": "남",
+                  "birth_date": "1990-01-01",
                   "consents": {"terms_of_service": true, "privacy_collect": true}
                 }
                 """.formatted(email, PASSWORD));

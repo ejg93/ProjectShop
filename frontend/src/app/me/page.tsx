@@ -17,6 +17,8 @@ type Account = {
   userId: number;
   displayName?: string;
   createdAt?: string;
+  /** 가입 때 받는다(`11b`). 그 전에 가입한 계정은 키가 없다 */
+  birthDate?: string;
   email?: string;
 };
 
@@ -77,6 +79,9 @@ export default async function MyPage() {
           {account.email === undefined ? null : <Row label="이메일" value={account.email} />}
           {account.createdAt === undefined ? null : (
             <Row label="가입일" value={dateText(account.createdAt)} />
+          )}
+          {account.birthDate === undefined ? null : (
+            <Row label="생년월일" value={dateText(account.birthDate)} />
           )}
         </dl>
 

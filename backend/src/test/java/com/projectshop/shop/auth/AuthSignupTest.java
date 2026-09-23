@@ -1,12 +1,15 @@
 package com.projectshop.shop.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -324,6 +328,85 @@ class AuthSignupTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 성인만 가입한다(`11b`, `D2` R13 · R29). 앱이 422 로 먼저 막고 트리거(`V112`)가 같은 셈을 한 번 더 한다.
+     *
+     * <p><b>나이는 민법 제158조로 센다</b> — 출생일을 산입해서 생일 당일에 한 살이 는다. 「오늘」은 KST 다.
+     */
+    @Nested
+    @DisplayName("만 19세 미만은")
+    class AdultOnly {
+
+        private final LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        @Test
+        @DisplayName("열아홉 번째 생일 전날이면 422 로 막히고 계정이 안 생긴다")
+        void underNineteenIsRejected() throws Exception {
+            signUpBorn("minor@test.local", today.minusYears(19).plusDays(1))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.type").value(org.hamcrest.Matchers.endsWith("underage-signup")));
+
+            assertThat(jdbc.sql("select count(*) from app_user where email = 'minor@test.local'")
+                    .query(Long.class).single()).isZero();
+        }
+
+        @Test
+        @DisplayName("생일 당일이면 받는다")
+        void nineteenTodayIsAccepted() throws Exception {
+            signUpBorn("adult@test.local", today.minusYears(19)).andExpect(status().isCreated());
+
+            assertThat(jdbc.sql("select birth_date from app_user where email = 'adult@test.local'")
+                    .query(LocalDate.class).single()).isEqualTo(today.minusYears(19));
+        }
+
+        @Test
+        @DisplayName("입구를 안 지나도 트리거가 막는다")
+        void triggerRejectsDirectInsert() {
+            assertThatThrownBy(() -> jdbc.sql("""
+                            insert into app_user (email, password_hash, display_name, birth_date)
+                            values ('direct-minor@test.local', 'x', '직접', :birthDate)
+                            """)
+                    .param("birthDate", today.minusYears(19).plusDays(1))
+                    .update())
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessageContaining("만 19세 미만");
+        }
+
+        @Test
+        @DisplayName("윤일생은 평년 3월 1일에 한 살이 는다 — 앱과 트리거가 같은 셈이다")
+        void leapDayCountsLikeCivilCode() {
+            LocalDate leapBorn = LocalDate.of(2008, 2, 29);
+
+            assertThat(Adulthood.isAdult(leapBorn, LocalDate.of(2027, 2, 28))).isFalse();
+            assertThat(Adulthood.isAdult(leapBorn, LocalDate.of(2027, 3, 1))).isTrue();
+            // 트리거가 부르는 함수 그대로다(`V112` `age_in_years`) — 식을 베끼면 트리거가 바뀌어도 초록이다.
+            assertThat(yearsBetween("2008-02-29", "2027-02-28")).isEqualTo(18);
+            assertThat(yearsBetween("2008-02-29", "2027-03-01")).isEqualTo(19);
+        }
+
+        private int yearsBetween(String birthDate, String today) {
+            return jdbc.sql("select age_in_years(cast(:birth as date), cast(:today as date))")
+                    .param("today", today)
+                    .param("birth", birthDate)
+                    .query(Integer.class)
+                    .single();
+        }
+    }
+
+    private ResultActions signUpBorn(String email, LocalDate birthDate) throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("email", email);
+        body.put("password", "hunter2-and-then-some");
+        body.put("display_name", "가입자");
+        body.put("birth_date", birthDate.toString());
+        body.put("consents", required(true));
+
+        return mvc.perform(post("/api/auth/signup")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)));
+    }
+
     private Map<String, Boolean> required(boolean granted) {
         Map<String, Boolean> consents = new LinkedHashMap<>();
         consents.put("terms_of_service", granted);
@@ -352,6 +435,7 @@ class AuthSignupTest extends PostgresTestBase {
         body.put("email", email);
         body.put("password", password);
         body.put("display_name", "가입자");
+        body.put("birth_date", "1990-01-01");
         body.put("consents", consents);
 
         return mvc.perform(post("/api/auth/signup")
