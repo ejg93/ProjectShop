@@ -6,6 +6,7 @@ import { dateText } from "@/lib/format";
 import { REVIEW_REASON_TEXT, type ReviewReason } from "@/lib/review-text";
 
 import { MyReviewActions } from "./my-review-actions";
+import { MyReviewPhotos, type MyReviewPhoto } from "./my-review-photos";
 
 export const metadata: Metadata = { title: "내 후기 · ProjectShop" };
 
@@ -20,6 +21,7 @@ type MyReview = {
   createdAt: string;
   blockedAt: string | null;
   blockedReason: ReviewReason | null;
+  photos: MyReviewPhoto[];
 };
 
 type Page = { items: MyReview[]; page: number; size: number; total: number };
@@ -91,6 +93,8 @@ export default async function MyReviewsPage() {
                   <p className="whitespace-pre-wrap">{item.reply}</p>
                 </div>
               )}
+
+              <MyReviewPhotos reviewId={item.reviewId} photos={item.photos} />
 
               <MyReviewActions reviewId={item.reviewId} rating={item.rating} body={item.body} />
             </li>

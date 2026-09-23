@@ -245,6 +245,8 @@ class ScreenLengthTest {
             Map.entry("app/seller/products/new/product-form.tsx  stockCount", "〃"),
             Map.entry("app/seller/products/[productId]/images/image-manager.tsx  file",
                     "type=file 이다. 글자가 아니라 파일이고 크기·형식은 서버가 막는다(`Q140`)"),
+            Map.entry("app/me/reviews/my-review-photos.tsx  file",
+                    "type=file 이다. 글자가 아니라 파일이고 크기·형식·장수는 서버가 막는다(`Q174`)"),
             Map.entry("app/admin/roles/page.tsx  userId",
                     "type=number 다. maxLength 가 안 걸리고 아래쪽은 min 이 든다(`16`)"),
             Map.entry("app/seller/members/member-panel.tsx  roleCode",

@@ -23,6 +23,8 @@ type Review = {
   createdAt: string;
   /** 지금 보는 사람이 쓴 것인가. 로그인 안 했으면 전부 거짓 */
   mine: boolean;
+  /** 사진. 목록은 썸네일로 그리고 누르면 원본을 연다(`Q159`). 둘 다 만료 5분 서명 URL 이다 */
+  photos: { thumbnailUrl: string; originalUrl: string }[];
 };
 
 type ReviewPage = {
@@ -105,6 +107,24 @@ export async function ProductReviews({ productId }: { productId: number }) {
               </div>
 
               <p className="whitespace-pre-wrap text-sm">{review.body}</p>
+
+              {review.photos.length === 0 ? null : (
+                <ul className="flex flex-wrap gap-2">
+                  {review.photos.map((photo, index) => (
+                    <li key={photo.thumbnailUrl}>
+                      <a href={photo.originalUrl} target="_blank" rel="noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photo.thumbnailUrl}
+                          alt={`${review.writerName} 님의 후기 사진 ${index + 1}`}
+                          className="h-20 w-20 rounded-ui border border-border object-cover"
+                        />
+                        <span className="sr-only">(새 창에서 원본 열기)</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               {review.reply ? (
                 <div className="grid gap-1 rounded-ui border border-border bg-surface-raised px-3 py-2">
