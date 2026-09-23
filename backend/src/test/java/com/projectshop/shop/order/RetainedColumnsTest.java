@@ -40,8 +40,10 @@ class RetainedColumnsTest extends PostgresTestBase {
      * <p>남은 `order_item.withdrawal_restriction_reason` 은 이름만 사유고
      * <b>`check` 로 닫힌 열거값</b>이라 사람 글이 안 들어온다 — 처음부터 자유 텍스트가 아니었다.
      *
-     * <p><b>송장(`carrier_code`·`tracking_no`, `57`)은 공급 기록이다</b>(`D2` R6) — 주소·연락처가 아니라 택배사 조회의
-     * 열쇠고, 조회 기간이 끝나면 번호만으로 사람을 못 알아본다. 우리 판단이다(2026-09-23).
+     * <p><b>송장(`carrier_code`·`tracking_no`, `57`)은 공급 기록이다</b> — 전자상거래법 시행령 제6조제1항제3호
+     * 「대금결제 및 재화등의 공급에 관한 기록: 5년」(`D2` R6). 조문이 칸을 열거하지 않아서 **송장을 3호에 넣은 것은 해석**이다.
+     * 주문자와 이어져 있어 개인정보보호법 제2조제1호나목(쉽게 결합해 알아볼 수 있는 정보)에 들 수 있지만, 다른 법령이 보존을
+     * 요구하면 파기하지 않는다(같은 법 제21조제1항 단서). 원문은 2026-09-23 에 law.go.kr 에서 확인했다.
      */
     private static final Map<String, List<String>> RETAINED = Map.of(
             "shop_order", List.of("commission_total", "created_at", "discount_total", "order_id",
