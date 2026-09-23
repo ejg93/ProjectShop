@@ -311,7 +311,7 @@ public class SellerOrderQuery {
      */
     private Allowed<Long> visibleSellersFor(long viewerId) {
         // 남의 주문 하나. all 스코프에서만 덮인다.
-        if (evaluator.decide(viewerId, "order", "read", Target.of(-1L, -1L)).allowed()) {
+        if (evaluator.covers(viewerId, "order", "read", Target.of(-1L, -1L))) {
             return Allowed.everything();
         }
 
@@ -321,13 +321,13 @@ public class SellerOrderQuery {
                 .set();
 
         Set<Long> visible = memberOf.stream()
-                .filter(sellerId -> evaluator
-                        .decide(viewerId, "order", "read", Target.ofSeller(sellerId)).allowed())
+                .filter(sellerId -> evaluator.covers(viewerId, "order", "read", Target.ofSeller(sellerId)))
                 .collect(Collectors.toUnmodifiableSet());
 
         if (visible.isEmpty()) {
             // 소속이 있어도 주문 권한이 없으면 볼 목록이 없다. 0건이 아니라 거부다 —
-            // 0건과 못 봄이 갈려야 개수로 정보가 새지 않는다.
+            // 0건과 못 봄이 갈려야 개수로 정보가 새지 않는다. 막힌 시도라 거부를 감사에 남긴다(`covers` 는 안 남긴다).
+            evaluator.decide(viewerId, "order", "read", Target.of(-1L, -1L));
             throw new ShopException(ErrorCode.ORDER_FORBIDDEN);
         }
         return Allowed.only(visible);

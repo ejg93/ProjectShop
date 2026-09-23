@@ -379,6 +379,12 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 | **인증 이전** | 판정할 사람이 아직 없다 | `AuthController.signUp` · `AuthController.logIn` · `AuthController.logOut` · `AuthController.requestPasswordReset` · `AuthController.confirmPasswordReset` |
 | **법이 로그인을 막는다** | 저작권자가 우리 회원일 이유가 없다. 회원만 신고할 수 있게 하면 **법이 요구한 절차에 가입이라는 관문이 하나 붙는다**(저작권법 제102조, `D2` `R42`). 판정 쪽은 반대로 로그인이 필요하다 — 누가 언제 무엇을 했는지가 증거다 | `CopyrightReportController.report`·`CopyrightReportController.reportReviewImage`(후기 사진, `Q196`) |
 
+**범위를 떠볼 때는 `covers` 다**(`Q204`). 목록이 「전체 범위냐」·「이 셀러를 보냐」로 갈래를 고를 때 `decide` 를 쓰면
+정상 갈래의 거부가 감사에 쌓인다 — 셀러가 제 주문 목록을 열 때마다 한 줄씩 쌓이고 있었다(`QueryBudgetTest` 가 문장 수로 잡았다).
+`covers` 는 `allowedActions` 로 먼저 떠보고 열려 있을 때만 `decide` 를 지난다 — **허용은 그대로 `decide` 가 정하고**,
+끝내 볼 것이 없어 막는 자리는 부르는 쪽이 `decide` 로 거부를 남긴다. 쓰는 곳: `SellerOrderQuery`·`SettlementQuery`·`RefundQuery`·`ProductQuery`.
+**진짜 문지기는 `decide` 그대로다** — `OrderQuery.findAll` 의 「전체 범위가 아니면 403」처럼 거부가 곧 막힌 시도인 자리.
+
 **아래 둘은 `Q56` 이 찾았다**(2026-09-15). 표가 셋이었는데 규칙을 돌려 보니 실물이 다섯 자리였다 —
 문서가 「나머지 전부」로 뭉쳐 둔 자리에 판정을 안 지나는 입구가 **아홉** 더 있었다 — 본인 계정 넷과 인증 이전 다섯이다.
 **세어 보기 전에는 몰랐고, 세는 방법이 그 규칙이다.**

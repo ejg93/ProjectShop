@@ -489,7 +489,7 @@ public class ProductQuery {
 
     private Allowed<Long> visibleSellersFor(long viewerId) {
         // 남의 셀러 하나. all 스코프에서만 덮인다.
-        if (evaluator.decide(viewerId, "product", "update", Target.of(-1L, -1L)).allowed()) {
+        if (evaluator.covers(viewerId, "product", "update", Target.of(-1L, -1L))) {
             return Allowed.everything();
         }
 
@@ -500,14 +500,13 @@ public class ProductQuery {
         // 그러면 **담당자가 자기 셀러의 관리 목록을 아예 못 연다** — 고칠 수 있는 상품이
         // 그 목록 안에 있는데 목록으로 가는 길이 막힌다.
         Set<Long> visible = memberOf.stream()
-                .filter(sellerId -> evaluator
-                        .decide(viewerId, "product", "update", Target.of(viewerId, sellerId))
-                        .allowed())
+                .filter(sellerId -> evaluator.covers(viewerId, "product", "update", Target.of(viewerId, sellerId)))
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
         if (visible.isEmpty()) {
             // 소속이 있어도 상품 권한이 없으면 볼 목록이 없다. 0건이 아니라 거부다 —
-            // 0건과 못 봄이 갈려야 개수로 정보가 새지 않는다(`4b-1` 과 같은 이유).
+            // 0건과 못 봄이 갈려야 개수로 정보가 새지 않는다(`4b-1` 과 같은 이유). 막힌 시도라 거부를 감사에 남긴다.
+            evaluator.decide(viewerId, "product", "update", Target.of(-1L, -1L));
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
         return Allowed.only(visible);

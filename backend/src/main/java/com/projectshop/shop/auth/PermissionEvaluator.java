@@ -195,6 +195,22 @@ public class PermissionEvaluator {
      * @param actions 물어볼 동작들. 자원이 무엇을 할 수 있는지는 그 자원이 안다
      * @return 통과한 동작. 순서는 호출자가 정한다
      */
+    /**
+     * 범위를 고르려고 떠본다(`Q204`). 목록이 「전체 범위냐」·「이 셀러를 보냐」를 물어 갈래를 고를 때 쓴다.
+     *
+     * <p><b>정상 갈래의 거부를 감사에 안 남긴다.</b> 셀러가 제 주문을 볼 때마다 「전체 범위냐」가 거부되는데, 그것은 막힌 시도가
+     * 아니라 갈래를 고르는 물음이다 — {@link #decide} 로 물으면 목록 한 번에 거부 감사가 한 줄씩 쌓였다({@code QueryBudgetTest}
+     * 가 문장 수로 잡았다).
+     *
+     * <p><b>허용은 그대로 {@link #decide} 가 정한다.</b> {@link #allowedActions} 로 먼저 떠보고, 열려 있을 때만 {@code decide} 를
+     * 지난다 — 「허용한 자리는 전부 {@code decide} 를 지난다」가 유지된다. 끝내 볼 것이 없어 막는 자리는 부르는 쪽이
+     * {@code decide} 로 거부를 남긴다.
+     */
+    public boolean covers(long userId, String resource, String action, Target target) {
+        return allowedActions(userId, resource, Set.of(action), target).contains(action)
+                && decide(userId, resource, action, target).allowed();
+    }
+
     public Set<String> allowedActions(long userId, String resource, Set<String> actions,
             Target target) {
 
