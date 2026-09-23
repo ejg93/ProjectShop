@@ -333,6 +333,10 @@ public enum ErrorCode {
     TRANSITION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "transition-reason-required",
             "관리자 처리에는 사유가 필요하다"),
 
+    // 배상 판정에 이은 문의가 그 묶음의 것이 아니다(`43a-4c`). 이으면 분쟁 기록이 다른 거래를 가리킨다.
+    COMPENSATION_INQUIRY_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "compensation-inquiry-mismatch",
+            "그 문의는 이 배송 묶음의 것이 아니다"),
+
     // 주문에 쓰인 SKU 가 있으면 옵션 축을 못 바꾼다. 바꾸면 지나간 주문의 옵션 라벨이
     // 가리키던 것이 사라진다 — 영수증이 뜻을 잃는다.
     PRODUCT_OPTIONS_LOCKED(HttpStatus.UNPROCESSABLE_CONTENT, "product-options-locked",

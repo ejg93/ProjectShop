@@ -8,6 +8,7 @@ import {
 } from "@/lib/order-text";
 import { refundStatusText } from "@/lib/refund-text";
 
+import { type CompensationListing, Compensations } from "./compensations";
 import { ForceStatusForm } from "./force-status-form";
 
 type Item = {
@@ -93,7 +94,14 @@ const SHIPPED_OR_LATER = new Set(["SHIPPING", "DELIVERED", "CONFIRMED", "RETURN_
  * <p><b>응답의 {@code allowedActions} 를 안 그린다</b> — 관리자는 모든 권한을 {@code all} 로 가져서 구매확정·반품 요청
  * 같은 고객 동작까지 거기 섞여 온다. 관리자의 쓰기는 강제 전이(`16c`) 폼 하나고, 갈 곳은 {@code forcibleStatuses} 가 고른다.
  */
-export function OrderDetailView({ order }: { order: AdminOrderDetail }) {
+export function OrderDetailView({
+  order,
+  compensations = {},
+}: {
+  order: AdminOrderDetail;
+  /** 묶음마다의 배상 판정(`43a-4c`). 조회 권한이 없으면 그 묶음 키가 없다 */
+  compensations?: Record<string, CompensationListing>;
+}) {
   return (
     <div className="grid gap-8">
       <div className="grid gap-2">
@@ -117,7 +125,7 @@ export function OrderDetailView({ order }: { order: AdminOrderDetail }) {
       </dl>
 
       {order.sellerOrders.map((bundle) => (
-        <Bundle key={bundle.sellerOrderNumber} bundle={bundle} />
+        <Bundle key={bundle.sellerOrderNumber} bundle={bundle} compensations={compensations[bundle.sellerOrderNumber]} />
       ))}
 
       {order.shipping ? <ShippingBox shipping={order.shipping} /> : null}
@@ -129,7 +137,7 @@ export function OrderDetailView({ order }: { order: AdminOrderDetail }) {
   );
 }
 
-function Bundle({ bundle }: { bundle: SellerOrder }) {
+function Bundle({ bundle, compensations }: { bundle: SellerOrder; compensations?: CompensationListing }) {
   const headingId = `bundle-${bundle.sellerOrderNumber}`;
 
   return (
@@ -165,6 +173,7 @@ function Bundle({ bundle }: { bundle: SellerOrder }) {
       </ul>
 
       <ForceStatusForm sellerOrderNumber={bundle.sellerOrderNumber} forcibleStatuses={bundle.forcibleStatuses} />
+      {compensations ? <Compensations sellerOrderNumber={bundle.sellerOrderNumber} listing={compensations} /> : null}
     </section>
   );
 }

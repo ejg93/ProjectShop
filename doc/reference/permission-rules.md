@@ -149,6 +149,8 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `order:force_status` | | | A/all | D/all |
 | `payment:read` | A/own | A/seller | A/all | A/all |
 | `payment:refund` | | | A/all | D/all |
+| `compensation:read` | | | A/all | A/all |
+| `compensation:decide` | | | A/all | D/all |
 | `user:read` | A/own | A/own | A/all | A/all |
 | `user:update` | A/own | A/own | A/all | D/all |
 | `role:read` | | | A/all | A/all |
