@@ -221,7 +221,10 @@ public class SecurityConfig {
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 // 인가 직전에 둔다. 인증이 확정된 뒤여야 principal 을 볼 수 있고,
                 // 인가 전이어야 죽은 계정이 아무것도 통과하지 못한다.
-                .addFilterBefore(new AccountLivenessFilter(ruleLoader, problems), AuthorizationFilter.class);
+                .addFilterBefore(new AccountLivenessFilter(ruleLoader, problems), AuthorizationFilter.class)
+                // 대행 중의 쓰기를 여기 한 곳에서 막는다(`16b`). 입구마다 두면 새 입구가 빠뜨린다.
+                // 인증이 확정된 뒤라 대행 토큰이 보이고, 인가 전이라 막힌 요청이 아무것도 건드리지 못한다.
+                .addFilterBefore(new ImpersonationReadOnlyFilter(problems), AuthorizationFilter.class);
 
         // 만료 표시된 세션을 실제로 끊는다.
         //

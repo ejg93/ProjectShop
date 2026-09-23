@@ -3,6 +3,7 @@ import Link from "next/link";
 import { apiSessionOptional } from "@/lib/api-session";
 import { can, type Me } from "@/lib/permissions";
 
+import { EndImpersonationButton } from "./end-impersonation-button";
 import { LogoutButton } from "./logout-button";
 
 /**
@@ -104,6 +105,18 @@ export async function SiteHeader() {
 
   return (
     <header className="border-b border-border">
+      {/*
+        대행 중이면 맨 위에 띠를 둔다(`16b`). 화면이 그 사람의 것이라 관리자가 **지금 누구로 보고 있는지**를
+        잊으면 그 화면을 자기 것으로 읽는다 — 역할을 띠의 말로 알리고(role=status) 끝내는 길을 같이 둔다.
+      */}
+      {me?.impersonatedBy ? (
+        <div role="status" className="bg-danger-text text-surface">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-2 text-xs">
+            <span>다른 사용자의 화면을 보는 중입니다. 보기만 할 수 있습니다.</span>
+            <EndImpersonationButton />
+          </div>
+        </div>
+      ) : null}
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
         <Link href="/" className="font-semibold tracking-tight">
           ProjectShop

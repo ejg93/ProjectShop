@@ -53,6 +53,18 @@ public enum ErrorCode {
             "흔하거나 추측하기 쉬운 비밀번호다"),
 
     /**
+     * 대행할 수 없다(`16b`). 권한이 없거나, 대상이 관리자·자기 자신·탈퇴·정지 계정이다 —
+     * <b>넷을 안 가른다</b>. 가르면 계정 번호를 두드려 누가 관리자인지를 셀 수 있다.
+     */
+    IMPERSONATION_FORBIDDEN(HttpStatus.FORBIDDEN, "impersonation-forbidden", "그 계정을 대행할 수 없다"),
+
+    /** 대행 중에는 쓰기가 막힌다(`16b`). 보기만 한다 — 끝내기와 로그아웃만 열려 있다 */
+    IMPERSONATION_READ_ONLY(HttpStatus.FORBIDDEN, "impersonation-read-only", "대행 중에는 보기만 한다"),
+
+    /** 이미 대행 중인데 또 시작하거나, 대행 중이 아닌데 끝낸다 */
+    IMPERSONATION_CONFLICT(HttpStatus.CONFLICT, "impersonation-conflict", "대행 상태가 맞지 않는다"),
+
+    /**
      * 재설정 토큰이 없거나, 만료됐거나, 이미 썼다(`5c-1`).
      *
      * <p><b>셋을 안 가른다.</b> 「만료됐다」와 「그런 토큰이 없다」를 갈라 주면 남의 링크를

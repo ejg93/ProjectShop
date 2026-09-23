@@ -20,6 +20,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import com.projectshop.shop.auth.ImpersonationToken;
 import com.projectshop.shop.auth.EmailAddress;
 import com.projectshop.shop.auth.Password;
 import com.projectshop.shop.auth.PermissionCatalog;
@@ -245,9 +246,15 @@ public class MeController {
 
     @GetMapping("/permissions")
     public PermissionsResponse permissions(@AuthenticationPrincipal ShopUser user) {
-        return new PermissionsResponse(user.id(), permissionCatalog.listFor(user.id()));
+        return new PermissionsResponse(user.id(), permissionCatalog.listFor(user.id()),
+                ImpersonationToken.currentImpersonatorId());
     }
 
-    public record PermissionsResponse(long userId, List<PermissionCatalog.Entry> permissions) {
+    /**
+     * @param impersonatedBy 대행 중이면 시킨 관리자, 아니면 {@code null}(`16b`). 화면이 「누구의 화면을 보는 중」
+     *        띠와 끝내기 버튼을 이것으로 그린다 — 권한 목록은 대상 사용자의 것이다
+     */
+    public record PermissionsResponse(long userId, List<PermissionCatalog.Entry> permissions,
+            Long impersonatedBy) {
     }
 }

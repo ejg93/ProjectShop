@@ -17,8 +17,12 @@
  */
 export type Permission = { resource: string; action: string; scopes: string[] };
 
-/** {@code /api/me/permissions} 가 주는 것. 로그인 여부와 권한이 한 번에 온다 */
-export type Me = { userId: number; permissions: Permission[] };
+/**
+ * {@code /api/me/permissions} 가 주는 것. 로그인 여부와 권한이 한 번에 온다.
+ *
+ * @property impersonatedBy 대행 중이면 시킨 관리자(`16b`). 그때 `userId`·`permissions` 는 대상 사용자의 것이다
+ */
+export type Me = { userId: number; permissions: Permission[]; impersonatedBy?: number | null };
 
 /**
  * 그 동작이 열려 있나.

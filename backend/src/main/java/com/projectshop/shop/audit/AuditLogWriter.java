@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.auth.ImpersonationToken;
+
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -55,11 +57,16 @@ class AuditLogWriter {
             Map<String, Object> detail) {
 
         jdbcClient.sql("""
-                        insert into audit_log (event_type, actor_user_id, target_type, target_id, detail)
-                        values (:eventType, :actorUserId, :targetType, :targetId, :detail::jsonb)
+                        insert into audit_log (event_type, actor_user_id, impersonator_user_id,
+                                               target_type, target_id, detail)
+                        values (:eventType, :actorUserId, :impersonatorUserId,
+                                :targetType, :targetId, :detail::jsonb)
                         """)
                 .param("eventType", eventType)
                 .param("actorUserId", actorUserId)
+                // **부르는 쪽이 안 넘긴다**(`16b`). 기록하는 자리마다 넘기게 하면 한 자리가 빠뜨리는 날
+                // 그 기록은 대행 대상이 한 것처럼 읽힌다 — 요청의 인증에서 한 곳이 읽는다.
+                .param("impersonatorUserId", ImpersonationToken.currentImpersonatorId())
                 .param("targetType", target.type())
                 .param("targetId", target.id())
                 .param("detail", toJson(detail))

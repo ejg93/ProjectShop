@@ -135,6 +135,20 @@ describe("셸의 머리", () => {
     expect(screen.getByRole("link", { name: "후기 신고" })).toBeInTheDocument();
   });
 
+  it("대행 중이면 맨 위에 띠와 끝내기 버튼이 있다", async () => {
+    // 관리자가 지금 누구로 보고 있는지를 잊으면 그 화면을 자기 것으로 읽는다(`16b`).
+    apiSessionOptional.mockResolvedValue({ userId: 8, permissions: [], impersonatedBy: 1 });
+    render(await SiteHeader());
+    expect(screen.getByRole("status")).toHaveTextContent("다른 사용자의 화면을 보는 중입니다");
+    expect(screen.getByRole("button", { name: "대행 끝내기" })).toBeInTheDocument();
+  });
+
+  it("대행 중이 아니면 띠가 없다", async () => {
+    apiSessionOptional.mockResolvedValue({ userId: 8, permissions: [] });
+    render(await SiteHeader());
+    expect(screen.queryByRole("button", { name: "대행 끝내기" })).not.toBeInTheDocument();
+  });
+
   it("상품과 장바구니는 로그인 전에도 있다", async () => {
     apiSessionOptional.mockResolvedValue(null);
 
