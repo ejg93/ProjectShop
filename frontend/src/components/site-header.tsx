@@ -92,6 +92,14 @@ function canDecideRefunds(me: Me | null): boolean {
   return can(me, "payment", "refund");
 }
 
+/**
+ * 매출 통계로 갈 수 있나(`41a`). 정산서와 같이 셀러와 관리자·감사자가 같은 링크를 쓴다 — 합의 범위는 서버가 가른다.
+ * 직원에게는 없는 권한이다(`V103`)
+ */
+function canReadSalesStats(me: Me | null): boolean {
+  return can(me, "sales_stats", "read");
+}
+
 /** 후기 신고를 처리한다(`Q171`). 관리자만이다 — 셀러에게 열면 불리한 후기를 내리는 자리가 된다 */
 function canModerateReviews(me: Me | null): boolean {
   return can(me, "review", "moderate");
@@ -183,6 +191,9 @@ export async function SiteHeader() {
           */}
           {canReadSettlements(me) ? (
             <HeaderLink href="/seller/settlements">정산서</HeaderLink>
+          ) : null}
+          {canReadSalesStats(me) ? (
+            <HeaderLink href="/seller/sales">매출</HeaderLink>
           ) : null}
           {/*
             감사 기록은 관리자·감사자만 본다(`V12`). **관리자에게 갈 화면이 여기 하나뿐이다**
