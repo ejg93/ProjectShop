@@ -369,7 +369,11 @@ val mutationTargets = listOf(
 	"com.projectshop.shop.order.OrderDeadlines",
 	"com.projectshop.shop.order.WithdrawalRestriction",
 	"com.projectshop.shop.support.ListQuery",
-	"com.projectshop.shop.support.Retries")
+	"com.projectshop.shop.support.Retries",
+	// 거래기록 문구(`D2` R6)·계정 열쇠인 이메일·허용 판정(`Q191`).
+	"com.projectshop.shop.order.OrderRecordText",
+	"com.projectshop.shop.auth.EmailAddress",
+	"com.projectshop.shop.auth.Allowed")
 
 tasks.register<JavaExec>("mutationTest") {
 	description = "순수 계산 클래스에 변이를 넣고 빠른 레인 시험이 잡는지 본다(69). 손으로 돌린다."

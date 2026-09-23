@@ -73,6 +73,89 @@ class OrderRecordTextTest {
                     .contains("[ 계약 시점 문서 ]");
         }
 
+        /**
+         * 파일 전체를 글자 그대로 박는다(`Q191`). <b>변이 시험이 줄을 통째로 지워도 안 깨지는 것을 짚었다</b> — 위 시험은 절
+         * 제목만 보아서 「결제 금액」 줄이나 승인번호가 빠져도 초록이었다. 법이 보존하라는 기록이라(전자상거래법 제6조,
+         * `D2` R6) 줄 하나가 빠지는 것이 곧 사고다. 모양을 바꾸는 청크는 이 글자를 같이 고친다.
+         */
+        @Test
+        @DisplayName("줄 하나 빠짐없이 이 모양이다")
+        void holdsEveryLineInOrder() {
+            assertThat(OrderRecordText.of(detail(), KST_NOON)).isEqualTo("""
+                    거래기록
+                    ============================================================
+                    주문번호: 20260821-7QX4P4
+                    주문일시: 2026-08-21 12:00 KST
+                    주문상태: 결제 완료
+
+                    [ 주문 상품 ]
+                    · 판매자 데모셀러 · 묶음번호 20260821-7QX4P4-1 · 배송 완료
+                      - 데모 티셔츠 / 검정 / M
+                        수량 2 · 단가 29,000원 · 금액 58,000원
+                      배송비 3,000원
+
+                    [ 결제 금액 ]
+                    상품 합계: 58,000원
+                    배송비 합계: 3,000원
+                    결제 금액: 61,000원
+
+                    [ 결제 ]
+                    결과: 승인
+                    수단: 신용·체크카드 (비자 ****4242)
+                    승인번호: M12345678
+                    결제일시: 2026-08-21 12:00 KST
+
+                    [ 배송지 ]
+                    받는 분: 홍길동
+                    연락처: 010-0000-0000
+                    주소: (06236) 서울 강남구 테헤란로 1 101동 1001호
+                    배송 요청: 문 앞에 놔 주세요
+
+                    [ 환불 ]
+                    · R-20260821-ABC123 · 61,000원 · 접수 · 요청일 2026-08-21 12:00 KST
+
+                    [ 처리 내역 ]
+                    · 2026-08-21 12:00 KST  배송 준비 중 → 배송 중 (데모셀러)
+
+                    [ 계약 시점 문서 ]
+                    · 이용약관 제3판 (2026-08-21 12:00 KST 시행)
+
+                    ============================================================
+                    이 파일은 전자상거래법 제6조제1항에 따라 제공되는 거래기록입니다.
+                    발급일시: 2026-08-21 12:00 KST
+                    """);
+        }
+
+        /** 할인이 있으면 금액 절에 한 줄이 서고, 이전 상태가 없는 처리 내역은 「-」 로 시작한다 */
+        @Test
+        @DisplayName("할인 줄과 첫 처리 내역")
+        void writesDiscountAndTheFirstHistoryEntry() {
+            OrderQuery.Detail source = detail();
+            OrderQuery.Detail discounted = new OrderQuery.Detail(source.orderNumber(), source.status(),
+                    source.totalAmount(), source.shippingFeeTotal(), 1_000L, source.payableAmount() - 1_000L,
+                    source.createdAt(), source.sellerOrders(),
+                    List.of(new OrderQuery.HistoryEntry(null, null, "PAID", "system", KST_NOON)),
+                    source.shipping(), source.payment(), source.refunds(), source.contractDocuments(),
+                    source.visibleFieldGroups());
+
+            assertThat(OrderRecordText.of(discounted, KST_NOON))
+                    .contains("배송비 합계: 3,000원\n할인 금액: -1,000원\n결제 금액: 60,000원\n")
+                    .contains("· 2026-08-21 12:00 KST  - → 결제 완료\n");
+        }
+
+        /** 상태 칸이 비어 와도 「null」 이 아니라 줄표를 적는다 — 소비자가 읽는 문서다(`D20`) */
+        @Test
+        @DisplayName("상태가 비면 줄표다")
+        void writesADashForAMissingStatus() {
+            OrderQuery.Detail source = detail();
+            OrderQuery.Detail blank = new OrderQuery.Detail(source.orderNumber(), null, source.totalAmount(),
+                    source.shippingFeeTotal(), source.discountTotal(), source.payableAmount(), source.createdAt(),
+                    source.sellerOrders(), source.history(), source.shipping(), source.payment(), source.refunds(),
+                    source.contractDocuments(), source.visibleFieldGroups());
+
+            assertThat(OrderRecordText.of(blank, KST_NOON)).contains("주문상태: -\n");
+        }
+
         @Test
         @DisplayName("금액이 사람이 읽는 모양이다")
         void writesMoneyForPeople() {
