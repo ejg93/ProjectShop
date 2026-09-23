@@ -92,12 +92,27 @@ class OrderStatusServiceTest extends PostgresTestBase {
                     .isInstanceOf(ShopException.class);
         }
 
+        /**
+         * 관리자도 표 밖으로는 이 입구로 못 간다(마무리 46차) — 사유만으로 비켜 가면 `order:force_status` 판정도
+         * 감사 줄도 없이 같은 이동이 된다. 표 밖은 {@code forceShipment} 하나다.
+         */
         @Test
-        @DisplayName("관리자는 사유를 적으면 표 밖으로도 옮긴다")
-        void adminMayForceWithReason() {
-            assertThatCode(() -> statuses.moveShipment(sellerOrderId, Shipment.RETURNED,
+        @DisplayName("관리자도 사유만으로는 표 밖으로 못 옮긴다")
+        void adminCannotBypassTheTableWithAReason() {
+            assertThatThrownBy(() -> statuses.moveShipment(sellerOrderId, Shipment.RETURNED,
                     Actor.admin(userId, "CS-1234, 고객이 수령 후 분실 신고")))
-                    .as("CS 처리에 필요하다. 대신 사유가 이력에 남는다(`D7`)")
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("강제 전이는 강제 표 안에서만 간다")
+        void forceStaysInsideTheForcibleTable() {
+            assertThatThrownBy(() -> statuses.forceShipment(sellerOrderId, Shipment.RETURNED,
+                    Actor.admin(userId, "CS-1234")))
+                    .as("반품완료는 반품 판정의 몫이다 — 강제 표에 없다")
+                    .isInstanceOf(ShopException.class);
+            assertThatCode(() -> statuses.forceShipment(sellerOrderId, Shipment.DELIVERED,
+                    Actor.admin(userId, "CS-1234, 직접 전달 확인")))
                     .doesNotThrowAnyException();
         }
 

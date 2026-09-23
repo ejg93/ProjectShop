@@ -140,7 +140,7 @@ public class OrderStatusService {
     @Transactional
     public void movePayment(long orderId, Payment to, Actor actor) {
         Payment from = Payment.of(currentPaymentStatus(orderId));
-        require(OrderTransitions.allows(from, to), from.code(), to.code(), actor);
+        require(OrderTransitions.allows(from, to), from.code(), to.code());
 
         jdbc.sql("update shop_order set status = :status where order_id = :orderId")
                 .param("status", to.code())
@@ -265,7 +265,7 @@ public class OrderStatusService {
             ReturnReason returnReason, ReturnRequestService.Decision decision) {
 
         Shipment from = Shipment.of(currentShipmentStatus(sellerOrderId));
-        require(OrderTransitions.allows(from, to), from.code(), to.code(), actor);
+        require(OrderTransitions.allows(from, to), from.code(), to.code());
 
         applyShipment(sellerOrderId, from, to, actor, returnReason, decision);
     }
@@ -597,23 +597,36 @@ public class OrderStatusService {
     }
 
     /**
-     * 전이표에 없으면 막는다.
+     * 전이표에 없으면 막는다. <b>누구든 그렇다</b> — 관리자도.
      *
-     * <p><b>관리자는 표 밖으로도 옮긴다</b>(`D7`). CS 처리에 필요해서고, 대신 사유가 남는다 —
-     * 정상 경로가 아니라서 왜 그랬는지가 없으면 나중에 데이터가 왜 이 모양인지 아무도 모른다.
-     * 사유가 비어 있으면 강제 전이로 안 쳐 준다.
+     * <p>전에는 관리자가 사유를 적으면 여기서 표 밖으로 비켜 갔다. `16c` 가 전이표 밖 이동을 {@code order:force_status}
+     * 하나로 모으고 갈 곳을 강제 표로 닫았는데 이 우회가 남아 있어서, 관리자가 발송·배송완료 입구에 사유를 실으면
+     * 그 판정도 감사 줄도 없이 같은 이동이 됐다(마무리 46차 독립 리뷰). 표 밖은 {@link #forceShipment} 하나다.
      */
-    private static void require(boolean allowed, String from, String to, Actor actor) {
-        if (allowed) {
-            return;
-        }
-        boolean forcedByAdmin = actor.type() == ActorType.ADMIN
-                && actor.reason() != null && !actor.reason().isBlank();
-
-        if (!forcedByAdmin) {
+    private static void require(boolean allowed, String from, String to) {
+        if (!allowed) {
             throw new ShopException(ErrorCode.ORDER_TRANSITION_NOT_ALLOWED,
                     "%s → %s 는 전이표에 없다".formatted(from, to));
         }
+    }
+
+    /**
+     * 관리자 강제 전이(`16c`). <b>전이표 대신 강제 표를 본다</b>({@link OrderTransitions#forcible}) — 부르는 쪽
+     * ({@code OrderActionService.force})이 {@code order:force_status} 판정을 이미 지났다. 곁가지는 같은 자리를 지난다.
+     *
+     * @param actor 관리자이고 사유가 있어야 한다(`D7`). DB 도 같은 것을 막는다({@code order_status_history_admin_reason_check})
+     */
+    @Transactional
+    public void forceShipment(long sellerOrderId, Shipment to, Actor actor) {
+        if (actor.type() != ActorType.ADMIN || actor.reason() == null || actor.reason().isBlank()) {
+            throw new ShopException(ErrorCode.TRANSITION_REASON_REQUIRED);
+        }
+        Shipment from = Shipment.of(currentShipmentStatus(sellerOrderId));
+        if (!OrderTransitions.forcible(from, to)) {
+            throw new ShopException(ErrorCode.ORDER_TRANSITION_NOT_ALLOWED,
+                    "%s → %s 는 강제로도 못 간다".formatted(from.code(), to.code()));
+        }
+        applyShipment(sellerOrderId, from, to, actor, null, null);
     }
 
     private String currentPaymentStatus(long orderId) {

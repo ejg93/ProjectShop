@@ -74,7 +74,7 @@ export function SalesView({ report, range }: { report: SalesReport; range: Range
           <dd className="text-xl font-semibold tabular-nums">{priceText(report.total.netAmount)}</dd>
         </div>
         <div className="grid gap-1">
-          <dt className="text-text-muted">셀러 매출 (정산 기준)</dt>
+          <dt className="text-text-muted">셀러 매출 (정산 금액 축)</dt>
           <dd className="text-xl font-semibold tabular-nums">{priceText(report.total.sellerNetAmount)}</dd>
         </div>
         <div className="grid gap-1">

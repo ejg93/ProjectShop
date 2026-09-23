@@ -697,6 +697,18 @@ class OrderActionTest extends PostgresTestBase {
                     .isEmpty();
         }
 
+        /** 결제 안 된 묶음은 강제 전이 입구가 못 찾는다(`seller_order_visible`) — 목록이 폼을 세우면 누를 때마다 404 다 */
+        @Test
+        @DisplayName("결제 안 된 주문에는 갈 곳이 안 내려간다")
+        void unpaidOrderOffersNothing() {
+            long orderId = placeOrder(List.of(alphaSku));
+            String orderNumber = jdbc.sql("select order_number from shop_order where order_id = :id")
+                    .param("id", orderId).query(String.class).single();
+
+            assertThat(orders.findByNumber(admin, orderNumber).sellerOrders().getFirst().forcibleStatuses())
+                    .isEmpty();
+        }
+
         /**
          * 범위는 `V106` 의 검사 블록이 적용 때 한 번 본다. 뒤의 마이그레이션이 넓혀도 그 블록은 다시 안 돈다 —
          * 그래서 지금 DB 의 부여를 매번 잰다(마무리 45차 독립 리뷰).

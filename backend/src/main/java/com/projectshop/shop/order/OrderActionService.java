@@ -151,12 +151,9 @@ public class OrderActionService {
                 .filter(status -> status.name().equals(to.toUpperCase(Locale.ROOT)))
                 .findFirst()
                 .orElseThrow(() -> new ShopException(ErrorCode.VALIDATION_FAILED, "그런 배송 상태가 없다: " + to));
-        if (!OrderTransitions.forcible(from, destination)) {
-            throw new ShopException(ErrorCode.ORDER_TRANSITION_NOT_ALLOWED,
-                    "%s → %s 는 강제로도 못 간다".formatted(from.code(), destination.code()));
-        }
 
-        statuses.moveShipment(row.sellerOrderId(), destination, Actor.admin(userId, reason));
+        // 강제 표는 상태 서비스가 본다 — 전이표 밖으로 가는 길이 거기 하나라서다(마무리 46차).
+        statuses.forceShipment(row.sellerOrderId(), destination, Actor.admin(userId, reason));
         auditLog.record(AuditLog.Kind.OUTCOME, "order.status_forced", userId,
                 AuditLog.Target.of("seller_order", row.sellerOrderId()),
                 Map.of("from", from.name(), "to", destination.name()));

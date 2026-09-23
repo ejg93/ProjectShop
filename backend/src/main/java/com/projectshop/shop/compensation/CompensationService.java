@@ -167,10 +167,14 @@ public class CompensationService {
                         "그 문의는 이 묶음의 것이 아니다: " + inquiryNumber));
     }
 
+    /**
+     * <b>결제된 묶음만 찾는다</b>({@code seller_order_visible}) — 같은 경로의 다른 쓰기(발송·취소·강제 전이)가 지나는
+     * 조건과 같다(마무리 46차 독립 리뷰). 안 보면 결제 대기·만료 주문에 셀러 부담 배상이 서고 정산이 그것을 셀러 몫에서 뺀다.
+     */
     private Bundle find(String sellerOrderNumber) {
         return jdbc.sql("""
                         select so.seller_order_id, o.user_id as buyer_user_id, so.seller_id
-                          from seller_order so
+                          from seller_order_visible so
                           join shop_order o on o.order_id = so.order_id
                          where so.seller_order_number = :number
                         """)

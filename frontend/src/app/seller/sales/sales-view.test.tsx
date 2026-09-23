@@ -57,7 +57,7 @@ describe("매출 통계", () => {
 
     const rows = screen.getAllByRole("row");
     expect(within(rows[rows.length - 1]).getByText("26,000원")).toBeInTheDocument();
-    expect(screen.getByText("셀러 매출 (정산 기준)")).toBeInTheDocument();
+    expect(screen.getByText("셀러 매출 (정산 금액 축)")).toBeInTheDocument();
   });
 
   it("고른 기간을 알린다", () => {

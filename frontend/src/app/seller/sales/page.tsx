@@ -33,6 +33,8 @@ export default async function SalesPage({
         <h1 className="text-2xl font-semibold tracking-tight">매출</h1>
         <p className="text-sm text-text-muted">
           볼 수 있는 셀러의 매출을 날짜별로 더합니다. 환불은 환불된 날에 빠지고, 배송비는 들어가지 않습니다.
+          <br />
+          셀러 매출은 정산서와 같은 금액으로 세지만 결제일 기준이라, 다음 달에 구매확정된 주문은 그달 정산서에 들어갑니다.
         </p>
       </div>
 

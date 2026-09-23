@@ -281,14 +281,14 @@ class ReviewModerationServiceTest extends PostgresTestBase {
         }
 
         @Test
-        @DisplayName("입구를 거치지 않고 넣어도 색인이 막는다")
-        void 입구를_거치지_않고_넣어도_색인이_막는다() {
+        @DisplayName("입구를 거치지 않고 넣어도 DB 가 막는다")
+        void 입구를_거치지_않고_넣어도_DB_가_막는다() {
             block();
             jdbc.sql("update review set deleted_at = now() where review_id = :id").param("id", reviewId).update();
 
             assertThatThrownBy(() -> fixture.insertReview(orderItemId(), productId, buyerId, 5, "다시 씁니다"))
                     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class)
-                    .hasMessageContaining("review_live_per_order_item");
+                    .hasMessageContaining("후기 자리를 차지한다");
         }
 
         @Test
@@ -297,6 +297,26 @@ class ReviewModerationServiceTest extends PostgresTestBase {
             reviews.delete(buyerId, reviewId);
 
             reviews.create(buyerId, new ReviewService.NewReview(orderItemId(), 5, "다시 씁니다"));
+        }
+
+        /**
+         * 신고가 대기 중일 때 쓴 사람이 지우고 새로 쓴 뒤 그 신고를 받아들인다(마무리 46차 독립 리뷰).
+         * 자리 규칙을 유일 색인으로 걸었을 때는 옛 행이 색인에 들어와 새 행과 겹쳐 500 이 났고 그 신고를 끝내 못 받아들였다.
+         */
+        @Test
+        @DisplayName("지우고 새로 쓴 뒤에도 옛 신고를 받아들일 수 있다")
+        void 지우고_새로_쓴_뒤에도_옛_신고를_받아들인다() {
+            moderation.report(reporterId, reviewId, ReviewReason.ABUSE);
+            long reportId = jdbc.sql("select review_report_id from review_report where review_id = :id")
+                    .param("id", reviewId).query(Long.class).single();
+            reviews.delete(buyerId, reviewId);
+            reviews.create(buyerId, new ReviewService.NewReview(orderItemId(), 5, "다시 씁니다"));
+
+            moderation.acceptReport(adminId, reportId);
+
+            assertThat(jdbc.sql("select status from review_report where review_report_id = :id")
+                    .param("id", reportId).query(String.class).single())
+                    .isEqualTo("accepted");
         }
 
         private void block() {

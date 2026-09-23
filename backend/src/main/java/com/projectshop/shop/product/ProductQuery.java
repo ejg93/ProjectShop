@@ -463,7 +463,8 @@ public class ProductQuery {
     /**
      * 이 사람이 이 상품에 지금 할 수 있는 동작(`Q182`). <b>전이표와 판정을 그대로 돌린다</b> — 화면이 상태를 보고
      * 버튼을 고르면 표가 두 벌이 되고, 부여표가 바뀌는 날 없는 권한의 버튼이 조용히 남는다(`Q79` 와 같은 판단).
-     * 대상은 검수 서비스와 같게 셀러와 등록자를 싣는다.
+     * 대상은 검수 서비스와 같게 셀러와 등록자를 싣는다. <b>한 가지만 더 거른다</b> — 셀러 몫 전이(쉬기·다시 팔기)는
+     * 그 셀러 소속에게만 낸다(`Q198`). 판정은 관리자에게도 열려 있어서(입구는 그대로 받는다) 버튼 선택만 좁힌 것이다.
      */
     private List<String> allowedActions(long viewerId, Set<Long> memberOf, long sellerId, long createdByUserId,
             ProductStatus status) {

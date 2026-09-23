@@ -111,6 +111,22 @@ class CompensationServiceTest extends PostgresTestBase {
                 .isInstanceOf(ShopException.class);
     }
 
+    /** 같은 경로의 다른 쓰기처럼 결제된 묶음만 받는다(마무리 46차) — 안 그러면 결제 안 된 주문의 배상이 셀러 정산에서 빠진다 */
+    @Test
+    @DisplayName("결제 안 된 묶음에는 판정을 못 남긴다")
+    void unpaidBundleIsNotFound() {
+        // 장바구니가 사람마다 하나라(`cart_user_id_key`) 두 번째 주문은 다른 사람이 낸다.
+        long buyer = fixture.insertUser("comp-buyer2@test.local", "산사람2");
+        fixture.grantGlobal(buyer, "customer");
+        long unpaidOrder = placeOrder(buyer, insertSku(buyer));
+        String unpaid = jdbc.sql("select seller_order_number from seller_order where order_id = :id")
+                .param("id", unpaidOrder).query(String.class).single();
+
+        assertThatThrownBy(() -> compensations.decide(admin, unpaid, command(CompensationBearer.SELLER)))
+                .isInstanceOfSatisfying(ShopException.class, e ->
+                        assertThat(e.code()).isEqualTo(ErrorCode.SELLER_ORDER_NOT_FOUND));
+    }
+
     @Test
     @DisplayName("그 묶음의 것이 아닌 문의는 못 잇는다")
     void rejectsAnUnrelatedInquiry() {
