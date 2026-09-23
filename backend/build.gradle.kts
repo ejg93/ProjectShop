@@ -211,7 +211,10 @@ val comparedInSlowLane = listOf(
 	"src/main/java",
 	// **그림이 대조 대상이다**(`66`). `SchemaErdTest` 가 DB 에서 뽑은 것을 이 폴더의 글과 견주는데,
 	// 안 걸면 **그림을 손으로 고쳐도 UP-TO-DATE 로 넘어간다** — 스냅샷을 쓰는 자리의 기본 함정이다.
-	"../doc/erd")
+	"../doc/erd",
+	// **되돌리는 파일을 실제로 돌린다**(`Q173`). `MigrationUndoRunTest` 가 이 폴더를 읽어 번호 역순으로 돌린다 —
+	// 안 걸면 되돌리는 파일만 고친 청크에서 그 시험이 `UP-TO-DATE` 로 건너뛴다.
+	"src/main/resources/db/undo")
 val comparedInFastLane = listOf(
 	"../PLAN.md",
 	"../PROGRESS.md",
