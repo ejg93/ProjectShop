@@ -19,10 +19,13 @@ import { priceText } from "@/lib/format";
 export function RefundDecision({
   refundNumber,
   amount,
+  overdue,
   allowedActions,
 }: {
   refundNumber: string;
   amount: number;
+  /** 기한을 넘겼나. 넘겼으면 승인 때 서버가 지연배상금을 더해 보낸다({@code RefundMath.delayInterest}) */
+  overdue: boolean;
   allowedActions: string[];
 }) {
   const router = useRouter();
@@ -73,7 +76,11 @@ export function RefundDecision({
 
       {mode === "approve" ? (
         <div className="grid gap-1">
-          <span>고객에게 {priceText(amount)}을 돌려줍니다. 승인하시겠습니까?</span>
+          <span>
+            {overdue
+              ? `환급 기한을 넘겨 고객에게 ${priceText(amount)}에 지연배상금을 더해 돌려줍니다. 승인하시겠습니까?`
+              : `고객에게 ${priceText(amount)}을 돌려줍니다. 승인하시겠습니까?`}
+          </span>
           <div className="flex gap-2">
             <button type="button" disabled={pending} onClick={() => decide("approve")}
                     className="rounded-ui border border-accent px-3 py-1 disabled:opacity-50">

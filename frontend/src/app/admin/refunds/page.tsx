@@ -110,6 +110,7 @@ export default async function AdminRefundsPage({
               <RefundDecision
                 refundNumber={refund.refundNumber}
                 amount={refund.amount}
+                overdue={refund.overdue}
                 allowedActions={refund.allowedActions}
               />
             </li>

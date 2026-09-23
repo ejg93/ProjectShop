@@ -28,13 +28,13 @@ afterEach(() => {
  */
 describe("환불 승인·반려", () => {
   it("허용 동작이 없으면 아무것도 안 그린다", () => {
-    const { container } = render(<RefundDecision refundNumber="R-1" amount={20000} allowedActions={[]} />);
+    const { container } = render(<RefundDecision refundNumber="R-1" amount={20000} overdue={false} allowedActions={[]} />);
 
     expect(container).toBeEmptyDOMElement();
   });
 
   it("승인은 금액을 적어 한 번 묻고, 확인하면 그 입구로 간다", async () => {
-    render(<RefundDecision refundNumber="R-1" amount={20000} allowedActions={["APPROVE", "REJECT"]} />);
+    render(<RefundDecision refundNumber="R-1" amount={20000} overdue={false} allowedActions={["APPROVE", "REJECT"]} />);
 
     fireEvent.click(screen.getByRole("button", { name: "승인" }));
     expect(screen.getByText(/20,000원을 돌려줍니다/)).toBeInTheDocument();
@@ -46,8 +46,16 @@ describe("환불 승인·반려", () => {
     );
   });
 
+  it("기한을 넘긴 건은 지연배상금이 더해진다고 묻는다", () => {
+    render(<RefundDecision refundNumber="R-1" amount={20000} overdue allowedActions={["APPROVE", "REJECT"]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "승인" }));
+
+    expect(screen.getByText(/20,000원에 지연배상금을 더해 돌려줍니다/)).toBeInTheDocument();
+  });
+
   it("반려는 사유를 받아 보낸다", async () => {
-    render(<RefundDecision refundNumber="R-1" amount={20000} allowedActions={["APPROVE", "REJECT"]} />);
+    render(<RefundDecision refundNumber="R-1" amount={20000} overdue={false} allowedActions={["APPROVE", "REJECT"]} />);
 
     fireEvent.click(screen.getByRole("button", { name: "반려" }));
     expect(screen.getByRole("button", { name: "반려" })).toBeDisabled();
@@ -67,7 +75,7 @@ describe("환불 승인·반려", () => {
     vi.mocked(api).mockRejectedValue(
       new ApiError(409, "tag:projectshop.example,2026:error:refund-already-decided", "이미 처리됐다"),
     );
-    render(<RefundDecision refundNumber="R-1" amount={20000} allowedActions={["APPROVE", "REJECT"]} />);
+    render(<RefundDecision refundNumber="R-1" amount={20000} overdue={false} allowedActions={["APPROVE", "REJECT"]} />);
 
     fireEvent.click(screen.getByRole("button", { name: "승인" }));
     fireEvent.click(screen.getByRole("button", { name: "승인" }));
