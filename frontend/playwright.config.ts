@@ -26,7 +26,7 @@ export default defineConfig({
   testMatch: /.*\.spec\.ts/,
   // 실패가 잦으면 그 자체가 신호다. 재시도로 덮지 않는다.
   retries: 0,
-  // 파일이 둘이고 둘 다 시드 계정을 쓴다. 같은 계정을 여럿이 동시에 쓰면 세션이 엉킨다.
+  // 파일이 셋이고 셋 다 시드 계정을 쓴다. 같은 계정을 여럿이 동시에 쓰면 세션이 엉킨다.
   workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
