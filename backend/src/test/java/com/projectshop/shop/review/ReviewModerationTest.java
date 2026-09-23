@@ -244,8 +244,9 @@ class ReviewModerationTest extends PostgresTestBase {
                     .query(String.class)
                     .single();
 
+            // 이름은 화면 쪽 시험과 같은 상수다 — 화면의 글자가 바뀌면 그 시험이 빨개진다(마무리 45차).
             assertThat(body)
-                    .contains("불만·분쟁 접수", "내 후기")
+                    .contains(ReviewPolicyScreenTest.DISPUTE_LABEL, ReviewPolicyScreenTest.MY_REVIEWS_LABEL)
                     .doesNotContain("고객센터");
         }
     }

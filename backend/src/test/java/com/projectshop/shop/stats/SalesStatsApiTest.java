@@ -152,6 +152,45 @@ class SalesStatsApiTest extends PostgresTestBase {
                 .andExpect(jsonPath("$.days[1].paid_amount").value(PRICE + 1));
     }
 
+    /**
+     * 표에서 읽는 길도 스코프를 지난다(마무리 45차 독립 리뷰). 첫 시험은 오늘(원장 길)만 지나서, 어제까지의 모든 날이
+     * 지나는 표 길의 조건을 빼도 초록이었다.
+     */
+    @Test
+    @DisplayName("집계된 날도 대표는 자기 셀러의 합만 받는다")
+    void ownerSeesOwnSellerOnlyOnStoredDays() throws Exception {
+        LocalDate yesterday = today.minusDays(1);
+        movePaymentTo(placeAndPay(skuA, 2), yesterday);
+        movePaymentTo(placeAndPay(skuB, 1), yesterday);
+        batch.runFor(yesterday);
+
+        stats(ownerA, yesterday, today)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total.paid_amount").value(2 * PRICE));
+    }
+
+    /**
+     * 범위는 `V103` 의 검사 블록이 적용 때 한 번 본다. 뒤의 마이그레이션이 넓혀도 그 블록은 다시 안 돈다 —
+     * 그래서 지금 DB 의 부여를 매번 잰다(마무리 45차 독립 리뷰).
+     */
+    @Test
+    @DisplayName("매출 통계는 대표에게 셀러 범위로, 관리자·감사자에게 전부로만 열려 있다")
+    void grantsStayWithinTheDecidedScopes() {
+        List<String> grants = jdbc.sql("""
+                        select r.code || ':' || rp.scope
+                          from role_permission rp
+                          join role r on r.role_id = rp.role_id
+                          join permission p on p.permission_id = rp.permission_id
+                         where p.resource = 'sales_stats' and rp.effect = 'allow'
+                         order by 1
+                        """)
+                .query(String.class)
+                .list();
+
+        org.assertj.core.api.Assertions.assertThat(grants)
+                .containsExactly("admin:all", "auditor:all", "seller_owner:seller");
+    }
+
     @Test
     @DisplayName("기간이 비었거나 1년을 넘기면 400 이다")
     void rejectsBadRanges() throws Exception {

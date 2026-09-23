@@ -119,6 +119,26 @@ class ImpersonationTest extends PostgresTestBase {
                 .andExpect(status().isForbidden());
     }
 
+    /**
+     * `V101` 의 검사 블록은 적용 때 한 번만 돈다 — 뒤의 마이그레이션이 이 권한을 다른 역할에 줘도 다시 안 본다.
+     * 그래서 지금 DB 의 부여를 매번 잰다(마무리 45차 독립 리뷰).
+     */
+    @Test
+    @DisplayName("대행 권한은 관리자에게만 열려 있다")
+    void onlyAdminHoldsImpersonation() {
+        assertThat(jdbc.sql("""
+                        select r.code
+                          from role_permission rp
+                          join role r on r.role_id = rp.role_id
+                          join permission p on p.permission_id = rp.permission_id
+                         where p.resource = 'user' and p.action = 'impersonate' and rp.effect = 'allow'
+                         order by 1
+                        """)
+                .query(String.class)
+                .list())
+                .containsExactly("admin");
+    }
+
     private long insertUser(String email) {
         return jdbc.sql("""
                         insert into app_user (email, password_hash, display_name)
