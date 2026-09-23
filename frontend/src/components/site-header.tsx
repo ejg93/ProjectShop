@@ -68,6 +68,16 @@ function canSeeMembers(me: Me | null): boolean {
   return can(me, "seller_member", "read");
 }
 
+/** 받은 후기에 답한다(`Q171`). 셀러 사람만 받는다 — 관리자에게는 안 준다(`V85`) */
+function canReplyReviews(me: Me | null): boolean {
+  return can(me, "review", "reply");
+}
+
+/** 후기 신고를 처리한다(`Q171`). 관리자만이다 — 셀러에게 열면 불리한 후기를 내리는 자리가 된다 */
+function canModerateReviews(me: Me | null): boolean {
+  return can(me, "review", "moderate");
+}
+
 /**
  * 모든 화면이 쓰는 머리. 어디에 있든 상품·장바구니·계정으로 갈 수 있다.
  *
@@ -125,6 +135,9 @@ export async function SiteHeader() {
           {canManageProducts(me) ? (
             <HeaderLink href="/seller/inquiries">받은 문의</HeaderLink>
           ) : null}
+          {canReplyReviews(me) ? (
+            <HeaderLink href="/seller/reviews">받은 후기</HeaderLink>
+          ) : null}
           {/*
             멤버는 **속한 사람이면 본다**(`16a`). 부르고 거두는 것은 대표만이고, 그 갈림은
             응답의 `canManage` 가 든다 — 링크를 대표에게만 보이면 담당자가 같이 일하는 사람을
@@ -155,6 +168,10 @@ export async function SiteHeader() {
 
           {canManageCoupons(me) ? (
             <HeaderLink href="/admin/coupons">쿠폰</HeaderLink>
+          ) : null}
+
+          {canModerateReviews(me) ? (
+            <HeaderLink href="/admin/review-reports">후기 신고</HeaderLink>
           ) : null}
         </nav>
 

@@ -251,6 +251,10 @@ class ScreenLengthTest {
                     "select 다. 고를 수 있는 값이 목록으로 닫혀 있다(`16a`)"),
             Map.entry("app/orders/[orderNumber]/review-form.tsx  rating",
                     "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q160`)"),
+            Map.entry("app/me/reviews/my-review-actions.tsx  rating",
+                    "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q171`)"),
+            Map.entry("app/products/[productId]/report-button.tsx  reason",
+                    "select 다. 네 사유뿐이고 서버 @Pattern 과 review_report_reason_check 가 든다(`Q171`)"),
 
             // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
             // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라

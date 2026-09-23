@@ -115,6 +115,26 @@ describe("셸의 머리", () => {
     // 남이 무엇을 했는지는 사는 사람도 파는 사람도 볼 것이 아니다(`V12`).
     expect(screen.queryByRole("link", { name: "감사 기록" })).not.toBeInTheDocument();
   });
+  it("후기 신고 처리는 관리자에게만, 받은 후기는 셀러 사람에게만 보인다", async () => {
+    // 사는 사람은 신고를 할 수 있지만(`review:report`) 처리할 수는 없다 — 링크가 없어야 한다(`Q171`).
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "review", action: "report", scopes: ["ALL"] }],
+    });
+    render(await SiteHeader());
+    expect(screen.queryByRole("link", { name: "후기 신고" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "받은 후기" })).not.toBeInTheDocument();
+  });
+
+  it("후기 신고 링크는 처리 권한이 있어야 보인다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "review", action: "moderate", scopes: ["ALL"] }],
+    });
+    render(await SiteHeader());
+    expect(screen.getByRole("link", { name: "후기 신고" })).toBeInTheDocument();
+  });
+
   it("상품과 장바구니는 로그인 전에도 있다", async () => {
     apiSessionOptional.mockResolvedValue(null);
 

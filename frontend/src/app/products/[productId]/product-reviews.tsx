@@ -1,7 +1,11 @@
 import Link from "next/link";
 
 import { apiPublic } from "@/lib/api";
+import { apiSessionOptional } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
+import { can, type Me } from "@/lib/permissions";
+
+import { ReportButton } from "./report-button";
 
 /**
  * 후기 한 줄(`Q160`).
@@ -50,6 +54,9 @@ export async function ProductReviews({ productId }: { productId: number }) {
   const page = await apiPublic<ReviewPage>(
     `/api/products/${productId}/reviews?page=0&size=${PAGE_SIZE}`,
   );
+  // 신고는 로그인한 사람만 한다(`Q171`). 목록은 공개 입구로 읽고(`Q170`), 세션으로는
+  // 버튼을 그릴지만 묻는다 — 머리글(`site-header`)이 같은 목록을 같은 방법으로 읽는다.
+  const canReport = can(await apiSessionOptional<Me>("/api/me/permissions"), "review", "report");
 
   return (
     <section className="grid gap-4 border-t border-border pt-8">
@@ -105,6 +112,8 @@ export async function ProductReviews({ productId }: { productId: number }) {
                   <p className="whitespace-pre-wrap text-sm">{review.reply}</p>
                 </div>
               ) : null}
+
+              {canReport ? <ReportButton reviewId={review.reviewId} /> : null}
             </li>
           ))}
         </ul>
