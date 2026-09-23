@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Pager, pageNumberOf } from "@/components/pager";
 import { ProductActions } from "@/components/product-actions";
+import { Td, Th } from "@/components/table-cells";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
 import { productStatusHint, productStatusText } from "@/lib/product-text";
@@ -202,33 +203,5 @@ function Empty() {
       </Link>
       에서 시작하실 수 있습니다.
     </p>
-  );
-}
-
-function Th({ children, align }: { children: React.ReactNode; align?: "right" }) {
-  return (
-    <th scope="col" className={`px-2 py-2 font-medium ${align === "right" ? "text-right" : ""}`}>
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  align,
-  muted,
-}: {
-  children: React.ReactNode;
-  align?: "right";
-  muted?: boolean;
-}) {
-  return (
-    <td
-      className={`px-2 py-3 align-top ${align === "right" ? "text-right" : ""} ${
-        muted ? "text-text-muted" : ""
-      }`}
-    >
-      {children}
-    </td>
   );
 }

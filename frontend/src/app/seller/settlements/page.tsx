@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Pager, pageNumberOf } from "@/components/pager";
+import { Td, Th } from "@/components/table-cells";
 import { apiSession } from "@/lib/api-session";
 import { dateText, priceText } from "@/lib/format";
 import { payoutStatusText } from "@/lib/settlement-text";
@@ -192,35 +193,5 @@ function Empty({ hasAny }: { hasAny: boolean }) {
         정산 주기가 끝나면 이 자리에 표시됩니다.
       </p>
     </div>
-  );
-}
-
-function Th({ children, align }: { children: string; align?: "right" }) {
-  return (
-    <th scope="col" className={`py-2 pr-3 font-normal ${align === "right" ? "text-right" : ""}`}>
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  align,
-  muted = false,
-}: {
-  children: React.ReactNode;
-  align?: "right";
-  muted?: boolean;
-}) {
-  return (
-    <td
-      className={`
-        py-2 pr-3 align-top
-        ${align === "right" ? "text-right" : ""}
-        ${muted ? "text-text-muted" : ""}
-      `}
-    >
-      {children}
-    </td>
   );
 }
