@@ -340,3 +340,49 @@ tasks.jacocoTestReport {
 		html.required = true
 	}
 }
+
+// 변이 시험(`69`). **손으로 돌린다** — `verify.sh` 에도 `check` 에도 안 건다.
+//
+// 「게이트는 부순 증거가 있어야 닫힌다」(`2m`)를 사람이 손으로 부숴야 걸리던 자리를 **기계가 부순다.**
+// 산출물은 커버리지 수치가 아니라 **살아남은 변이 목록**이고, 문턱을 안 둔다 — 수치를 두면 그것을 채우려는
+// 시험이 생긴다(위 jacoco 와 같은 판단).
+//
+// **플러그인이 아니라 명령줄을 부른다.** Gradle 9 와 맞는 PIT 플러그인 판을 확인하지 못했고, 명령줄은
+// 클래스패스와 인자만 받아서 빌드 도구 판에 안 묶인다. 대상은 컨테이너 없이 도는 순수 계산이다 —
+// 한 변이마다 시험을 다시 돌려서 `db` 태그 시험을 넣으면 한 번에 몇 시간이 된다(적용범위는 `testing-strategy.md`).
+val pitest = configurations.create("pitest")
+
+dependencies {
+	pitest("org.pitest:pitest-command-line:1.30.0")
+	pitest("org.pitest:pitest-junit5-plugin:1.2.3")
+}
+
+val mutationTargets = listOf(
+	"com.projectshop.shop.payment.RefundMath",
+	"com.projectshop.shop.auth.PasswordPolicy",
+	"com.projectshop.shop.support.TaxRetention",
+	"com.projectshop.shop.support.BusinessCalendar")
+
+tasks.register<JavaExec>("mutationTest") {
+	description = "순수 계산 클래스에 변이를 넣고 빠른 레인 시험이 잡는지 본다(69). 손으로 돌린다."
+	group = "verification"
+	dependsOn(tasks.testClasses)
+	mainClass = "org.pitest.mutationtest.commandline.MutationCoverageReport"
+	classpath = pitest + sourceSets.test.get().runtimeClasspath
+	// Windows 에서 클래스패스가 길면 줄여서 넘어가고, 그러면 PIT 가 `java.class.path` 에서 자기 에이전트를
+	// 못 찾는다(「Unable to load class content for org.pitest.boot.HotSwapAgent」, 실측). 파일로 한 번 더 준다.
+	val classPathFile = layout.buildDirectory.file("pitest-classpath.txt")
+	doFirst {
+		classPathFile.get().asFile.writeText(classpath.files.joinToString("\n") { it.path })
+	}
+	args(
+		"--classPathFile", classPathFile.get().asFile.path,
+		"--reportDir", layout.buildDirectory.dir("reports/pitest").get().asFile.path,
+		"--targetClasses", mutationTargets.joinToString(","),
+		"--targetTests", mutationTargets.joinToString(",") { "${it}Test*" },
+		"--sourceDirs", file("src/main/java").path,
+		"--excludedGroups", "db",
+		"--outputFormats", "XML,HTML",
+		"--timestampedReports", "false",
+		"--threads", "4")
+}

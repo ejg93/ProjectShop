@@ -68,6 +68,27 @@ class BusinessCalendarTest {
         assertThatThrownBy(() -> BusinessCalendar.nextBusinessDay(LocalDate.of(2026, 9, 7), 전부휴일))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("holiday 표를 본다");
+        assertThatThrownBy(() -> BusinessCalendar.plusBusinessDays(LocalDate.of(2026, 8, 31), 1, 전부휴일))
+                .as("더하는 쪽도 같은 상한을 지난다 — 없으면 끝없이 돈다")
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    /**
+     * 상한에 딱 걸리는 자리(`69`). 변이 시험이 부등호를 한 칸 옮겨도 시험이 안 깨지는 것을 짚었다 —
+     * 표가 멀쩡한데 긴 연휴 하나로 기한 계산이 터지면 그날 환불이 전부 멈춘다.
+     */
+    @Test
+    @DisplayName("상한 끝까지 밀어도 영업일을 찾는다")
+    void findsTheBusinessDayAtTheShiftLimit() {
+        Set<LocalDate> 보름 = new HashSet<>(LocalDate.of(2026, 9, 1).datesUntil(LocalDate.of(2026, 9, 16)).toList());
+        assertThat(BusinessCalendar.nextBusinessDay(LocalDate.of(2026, 9, 1), 보름))
+                .as("9/1~9/15 가 다 쉬면 16일째인 9/16(수)이다")
+                .isEqualTo(LocalDate.of(2026, 9, 16));
+
+        Set<LocalDate> 열엿새 = new HashSet<>(LocalDate.of(2026, 9, 1).datesUntil(LocalDate.of(2026, 9, 17)).toList());
+        assertThat(BusinessCalendar.plusBusinessDays(LocalDate.of(2026, 8, 31), 1, 열엿새))
+                .as("8/31(월)의 다음 영업일이 9/1~9/16 을 넘어 9/17(목)이다")
+                .isEqualTo(LocalDate.of(2026, 9, 17));
     }
 
     @Test

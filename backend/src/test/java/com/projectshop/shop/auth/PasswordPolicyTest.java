@@ -1,5 +1,6 @@
 package com.projectshop.shop.auth;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -45,6 +46,24 @@ class PasswordPolicyTest {
         assertThatCode(() -> policy.requireAcceptable("lemon-tree-orbit-3", List.of("bo")))
                 .as("세 글자 이하 문맥 단어까지 막으면 막는 것이 너무 넓다")
                 .doesNotThrowAnyException();
+    }
+
+    /** 경계 네 글자(`69`). 변이 시험이 `>=` 를 `>` 로 바꿔도 안 깨지는 것을 짚었다 — 앞 시험의 단어가 다섯 글자 이상이다 */
+    @Test
+    @DisplayName("딱 네 글자인 문맥 단어도 막고 세 글자는 안 막는다")
+    void blocksFourLetterContextWords() {
+        assertRejected("fresh-mint-garden-7", List.of("mint"));
+        assertThatCode(() -> policy.requireAcceptable("violet-ivy-garden-7", List.of("ivy")))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("이메일 앞부분은 골뱅이 앞이고 없으면 통째다")
+    void takesTheLocalPartOfAnEmail() {
+        assertThat(PasswordPolicy.localPartOf("jiwoo@test.local")).isEqualTo("jiwoo");
+        assertThat(PasswordPolicy.localPartOf("@test.local")).isEmpty();
+        assertThat(PasswordPolicy.localPartOf("jiwoo")).isEqualTo("jiwoo");
+        assertThat(PasswordPolicy.localPartOf(null)).isNull();
     }
 
     @Test

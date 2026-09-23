@@ -1540,6 +1540,15 @@ Git Bash 에서 `curl -F "file=@/tmp/x.png"` 는 **`curl: (26) Failed to open/re
 
 **원인은 배포 로그에서 추적 ID 로 찾았다.** 응답의 `trace_id` 를 그대로
 `get-logs` 의 필터에 넣으면 그 요청의 줄만 나온다 — `D16` 이 세운 고리가 이 자리에서 값을 했다.
+
+### PIT 는 Windows 에서 자기 에이전트를 못 찾는다 — 클래스패스를 파일로 준다
+
+`JavaExec` 로 PIT 명령줄을 부르면 `PitError: Unable to load class content for org.pitest.boot.HotSwapAgent`
+로 죽는다(2026-09-23, `69`). 클래스패스가 길어 줄여서 넘어가고, PIT 는 자기 에이전트를 `java.class.path` 에서
+찾는다. **`--classPathFile` 에 전체 클래스패스를 한 줄에 하나씩 적어 준다** — `mutationTest` 태스크가 그렇게 한다.
+
+**Gradle 플러그인(`info.solidsoft.pitest`)을 안 쓴 이유**: Gradle 9 와 맞는 판을 확인하지 못했다. 명령줄은
+빌드 도구 판에 안 묶인다.
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
