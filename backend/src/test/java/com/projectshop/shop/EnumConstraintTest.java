@@ -81,7 +81,8 @@ class EnumConstraintTest extends PostgresTestBase {
             "order.OrderFields", "〃",
             "audit.AuditLog$Kind", "커밋 방식을 가르는 구분이다. 저장 안 한다 — `audit_log` 에 그 열이 없다",
             "notification.AdvertisingGate$Verdict", "발송 판정의 결과다. 안 보낸 이유는 저장 안 하고 로그로 간다",
-            "order.OrderActionService$Action", "닫힌 목록이 `permission` 표의 행이지 `check` 가 아니다. `ActionPermissionTest` 가 대조한다(`43a-21`)");
+            "order.OrderActionService$Action", "닫힌 목록이 `permission` 표의 행이지 `check` 가 아니다. `ActionPermissionTest` 가 대조한다(`43a-21`)",
+            "order.OrderActionService$Party", "동작이 누구 몫인가를 가르는 코드 표다(`Q202`). 저장 안 한다 — 버튼을 고를 때만 쓴다");
 
     @Autowired
     private JdbcClient jdbc;
@@ -150,6 +151,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("order.Carrier", List.of("seller_order_carrier_code_check"));
         pairs.put("compensation.CompensationKind", List.of("compensation_kind_check"));
         pairs.put("compensation.CompensationBearer", List.of("compensation_bearer_check"));
+        pairs.put("webhook.WebhookEventType", List.of("webhook_endpoint_event_types_check"));
         pairs.put("order.OrderStatusService$ReturnReason", List.of("seller_order_return_reason_check",
                                                                   "return_request_reason_code_check"));
         pairs.put("payment.PaymentMethod", List.of("payment_method_check"));

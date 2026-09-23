@@ -47,6 +47,7 @@ erDiagram
     user_consent }o--|| app_user : "user_id"
     user_role }o..|| seller : "seller_id"
     user_role }o..|| app_user : "user_id"
+    webhook_endpoint }o--|| seller : "seller_id"
 ```
 
 점선은 이 묶음 밖으로 나가는 외래키다. 상자만 있고 선이 없는 표는

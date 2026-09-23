@@ -23,7 +23,7 @@ flowchart LR
 
 - [[order]] — 표 20개
 - [[product]] — 표 14개
-- [[account]] — 표 9개
+- [[account]] — 표 10개
 - [[settlement]] — 표 7개
 - [[permission]] — 표 6개
 - [[ops]] — 표 8개

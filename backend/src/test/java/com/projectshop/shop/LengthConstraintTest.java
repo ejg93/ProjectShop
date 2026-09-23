@@ -74,6 +74,8 @@ class LengthConstraintTest extends PostgresTestBase {
      */
     static Stream<Arguments> pairs() {
         return Stream.of(
+                Arguments.of("webhook_endpoint_url_length_check", List.of(
+                        component(com.projectshop.shop.webhook.WebhookEndpointController.RegisterRequest.class, "url"))),
                 Arguments.of("app_user_email_length_check", List.of(
                         component(com.projectshop.shop.auth.AuthController.SignupRequest.class, "email"),
                         component(com.projectshop.shop.account.MeController.EmailRequest.class, "email"))),

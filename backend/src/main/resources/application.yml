@@ -163,6 +163,12 @@ server:
 
 # 이 저장소가 정하는 값들. `spring.*` 과 갈라 둔다 — 프레임워크 설정이 아니라 우리 결정이다.
 shop:
+  # 웹훅(`29`). **기본 키가 비어 있다** — 변수를 안 넣은 배포는 웹훅만 503 이고 앱은 뜬다. 기본 키를 여기 두면
+  # 알려진 키로 시크릿을 싸게 된다(`D14`). 시험 기반 클래스가 시험 키와 루프백 허용을 준다.
+  webhook:
+    secret-key: ${WEBHOOK_SECRET_KEY:}
+    secret-key-version: ${WEBHOOK_SECRET_KEY_VERSION:1}
+    allow-loopback: false
   events:
     # 아웃박스 표를 어디로 내보내나(`event-catalog.md` 「전송」). `none` 이면 안 내보낸다.
     #

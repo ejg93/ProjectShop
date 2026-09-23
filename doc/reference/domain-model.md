@@ -126,6 +126,7 @@ SKU 를 물리 삭제하지 않으므로(수명 컬럼을 쓴다) 실제로 걸�
 | `coupon_issue` → `shop_order`(쓴 주문) | **restrict** | 할인액이 정산의 근거라 주문이 먼저 사라지면 안 된다 |
 | `seller_invitation` → `role` | **restrict** | 초대가 가리키는 역할은 먼저 못 지운다 |
 | `seller_invitation` → `app_user`(초대한 사람) | **restrict** | 살아 있는 30일 안에 가리킬 곳을 잃지 않게. 오래 드는 것은 감사 로그다 |
+| `webhook_endpoint` → `seller` | **restrict** | 셀러 행은 안 지운다(`D13`). 엔드포인트는 셀러가 지운다(`29`) |
 | `user_role` → `app_user` | cascade | 같은 이유 |
 | `user_role` → `role` | **restrict** | 사용자가 달린 역할은 회수부터 하게 만든다 |
 | `role_permission` → `role` | cascade | 역할이 사라지면 권한 부여도 사라진다 |
