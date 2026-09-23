@@ -206,6 +206,7 @@ public class ProductQuery {
     public SellerPage findForSeller(long viewerId, Long sellerId, String status, String sort, Paging paging) {
         String statusCode = status == null ? null : ProductStatus.ofRequest(status).code();
         Allowed<Long> visible = visibleSellersFor(viewerId);
+        Set<Long> memberOf = memberOf(viewerId);
 
         // 조건을 만드는 자리는 여기 하나다. switch 가 두 경우를 다 다루게 강제한다 —
         // "전부" 를 빈 목록으로 넘기면 아무것도 안 나오는데, 그 실수를 컴파일러가 막는다.
@@ -246,7 +247,7 @@ public class ProductQuery {
                         rs.getLong("min_price_incl_vat"),
                         rs.getLong("total_stock"),
                         rs.getObject("created_at", OffsetDateTime.class),
-                        allowedActions(viewerId, rs.getLong("seller_id"), rs.getLong("created_by_user_id"),
+                        allowedActions(viewerId, memberOf, rs.getLong("seller_id"), rs.getLong("created_by_user_id"),
                                 ProductStatus.of(rs.getString("status")))))
                 .list();
 
@@ -464,14 +465,25 @@ public class ProductQuery {
      * 버튼을 고르면 표가 두 벌이 되고, 부여표가 바뀌는 날 없는 권한의 버튼이 조용히 남는다(`Q79` 와 같은 판단).
      * 대상은 검수 서비스와 같게 셀러와 등록자를 싣는다.
      */
-    private List<String> allowedActions(long viewerId, long sellerId, long createdByUserId, ProductStatus status) {
+    private List<String> allowedActions(long viewerId, Set<Long> memberOf, long sellerId, long createdByUserId,
+            ProductStatus status) {
         Target target = Target.of(createdByUserId, sellerId);
         return ProductTransitions.all().stream()
                 .filter(transition -> transition.from() == status)
+                // 쉬기·다시 팔기는 셀러 소속만 받는다(`Q198`). 관리자에게 내면 셀러가 곧바로 되돌리는 버튼이 된다.
+                .filter(transition -> !ProductTransitions.sellerOwn(transition) || memberOf.contains(sellerId))
                 .filter(transition -> evaluator.decide(viewerId, "product", transition.permission(), target).allowed())
                 .map(ProductTransitions::actionName)
                 .distinct()
                 .toList();
+    }
+
+    /** 이 사람이 속한 셀러들. 버튼을 고를 때 한 번 읽는다 — 행마다 읽으면 목록 크기만큼 질의가 나간다 */
+    private Set<Long> memberOf(long viewerId) {
+        return jdbc.sql("select seller_id from seller_member where user_id = :id")
+                .param("id", viewerId)
+                .query(Long.class)
+                .set();
     }
 
     private Allowed<Long> visibleSellersFor(long viewerId) {
@@ -480,10 +492,7 @@ public class ProductQuery {
             return Allowed.everything();
         }
 
-        Set<Long> memberOf = jdbc.sql("select seller_id from seller_member where user_id = :id")
-                .param("id", viewerId)
-                .query(Long.class)
-                .set();
+        Set<Long> memberOf = memberOf(viewerId);
 
         // **대상에 자기를 싣는다**(`Q161` 이 놓친 자리, 마무리 44차 독립 리뷰).
         // `seller_staff` 는 `product:update` 가 `own` 뿐이라 셀러만 실으면 아무것도 안 덮고,

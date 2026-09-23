@@ -72,6 +72,16 @@ final class ProductTransitions {
     }
 
     /**
+     * 셀러가 스스로 하는 전이인가(`Q198`) — 쉬기와 다시 팔기. {@code suspended} 는 셀러가 내리고 여는 상태라
+     * 관리자가 막을 때는 {@code blocked} 로 간다({@code ProductReviewService}). 관리자는 {@code product:update} 를 {@code all}
+     * 로 가져서 판정만으로는 이 둘이 관리자에게도 열린다 — 버튼을 고르는 쪽이 이것으로 한 번 더 거른다.
+     */
+    static boolean sellerOwn(Transition transition) {
+        return transition.to() == ProductStatus.SUSPENDED
+                || transition.from() == ProductStatus.SUSPENDED && transition.to() == ProductStatus.ON_SALE;
+    }
+
+    /**
      * 전이 하나를 화면이 부르는 동작 이름으로(`Q182`). 입구 이름과 짝이다 — {@code SUBMIT_REVIEW} 는
      * {@code /submit-review} 다. <b>차단 풀기는 둘로 가지만 이름이 하나다</b>(되돌릴 곳은 요청 본문이 고른다).
      */

@@ -87,4 +87,15 @@ class ProductTransitionsTest {
                 "BLOCKED>ON_SALE", "UNBLOCK",
                 "BLOCKED>DRAFT", "UNBLOCK"));
     }
+
+    /** 셀러가 스스로 하는 전이는 쉬기와 다시 팔기 둘이다(`Q198`). 관리자에게 버튼을 안 내는 기준이 이것이다 */
+    @Test
+    @DisplayName("셀러 스스로의 전이는 쉬기와 다시 팔기뿐이다")
+    void sellerOwnTransitionsAreSuspendAndResume() {
+        assertThat(ProductTransitions.all().stream()
+                .filter(ProductTransitions::sellerOwn)
+                .map(ProductTransitions::actionName)
+                .toList())
+                .containsExactlyInAnyOrder("SUSPEND", "RESUME");
+    }
 }

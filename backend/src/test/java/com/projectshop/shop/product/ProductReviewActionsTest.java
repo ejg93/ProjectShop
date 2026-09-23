@@ -70,6 +70,20 @@ class ProductReviewActionsTest extends PostgresTestBase {
         assertThat(actionsOf(admin, pending)).containsExactlyInAnyOrder("APPROVE", "REJECT");
     }
 
+    /**
+     * 쉬기·다시 팔기는 셀러가 스스로 하는 상태다(`Q198`). 관리자는 `product:update` 를 `all` 로 가져서 판정만으로는
+     * 「판매 쉬기」가 「판매 차단」 옆에 섰다 — 누르면 셀러가 곧바로 되돌린다(마무리 45차 독립 리뷰).
+     */
+    @Test
+    @DisplayName("판매 중인 상품에 관리자는 차단만, 대표는 쉬기를 받는다")
+    void suspendIsForSellerMembersOnly() {
+        long onSale = insertProduct(owner, "판매 중");
+        jdbc.sql("update product set status = 'on_sale' where product_id = :id").param("id", onSale).update();
+
+        assertThat(actionsOf(admin, onSale)).containsExactly("BLOCK");
+        assertThat(actionsOf(owner, onSale)).contains("SUSPEND").doesNotContain("BLOCK");
+    }
+
     @Test
     @DisplayName("관리자는 검수 대기만 걸러 본다")
     void adminFiltersPendingReview() {
