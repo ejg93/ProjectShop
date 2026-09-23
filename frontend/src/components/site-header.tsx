@@ -165,13 +165,17 @@ export async function SiteHeader() {
           </div>
         </div>
       ) : null}
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
+      {/*
+        첫 줄도 넘치면 줄을 바꾼다(`Q213`, 마무리 49차 독립 리뷰). 링크 안에서 글자를 안 꺾게 해 놓고 이 줄만 한 줄로 묶어 두면
+        390px 밑에서 머리가 가로로 넘친다 — 로그인한 사람 전부가 걸린다(WCAG 1.4.10 재배치).
+      */}
+      <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
         <Link href="/" className="whitespace-nowrap font-semibold tracking-tight">
           ProjectShop
         </Link>
 
         {/* 이름을 붙인다. 화면낭독기가 여러 nav 를 구별하는 방법이 이것뿐이다 */}
-        <nav aria-label="주요 메뉴" className="flex flex-1 items-center gap-5 text-sm">
+        <nav aria-label="주요 메뉴" className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
           <HeaderLink href="/products">상품</HeaderLink>
           <HeaderLink href="/cart">장바구니</HeaderLink>
           {/*
@@ -181,7 +185,8 @@ export async function SiteHeader() {
           {me ? <HeaderLink href="/orders">내 주문</HeaderLink> : null}
         </nav>
 
-        <div className="flex items-center gap-5">
+        {/* 좁으면 계정 묶음이 다음 줄로 내려가고 오른쪽에 붙는다 — 메뉴가 남는 폭을 다 먹으면 세로로 쌓인다 */}
+        <div className="ml-auto flex items-center gap-5">
           {me ? (
             <>
               <HeaderLink href="/me">내 정보</HeaderLink>
@@ -193,15 +198,18 @@ export async function SiteHeader() {
         </div>
       </div>
 
-      <LinkRow label="판매" links={sellingLinks(me)} />
-      <LinkRow label="관리" links={managingLinks(me)} />
+      <LinkRow id="header-selling" label="판매" links={sellingLinks(me)} />
+      <LinkRow id="header-managing" label="관리" links={managingLinks(me)} />
     </header>
   );
 }
 
 /**
- * 판매 줄의 링크(`Q213`). 셀러에게만 보인다 — 사는 사람에게 그리면 **누르는 순간 튕기는 링크**가 되고,
- * 그건 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20` 「권한 없는 것은 숨긴다」). 관리자는 모든 셀러를 `all` 로 봐서 같이 본다.
+ * 판매 줄의 링크(`Q213`). 판매 화면으로 가는 링크를 그 권한이 있는 사람에게만 그린다 — 사는 사람에게 그리면 **누르는 순간
+ * 튕기는 링크**가 되고, 그건 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20` 「권한 없는 것은 숨긴다」).
+ *
+ * <p>관리자·감사자도 받은 주문·정산서·매출을 `all` 로 봐서 이 줄이 선다. <b>「멤버」는 아직 예외다</b> — 둘도 `seller_member:read` 를
+ * `all` 로 받는데(`V82`) 그 화면은 속한 셀러의 첫째만 보여서 빈 화면으로 간다. `Q208` 이 범위로 가른다.
  */
 function sellingLinks(me: Me | null): React.ReactElement[] {
   return [
@@ -244,16 +252,18 @@ function managingLinks(me: Me | null): React.ReactElement[] {
  * 역할 링크 한 줄(`Q213`). **그 링크가 하나라도 있을 때만 줄을 세운다** — 사는 사람의 머리는 그대로 한 줄이다.
  *
  * <p>관리자는 링크가 열일곱이라 한 줄에 두면 글자 단위로 꺾였다(「상/품」「멤/버」). 첫 줄은 쇼핑·계정만 두고 역할 링크는
- * 줄을 나눠, 넘치면 링크 단위로 다음 줄로 흐른다. 줄마다 `nav` 에 이름을 붙인다 — 보이는 이름표는 그 이름과 같아서 화면낭독기에는 숨긴다.
+ * 줄을 나눠, 넘치면 링크 단위로 다음 줄로 흐른다.
+ *
+ * <p><b>`nav` 의 이름은 보이는 이름표에서 잇는다</b>(`aria-labelledby`) — 영역 이름을 붙이는 저장소 관례가 이것이다.
  */
-function LinkRow({ label, links }: { label: string; links: React.ReactElement[] }) {
+function LinkRow({ id, label, links }: { id: string; label: string; links: React.ReactElement[] }) {
   if (links.length === 0) {
     return null;
   }
   return (
     <div className="border-t border-border">
-      <nav aria-label={`${label} 메뉴`} className="mx-auto flex max-w-6xl items-baseline gap-4 px-4 py-2 text-sm">
-        <span aria-hidden="true" className="shrink-0 font-medium">
+      <nav aria-labelledby={id} className="mx-auto flex max-w-6xl items-baseline gap-4 px-4 py-2 text-sm">
+        <span id={id} className="shrink-0 font-medium">
           {label}
         </span>
         <div className="flex flex-wrap gap-x-5 gap-y-1">{links}</div>

@@ -85,6 +85,7 @@ describe("셸의 머리", () => {
    * 첫 줄은 쇼핑·계정만 두고 판매·관리 링크는 이름 붙은 줄로 모은다.
    */
   it("판매·관리 링크는 이름 붙은 제 줄에 모이고 첫 줄에 안 섞인다", async () => {
+    // 첫 줄에는 쇼핑·계정만 있다 — 역할 링크가 한 줄에 몰리면 관리자 머리가 글자 단위로 꺾였다.
     apiSessionOptional.mockResolvedValue({
       userId: 1,
       permissions: [
@@ -96,13 +97,19 @@ describe("셸의 머리", () => {
 
     const { container } = render(await SiteHeader());
 
-    const selling = screen.getByRole("navigation", { name: "판매 메뉴" });
-    const managing = screen.getByRole("navigation", { name: "관리 메뉴" });
-    const main = screen.getByRole("navigation", { name: "주요 메뉴" });
+    const selling = screen.getByRole("navigation", { name: "판매" });
+    const managing = screen.getByRole("navigation", { name: "관리" });
     expect(within(selling).getByRole("link", { name: "받은 주문" })).toBeInTheDocument();
     expect(within(managing).getByRole("link", { name: "감사 기록" })).toBeInTheDocument();
     expect(within(managing).getByRole("link", { name: "환불 처리" })).toBeInTheDocument();
-    expect(within(main).queryByRole("link", { name: "감사 기록" })).not.toBeInTheDocument();
+
+    // 첫 줄은 로고가 든 줄이다. 그 안의 링크가 쇼핑·계정뿐이고 역할 줄은 그 밖에 있다.
+    const firstRow = screen.getByRole("link", { name: "ProjectShop" }).parentElement!;
+    expect(within(firstRow).getAllByRole("link").map((link) => link.textContent)).toEqual(
+      ["ProjectShop", "상품", "장바구니", "내 주문", "내 정보"],
+    );
+    expect(firstRow).not.toContainElement(selling);
+    expect(firstRow).not.toContainElement(managing);
     await expectNoAxeViolations(container);
   });
 
@@ -115,8 +122,8 @@ describe("셸의 머리", () => {
     render(await SiteHeader());
 
     // 빈 줄을 그리면 이름표만 있는 메뉴가 생긴다 — 갈 곳이 없는데 있는 것처럼 보인다.
-    expect(screen.queryByRole("navigation", { name: "판매 메뉴" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "관리 메뉴" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "판매" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "관리" })).not.toBeInTheDocument();
   });
 
   it("웹훅 링크는 셀러 범위로 받은 사람에게만 보인다", async () => {
