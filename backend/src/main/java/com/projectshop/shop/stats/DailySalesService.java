@@ -33,10 +33,13 @@ public class DailySalesService {
                        (p.created_at at time zone :zone)::date as sales_date,
                        count(distinct so.seller_order_id)    as order_count,
                        sum(oi.quantity)                       as sold_quantity,
-                       sum(oi.line_amount - oi.discount_amount) as paid_amount
+                       sum(oi.line_amount - oi.discount_amount) as paid_amount,
+                       sum(case when c.bearer = 'mall' then oi.discount_amount else 0 end) as mall_discount_amount
                   from payment p
                   join seller_order so on so.order_id = p.order_id
                   join order_item oi   on oi.seller_order_id = so.seller_order_id
+                  left join coupon_issue ci on ci.used_order_id = so.order_id
+                  left join coupon c        on c.coupon_id = ci.coupon_id
                  where p.status = 'approved'
                    and p.created_at >= :from and p.created_at < :to
                  group by 1, 2
@@ -45,10 +48,14 @@ public class DailySalesService {
                 select so.seller_id,
                        (r.decided_at at time zone :zone)::date as sales_date,
                        count(distinct r.refund_id)            as refund_count,
-                       sum(ri.amount)                         as refunded_amount
+                       sum(ri.amount)                         as refunded_amount,
+                       sum(case when c.bearer = 'mall' then ri.discount_refund else 0 end)
+                                                              as refunded_mall_discount_amount
                   from refund r
                   join seller_order so on so.seller_order_id = r.seller_order_id
                   join refund_item ri  on ri.refund_id = r.refund_id
+                  left join coupon_issue ci on ci.used_order_id = so.order_id
+                  left join coupon c        on c.coupon_id = ci.coupon_id
                  where r.status = 'approved'
                    and r.decided_at >= :from and r.decided_at < :to
                  group by 1, 2
@@ -59,7 +66,9 @@ public class DailySalesService {
                    coalesce(p.sold_quantity, 0)         as sold_quantity,
                    coalesce(p.paid_amount, 0)           as paid_amount,
                    coalesce(r.refund_count, 0)          as refund_count,
-                   coalesce(r.refunded_amount, 0)       as refunded_amount
+                   coalesce(r.refunded_amount, 0)       as refunded_amount,
+                   coalesce(p.mall_discount_amount, 0)  as mall_discount_amount,
+                   coalesce(r.refunded_mall_discount_amount, 0) as refunded_mall_discount_amount
               from paid p
               full join refunded r on r.seller_id = p.seller_id and r.sales_date = p.sales_date
             """;
@@ -75,9 +84,11 @@ public class DailySalesService {
      *
      * @param paidAmount     고객이 상품에 낸 돈. 쿠폰 할인 뒤고 배송비는 안 든다
      * @param refundedAmount 그날 승인된 환불. {@code paidAmount} 와 같은 축이라 빼면 순매출이다
+     * @param mallDiscountAmount         결제된 줄의 할인 중 몰이 문 몫(`Q197`). 더하면 셀러 매출 — 정산서의 축이다
+     * @param refundedMallDiscountAmount 환불이 되돌린 할인 중 몰이 문 몫. 셀러 매출의 환불 축이다
      */
     public record Day(long sellerId, LocalDate salesDate, int orderCount, int soldQuantity, long paidAmount,
-            int refundCount, long refundedAmount) {
+            int refundCount, long refundedAmount, long mallDiscountAmount, long refundedMallDiscountAmount) {
     }
 
     /**
@@ -95,7 +106,9 @@ public class DailySalesService {
                         rs.getInt("sold_quantity"),
                         rs.getLong("paid_amount"),
                         rs.getInt("refund_count"),
-                        rs.getLong("refunded_amount")))
+                        rs.getLong("refunded_amount"),
+                        rs.getLong("mall_discount_amount"),
+                        rs.getLong("refunded_mall_discount_amount")))
                 .list();
     }
 
@@ -115,7 +128,8 @@ public class DailySalesService {
 
         return jdbc.sql("""
                         insert into seller_daily_sales (seller_id, sales_date, order_count, sold_quantity,
-                                                        paid_amount, refund_count, refunded_amount)
+                                                        paid_amount, refund_count, refunded_amount,
+                                                        mall_discount_amount, refunded_mall_discount_amount)
                         """ + TALLY)
                 .param("zone", BusinessCalendar.ZONE.getId())
                 .param("from", startOf(day))

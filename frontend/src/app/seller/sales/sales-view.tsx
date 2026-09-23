@@ -12,6 +12,11 @@ export type SalesDay = {
   refundCount: number;
   refundedAmount: number;
   netAmount: number;
+  /** 몰이 문 할인(`Q197`). 결제 쪽과 환불 쪽이 따로 온다 */
+  mallDiscountAmount: number;
+  refundedMallDiscountAmount: number;
+  /** 셀러 매출 — 순매출에 몰이 문 할인을 되더한 것. 정산서의 판매 축이라 둘을 맞춰 볼 수 있다 */
+  sellerNetAmount: number;
 };
 
 export type SalesTotal = Omit<SalesDay, "salesDate">;
@@ -41,6 +46,8 @@ export function salesRange(days: Range, today: string): { from: string; to: stri
  * ({@code can} 과 같은 판단). 그래서 문구가 「볼 수 있는 셀러」다.
  *
  * <p><b>순매출을 맨 앞에 둔다.</b> 결제와 환불이 같은 축(할인 뒤·배송비 제외)이라 뺀 값이 곧 그 기간에 남은 판매다.
+ * <b>셀러 매출을 옆에 둔다</b>(`Q197`) — 몰이 문 쿠폰이면 셀러는 정가를 받아서, 고객이 낸 돈만 세면 정산서보다
+ * 할인액만큼 작다. 두 축을 나란히 적어야 정산서와 맞춰 볼 수 있다.
  * 표는 최근 날부터 — 이 화면을 여는 사람이 먼저 묻는 것이 「어제 얼마 팔았나」다.
  */
 export function SalesView({ report, range }: { report: SalesReport; range: Range }) {
@@ -61,10 +68,14 @@ export function SalesView({ report, range }: { report: SalesReport; range: Range
         ))}
       </nav>
 
-      <dl className="grid grid-cols-3 gap-4 rounded-ui border border-border bg-surface-raised p-5 text-sm">
+      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4 rounded-ui border border-border bg-surface-raised p-5 text-sm">
         <div className="grid gap-1">
           <dt className="text-text-muted">순매출</dt>
           <dd className="text-xl font-semibold tabular-nums">{priceText(report.total.netAmount)}</dd>
+        </div>
+        <div className="grid gap-1">
+          <dt className="text-text-muted">셀러 매출 (정산 기준)</dt>
+          <dd className="text-xl font-semibold tabular-nums">{priceText(report.total.sellerNetAmount)}</dd>
         </div>
         <div className="grid gap-1">
           <dt className="text-text-muted">결제 금액</dt>
@@ -79,7 +90,7 @@ export function SalesView({ report, range }: { report: SalesReport; range: Range
       <div className="overflow-x-auto">
         <table className="w-full min-w-[40rem] border-collapse text-sm">
           <caption className="sr-only">
-            날짜별 매출. 날짜, 결제 건수, 판매 수량, 결제 금액, 환불 건수, 환불 금액, 순매출 순. 최근 날부터
+            날짜별 매출. 날짜, 결제 건수, 판매 수량, 결제 금액, 환불 건수, 환불 금액, 순매출, 셀러 매출 순. 최근 날부터
           </caption>
           <thead>
             <tr className="border-b border-border text-left text-xs text-text-muted">
@@ -90,6 +101,7 @@ export function SalesView({ report, range }: { report: SalesReport; range: Range
               <Th align="right">환불</Th>
               <Th align="right">환불 금액</Th>
               <Th align="right">순매출</Th>
+              <Th align="right">셀러 매출</Th>
             </tr>
           </thead>
           <tbody>
@@ -102,6 +114,7 @@ export function SalesView({ report, range }: { report: SalesReport; range: Range
                 <Td align="right" muted={day.refundCount === 0}>{day.refundCount}건</Td>
                 <Td align="right" muted={day.refundedAmount === 0}>{priceText(day.refundedAmount)}</Td>
                 <Td align="right">{priceText(day.netAmount)}</Td>
+                <Td align="right">{priceText(day.sellerNetAmount)}</Td>
               </tr>
             ))}
           </tbody>
@@ -114,6 +127,7 @@ export function SalesView({ report, range }: { report: SalesReport; range: Range
               <Td align="right">{report.total.refundCount}건</Td>
               <Td align="right">{priceText(report.total.refundedAmount)}</Td>
               <Td align="right">{priceText(report.total.netAmount)}</Td>
+              <Td align="right">{priceText(report.total.sellerNetAmount)}</Td>
             </tr>
           </tfoot>
         </table>
