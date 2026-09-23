@@ -1,0 +1,12 @@
+# gitleaks 설정(`D25`). 기본 규칙을 그대로 쓰고 허용은 **값 하나씩**만 둔다 —
+# 경로로 풀면 그 파일에 진짜 키가 들어와도 안 잡힌다.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "시험 전용 가짜 값"
+regexes = [
+  # 웹훅 시크릿 암호의 시험 키(`29`). 바이트 0x00~0x1F 를 base64 로 적은 것이라 어디에도 안 쓴다 —
+  # 운영 키는 Railway 변수(`WEBHOOK_SECRET_KEY`)고 코드·설정 파일에 기본값이 없다.
+  '''AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=''',
+]
