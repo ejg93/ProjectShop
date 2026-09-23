@@ -12,6 +12,7 @@ erDiagram
     refund_item }o..|| order_item : "order_item_id"
     refund_item }o--|| refund : "refund_id"
     refund_note }o--|| refund : "refund_id"
+    seller_daily_sales }o..|| seller : "seller_id"
     settlement }o..|| app_user : "payout_decided_by_user_id"
     settlement }o..|| app_user : "payout_requested_by_user_id"
     settlement }o..|| seller : "seller_id"
