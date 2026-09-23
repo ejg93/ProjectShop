@@ -343,6 +343,10 @@ public enum ErrorCode {
     WEBHOOK_ENDPOINT_DUPLICATE(HttpStatus.CONFLICT, "webhook-endpoint-duplicate", "이미 건 웹훅 주소다"),
     WEBHOOK_ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "webhook-endpoint-not-found", "그런 웹훅 엔드포인트가 없다"),
     WEBHOOK_FORBIDDEN(HttpStatus.FORBIDDEN, "webhook-forbidden", "그 셀러의 웹훅을 다룰 권한이 없다"),
+    WEBHOOK_DELIVERY_NOT_FOUND(HttpStatus.NOT_FOUND, "webhook-delivery-not-found", "그런 웹훅 발송이 없다"),
+    // 실패로 닫힌 발송만 다시 보낸다(`31`). 가는 중이거나 간 것을 다시 보내면 받는 쪽에 두 번 간다.
+    WEBHOOK_DELIVERY_NOT_RESENDABLE(HttpStatus.CONFLICT, "webhook-delivery-not-resendable",
+            "실패로 닫힌 웹훅 발송만 다시 보낼 수 있다"),
 
     // 배상 판정에 이은 문의가 그 묶음의 것이 아니다(`43a-4c`). 이으면 분쟁 기록이 다른 거래를 가리킨다.
     COMPENSATION_INQUIRY_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "compensation-inquiry-mismatch",

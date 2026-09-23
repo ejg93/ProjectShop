@@ -150,6 +150,46 @@ public class WebhookEndpointService {
                 AuditLog.Target.of("webhook_endpoint", endpointId), Map.of("seller_id", endpoint.sellerId()));
     }
 
+    /**
+     * 실패로 닫힌 발송을 다시 보낸다(`31`). <b>시도 수를 이어 센다</b> — 새로 세면 소진 상한이 무의미해진다.
+     * 그래서 소진된 줄을 다시 보내면 한 번 더 가 보고, 또 일시 실패면 곧바로 다시 소진이다.
+     */
+    @Transactional
+    public void resend(long userId, long deliveryId) {
+        DeliveryRow row = jdbc.sql("""
+                        select webhook_endpoint_id, status from webhook_delivery
+                         where webhook_delivery_id = :id
+                        """)
+                .param("id", deliveryId)
+                .query((rs, rowNum) -> new DeliveryRow(rs.getLong("webhook_endpoint_id"),
+                        WebhookDeliveryStatus.of(rs.getString("status"))))
+                .optional()
+                .orElseThrow(() -> new ShopException(ErrorCode.WEBHOOK_DELIVERY_NOT_FOUND,
+                        "그런 웹훅 발송이 없다: " + deliveryId));
+        long endpointId = row.endpointId();
+        try {
+            find(userId, endpointId);
+        } catch (ShopException e) {
+            throw new ShopException(ErrorCode.WEBHOOK_DELIVERY_NOT_FOUND, "그런 웹훅 발송이 없다: " + deliveryId);
+        }
+        if (!row.status().resendable()) {
+            throw new ShopException(ErrorCode.WEBHOOK_DELIVERY_NOT_RESENDABLE,
+                    "실패로 닫힌 발송만 다시 보낸다: " + deliveryId);
+        }
+        jdbc.sql("""
+                        update webhook_delivery
+                           set status = 'pending', next_attempt_at = now()
+                         where webhook_delivery_id = :id and status in ('failed', 'exhausted')
+                        """)
+                .param("id", deliveryId)
+                .update();
+        auditLog.record(AuditLog.Kind.OUTCOME, "webhook.delivery_resent", userId,
+                AuditLog.Target.of("webhook_delivery", deliveryId), Map.of("webhook_endpoint_id", endpointId));
+    }
+
+    private record DeliveryRow(long endpointId, WebhookDeliveryStatus status) {
+    }
+
     private static final String SELECT = """
             select webhook_endpoint_id, seller_id, url, event_types, created_at
               from webhook_endpoint

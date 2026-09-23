@@ -119,7 +119,7 @@ public class WebhookSweeper {
         int sent = 0;
         for (Due delivery : due == null ? List.<Due>of() : due) {
             WebhookSender.Result result = send(delivery);
-            transactions.executeWithoutResult(status -> record(delivery, result));
+            transactions.executeWithoutResult(status -> record(delivery, result, now));
             if (result.succeeded()) {
                 sent++;
             }
@@ -128,13 +128,13 @@ public class WebhookSweeper {
     }
 
     /** 집은 한 줄과 보내는 데 필요한 것 */
-    private record Due(long deliveryId, long eventId, String url, byte[] secretCiphertext, int keyVersion,
-            String type, String source, String subject, OffsetDateTime occurredAt, String data) {
+    private record Due(long deliveryId, int attemptCount, long eventId, String url, byte[] secretCiphertext,
+            int keyVersion, String type, String source, String subject, OffsetDateTime occurredAt, String data) {
     }
 
     private List<Due> claim(OffsetDateTime now) {
         List<Due> due = jdbc.sql("""
-                        select d.webhook_delivery_id, e.outbox_event_id, w.url, w.secret_ciphertext,
+                        select d.webhook_delivery_id, d.attempt_count, e.outbox_event_id, w.url, w.secret_ciphertext,
                                w.secret_key_version, e.type, e.source, e.subject, e.occurred_at, e.data::text as data
                           from webhook_delivery d
                           join webhook_endpoint w on w.webhook_endpoint_id = d.webhook_endpoint_id
@@ -148,6 +148,7 @@ public class WebhookSweeper {
                 .param("limit", BATCH_SIZE)
                 .query((rs, rowNum) -> new Due(
                         rs.getLong("webhook_delivery_id"),
+                        rs.getInt("attempt_count"),
                         rs.getLong("outbox_event_id"),
                         rs.getString("url"),
                         rs.getBytes("secret_ciphertext"),
@@ -174,7 +175,7 @@ public class WebhookSweeper {
             url = urls.require(delivery.url());
         } catch (ShopException e) {
             // 등록 뒤에 안쪽을 가리키게 된 주소다(`D14`). 다시 보내도 안 된다.
-            return new WebhookSender.Result(null, "안쪽 주소로 바뀌었다");
+            return new WebhookSender.Result(null, "안쪽 주소로 바뀌었다", true);
         }
         byte[] secret = cipher.decrypt(delivery.secretCiphertext(), delivery.keyVersion());
         String body = EventEnvelope.of(objectMapper, delivery.eventId(), delivery.type(), delivery.source(),
@@ -183,20 +184,26 @@ public class WebhookSweeper {
                 OffsetDateTime.now().toEpochSecond(), body);
     }
 
-    /** 결과를 적는다. 2xx 면 끝, 아니면 실패로 닫는다 — 다시 보내는 것은 `31` 이 가른다 */
-    private void record(Due delivery, WebhookSender.Result result) {
-        String status = result.succeeded() ? WebhookDeliveryStatus.SENT.code() : WebhookDeliveryStatus.FAILED.code();
+    /**
+     * 결과를 적는다(`31`). 2xx 면 끝이다. 다시 보낼 만한 실패면 다음 시각을 {@link WebhookRetry#backoff} 만큼 뒤로 두고, 횟수를 다 썼으면
+     * {@code exhausted}, 다시 보내도 안 될 실패(4xx·안쪽 주소)면 {@code failed} 로 닫는다.
+     */
+    private void record(Due delivery, WebhookSender.Result result, OffsetDateTime now) {
+        int attempts = delivery.attemptCount() + 1;
+        WebhookDeliveryStatus status = WebhookRetry.next(result, attempts);
         jdbc.sql("""
                         update webhook_delivery
                            set status = :status,
-                               attempt_count = attempt_count + 1,
-                               next_attempt_at = null,
+                               attempt_count = :attempts,
+                               next_attempt_at = :next,
                                delivered_at = case when :status = 'sent' then now() end,
                                last_status_code = :code,
                                last_error = :error
                          where webhook_delivery_id = :id
                         """)
-                .param("status", status)
+                .param("status", status.code())
+                .param("attempts", attempts)
+                .param("next", status == WebhookDeliveryStatus.PENDING ? now.plus(WebhookRetry.backoff(attempts)) : null)
                 .param("code", result.statusCode())
                 .param("error", result.error())
                 .param("id", delivery.deliveryId())

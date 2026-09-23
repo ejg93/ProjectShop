@@ -3,6 +3,7 @@ package com.projectshop.shop.webhook;
 import java.net.URI;
 import java.util.Set;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,6 +22,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 셀러 웹훅 엔드포인트의 입구(`29`). 대표만 자기 셀러에 건다({@code webhook:manage}, `V110`).
@@ -30,9 +32,11 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 public class WebhookEndpointController {
 
     private final WebhookEndpointService endpoints;
+    private final WebhookDeliveryQuery deliveries;
 
-    WebhookEndpointController(WebhookEndpointService endpoints) {
+    WebhookEndpointController(WebhookEndpointService endpoints, WebhookDeliveryQuery deliveries) {
         this.endpoints = endpoints;
+        this.deliveries = deliveries;
     }
 
     /**
@@ -68,6 +72,25 @@ public class WebhookEndpointController {
     public WebhookEndpointService.Endpoint find(@AuthenticationPrincipal ShopUser user,
             @PathVariable long webhookEndpointId) {
         return endpoints.find(user.id(), webhookEndpointId);
+    }
+
+    /**
+     * 그 엔드포인트의 발송 기록. 최근 것부터다.
+     *
+     * @param status {@code PENDING}·{@code SENT}·{@code FAILED}·{@code EXHAUSTED}. 비우면 전부
+     */
+    @GetMapping("/{webhookEndpointId}/deliveries")
+    public WebhookDeliveryQuery.Page deliveries(@AuthenticationPrincipal ShopUser user,
+            @PathVariable long webhookEndpointId, @RequestParam(required = false) String status,
+            @ParameterObject Paging paging) {
+        return deliveries.find(user.id(), webhookEndpointId, status, paging);
+    }
+
+    /** 실패로 닫힌 발송을 다시 보낸다(`31`). 시도 수는 이어 센다 */
+    @PostMapping("/deliveries/{webhookDeliveryId}/resend")
+    public ResponseEntity<Void> resend(@AuthenticationPrincipal ShopUser user, @PathVariable long webhookDeliveryId) {
+        endpoints.resend(user.id(), webhookDeliveryId);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{webhookEndpointId}")

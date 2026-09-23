@@ -31,11 +31,30 @@ class WebhookSender {
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
     static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(5);
 
-    /** 보낸 결과. 응답을 받았으면 코드가, 못 받았으면 오류가 있다 */
-    record Result(Integer statusCode, String error) {
+    /**
+     * 보낸 결과. 응답을 받았으면 코드가, 못 받았으면 오류가 있다.
+     *
+     * @param blocked 우리가 안 보냈다 — 주소가 안쪽을 가리킨다(`WebhookUrlPolicy`). 다시 보내도 안 된다
+     */
+    record Result(Integer statusCode, String error, boolean blocked) {
+
+        Result(Integer statusCode, String error) {
+            this(statusCode, error, false);
+        }
 
         boolean succeeded() {
             return statusCode != null && statusCode >= 200 && statusCode < 300;
+        }
+
+        /**
+         * 다시 보낼 만한가(`31`). <b>4xx 는 영구다</b> — 받는 쪽이 요청을 거절했으니 같은 것을 다시 보내도 같다. 5xx·타임아웃·연결 실패는
+         * 일시다. <b>408·429 는 4xx 인데 일시다</b>(RFC 9110 §15.5.9, RFC 6585 §4) — 기다리면 받는다고 받는 쪽이 말한 것이다.
+         */
+        boolean retryable() {
+            if (blocked || succeeded()) {
+                return false;
+            }
+            return statusCode == null || statusCode >= 500 || statusCode == 408 || statusCode == 429;
         }
     }
 

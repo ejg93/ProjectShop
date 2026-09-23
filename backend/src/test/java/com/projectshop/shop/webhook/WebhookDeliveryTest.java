@@ -1,6 +1,7 @@
 package com.projectshop.shop.webhook;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,6 +10,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +26,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderFixture;
+import com.projectshop.shop.support.ListQuery.Paging;
 import com.sun.net.httpserver.HttpServer;
 
 import tools.jackson.databind.JsonNode;
@@ -45,6 +50,9 @@ class WebhookDeliveryTest extends PostgresTestBase {
 
     @Autowired
     private WebhookSweeper sweeper;
+
+    @Autowired
+    private WebhookDeliveryQuery deliveries;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -168,6 +176,87 @@ class WebhookDeliveryTest extends PostgresTestBase {
         } finally {
             slow.stop(0);
         }
+    }
+
+    /** 5xx 는 일시다 — 30초에서 시작해 두 배씩 뒤로 미룬다(`31`). 시도 수와 다음 시각이 칸이라 재기동해도 남는다 */
+    @Test
+    @DisplayName("일시 실패는 지수로 미뤄 다시 보낸다")
+    void transientFailureBacksOff() {
+        responseCode = 503;
+        register(Set.of(WebhookEventType.SELLER_ORDER_STATUS_CHANGED));
+        emitSellerOrderShipped(sellerId);
+        sweeper.fanOut();
+        // 표는 마이크로초까지 담는다 — 나노초가 남으면 같은 시각이 다르게 보인다.
+        OffsetDateTime first = OffsetDateTime.now().plusSeconds(1).truncatedTo(ChronoUnit.MICROS);
+
+        sweeper.deliverDue(first);
+        assertThat(delivery()).isEqualTo(new DeliveryState("pending", 1, first.plusSeconds(30)));
+
+        OffsetDateTime second = first.plusSeconds(31);
+        sweeper.deliverDue(second);
+        assertThat(delivery()).isEqualTo(new DeliveryState("pending", 2, second.plusSeconds(60)));
+    }
+
+    @Test
+    @DisplayName("4xx 는 영구라 한 번에 닫는다 — 408·429 는 빼고")
+    void clientErrorFailsAtOnce() {
+        responseCode = 400;
+        register(Set.of(WebhookEventType.SELLER_ORDER_STATUS_CHANGED));
+        emitSellerOrderShipped(sellerId);
+        sweeper.fanOut();
+
+        sweeper.deliverDue(OffsetDateTime.now().plusSeconds(1));
+
+        assertThat(delivery().status()).isEqualTo("failed");
+        assertThat(new WebhookSender.Result(429, null).retryable()).isTrue();
+        assertThat(new WebhookSender.Result(408, null).retryable()).isTrue();
+    }
+
+    /** 다 쓰면 멈추고, 셀러가 다시 보내면 시도 수를 이어 센다 */
+    @Test
+    @DisplayName("횟수를 다 쓰면 소진이고, 다시 보내면 이어 센다")
+    void exhaustsThenResends() {
+        responseCode = 500;
+        register(Set.of(WebhookEventType.SELLER_ORDER_STATUS_CHANGED));
+        emitSellerOrderShipped(sellerId);
+        sweeper.fanOut();
+        OffsetDateTime at = OffsetDateTime.now().plusSeconds(1);
+        for (int attempt = 0; attempt < WebhookRetry.MAX_ATTEMPTS; attempt++) {
+            sweeper.deliverDue(at);
+            at = at.plusHours(2);
+        }
+        assertThat(delivery().status()).isEqualTo("exhausted");
+        assertThat(delivery().attempts()).isEqualTo(WebhookRetry.MAX_ATTEMPTS);
+        long deliveryId = jdbc.sql("select webhook_delivery_id from webhook_delivery").query(Long.class).single();
+        assertThat(deliveries.find(owner, endpointId(), null, new Paging(0, 20)).items().getFirst().allowedActions())
+                .containsExactly("RESEND");
+
+        endpoints.resend(owner, deliveryId);
+        responseCode = 200;
+        sweeper.deliverDue(at);
+
+        assertThat(delivery().status()).isEqualTo("sent");
+        assertThat(delivery().attempts()).isEqualTo(WebhookRetry.MAX_ATTEMPTS + 1);
+        assertThatThrownBy(() -> endpoints.resend(owner, deliveryId))
+                .isInstanceOfSatisfying(ShopException.class, e ->
+                        assertThat(e.code()).isEqualTo(ErrorCode.WEBHOOK_DELIVERY_NOT_RESENDABLE));
+    }
+
+    private record DeliveryState(String status, int attempts, OffsetDateTime nextAttemptAt) {
+    }
+
+    private DeliveryState delivery() {
+        return jdbc.sql("select status, attempt_count, next_attempt_at from webhook_delivery")
+                .query((rs, rowNum) -> new DeliveryState(rs.getString("status"), rs.getInt("attempt_count"),
+                        rs.getObject("next_attempt_at", OffsetDateTime.class) == null ? null
+                                : rs.getObject("next_attempt_at", OffsetDateTime.class)
+                                        .withOffsetSameInstant(OffsetDateTime.now().getOffset())))
+                .single();
+    }
+
+    private long endpointId() {
+        return jdbc.sql("select webhook_endpoint_id from webhook_endpoint where seller_id = :id")
+                .param("id", sellerId).query(Long.class).single();
     }
 
     private String register(Set<WebhookEventType> types) {
