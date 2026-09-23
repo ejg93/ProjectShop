@@ -35,7 +35,7 @@ class OrderRecordTextTest {
         OrderQuery.SellerOrder sellerOrder = new OrderQuery.SellerOrder(
                 "20260821-7QX4P4-1", "데모셀러", "DELIVERED", 3_000L,
                 KST_NOON, KST_NOON, KST_NOON, KST_NOON, KST_NOON, false, "CJ", "123456789012",
-                List.of(item), List.of("CONFIRM"));
+                List.of(item), List.of("CONFIRM"), List.of());
 
         return new OrderQuery.Detail("20260821-7QX4P4", "PAID", 58_000L, 3_000L, 0L, 61_000L,
                 KST_NOON, List.of(sellerOrder),

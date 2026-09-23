@@ -3,6 +3,7 @@ package com.projectshop.shop.order;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -94,6 +95,29 @@ final class OrderTransitions {
 
             Shipment.CANCELLED, EnumSet.noneOf(Shipment.class),
             Shipment.RETURNED, EnumSet.noneOf(Shipment.class)));
+
+    /**
+     * 관리자 강제 전이가 갈 수 있는 곳(`16c`, {@code order:force_status}).
+     *
+     * <p><b>도착이 셋이다</b>(2026-09-23 사용자 선택) — 취소(분실·연락 끊긴 셀러)·배송중(송장 없는 직접 배송)·
+     * 배송완료(조회 안 되는 택배). <b>끝난 상태에서 나가는 줄과 되돌리는 줄이 없다</b> — 재고를 다시 빼고
+     * 거래 종료 시각·청약철회 기한을 비우는 코드가 없어서, 열면 상태만 돌아가고 곁가지가 남는다.
+     *
+     * <p>곁가지는 {@link OrderStatusService} 가 출발지를 보고 맞춘다 — 배송중에서 온 취소는 재고를 안 되돌리고,
+     * 준비중에서 바로 온 배송완료는 발송 시각과 기한을 같이 박는다.
+     */
+    private static final Map<Shipment, Set<Shipment>> FORCIBLE = new EnumMap<>(Map.of(
+            Shipment.PREPARING, EnumSet.of(Shipment.SHIPPING, Shipment.DELIVERED, Shipment.CANCELLED),
+            Shipment.SHIPPING, EnumSet.of(Shipment.DELIVERED, Shipment.CANCELLED)));
+
+    static boolean forcible(Shipment from, Shipment to) {
+        return FORCIBLE.getOrDefault(from, Set.of()).contains(to);
+    }
+
+    /** 이 상태에서 강제로 갈 수 있는 곳. 화면이 버튼을 고르는 값이다 — 표를 화면이 다시 적지 않게 */
+    static List<Shipment> forcibleFrom(Shipment from) {
+        return FORCIBLE.getOrDefault(from, Set.of()).stream().sorted().toList();
+    }
 
     static boolean allows(Payment from, Payment to) {
         return PAYMENT.get(from).contains(to);

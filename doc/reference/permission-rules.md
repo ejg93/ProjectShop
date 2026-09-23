@@ -146,6 +146,7 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `order:receive_return` | | A/seller | A/all | D/all |
 | `order:approve_return` | | | A/all | D/all |
 | `order:reject_return` | | | A/all | D/all |
+| `order:force_status` | | | A/all | D/all |
 | `payment:read` | A/own | A/seller | A/all | A/all |
 | `payment:refund` | | | A/all | D/all |
 | `user:read` | A/own | A/own | A/all | A/all |
@@ -314,6 +315,7 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 | `receive_return` | `return_requested` | 셀러 |
 | `approve_return` | `return_requested` | **관리자** |
 | `reject_return` | `return_requested` | **관리자** |
+| `force_status` | **전부** — 이 표에 없어서 축이 안 막는다(`V106`). 갈 곳은 `OrderTransitions` 의 강제 표가 닫는다 | **관리자** |
 
 **반품 셋이 `V64` 에서 늘었다**(`43a-2`). 같은 이유가 한 번 더 걸린 자리다 —
 `update_status` 가 `return_requested` 를 들고 있는 동안 **셀러가 `DELIVER` 로 거절 복귀를 밀 수 있었다.**

@@ -272,6 +272,8 @@ class ScreenLengthTest {
             Map.entry("app/admin/orders/order-list.tsx  from",
                     "type=date 다. 브라우저가 날짜 꼴로 닫고 서버가 LocalDate 로 받는다"),
             Map.entry("app/admin/orders/order-list.tsx  until", "〃"),
+            Map.entry("app/admin/orders/[orderNumber]/force-status-form.tsx  to",
+                    "select 다. 서버가 내린 forcibleStatuses 로 닫혀 있고 표 밖은 서버가 409 로 돌린다(`16c`)"),
 
             // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
             // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라

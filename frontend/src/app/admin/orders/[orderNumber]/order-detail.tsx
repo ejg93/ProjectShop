@@ -8,6 +8,8 @@ import {
 } from "@/lib/order-text";
 import { refundStatusText } from "@/lib/refund-text";
 
+import { ForceStatusForm } from "./force-status-form";
+
 type Item = {
   orderItemId: number;
   productName: string;
@@ -24,6 +26,8 @@ type SellerOrder = {
   carrierCode: string | null;
   trackingNo: string | null;
   items: Item[];
+  /** 관리자가 강제로 옮길 수 있는 곳(`16c`). 서버가 고르고 권한이 없으면 비어 있다 */
+  forcibleStatuses: string[];
 };
 
 type HistoryEntry = {
@@ -86,8 +90,8 @@ const SHIPPED_OR_LATER = new Set(["SHIPPING", "DELIVERED", "CONFIRMED", "RETURN_
 /**
  * 관리자 주문 상세(`Q176`).
  *
- * <p><b>동작 버튼이 없다.</b> 응답의 {@code allowedActions} 를 안 그린다 — 관리자는 모든 권한을 {@code all} 로 가져서
- * 구매확정·반품 요청 같은 고객 동작까지 거기 섞여 온다. 관리자의 쓰기는 강제 전이(`16c`)가 따로 붙인다.
+ * <p><b>응답의 {@code allowedActions} 를 안 그린다</b> — 관리자는 모든 권한을 {@code all} 로 가져서 구매확정·반품 요청
+ * 같은 고객 동작까지 거기 섞여 온다. 관리자의 쓰기는 강제 전이(`16c`) 폼 하나고, 갈 곳은 {@code forcibleStatuses} 가 고른다.
  */
 export function OrderDetailView({ order }: { order: AdminOrderDetail }) {
   return (
@@ -159,6 +163,8 @@ function Bundle({ bundle }: { bundle: SellerOrder }) {
           </li>
         ))}
       </ul>
+
+      <ForceStatusForm sellerOrderNumber={bundle.sellerOrderNumber} forcibleStatuses={bundle.forcibleStatuses} />
     </section>
   );
 }

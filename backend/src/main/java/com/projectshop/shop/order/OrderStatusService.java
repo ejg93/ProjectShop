@@ -300,7 +300,11 @@ public class OrderStatusService {
             // 되돌리기 전에 옮긴다. 상태가 먼저 바뀌어야 같은 셀러 주문을 두 번 취소하는 요청이
             // 두 번째에 전이표에 걸린다 — 안 그러면 재고가 두 번 늘어난다.
             updateShipmentStatus(sellerOrderId, to);
-            restoreStock(sellerOrderId, StockReason.ORDER_CANCELLED);
+            // 보내기 전의 취소만 되돌린다. 배송중에서 온 것은 관리자 강제 취소(`16c`, 분실)라
+            // 물건이 창고에 없다 — 되돌리면 없는 물건을 또 판다.
+            if (from == Shipment.PREPARING) {
+                restoreStock(sellerOrderId, StockReason.ORDER_CANCELLED);
+            }
         } else {
             updateShipmentStatus(sellerOrderId, to);
 
@@ -312,14 +316,17 @@ public class OrderStatusService {
             }
         }
 
-        if (to == Shipment.SHIPPING) {
+        // 준비중에서 바로 배송완료로 온 강제 전이(`16c`)도 보낸 것이다 — 안 박으면 「아직 안 보냄」으로 남아
+        // 발송 기한을 넘겼다는 표시가 영영 켜진다.
+        if (to == Shipment.SHIPPING || to == Shipment.DELIVERED && from == Shipment.PREPARING) {
             markShipped(sellerOrderId);
         }
 
         // **거절 복귀에서는 안 박는다**(`43a-2`). `return_requested → delivered` 도 여기 오는데
         // 다시 박으면 청약철회 기산점이 오늘로 밀린다 — `D7` 이 「기산점은 안 움직인다」고 정했고,
         // 그러면 셀러·관리자가 거절을 반복해서 소비자의 7일을 늘였다 줄일 수 있다.
-        if (to == Shipment.DELIVERED && from == Shipment.SHIPPING) {
+        // 처음 도착할 때만 박는다 — 배송중에서 오거나, 준비중에서 강제로 바로 온 것(`16c`)이다.
+        if (to == Shipment.DELIVERED && (from == Shipment.SHIPPING || from == Shipment.PREPARING)) {
             freezeDeadlines(sellerOrderId);
         }
         if (to == Shipment.CONFIRMED || to == Shipment.CANCELLED || to == Shipment.RETURNED) {

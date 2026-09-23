@@ -117,12 +117,14 @@ public class OrderQuery {
      * @param carrierCode        택배사(`57`). 보내기 전이거나 송장 없이 옮겨진 묶음이면 비어 있다
      * @param trackingNo     송장 번호. 사는 사람이 택배사 화면에서 따라가는 열쇠다 — 위치는 우리가 안 다룬다
      * @param allowedActions     지금 이 묶음에 할 수 있는 것. 소문자·하이픈이 곧 경로다
+     * @param forcibleStatuses   관리자가 강제로 옮길 수 있는 곳(`16c`). 권한이 없으면 비어 있다 — 관리자에게는
+     *                           {@code allowedActions} 에 고객 동작까지 섞여 와서 강제 전이 버튼은 이것으로 고른다
      */
     public record SellerOrder(String sellerOrderNumber, String sellerName, String status,
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime shipDueAt, OffsetDateTime shippedAt,
             boolean shipOverdue, String carrierCode, String trackingNo,
-            List<Item> items, List<String> allowedActions) {
+            List<Item> items, List<String> allowedActions, List<String> forcibleStatuses) {
     }
 
     /**
@@ -461,6 +463,8 @@ public class OrderQuery {
                         List.copyOf(itemsBySellerOrder.getOrDefault(
                                 rs.getLong("seller_order_id"), List.of())),
                         actions.allowedActions(viewerId, buyerUserId,
+                                rs.getLong("seller_id"), rs.getString("status")),
+                        actions.forcibleStatuses(viewerId, buyerUserId,
                                 rs.getLong("seller_id"), rs.getString("status"))))
                 .list();
     }

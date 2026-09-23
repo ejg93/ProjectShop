@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "@/test/axe";
 
 import { type AdminOrderDetail, OrderDetailView } from "./order-detail";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
 
 const ORDER: AdminOrderDetail = {
   orderNumber: "20260923-ABC123",
@@ -22,6 +24,7 @@ const ORDER: AdminOrderDetail = {
       carrierCode: null,
       trackingNo: null,
       items: [{ orderItemId: 1, productName: "머그컵", optionLabel: null, quantity: 1, lineAmount: 10000 }],
+      forcibleStatuses: ["DELIVERED", "CANCELLED"],
     },
   ],
   history: [
