@@ -275,6 +275,42 @@ class RefundApiTest extends PostgresTestBase {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.total").value(0));
         }
+
+        /**
+         * <b>대기열 버튼의 강제 지점이다</b>(`Q185`). 화면은 이 칸으로만 버튼을 그려서, 여기가 틀리면 요청자에게
+         * 승인 버튼이 나거나 관리자에게 안 난다.
+         */
+        @Test
+        @DisplayName("관리자에게만 승인·반려를 내리고 요청자에게는 안 내린다")
+        void offersDecisionsToApproversOnly() throws Exception {
+            requestAndRead();
+
+            mvc.perform(get("/api/refunds").with(user(admin)))
+                    .andExpect(jsonPath("$.items[0].allowed_actions[0]").value("APPROVE"))
+                    .andExpect(jsonPath("$.items[0].allowed_actions[1]").value("REJECT"));
+            mvc.perform(get("/api/refunds").with(user(buyer)))
+                    .andExpect(jsonPath("$.items[0].allowed_actions").isEmpty());
+        }
+
+        @Test
+        @DisplayName("관리자도 자기가 낸 요청에는 버튼이 없다")
+        void withholdsDecisionsOnOwnRequest() throws Exception {
+            mvc.perform(requestBy(admin)).andExpect(status().isCreated());
+
+            mvc.perform(get("/api/refunds").with(user(admin)))
+                    .andExpect(jsonPath("$.items[0].allowed_actions").isEmpty());
+        }
+
+        @Test
+        @DisplayName("처리가 끝난 것에는 버튼이 없다")
+        void withholdsDecisionsOnceDecided() throws Exception {
+            String number = requestAndRead();
+            mvc.perform(post("/api/refunds/{n}/approve", number).with(user(admin)).with(csrf()))
+                    .andExpect(status().isOk());
+
+            mvc.perform(get("/api/refunds").with(user(admin)))
+                    .andExpect(jsonPath("$.items[0].allowed_actions").isEmpty());
+        }
     }
 
     @Nested

@@ -84,6 +84,14 @@ function canModerateProducts(me: Me | null): boolean {
   return can(me, "product", "moderate");
 }
 
+/**
+ * 환불을 승인·반려한다(`Q185`). 관리자만이다 — 환급 의무자가 우리라서 이행 여부를 남이 못 정한다(`D2` R5).
+ * 요청 권한({@code request_refund})과 갈린 권한이라 고객·셀러에게는 이 링크가 없다
+ */
+function canDecideRefunds(me: Me | null): boolean {
+  return can(me, "payment", "refund");
+}
+
 /** 후기 신고를 처리한다(`Q171`). 관리자만이다 — 셀러에게 열면 불리한 후기를 내리는 자리가 된다 */
 function canModerateReviews(me: Me | null): boolean {
   return can(me, "review", "moderate");
@@ -202,6 +210,9 @@ export async function SiteHeader() {
           ) : null}
           {canModerateProducts(me) ? (
             <HeaderLink href="/admin/copyright-reports">저작권 신고</HeaderLink>
+          ) : null}
+          {canDecideRefunds(me) ? (
+            <HeaderLink href="/admin/refunds">환불 처리</HeaderLink>
           ) : null}
         </nav>
 

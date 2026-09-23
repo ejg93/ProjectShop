@@ -65,11 +65,14 @@ public class RefundQuery {
      *
      * @param overdue 기한을 넘겼나. <b>서버가 계산해 내린다</b> — 화면이 {@code dueAt} 과 현재 시각을
      *                비교하면 시간대와 시계 차이만큼 답이 갈리고, 그 답이 법 요건이다(`D2` R5)
+     * @param allowedActions 이 사람이 지금 이 환불에 할 수 있는 것({@code APPROVE}·{@code REJECT}). <b>서버가 고른다</b>
+     *                       (`Q185`) — 권한만 보고 화면이 그리면 자기가 낸 요청에도 버튼이 나고, 누르면
+     *                       {@code refund_self_approval_check} 에 부딪힌다
      */
     @Schema(name = "RefundSummary")
     public record Summary(String refundNumber, String sellerOrderNumber, String orderNumber,
             String status, String reasonCode, long amount, OffsetDateTime dueAt, boolean overdue,
-            OffsetDateTime createdAt) {
+            OffsetDateTime createdAt, List<String> allowedActions) {
     }
 
     @Schema(name = "RefundPage")
@@ -113,7 +116,8 @@ public class RefundQuery {
         List<Summary> items = jdbc.sql("""
                         select r.refund_number, so.seller_order_number, o.order_number,
                                r.status, r.reason_code, r.amount, r.due_at, r.created_at,
-                               (r.status = 'requested' and r.due_at < now()) as overdue
+                               (r.status = 'requested' and r.due_at < now()) as overdue,
+                               o.user_id, so.seller_id, r.requested_by_user_id
                           from refund r
                           join seller_order so on so.seller_order_id = r.seller_order_id
                           join shop_order o    on o.order_id = so.order_id
@@ -141,7 +145,9 @@ public class RefundQuery {
                         rs.getLong("amount"),
                         rs.getObject("due_at", OffsetDateTime.class),
                         rs.getBoolean("overdue"),
-                        rs.getObject("created_at", OffsetDateTime.class)))
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        allowedActions(viewerId, rs.getString("status"), rs.getLong("user_id"),
+                                rs.getLong("seller_id"), rs.getLong("requested_by_user_id"))))
                 .list();
 
         Long total = jdbc.sql("""
@@ -250,6 +256,23 @@ public class RefundQuery {
      * @param sellers    소속이면서 조회 권한이 열린 셀러
      */
     private record Visible(boolean everything, boolean own, Long[] sellers) {
+    }
+
+    /**
+     * 이 사람이 이 환불에 할 수 있는 것(`Q185`).
+     *
+     * <p><b>{@code RefundService} 가 입구에서 거는 검사를 같은 순서로 다시 묻는다</b> — 대기 상태·승인 권한·자기 요청.
+     * 판정은 {@code decide} 에 맡기고 여기서 새로 짜지 않는다. 승인과 반려가 한 권한이라 둘이 같이 나거나 같이 빠진다.
+     */
+    private List<String> allowedActions(long viewerId, String storedStatus, long buyerUserId, long sellerId,
+            long requestedByUserId) {
+        if (!RefundStatus.REQUESTED.code().equals(storedStatus) || requestedByUserId == viewerId) {
+            return List.of();
+        }
+
+        boolean allowed = evaluator.decide(viewerId, RefundService.RESOURCE, RefundService.APPROVE,
+                Target.of(buyerUserId, sellerId)).allowed();
+        return allowed ? List.of("APPROVE", "REJECT") : List.of();
     }
 
     /**

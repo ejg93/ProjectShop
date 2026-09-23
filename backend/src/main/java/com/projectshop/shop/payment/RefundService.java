@@ -104,9 +104,10 @@ public class RefundService {
      * 「통신판매업자인 통신판매중개자」에게만 걸려서 우리를 직접 지목하지 않는다 —
      * 결론은 같고 근거가 한 칸 비켜 있었다.
      */
-    private static final String RESOURCE = "payment";
+    static final String RESOURCE = "payment";
     private static final String REQUEST = "request_refund";
-    private static final String APPROVE = "refund";
+    // 승인과 반려가 같은 권한이다. 대기열(`RefundQuery`)이 버튼을 고를 때 이 이름을 같이 쓴다(`Q185`).
+    static final String APPROVE = "refund";
 
     private final JdbcClient jdbc;
     private final MockPaymentGateway gateway;
