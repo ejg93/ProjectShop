@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.projectshop.shop.PostgresTestBase;
+import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 
 /**
@@ -89,6 +90,21 @@ class PasswordResetTest extends PostgresTestBase {
         assertThat(currentHashMatches("NewPassword-123!"))
                 .as("바뀐 비밀번호로 대조된다")
                 .isTrue();
+    }
+
+    /**
+     * 재설정도 비밀번호를 정하는 입구다(`D14-2`). <b>토큰은 살아 있어야 한다</b> — 거절한 뒤 토큰까지 닫히면
+     * 사람은 메일을 다시 받아야 한다.
+     */
+    @Test
+    @DisplayName("흔한 비밀번호로는 못 바꾸고 토큰은 살아 있다")
+    void rejectsCommonPasswordAndKeepsToken() {
+        String token = issueToken();
+
+        assertThatThrownBy(() -> service.reset(token, "qwertyuiopasdfghjkl"))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.PASSWORD_TOO_COMMON);
+        assertThat(liveTokenCount()).isEqualTo(1);
     }
 
     @Test

@@ -148,6 +148,7 @@ D3 의 기본 요율 10% 는 아래를 보고 가운데를 잡은 값이다. 202
 | OWASP Top 10 **2025** | https://owasp.org/Top10/2025/ | 웹 애플리케이션의 위험 열 가지. 항목이 적어 전부 훑을 수 있다. **2026-01 최종.** `D14` 를 `D14-1` 이 이 판으로 다시 매핑했다 |
 | OWASP Cheat Sheet Series | https://cheatsheetseries.owasp.org/ | 주제별 실무 지침. Top 10 이 "무엇이 위험한가" 라면 이쪽이 "어떻게 막나" 다 |
 | **NIST SP 800-63B Rev 4** | https://pages.nist.gov/800-63-4/sp800-63b.html | 비밀번호 규칙의 근거. **문장 단위로 대조했다**(점검 E) — 단독 인증수단이면 **최소 15자 `SHALL`**, 블록리스트 대조 `SHALL`, 조합 강제 `SHALL NOT`, 최대 64자·인쇄 ASCII+공백·유니코드는 `SHOULD` |
+| SecLists `Pwdb_top-1000000.txt` | https://github.com/danielmiessler/SecLists/blob/master/Passwords/Common-Credentials/Pwdb_top-1000000.txt | **비밀번호 블록리스트의 원본**(`D14-2`). 2026-09-23 에 받아 **15~64자 인쇄 ASCII 만** 남기고(우리 규칙을 통과할 수 있는 것만 — 나머지는 `@Password` 에서 이미 막힌다) 소문자로 모아 중복을 뺐다 — 5,311줄, `backend/src/main/resources/security/password-blocklist.txt`. hashcat 표기(`$HEX[...]`, 비ASCII)는 뺐다. **목록은 낡는다** — 갱신은 같은 거름으로 청크 하나다 |
 | Spring Security 레퍼런스 | https://docs.spring.io/spring-security/reference/index.html | **7.1.0**. CSRF 와 Session Management 절이 따로 있다 |
 
 Spring Security 문서에서 청크가 직접 쓰는 절
@@ -379,7 +380,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 |---|---|
 | RFC 9457 | **현행.** Standards Track 이고 폐지 안 됐다. RFC 7807 을 폐지한 쪽이 이것이다 |
 | **OWASP Top 10** | **개정됐다 — 2025 판.** 2025-11 발표, 2026-01 최종. `D14` 가 2021 에 매핑돼 있다 |
-| **NIST SP 800-63B** | **개정됐다 — Revision 4.** 비밀번호 `SHALL` 둘을 우리가 못 지킨다 |
+| **NIST SP 800-63B** | **개정됐다 — Revision 4.** 비밀번호 `SHALL` 둘을 그때 못 지켰고 **지금은 둘 다 지킨다** — 최소 15자는 `D14-1`, 블록리스트는 `D14-2`(2026-09-23) |
 | W3C Trace Context | Level 2 가 **후보 권고 초안**이다. `traceparent` 형식은 그대로고 하위호환이라 `D16` 은 안 바뀐다 |
 | KWCAG 2.2 | **현행.** `KS X OT0003:2022` 다. `D20` 그대로 |
 | Flyway | Apache-2.0 그대로 |
@@ -398,6 +399,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | SQL Style Guide (Simon Holywell) | **CC BY-SA 4.0** | 규칙을 골라 쓰고 벗어난 것을 따로 적었다. **`2l-2` 가 그 절을 CC BY-SA 4.0 으로 표시했다**(2026-09-06) — 파생물인지 인용인지는 여전히 판단 안 했고, **표시로 어느 쪽이든 성립한다** |
 | OWASP (Top 10 · Cheat Sheet) | CC BY-SA 4.0 | 항목 이름을 청크에 매핑했다 |
 | NIST SP 800-63B | 미국 정부 저작물 — 저작권 없음 | 요건을 근거로 인용 |
+| SecLists (Daniel Miessler) | **MIT** | 목록 하나를 걸러 `security/password-blocklist.txt` 에 둔다(`D14-2`). **고지를 그 옆 `password-blocklist.LICENSE` 에 뒀다** — MIT 는 사본에 고지를 요구한다 |
 | RFC 9457 · W3C Trace Context | IETF Trust / W3C 문서 라이선스 | 형식을 따랐다 |
 | Zalando RESTful API Guidelines | MIT | 규칙을 따르고 **벗어난 넷**을 명시했다 — 페이징·전체 개수(`SHOULD`) 와 버전 위치·운반(`MUST` 115·114, 청크 `72`). 목록과 근거는 `api-guidelines.md` 「기준에서 벗어난 것」이 든다 |
 | `design-taste-frontend` 스킬 (Leonxlnx/taste-skill) | **MIT** | 사본이 `.agents/skills/design-taste-frontend/` 에 있다. **고지를 그 옆 `LICENSE` 에 뒀다**(`2l-1`) — MIT 는 사본에 저작권 고지가 있어야 성립한다 |

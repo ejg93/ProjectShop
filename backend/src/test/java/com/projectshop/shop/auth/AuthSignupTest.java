@@ -257,11 +257,30 @@ class AuthSignupTest extends PostgresTestBase {
         @Test
         @DisplayName("14자를 막고 15자를 받는다")
         void enforcesMinimumLength() throws Exception {
-            signUp("m@test.local", required(true), "a".repeat(14))
+            // 한 글자 되풀이는 길이와 무관하게 막히므로(`D14-2`) 경계는 흔하지 않은 값으로 잰다.
+            signUp("m@test.local", required(true), "tangerine-kite")
                     .andExpect(status().isBadRequest());
 
-            signUp("m15@test.local", required(true), "a".repeat(15))
+            signUp("m15@test.local", required(true), "tangerine-kite7")
                     .andExpect(status().isCreated());
+        }
+
+        /**
+         * <b>흔한 비밀번호는 길이를 채워도 막힌다</b>(`D14-2`, NIST SP 800-63B 의 블록리스트 {@code SHALL}).
+         * 요청 형식은 맞으니 400 이 아니라 422 다 — 서버가 값을 보고 거절한 것이다.
+         */
+        @Test
+        @DisplayName("목록에 있는 흔한 비밀번호와 이름이 든 비밀번호를 막는다")
+        void rejectsCommonAndContextualPasswords() throws Exception {
+            signUp("c@test.local", required(true), "iloveyouiloveyou")
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:password-too-common"));
+
+            signUp("kimchi-lover@test.local", required(true), "my-kimchi-lover-2026")
+                    .andExpect(status().isUnprocessableContent());
+
+            signUp("r@test.local", required(true), "zzzzzzzzzzzzzzzz")
+                    .andExpect(status().isUnprocessableContent());
         }
 
         /**

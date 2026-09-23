@@ -312,6 +312,9 @@ function messageOf(error: unknown): string {
       return "필수 항목에 동의하셔야 가입하실 수 있습니다.";
     case "consent-dependency":
       return "야간 수신은 이메일 수신에 동의하셔야 받으실 수 있습니다.";
+    case "password-too-common":
+      // 어느 규칙에 걸렸는지는 서버가 안 가른다(목록을 하나씩 물어볼 수 있어서) — 피할 것을 같이 알린다(`D14-2`).
+      return "흔하거나 추측하기 쉬운 비밀번호입니다. 이메일이나 이름이 들어가지 않은 다른 비밀번호를 써 주세요.";
     case "validation-failed":
       // 어느 칸인지는 서버가 필드 이름으로 알려주지만, 그것을 화면 문구로 옮기는 표를
       // 여기 두면 서버가 칸을 바꿀 때 한쪽만 고쳐진다. 규칙을 다시 알리는 쪽을 고른다.

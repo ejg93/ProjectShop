@@ -45,6 +45,14 @@ public enum ErrorCode {
     PASSWORD_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "password-mismatch", "비밀번호가 맞지 않는다"),
 
     /**
+     * 흔하거나 추측하기 쉬운 비밀번호다(`D14-2`, NIST SP 800-63B). 목록에 있거나, 서비스 이름·그 사람의
+     * 이메일 앞부분·이름을 품거나, 한 글자를 되풀이한 것이다. <b>어느 것에 걸렸는지는 안 가른다</b> —
+     * 가르면 목록에 무엇이 있는지를 하나씩 물어볼 수 있다.
+     */
+    PASSWORD_TOO_COMMON(HttpStatus.UNPROCESSABLE_CONTENT, "password-too-common",
+            "흔하거나 추측하기 쉬운 비밀번호다"),
+
+    /**
      * 재설정 토큰이 없거나, 만료됐거나, 이미 썼다(`5c-1`).
      *
      * <p><b>셋을 안 가른다.</b> 「만료됐다」와 「그런 토큰이 없다」를 갈라 주면 남의 링크를
