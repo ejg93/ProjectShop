@@ -307,6 +307,8 @@ public class ReviewQuery {
             throw new ShopException(ErrorCode.REVIEW_FORBIDDEN, "신고를 볼 권한이 없다");
         }
 
+        // 정렬은 바인딩 변수로 못 넘긴다. 두 값 중 하나라 사용자 입력이 섞일 자리가 없다 —
+        // `formatted` 가 아니라 `replace` 인 것은 텍스트 블록의 줄바꿈을 서식 문자열로 읽지 않게 하려는 것이다.
         String order = status == ReviewReportStatus.PENDING
                 ? "rp.created_at asc, rp.review_report_id asc"
                 : "rp.resolved_at desc, rp.review_report_id desc";
@@ -320,9 +322,9 @@ public class ReviewQuery {
                                   join review r on r.review_id = rp.review_id
                                   join product p on p.product_id = r.product_id
                                  where rp.status = :status
-                                 order by %s
+                                 order by {order}
                                  limit :size offset :offset
-                                """.formatted(order))
+                                """.replace("{order}", order))
                         .param("status", status.code())
                         .param("size", paging.size())
                         .param("offset", paging.page() * paging.size())

@@ -87,6 +87,7 @@ class SchemaNamingTest extends PostgresTestBase {
     private static final Map<String, String> INTERNAL_SEQUENCE_COLUMNS = new java.util.TreeMap<>(Map.of(
             "consent_item.sort_no", "동의 항목을 화면에 세우는 순서. 우리가 형식을 정하지 않는다",
             "product_image.sort_no", "사진을 화면에 세우는 순서. 바깥이 부르는 번호가 아니다",
+            "review_image.sort_no", "후기 사진을 세우는 순서(`Q159`). 바깥이 부르는 번호가 아니다",
             "product_option.sort_no", "옵션을 화면에 세우는 순서",
             "product_option_value.sort_no", "옵션 값을 화면에 세우는 순서",
             "seller.business_reg_no", "사업자등록번호. 국가가 발급한다 — 셀러 신원 표시에 쓴다(`D2` R1)",

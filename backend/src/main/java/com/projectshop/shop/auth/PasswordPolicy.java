@@ -41,7 +41,7 @@ import com.projectshop.shop.error.ShopException;
  * 보는 공격자는 없다.
  */
 @Component
-public class PasswordPolicy {
+public final class PasswordPolicy {
 
     /** 서비스 이름. 사람들이 가입하는 곳의 이름을 비밀번호에 넣는다 */
     private static final Set<String> SERVICE_WORDS = Set.of("projectshop");

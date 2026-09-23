@@ -86,8 +86,8 @@ public class ImpersonationService {
         swap(token.original(), request, response);
 
         auditLog.record(AuditLog.Kind.OUTCOME, "user.impersonation_ended", token.impersonatorUserId(),
-                AuditLog.Target.of("user", ((ShopUser) token.getPrincipal()).id()),
-                Map.of("started_at", token.startedAt().toString()));
+                AuditLog.Target.of("user", token.targetUserId()),
+                Map.of("started_at", String.valueOf(token.startedAt())));
     }
 
     /**

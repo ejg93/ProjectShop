@@ -54,6 +54,11 @@ public final class ImpersonationToken extends AbstractAuthenticationToken {
         return impersonatorUserId;
     }
 
+    /** 대행 대상. 주인({@link #getPrincipal})과 같은 사람이다 — 형을 안 거치고 읽으려고 둔다 */
+    public long targetUserId() {
+        return target.id();
+    }
+
     Authentication original() {
         return original;
     }
