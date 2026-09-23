@@ -16,3 +16,7 @@ spring:
   flyway:
     # 기본 location 을 다시 적어야 한다. 이 키는 합쳐지지 않고 덮어쓴다.
     locations: classpath:db/migration,classpath:db/seed,classpath:db/seed-demo
+    # **시드보다 번호가 낮은 새 마이그레이션을 받는다**(`Q199`). 시드가 `V900` 대라, 시드를 이미 받은 DB 에
+    # 뒤에 온 `V82` 같은 것은 「순서가 어긋났다」가 되고 Flyway 가 기동을 막는다 — 배포가 #70~#74 동안
+    # 그렇게 못 올라갔다. 빈 DB 에서는 시드가 늘 맨 뒤라 이 설정이 아무것도 안 바꾼다. `SeededUpgradeTest` 가 잰다.
+    out-of-order: true
