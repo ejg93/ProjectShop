@@ -759,6 +759,18 @@ Redis 를 쓰는 테스트는 `@BeforeEach` 에서 자기 키를 지운다.
 **로컬만 빨갛고 CI 는 초록**이라 「로컬 탓」으로 읽기 쉽다. 기준은 벽시계가 아니라 그 표에서 뽑고,
 새로 생기는 것은 `SqlTextTest` 가 막는다(`Q146`).
 
+### DB 시계와 JVM 시계는 다르다 — 한 비교에 둘을 섞지 않는다
+
+컬럼 기본값 `now()` 는 **DB 컨테이너의 시계**고 `OffsetDateTime.now()` 는 **JVM 이 도는 호스트의 시계**다.
+로컬 Docker 는 VM 안에서 돌아서 둘이 갈린다 — 2026-09-23 에 DB 가 호스트보다 **약 140ms 앞서** 있었다.
+
+그 차이로 `AdvertisingGateTest` 가 풀 레인에서만 빨갰다(`Q172`). 시험이 템플릿을 기본값(`now()`)으로 넣고
+`NotificationService.send` 가 `effective_at <= :now` 를 **JVM 시각**으로 고르니, 방금 넣은 판이
+「아직 시행 전」이 되어 `시행 중인 알림 템플릿이 없다` 로 떨어졌다. **혼자 돌리면 초록이다** — 틈이 좁아서
+타이밍에 따라 갈린다. 순서 의존으로 읽기 쉽다.
+
+**넣는 쪽과 고르는 쪽이 같은 시계를 쓴다.** 앱이 JVM 시각으로 고르면 시험도 JVM 시각을 파라미터로 넣는다.
+
 ### `.next/types` 는 빌드 산출물인데 `tsc` 가 그것을 읽는다
 
 `LayoutProps`·`PageProps` 는 소스에 없다 — `next build`·`next dev`·`next typegen` 이 `.next/types` 에
