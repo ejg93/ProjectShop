@@ -1,5 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
+import { expectNoAxeViolations } from "@/test/axe";
 
 // `vi.mock` 은 파일 맨 위로 끌어올려진다. 그래서 공장 안에서 바깥 변수를 못 읽고,
 // `vi.hoisted` 로 그 변수를 같이 끌어올린다.
@@ -76,6 +78,52 @@ describe("셸의 머리", () => {
 
     // 셀러와 관리자·감사자가 같은 링크를 쓴다(`20-1`). 보는 것이 같고 범위만 달라서다.
     expect(screen.getByRole("link", { name: "정산서" })).toBeInTheDocument();
+  });
+
+  /**
+   * 역할 링크는 줄을 나눈다(`Q213`). 관리자는 링크가 열일곱이라 한 줄에 두면 글자 단위로 꺾였다 —
+   * 첫 줄은 쇼핑·계정만 두고 판매·관리 링크는 이름 붙은 줄로 모은다.
+   */
+  it("판매·관리 링크는 이름 붙은 제 줄에 모이고 첫 줄에 안 섞인다", async () => {
+    // 첫 줄에는 쇼핑·계정만 있다 — 역할 링크가 한 줄에 몰리면 관리자 머리가 글자 단위로 꺾였다.
+    apiSessionOptional.mockResolvedValue({
+      userId: 1,
+      permissions: [
+        { resource: "order", action: "update_status", scopes: ["ALL"] },
+        { resource: "audit", action: "read", scopes: ["ALL"] },
+        { resource: "payment", action: "refund", scopes: ["ALL"] },
+      ],
+    });
+
+    const { container } = render(await SiteHeader());
+
+    const selling = screen.getByRole("navigation", { name: "판매" });
+    const managing = screen.getByRole("navigation", { name: "관리" });
+    expect(within(selling).getByRole("link", { name: "받은 주문" })).toBeInTheDocument();
+    expect(within(managing).getByRole("link", { name: "감사 기록" })).toBeInTheDocument();
+    expect(within(managing).getByRole("link", { name: "환불 처리" })).toBeInTheDocument();
+
+    // 첫 줄은 로고가 든 줄이다. 그 안의 링크가 쇼핑·계정뿐이고 역할 줄은 그 밖에 있다.
+    const firstRow = screen.getByRole("link", { name: "ProjectShop" }).parentElement!;
+    expect(within(firstRow).getAllByRole("link").map((link) => link.textContent)).toEqual(
+      ["ProjectShop", "상품", "장바구니", "내 주문", "내 정보"],
+    );
+    expect(firstRow).not.toContainElement(selling);
+    expect(firstRow).not.toContainElement(managing);
+    await expectNoAxeViolations(container);
+  });
+
+  it("사는 사람에게는 역할 줄이 없다 — 머리가 한 줄이다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "order", action: "read", scopes: ["OWN"] }],
+    });
+
+    render(await SiteHeader());
+
+    // 빈 줄을 그리면 이름표만 있는 메뉴가 생긴다 — 갈 곳이 없는데 있는 것처럼 보인다.
+    expect(screen.queryByRole("navigation", { name: "판매" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "관리" })).not.toBeInTheDocument();
   });
 
   it("웹훅 링크는 셀러 범위로 받은 사람에게만 보인다", async () => {

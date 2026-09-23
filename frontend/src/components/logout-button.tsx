@@ -36,7 +36,7 @@ export function LogoutButton() {
       onClick={logout}
       disabled={sending}
       className="
-        rounded-ui text-sm text-text-muted
+        whitespace-nowrap rounded-ui text-sm text-text-muted
         transition-colors duration-200
         hover:text-text
         focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-text
