@@ -38,6 +38,11 @@ class ReviewFixture {
         return buyerId;
     }
 
+    /** 후기가 달린 상품을 파는 셀러 */
+    long sellerId() {
+        return sellerId;
+    }
+
     /** 이 상품을 파는 셀러에 속한 계정. 답글을 달 수 있는 쪽이다(`48`) */
     long sellerMemberId() {
         return sellerMemberId;

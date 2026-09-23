@@ -188,6 +188,28 @@ public enum ErrorCode {
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "review-not-found", "그런 후기가 없다"),
 
     /**
+     * 이 후기에 그 조작을 할 권한이 없다(`Q167`) — 남의 상품 후기에 답하는 셀러, 신고를 처리하는
+     * 관리자가 아닌 사람이다. <b>쓰기의 {@link #REVIEW_NOT_ALLOWED} 와 가른다</b>: 그쪽은 넷을 한데
+     * 묶어 422 로 숨기는 자리고, 여기는 대상이 공개 글이라 숨길 것이 없어 403 이다.
+     */
+    REVIEW_FORBIDDEN(HttpStatus.FORBIDDEN, "review-forbidden", "이 후기에 그 조작을 할 권한이 없다"),
+
+    /** 같은 후기를 한 번만 신고한다({@code review_report_once}, `48`) */
+    REVIEW_ALREADY_REPORTED(HttpStatus.CONFLICT, "review-already-reported", "이미 신고한 후기다"),
+
+    REVIEW_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "review-report-not-found", "그런 신고가 없다"),
+
+    /**
+     * 처리한 신고는 다시 못 연다(`D7`, {@code check_review_report_transition}). 판단이 뒤집혔으면
+     * 신고가 아니라 후기를 되살린다 — 그래야 처음 판단과 뒤집은 판단이 둘 다 기록에 남는다.
+     */
+    REVIEW_REPORT_ALREADY_RESOLVED(HttpStatus.CONFLICT, "review-report-already-resolved",
+            "이미 처리한 신고다"),
+
+    /** 내려가지 않은 후기는 되살릴 것이 없다 */
+    REVIEW_NOT_BLOCKED(HttpStatus.CONFLICT, "review-not-blocked", "내려간 후기가 아니다"),
+
+    /**
      * 쿠폰은 살아 있는데 이 주문에 안 맞는다.
      *
      * <p>{@link #COUPON_NOT_USABLE} 과 가르는 이유는 <b>고칠 수 있는 쪽이라서</b>다 —
