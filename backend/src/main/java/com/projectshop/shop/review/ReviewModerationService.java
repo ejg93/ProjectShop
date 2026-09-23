@@ -164,6 +164,9 @@ public class ReviewModerationService {
      * 내린 후기를 다시 게시한다. <b>되살림은 이 입구로만 한다</b> — 공개한 운영정책의 「판단이 뒤집히면
      * 다시 게시합니다」가 이 자리고, 이전 사유와 되살린 이유가 감사에 같이 남는다.
      *
+     * <p><b>쓴 사람이 지운 후기도 푼다</b>(`Q203`, 사용자 결정). 내림만 걷고 글은 지운 채로 둔다 — 스스로 지운 글을
+     * 우리가 되살리지 않는다. 그러면 그 주문 줄의 자리가 풀려서(`V105` 트리거가 더는 안 막는다) 같은 주문에 새로 쓸 수 있다.
+     *
      * @param note 왜 되살리나. 이의제기 문의 번호나 판단 근거를 적는다
      */
     @Transactional
@@ -176,7 +179,7 @@ public class ReviewModerationService {
 
         int updated = jdbc.sql("""
                         update review set blocked_at = null, blocked_reason = null
-                         where review_id = :review and blocked_at is not null and deleted_at is null
+                         where review_id = :review and blocked_at is not null
                         """)
                 .param("review", reviewId)
                 .update();
@@ -186,7 +189,7 @@ public class ReviewModerationService {
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.restored", actorUserId,
                 AuditLog.Target.of("review", reviewId),
-                Map.of("previous_reason", blocked.reason().code(), "note", note));
+                Map.of("previous_reason", blocked.reason().code(), "note", note, "was_deleted", blocked.deleted()));
     }
 
     /**
@@ -248,18 +251,20 @@ public class ReviewModerationService {
     }
 
     /** @param reason 안 내려갔으면 {@code null} */
-    private record Blocked(long writerUserId, ReviewReason reason) {}
+    /** @param deleted 쓴 사람이 지웠나. 지운 후기도 풀 수 있다 — 글은 안 돌아오고 자리만 풀린다(`Q203`) */
+    private record Blocked(long writerUserId, ReviewReason reason, boolean deleted) {}
 
     private Blocked blockedOf(long reviewId) {
         return jdbc.sql("""
-                        select user_id, blocked_reason
+                        select user_id, blocked_reason, deleted_at is not null as deleted
                           from review
-                         where review_id = :id and deleted_at is null
+                         where review_id = :id
                         """)
                 .param("id", reviewId)
                 .query((rs, rowNum) -> {
                     String reason = rs.getString("blocked_reason");
-                    return new Blocked(rs.getLong("user_id"), reason == null ? null : ReviewReason.of(reason));
+                    return new Blocked(rs.getLong("user_id"), reason == null ? null : ReviewReason.of(reason),
+                            rs.getBoolean("deleted"));
                 })
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.REVIEW_NOT_FOUND));

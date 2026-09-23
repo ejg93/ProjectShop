@@ -119,8 +119,8 @@ export default async function ReviewReportsPage({
                 <ReportActions reportId={item.reviewReportId} />
               ) : null}
 
-              {item.status === "ACCEPTED" && item.reviewBlockedReason !== null && !item.reviewDeleted ? (
-                <RestoreForm reviewId={item.reviewId} />
+              {item.status === "ACCEPTED" && item.reviewBlockedReason !== null ? (
+                <RestoreForm reviewId={item.reviewId} deleted={item.reviewDeleted} />
               ) : null}
             </li>
           ))}

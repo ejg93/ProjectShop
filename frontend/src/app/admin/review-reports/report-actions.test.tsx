@@ -55,4 +55,13 @@ describe("후기 신고 처리", () => {
       }),
     );
   });
+
+  /** 지운 후기는 「자리 풀기」다(`Q203`) — 글이 살아난다고 믿고 누르지 않게 문구가 다르다 */
+  it("지운 후기는 자리 풀기로 보이고 글이 안 돌아온다고 알린다", () => {
+    render(<RestoreForm reviewId={9} deleted />);
+    fireEvent.click(screen.getByRole("button", { name: "자리 풀기" }));
+
+    expect(screen.getByLabelText(/자리를 푸는 이유/)).toBeRequired();
+    expect(screen.getByText(/글은 쓴 분이 지워서 돌아오지 않고/)).toBeInTheDocument();
+  });
 });
