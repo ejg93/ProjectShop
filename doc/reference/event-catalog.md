@@ -68,7 +68,8 @@
    (`requested_by_user_id`·`decided_by_user_id` 뿐이고 사람 id 는 1번이 막는다).
    종류 칸이 서는 청크가 그것을 채운다 — 그때까지 빠져 있는 것은 `OutboxEventSchemaTest` 가 목록으로 든다
 4. **표기는 저장값 그대로다** — `data` 의 키는 snake_case, 열거값은 소문자. 트리거가 만들어서 Java 의 대문자 변환(`EnumValue`)을 못 지난다.
-   **API 응답(`D5` 「값의 형식」)과 다르다.** 웹훅이 대외 계약이 될 때 대문자로 바꿀지 그때 정하고, 바꾼다면 발행기(`33b`)가 한다 — 트리거는 안 한다
+   **웹훅(`30`)은 대문자다**(2026-09-23 사용자 결정) — 봉투를 만드는 `EventEnvelope` 가 바깥으로 낼 때 `from_status`·`to_status`·`actor_type`·`status`·`reason_code` 를
+   API(`D5` 「값의 형식」)와 같게 바꾼다. **Kafka(안쪽)는 저장값 그대로다** — 소비자(`NotificationConsumer`)가 소문자로 가른다. 트리거는 안 건드린다
 
 ```json
 {

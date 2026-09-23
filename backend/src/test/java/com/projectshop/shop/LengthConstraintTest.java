@@ -183,6 +183,8 @@ class LengthConstraintTest extends PostgresTestBase {
      * <p>값이 「왜 앱 검증과 대조할 것이 없나」다. 답이 안 되면 {@code pairs()} 로 가야 한다.
      */
     private static final Map<String, String> NOT_COMPARED = new java.util.TreeMap<>(Map.ofEntries(
+            Map.entry("webhook_delivery_last_error_length_check",
+                    "요청으로 안 들어온다 — 발송기가 짧은 문장만 적는다(`30`). 받는 쪽의 응답 본문은 안 담는다"),
             Map.entry("email_change_request_token_hash_length_check",
                     "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5e-1`)"),
             Map.entry("password_reset_token_hash_length_check",

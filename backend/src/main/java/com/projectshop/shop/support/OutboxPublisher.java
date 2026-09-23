@@ -3,7 +3,6 @@ package com.projectshop.shop.support;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -20,7 +19,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 /**
  * {@code outbox_event} 에 쌓인 사건을 Kafka 로 내보낸다(`33b`, {@code event-catalog.md} 「전송」).
@@ -70,12 +68,6 @@ public class OutboxPublisher {
 
     /** 브로커 답을 이만큼 기다린다. 넘으면 도장을 안 찍고 다음 회차로 넘긴다 */
     static final Duration ACK_TIMEOUT = Duration.ofSeconds(10);
-
-    /** 봉투의 {@code time} 은 UTC `Z` 다({@code D10}, {@code event-catalog.md} 「봉투」) */
-    private static final DateTimeFormatter ENVELOPE_TIME = DateTimeFormatter.ISO_INSTANT;
-
-    private static final String SPEC_VERSION = "1.0";
-    private static final String DATA_CONTENT_TYPE = "application/json";
 
     private final OutboxClaims claims;
     private final KafkaTemplate<String, String> kafka;
@@ -168,21 +160,14 @@ public class OutboxPublisher {
     }
 
     /**
-     * CloudEvents 1.0 봉투를 만든다({@code event-catalog.md} 「봉투」).
+     * CloudEvents 1.0 봉투를 만든다({@link EventEnvelope} — 웹훅과 한 곳이다).
      *
      * <p><b>{@code data} 는 표에 있는 JSON 그대로 실린다.</b> 문자열로 실으면 받는 쪽이 한 번 더 푼다.
+     * 안쪽 소비자라 표기도 저장값 그대로다.
      */
     private String envelope(Event event) {
-        ObjectNode envelope = objectMapper.createObjectNode();
-        envelope.put("specversion", SPEC_VERSION);
-        envelope.put("id", String.valueOf(event.id()));
-        envelope.put("source", event.source());
-        envelope.put("type", event.type());
-        envelope.put("subject", event.subject());
-        envelope.put("time", ENVELOPE_TIME.format(event.occurredAt().toInstant()));
-        envelope.put("datacontenttype", DATA_CONTENT_TYPE);
-        envelope.set("data", objectMapper.readTree(event.data()));
-        return envelope.toString();
+        return EventEnvelope.of(objectMapper, event.id(), event.type(), event.source(), event.subject(),
+                event.occurredAt(), event.data(), false);
     }
 
     /** 표에서 읽은 한 건. {@code data} 는 JSON 문자열 그대로다 */

@@ -47,6 +47,8 @@ erDiagram
     user_consent }o--|| app_user : "user_id"
     user_role }o..|| seller : "seller_id"
     user_role }o..|| app_user : "user_id"
+    webhook_delivery }o..|| outbox_event : "outbox_event_id"
+    webhook_delivery }o--|| webhook_endpoint : "webhook_endpoint_id"
     webhook_endpoint }o--|| seller : "seller_id"
 ```
 

@@ -16,11 +16,10 @@ erDiagram
     notification }o..|| user_consent : "user_consent_id"
     notification }o..|| app_user : "user_id"
     notification_body }o--|| notification : "notification_id"
+    webhook_delivery }o..|| outbox_event : "outbox_event_id"
     audit_log {
     }
     batch_run {
-    }
-    outbox_event {
     }
     holiday {
     }
