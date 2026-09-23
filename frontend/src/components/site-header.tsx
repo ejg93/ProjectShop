@@ -74,6 +74,11 @@ function canReplyReviews(me: Me | null): boolean {
   return can(me, "review", "reply");
 }
 
+/** 저작권 신고를 판정한다(`Q183`). 판정과 같은 권한이 목록을 연다 — 셀러는 신고의 상대라 못 본다 */
+function canModerateProducts(me: Me | null): boolean {
+  return can(me, "product", "moderate");
+}
+
 /** 후기 신고를 처리한다(`Q171`). 관리자만이다 — 셀러에게 열면 불리한 후기를 내리는 자리가 된다 */
 function canModerateReviews(me: Me | null): boolean {
   return can(me, "review", "moderate");
@@ -185,6 +190,10 @@ export async function SiteHeader() {
 
           {canModerateReviews(me) ? (
             <HeaderLink href="/admin/review-reports">후기 신고</HeaderLink>
+          ) : null}
+
+          {canModerateProducts(me) ? (
+            <HeaderLink href="/admin/copyright-reports">저작권 신고</HeaderLink>
           ) : null}
         </nav>
 

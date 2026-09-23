@@ -3,13 +3,20 @@ package com.projectshop.shop.product;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.support.ListQuery.Paging;
+
+import org.springdoc.core.annotations.ParameterObject;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -31,9 +38,27 @@ import jakarta.validation.constraints.Size;
 public class CopyrightReportController {
 
     private final CopyrightReportService service;
+    private final CopyrightReportQuery query;
 
-    CopyrightReportController(CopyrightReportService service) {
+    CopyrightReportController(CopyrightReportService service, CopyrightReportQuery query) {
         this.service = service;
+        this.query = query;
+    }
+
+    /**
+     * 판정할 신고(`Q183`). <b>기본은 아직 안 본 것이다</b> — 관리자가 여는 이유가 그것이다.
+     *
+     * @param status {@code PENDING}(판정 전) 또는 {@code DECIDED}(판정 후)
+     */
+    @GetMapping
+    public CopyrightReportQuery.Result list(@AuthenticationPrincipal ShopUser user,
+            @RequestParam(defaultValue = "PENDING") String status, @ParameterObject Paging paging) {
+        boolean pending = switch (status) {
+            case "PENDING" -> true;
+            case "DECIDED" -> false;
+            default -> throw new ShopException(ErrorCode.VALIDATION_FAILED, "모르는 상태다: " + status);
+        };
+        return query.find(user.id(), pending, paging);
     }
 
     /**

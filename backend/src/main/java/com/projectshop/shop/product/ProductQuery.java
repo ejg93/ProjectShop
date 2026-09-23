@@ -105,7 +105,7 @@ public class ProductQuery {
     public record PublicDetail(long productId, long sellerId, String sellerName, String name,
             String description, boolean withdrawalRestricted, String withdrawalRestrictionReason,
             long shippingFee, Integer supplyLeadDays, List<String> imageUrls, List<OptionGroup> options,
-            List<PublicSku> skus, OffsetDateTime createdAt) {
+            List<PublicSku> skus, OffsetDateTime createdAt, List<Long> imageIds) {
     }
 
     /** 옵션 하나와 고를 수 있는 값들. 「색상」에 「빨강·파랑」 같은 것 */
@@ -292,7 +292,8 @@ public class ProductQuery {
                         List.of(),
                         List.of(),
                         List.of(),
-                        rs.getObject("created_at", OffsetDateTime.class)))
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        List.of()))
                 .optional()
                 // 파는 중이 아닌 것과 아예 없는 것을 안 가른다. 가르면 draft 상품의 존재가 샌다.
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
@@ -300,7 +301,7 @@ public class ProductQuery {
         return new PublicDetail(head.productId(), head.sellerId(), head.sellerName(), head.name(),
                 head.description(), head.withdrawalRestricted(), head.withdrawalRestrictionReason(),
                 head.shippingFee(), head.supplyLeadDays(), findImageUrls(productId), findOptions(productId),
-                findPublicSkus(productId), head.createdAt());
+                findPublicSkus(productId), head.createdAt(), findImageIds(productId));
     }
 
     /**
@@ -315,6 +316,21 @@ public class ProductQuery {
      * <p>사진이 없으면 빈 목록이다. {@code null} 을 안 쓴다 —
      * 「없다」를 빈 목록이 이미 말하고, {@code null} 은 <b>「모른다」로도 읽힌다</b>({@code D23}).
      */
+    /**
+     * 사진 번호들. <b>{@link #findImageUrls} 와 같은 순서다</b>(`Q183`) — 저작권 침해 신고가 사진 하나를 가리켜야 해서
+     * 공개 상세에 번호가 필요하다(`D2` `R42`). URL 목록을 객체로 바꾸면 이미 쓰는 화면이 깨져서 칸을 더했다.
+     */
+    private List<Long> findImageIds(long productId) {
+        return jdbc.sql("""
+                        select product_image_id from product_image
+                         where product_id = :id
+                         order by sort_no, product_image_id
+                        """)
+                .param("id", productId)
+                .query(Long.class)
+                .list();
+    }
+
     private List<String> findImageUrls(long productId) {
         return jdbc.sql("""
                         select object_key from product_image
