@@ -42,8 +42,19 @@ class QueryBudgetTest extends PostgresTestBase {
     /** 목록 한 번에 나가도 되는 문장 수 — 판정·목록·총수 */
     static final int BUDGET = 3;
 
-    /** {@link #BUDGET} 을 넘는 목록과 그 근거. <b>근거 없이 이름만 넣지 않는다</b> */
-    private static final Map<String, Integer> OVER_BUDGET = Map.of();
+    /** 예산을 넘겨도 되는 한도와 그 근거 */
+    private record Budget(int limit, String reason) {
+    }
+
+    /** 잰 목록의 이름. 아래 {@link #OVER_BUDGET} 의 죽은 줄을 이것으로 가린다 */
+    private static final List<String> LISTS = List.of(
+            "내 주문 목록", "관리자 주문 목록", "셀러 주문 목록", "상품 공개 목록", "상품 후기 목록", "환불 대기열", "정산서 목록");
+
+    /**
+     * {@link #BUDGET} 을 넘는 목록과 그 근거. <b>근거 없이 이름만 넣지 않는다</b> — 근거 칸이 없으면 이 목록이 예산을 넘겼을 때
+     * 도망칠 자리가 된다({@code ForeignKeyIndexTest.EXEMPT} 와 같은 모양, 마무리 48차 독립 리뷰).
+     */
+    private static final Map<String, Budget> OVER_BUDGET = Map.of();
 
     @TestConfiguration
     static class Counting {
@@ -204,7 +215,17 @@ class QueryBudgetTest extends PostgresTestBase {
         assertThat(three).as("품목 1 에서 %d, 3 에서 %d", one, three).isEqualTo(one);
     }
 
+    @Test
+    @DisplayName("예산을 넘긴 줄은 잰 목록이고 근거가 있다")
+    void overBudgetEntriesAreLive() {
+        assertThat(OVER_BUDGET).allSatisfy((name, budget) -> {
+            assertThat(LISTS).as("잰 적 없는 목록이 면제에 남으면 아무것도 안 막는 죽은 줄이다").contains(name);
+            assertThat(budget.reason()).isNotBlank();
+        });
+    }
+
     private void listStaysFlat(String name, IntFunction<List<?>> page) {
+        assertThat(LISTS).as("잰 목록은 LISTS 에 이름을 적는다").contains(name);
         // 줄이 없으면 평평함이 공짜로 참이다 — 셋 이상이 실제로 나와야 잰 것이다.
         assertThat(page.apply(50)).as("%s — 잴 줄이 없다", name).hasSizeGreaterThanOrEqualTo(3);
         int one = QueryCounter.count(call(() -> page.apply(1)));
@@ -213,7 +234,7 @@ class QueryBudgetTest extends PostgresTestBase {
         assertThat(fifty).as("%s — 쪽 크기 1 에서 %d, 50 에서 %d. 늘면 줄마다 질의가 나간다", name, one, fifty)
                 .isEqualTo(one);
         assertThat(one).as("%s — 예산 %d 를 넘으면 한 번에 읽거나 OVER_BUDGET 에 근거를 적는다", name, BUDGET)
-                .isLessThanOrEqualTo(OVER_BUDGET.getOrDefault(name, BUDGET));
+                .isLessThanOrEqualTo(OVER_BUDGET.containsKey(name) ? OVER_BUDGET.get(name).limit() : BUDGET);
     }
 
     private static Callable<Object> call(Callable<Object> work) {

@@ -18,6 +18,14 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  * 인덱스가 없으면 자식 표를 통째로 훑는다. <b>DB 에 물어서</b> 외래키를 다 걷는다 — 새 외래키가 인덱스 없이 들어오면
  * 여기서 빨갛다. 인덱스를 안 달려면 {@link #EXEMPT} 에 근거를 적는다.
  *
+ * <p><b>무엇을 인덱스로 치나</b>(마무리 48차 독립 리뷰가 둘 다 짚었다).
+ * <ul>
+ *   <li><b>첫 칸이 외래키의 첫 칸이면 된다.</b> 외래키 검사는 그 칸으로 좁힌다 — 겹 외래키의 칸 전부를 순서까지 요구하면 이미
+ *       풀린 것에 중복 인덱스가 붙는다</li>
+ *   <li><b>부분 인덱스는 「첫 칸 is not null」만 친다.</b> 검사는 그 키를 가리키는 행 전부를 찾아서 다른 조건이 붙은 인덱스로는
+ *       못 좁힌다 — 그런 인덱스만 있던 반품 요청·후기가 거짓 초록이었다</li>
+ * </ul>
+ *
  * <p><b>양방향으로 잰다.</b> 인덱스가 생겼거나 외래키가 사라졌는데 면제 목록에 남은 줄도 실패다 — 그 줄은 아무것도
  * 안 막는 죽은 줄이다.
  */
@@ -28,6 +36,9 @@ class ForeignKeyIndexTest extends PostgresTestBase {
     private static final String NEVER_DELETED_USER =
             "app_user 는 안 지운다(탈퇴는 deleted_at, 파기는 칸 비우기 — D13). 부모를 안 지우니 외래키 검사가 자식을 안 훑고, "
                     + "이 칸으로 찾는 조회도 없다";
+
+    /** 부분 인덱스가 조회를 맡는 칸의 공통 근거 — 외래키 검사는 부모를 안 지워서 안 돈다 */
+    private static final String PARTIAL_SERVES_LOOKUPS = " 조회는 살아 있는 줄만 거르는 부분 인덱스가 맡는다";
 
     /**
      * 인덱스 없이 두는 외래키와 그 근거. 키는 {@code 표.칸} 이다(겹 외래키면 칸을 쉼표로 잇는다).
@@ -53,6 +64,19 @@ class ForeignKeyIndexTest extends PostgresTestBase {
             Map.entry("consent_item.depends_on_id",
                     "시행된 동의 항목은 고치지도 지우지도 못한다(consent_item_immutable, V27). 표가 작다"),
             Map.entry("notification.notification_template_id", "템플릿은 판을 쌓고 안 지운다. 표가 작다"),
+            Map.entry("coupon.seller_id", "셀러는 안 지운다. 쿠폰을 셀러로 찾는 조회도 없다"),
+            Map.entry("coupon_issue.user_id", NEVER_DELETED_USER + "." + PARTIAL_SERVES_LOOKUPS),
+            Map.entry("email_change_request.user_id", NEVER_DELETED_USER + "." + PARTIAL_SERVES_LOOKUPS),
+            Map.entry("password_reset_token.user_id", NEVER_DELETED_USER + "." + PARTIAL_SERVES_LOOKUPS),
+            Map.entry("product.created_by_user_id", NEVER_DELETED_USER + "." + PARTIAL_SERVES_LOOKUPS),
+            Map.entry("review.user_id", NEVER_DELETED_USER + "." + PARTIAL_SERVES_LOOKUPS),
+            Map.entry("product.seller_id", "셀러는 안 지운다." + PARTIAL_SERVES_LOOKUPS),
+            Map.entry("review.product_id", "상품은 지우지 않고 내린다(deleted_at)." + PARTIAL_SERVES_LOOKUPS),
+            Map.entry("sku.product_id", "상품은 지우지 않고 내린다(deleted_at) — 지우는 것은 SKU 쪽이다." + PARTIAL_SERVES_LOOKUPS),
+            Map.entry("user_consent.consent_item_id",
+                    "시행된 동의 항목은 지우지 못한다(consent_item_immutable, V27)." + PARTIAL_SERVES_LOOKUPS),
+            Map.entry("copyright_report.product_id",
+                    "상품은 지우지 않고 내린다(deleted_at). 신고 목록은 신고 쪽에서 상품 번호로 붙는다"),
             Map.entry("role_permission.permission_id", "권한은 마이그레이션만 넣고 안 지운다. 표가 작다"),
             Map.entry("seller_invitation.role_id", "역할은 안 지운다. 표가 작다")));
 
@@ -79,7 +103,9 @@ class ForeignKeyIndexTest extends PostgresTestBase {
     private List<String> unindexedForeignKeys() {
         return jdbc.sql("""
                         with fk as (
-                            select c.conrelid, c.conkey,
+                            select c.conrelid, c.conkey[1] as first_attnum,
+                                   (select a.attname from pg_attribute a
+                                     where a.attrelid = c.conrelid and a.attnum = c.conkey[1]) as first_column,
                                    c.conrelid::regclass::text || '.' ||
                                    (select string_agg(a.attname, ',' order by k.ord)
                                       from unnest(c.conkey) with ordinality k(attnum, ord)
@@ -92,7 +118,10 @@ class ForeignKeyIndexTest extends PostgresTestBase {
                          where not exists (
                              select 1 from pg_index i
                               where i.indrelid = fk.conrelid
-                                and (i.indkey::int2[])[0:array_length(fk.conkey, 1) - 1] = fk.conkey
+                                and i.indkey[0] = fk.first_attnum
+                                and (i.indpred is null
+                                     or pg_get_expr(i.indpred, i.indrelid)
+                                        = '(' || quote_ident(fk.first_column) || ' IS NOT NULL)')
                          )
                          order by fk.name
                         """)

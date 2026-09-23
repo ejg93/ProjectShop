@@ -17,8 +17,9 @@ git fetch -q origin main || { echo "빨강 — origin/main 을 못 받았다"; e
 want=$(git rev-parse origin/main)
 
 # 배포 프로필은 demo 다 — db/seed 와 db/seed-demo 를 둘 다 붓는다(`Q143`).
+# **견주는 커밋에서 센다** — 작업 트리에서 세면 새 V 를 든 다음 가지에서 돌릴 때 거짓 빨강이 난다(마무리 48차 독립 리뷰).
 db=backend/src/main/resources/db
-expected=$(( $(ls "$db/migration" | grep -c '^V[0-9]*__') + $(ls "$db/seed" "$db/seed-demo" | grep -c '^V[0-9]*__') ))
+expected=$(git ls-tree -r --name-only "$want" -- "$db/migration" "$db/seed" "$db/seed-demo" | grep -c '/V[0-9]*__')
 
 commit_of() { # JSON 한 줄에서 commit 값을 꺼낸다
   sed -n 's/.*"commit":"\([^"]*\)".*/\1/p'

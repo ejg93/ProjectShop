@@ -29,8 +29,6 @@
 | 접근성 검사가 걸린 화면 조각 | `expectNoAxeViolations` 를 부르는 `*.test.tsx` 파일 수 | 14 | 바닥 14 — 올리기만 | `quality-goals.sh` |
 | E2E 시나리오 | `frontend/e2e/*.spec.ts` 의 `test(` 수 | 2 | 바닥 2 — 올리기만 | `quality-goals.sh` |
 | 시험 없는 법 요건 | `req-coverage.sh` 의 「테스트가 언급하지 않는 요건」 | 0(40/40, 선언한 제외 2) | 천장 0 | CI `docs` · `quality-goals.sh` |
-| 목록·상세의 쿼리 예산 | `QueryBudgetTest` — 목록은 쪽 크기 1 과 50(줄 셋 이상), 상세는 묶음·품목 1 과 3 에서 문장 수를 센다(`Q204`) | 목록 일곱 3 이하·평평, 상세 둘 평평 | 목록 천장 3, 전부 평평 — 넘으려면 근거 | 느린 레인 |
-| 인덱스 없는 외래키 | `ForeignKeyIndexTest` — DB 의 외래키를 걷어 첫 칸이 그 칸인 인덱스를 찾는다(`Q206`) | 0(외래키 108, 근거 적은 면제 18) | 천장 0 — 면제는 근거와 함께만 | 느린 레인 |
 
 ## 이미 게이트인 것
 
@@ -42,6 +40,8 @@
 | CodeQL 열린 경보 | 0 | CI `analyze`(새 경보 0) |
 | Dependabot 열린 경보 | 0 | 주간 리포트(`2h`) |
 | 문서와 실물의 어긋남 | 0 | `doc-lint.sh`·`IdentifierReferenceTest` |
+| 목록·상세의 쿼리 예산(`Q204`) | 목록 일곱 3 이하·쪽 크기에 평평, 상세 둘 묶음·품목 수에 평평 | `QueryBudgetTest`(느린 레인) |
+| 인덱스 없는 외래키(`Q206`) | 0 — 외래키 108, 근거 적은 면제 29 | `ForeignKeyIndexTest`(느린 레인) |
 
 ## 채택했고 재는 자리를 세우는 중
 
