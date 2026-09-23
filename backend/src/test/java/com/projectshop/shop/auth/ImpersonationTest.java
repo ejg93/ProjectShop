@@ -43,6 +43,9 @@ class ImpersonationTest extends PostgresTestBase {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private PermissionRuleLoader ruleLoader;
+
     private long adminId;
     private long customerId;
     private long otherAdminId;
@@ -117,6 +120,42 @@ class ImpersonationTest extends PostgresTestBase {
 
         mvc.perform(startRequest(otherAdminId).cookie(session))
                 .andExpect(status().isForbidden());
+    }
+
+    /**
+     * 대행 세션은 대행자가 대행할 수 있는 동안만 산다(`Q195`). 주인이 대상 사용자라 생존 확인이 대상만 보던 동안에는
+     * 권한을 거둬도 절대 만료까지 대상 화면이 열려 있었다(마무리 45차 독립 리뷰).
+     */
+    @Test
+    @DisplayName("대행 중 관리자 역할을 거두면 다음 요청에서 대행이 끝난다")
+    void endsWhenTheImpersonatorLosesTheRole() throws Exception {
+        Cookie session = logIn("imp-admin@test.local");
+        mvc.perform(startRequest(customerId).cookie(session)).andExpect(status().isNoContent());
+
+        jdbc.sql("""
+                        delete from user_role
+                         where user_id = :id and role_id = (select role_id from role where code = 'admin')
+                        """)
+                .param("id", adminId)
+                .update();
+        ruleLoader.evict(adminId);
+
+        mvc.perform(get("/api/me/permissions").cookie(session))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:impersonation-revoked"));
+    }
+
+    @Test
+    @DisplayName("대행 중 관리자 계정이 죽으면 다음 요청에서 대행이 끝난다")
+    void endsWhenTheImpersonatorIsGone() throws Exception {
+        Cookie session = logIn("imp-admin@test.local");
+        mvc.perform(startRequest(customerId).cookie(session)).andExpect(status().isNoContent());
+
+        jdbc.sql("update app_user set deleted_at = now() where user_id = :id").param("id", adminId).update();
+        ruleLoader.evict(adminId);
+
+        mvc.perform(get("/api/me/permissions").cookie(session))
+                .andExpect(status().isUnauthorized());
     }
 
     /**

@@ -63,6 +63,9 @@ public enum ErrorCode {
 
     /** 이미 대행 중인데 또 시작하거나, 대행 중이 아닌데 끝낸다 */
     IMPERSONATION_CONFLICT(HttpStatus.CONFLICT, "impersonation-conflict", "대행 상태가 맞지 않는다"),
+    // 대행을 연 관리자가 탈퇴했거나 대행 권한을 잃었다(`Q195`). 대행 세션을 끝내고 다시 로그인하게 한다 —
+    // 계정 비활성(`ACCOUNT_INACTIVE`)과 가르는 것은 로그에서 「누가 죽었나」가 달라서다.
+    IMPERSONATION_REVOKED(HttpStatus.UNAUTHORIZED, "impersonation-revoked", "대행을 연 관리자가 더는 대행할 수 없다"),
 
     /**
      * 재설정 토큰이 없거나, 만료됐거나, 이미 썼다(`5c-1`).
