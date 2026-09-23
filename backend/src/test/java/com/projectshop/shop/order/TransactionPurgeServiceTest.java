@@ -1,10 +1,16 @@
 package com.projectshop.shop.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+
+import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,8 +19,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
-import com.projectshop.shop.PostgresTestBase;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+
+import com.projectshop.shop.StorageTestBase;
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.support.ImagePipeline;
 
 /**
  * 거래 축의 보존 기간이 실제로 지켜지는가.
@@ -24,7 +34,7 @@ import com.projectshop.shop.auth.AuthFixture;
  * 둘이 같이 사라지면 그 설계가 무의미해진다.
  */
 @DisplayName("거래기록 파기")
-class TransactionPurgeServiceTest extends PostgresTestBase {
+class TransactionPurgeServiceTest extends StorageTestBase {
 
     private static final OffsetDateTime NOW =
             OffsetDateTime.of(2026, 8, 9, 0, 0, 0, 0, ZoneOffset.ofHours(9));
@@ -34,6 +44,12 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    private ImagePipeline images;
+
+    @Autowired
+    private S3Client s3;
 
     private long userId;
     private long sellerId;
@@ -144,6 +160,52 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
             purgeService.purge(NOW);
 
             assertThat(orderExists(orderId)).isFalse();
+        }
+
+        /**
+         * 후기 사진은 <b>저장소까지</b> 지운다(`Q159`). 행은 후기의 cascade 로도 사라지지만 그렇게 두면
+         * 공개 버킷에 주인 없는 사진이 남는다 — cascade 를 파기 수단으로 안 쓴다(`D23`).
+         */
+        @Test
+        @DisplayName("후기 사진은 저장소의 객체까지 같이 사라진다")
+        void erasesReviewPhotosFromStorage() {
+            long orderId = orderClosedAt(NOW.minusYears(6));
+            long orderItemId = jdbc.sql("""
+                            select oi.order_item_id from order_item oi
+                              join seller_order so on so.seller_order_id = oi.seller_order_id
+                             where so.order_id = :id
+                            """)
+                    .param("id", orderId).query(Long.class).single();
+            long productId = jdbc.sql("select product_id from sku where sku_id = :id")
+                    .param("id", skuId).query(Long.class).single();
+            // 후기는 받아 본 뒤에만 쓴다(`check_review_target`). 이 fixture 의 묶음은 상태가 `preparing` 이다.
+            jdbc.sql("update seller_order set status = 'confirmed' where order_id = :id")
+                    .param("id", orderId).update();
+            long reviewId = jdbc.sql("""
+                            insert into review (order_item_id, product_id, user_id, rating, body)
+                            values (:item, :product, :user, 5, '오래전에 산 물건의 후기')
+                            returning review_id
+                            """)
+                    .param("item", orderItemId).param("product", productId).param("user", userId)
+                    .query(Long.class).single();
+            ImagePipeline.Stored stored = images.store("review", photo());
+            jdbc.sql("""
+                            insert into review_image (review_id, object_key, thumbnail_key, original_name,
+                                                      content_type, byte_size)
+                            values (:review, :key, :thumb, :name, :type, :size)
+                            """)
+                    .param("review", reviewId).param("key", stored.objectKey())
+                    .param("thumb", stored.thumbnailKey()).param("name", stored.originalName())
+                    .param("type", stored.contentType()).param("size", stored.byteSize())
+                    .update();
+
+            purgeService.purge(NOW);
+
+            assertThat(countOf("select count(*) from review_image")).isZero();
+            assertThatThrownBy(() -> s3.headObject(b -> b.bucket(PUBLIC_BUCKET).key(stored.objectKey())))
+                    .isInstanceOf(NoSuchKeyException.class);
+            assertThatThrownBy(() -> s3.headObject(b -> b.bucket(PUBLIC_BUCKET).key(stored.thumbnailKey())))
+                    .isInstanceOf(NoSuchKeyException.class);
         }
 
         @Test
@@ -448,6 +510,17 @@ class TransactionPurgeServiceTest extends PostgresTestBase {
                         """)
                 .param("id", compensationId)
                 .update();
+    }
+
+    private static ImagePipeline.Incoming photo() {
+        BufferedImage image = new BufferedImage(40, 30, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            ImageIO.write(image, "jpeg", out);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return new ImagePipeline.Incoming("old.jpg", out.toByteArray());
     }
 
     private long orderClosedAt(OffsetDateTime closedAt) {

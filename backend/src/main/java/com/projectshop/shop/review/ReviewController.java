@@ -1,7 +1,10 @@
 package com.projectshop.shop.review;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -12,9 +15,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ImagePipeline;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 import org.springdoc.core.annotations.ParameterObject;
@@ -41,11 +48,14 @@ public class ReviewController {
 
     private final ReviewService reviews;
     private final ReviewModerationService moderation;
+    private final ReviewImageService images;
     private final ReviewQuery query;
 
-    ReviewController(ReviewService reviews, ReviewModerationService moderation, ReviewQuery query) {
+    ReviewController(ReviewService reviews, ReviewModerationService moderation, ReviewImageService images,
+            ReviewQuery query) {
         this.reviews = reviews;
         this.moderation = moderation;
+        this.images = images;
         this.query = query;
     }
 
@@ -197,5 +207,32 @@ public class ReviewController {
     ReviewQuery.ReportResult reports(@AuthenticationPrincipal ShopUser user,
             @RequestParam(defaultValue = "PENDING") String status, @ParameterObject Paging paging) {
         return query.findReports(user.id(), ReviewReportStatus.ofRequest(status), paging);
+    }
+
+    /**
+     * 후기에 사진을 붙인다(`Q159`). 경로가 후기 아래다 — 사진은 후기 없이 존재하지 않는다.
+     * 상품 사진과 같이 {@code 201} 이고 본문에 번호가 간다.
+     */
+    @PostMapping("/api/reviews/{reviewId}/images")
+    @ResponseStatus(HttpStatus.CREATED)
+    ReviewImageService.Uploaded uploadImage(@AuthenticationPrincipal ShopUser user,
+            @PathVariable long reviewId, @RequestPart("file") MultipartFile file) {
+        return images.upload(user.id(), reviewId, incoming(file));
+    }
+
+    /** 사진 한 장을 뗀다. 경로가 사진 번호 하나다 — 어느 후기의 것인지는 행이 든다 */
+    @DeleteMapping("/api/review-images/{reviewImageId}")
+    ResponseEntity<Void> deleteImage(@AuthenticationPrincipal ShopUser user, @PathVariable long reviewImageId) {
+        images.delete(user.id(), reviewImageId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** <b>웹 타입이 여기서 끝난다</b>({@code D23} 「계층」). 서비스는 이름과 바이트만 받는다 */
+    private static ImagePipeline.Incoming incoming(MultipartFile file) {
+        try {
+            return new ImagePipeline.Incoming(file.getOriginalFilename(), file.getBytes());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

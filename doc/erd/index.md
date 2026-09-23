@@ -22,7 +22,7 @@ flowchart LR
 화살표는 **가리키는 쪽 → 가리켜지는 쪽**이고, 수는 그 방향의 외래키 수다.
 
 - [[order]] — 표 20개
-- [[product]] — 표 13개
+- [[product]] — 표 14개
 - [[account]] — 표 9개
 - [[settlement]] — 표 6개
 - [[permission]] — 표 6개

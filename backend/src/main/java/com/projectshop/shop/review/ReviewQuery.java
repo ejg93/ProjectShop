@@ -1,7 +1,10 @@
 package com.projectshop.shop.review;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -13,6 +16,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.EnumValue;
+import com.projectshop.shop.support.ImagePipeline;
 
 import com.projectshop.shop.support.ListQuery.Paging;
 
@@ -37,10 +41,12 @@ public class ReviewQuery {
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
+    private final ImagePipeline images;
 
-    ReviewQuery(JdbcClient jdbc, PermissionEvaluator evaluator) {
+    ReviewQuery(JdbcClient jdbc, PermissionEvaluator evaluator, ImagePipeline images) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
+        this.images = images;
     }
 
     /**
@@ -54,7 +60,19 @@ public class ReviewQuery {
      */
     @Schema(name = "ProductReview")
     public record Item(long reviewId, String writerName, int rating, String body,
-            String reply, OffsetDateTime createdAt, boolean mine) {}
+            String reply, OffsetDateTime createdAt, boolean mine, List<Photo> photos) {
+
+        Item withPhotos(List<Photo> attached) {
+            return new Item(reviewId, writerName, rating, body, reply, createdAt, mine, attached);
+        }
+    }
+
+    /**
+     * 후기 사진 한 장(`Q159`). <b>목록은 썸네일로 그리고 누르면 원본을 연다</b>(`media-rules.md` 「썸네일」).
+     * 둘 다 만료 5분 서명 URL 이다.
+     */
+    @Schema(name = "ReviewPhoto")
+    public record Photo(String thumbnailUrl, String originalUrl) {}
 
     /** 평점 요약. <b>목록과 같이 나간다</b> — 따로 부르면 쪽을 넘길 때마다 다시 센다 */
     @Schema(name = "ProductReviewSummary")
@@ -91,8 +109,9 @@ public class ReviewQuery {
                                 rs.getString("body"),
                                 rs.getString("reply"),
                                 rs.getObject("created_at", OffsetDateTime.class),
-                                viewerUserId != null && rs.getLong("user_id") == viewerUserId))
+                                viewerUserId != null && rs.getLong("user_id") == viewerUserId, List.of()))
                 .list();
+        items = attachPhotos(items);
 
         Summary summary = summaryOf(productId);
         return new Result(items, paging.page(), paging.size(), summary.count(), summary);
@@ -132,7 +151,12 @@ public class ReviewQuery {
      */
     @Schema(name = "MyReview")
     public record MyItem(long reviewId, long productId, String productName, int rating, String body,
-            String reply, OffsetDateTime createdAt, OffsetDateTime blockedAt, String blockedReason) {}
+            String reply, OffsetDateTime createdAt, OffsetDateTime blockedAt, String blockedReason,
+            List<MyPhoto> photos) {}
+
+    /** 내 후기의 사진 한 장. <b>번호가 같이 간다</b> — 떼는 입구가 그것을 받는다 */
+    @Schema(name = "MyReviewPhoto")
+    public record MyPhoto(long reviewImageId, String thumbnailUrl) {}
 
     @Schema(name = "MyReviewPage")
     public record MyResult(List<MyItem> items, int page, int size, long total) {}
@@ -163,8 +187,17 @@ public class ReviewQuery {
                                 rs.getString("reply"),
                                 rs.getObject("created_at", OffsetDateTime.class),
                                 rs.getObject("blocked_at", OffsetDateTime.class),
-                                EnumValue.of(rs.getString("blocked_reason"), ReviewReason::of)))
+                                EnumValue.of(rs.getString("blocked_reason"), ReviewReason::of),
+                                List.<MyPhoto>of()))
                 .list();
+        Map<Long, List<PhotoRow>> photos = photosOf(items.stream().map(MyItem::reviewId).toList());
+        items = items.stream()
+                .map(item -> new MyItem(item.reviewId(), item.productId(), item.productName(), item.rating(),
+                        item.body(), item.reply(), item.createdAt(), item.blockedAt(), item.blockedReason(),
+                        photos.getOrDefault(item.reviewId(), List.of()).stream()
+                                .map(photo -> new MyPhoto(photo.reviewImageId(), images.url(photo.thumbnailKey())))
+                                .toList()))
+                .toList();
 
         long total = jdbc.sql("select count(*) from review where user_id = :userId and deleted_at is null")
                 .param("userId", userId)
@@ -313,5 +346,44 @@ public class ReviewQuery {
                 .query(Long.class)
                 .single();
         return new ReportResult(items, paging.page(), paging.size(), total);
+    }
+
+    /** 사진 행 하나. 열쇠를 들고 있고 URL 은 부르는 쪽이 만든다 */
+    private record PhotoRow(long reviewImageId, String objectKey, String thumbnailKey) {}
+
+    /** 공개 목록의 후기에 사진을 붙인다. 원본과 썸네일 URL 을 둘 다 만든다 */
+    private List<Item> attachPhotos(List<Item> items) {
+        Map<Long, List<PhotoRow>> photos = photosOf(items.stream().map(Item::reviewId).toList());
+        return items.stream()
+                .map(item -> item.withPhotos(photos.getOrDefault(item.reviewId(), List.of()).stream()
+                        .map(photo -> new Photo(images.url(photo.thumbnailKey()), images.url(photo.objectKey())))
+                        .toList()))
+                .toList();
+    }
+
+    /**
+     * 그 쪽의 후기들에 달린 사진. <b>후기마다 부르지 않고 한 번에 읽는다</b> — 한 쪽이 열 개면 조회가 열한 번이 되고,
+     * 그 모양은 쪽 크기만큼 는다.
+     */
+    private Map<Long, List<PhotoRow>> photosOf(List<Long> reviewIds) {
+        if (reviewIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, List<PhotoRow>> grouped = new LinkedHashMap<>();
+        jdbc.sql("""
+                        select review_id, review_image_id, object_key, thumbnail_key
+                          from review_image
+                         where review_id in (:ids)
+                         order by review_id, sort_no, review_image_id
+                        """)
+                .param("ids", reviewIds)
+                .query((rs, rowNum) -> {
+                    grouped.computeIfAbsent(rs.getLong("review_id"), id -> new ArrayList<>())
+                            .add(new PhotoRow(rs.getLong("review_image_id"),
+                                    rs.getString("object_key"), rs.getString("thumbnail_key")));
+                    return null;
+                })
+                .list();
+        return grouped;
     }
 }

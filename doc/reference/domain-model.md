@@ -121,6 +121,7 @@ SKU 를 물리 삭제하지 않으므로(수명 컬럼을 쓴다) 실제로 걸�
 | `review` → `order_item` | **restrict** | 무엇에 대한 후기인가가 끊기면 안 된다. 거래 기록이 5년 남는다(`R6`) |
 | `review` → `product`·`app_user` | **restrict** | 같은 이유. 어긋나는 것은 `review_check_target` 이 막는다 |
 | `review_reply`·`review_report` → `review` | cascade | 후기가 없으면 답글도 신고도 가리킬 것이 없다. 애그리거트 안쪽 |
+| `review_image` → `review` | cascade | 후기가 없으면 사진도 가리킬 것이 없다. 애그리거트 안쪽(`Q159`). **파기는 cascade 가 아니라 `TransactionPurgeService` 가 저장소 객체와 같이 지운다** — cascade 로 두면 행만 사라지고 공개 버킷에 사진이 남는다 |
 | `coupon_issue` → `coupon`·`app_user` | **restrict** | 나간 쿠폰이 가리킬 곳을 잃으면 안 된다. 정의를 지우려면 발급부터 거둔다 |
 | `coupon_issue` → `shop_order`(쓴 주문) | **restrict** | 할인액이 정산의 근거라 주문이 먼저 사라지면 안 된다 |
 | `seller_invitation` → `role` | **restrict** | 초대가 가리키는 역할은 먼저 못 지운다 |

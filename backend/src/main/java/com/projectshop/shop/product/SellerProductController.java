@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.ImagePipeline;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
@@ -111,9 +112,9 @@ public class SellerProductController {
      * <b>웹 타입이 여기서 끝난다</b>({@code D23} 「계층」). 서비스는 이름과 바이트만 받는다 —
      * 그래야 같은 규칙을 HTTP 가 아닌 자리(배치·이관)에서도 쓴다.
      */
-    private static ProductImageService.Incoming incoming(MultipartFile file) {
+    private static ImagePipeline.Incoming incoming(MultipartFile file) {
         try {
-            return new ProductImageService.Incoming(file.getOriginalFilename(), file.getBytes());
+            return new ImagePipeline.Incoming(file.getOriginalFilename(), file.getBytes());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

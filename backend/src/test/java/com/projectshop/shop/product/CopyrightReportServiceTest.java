@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import com.projectshop.shop.StorageTestBase;
+import com.projectshop.shop.support.ImagePipeline;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -63,7 +64,7 @@ class CopyrightReportServiceTest extends StorageTestBase {
 
         long productId = productService.create(owner, tshirt(sellerId)).productId();
         image = imageService.upload(owner, productId,
-                new ProductImageService.Incoming("photo.jpg", ProductImageFixture.jpegBytes(80, 60)));
+                new ImagePipeline.Incoming("photo.jpg", ProductImageFixture.jpegBytes(80, 60)));
     }
 
     /**

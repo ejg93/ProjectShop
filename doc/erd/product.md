@@ -20,6 +20,7 @@ erDiagram
     review }o..|| order_item : "order_item_id"
     review }o--|| product : "product_id"
     review }o..|| app_user : "user_id"
+    review_image }o--|| review : "review_id"
     review_reply }o--|| review : "review_id"
     review_reply }o..|| app_user : "user_id"
     review_report }o..|| app_user : "reporter_user_id"
