@@ -74,6 +74,11 @@ function canReplyReviews(me: Me | null): boolean {
   return can(me, "review", "reply");
 }
 
+/** 상품을 검수한다(`Q182`). 승인·반려·차단은 관리자만이다 — 셀러가 자기 상품을 승인하면 검수가 뜻이 없다 */
+function canReviewProducts(me: Me | null): boolean {
+  return can(me, "product", "review");
+}
+
 /** 저작권 신고를 판정한다(`Q183`). 판정과 같은 권한이 목록을 연다 — 셀러는 신고의 상대라 못 본다 */
 function canModerateProducts(me: Me | null): boolean {
   return can(me, "product", "moderate");
@@ -192,6 +197,9 @@ export async function SiteHeader() {
             <HeaderLink href="/admin/review-reports">후기 신고</HeaderLink>
           ) : null}
 
+          {canReviewProducts(me) ? (
+            <HeaderLink href="/admin/products">상품 검수</HeaderLink>
+          ) : null}
           {canModerateProducts(me) ? (
             <HeaderLink href="/admin/copyright-reports">저작권 신고</HeaderLink>
           ) : null}

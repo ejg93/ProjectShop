@@ -260,6 +260,8 @@ class ScreenLengthTest {
                     "select 다. 네 사유뿐이고 서버 @Pattern 과 review_report_reason_check 가 든다(`Q171`)"),
             Map.entry("app/copyright-report/report-form.tsx  imageId",
                     "radio 다. 고를 수 있는 값이 그 상품의 사진 번호로 닫혀 있다(`Q183`)"),
+            Map.entry("components/product-actions.tsx  backToSale",
+                    "radio 다. 참·거짓 둘뿐이고 서버 record 가 Boolean 으로 받는다(`Q182`)"),
 
             // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
             // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라

@@ -47,15 +47,18 @@ public class SellerProductController {
      * 팔기 전 상태와 재고가 같이 나온다.
      *
      * @param sellerId 여러 셀러에 속한 사람이 하나로 좁힐 때 쓴다. 안 주면 볼 수 있는 전부
+     * @param status   그 상태만(대문자, `Q182`). 관리자의 검수 대기 목록이 {@code PENDING_REVIEW} 로 부른다 —
+     *                 관리자는 {@code all} 이라 이 목록으로 전체가 보여서 따로 입구를 안 팠다
      */
     @GetMapping
     public ProductQuery.SellerPage list(
             @AuthenticationPrincipal ShopUser user,
             @RequestParam(name = "seller_id", required = false) Long sellerId,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String sort,
             @ParameterObject Paging paging) {
 
-        return productQuery.findForSeller(user.id(), sellerId, sort, paging);
+        return productQuery.findForSeller(user.id(), sellerId, status, sort, paging);
     }
 
     /**

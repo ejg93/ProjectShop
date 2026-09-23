@@ -70,4 +70,23 @@ final class ProductTransitions {
     static List<Transition> all() {
         return ALLOWED;
     }
+
+    /**
+     * 전이 하나를 화면이 부르는 동작 이름으로(`Q182`). 입구 이름과 짝이다 — {@code SUBMIT_REVIEW} 는
+     * {@code /submit-review} 다. <b>차단 풀기는 둘로 가지만 이름이 하나다</b>(되돌릴 곳은 요청 본문이 고른다).
+     */
+    static String actionName(Transition transition) {
+        return switch (transition.to()) {
+            case PENDING_REVIEW -> "SUBMIT_REVIEW";
+            case SUSPENDED -> "SUSPEND";
+            case BLOCKED -> "BLOCK";
+            case ON_SALE -> switch (transition.from()) {
+                case PENDING_REVIEW -> "APPROVE";
+                case SUSPENDED -> "RESUME";
+                default -> "UNBLOCK";
+            };
+            case DRAFT -> transition.from() == ProductStatus.PENDING_REVIEW ? "REJECT" : "UNBLOCK";
+            case SOLD_OUT -> throw new IllegalStateException("품절로 가는 전이는 표에 없다");
+        };
+    }
 }
