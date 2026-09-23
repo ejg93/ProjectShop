@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ApiError, apiPublic } from "@/lib/api";
 
 import { ProductInquiries } from "./product-inquiries";
+import { ProductReviews } from "./product-reviews";
 import {
   BrokerageNotice,
   SellerIdentityTable,
@@ -147,6 +148,8 @@ export default async function ProductDetailPage({
         </h2>
         <SellerIdentityTable seller={seller} />
       </section>
+
+      <ProductReviews productId={product.productId} />
 
       <ProductInquiries productId={product.productId} />
     </div>

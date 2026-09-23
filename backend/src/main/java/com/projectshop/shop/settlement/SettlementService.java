@@ -327,7 +327,51 @@ public class SettlementService {
     }
 
     /**
-     * 이미 정산된 건의 환불을 회수한다. <b>정산 후 환불이 이 자리다</b>(`business-model.md`).
+     * 셀러가 문 쿠폰 부담을 되돌린다(`Q164`).
+     *
+     * <p><b>안 되돌리면 부담만 남는다.</b> 1월에 {@code +판매 −수수료 −쿠폰} 이 서고 2월에
+     * {@code −판매 +수수료} 만 서면 순 {@code −쿠폰} 이 남는다 — 거래가 없어졌는데
+     * 셀러가 할인을 영구히 무는 것이고, 마무리 43차 독립 리뷰가 찾은 자리다.
+     *
+     * <p><b>부호가 양수다.</b> 되돌리는 것은 원래 줄의 반대고, 공급자는 그대로 셀러다 —
+     * 되돌림이 공급자를 바꾸지 않는다(`V89`).
+     *
+     * <p><b>환불한 만큼만 되돌린다.</b> 부분 환불이면 그 항목에서 돌려준 수량의 몫이고,
+     * 그 비율은 <b>환불 대금이 이미 들고 있다</b> — `Q164` 가 환불액에서 할인을 빼도록
+     * 고쳐서, 되돌릴 쿠폰은 「원래 배분액 × 환불 수량 ÷ 주문 수량」이다.
+     */
+    private void insertCouponReversalLines(long settlementId, long sellerId,
+            LocalDate periodStart, LocalDate periodEnd) {
+        jdbc.sql("""
+                        insert into settlement_item (settlement_id, kind, amount, refund_item_id)
+                        select :settlementId, 'coupon_discount_reversal',
+                               oi.discount_amount * ri.quantity / oi.quantity, ri.refund_item_id
+                          from refund_item ri
+                          join refund r on r.refund_id = ri.refund_id
+                          join seller_order so on so.seller_order_id = r.seller_order_id
+                          join order_item oi on oi.order_item_id = ri.order_item_id
+                         where so.seller_id = :sellerId
+                           and r.status = 'approved'
+                           and oi.discount_amount > 0
+                           and oi.discount_amount * ri.quantity / oi.quantity > 0
+                           and (r.decided_at at time zone 'Asia/Seoul')::date
+                               between :start and :end
+                           and exists (select 1 from settlement_item paid
+                                        where paid.kind = 'coupon_discount'
+                                          and paid.order_item_id = ri.order_item_id)
+                           and not exists (select 1 from settlement_item i
+                                            where i.kind = 'coupon_discount_reversal'
+                                              and i.refund_item_id = ri.refund_item_id)
+                        """)
+                .param("settlementId", settlementId)
+                .param("sellerId", sellerId)
+                .param("start", periodStart)
+                .param("end", periodEnd)
+                .update();
+    }
+
+    /**
+     * 이미 정산된 건의 대금과 수수료를 회수한다. <b>정산 후 환불이 이 자리다</b>(`business-model.md`).
      *
      * <p><b>기준은 환불을 승인한 날</b>이다. 원 주문의 확정일로 잡으면 지나간 정산서를 다시
      * 계산하게 되고 그 순간 박제가 깨진다.
@@ -361,6 +405,8 @@ public class SettlementService {
                 .param("start", periodStart)
                 .param("end", periodEnd)
                 .update();
+
+        insertCouponReversalLines(settlementId, sellerId, periodStart, periodEnd);
 
         jdbc.sql("""
                         insert into settlement_item (settlement_id, kind, amount, refund_item_id)

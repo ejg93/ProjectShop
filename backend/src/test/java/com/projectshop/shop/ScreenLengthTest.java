@@ -248,7 +248,24 @@ class ScreenLengthTest {
             Map.entry("app/admin/roles/page.tsx  userId",
                     "type=number 다. maxLength 가 안 걸리고 아래쪽은 min 이 든다(`16`)"),
             Map.entry("app/seller/members/member-panel.tsx  roleCode",
-                    "select 다. 고를 수 있는 값이 목록으로 닫혀 있다(`16a`)")));
+                    "select 다. 고를 수 있는 값이 목록으로 닫혀 있다(`16a`)"),
+            Map.entry("app/orders/[orderNumber]/review-form.tsx  rating",
+                    "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q160`)"),
+
+            // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
+            // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라
+            // maxLength 가 안 걸리고, 범위는 min/max 와 표의 check 가 든다.
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  discountKind",
+                    "select 다. amount·percent 둘뿐이고 표의 coupon_discount_kind_check 와 같다"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  bearer",
+                    "select 다. mall·seller 둘뿐이고 표의 coupon_bearer_check 와 같다"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  discountValue",
+                    "type=number 다. 정률의 1~10000 은 min/max 와 coupon_discount_value_check 가 든다"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  maxDiscountAmount", "〃"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  minOrderAmount", "〃"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  sellerId", "〃"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  validDays",
+                    "type=number 다. 1~3650 은 min/max 와 coupon_valid_days_check 가 든다")));
 
     /**
      * 화면 칸 중 {@code maxLength} 가 없는 것을 찾는다.

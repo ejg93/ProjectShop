@@ -46,6 +46,10 @@ class UserRoleServiceTest extends PostgresTestBase {
         fixture.grantGlobal(admin, "admin");
 
         target = fixture.insertUser("target@example.com", "대상");
+        // 손으로 넣은 계정에는 기본 역할이 없다 — 실제 가입은 `SignupService` 가 `customer` 를
+        // 준다. 안 주면 **가입으로는 안 생기는 상태**를 재게 되고, 본인 조회가 지나는
+        // `user:read own` 도 없어서 이 시험이 실물과 다른 것을 잰다(마무리 44차 독립 리뷰).
+        fixture.grantGlobal(target, "customer");
     }
 
     @Nested
@@ -145,6 +149,35 @@ class UserRoleServiceTest extends PostgresTestBase {
     @Nested
     @DisplayName("조회")
     class Read {
+
+        /**
+         * 가입 응답의 {@code Location} 이 이 주소를 가리킨다(`Q166`).
+         * {@code role:read} 를 요구하면 <b>갓 가입한 사람이 자기 것을 못 읽는다.</b>
+         *
+         * <p><b>판정을 안 지나는 것이 아니라 다른 판정을 지난다</b>(마무리 44차 독립 리뷰) —
+         * {@code user:read} 의 {@code own} 이고, 가입이 주는 {@code customer} 가 그것을 든다.
+         */
+        @Test
+        @DisplayName("본인은 역할 권한 없이 읽는다")
+        void 본인은_역할_권한_없이_읽는다() {
+            UserRoleService.Detail detail = roles.find(target, target);
+
+            assertThat(detail.userId()).isEqualTo(target);
+            assertThat(detail.canAssign())
+                    .as("읽을 수는 있어도 바꿀 수는 없다")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("남의 것은 여전히 권한이 있어야 읽는다")
+        void 남의_것은_여전히_권한이_있어야_읽는다() {
+            long stranger = fixture.insertUser("nobody@example.com", "남");
+
+            assertThatThrownBy(() -> roles.find(stranger, target))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.ROLE_FORBIDDEN);
+        }
 
         /** 감사에서 「누가 무엇을 가졌었나」를 물으면 그 계정이 이미 나갔을 수 있다 */
         @Test

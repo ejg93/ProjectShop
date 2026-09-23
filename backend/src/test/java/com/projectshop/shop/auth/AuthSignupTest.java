@@ -3,6 +3,7 @@ package com.projectshop.shop.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -127,6 +128,29 @@ class AuthSignupTest extends PostgresTestBase {
             signUp("e@test.local", required(true))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.user_id").isNumber());
+        }
+
+        /**
+         * <b>`D5` 가 201 에 새 자원 경로를 요구한다</b>(`Q166`). 전에는 조회 입구가 없어서
+         * 안 붙였는데 `16` 이 그것을 만들었다 — 그러고도 안 붙어 있던 자리다.
+         *
+         * <p>가리키는 주소를 <b>그 사람이 실제로 읽을 수 있어야</b> 헤더가 뜻을 가진다.
+         * 본인 조회를 같이 열었다.
+         */
+        @Test
+        @DisplayName("Location 이 방금 만든 계정을 가리킨다")
+        void Location_이_방금_만든_계정을_가리킨다() throws Exception {
+            signUp("located@test.local", required(true))
+                    .andExpect(status().isCreated())
+                    .andExpect(header().exists("Location"))
+                    .andExpect(result -> {
+                        String location = result.getResponse().getHeader("Location");
+                        String userId = com.jayway.jsonpath.JsonPath
+                                .read(result.getResponse().getContentAsString(), "$.user_id")
+                                .toString();
+                        org.assertj.core.api.Assertions.assertThat(location)
+                                .isEqualTo("/api/users/" + userId);
+                    });
         }
     }
 

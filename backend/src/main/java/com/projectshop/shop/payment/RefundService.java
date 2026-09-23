@@ -444,13 +444,15 @@ public class RefundService {
     private List<Item> itemsOf(long sellerOrderId) {
         return jdbc.sql("""
                         select oi.order_item_id, oi.quantity, oi.unit_price_incl_vat,
-                               oi.commission_amount,
+                               oi.commission_amount, oi.discount_amount,
                                coalesce(done.refunded_quantity, 0)   as refunded_quantity,
-                               coalesce(done.refunded_commission, 0) as refunded_commission
+                               coalesce(done.refunded_commission, 0) as refunded_commission,
+                               coalesce(done.refunded_amount, 0)     as refunded_amount
                           from order_item oi
                           left join (select ri.order_item_id,
                                             sum(ri.quantity)          as refunded_quantity,
-                                            sum(ri.commission_refund) as refunded_commission
+                                            sum(ri.commission_refund) as refunded_commission,
+                                            sum(ri.amount)            as refunded_amount
                                        from refund_item ri
                                        join refund r on r.refund_id = ri.refund_id
                                       where r.status <> :rejected
@@ -466,8 +468,10 @@ public class RefundService {
                         rs.getInt("quantity"),
                         rs.getLong("unit_price_incl_vat"),
                         rs.getLong("commission_amount"),
+                        rs.getLong("discount_amount"),
                         rs.getInt("refunded_quantity"),
-                        rs.getLong("refunded_commission")))
+                        rs.getLong("refunded_commission"),
+                        rs.getLong("refunded_amount")))
                 .list();
     }
 

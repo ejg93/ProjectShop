@@ -53,6 +53,16 @@ function canEditRoles(me: Me | null): boolean {
   return can(me, "role", "read");
 }
 
+/**
+ * 쿠폰 관리 화면(`Q163`). `coupon:read` 를 가진 사람만 그 화면이 뜬다.
+ *
+ * <p><b>사는 사람에게는 없는 권한이다</b>(`V91`) — 목록에 코드가 실려 있고
+ * 코드를 아는 것이 곧 그 쿠폰을 받을 수 있다는 뜻이라, 조회가 사실상 발급이다.
+ */
+function canManageCoupons(me: Me | null): boolean {
+  return can(me, "coupon", "read");
+}
+
 /** 멤버 화면(`16a`). 속한 사람이면 본다 — 부르고 거두는 것은 그 안에서 갈린다 */
 function canSeeMembers(me: Me | null): boolean {
   return can(me, "seller_member", "read");
@@ -141,6 +151,10 @@ export async function SiteHeader() {
 
           {canEditRoles(me) ? (
             <HeaderLink href="/admin/roles">역할 편집</HeaderLink>
+          ) : null}
+
+          {canManageCoupons(me) ? (
+            <HeaderLink href="/admin/coupons">쿠폰</HeaderLink>
           ) : null}
         </nav>
 

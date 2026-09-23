@@ -79,7 +79,7 @@ public class SecurityConfig {
      * <p>기본이 열림이면 새 엔드포인트가 아무도 모르는 채로 공개된다.
      * 그래서 아래 필터 체인의 기본값은 {@code authenticated} 고, 예외만 이 목록에 적는다.
      */
-    private static final List<String> PUBLIC_PATHS = List.of(
+    static final List<String> PUBLIC_PATHS = List.of(
             "/api/health",
             "/actuator/health",
             "/actuator/health/**",
@@ -111,6 +111,38 @@ public class SecurityConfig {
             "/api/cart",
             "/api/cart/**");
 
+    /**
+     * 인증 없이 <b>읽기만</b> 여는 경로. 같은 경로에 쓰기가 있어서 {@link #PUBLIC_PATHS} 에
+     * 넣으면 비로그인이 남의 것을 고치고 지우는 자리다 — 그래서 {@code GET} 에만 건다.
+     *
+     * <p><b>화면이 로그인 없이 부르는 경로는 전부 두 목록 중 하나에 있어야 한다</b>(`Q170`).
+     * {@code apiPublic} 이 쿠키 없이 부르므로 여기 빠진 경로는 401 이고, 그 화면이 서버 컴포넌트면
+     * <b>페이지가 통째로 죽는다</b> — 후기 목록이 빠져서 상품 상세가 죽었고 e2e 둘이 거기서 멈췄다
+     * (PR #73). {@code PublicEndpointReachabilityTest} 가 화면의 호출 경로를 이 두 목록에 맞춰 본다.
+     */
+    static final List<String> PUBLIC_READS = List.of(
+            // API 스펙(`2a`). 코드에서 뽑은 계약이라 비밀이 아니고, 막으면 프론트가 못 읽는다.
+            // 이 경로에 쓰기가 생기는 날 조용히 같이 열리지 않게 GET 만 연다. 셋인 것은
+            // 스펙 본문·하위 경로·YAML 판이라서고, UI 를 안 들여서 정적 자원 경로가 없다.
+            "/api/docs",
+            "/api/docs/**",
+            "/api/docs.yaml",
+            // 상품 상세(청크 8b). 별 하나라 /{id} 까지만 걸리고 /{id}/approve 같은 검수 경로는
+            // 안 걸린다 — 둘 다 필요한 조건이다.
+            "/api/products/*",
+            // 셀러 신원은 법이 청약 이전에 제공하라고 한 값이라(`D2` R1) 비로그인이 본다.
+            "/api/sellers/*",
+            // 상품의 공개 Q&A(청크 59). 구매 전 문의라 살까 말까 하는 사람이 읽는 자리고,
+            // 로그인을 요구하면 그 자리가 닫힌다.
+            //
+            // 비공개와 내려간 게시물은 이 경로로 아예 안 뽑힌다 — 여는 것이 조회 조건이 아니라
+            // 인증뿐이라, 조건은 `InquiryQuery.findPublic` 이 쥔다.
+            "/api/products/*/inquiries",
+            // 상품 후기(`Q160`). Q&A 와 같은 판단이다 — 살까 말까 하는 사람이 읽는다.
+            // 내려간·지운 후기는 `ReviewQuery` 의 조회 조건이 뺀다. 로그인한 사람이 부르면
+            // 인증이 실려서 `mine` 이 참이 될 수 있다 — permitAll 은 인증을 버리지 않는다.
+            "/api/products/*/reviews");
+
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,
             SessionRegistry sessionRegistry, ProblemEntryPoint entryPoint,
@@ -127,24 +159,8 @@ public class SecurityConfig {
                         // 역할이 바뀌면 답도 바뀐다 — 경로에 역할 이름을 박지 않는다.
                         .requestMatchers("/actuator/prometheus")
                         .access(new MetricsAccessManager(evaluators))
-                        // 상품 상세는 읽기만 연다(청크 8b). 별 하나라 /{id} 까지만 걸리고
-                        // /{id}/approve 같은 검수 경로는 안 걸린다 — 둘 다 필요한 조건이다.
-                        // API 스펙(`2a`). 코드에서 뽑은 계약이라 비밀이 아니고, 막으면 프론트가 못 읽는다.
-                        // **읽기만 연다** — 아래 경로들과 같은 이유다: 이 경로에 쓰기가 생기는 날
-                        // 조용히 같이 열리지 않게 한다. 셋인 것은 스펙 본문·하위 경로·YAML 판이라서고,
-                        // UI 를 안 들여서 정적 자원 경로가 없다.
-                        .requestMatchers(HttpMethod.GET, "/api/docs", "/api/docs/**", "/api/docs.yaml")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/products/*").permitAll()
-                        // 셀러 신원은 법이 청약 이전에 제공하라고 한 값이라(`D2` R1) 비로그인이 본다.
-                        // 여기도 GET 만 연다 — 이 경로에 쓰기가 생기는 날 조용히 같이 열리지 않게.
-                        .requestMatchers(HttpMethod.GET, "/api/sellers/*").permitAll()
-                        // 상품의 공개 Q&A(청크 59). 구매 전 문의라 살까 말까 하는 사람이
-                        // 읽는 자리고, 로그인을 요구하면 그 자리가 닫힌다.
-                        //
-                        // **비공개와 내려간 게시물은 이 경로로 아예 안 뽑힌다** — 여는 것이
-                        // 조회 조건이 아니라 인증뿐이라, 조건은 `InquiryQuery.findPublic` 이 쥔다.
-                        .requestMatchers(HttpMethod.GET, "/api/products/*/inquiries").permitAll()
+                        // 읽기만 여는 경로. 왜 GET 에만 거는지는 목록의 주석이 든다.
+                        .requestMatchers(HttpMethod.GET, PUBLIC_READS.toArray(String[]::new)).permitAll()
                         .anyRequest().authenticated())
 
                 // 폼 로그인과 HTTP Basic 을 끈다.

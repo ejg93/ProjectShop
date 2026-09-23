@@ -225,6 +225,94 @@ class SellerMemberServiceTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 이미 들어온 사람의 역할과 소속(`Q165`).
+     *
+     * <p><b>`16a` 가 선언한 「역할을 주고 회수한다」의 절반이 안 닫혀 있었다</b> —
+     * 만든 것은 초대·수락·초대 거두기뿐이었고, 그 자리의 주석이
+     * <b>「그 입구는 `16a` 가 만든다」로 남아 끝난 청크가 자기를 가리켰다.</b>
+     */
+    @Nested
+    @DisplayName("이미 들어온 사람")
+    class Existing {
+
+        private long staff;
+
+        @BeforeEach
+        void joinStaff() {
+            staff = fixture.insertUser("staff-existing@example.com", "담당자");
+            fixture.joinSeller(seller, staff);
+            fixture.grantOrg(staff, "seller_staff", seller);
+        }
+
+        @Test
+        @DisplayName("역할을 바꾸면 소속은 그대로다")
+        void 역할을_바꾸면_소속은_그대로다() {
+            service.changeRole(seller, staff, "seller_owner", owner);
+
+            assertThat(orgRoleCount(staff, "seller_owner", seller)).isEqualTo(1);
+            assertThat(orgRoleCount(staff, "seller_staff", seller)).isZero();
+            assertThat(memberCount(seller, staff)).isEqualTo(1);
+        }
+
+        /** 역할만 지우면 아무것도 못 하는 소속이 남고, 소속만 지우면 트리거가 걸린다 */
+        @Test
+        @DisplayName("내보내면 소속과 역할이 같이 사라진다")
+        void 내보내면_소속과_역할이_같이_사라진다() {
+            service.remove(seller, staff, owner);
+
+            assertThat(memberCount(seller, staff)).isZero();
+            assertThat(orgRoleCount(staff, "seller_staff", seller)).isZero();
+        }
+
+        /** 대표가 0이 되면 그 셀러는 멤버를 부를 수도 뺄 수도 없는 상태로 잠긴다 */
+        @Test
+        @DisplayName("마지막 대표는 못 나간다")
+        void 마지막_대표는_못_나간다() {
+            assertThatThrownBy(() -> service.remove(seller, owner, owner))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.SELLER_LAST_OWNER);
+        }
+
+        @Test
+        @DisplayName("마지막 대표는 역할도 못 내린다")
+        void 마지막_대표는_역할도_못_내린다() {
+            assertThatThrownBy(() -> service.changeRole(seller, owner, "seller_staff", owner))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.SELLER_LAST_OWNER);
+        }
+
+        @Test
+        @DisplayName("대표가 둘이면 하나는 내려올 수 있다")
+        void 대표가_둘이면_하나는_내려올_수_있다() {
+            service.changeRole(seller, staff, "seller_owner", owner);
+
+            service.changeRole(seller, owner, "seller_staff", owner);
+
+            assertThat(orgRoleCount(owner, "seller_staff", seller)).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("전역 역할은 이 입구로 못 준다")
+        void 전역_역할은_이_입구로_못_준다() {
+            assertThatThrownBy(() -> service.changeRole(seller, staff, "admin", owner))
+                    .isInstanceOf(ShopException.class);
+        }
+
+        @Test
+        @DisplayName("속하지 않은 사람은 못 바꾼다")
+        void 속하지_않은_사람은_못_바꾼다() {
+            long outsider = fixture.insertUser("outsider@example.com", "바깥");
+
+            assertThatThrownBy(() -> service.remove(seller, outsider, owner))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(error -> ((ShopException) error).code())
+                    .isEqualTo(ErrorCode.SELLER_MEMBER_NOT_FOUND);
+        }
+    }
+
     @Nested
     @DisplayName("담당자와 대표를 가르는 것")
     class StaffVersusOwner {

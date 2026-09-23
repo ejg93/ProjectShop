@@ -230,15 +230,21 @@ class AdvertisingGateTest extends PostgresTestBase {
                 .update();
     }
 
+    /**
+     * 시행 시각을 <b>JVM 시계로</b> 넣는다(`Q172`). 기본값 {@code now()} 는 DB 시계고
+     * {@code NotificationService.send} 는 JVM 시계로 「시행 중」을 고른다 — 로컬 Docker 의 DB 시계가
+     * 호스트보다 앞서면 방금 넣은 판이 「아직 시행 전」이 되어 {@code 시행 중인 알림 템플릿이 없다}로 떨어졌다.
+     */
     private void insertTemplate(String code, String subject, String body, String kind) {
         jdbc.sql("""
-                        insert into notification_template (code, subject, body, kind)
-                        values (:code, :subject, :body, :kind)
+                        insert into notification_template (code, subject, body, kind, effective_at)
+                        values (:code, :subject, :body, :kind, :effectiveAt)
                         """)
                 .param("code", code)
                 .param("subject", subject)
                 .param("body", body)
                 .param("kind", kind)
+                .param("effectiveAt", OffsetDateTime.now().minusMinutes(1))
                 .update();
     }
 

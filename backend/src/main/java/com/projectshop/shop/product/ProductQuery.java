@@ -439,9 +439,14 @@ public class ProductQuery {
                 .query(Long.class)
                 .set();
 
+        // **대상에 자기를 싣는다**(`Q161` 이 놓친 자리, 마무리 44차 독립 리뷰).
+        // `seller_staff` 는 `product:update` 가 `own` 뿐이라 셀러만 실으면 아무것도 안 덮고,
+        // 그러면 **담당자가 자기 셀러의 관리 목록을 아예 못 연다** — 고칠 수 있는 상품이
+        // 그 목록 안에 있는데 목록으로 가는 길이 막힌다.
         Set<Long> visible = memberOf.stream()
                 .filter(sellerId -> evaluator
-                        .decide(viewerId, "product", "update", Target.ofSeller(sellerId)).allowed())
+                        .decide(viewerId, "product", "update", Target.of(viewerId, sellerId))
+                        .allowed())
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
         if (visible.isEmpty()) {

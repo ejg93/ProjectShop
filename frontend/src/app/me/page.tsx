@@ -126,6 +126,22 @@ export default async function MyPage() {
             권리 행사 요구·문의
           </Link>
 
+          {/*
+            쿠폰함은 이 화면에서만 간다(`Q163`). 머리에 두면 사는 사람 전부에게 늘 보이는데,
+            받은 쿠폰이 없는 사람에게는 빈 화면으로 가는 링크다 — 내 정보 아래가 제자리다.
+          */}
+          <Link
+            href="/me/coupons"
+            className="
+              rounded-ui border border-border px-4 py-2.5 text-sm font-semibold
+              transition-colors duration-200
+              hover:bg-surface-raised
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
+            "
+          >
+            내 쿠폰
+          </Link>
+
           <Link
             href="/me/withdraw"
             className="

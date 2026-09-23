@@ -100,8 +100,7 @@ public class ProductImageService {
      */
     @Transactional
     public Uploaded upload(long actorUserId, long productId, Incoming file) {
-        long sellerId = sellerIdOf(productId);
-        if (!evaluator.decide(actorUserId, "product", "update", Target.ofSeller(sellerId)).allowed()) {
+        if (!evaluator.decide(actorUserId, "product", "update", targetOf(productId)).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
         if (file.size() > MAX_BYTES) {
@@ -167,9 +166,7 @@ public class ProductImageService {
      */
     @Transactional(readOnly = true)
     public List<Image> find(long actorUserId, long productId) {
-        long sellerId = sellerIdOf(productId);
-
-        if (!evaluator.decide(actorUserId, "product", "update", Target.ofSeller(sellerId)).allowed()) {
+        if (!evaluator.decide(actorUserId, "product", "update", targetOf(productId)).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
 
@@ -216,11 +213,13 @@ public class ProductImageService {
      */
     @Transactional
     public void delete(long actorUserId, long productImageId) {
-        record Owned(long productId, long sellerId, String objectKey, String thumbnailKey) {
+        record Owned(long productId, long sellerId, long createdByUserId, String objectKey,
+                String thumbnailKey) {
         }
 
         Owned owned = jdbc.sql("""
-                        select i.product_id, p.seller_id, i.object_key, i.thumbnail_key
+                        select i.product_id, p.seller_id, p.created_by_user_id,
+                               i.object_key, i.thumbnail_key
                           from product_image i
                           join product p on p.product_id = i.product_id
                          where i.product_image_id = :id
@@ -231,7 +230,7 @@ public class ProductImageService {
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
 
         if (!evaluator.decide(actorUserId, "product", "update",
-                Target.ofSeller(owned.sellerId())).allowed()) {
+                new Target(owned.createdByUserId(), owned.sellerId(), null)).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
 
@@ -353,10 +352,21 @@ public class ProductImageService {
                 .single();
     }
 
-    private long sellerIdOf(long productId) {
-        return jdbc.sql("select seller_id from product where product_id = :id and deleted_at is null")
+    /**
+     * 판정에 필요한 이 상품의 두 값.
+     *
+     * <p><b>등록자를 같이 읽는다</b>(`Q161`). 셀러만 읽으면 {@code ownerUserId} 가 {@code null}
+     * 이라 <b>{@code own} 스코프가 아무것도 안 덮는다</b> — 담당자가 자기가 등록한 상품의
+     * 사진도 못 만진다.
+     */
+    private Target targetOf(long productId) {
+        return jdbc.sql("""
+                        select seller_id, created_by_user_id from product
+                         where product_id = :id and deleted_at is null
+                        """)
                 .param("id", productId)
-                .query(Long.class)
+                .query((rs, rowNum) -> new Target(
+                        rs.getLong("created_by_user_id"), rs.getLong("seller_id"), null))
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
     }

@@ -26,8 +26,56 @@ class RefundMathTest {
     /** 3개에 항목 수수료 1000. 3으로 안 나눠떨어져서 절사 잔액이 생긴다 */
     private static final long COMMISSION = 1_000;
 
+    /**
+     * 3개짜리 항목. <b>환불 대금 누계도 같이 채운다</b> — 수량만 세고 금액을 0 으로 두면
+     * 「1개 돌려줬는데 돈은 안 나갔다」가 되고, `Q164` 가 더한 잔액 계산이 그 거짓을 읽는다.
+     */
     private static Item item(int refundedQuantity, long refundedCommission) {
-        return new Item(7L, 3, 10_000, COMMISSION, refundedQuantity, refundedCommission);
+        return new Item(7L, 3, 10_000, COMMISSION, 0, refundedQuantity, refundedCommission,
+                10_000L * refundedQuantity);
+    }
+
+    /** 3개 30,000 에 할인 1,000. 3으로 안 나눠떨어져서 여기도 절사 잔액이 생긴다 */
+    private static Item discounted(int refundedQuantity, long refundedAmount) {
+        return new Item(7L, 3, 10_000, COMMISSION, 1_000, refundedQuantity, 0, refundedAmount);
+    }
+
+    /**
+     * 환불 대금이 <b>배분된 할인을 뺀다</b>(`Q164`).
+     *
+     * <p>안 빼면 둘이 난다 — <b>전액 환불이 결제액 상한에 걸려 막히고</b>, 부분 환불은
+     * <b>소비자가 낸 것보다 많이 돌려준다.</b> `50` 이 결제액을 할인만큼 줄이면서 생긴 자리다.
+     */
+    @Nested
+    @DisplayName("환불 대금은")
+    class AmountRefund {
+
+        @Test
+        @DisplayName("배분된 할인을 뺀다")
+        void 배분된_할인을_뺀다() {
+            assertThat(RefundMath.amountRefund(discounted(0, 0), 3))
+                    .as("30,000 짜리에 1,000 을 깎았으면 돌려줄 것은 29,000 이다")
+                    .isEqualTo(29_000);
+        }
+
+        @Test
+        @DisplayName("절사 잔액이 마지막 수량에 몰린다")
+        void 절사_잔액이_마지막_수량에_몰린다() {
+            long first = RefundMath.amountRefund(discounted(0, 0), 1);
+            long second = RefundMath.amountRefund(discounted(1, first), 1);
+            long third = RefundMath.amountRefund(discounted(2, first + second), 1);
+
+            assertThat(first + second + third)
+                    .as("나눠 돌려줘도 합이 실제 낸 값과 같아야 한다 — 1원이 남으면"
+                            + " 통째로 환불했는데 낸 것보다 덜 돌아간다")
+                    .isEqualTo(29_000);
+        }
+
+        @Test
+        @DisplayName("할인이 없으면 항목 금액 그대로다")
+        void 할인이_없으면_항목_금액_그대로다() {
+            assertThat(RefundMath.amountRefund(item(0, 0), 3)).isEqualTo(30_000);
+        }
     }
 
     @Nested

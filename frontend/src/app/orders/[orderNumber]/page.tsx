@@ -18,10 +18,13 @@ import { PolicyBody } from "@/components/policy-document";
 
 import { ORDER_ACTIONS } from "../status";
 import { OrderInquiryForm } from "./order-inquiry-form";
+import { ReviewForm } from "./review-form";
 
 export const metadata: Metadata = { title: "주문 상세 · ProjectShop" };
 
 type Item = {
+  /** 후기가 붙는 단위다(`46`). 반품 신청도 이 번호를 받는다 */
+  orderItemId: number;
   productName: string;
   optionLabel: string | null;
   quantity: number;
@@ -179,6 +182,17 @@ export default async function OrderDetailPage({
 }
 
 /**
+ * 후기를 쓸 수 있는 배송 상태(`47` 의 `ReviewStatusPolicy` 와 같은 둘).
+ *
+ * <p><b>서버가 다시 잰다.</b> 이 집합은 <b>버튼을 그릴지</b>만 정하고, 통과 여부는
+ * 판정과 트리거가 든다 — 화면이 마지막 관문이면 API 를 직접 부르는 길이 열린다(`D20`).
+ *
+ * <p>`allowed_actions` 를 쓰지 않는 이유는 그 목록이 <b>셀러 묶음</b>에 걸린 동작이라서다.
+ * 후기는 <b>주문 줄</b>마다 하나고 묶음 안에서 이미 쓴 줄과 안 쓴 줄이 갈린다.
+ */
+const REVIEWABLE = new Set(["delivered", "confirmed"]);
+
+/**
  * 셀러 묶음 하나. <b>취소·확정·반품이 이 단위로 걸린다</b>(`D7`) —
  * 주문 전체가 아니라 셀러 묶음이 최소 단위다.
  */
@@ -205,20 +219,22 @@ function SellerBundle({ bundle }: { bundle: SellerOrder }) {
         shippedAt={bundle.shippedAt}
       />
 
-      <ul className="grid gap-2">
-        {bundle.items.map((item, index) => (
-          <li
-            key={`${item.productName}-${index}`}
-            className="flex flex-wrap justify-between gap-2 text-sm"
-          >
-            <span>
-              {item.productName}
-              {item.optionLabel ? (
-                <span className="text-text-muted"> · {item.optionLabel}</span>
-              ) : null}
-              <span className="text-text-muted"> × {item.quantity}개</span>
-            </span>
-            <span>{priceText(item.lineAmount)}</span>
+<ul className="grid gap-2">
+        {bundle.items.map((item) => (
+          <li key={item.orderItemId} className="grid gap-2">
+            <div className="flex flex-wrap justify-between gap-2 text-sm">
+              <span>
+                {item.productName}
+                {item.optionLabel ? (
+                  <span className="text-text-muted"> · {item.optionLabel}</span>
+                ) : null}
+                <span className="text-text-muted"> × {item.quantity}개</span>
+              </span>
+              <span>{priceText(item.lineAmount)}</span>
+            </div>
+            {REVIEWABLE.has(bundle.status) ? (
+              <ReviewForm orderItemId={item.orderItemId} productName={item.productName} />
+            ) : null}
           </li>
         ))}
       </ul>

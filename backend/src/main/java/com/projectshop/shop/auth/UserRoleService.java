@@ -82,11 +82,24 @@ public class UserRoleService {
     /**
      * 한 사람과 그가 가진 역할.
      *
+     * <p><b>본인은 역할 권한 없이 읽는다</b>(`Q166`) — 가입 응답의 {@code Location} 이 이 주소를
+     * 가리키고, 그 사람은 아직 아무 역할도 없다.
+     *
      * <p><b>탈퇴한 계정도 보인다.</b> 감사에서 「누가 무엇을 가졌었나」를 물으면 그 계정이
      * 이미 나갔을 수 있다 — 안 보이면 그 물음에 답할 자리가 없다. 나간 것은 칸으로 밝힌다.
      */
     public Detail find(long actorUserId, long userId) {
-        requirePermission(actorUserId, "read");
+        // **본인은 `role:read` 없이도 읽는다**(`Q166`). 가입 응답의 `Location` 이 이 주소를
+        // 가리키는데, 역할 권한을 요구하면 **갓 가입한 사람이 자기 것을 못 읽는다**.
+        //
+        // 판정을 하나 더 안 만든다 — `user:read` 의 `own` 스코프가 이미 「자기 것」을 뜻한다.
+        // **그래서 건너뛰는 것이 아니라 그 판정을 지난다**(마무리 44차 독립 리뷰): 검사 자체를
+        // 빼면 `user:read` 를 뺀 역할이 생기거나 계정이 제한돼도 이 경로만 열려 있다.
+        if (actorUserId == userId) {
+            requireSelfRead(actorUserId);
+        } else {
+            requirePermission(actorUserId, "read");
+        }
 
         Detail user = jdbc.sql("""
                         select user_id, display_name, deleted_at
@@ -193,6 +206,25 @@ public class UserRoleService {
                         (Long) rs.getObject("seller_id"),
                         rs.getString("seller_name")))
                 .list();
+    }
+
+    /**
+     * 본인이 자기 것을 읽는다(`Q166`).
+     *
+     * <p><b>{@code role:read} 가 아니라 {@code user:read} 의 {@code own} 이다.</b> 갓 가입한
+     * 사람은 역할 권한이 없고, 가입 응답의 {@code Location} 이 이 주소를 가리킨다 —
+     * 그 사람이 못 읽으면 헤더가 클라이언트를 속이는 것이 된다.
+     *
+     * <p><b>검사 자체를 건너뛰지 않는다</b>(마무리 44차 독립 리뷰). 건너뛰면
+     * {@code user:read} 를 뺀 역할이 생기거나 계정이 제한돼도 이 경로만 열려 있다 —
+     * 판정을 지나야 그 변화가 여기에도 걸린다.
+     */
+    private void requireSelfRead(long actorUserId) {
+        if (!evaluator.decide(actorUserId, "user", "read",
+                PermissionEvaluator.Target.ownedBy(actorUserId))
+                .allowed()) {
+            throw new ShopException(ErrorCode.ROLE_FORBIDDEN);
+        }
     }
 
     private void requirePermission(long actorUserId, String action) {

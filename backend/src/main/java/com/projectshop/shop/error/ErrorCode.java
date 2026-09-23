@@ -142,6 +142,18 @@ public enum ErrorCode {
     SELLER_MEMBER_FORBIDDEN(HttpStatus.FORBIDDEN, "seller-member-forbidden",
             "셀러의 멤버를 다룰 권한이 없다"),
 
+    SELLER_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-member-not-found",
+            "그 셀러에 속한 사람이 아니다"),
+
+    /**
+     * 마지막 대표는 못 내린다(`Q165`).
+     *
+     * <p>대표가 0이 되면 그 셀러는 <b>멤버를 부를 수도 뺄 수도 없는 상태</b>로 잠긴다 —
+     * 푸는 길이 관리자의 직접 개입뿐이라 그 자리를 안 만든다.
+     */
+    SELLER_LAST_OWNER(HttpStatus.UNPROCESSABLE_CONTENT, "seller-last-owner",
+            "마지막 대표는 내보내거나 역할을 바꿀 수 없다"),
+
     /**
      * 쿠폰을 쓸 수 없다.
      *
@@ -149,6 +161,22 @@ public enum ErrorCode {
      * 가르면 번호를 두드려 <b>남이 무슨 쿠폰을 받았는지</b>를 알아낼 수 있다(`D14`).
      */
     COUPON_NOT_USABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-not-usable", "쓸 수 없는 쿠폰이다"),
+
+    // 후기(`Q160`)
+    /**
+     * 이 후기를 쓰거나 고칠 수 없다.
+     *
+     * <p><b>넷을 안 가른다.</b> 없는 주문 줄·남의 주문 줄·아직 안 받은 것·권한이 없는 것이
+     * 같은 응답이다 — 가르면 주문 줄 번호를 두드려 <b>남이 무엇을 샀는지</b> 셀 수 있다(`D14`).
+     */
+    REVIEW_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_CONTENT, "review-not-allowed",
+            "이 주문에 후기를 쓸 수 없다"),
+
+    /** 한 주문 줄에 살아 있는 후기는 하나다(`47`). 고치거나 지우고 다시 쓴다 */
+    REVIEW_ALREADY_WRITTEN(HttpStatus.CONFLICT, "review-already-written",
+            "이미 후기를 쓴 주문이다"),
+
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "review-not-found", "그런 후기가 없다"),
 
     /**
      * 쿠폰은 살아 있는데 이 주문에 안 맞는다.
@@ -159,6 +187,22 @@ public enum ErrorCode {
      */
     COUPON_NOT_APPLICABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-not-applicable",
             "이 주문에 쓸 수 없는 쿠폰이다"),
+
+    /**
+     * 그 코드로 받을 쿠폰이 없다(`Q163`).
+     *
+     * <p><b>셋을 안 가른다.</b> 없는 코드·내려간 쿠폰·발급 기간이 아닌 것이 같은 응답이다 —
+     * 가르면 코드를 찍어 보며 <b>어떤 쿠폰이 존재하는지</b>를 알아낼 수 있다(`D14`).
+     * 코드는 밖에서 듣고 와서 치는 값이라 맞히기가 목록을 뿌린 것과 같아진다.
+     */
+    COUPON_CODE_NOT_ISSUABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-code-not-issuable",
+            "지금 받을 수 없는 쿠폰 코드다"),
+
+    /** 한 사람이 같은 쿠폰을 한 번만 받는다(`coupon_issue_once`, `49`) */
+    COUPON_ALREADY_ISSUED(HttpStatus.CONFLICT, "coupon-already-issued", "이미 받은 쿠폰이다"),
+
+    /** 같은 코드의 쿠폰이 이미 있다(`coupon.code` 유니크) */
+    COUPON_CODE_TAKEN(HttpStatus.CONFLICT, "coupon-code-taken", "이미 쓰는 쿠폰 코드다"),
 
     // 장바구니
     //
