@@ -392,7 +392,7 @@ public class OrderQuery {
                 order.discountTotal(),
                 order.payableAmount(),
                 order.createdAt(),
-                sellerOrdersOf(order.orderId(), userId, order.userId(),
+                sellerOrdersOf(order.orderId(), userId, actions.memberOf(userId), order.userId(),
                         OrderTransitions.Payment.of(order.status()) == OrderTransitions.Payment.PAID),
                 historyOf(order.orderId()),
                 decision.canSee(OrderFields.SHIPPING) ? shippingOf(order.orderId()) : null,
@@ -410,7 +410,8 @@ public class OrderQuery {
      * <p>항목을 묶음마다 한 번씩 조회하지 않는다. 셀러가 셋이면 쿼리가 넷이 되고,
      * 그 모양은 셀러 수가 늘 때마다 조용히 느려진다.
      */
-    private List<SellerOrder> sellerOrdersOf(long orderId, long viewerId, long buyerUserId, boolean paid) {
+    private List<SellerOrder> sellerOrdersOf(long orderId, long viewerId, java.util.Set<Long> memberOf,
+            long buyerUserId, boolean paid) {
         Map<Long, List<Item>> itemsBySellerOrder = new LinkedHashMap<>();
         jdbc.sql("""
                         select oi.seller_order_id, oi.order_item_id, oi.product_name, oi.option_label,
@@ -463,7 +464,7 @@ public class OrderQuery {
                         rs.getString("tracking_no"),
                         List.copyOf(itemsBySellerOrder.getOrDefault(
                                 rs.getLong("seller_order_id"), List.of())),
-                        actions.allowedActions(viewerId, buyerUserId,
+                        actions.allowedActions(viewerId, memberOf, buyerUserId,
                                 rs.getLong("seller_id"), rs.getString("status")),
                         // 결제 안 된 묶음은 강제 전이 입구가 못 찾는다(`seller_order_visible`) — 목록도 비운다(마무리 46차).
                         paid ? actions.forcibleStatuses(viewerId, buyerUserId,

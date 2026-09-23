@@ -47,8 +47,8 @@ public class OrderActionService {
      */
     public enum Action {
 
-        SHIP("update_status", Shipment.SHIPPING),
-        DELIVER("update_status", Shipment.DELIVERED),
+        SHIP("update_status", Shipment.SHIPPING, Party.SELLER),
+        DELIVER("update_status", Shipment.DELIVERED, Party.SELLER),
 
         /**
          * 반품을 인정한다. 묶음이 닫힌다.
@@ -60,7 +60,7 @@ public class OrderActionService {
          * <p>승인까지 관리자인 근거는 제17조제5항이다(`D2` R37) — 훼손 책임의 입증이
          * 우리에게 있으므로 셀러의 소견이 곧 결론이 되면 안 된다.
          */
-        APPROVE_RETURN("approve_return", Shipment.RETURNED),
+        APPROVE_RETURN("approve_return", Shipment.RETURNED, Party.ADMIN),
 
         /**
          * 반품을 인정하지 않는다. 물건이 소비자에게 돌아가고 묶음은 배송완료로 되돌아간다.
@@ -68,7 +68,7 @@ public class OrderActionService {
          * <p><b>기산점은 안 움직인다</b>(`D7`) — {@code delivered} 로 갈 때 박제한 값이라
          * 다시 안 센다. {@link OrderStatusService} 가 이 복귀에서 기한을 다시 안 박는다.
          */
-        REJECT_RETURN("reject_return", Shipment.DELIVERED),
+        REJECT_RETURN("reject_return", Shipment.DELIVERED, Party.ADMIN),
 
         /**
          * 자기 주문을 스스로 무른다.
@@ -80,16 +80,18 @@ public class OrderActionService {
          * <p>그 축이 서는 것은 청크 `11b` 다. <b>그때까지 이 경로는 본인 취소만 받는다.</b>
          * 근거를 여기 적는 이유는, `D2` 에만 두면 이 코드를 고치는 사람이 문서를 안 열고 지나서다.
          */
-        CANCEL("cancel", Shipment.CANCELLED),
-        CONFIRM("confirm", Shipment.CONFIRMED),
-        REQUEST_RETURN("request_return", Shipment.RETURN_REQUESTED);
+        CANCEL("cancel", Shipment.CANCELLED, Party.BUYER_OR_SELLER),
+        CONFIRM("confirm", Shipment.CONFIRMED, Party.BUYER),
+        REQUEST_RETURN("request_return", Shipment.RETURN_REQUESTED, Party.BUYER);
 
         private final String permission;
         private final Shipment to;
+        private final Party party;
 
-        Action(String permission, Shipment to) {
+        Action(String permission, Shipment to, Party party) {
             this.permission = permission;
             this.to = to;
+            this.party = party;
         }
 
         public String permission() {
@@ -98,6 +100,31 @@ public class OrderActionService {
 
         Shipment to() {
             return to;
+        }
+    }
+
+    /**
+     * 동작이 누구 몫인가(`Q202`). <b>판정과 다른 물음이다</b> — 관리자는 모든 권한을 {@code all} 로 가져서
+     * 판정만으로는 구매확정·발송까지 관리자에게 열린다. 버튼을 고르는 {@link #allowedActions} 가 이것으로 한 번 더 거른다.
+     * 입구 판정은 그대로다 — {@code Q198} 이 상품에서 한 것과 같은 모양이다.
+     */
+    enum Party {
+        /** 주문한 사람 몫 */
+        BUYER,
+        /** 그 셀러 소속 몫 */
+        SELLER,
+        /** 둘 다 부를 수 있다 */
+        BUYER_OR_SELLER,
+        /** 주문자도 소속도 아닌 사람(관리자) 몫 — 반품 판정 */
+        ADMIN;
+
+        boolean offeredTo(boolean buyer, boolean member) {
+            return switch (this) {
+                case BUYER -> buyer;
+                case SELLER -> member;
+                case BUYER_OR_SELLER -> buyer || member;
+                case ADMIN -> !buyer && !member;
+            };
         }
     }
 
@@ -269,7 +296,21 @@ public class OrderActionService {
      * 화면이 동작마다 경로를 표로 들고 있지 않게 하려는 것이다.
      */
     public List<String> allowedActions(long userId, long buyerUserId, long sellerId, String status) {
+        return allowedActions(userId, memberOf(userId), buyerUserId, sellerId, status);
+    }
+
+    /**
+     * 소속을 미리 읽어 온 판(`Q202`). 주문 상세처럼 묶음이 여럿이면 부르는 쪽이 {@link #memberOf} 를 한 번 읽어 넘긴다 —
+     * 묶음마다 읽으면 묶음 수만큼 질의가 는다.
+     *
+     * <p><b>누구 몫인지로 거른다</b>({@link Party}). 판정을 통과한 동작 중에서 주문자에게는 주문자 몫을, 소속에게는
+     * 셀러 몫을, 둘 다 아닌 사람(관리자)에게는 관리자 몫(반품 판정)만 권한다.
+     */
+    public List<String> allowedActions(long userId, Set<Long> memberOf, long buyerUserId, long sellerId,
+            String status) {
         Shipment from = Shipment.of(status);
+        boolean buyer = userId == buyerUserId;
+        boolean member = memberOf.contains(sellerId);
         Target target = Target.of(buyerUserId, sellerId).inStatus(status);
 
         Set<String> permitted = evaluator.allowedActions(userId, "order",
@@ -281,8 +322,17 @@ public class OrderActionService {
         return Arrays.stream(Action.values())
                 .filter(action -> permitted.contains(action.permission()))
                 .filter(action -> OrderTransitions.allows(from, action.to()))
+                .filter(action -> action.party.offeredTo(buyer, member))
                 .map(Enum::name)
                 .toList();
+    }
+
+    /** 이 사람이 속한 셀러들. 버튼을 고를 때 한 번 읽는다 */
+    public Set<Long> memberOf(long userId) {
+        return jdbc.sql("select seller_id from seller_member where user_id = :userId")
+                .param("userId", userId)
+                .query(Long.class)
+                .set();
     }
 
     private Row find(String sellerOrderNumber) {
