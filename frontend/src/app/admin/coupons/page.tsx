@@ -4,6 +4,7 @@ import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
 
 import { NewCouponForm } from "./new-coupon-form";
+import { WithdrawCouponButton } from "./withdraw-coupon-button";
 
 export const metadata: Metadata = { title: "쿠폰 관리 · ProjectShop" };
 
@@ -104,6 +105,9 @@ export default async function AdminCouponsPage() {
                   <th scope="col" className="py-2 font-medium">
                     발급 기간
                   </th>
+                  <th scope="col" className="py-2 pl-4 font-medium">
+                    내리기
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -122,6 +126,9 @@ export default async function AdminCouponsPage() {
                     <td className="py-2 text-xs text-text-muted">
                       {dateTimeText(coupon.issueStartAt)}
                       {coupon.issueEndAt ? ` ~ ${dateTimeText(coupon.issueEndAt)}` : " ~"}
+                    </td>
+                    <td className="py-2 pl-4">
+                      <WithdrawCouponButton couponId={coupon.couponId} code={coupon.code} />
                     </td>
                   </tr>
                 ))}
