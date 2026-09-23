@@ -442,6 +442,11 @@ public enum ErrorCode {
     // 빈 목록을 주면 0건과 못 봄이 안 갈린다.
     SETTLEMENT_FORBIDDEN(HttpStatus.FORBIDDEN, "settlement-forbidden", "정산서를 볼 권한이 없다"),
 
+    // 매출 통계(`41`). 403 인 이유는 위 정산과 같다 — 볼 수 있는 셀러가 하나도 없는 사람이다.
+    SALES_STATS_FORBIDDEN(HttpStatus.FORBIDDEN, "sales-stats-forbidden", "매출 통계를 볼 권한이 없다"),
+    // 시작이 끝보다 늦거나 한 번에 1년을 넘긴다. 넘기면 원장을 통째로 긁는 질의가 된다.
+    STATS_RANGE_INVALID(HttpStatus.BAD_REQUEST, "stats-range-invalid", "통계 기간이 맞지 않는다"),
+
     // 지급(21)
     //
     // 409 다. 이미 처리된 지급을 또 다루려는 것이라 대상 자원의 현재 상태와 부딪힌다 —
