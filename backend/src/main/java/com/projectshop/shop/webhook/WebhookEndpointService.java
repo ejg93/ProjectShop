@@ -12,6 +12,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
@@ -59,25 +60,33 @@ public class WebhookEndpointService {
     private final WebhookSecretCipher cipher;
     private final WebhookUrlPolicy urls;
     private final AuditLog auditLog;
+    private final TransactionTemplate transactions;
     private final SecureRandom random = new SecureRandom();
 
     WebhookEndpointService(JdbcClient jdbc, PermissionEvaluator evaluator, WebhookSecretCipher cipher,
-            WebhookUrlPolicy urls, AuditLog auditLog) {
+            WebhookUrlPolicy urls, AuditLog auditLog, TransactionTemplate transactions) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.cipher = cipher;
         this.urls = urls;
         this.auditLog = auditLog;
+        this.transactions = transactions;
     }
 
-    @Transactional
+    /**
+     * <b>주소 검사는 트랜잭션 밖이다.</b> 셀러가 고른 이름을 DNS 로 푸는 일이라 느린 이름 서버가 DB 연결을 쥐고 있게 된다
+     * (`Q32` 「트랜잭션 안에서 바깥을 안 부른다」, 마무리 47차 독립 리뷰). 그 뒤의 세기·넣기만 트랜잭션이다.
+     */
     public Created register(long userId, long sellerId, String url, Set<WebhookEventType> eventTypes) {
         requireManage(userId, sellerId);
         if (!cipher.available()) {
             throw new ShopException(ErrorCode.WEBHOOK_KEY_MISSING);
         }
         urls.require(url);
+        return transactions.execute(status -> insert(userId, sellerId, url, eventTypes));
+    }
 
+    private Created insert(long userId, long sellerId, String url, Set<WebhookEventType> eventTypes) {
         jdbc.sql("select seller_id from seller where seller_id = :id for update")
                 .param("id", sellerId)
                 .query(Long.class)
@@ -105,7 +114,7 @@ public class WebhookEndpointService {
                     .param("sellerId", sellerId)
                     .param("url", url)
                     .param("types", eventTypes.stream().map(WebhookEventType::code).sorted().toArray(String[]::new))
-                    .param("ciphertext", cipher.encrypt(secret))
+                    .param("ciphertext", cipher.encrypt(secret, cipher.bindingOf(sellerId, url)))
                     .param("keyVersion", cipher.keyVersion())
                     .query(Long.class)
                     .single();

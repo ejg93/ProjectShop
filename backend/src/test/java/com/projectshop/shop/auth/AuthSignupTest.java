@@ -379,13 +379,13 @@ class AuthSignupTest extends PostgresTestBase {
 
             assertThat(Adulthood.isAdult(leapBorn, LocalDate.of(2027, 2, 28))).isFalse();
             assertThat(Adulthood.isAdult(leapBorn, LocalDate.of(2027, 3, 1))).isTrue();
-            // 트리거가 쓰는 셈. `+ interval '19 years'` 였다면 2월 28일에 통과해서 앱과 하루 갈린다.
+            // 트리거가 부르는 함수 그대로다(`V112` `age_in_years`) — 식을 베끼면 트리거가 바뀌어도 초록이다.
             assertThat(yearsBetween("2008-02-29", "2027-02-28")).isEqualTo(18);
             assertThat(yearsBetween("2008-02-29", "2027-03-01")).isEqualTo(19);
         }
 
         private int yearsBetween(String birthDate, String today) {
-            return jdbc.sql("select extract(year from age(cast(:today as date), cast(:birth as date)))::int")
+            return jdbc.sql("select age_in_years(cast(:birth as date), cast(:today as date))")
                     .param("today", today)
                     .param("birth", birthDate)
                     .query(Integer.class)

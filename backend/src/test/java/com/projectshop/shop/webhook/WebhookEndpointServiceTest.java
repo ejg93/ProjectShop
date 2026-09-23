@@ -64,7 +64,7 @@ class WebhookEndpointServiceTest extends PostgresTestBase {
         assertThat(created.secret()).startsWith("whsec_");
         byte[] stored = jdbc.sql("select secret_ciphertext from webhook_endpoint where webhook_endpoint_id = :id")
                 .param("id", created.webhookEndpointId()).query(byte[].class).single();
-        assertThat(cipher.decrypt(stored, cipher.keyVersion()))
+        assertThat(cipher.decrypt(stored, cipher.keyVersion(), cipher.bindingOf(sellerId, "http://127.0.0.1:9/hook")))
                 .isEqualTo(Base64.getDecoder().decode(created.secret().substring("whsec_".length())));
 
         assertThat(endpoints.list(owner, sellerId).items()).singleElement().satisfies(endpoint -> {

@@ -56,7 +56,7 @@ public class AccountService {
      *
      * @param displayName {@code basic} 그룹
      * @param createdAt   {@code basic} 그룹
-     * @param birthDate   {@code basic} 그룹. 가입 때 받는다(`11b`) — 그 전에 가입한 계정은 없어서 키가 빠진다.
+     * @param birthDate   {@code birth} 그룹. 가입 때 받는다(`11b`) — 그 전에 가입한 계정은 없어서 키가 빠진다.
      *                    받아 둔 값이라 열람 대상이다(개인정보 보호법 제35조, `D2` R28)
      * @param email       {@code contact} 그룹
      */
@@ -99,7 +99,7 @@ public class AccountService {
                 userId,
                 decision.canSee(UserFields.BASIC) ? row.displayName() : null,
                 decision.canSee(UserFields.BASIC) ? row.createdAt() : null,
-                decision.canSee(UserFields.BASIC) ? row.birthDate() : null,
+                decision.canSee(UserFields.BIRTH) ? row.birthDate() : null,
                 decision.canSee(UserFields.CONTACT) ? row.email() : null,
                 // 제한이 없으면 빈 배열로 나간다. 그 값이 응답에서 "전부 본다" 를 뜻하는 것은
                 // 안쪽에서 타입으로 가른 것과 달리 여전히 모호하다 — 화면 청크(13b)가 그걸 정한다.

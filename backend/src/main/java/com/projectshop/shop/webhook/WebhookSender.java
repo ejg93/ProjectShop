@@ -5,6 +5,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.io.InputStream;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -24,6 +25,10 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>리다이렉트를 안 따라간다</b> — 바깥 주소가 안쪽으로 되돌려 보내는 길을 막는다(`D14` SSRF).
  * <b>타임아웃은 여기 한 곳이다</b> — 받는 쪽이 늦으면 스위퍼 한 회차가 통째로 늦는다.
+ *
+ * <p><b>응답 본문을 안 읽는다.</b> 요청 타임아웃은 응답 머리까지만 잰다 — 본문을 끝까지 기다리면 머리를 준 뒤 본문을
+ * 조금씩 흘리는 서버 하나가 스위퍼를 타임아웃 없이 붙잡고, 그동안 모든 셀러의 발송이 선다(마무리 47차 독립 리뷰).
+ * 우리가 보는 것은 상태 코드뿐이라 머리가 오면 끝이다.
  */
 @Component
 class WebhookSender {
@@ -31,10 +36,13 @@ class WebhookSender {
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
     static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(5);
 
+    /** 한 건이 걸리는 가장 긴 시간. 스위퍼가 집은 표시를 이것으로 잰다 */
+    static final Duration MAX_EXCHANGE = CONNECT_TIMEOUT.plus(REQUEST_TIMEOUT);
+
     /**
      * 보낸 결과. 응답을 받았으면 코드가, 못 받았으면 오류가 있다.
      *
-     * @param blocked 우리가 안 보냈다 — 주소가 안쪽을 가리킨다(`WebhookUrlPolicy`). 다시 보내도 안 된다
+     * @param blocked 우리가 안 보냈다 — 주소가 안쪽을 가리키거나(`WebhookUrlPolicy`) 시크릿을 못 푼다. 자동으로는 다시 안 보낸다
      */
     record Result(Integer statusCode, String error, boolean blocked) {
 
@@ -84,7 +92,9 @@ class WebhookSender {
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                 .build();
         try {
-            HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
+            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            // 머리가 오면 끝이다 — 본문을 읽지 않고 닫는다(위 「응답 본문을 안 읽는다」).
+            response.body().close();
             return new Result(response.statusCode(), null);
         } catch (HttpTimeoutException e) {
             return new Result(null, "타임아웃");

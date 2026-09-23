@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.time.LocalDate;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -21,6 +23,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
@@ -121,15 +125,55 @@ class WebhookDeliveryTest extends PostgresTestBase {
         assertThat(statusOfDeliveries()).containsExactly("sent");
     }
 
-    @Test
-    @DisplayName("남의 셀러 사건과 구독 안 한 사건은 안 간다")
-    void staysWithinTheSeller() {
-        register(Set.of(WebhookEventType.REFUND_STATUS_CHANGED));
+    /**
+     * 셀러 경계(`D14`). <b>구독한 종류는 같게 두고 셀러만 다르게</b> 낸다 — 종류로 걸러지는 사건으로 재면 셀러 조건을 지워도
+     * 초록이다(마무리 47차 독립 리뷰가 옛 시험에서 짚었다). 사건마다 {@code subject} 에서 셀러로 가는 길이 달라서 넷을 다 낸다.
+     */
+    @ParameterizedTest
+    @EnumSource(WebhookEventType.class)
+    @DisplayName("같은 종류를 구독해도 남의 셀러 사건은 안 간다")
+    void staysWithinTheSeller(WebhookEventType type) {
+        register(Set.of(type));
         long other = fixture.insertSeller("s-deliver-other", "남의셀러");
-        emitSellerOrderShipped(other);
+        String theirs = emit(type, other);
+        String ours = emit(type, sellerId);
+
+        sweeper.fanOut();
+
+        assertThat(deliveredSubjects()).contains(ours).doesNotContain(theirs);
+    }
+
+    @Test
+    @DisplayName("구독 안 한 종류는 안 간다")
+    void onlySubscribedTypes() {
+        register(Set.of(WebhookEventType.REFUND_STATUS_CHANGED));
         emitSellerOrderShipped(sellerId);
 
-        assertThat(sweeper.fanOut()).as("구독은 환불뿐이고, 남의 셀러 사건은 셀러가 다르다").isZero();
+        assertThat(sweeper.fanOut()).isZero();
+    }
+
+    /**
+     * 한 줄의 시크릿을 못 풀어도 회차가 안 끊긴다(마무리 47차 독립 리뷰). 끊기면 그 줄이 다음 회차 맨 앞에 다시 서서 뒤의 줄을 전부
+     * 막는다 — 키 판을 올리는 날 모든 발송이 조용히 선다.
+     */
+    @Test
+    @DisplayName("시크릿을 못 푼 줄은 실패로 적고 다음 줄을 보낸다")
+    void undecryptableRowDoesNotStallTheRound() {
+        long broken = endpoints.register(owner, sellerId,
+                "http://127.0.0.1:" + server.getAddress().getPort() + "/hook?broken",
+                Set.of(WebhookEventType.SELLER_ORDER_STATUS_CHANGED)).webhookEndpointId();
+        register(Set.of(WebhookEventType.SELLER_ORDER_STATUS_CHANGED));
+        jdbc.sql("update webhook_endpoint set secret_key_version = 2 where webhook_endpoint_id = :id")
+                .param("id", broken).update();
+        emitSellerOrderShipped(sellerId);
+        sweeper.fanOut();
+
+        assertThat(sweeper.deliverDue(OffsetDateTime.now().plusSeconds(1))).isEqualTo(1);
+
+        assertThat(statusOfDeliveries()).containsExactlyInAnyOrder("failed", "sent");
+        assertThat(jdbc.sql("select last_error from webhook_delivery where webhook_endpoint_id = :id")
+                .param("id", broken).query(String.class).single())
+                .startsWith("시크릿을 못 풀었다");
     }
 
     /** 등록 뒤에 주소가 안쪽을 가리키게 될 수 있다 — 발송 때 다시 본다(`D14`) */
@@ -175,6 +219,41 @@ class WebhookDeliveryTest extends PostgresTestBase {
             assertThat(result.error()).isEqualTo("타임아웃");
         } finally {
             slow.stop(0);
+        }
+    }
+
+    /**
+     * 머리를 준 뒤 본문을 조금씩 흘리는 서버(마무리 47차 독립 리뷰). 요청 타임아웃은 머리까지만 재서, 본문을 끝까지 기다리면 이 서버
+     * 하나가 스위퍼를 붙잡는다.
+     */
+    @Test
+    @DisplayName("본문을 흘리는 서버도 발송기를 못 붙잡는다")
+    void tricklingBodyDoesNotHoldTheSender() throws IOException {
+        HttpServer trickle = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        trickle.createContext("/hook", exchange -> {
+            exchange.sendResponseHeaders(200, 0);
+            try (OutputStream out = exchange.getResponseBody()) {
+                out.write('{');
+                out.flush();
+                Thread.sleep(3_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            exchange.close();
+        });
+        trickle.start();
+        try {
+            WebhookSender quick = new WebhookSender(Duration.ofMillis(500), Duration.ofMillis(500));
+            long started = System.nanoTime();
+
+            WebhookSender.Result result = quick.send(
+                    URI.create("http://127.0.0.1:" + trickle.getAddress().getPort() + "/hook"),
+                    new byte[] {1, 2, 3}, "1", 0, "{}");
+
+            assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
+            assertThat(result.succeeded()).as("머리의 2xx 가 곧 결과다").isTrue();
+        } finally {
+            trickle.stop(0);
         }
     }
 
@@ -262,6 +341,94 @@ class WebhookDeliveryTest extends PostgresTestBase {
     private String register(Set<WebhookEventType> types) {
         return endpoints.register(owner, sellerId,
                 "http://127.0.0.1:" + server.getAddress().getPort() + "/hook", types).secret();
+    }
+
+    /** 이 종류의 사건을 그 셀러 것으로 하나 낸다. {@code subject} 를 돌려준다 */
+    private String emit(WebhookEventType type, long seller) {
+        SellerOrderRow order = newSellerOrder(seller);
+        String subject = switch (type) {
+            case SELLER_ORDER_STATUS_CHANGED, RETURN_REQUEST_STATUS_CHANGED -> order.number();
+            case REFUND_STATUS_CHANGED -> newRefund(order);
+            case SETTLEMENT_PAYOUT_CHANGED -> newSettlement(seller);
+        };
+        jdbc.sql("select emit_outbox_event(:type, :subject, now(), '{}'::jsonb)")
+                .param("type", type.code()).param("subject", subject).query().singleRow();
+        return subject;
+    }
+
+    private record SellerOrderRow(long orderId, long sellerOrderId, long buyerId, String number) {
+    }
+
+    private SellerOrderRow newSellerOrder(long seller) {
+        long buyer = fixture.insertUser("deliver-buyer-" + seller + "-" + System.nanoTime() + "@test.local", "산사람");
+        long orderId = jdbc.sql("""
+                        insert into shop_order (order_number, user_id, total_amount, commission_total,
+                                                shipping_fee_total, payable_amount)
+                        values (:number, :userId, 10000, 1000, 3000, 13000)
+                        returning order_id
+                        """)
+                .param("number", OrderFixture.sellerOrderNumber().substring(2))
+                .param("userId", buyer).query(Long.class).single();
+        String number = OrderFixture.sellerOrderNumber();
+        long sellerOrderId = jdbc.sql("""
+                        insert into seller_order (seller_order_number, order_id, seller_id, shipping_fee, status)
+                        values (:number, :orderId, :sellerId, 3000, 'shipping')
+                        returning seller_order_id
+                        """)
+                .param("number", number).param("orderId", orderId).param("sellerId", seller)
+                .query(Long.class).single();
+        return new SellerOrderRow(orderId, sellerOrderId, buyer, number);
+    }
+
+    /** 결제된 묶음의 환불 하나. 환불 번호를 돌려준다 */
+    private String newRefund(SellerOrderRow order) {
+        String number = "R-" + OrderFixture.sellerOrderNumber().substring(2);
+        jdbc.sql("""
+                        insert into payment (order_id, method, amount, status, approval_number)
+                        values (:orderId, 'card', 13000, 'approved', :approval)
+                        """)
+                .param("orderId", order.orderId()).param("approval", "AP-" + number).update();
+        jdbc.sql("""
+                        insert into refund (refund_number, seller_order_id, amount, shipping_fee_refund, reason_code,
+                                            requested_by_type, requested_by_user_id, status, decided_at, due_at,
+                                            approved_by_type, approved_by_user_id, gateway_refund_number)
+                        values (:number, :sellerOrderId, 4000, 0, 'withdrawal', 'customer', :buyer, 'approved', now(),
+                                now() + interval '3 days', 'admin', :approver, :gateway)
+                        """)
+                .param("number", number).param("sellerOrderId", order.sellerOrderId())
+                // 요청자와 승인자가 같으면 refund_self_approval_check 가 막는다.
+                .param("buyer", order.buyerId()).param("approver", owner).param("gateway", "GW-" + number).update();
+        return number;
+    }
+
+    /** 그 셀러의 정산서 하나. 정산서 번호를 돌려준다 */
+    private String newSettlement(long seller) {
+        long cycleId = jdbc.sql("""
+                        insert into settlement_cycle (period_start, period_end, payout_date)
+                        values (date '2019-01-01', date '2019-01-31', date '2019-02-10')
+                        on conflict do nothing
+                        returning settlement_cycle_id
+                        """)
+                .query(Long.class).optional()
+                .orElseGet(() -> jdbc.sql("""
+                                select settlement_cycle_id from settlement_cycle
+                                 where period_start = date '2019-01-01' and period_end = date '2019-01-31'
+                                """).query(Long.class).single());
+        String number = "T-" + OrderFixture.sellerOrderNumber().substring(2);
+        jdbc.sql("""
+                        insert into settlement (settlement_number, settlement_cycle_id, seller_id, payout_amount)
+                        values (:number, :cycleId, :sellerId, 10000)
+                        """)
+                .param("number", number).param("cycleId", cycleId).param("sellerId", seller).update();
+        return number;
+    }
+
+    private List<String> deliveredSubjects() {
+        return jdbc.sql("""
+                        select e.subject from webhook_delivery d
+                          join outbox_event e on e.outbox_event_id = d.outbox_event_id
+                        """)
+                .query(String.class).list();
     }
 
     /** 셀러 묶음 하나를 만들고 그 발송 사건을 아웃박스에 넣는다. 사건 id 를 돌려준다 */

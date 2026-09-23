@@ -15,7 +15,7 @@ export const WEBHOOK_EVENT_TYPES: Record<string, string> = {
 const DELIVERY_STATUS: Record<string, string> = {
   PENDING: "보낼 차례를 기다림",
   SENT: "보냄",
-  FAILED: "실패함 — 다시 보내도 같은 결과라 멈춤",
+  FAILED: "실패함 — 자동으로 다시 보내지 않음",
   EXHAUSTED: "여러 번 실패해 멈춤",
 };
 

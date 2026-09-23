@@ -111,9 +111,9 @@ class MeAccountTest extends PostgresTestBase {
             mvc.perform(get("/api/me").with(user(principal(admin, "me-admin@test.local"))))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$._visible_field_groups", org.hamcrest.Matchers.hasItems(
-                            "basic", "contact")))
+                            "basic", "contact", "birth")))
                     // 빈 배열이면 이제 「아무것도 못 본다」 하나만 뜻한다.
-                    .andExpect(jsonPath("$._visible_field_groups.length()").value(2));
+                    .andExpect(jsonPath("$._visible_field_groups.length()").value(3));
         }
 
         @Test

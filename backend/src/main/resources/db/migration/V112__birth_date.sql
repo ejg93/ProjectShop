@@ -14,18 +14,25 @@
 -- 0시~9시(KST) 사이에 하루 늦게 센다.
 --
 -- **기존 계정은 비어 있다.** 이 칸이 생기기 전에 가입한 계정과 시드(`V900`~)에는 생년월일이 없다 — 그래서 not null 을
--- 못 건다. 가입 입구가 `@NotNull` 로 받고 이 트리거가 값이 있을 때 나이를 본다.
+-- 못 건다. **「생년월일이 있어야 한다」는 가입 입구의 `@NotNull` 만 든다**(DB 가 못 가른다 — 새 가입과 옛 계정이 같은 행이다).
+-- 이 트리거가 드는 것은 「값이 있으면 만 19세 이상」이다.
 
 alter table app_user add column birth_date date;
 
 comment on column app_user.birth_date is
     '생년월일. 가입 때 받아 만 19세 이상인지 본다(11b). 이 칸이 생기기 전 계정·시드는 비어 있다. 파기 때 같이 지운다';
 
+-- 만 나이. **트리거와 시험이 같은 함수를 부른다** — 시험이 식을 베껴 재면 트리거의 식이 바뀌어도 초록이다(마무리 47차 독립 리뷰).
+create function age_in_years(birth date, today date) returns int
+language sql immutable as $$
+    select extract(year from age(today, birth))::int
+$$;
+
 create function app_user_adult_only() returns trigger
 language plpgsql as $$
 begin
     if new.birth_date is not null
-       and extract(year from age((now() at time zone 'Asia/Seoul')::date, new.birth_date)) < 19 then
+       and age_in_years(new.birth_date, (now() at time zone 'Asia/Seoul')::date) < 19 then
         raise exception using
             errcode    = 'check_violation',
             constraint = 'app_user_adult_only',
@@ -38,6 +45,19 @@ $$;
 create trigger app_user_adult_only
     before insert or update of birth_date on app_user
     for each row execute function app_user_adult_only();
+
+
+-- 생년월일을 보는 사람(`D5` 필드 그룹). **연락처를 보는 역할만 본다** — 감사자는 `basic` 만 받아서(`V6`) 여기서도 빠진다.
+-- `basic` 에 넣으면 전 사용자 조회 입구가 서는 날 감사자가 생년월일을 본다(마무리 47차 독립 리뷰).
+insert into permission_field_group (resource, code, description) values
+    ('user', 'birth', '생년월일');
+
+insert into role_permission_field (role_id, permission_id, effect, permission_field_group_id)
+select f.role_id, f.permission_id, f.effect, birth.permission_field_group_id
+  from role_permission_field f
+  join permission_field_group contact on contact.permission_field_group_id = f.permission_field_group_id
+                                     and contact.resource = 'user' and contact.code = 'contact'
+  join permission_field_group birth on birth.resource = 'user' and birth.code = 'birth';
 
 
 -- 수집·이용 고지의 새 판(개인정보 보호법 제15조제2항). **오늘부터 시행한다.**

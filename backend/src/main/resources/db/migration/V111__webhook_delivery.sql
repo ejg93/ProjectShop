@@ -17,7 +17,8 @@ create table webhook_delivery (
 
     -- pending   보낼 차례를 기다린다(다음 시각이 있다)
     -- sent      2xx 를 받았다
-    -- failed    다시 보내도 안 될 실패 — 4xx, 안쪽 주소로 바뀐 엔드포인트(`WebhookUrlPolicy`)
+    -- failed    자동으로는 다시 안 보낸다 — 4xx, 안쪽 주소로 바뀐 엔드포인트(`WebhookUrlPolicy`), 시크릿을 못 푼 줄.
+    --           받는 쪽을 고친 뒤 셀러가 손으로 다시 보낼 수 있다(`31`)
     -- exhausted 다시 보낼 수 있었는데 최대 횟수를 다 썼다(`31`). 셀러가 손으로 다시 보낸다
     status text not null default 'pending',
 

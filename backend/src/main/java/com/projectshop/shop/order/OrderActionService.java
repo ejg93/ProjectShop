@@ -73,8 +73,9 @@ public class OrderActionService {
         /**
          * 자기 주문을 스스로 무른다.
          *
-         * <p><b>미성년자 취소권(민법 제5조, `D2` R13)은 여기 없다</b> — 성인만 가입해서(`11b`, `V112`) 법정대리인이
-         * 부를 거래가 안 생긴다. 그래서 이 경로는 본인 취소만 받는다. 미성년자 가입을 여는 날 이 동작의 주체가 는다.
+         * <p><b>미성년자 취소권(민법 제5조, `D2` R13)은 여기 없다</b> — 가입 입구가 생년월일을 받아 만 19세 미만을 막아서(`11b`)
+         * 법정대리인이 부를 거래가 안 생긴다. 생년월일이 빈 옛 계정·시드는 그 전에 만든 것이다. 그래서 이 경로는 본인 취소만 받는다.
+         * 미성년자 가입을 여는 날 이 동작의 주체가 는다.
          * 근거를 여기 적는 이유는, `D2` 에만 두면 이 코드를 고치는 사람이 문서를 안 열고 지나서다.
          */
         CANCEL("cancel", Shipment.CANCELLED, Party.BUYER_OR_SELLER),
@@ -186,8 +187,8 @@ public class OrderActionService {
     /**
      * 이 사람이 이 묶음을 강제로 옮길 수 있는 곳(`16c`). 권한이 없으면 비어 있다.
      *
-     * <p>{@link #allowedActions} 와 따로 둔다 — 관리자는 모든 권한을 {@code all} 로 가져서 거기에 구매확정·반품 요청
-     * 같은 고객 동작까지 섞여 온다(`Q176`). 강제 전이 버튼은 이 판정 하나로 고른다.
+     * <p>{@link #allowedActions} 와 따로 둔다 — 그쪽은 전이표 안의 화살표만 권하고(관리자에게는 반품 판정만, `Q202`)
+     * 강제 전이는 전이표 밖의 이동이다. 강제 전이 버튼은 이 판정 하나로 고른다.
      */
     public List<String> forcibleStatuses(long userId, long buyerUserId, long sellerId, String status) {
         Target target = Target.of(buyerUserId, sellerId).inStatus(status);

@@ -23,6 +23,9 @@ import com.projectshop.shop.error.ShopException;
  * <p><b>해시가 아니라 암호다.</b> 발송기(`30`)가 HMAC 을 만들려면 원문 키가 있어야 한다. 키는 {@code WEBHOOK_SECRET_KEY}
  * (base64, 32바이트)고 표에 없다 — DB 덤프가 새도 시크릿이 안 샌다.
  *
+ * <p><b>암호문을 그 엔드포인트에 묶는다</b>(AAD = 셀러와 주소). 표를 고칠 수 있는 사람이 남의 엔드포인트 암호문을 제 행에 옮겨
+ * 붙여도 풀리지 않는다 — 옮겨 붙인 시크릿으로 서명된 사건을 받아 남의 수신 서버에 되던지는 길을 막는다(마무리 47차 독립 리뷰).
+ *
  * <p><b>키가 없으면 앱은 뜨고 웹훅만 503 이다.</b> 기본값 키를 코드에 두면 변수를 안 넣은 배포가 알려진 키로 싸게 된다 —
  * 그래서 {@code application.yml} 의 기본이 빈 값이고 시험 기반 클래스만 시험 키를 준다. 꼴이 틀린 키도 없는 것과 같이 다룬다.
  */
@@ -56,14 +59,20 @@ class WebhookSecretCipher {
         return keyVersion;
     }
 
+    /** 그 엔드포인트의 묶음 값. 셀러와 주소가 둘 다 들어간다 — 둘 다 등록 뒤에 안 바뀐다 */
+    byte[] bindingOf(long sellerId, String url) {
+        return (sellerId + "\n" + url).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     /** 평문을 싼다. 앞 12바이트가 IV 고 뒤가 암호문과 태그다 */
-    byte[] encrypt(byte[] plain) {
+    byte[] encrypt(byte[] plain, byte[] binding) {
         requireKey();
         byte[] iv = new byte[IV_BYTES];
         random.nextBytes(iv);
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
+            cipher.updateAAD(binding);
             byte[] sealed = cipher.doFinal(plain);
             return ByteBuffer.allocate(IV_BYTES + sealed.length).put(iv).put(sealed).array();
         } catch (GeneralSecurityException e) {
@@ -72,7 +81,7 @@ class WebhookSecretCipher {
     }
 
     /** 푼다. <b>키 판이 다르면 못 푼다</b> — 키를 바꾸는 절차는 아직 없다(판이 둘이 되는 날 세운다) */
-    byte[] decrypt(byte[] stored, int version) {
+    byte[] decrypt(byte[] stored, int version, byte[] binding) {
         requireKey();
         if (version != keyVersion) {
             throw new IllegalStateException("웹훅 시크릿의 키 판이 다르다: 저장 " + version + ", 지금 " + keyVersion);
@@ -80,6 +89,7 @@ class WebhookSecretCipher {
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, stored, 0, IV_BYTES));
+            cipher.updateAAD(binding);
             return cipher.doFinal(stored, IV_BYTES, stored.length - IV_BYTES);
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("웹훅 시크릿을 못 풀었다", e);

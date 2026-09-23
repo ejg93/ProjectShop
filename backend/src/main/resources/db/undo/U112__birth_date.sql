@@ -5,6 +5,8 @@
 -- 처리방침은 7일 뒤 시행이라 그 전이면 지울 수 있다.
 drop trigger app_user_adult_only on app_user;
 drop function app_user_adult_only();
+drop function age_in_years(date, date);
+delete from permission_field_group where resource = 'user' and code = 'birth';
 alter table app_user drop column birth_date;
 
 delete from policy_document

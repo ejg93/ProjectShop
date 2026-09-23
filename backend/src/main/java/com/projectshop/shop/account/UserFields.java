@@ -18,7 +18,10 @@ public enum UserFields implements FieldGroup {
     BASIC,
 
     /** 전자우편, 연락처 */
-    CONTACT;
+    CONTACT,
+
+    /** 생년월일(`11b`). 연락처를 보는 역할만 본다 — 감사자는 못 본다 */
+    BIRTH;
 
     @Override
     public String code() {
