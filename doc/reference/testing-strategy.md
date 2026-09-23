@@ -36,6 +36,7 @@
 | `OrderRecordTextTest.StatusLabels` | Java 상태 코드 표 = `order-text.ts` 의 표 |
 | `WithdrawalNoticeScreenTest` | 화면의 제한 사유 문구 표 = `WithdrawalRestrictionReason`(`D2` R4) |
 | `PasswordHintScreenTest` | 화면의 비밀번호 길이 문구 = `@Password` 의 `@Size` |
+| `PublicEndpointReachabilityTest` | 화면의 `apiPublic` 호출 경로 ⊆ `SecurityConfig` 의 `PUBLIC_PATHS` ∪ `PUBLIC_READS`(`Q170`). 쿠키 없이 부르는데 목록에 없으면 401 이고 서버 컴포넌트면 페이지가 죽는다 |
 
 **대개 한쪽만 본다.** 화면이 쓰는 것이 서버에 있어야 하고 그 반대는 아니다 — 서버 오류를 화면이
 다 나눠 적을 이유가 없고, 안 적은 것은 `default` 로 간다.
