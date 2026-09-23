@@ -39,15 +39,18 @@ class RetainedColumnsTest extends PostgresTestBase {
      *
      * <p>남은 `order_item.withdrawal_restriction_reason` 은 이름만 사유고
      * <b>`check` 로 닫힌 열거값</b>이라 사람 글이 안 들어온다 — 처음부터 자유 텍스트가 아니었다.
+     *
+     * <p><b>송장(`carrier_code`·`tracking_no`, `57`)은 공급 기록이다</b>(`D2` R6) — 주소·연락처가 아니라 택배사 조회의
+     * 열쇠고, 조회 기간이 끝나면 번호만으로 사람을 못 알아본다. 우리 판단이다(2026-09-23).
      */
     private static final Map<String, List<String>> RETAINED = Map.of(
             "shop_order", List.of("commission_total", "created_at", "discount_total", "order_id",
                     "order_number", "payable_amount", "shipping_fee_total", "status",
                     "total_amount", "updated_at", "user_id"),
-            "seller_order", List.of("agreed_lead_days", "auto_confirm_at", "closed_at",
+            "seller_order", List.of("agreed_lead_days", "auto_confirm_at", "carrier_code", "closed_at",
                     "created_at", "delivered_at", "order_id", "return_reason", "seller_id",
                     "seller_order_id", "seller_order_number", "ship_due_at", "shipped_at",
-                    "shipping_fee", "status", "supply_lead_days", "updated_at",
+                    "shipping_fee", "status", "supply_lead_days", "tracking_no", "updated_at",
                     "withdrawal_expire_at"),
             "order_item", List.of("commission_amount", "commission_bp", "created_at",
                     "discount_amount", "line_amount", "option_label", "order_item_id",

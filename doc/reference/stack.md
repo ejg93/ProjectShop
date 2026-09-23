@@ -1541,6 +1541,20 @@ Git Bash 에서 `curl -F "file=@/tmp/x.png"` 는 **`curl: (26) Failed to open/re
 **원인은 배포 로그에서 추적 ID 로 찾았다.** 응답의 `trace_id` 를 그대로
 `get-logs` 의 필터에 넣으면 그 요청의 줄만 나온다 — `D16` 이 세운 고리가 이 자리에서 값을 했다.
 
+### 시험 Postgres 의 연결 상한 — 문맥 수 × 유휴 10 × fork 둘
+
+**두 fork 가 재사용 컨테이너 하나를 나눠 쓰고, 캐시에 산 문맥마다 Hikari 가 유휴 연결 10 개를 쥔다**
+(`minimum-idle` 기본값이 풀 크기다). 문맥은 JVM 이 끝날 때까지 안 닫힌다. 2026-09-23 에 시험 클래스가 늘어
+fork 분배가 바뀌자 기본 상한 100 을 넘어 `FATAL: sorry, too many clients already` 가 났다.
+
+**증상이 원인에서 멀다.** 회차 잠금(`BatchLockConnections`)이 부를 때마다 새 연결을 여는데 그것이 거절되면
+`BatchRuns` 가 실패 회차만 남기고 본체를 안 돌린다 — 정산 시험 아홉이 「금액이 0」·「Optional 이 비었다」로 빨갛고,
+**따로 돌리면 초록**이라 순서 의존으로 보인다. 느린 레인에서 이유 없이 배치가 안 돌면 시험 로그에서
+`too many clients` 를 먼저 찾는다.
+
+**`PostgresTestBase.Containers` 가 `max_connections=300` 으로 띄운다.** 문맥 가짓수를 늘리는 청크(바탕 클래스·
+`@TestPropertySource`·`@MockitoBean`)는 이 수를 같이 본다.
+
 ### PIT 는 Windows 에서 자기 에이전트를 못 찾는다 — 클래스패스를 파일로 준다
 
 `JavaExec` 로 PIT 명령줄을 부르면 `PitError: Unable to load class content for org.pitest.boot.HotSwapAgent`

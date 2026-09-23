@@ -738,7 +738,8 @@
 | 2026-09-23 | `Q188`. 변이 시험 대상 넓히기 — 전이표·주문 상태 정책 | 완료 — `build.gradle.kts`(대상 둘), `ProductTransitionsTest`(이름 시험 하나). 오늘 `Q182` 가 더한 `actionName` 을 빠른 레인이 안 부르고 있었다 — 느린 레인의 `ProductReviewActionsTest` 만 지났다. `OrderTransitions` 는 같은 이름의 빠른 시험이 없어 뺐다 | 9228d03 |
 | 2026-09-23 | `Q189`. 표 조각을 한 벌로 | 완료 — `admin/audit`·`seller/orders`·`seller/products`·`seller/settlements` 의 `page.tsx`(로컬 정의 삭제), `components/table-cells.test.ts`(신설). **흡수**: `43a-5` 의 「표 조각」 몫 — 그 행 문장을 닫았다. 간격을 `py-2 pr-3` 하나로 맞춘 것은 넷이 같은 밀도(작업 화면)라서다 | 4ca716c |
 | 2026-09-23 | `Q190`. 변이 시험 대상 넓히기 — 기한·청약철회·정렬·재시도 | 완료 — `build.gradle.kts`(대상 넷), `RetriesTest`(셋 — 감싼 충돌·대기 하한·대기 중 끊김), `testing-strategy.md`(동치 근거), `quality-gates.md`(`Q189` 가 빠뜨린 게이트 행). 넷 중 `Retries` 만 빈틈이 있었다 — **서비스가 예외를 한 겹 감싸 던지는 날 재시도가 조용히 꺼지는** 자리를 시험이 안 보고 있었다 | 7819db7 |
-| 2026-09-23 | `Q191`. 변이 시험 대상 넓히기 — 거래기록·이메일·허용 판정 | 완료 — `build.gradle.kts`(대상 셋), `OrderRecordTextTest`(셋 — 전체 글자·할인과 첫 처리 내역·빈 상태), `AllowedTest`(값 목록), `testing-strategy.md`(동치 근거 둘). **거래기록 줄을 통째로 지워도 시험이 초록이었다** — 절 제목만 보는 시험이었다. **16:30 마무리로 계획이 바뀌어**(사용자) 새 청크는 여기서 끊는다 | |
+| 2026-09-23 | `Q191`. 변이 시험 대상 넓히기 — 거래기록·이메일·허용 판정 | 완료 — `build.gradle.kts`(대상 셋), `OrderRecordTextTest`(셋 — 전체 글자·할인과 첫 처리 내역·빈 상태), `AllowedTest`(값 목록), `testing-strategy.md`(동치 근거 둘). **거래기록 줄을 통째로 지워도 시험이 초록이었다** — 절 제목만 보는 시험이었다. **16:30 마무리로 계획이 바뀌어**(사용자) 새 청크는 여기서 끊는다 | c4f007e |
+| 2026-09-23 | 풀 레인이 짚은 셋 — `40`·`57` 의 후속과 시험 DB 연결 상한 | 완료 — `application.yml`(스케줄러 스레드 11 → 12, `40` 이 배치를 더했다), `RetainedColumnsTest`(`57` 의 송장 두 칸을 5년 보존 칸에 — **공급 기록으로 본 것은 우리 판단이다**, `D2` R6), `PostgresTestBase`(`max_connections` 300). **셋째가 컸다** — 두 fork 가 컨테이너 하나를 나눠 쓰고 캐시에 산 문맥마다 Hikari 가 유휴 연결 10 개를 쥐어서, 시험 클래스가 늘자 기본 상한 100 을 넘었다. `FATAL: sorry, too many clients already` 로 **회차 잠금 연결을 못 얻은 정산 배치가 실패 회차만 남기고 안 돌았고** 정산 시험 아홉이 빨갛다. 따로 돌리면 초록이라 처음엔 순서 의존으로 보였다. **정보로 처분**: `stack.md` 「시험 Postgres 의 연결 상한」 | |
 
 ## 기록 규칙
 
