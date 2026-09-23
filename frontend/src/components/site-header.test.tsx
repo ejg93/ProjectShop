@@ -104,6 +104,24 @@ describe("셸의 머리", () => {
     expect(screen.getByRole("link", { name: "감사 기록" })).toBeInTheDocument();
   });
 
+  it("주문 조회 링크는 주문 읽기가 전체 범위일 때만 보인다", async () => {
+    // 같은 `order:read` 라도 범위가 갈린다(`Q176`) — 산 사람(OWN)·셀러(SELLER)가 누르면 403 인 화면이다.
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "order", action: "read", scopes: ["OWN", "SELLER"] }],
+    });
+    const { unmount } = render(await SiteHeader());
+    expect(screen.queryByRole("link", { name: "주문 조회" })).not.toBeInTheDocument();
+    unmount();
+
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "order", action: "read", scopes: ["ALL"] }],
+    });
+    render(await SiteHeader());
+    expect(screen.getByRole("link", { name: "주문 조회" })).toHaveAttribute("href", "/admin/orders");
+  });
+
   it("사는 사람에게는 감사 기록 링크가 없다", async () => {
     apiSessionOptional.mockResolvedValue({
       userId: 7,

@@ -1,7 +1,10 @@
 package com.projectshop.shop.order;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -60,6 +63,9 @@ public class OrderQuery {
     private static final Map<String, String> SORTABLE = Map.of("created_at", "o.created_at");
 
     private static final String DEFAULT_SORT = "created_at,desc";
+
+    /** 기간 필터의 날짜는 KST 다(`D10`) */
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
@@ -257,6 +263,89 @@ public class OrderQuery {
                 .single();
 
         return new Page(items, paging.page(), paging.size(), total);
+    }
+
+    /**
+     * 모든 주문을 훑는다(`Q176`). {@code order:read} 를 {@code all} 로 가진 사람 — 관리자·감사자 — 만 부른다.
+     *
+     * <p><b>범위가 모자라면 빈 페이지가 아니라 403 이다.</b> {@link #findMine} 은 「내가 볼 수 있는 것」을 묻고
+     * 이것은 「전부」를 묻는다. 셀러에게 자기 가게 몫만 담아 주면 이 입구가 소속 조건을 안 거치는
+     * <b>두 번째 셀러 주문 목록</b>이 된다 — 셀러의 목록은 {@code SellerOrderQuery} 하나다.
+     *
+     * <p><b>한 줄에 구매자를 안 싣는다.</b> 누가 샀나는 상세의 필드 그룹이 가른다(`4d`) — 목록이 이름을 들면
+     * 배송·결제를 못 보는 역할에게도 구매자 명단이 나간다.
+     *
+     * @param status 결제 층 상태 하나({@code PAID} 꼴). null 이면 전부
+     * @param from   이날부터(포함). 한국 날짜다(`D10`). null 이면 처음부터
+     * @param to     이날 전까지(제외). null 이면 지금까지
+     */
+    public Page findAll(long viewerId, String status, LocalDate from, LocalDate to, String sort,
+            Paging paging) {
+        OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
+
+        // 남의 주문 하나. all 스코프에서만 덮인다 — `SellerOrderQuery` 가 「전부」를 가르는 수와 같다.
+        if (!evaluator.decide(viewerId, "order", "read", Target.of(-1L, -1L)).allowed()) {
+            throw new ShopException(ErrorCode.ORDER_FORBIDDEN);
+        }
+        if (from != null && to != null && !from.isBefore(to)) {
+            throw new ShopException(ErrorCode.VALIDATION_FAILED, "기간이 비었다: " + from + " ~ " + to);
+        }
+
+        String storedStatus = storedStatus(status);
+        OffsetDateTime fromAt = from == null ? null : from.atStartOfDay(KST).toOffsetDateTime();
+        OffsetDateTime toAt = to == null ? null : to.atStartOfDay(KST).toOffsetDateTime();
+        String filter = """
+                 where (cast(:status as text) is null or o.status = cast(:status as text))
+                   and (cast(:fromAt as timestamptz) is null or o.created_at >= cast(:fromAt as timestamptz))
+                   and (cast(:toAt as timestamptz) is null or o.created_at < cast(:toAt as timestamptz))
+                """;
+
+        List<Summary> items = jdbc.sql("""
+                        select o.order_number, o.status, o.payable_amount, o.created_at,
+                               (select count(*)
+                                  from order_item oi
+                                  join seller_order so on so.seller_order_id = oi.seller_order_id
+                                 where so.order_id = o.order_id) as item_count
+                          from shop_order o
+                        """
+                + filter
+                // 텍스트 블록이 줄 끝 공백을 지워서 "order by" 와 컬럼이 붙는다. 공백을 직접 넣는다.
+                + " order by " + orderBy.clause() + ", o.order_id desc"
+                + " limit :size offset :offset")
+                .param("status", storedStatus)
+                .param("fromAt", fromAt)
+                .param("toAt", toAt)
+                .param("size", paging.size())
+                .param("offset", paging.offset())
+                .query((rs, rowNum) -> new Summary(
+                        rs.getString("order_number"),
+                        EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of),
+                        rs.getLong("payable_amount"),
+                        rs.getInt("item_count"),
+                        rs.getObject("created_at", OffsetDateTime.class)))
+                .list();
+
+        Long total = jdbc.sql("select count(*) from shop_order o" + filter)
+                .param("status", storedStatus)
+                .param("fromAt", fromAt)
+                .param("toAt", toAt)
+                .query(Long.class)
+                .single();
+
+        return new Page(items, paging.page(), paging.size(), total);
+    }
+
+    /** 요청의 상태({@code PAID})를 저장 값({@code paid})으로. 모르는 값은 400 이다 — 조용히 전부를 주면 필터가 먹은 줄 안다 */
+    private static String storedStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        return Arrays.stream(OrderTransitions.Payment.values())
+                .filter(payment -> payment.name().equals(status.toUpperCase(Locale.ROOT)))
+                .map(OrderTransitions.Payment::code)
+                .findFirst()
+                .orElseThrow(() -> new ShopException(ErrorCode.VALIDATION_FAILED,
+                        "그런 주문 상태가 없다: " + status));
     }
 
     /**

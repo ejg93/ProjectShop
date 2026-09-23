@@ -3,6 +3,8 @@ package com.projectshop.shop.order;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +47,7 @@ class OrderQueryTest extends PostgresTestBase {
     private AuthFixture fixture;
     private long buyer;
     private long other;
+    private long sellerId;
     private long skuId;
     private String orderNumber;
     private long orderId;
@@ -59,7 +62,7 @@ class OrderQueryTest extends PostgresTestBase {
         other = fixture.insertUser("query-other@test.local", "남");
         fixture.grantGlobal(other, "customer");
 
-        long sellerId = fixture.insertSeller("s-query", "조회셀러");
+        sellerId = fixture.insertSeller("s-query", "조회셀러");
         fixture.verifySeller(sellerId);
         skuId = insertSku(sellerId);
 
@@ -113,6 +116,114 @@ class OrderQueryTest extends PostgresTestBase {
 
             assertThat(page.items()).isEmpty();
             assertThat(page.total()).isZero();
+        }
+    }
+
+    /**
+     * 관리자 목록(`Q176`). <b>범위가 {@code all} 이 아니면 403 이다</b> — 셀러에게 자기 몫만 담아 주면
+     * 이 입구가 소속 조건을 안 거치는 두 번째 셀러 목록이 된다.
+     *
+     * <p>이 DB 에는 다른 시험의 주문도 있다. 그래서 건수가 아니라 「이 주문이 있나·없나」로 잰다.
+     */
+    @Nested
+    @DisplayName("관리자 목록")
+    class ListAll {
+
+        @Test
+        @DisplayName("관리자는 남의 주문을 본다")
+        void adminSeesEveryonesOrders() {
+            String othersOrder = numberOf(placeOrder(other));
+
+            assertThat(numbers(orders.findAll(admin(), null, null, null, null, new Paging(0, 100))))
+                    .contains(orderNumber, othersOrder);
+        }
+
+        /** 감사자도 {@code all} 이다(`V6`) — 목록은 열리고 결제 칸은 상세의 필드 그룹이 닫는다 */
+        @Test
+        @DisplayName("감사자도 본다")
+        void auditorSeesToo() {
+            long auditor = fixture.insertUser("query-list-auditor@test.local", "감사자");
+            fixture.grantGlobal(auditor, "auditor");
+
+            assertThat(numbers(orders.findAll(auditor, null, null, null, null, new Paging(0, 100))))
+                    .contains(orderNumber);
+        }
+
+        @Test
+        @DisplayName("셀러가 부르면 403 이다")
+        void sellerIsForbidden() {
+            long owner = fixture.insertUser("query-owner@test.local", "셀러");
+            fixture.joinSeller(sellerId, owner);
+            fixture.grantOrg(owner, "seller_owner", sellerId);
+
+            assertThatThrownBy(() -> orders.findAll(owner, null, null, null, null, new Paging(0, 20)))
+                    .as("자기 가게 주문만 담아 줘도 안 된다 — 이 입구는 「전부」를 묻는다")
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.ORDER_FORBIDDEN));
+        }
+
+        @Test
+        @DisplayName("고객이 부르면 403 이다")
+        void customerIsForbidden() {
+            assertThatThrownBy(() -> orders.findAll(buyer, null, null, null, null, new Paging(0, 20)))
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.ORDER_FORBIDDEN));
+        }
+
+        @Test
+        @DisplayName("상태로 거른다")
+        void filtersByStatus() {
+            long admin = admin();
+
+            assertThat(numbers(orders.findAll(admin, "PAYMENT_PENDING", null, null, null, new Paging(0, 100))))
+                    .contains(orderNumber);
+            assertThat(numbers(orders.findAll(admin, "PAID", null, null, null, new Paging(0, 100))))
+                    .doesNotContain(orderNumber);
+        }
+
+        @Test
+        @DisplayName("모르는 상태는 400 이다")
+        void unknownStatusIsRejected() {
+            long admin = admin();
+
+            assertThatThrownBy(() -> orders.findAll(admin, "SHIPPING", null, null, null, new Paging(0, 20)))
+                    .as("배송 층 상태다. 조용히 전부를 주면 필터가 먹은 줄 안다")
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+        }
+
+        /** 끝날은 안 든다 — 「오늘까지」를 보려면 {@code to} 가 내일이다. 매출 통계(`41`)와 같은 반열린 구간이다 */
+        @Test
+        @DisplayName("기간은 시작날을 넣고 끝날을 뺀다")
+        void periodIsHalfOpen() {
+            long admin = admin();
+            LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+            assertThat(numbers(orders.findAll(admin, null, today, today.plusDays(1), null, new Paging(0, 100))))
+                    .contains(orderNumber);
+            assertThat(numbers(orders.findAll(admin, null, null, today, null, new Paging(0, 100))))
+                    .doesNotContain(orderNumber);
+        }
+
+        @Test
+        @DisplayName("빈 기간은 400 이다")
+        void emptyPeriodIsRejected() {
+            long admin = admin();
+            LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+            assertThatThrownBy(() -> orders.findAll(admin, null, today, today, null, new Paging(0, 20)))
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+        }
+
+        private long admin() {
+            long admin = fixture.insertUser("query-list-admin@test.local", "관리자");
+            fixture.grantGlobal(admin, "admin");
+            return admin;
+        }
+
+        private List<String> numbers(OrderQuery.Page page) {
+            return page.items().stream().map(OrderQuery.Summary::orderNumber).toList();
         }
     }
 
@@ -182,6 +293,18 @@ class OrderQueryTest extends PostgresTestBase {
                     .as("refund 는 열려 있다 — `V6` 가 감사자에게 닫은 근거가 결제 수단이지 금액이 아니다(`V24`)")
                     .containsExactly("basic", "refund", "shipping");
             assertThat(detail.shipping()).isNotNull();
+        }
+
+        /** 관리자는 필드 그룹 제한이 없다(`V7`) — 관리자 목록(`Q176`)에서 들어온 상세가 결제까지 연다 */
+        @Test
+        @DisplayName("관리자에게는 payment 그룹까지 열린다")
+        void adminSeesPaymentGroup() {
+            long admin = fixture.insertUser("query-detail-admin@test.local", "관리자");
+            fixture.grantGlobal(admin, "admin");
+
+            OrderQuery.Detail detail = orders.findByNumber(admin, orderNumber);
+
+            assertThat(detail.visibleFieldGroups()).contains("payment", "shipping");
         }
 
         /**

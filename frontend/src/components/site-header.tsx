@@ -93,6 +93,17 @@ function canDecideRefunds(me: Me | null): boolean {
 }
 
 /**
+ * 모든 주문을 훑는다(`Q176`). <b>{@code can} 으로 못 가른다</b> — 산 사람도 셀러도 {@code order:read} 를 갖고,
+ * 이 화면은 그것이 {@code ALL} 인 사람(관리자·감사자)에게만 열린다. 나머지가 누르면 403 이다
+ */
+function canReadAllOrders(me: Me | null): boolean {
+  return me !== null
+    && me.permissions.some(
+      (granted) => granted.resource === "order" && granted.action === "read" && granted.scopes.includes("ALL"),
+    );
+}
+
+/**
  * 매출 통계로 갈 수 있나(`41a`). 정산서와 같이 셀러와 관리자·감사자가 같은 링크를 쓴다 — 합의 범위는 서버가 가른다.
  * 직원에게는 없는 권한이다(`V103`)
  */
@@ -224,6 +235,9 @@ export async function SiteHeader() {
           ) : null}
           {canDecideRefunds(me) ? (
             <HeaderLink href="/admin/refunds">환불 처리</HeaderLink>
+          ) : null}
+          {canReadAllOrders(me) ? (
+            <HeaderLink href="/admin/orders">주문 조회</HeaderLink>
           ) : null}
         </nav>
 

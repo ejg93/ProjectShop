@@ -266,6 +266,12 @@ class ScreenLengthTest {
                     "radio 다. 참·거짓 둘뿐이고 서버 record 가 Boolean 으로 받는다(`Q182`)"),
             Map.entry("app/seller/orders/[sellerOrderNumber]/ship-form.tsx  carrierCode",
                     "select 다. 택배사 다섯뿐이고 서버 Carrier 열거형과 seller_order_carrier_code_check 가 든다(`57`)"),
+            // 관리자 주문 조회의 거르는 칸(`Q176`). 저장하는 값이 아니라 GET 조건이다.
+            Map.entry("app/admin/orders/order-list.tsx  status",
+                    "select 다. 결제 상태 넷뿐이고 모르는 값은 서버가 400 으로 돌린다"),
+            Map.entry("app/admin/orders/order-list.tsx  from",
+                    "type=date 다. 브라우저가 날짜 꼴로 닫고 서버가 LocalDate 로 받는다"),
+            Map.entry("app/admin/orders/order-list.tsx  until", "〃"),
 
             // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
             // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라
