@@ -226,7 +226,7 @@ public class SettlementQuery {
     /** 판정 결과에서 범위를 읽어 조건으로 옮긴다. <b>판정 로직을 다시 쓰지 않는다.</b> */
     private Visible visibleFor(long viewerId) {
         // 남의 것 하나를 물어본다. all 스코프에서만 덮인다.
-        if (evaluator.decide(viewerId, RESOURCE, READ, Target.ofSeller(-1L)).allowed()) {
+        if (evaluator.covers(viewerId, RESOURCE, READ, Target.ofSeller(-1L))) {
             return new Visible(true, new Long[0]);
         }
 
@@ -236,11 +236,12 @@ public class SettlementQuery {
                 .set();
 
         Set<Long> sellers = memberOf.stream()
-                .filter(sellerId -> evaluator
-                        .decide(viewerId, RESOURCE, READ, Target.ofSeller(sellerId)).allowed())
+                .filter(sellerId -> evaluator.covers(viewerId, RESOURCE, READ, Target.ofSeller(sellerId)))
                 .collect(Collectors.toUnmodifiableSet());
 
         if (sellers.isEmpty()) {
+            // 막힌 시도라 거부를 감사에 남긴다(`covers` 는 안 남긴다).
+            evaluator.decide(viewerId, RESOURCE, READ, Target.ofSeller(-1L));
             throw new ShopException(ErrorCode.SETTLEMENT_FORBIDDEN, "정산서를 볼 권한이 없다");
         }
         return new Visible(false, sellers.toArray(Long[]::new));

@@ -215,8 +215,31 @@ public class PermissionEvaluator {
     }
 
     /**
+     * 범위를 고르려고 떠본다(`Q204`). 목록이 「전체 범위냐」·「이 셀러를 보냐」를 물어 갈래를 고를 때 쓴다.
+     *
+     * <p><b>정상 갈래의 거부를 감사에 안 남긴다.</b> 셀러가 제 주문을 볼 때마다 「전체 범위냐」가 거부되는데, 그것은 막힌 시도가
+     * 아니라 갈래를 고르는 물음이다 — {@link #decide} 로 물으면 목록 한 번에 거부 감사가 한 줄씩 쌓였다({@code QueryBudgetTest}
+     * 가 문장 수로 잡았다).
+     *
+     * <p><b>허용은 그대로 {@link #decide} 가 정한다.</b> {@link #allowedActions} 로 먼저 떠보고, 열려 있을 때만 {@code decide} 를
+     * 지난다 — 「허용한 자리는 전부 {@code decide} 를 지난다」가 유지된다.
+     *
+     * <p><b>문지기로 쓰지 않는다.</b> 거부를 안 남기므로 이것으로 막으면 막힌 시도가 감사에서 빠진다. 끝내 볼 것이 없어 막는
+     * 자리는 부르는 쪽이 {@link #decide} 로 거부를 남기고({@code ScopeProbeAuditTest} 가 다섯 자리를 잰다), 대상이 정해진 입구는
+     * 처음부터 {@code decide} 다.
+     */
+    public boolean covers(long userId, String resource, String action, Target target) {
+        return allowedActions(userId, resource, Set.of(action), target).contains(action)
+                && decide(userId, resource, action, target).allowed();
+    }
+
+    /**
      * 거부를 감사 로그에 남긴다. 호출자가 부르는 게 아니라 여기서 남기는 이유는 <b>빠뜨릴 수 없게</b> 하려는 것이다.
      * 새 API 를 만들면서 기록을 잊으면 그 경로만 감사에서 통째로 사라지는데, 그건 나중에 알 방법이 없다.
+     *
+     * <p><b>예외가 둘이다</b> — {@link #allowedActions}(버튼 모양)와 {@link #covers}(범위 떠보기)는 거부를 안 남긴다. 둘 다 막는
+     * 자리가 아니라서다. {@code covers} 로 갈래를 고른 목록이 끝내 막을 때는 부르는 쪽이 {@link #decide} 를 불러 여기로 온다 —
+     * 빠뜨리면 {@code ScopeProbeAuditTest} 가 빨갛다.
      *
      * <p>화면이 권한에 따라 버튼을 가리기 전(청크 13b)까지는 정상적인 거부도 여기 쌓인다.
      * 공격 시도를 가려내는 것은 쌓인 뒤에 세고 묶어서 할 일이다.

@@ -285,12 +285,11 @@ public class RefundQuery {
      */
     private Visible visibleFor(long viewerId) {
         // 남의 것 하나를 물어본다. all 스코프에서만 덮인다.
-        if (evaluator.decide(viewerId, "payment", "read", Target.of(-1L, -1L)).allowed()) {
+        if (evaluator.covers(viewerId, "payment", "read", Target.of(-1L, -1L))) {
             return new Visible(true, true, new Long[0]);
         }
 
-        boolean own = evaluator.decide(viewerId, "payment", "read",
-                Target.of(viewerId, -1L)).allowed();
+        boolean own = evaluator.covers(viewerId, "payment", "read", Target.of(viewerId, -1L));
 
         Set<Long> memberOf = jdbc.sql("select seller_id from seller_member where user_id = :id")
                 .param("id", viewerId)
@@ -298,11 +297,12 @@ public class RefundQuery {
                 .set();
 
         Set<Long> sellers = memberOf.stream()
-                .filter(sellerId -> evaluator
-                        .decide(viewerId, "payment", "read", Target.ofSeller(sellerId)).allowed())
+                .filter(sellerId -> evaluator.covers(viewerId, "payment", "read", Target.ofSeller(sellerId)))
                 .collect(Collectors.toUnmodifiableSet());
 
         if (!own && sellers.isEmpty()) {
+            // 막힌 시도라 거부를 감사에 남긴다(`covers` 는 안 남긴다).
+            evaluator.decide(viewerId, "payment", "read", Target.of(-1L, -1L));
             throw new ShopException(ErrorCode.ORDER_FORBIDDEN, "환불을 볼 권한이 없다");
         }
         return new Visible(false, own, sellers.toArray(Long[]::new));

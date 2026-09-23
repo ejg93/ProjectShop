@@ -206,7 +206,7 @@ public class SalesStatsQuery {
      */
     private Visible visibleFor(long viewerId) {
         // 남의 것 하나를 물어본다. all 스코프에서만 덮인다.
-        if (evaluator.decide(viewerId, RESOURCE, READ, Target.ofSeller(-1L)).allowed()) {
+        if (evaluator.covers(viewerId, RESOURCE, READ, Target.ofSeller(-1L))) {
             return new Visible(true, Set.of());
         }
 
@@ -215,10 +215,12 @@ public class SalesStatsQuery {
                 .query(Long.class)
                 .set()
                 .stream()
-                .filter(sellerId -> evaluator.decide(viewerId, RESOURCE, READ, Target.ofSeller(sellerId)).allowed())
+                .filter(sellerId -> evaluator.covers(viewerId, RESOURCE, READ, Target.ofSeller(sellerId)))
                 .collect(Collectors.toUnmodifiableSet());
 
         if (sellers.isEmpty()) {
+            // 막힌 시도라 거부를 감사에 남긴다(`covers` 는 안 남긴다).
+            evaluator.decide(viewerId, RESOURCE, READ, Target.ofSeller(-1L));
             throw new ShopException(ErrorCode.SALES_STATS_FORBIDDEN, "매출 통계를 볼 권한이 없다");
         }
         return new Visible(false, sellers);
