@@ -235,6 +235,7 @@ class ScreenLengthTest {
             Map.entry("app/me/account-forms.tsx  emailPassword", "〃"),
             Map.entry("app/me/account-forms.tsx  newPassword", "〃"),
             Map.entry("app/me/withdraw/withdraw-form.tsx  password", "〃"),
+            Map.entry("app/password-reset/reset-forms.tsx  newPassword", "〃 — 재설정(`Q180`)"),
             Map.entry("app/signup/signup-form.tsx  password", "〃"),
 
             // 아래 넷은 글자를 받는 칸이 아니다. maxLength 속성 자체가 안 걸린다.

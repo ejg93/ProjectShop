@@ -29,6 +29,7 @@ const REASON_TEXT: Record<string, string> = {
   "login-required": "이 화면은 로그인하신 뒤에 이용하실 수 있습니다.",
   "signed-up": "가입이 끝났습니다. 이제 로그인해 주시기 바랍니다.",
   withdrawn: "탈퇴 처리되었습니다. 그동안 이용해 주셔서 감사합니다.",
+  "password-reset": "비밀번호를 바꿨습니다. 새 비밀번호로 로그인해 주세요.",
 };
 
 export default async function LoginPage({
@@ -66,6 +67,16 @@ export default async function LoginPage({
         가입 화면은 아직 자리표시지만 링크는 건다(`D20`). 지도에 있는 경로라
         `13d` 가 자리표시를 지우면 이 링크는 그대로 살아 있다.
       */}
+      <p className="text-sm text-text-muted">
+        비밀번호가 생각나지 않으세요?{" "}
+        <Link
+          href="/password-reset"
+          className="font-semibold text-accent-text underline underline-offset-4"
+        >
+          비밀번호 재설정
+        </Link>
+      </p>
+
       <p className="text-sm text-text-muted">
         아직 계정이 없으신가요?{" "}
         <Link

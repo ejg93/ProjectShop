@@ -7,6 +7,7 @@ import { Field } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { ApiError, api } from "@/lib/api";
 import { firstBadField, placeErrors } from "@/lib/field-errors";
+import { PASSWORD_HINT } from "@/lib/password-hint";
 
 /** 동의받을 항목 하나(`13d-1`). 본문은 여기 없고 서버가 그려서 넘긴다 */
 export type ConsentItem = {
@@ -20,9 +21,6 @@ export type ConsentItem = {
   refusalDisadvantage: string | null;
   dependsOn: string | null;
 };
-
-/** 비밀번호 규칙의 유일한 출처는 서버다(`Password.java`). 여기는 그것을 사람 말로 옮긴 것뿐이다 */
-const PASSWORD_HINT = "15자 이상 64자 이하, 영문·숫자·기호를 쓸 수 있습니다.";
 
 /**
  * 회원가입 폼.

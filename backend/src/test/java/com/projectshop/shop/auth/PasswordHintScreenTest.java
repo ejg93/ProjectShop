@@ -30,8 +30,9 @@ import jakarta.validation.constraints.Size;
  */
 class PasswordHintScreenTest {
 
+    /** 가입과 재설정이 같이 쓰는 문구(`Q180`). 화면마다 사본을 두지 않게 한 파일로 모았다 */
     private static final Path SCREEN =
-            Path.of("..", "frontend", "src", "app", "signup", "signup-form.tsx");
+            Path.of("..", "frontend", "src", "lib", "password-hint.ts");
 
     /** {@code const PASSWORD_HINT = "15자 이상 64자 이하, …";} 에서 두 수만 */
     private static final Pattern HINT =
@@ -50,7 +51,7 @@ class PasswordHintScreenTest {
 
         // 정규식이 상하면 조용히 통과한다. 그쪽이 어긋난 것보다 나쁘다.
         assertThat(hint.find())
-                .describedAs("가입 화면에서 비밀번호 규칙 문구를 못 읽었다. PASSWORD_HINT 모양이 바뀌었나")
+                .describedAs("비밀번호 규칙 문구를 못 읽었다. PASSWORD_HINT 모양이 바뀌었나")
                 .isTrue();
 
         assertThat(Integer.parseInt(hint.group(1)))
