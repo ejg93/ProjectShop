@@ -33,6 +33,15 @@ enum ProductStatus {
      * 엉뚱한 답을 내고, 어디서 틀렸는지 남는 것이 없다. {@code product_status_check} 가
      * 이미 막고 있으므로 여기 오는 모르는 값은 <b>마이그레이션과 이 enum 이 어긋났다</b>는 뜻이다.
      */
+    /** 바깥 값(대문자)으로 고른다. 모르면 요청이 틀린 것이라 400 이다(`Q182` 의 목록 거르기) */
+    static ProductStatus ofRequest(String name) {
+        return Arrays.stream(values())
+                .filter(status -> status.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new com.projectshop.shop.error.ShopException(
+                        com.projectshop.shop.error.ErrorCode.VALIDATION_FAILED, "모르는 상품 상태다: " + name));
+    }
+
     static ProductStatus of(String code) {
         return Arrays.stream(values())
                 .filter(status -> status.code().equals(code))

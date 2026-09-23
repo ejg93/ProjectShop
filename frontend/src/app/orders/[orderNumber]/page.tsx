@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
 import { dateText, dateTimeText, priceText } from "@/lib/format";
 import {
+  carrierText,
   paymentStatusText,
   shipmentStatusText,
   fromStatusText,
@@ -18,6 +19,7 @@ import { PolicyBody } from "@/components/policy-document";
 
 import { ORDER_ACTIONS } from "../status";
 import { OrderInquiryForm } from "./order-inquiry-form";
+import { type OrderRefund, RefundLines } from "./refund-lines";
 import { ReviewForm } from "./review-form";
 
 export const metadata: Metadata = { title: "주문 상세 · ProjectShop" };
@@ -45,6 +47,9 @@ type SellerOrder = {
   shippedAt: string | null;
   /** 늦었나. 서버가 판단한 값이라 화면이 다시 재지 않는다 */
   shipOverdue: boolean;
+  /** 택배사와 송장(`57`). 보내기 전이면 비어 있다 — 위치는 우리가 안 다룬다 */
+  carrierCode: string | null;
+  trackingNo: string | null;
   items: Item[];
   allowedActions: string[];
 };
@@ -90,6 +95,8 @@ type OrderDetail = {
   history: HistoryEntry[];
   shipping?: Shipping;
   payment?: Payment;
+  /** 환불. {@code refund} 그룹이라 못 보면 빠진다(`V24`). 요청 사유는 안 온다 */
+  refunds?: OrderRefund[];
   contractDocuments: ContractDocument[];
 };
 
@@ -125,6 +132,7 @@ export default async function OrderDetailPage({
 }) {
   const { orderNumber } = await params;
   const order = await findOrder(orderNumber);
+  const rejectionReasons = await rejectionReasonsOf(order.refunds ?? []);
 
   return (
     <div className="mx-auto grid w-full max-w-4xl flex-1 content-start gap-8 px-4 py-16">
@@ -165,7 +173,12 @@ export default async function OrderDetailPage({
 
       <div className="grid gap-4">
         {order.sellerOrders.map((bundle) => (
-          <SellerBundle key={bundle.sellerOrderNumber} bundle={bundle} />
+          <SellerBundle
+            key={bundle.sellerOrderNumber}
+            bundle={bundle}
+            refunds={(order.refunds ?? []).filter((refund) => refund.sellerOrderNumber === bundle.sellerOrderNumber)}
+            rejectionReasons={rejectionReasons}
+          />
         ))}
       </div>
 
@@ -196,7 +209,15 @@ const REVIEWABLE = new Set(["delivered", "confirmed"]);
  * 셀러 묶음 하나. <b>취소·확정·반품이 이 단위로 걸린다</b>(`D7`) —
  * 주문 전체가 아니라 셀러 묶음이 최소 단위다.
  */
-function SellerBundle({ bundle }: { bundle: SellerOrder }) {
+function SellerBundle({
+  bundle,
+  refunds,
+  rejectionReasons,
+}: {
+  bundle: SellerOrder;
+  refunds: OrderRefund[];
+  rejectionReasons: Record<string, string>;
+}) {
   return (
     <section
       aria-labelledby={`bundle-${bundle.sellerOrderNumber}`}
@@ -208,6 +229,12 @@ function SellerBundle({ bundle }: { bundle: SellerOrder }) {
         </h2>
         <p className="text-sm">{shipmentStatusText(bundle.status)}</p>
       </div>
+
+      {bundle.carrierCode ? (
+        <p className="text-sm text-text-muted">
+          {carrierText(bundle.carrierCode)} 송장 {bundle.trackingNo}
+        </p>
+      ) : null}
 
       {/*
         보내기로 한 날이 지났다는 것을 맨 위에서 알린다(`43a-4a`, `D2` R38·R39).
@@ -245,6 +272,8 @@ function SellerBundle({ bundle }: { bundle: SellerOrder }) {
       </p>
 
       <Deadlines bundle={bundle} />
+
+      <RefundLines refunds={refunds} rejectionReasons={rejectionReasons} />
 
       <OrderActions
         sellerOrderNumber={bundle.sellerOrderNumber}
@@ -531,6 +560,27 @@ function History({ entries }: { entries: HistoryEntry[] }) {
  * {@code notFound()} 가 스트리밍이 시작된 뒤에 던져서 상태를 못 바꾼다(`stack.md`).
  * 대신 {@code noindex} 가 붙어 색인에는 안 들어간다.
  */
+/**
+ * 반려된 환불의 사유를 모은다(`Q187`).
+ *
+ * <p><b>주문 상세는 반려 사유를 안 싣는다</b>({@code OrderQuery.Refund}) — 고객에게 답하는 값이라 성격이 달라서
+ * 환불 상세가 내린다. 반려는 드물어서 그 건만 따로 부른다.
+ */
+async function rejectionReasonsOf(refunds: OrderRefund[]): Promise<Record<string, string>> {
+  const details = await Promise.all(
+    refunds
+      .filter((refund) => refund.status === "REJECTED")
+      .map((refund) =>
+        apiSession<{ refundNumber: string; decisionReason: string | null }>(
+          `/api/refunds/${encodeURIComponent(refund.refundNumber)}`,
+        ),
+      ),
+  );
+  return Object.fromEntries(
+    details.flatMap((detail) => (detail.decisionReason ? [[detail.refundNumber, detail.decisionReason]] : [])),
+  );
+}
+
 async function findOrder(orderNumber: string): Promise<OrderDetail> {
   try {
     return await apiSession<OrderDetail>(`/api/orders/${encodeURIComponent(orderNumber)}`);

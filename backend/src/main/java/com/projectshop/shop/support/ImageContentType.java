@@ -1,13 +1,17 @@
-package com.projectshop.shop.product;
+package com.projectshop.shop.support;
 
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Set;
 
 /**
- * 상품 사진으로 받는 형식(`Q120`, {@code media-rules.md}).
+ * 사진으로 받는 형식(`Q120`, {@code media-rules.md}). 상품과 후기가 같은 목록을 쓴다(`Q159`).
  *
- * <p><b>DB 가 이미 값을 닫아 뒀다</b>({@code product_image_content_type_check}). 그런데 Java 가
+ * <p><b>{@code support} 안에서만 쓴다.</b> 읽고 쓰는 것은 {@link ImagePipeline} 하나고, 자원 쪽은 저장값과
+ * 열쇠만 받는다 — 형식 판단이 자원마다 흩어지면 이 목록이 다시 갈린다.
+ *
+ * <p><b>DB 가 이미 값을 닫아 뒀다</b>({@code product_image_content_type_check}·
+ * {@code review_image_content_type_check}). 그런데 Java 가
  * 그 집합을 다섯 자리에 흩어 들고 있었다 — 허용 목록, 검출 {@code switch}, 확장자를 고르는 삼항,
  * 이름 대조 {@code switch}, 썸네일 리터럴. <b>한 자리를 고치고 다른 자리를 빠뜨리면 insert 순간에야
  * 걸린다</b>(`D23` 축 2: 타입 1위, 제약 2위). 여기로 모아서 형식을 하나 더 받는 날 고칠 자리를 하나로 만든다.

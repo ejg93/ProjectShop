@@ -84,7 +84,8 @@ public class ProductQuery {
      * @param status 업무 상태. <b>대문자 스네이크로 나간다</b>(`D5` 「형식」)
      */
     public record SellerItem(long productId, long sellerId, String name, String status,
-            Integer commissionBp, long minPriceInclVat, long totalStock, OffsetDateTime createdAt) {
+            Integer commissionBp, long minPriceInclVat, long totalStock, OffsetDateTime createdAt,
+            List<String> allowedActions) {
     }
 
     public record PublicPage(List<PublicItem> items, int page, int size, long total) {
@@ -105,7 +106,7 @@ public class ProductQuery {
     public record PublicDetail(long productId, long sellerId, String sellerName, String name,
             String description, boolean withdrawalRestricted, String withdrawalRestrictionReason,
             long shippingFee, Integer supplyLeadDays, List<String> imageUrls, List<OptionGroup> options,
-            List<PublicSku> skus, OffsetDateTime createdAt) {
+            List<PublicSku> skus, OffsetDateTime createdAt, List<Long> imageIds) {
     }
 
     /** 옵션 하나와 고를 수 있는 값들. 「색상」에 「빨강·파랑」 같은 것 */
@@ -196,6 +197,14 @@ public class ProductQuery {
      * {@code all} 이 열리면 전체, {@code seller} 면 소속 셀러, 둘 다 아니면 거부다.
      */
     public SellerPage findForSeller(long viewerId, Long sellerId, String sort, Paging paging) {
+        return findForSeller(viewerId, sellerId, null, sort, paging);
+    }
+
+    /**
+     * @param status 그 상태만(`Q182` — 관리자의 검수 대기 목록이 이것을 쓴다). {@code null} 이면 전부
+     */
+    public SellerPage findForSeller(long viewerId, Long sellerId, String status, String sort, Paging paging) {
+        String statusCode = status == null ? null : ProductStatus.ofRequest(status).code();
         Allowed<Long> visible = visibleSellersFor(viewerId);
 
         // 조건을 만드는 자리는 여기 하나다. switch 가 두 경우를 다 다루게 강제한다 —
@@ -206,7 +215,7 @@ public class ProductQuery {
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
         List<SellerItem> items = jdbc.sql("""
-                        select p.product_id, p.seller_id, p.name, p.status, p.commission_bp,
+                        select p.product_id, p.seller_id, p.created_by_user_id, p.name, p.status, p.commission_bp,
                                coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat,
                                coalesce(sum(st.available_count), 0) as total_stock,
                                p.created_at
@@ -217,6 +226,7 @@ public class ProductQuery {
                            and (:seesEverything or p.seller_id = any(:sellers))
                            and (cast(:sellerId as bigint) is null
                                 or p.seller_id = cast(:sellerId as bigint))
+                           and (cast(:status as text) is null or p.status = cast(:status as text))
                          group by p.product_id
                         """
                 + " order by " + orderBy.clause() + ", p.product_id desc"
@@ -224,6 +234,7 @@ public class ProductQuery {
                 .param("seesEverything", seesEverything)
                 .param("sellers", sellers)
                 .param("sellerId", sellerId)
+                .param("status", statusCode)
                 .param("size", paging.size())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new SellerItem(
@@ -234,7 +245,9 @@ public class ProductQuery {
                         rs.getObject("commission_bp", Integer.class),
                         rs.getLong("min_price_incl_vat"),
                         rs.getLong("total_stock"),
-                        rs.getObject("created_at", OffsetDateTime.class)))
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        allowedActions(viewerId, rs.getLong("seller_id"), rs.getLong("created_by_user_id"),
+                                ProductStatus.of(rs.getString("status")))))
                 .list();
 
         Long total = jdbc.sql("""
@@ -243,10 +256,12 @@ public class ProductQuery {
                            and (:seesEverything or p.seller_id = any(:sellers))
                            and (cast(:sellerId as bigint) is null
                                 or p.seller_id = cast(:sellerId as bigint))
+                           and (cast(:status as text) is null or p.status = cast(:status as text))
                         """)
                 .param("seesEverything", seesEverything)
                 .param("sellers", sellers)
                 .param("sellerId", sellerId)
+                .param("status", statusCode)
                 .query(Long.class)
                 .single();
 
@@ -292,7 +307,8 @@ public class ProductQuery {
                         List.of(),
                         List.of(),
                         List.of(),
-                        rs.getObject("created_at", OffsetDateTime.class)))
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        List.of()))
                 .optional()
                 // 파는 중이 아닌 것과 아예 없는 것을 안 가른다. 가르면 draft 상품의 존재가 샌다.
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
@@ -300,7 +316,7 @@ public class ProductQuery {
         return new PublicDetail(head.productId(), head.sellerId(), head.sellerName(), head.name(),
                 head.description(), head.withdrawalRestricted(), head.withdrawalRestrictionReason(),
                 head.shippingFee(), head.supplyLeadDays(), findImageUrls(productId), findOptions(productId),
-                findPublicSkus(productId), head.createdAt());
+                findPublicSkus(productId), head.createdAt(), findImageIds(productId));
     }
 
     /**
@@ -315,6 +331,21 @@ public class ProductQuery {
      * <p>사진이 없으면 빈 목록이다. {@code null} 을 안 쓴다 —
      * 「없다」를 빈 목록이 이미 말하고, {@code null} 은 <b>「모른다」로도 읽힌다</b>({@code D23}).
      */
+    /**
+     * 사진 번호들. <b>{@link #findImageUrls} 와 같은 순서다</b>(`Q183`) — 저작권 침해 신고가 사진 하나를 가리켜야 해서
+     * 공개 상세에 번호가 필요하다(`D2` `R42`). URL 목록을 객체로 바꾸면 이미 쓰는 화면이 깨져서 칸을 더했다.
+     */
+    private List<Long> findImageIds(long productId) {
+        return jdbc.sql("""
+                        select product_image_id from product_image
+                         where product_id = :id
+                         order by sort_no, product_image_id
+                        """)
+                .param("id", productId)
+                .query(Long.class)
+                .list();
+    }
+
     private List<String> findImageUrls(long productId) {
         return jdbc.sql("""
                         select object_key from product_image
@@ -428,6 +459,21 @@ public class ProductQuery {
      * <p>여기서 {@code evaluate} 를 다시 구현하지 않는다. 대표 대상으로 실제 판정을 돌려서
      * <b>어느 범위가 열리는지를 답에서 읽는다</b> — `8a` 의 권한 목록이 쓰는 방법과 같다.
      */
+    /**
+     * 이 사람이 이 상품에 지금 할 수 있는 동작(`Q182`). <b>전이표와 판정을 그대로 돌린다</b> — 화면이 상태를 보고
+     * 버튼을 고르면 표가 두 벌이 되고, 부여표가 바뀌는 날 없는 권한의 버튼이 조용히 남는다(`Q79` 와 같은 판단).
+     * 대상은 검수 서비스와 같게 셀러와 등록자를 싣는다.
+     */
+    private List<String> allowedActions(long viewerId, long sellerId, long createdByUserId, ProductStatus status) {
+        Target target = Target.of(createdByUserId, sellerId);
+        return ProductTransitions.all().stream()
+                .filter(transition -> transition.from() == status)
+                .filter(transition -> evaluator.decide(viewerId, "product", transition.permission(), target).allowed())
+                .map(ProductTransitions::actionName)
+                .distinct()
+                .toList();
+    }
+
     private Allowed<Long> visibleSellersFor(long viewerId) {
         // 남의 셀러 하나. all 스코프에서만 덮인다.
         if (evaluator.decide(viewerId, "product", "update", Target.of(-1L, -1L)).allowed()) {

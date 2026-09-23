@@ -104,9 +104,10 @@ public class RefundService {
      * 「통신판매업자인 통신판매중개자」에게만 걸려서 우리를 직접 지목하지 않는다 —
      * 결론은 같고 근거가 한 칸 비켜 있었다.
      */
-    private static final String RESOURCE = "payment";
+    static final String RESOURCE = "payment";
     private static final String REQUEST = "request_refund";
-    private static final String APPROVE = "refund";
+    // 승인과 반려가 같은 권한이다. 대기열(`RefundQuery`)이 버튼을 고를 때 이 이름을 같이 쓴다(`Q185`).
+    static final String APPROVE = "refund";
 
     private final JdbcClient jdbc;
     private final MockPaymentGateway gateway;
@@ -447,12 +448,14 @@ public class RefundService {
                                oi.commission_amount, oi.discount_amount,
                                coalesce(done.refunded_quantity, 0)   as refunded_quantity,
                                coalesce(done.refunded_commission, 0) as refunded_commission,
-                               coalesce(done.refunded_amount, 0)     as refunded_amount
+                               coalesce(done.refunded_amount, 0)     as refunded_amount,
+                               coalesce(done.refunded_discount, 0)   as refunded_discount
                           from order_item oi
                           left join (select ri.order_item_id,
                                             sum(ri.quantity)          as refunded_quantity,
                                             sum(ri.commission_refund) as refunded_commission,
-                                            sum(ri.amount)            as refunded_amount
+                                            sum(ri.amount)            as refunded_amount,
+                                            sum(ri.discount_refund)   as refunded_discount
                                        from refund_item ri
                                        join refund r on r.refund_id = ri.refund_id
                                       where r.status <> :rejected
@@ -471,7 +474,8 @@ public class RefundService {
                         rs.getLong("discount_amount"),
                         rs.getInt("refunded_quantity"),
                         rs.getLong("refunded_commission"),
-                        rs.getLong("refunded_amount")))
+                        rs.getLong("refunded_amount"),
+                        rs.getLong("refunded_discount")))
                 .list();
     }
 
@@ -593,8 +597,9 @@ public class RefundService {
         for (Portion portion : portions) {
             jdbc.sql("""
                             insert into refund_item (refund_id, order_item_id, quantity,
-                                                     amount, commission_refund)
-                            select r.refund_id, :orderItemId, :quantity, :amount, :commission
+                                                     amount, commission_refund, discount_refund)
+                            select r.refund_id, :orderItemId, :quantity, :amount, :commission,
+                                   :discount
                               from refund r
                              where r.refund_number = :number
                             """)
@@ -602,6 +607,7 @@ public class RefundService {
                     .param("quantity", portion.quantity())
                     .param("amount", portion.amount())
                     .param("commission", portion.commissionRefund())
+                    .param("discount", portion.discountRefund())
                     .param("number", refundNumber)
                     .update();
         }

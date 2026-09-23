@@ -1,5 +1,6 @@
 package com.projectshop.shop.auth;
 
+import java.util.Arrays;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -51,15 +52,17 @@ public class PasswordResetService {
 
     private final JdbcClient jdbc;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicy passwordPolicy;
     private final PasswordResetMailer mailer;
     private final TransactionTemplate transactions;
     private final AuditLog auditLog;
     private final SecureRandom random = new SecureRandom();
 
-    PasswordResetService(JdbcClient jdbc, PasswordEncoder passwordEncoder,
+    PasswordResetService(JdbcClient jdbc, PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy,
             PasswordResetMailer mailer, AuditLog auditLog, TransactionTemplate transactions) {
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
+        this.passwordPolicy = passwordPolicy;
         this.mailer = mailer;
         this.auditLog = auditLog;
         this.transactions = transactions;
@@ -143,6 +146,16 @@ public class PasswordResetService {
                 .findFirst()
                 .orElseThrow(() -> new ShopException(ErrorCode.PASSWORD_RESET_TOKEN_INVALID,
                         "쓸 수 없는 재설정 토큰이다"));
+
+        // 흔한·추측하기 쉬운 비밀번호를 거른다(`D14-2`). **토큰을 쓴 것으로 표시하기 전에** 본다 —
+        // 거절한 뒤 토큰이 닫혀 있으면 사람은 메일을 다시 받아야 한다.
+        record Owner(String email, String displayName) {}
+        Owner owner = jdbc.sql("select email, display_name from app_user where user_id = :id")
+                .param("id", found.userId())
+                .query(Owner.class)
+                .single();
+        passwordPolicy.requireAcceptable(newPassword,
+                Arrays.asList(PasswordPolicy.localPartOf(owner.email()), owner.displayName()));
 
         // 쓴 표시를 먼저 한다. 같은 토큰으로 두 요청이 겹쳐 들어와도 한 번만 통과한다 —
         // 부분 유니크 인덱스가 아니라 이 갱신의 조건이 그것을 막는다.

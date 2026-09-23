@@ -31,6 +31,7 @@ erDiagram
     review_reply }o..|| app_user : "user_id"
     review_report }o..|| app_user : "reporter_user_id"
     review_report }o..|| app_user : "resolved_by_user_id"
+    seller_daily_sales }o..|| seller : "seller_id"
     seller_invitation }o--|| app_user : "accepted_user_id"
     seller_invitation }o--|| app_user : "invited_by_user_id"
     seller_invitation }o..|| role : "role_id"

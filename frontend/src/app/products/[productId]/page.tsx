@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ApiError, apiPublic } from "@/lib/api";
@@ -37,6 +38,8 @@ type ProductDetail = {
   supplyLeadDays: number | null;
   /** 사진들. 만료 5분 서명 URL 이고 사진이 없으면 빈 배열이다(`28`) */
   imageUrls: string[];
+  /** 사진 번호. `imageUrls` 와 같은 순서다 — 저작권 침해 신고가 사진 하나를 가리킨다(`Q183`, `R42`) */
+  imageIds: number[];
   options: OptionGroup[];
   skus: PublicSku[];
 };
@@ -105,6 +108,7 @@ export default async function ProductDetailPage({
   return (
     <div className="mx-auto grid w-full max-w-6xl flex-1 content-start gap-12 px-4 py-16">
       <div className="grid gap-10 md:grid-cols-2">
+        <div className="grid content-start gap-2">
         <Image
           // 사진이 있으면 그 상품의 사진이라 alt 에 상품명이 들어간다(`28`).
           // 없으면 자리표시고, 그때는 상품과 무관해서 alt 를 비운다(`D20`).
@@ -116,6 +120,18 @@ export default async function ProductDetailPage({
           className="aspect-[4/3] w-full rounded-ui object-cover"
           unoptimized={product.imageUrls.length > 0}
         />
+          {/*
+            남의 저작물이 올라왔을 때 권리자가 알릴 길이다(저작권법 제103조, `D2` `R42`). 절차가 있어야
+            책임 제한을 받는데, 입구가 화면에 없으면 절차가 없는 것과 같다(`Q183`).
+          */}
+          {product.imageIds.length > 0 ? (
+            <p className="text-xs text-text-muted">
+              <Link href={`/copyright-report?productId=${product.productId}`} className="underline underline-offset-4">
+                사진이 저작권을 침해하나요? 신고하기
+              </Link>
+            </p>
+          ) : null}
+        </div>
 
         <div className="grid content-start gap-6">
           <div className="grid gap-2">

@@ -43,10 +43,11 @@ final class RefundMath {
      *        이만큼 덜 준다 — 안 빼면 소비자가 낸 것보다 많이 돌려주고, 전액 환불은
      *        결제액 상한에 걸려 <b>아예 막힌다</b>(`Q164`)
      * @param refundedAmount 이미 돌려준 대금 누계. 마지막 수량에서 잔액을 맞추는 데 쓴다
+     * @param refundedDiscount 이미 되돌린 할인 누계(`Q168`). 같은 이유로 든다
      */
     record Item(long orderItemId, int quantity, long unitPriceInclVat,
             long commissionAmount, long discountAmount, int refundedQuantity,
-            long refundedCommission, long refundedAmount) {
+            long refundedCommission, long refundedAmount, long refundedDiscount) {
 
         int remaining() {
             return quantity - refundedQuantity;
@@ -59,7 +60,13 @@ final class RefundMath {
     }
 
     /** 이번에 돌려줄 한 항목 */
-    record Portion(long orderItemId, int quantity, long amount, long commissionRefund) {}
+    /**
+     * 환불 항목 하나로 박제될 값.
+     *
+     * @param discountRefund 이 환불이 되돌린 배분 할인(`Q168`). {@code amount} 와 더하면 할인 전 값이고,
+     *        정산은 그 합으로 {@code sale_reversal} 을 세운다 — 판매({@code sale})와 같은 축이다
+     */
+    record Portion(long orderItemId, int quantity, long amount, long commissionRefund, long discountRefund) {}
 
     /**
      * 무엇을 몇 개 돌려줄지 정하고 금액을 계산한다.
@@ -98,7 +105,8 @@ final class RefundMath {
                                 .formatted(item.remaining(), item.orderItemId()));
             }
             portions.add(new Portion(item.orderItemId(), line.quantity(),
-                    amountRefund(item, line.quantity()), commissionRefund(item, line.quantity())));
+                    amountRefund(item, line.quantity()), commissionRefund(item, line.quantity()),
+                    discountRefund(item, line.quantity())));
         }
         return portions;
     }
@@ -116,6 +124,21 @@ final class RefundMath {
         return last
                 ? item.refundable() - item.refundedAmount()
                 : item.refundable() * quantity / item.quantity();
+    }
+
+    /**
+     * 이 항목에서 되돌릴 배분 할인(`Q168`).
+     *
+     * <p><b>잔액을 마지막 수량에 몰아 준다</b> — 대금·수수료와 같은 규칙이다. 정산이 비율로 다시
+     * 계산하면 나눠서 환불할 때 버림이 쌓여 <b>통째로 환불해도 할인 몫이 덜 되돌아가고</b>,
+     * 그만큼 {@code sale_reversal} 이 판매보다 작아진다. 그래서 여기서 박제하고 정산은 읽기만 한다.
+     */
+    static long discountRefund(Item item, int quantity) {
+        boolean last = item.refundedQuantity() + quantity == item.quantity();
+
+        return last
+                ? item.discountAmount() - item.refundedDiscount()
+                : item.discountAmount() * quantity / item.quantity();
     }
 
     /**

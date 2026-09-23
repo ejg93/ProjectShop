@@ -3,6 +3,7 @@ package com.projectshop.shop.payment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -32,12 +33,17 @@ class RefundMathTest {
      */
     private static Item item(int refundedQuantity, long refundedCommission) {
         return new Item(7L, 3, 10_000, COMMISSION, 0, refundedQuantity, refundedCommission,
-                10_000L * refundedQuantity);
+                  10_000L * refundedQuantity, 0);
     }
 
     /** 3개 30,000 에 할인 1,000. 3으로 안 나눠떨어져서 여기도 절사 잔액이 생긴다 */
     private static Item discounted(int refundedQuantity, long refundedAmount) {
-        return new Item(7L, 3, 10_000, COMMISSION, 1_000, refundedQuantity, 0, refundedAmount);
+        return discounted(refundedQuantity, refundedAmount, 0);
+    }
+
+    private static Item discounted(int refundedQuantity, long refundedAmount, long refundedDiscount) {
+        return new Item(7L, 3, 10_000, COMMISSION, 1_000, refundedQuantity, 0, refundedAmount,
+                refundedDiscount);
     }
 
     /**
@@ -71,10 +77,67 @@ class RefundMathTest {
                     .isEqualTo(29_000);
         }
 
+        /**
+         * 수량 1 로만 재면 {@code a × q ÷ n} 의 곱과 나눗셈을 뒤집어도 같은 값이 나온다 — 변이 시험이 그 자리를 짚었다(`69`).
+         */
+        @Test
+        @DisplayName("수량 일부는 비율로 자른다")
+        void 수량_일부는_비율로_자른다() {
+            assertThat(RefundMath.amountRefund(discounted(0, 0), 2))
+                    .as("29,000 × 2 ÷ 3 을 버린 값이다")
+                    .isEqualTo(19_333);
+        }
+
         @Test
         @DisplayName("할인이 없으면 항목 금액 그대로다")
         void 할인이_없으면_항목_금액_그대로다() {
             assertThat(RefundMath.amountRefund(item(0, 0), 3)).isEqualTo(30_000);
+        }
+    }
+
+    /**
+     * 되돌린 할인을 박제한다(`Q168`). 정산이 {@code amount + discount_refund} 로 판매되돌림을 세우므로
+     * <b>둘의 합이 할인 전 값과 끝까지 같아야</b> 판매와 판매되돌림이 같은 축에 선다.
+     */
+    @Nested
+    @DisplayName("되돌릴 할인은")
+    class DiscountRefund {
+
+        @Test
+        @DisplayName("통째로면 배분된 할인 전부다")
+        void 통째로면_배분된_할인_전부다() {
+            assertThat(RefundMath.discountRefund(discounted(0, 0), 3)).isEqualTo(1_000);
+        }
+
+        @Test
+        @DisplayName("나눠 돌려줘도 합이 배분된 할인과 같다")
+        void 나눠_돌려줘도_합이_배분된_할인과_같다() {
+            long first = RefundMath.discountRefund(discounted(0, 0, 0), 1);
+            long second = RefundMath.discountRefund(discounted(1, 0, first), 1);
+            long third = RefundMath.discountRefund(discounted(2, 0, first + second), 1);
+
+            assertThat(first + second + third)
+                    .as("비율로 매번 버리면 999 가 되고, 셀러는 판 것보다 1원 덜 토해 낸다")
+                    .isEqualTo(1_000);
+        }
+
+        @Test
+        @DisplayName("수량 일부는 비율로 자른다")
+        void 할인도_수량_일부는_비율로_자른다() {
+            assertThat(RefundMath.discountRefund(discounted(0, 0, 0), 2)).isEqualTo(666);
+        }
+
+        @Test
+        @DisplayName("대금과 더하면 할인 전 값이다")
+        void 대금과_더하면_할인_전_값이다() {
+            long amount1 = RefundMath.amountRefund(discounted(0, 0, 0), 1);
+            long discount1 = RefundMath.discountRefund(discounted(0, 0, 0), 1);
+            long amount2 = RefundMath.amountRefund(discounted(1, amount1, discount1), 2);
+            long discount2 = RefundMath.discountRefund(discounted(1, amount1, discount1), 2);
+
+            assertThat(amount1 + discount1 + amount2 + discount2)
+                    .as("정산의 sale_reversal 합이 sale(line_amount)과 같아야 한다")
+                    .isEqualTo(30_000);
         }
     }
 
@@ -87,6 +150,12 @@ class RefundMathTest {
         void splitsByQuantityWithTruncation() {
             assertThat(RefundMath.commissionRefund(item(0, 0), 1)).isEqualTo(333);
             assertThat(RefundMath.commissionRefund(item(1, 333), 1)).isEqualTo(333);
+        }
+
+        @Test
+        @DisplayName("수량 둘이면 둘 몫이다")
+        void splitsTwoUnits() {
+            assertThat(RefundMath.commissionRefund(item(0, 0), 2)).isEqualTo(666);
         }
 
         @Test
@@ -152,11 +221,69 @@ class RefundMathTest {
         }
 
         @Test
+        @DisplayName("요청이 비면 다 돌려받은 항목은 건너뛴다")
+        void skipsFullyRefundedItemsWhenNoLinesAsked() {
+            Item other = new Item(8L, 2, 5_000, 500, 0, 0, 0, 0, 0);
+
+            assertThat(RefundMath.resolvePortions(List.of(item(3, COMMISSION), other), List.of()))
+                    .singleElement()
+                    .satisfies(portion -> assertThat(portion.orderItemId()).isEqualTo(8L));
+        }
+
+        @Test
+        @DisplayName("수량 0 은 못 잡는다")
+        void refusesZeroQuantity() {
+            assertThatThrownBy(() -> RefundMath.resolvePortions(List.of(item(0, 0)),
+                    List.of(new RefundService.Line(7L, 0))))
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.REFUND_EXCEEDS_LIMIT));
+        }
+
+        @Test
         @DisplayName("이미 전부 환불된 묶음이면 거부한다")
         void refusesAnAlreadyEmptiedBundle() {
             assertThatThrownBy(() -> RefundMath.resolvePortions(List.of(item(3, COMMISSION)), List.of()))
                     .isInstanceOfSatisfying(ShopException.class, e ->
                             assertThat(e.code()).isEqualTo(ErrorCode.REFUND_EXCEEDS_LIMIT));
+        }
+    }
+
+    /**
+     * 지연배상금(`D2` R5, 전자상거래법 시행령 제21조의3 — 연 15%).
+     *
+     * <p><b>빠른 레인이 한 번도 안 부르던 식이다</b> — 변이 시험이 NO_COVERAGE 로 짚었다(`69`). 넘긴 날은 하루라도
+     * 하루로 세고 원 단위는 올린다. 고객이 받을 돈이라 모자라게 자르지 않는다.
+     */
+    @Nested
+    @DisplayName("지연배상금은")
+    class DelayInterest {
+
+        private static final OffsetDateTime DUE = OffsetDateTime.parse("2026-09-10T23:59:59+09:00");
+
+        @Test
+        @DisplayName("기한 안이면 0 이다")
+        void isZeroWhenOnTime() {
+            assertThat(RefundMath.delayInterest(100_000, DUE, DUE)).isZero();
+            assertThat(RefundMath.delayInterest(100_000, DUE, DUE.minusHours(1))).isZero();
+        }
+
+        @Test
+        @DisplayName("한 시간을 넘겨도 하루로 세고 원 단위는 올린다")
+        void countsAPartialDayAsADay() {
+            assertThat(RefundMath.delayInterest(100_000, DUE, DUE.plusHours(1)))
+                    .as("100,000 × 0.15 × 1 ÷ 365 = 41.09 → 42")
+                    .isEqualTo(42);
+        }
+
+        @Test
+        @DisplayName("날 수만큼 늘어난다")
+        void growsWithDays() {
+            assertThat(RefundMath.delayInterest(100_000, DUE, DUE.plusDays(2)))
+                    .as("100,000 × 0.15 × 2 ÷ 365 = 82.19 → 83")
+                    .isEqualTo(83);
+            assertThat(RefundMath.delayInterest(100_000, DUE, DUE.plusDays(2).plusMinutes(1)))
+                    .as("이틀하고 1분이면 사흘이다 — 100,000 × 0.15 × 3 ÷ 365 = 123.28 → 124")
+                    .isEqualTo(124);
         }
     }
 }

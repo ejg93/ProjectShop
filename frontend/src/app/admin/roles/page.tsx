@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
-import { apiSession } from "@/lib/api-session";
+import { apiSession, apiSessionOptional } from "@/lib/api-session";
+import { can, type Me } from "@/lib/permissions";
 
+import { ImpersonateButton } from "./impersonate-button";
 import { RoleEditor } from "./role-editor";
 
 export const metadata: Metadata = { title: "역할 편집 · ProjectShop" };
@@ -54,6 +56,9 @@ export default async function AdminRolesPage({
   const found = Number.isInteger(userId) && userId > 0;
 
   const user = found ? await apiSession<UserDetail>(`/api/users/${userId}`) : null;
+  // 대행 버튼은 그 권한이 있는 사람에게만 그린다(`16b`). 누구를 대행할 수 있나(관리자·본인·탈퇴 제외)는
+  // 서버가 정하고 여기서는 안 가른다 — 화면이 가르면 규칙이 두 벌이 된다.
+  const canImpersonate = can(await apiSessionOptional<Me>("/api/me/permissions"), "user", "impersonate");
 
   return (
     <>
@@ -89,7 +94,10 @@ export default async function AdminRolesPage({
       </form>
 
       {user ? (
-        <RoleEditor user={user} />
+        <>
+          <RoleEditor user={user} />
+          {canImpersonate && !user.deleted ? <ImpersonateButton userId={user.userId} /> : null}
+        </>
       ) : (
         <p className="rounded-ui border border-border bg-surface-raised px-4 py-6 text-sm text-text-muted">
           사용자 번호를 넣으면 그 사람의 역할이 나옵니다. 번호는 감사 기록에 남아 있습니다.

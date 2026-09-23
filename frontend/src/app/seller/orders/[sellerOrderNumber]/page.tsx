@@ -6,9 +6,10 @@ import { OrderActions } from "@/components/order-actions";
 import { ApiError } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
-import { returnReasonText, shipmentStatusText } from "@/lib/order-text";
+import { carrierText, returnReasonText, shipmentStatusText } from "@/lib/order-text";
 
 import { SELLER_ACTIONS } from "../actions";
+import { ShipForm } from "./ship-form";
 
 export const metadata: Metadata = { title: "받은 주문 상세 · ProjectShop" };
 
@@ -38,6 +39,9 @@ type SellerOrderDetail = {
   shipDueAt: string | null;
   shippedAt: string | null;
   shipOverdue: boolean;
+  /** 택배사와 송장(`57`). 보내기 전이면 응답에 없다 */
+  carrierCode?: string;
+  trackingNo?: string;
   deliveredAt: string | null;
   withdrawalExpireAt: string | null;
   autoConfirmAt: string | null;
@@ -102,6 +106,7 @@ export default async function SellerOrderDetailPage({
             ["접수", dateTimeText(order.createdAt)],
             ["발송 기한", deadlineText(order)],
             ["발송", order.shippedAt ? dateTimeText(order.shippedAt) : "아직"],
+            ["송장", order.carrierCode ? `${carrierText(order.carrierCode)} ${order.trackingNo}` : "없음"],
             ["배송완료", order.deliveredAt ? dateTimeText(order.deliveredAt) : "아직"],
             [
               "청약철회 기한",
@@ -159,6 +164,8 @@ export default async function SellerOrderDetailPage({
           />
         </Section>
       ) : null}
+
+      {order.allowedActions.includes("SHIP") ? <ShipForm sellerOrderNumber={order.sellerOrderNumber} /> : null}
 
       <OrderActions
         sellerOrderNumber={order.sellerOrderNumber}

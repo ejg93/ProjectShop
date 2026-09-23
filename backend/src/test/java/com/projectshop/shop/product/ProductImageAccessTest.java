@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.StorageTestBase;
+import com.projectshop.shop.support.ImagePipeline;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.support.ListQuery.Paging;
 
@@ -59,7 +60,7 @@ class ProductImageAccessTest extends StorageTestBase {
         jdbc.sql("update product set status = :s where product_id = :id")
                 .param("s", "on_sale").param("id", productId).update();
         imageService.upload(owner, productId,
-                new ProductImageService.Incoming("photo.jpg", ProductImageFixture.jpegBytes(80, 60)));
+                new ImagePipeline.Incoming("photo.jpg", ProductImageFixture.jpegBytes(80, 60)));
     }
 
     @Test

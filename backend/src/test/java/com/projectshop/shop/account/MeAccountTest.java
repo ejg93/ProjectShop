@@ -204,6 +204,17 @@ class MeAccountTest extends PostgresTestBase {
                     .andExpect(status().isBadRequest());
         }
 
+        /**
+         * 흔한 비밀번호는 바꿀 때도 막는다(`D14-2`). 가입에서만 막으면 가입한 뒤 바꿔서 우회한다.
+         */
+        @Test
+        @DisplayName("흔한 비밀번호로는 못 바꾼다")
+        void rejectsCommonPassword() throws Exception {
+            mvc.perform(passwordRequest(PASSWORD, "passwordpassword"))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:password-too-common"));
+        }
+
         @Test
         @DisplayName("바꾼 사실이 감사에 남는다")
         void recordsTheChange() throws Exception {

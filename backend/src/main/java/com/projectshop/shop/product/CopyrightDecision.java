@@ -52,7 +52,14 @@ enum CopyrightDecision {
                 .orElseThrow(() -> new ShopException(ErrorCode.VALIDATION_FAILED));
     }
 
-    // **`of(String code)` 를 안 둔다**(마무리 35차 독립 리뷰). 다른 열거형은 DB 에서 읽은 값을
-    // 되돌리려고 그것을 두는데, 이 값을 열거형으로 읽는 자리가 아직 없다 — 두면 죽은 코드다.
-    // `Q120` 이 `ImageContentType` 에서 같은 판단을 했다. 읽는 자리가 생기는 날 그때 만든다.
+    /**
+     * 저장값으로 고른다. <b>읽는 자리가 생겨서 만들었다</b>(`Q183` 의 신고 목록) — 그전에는 죽은 코드라
+     * 안 뒀다(마무리 35차 독립 리뷰). 모르는 값이면 마이그레이션과 어긋난 것이라 터진다.
+     */
+    static CopyrightDecision of(String code) {
+        return Arrays.stream(values())
+                .filter(decision -> decision.code().equals(code))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("모르는 저작권 판정이다: " + code));
+    }
 }

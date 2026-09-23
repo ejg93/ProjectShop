@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Pager, pageNumberOf } from "@/components/pager";
+import { Td, Th } from "@/components/table-cells";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText } from "@/lib/format";
 
@@ -201,15 +202,5 @@ function Detail({ value }: { value: Record<string, unknown> }) {
         ))}
       </dl>
     </details>
-  );
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return <th scope="col" className="px-3 py-2 font-medium">{children}</th>;
-}
-
-function Td({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
-  return (
-    <td className={`px-3 py-2 ${muted ? "text-text-muted" : ""}`}>{children}</td>
   );
 }

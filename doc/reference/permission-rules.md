@@ -180,6 +180,13 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | admin | true | false | 전역 부여 |
 | auditor | true | false | 전역 부여. 다른 역할 위에 덧씌워서 쓴다 |
 
+### 살아 있는 셀러에는 살아 있는 대표가 있다(`Q169`)
+
+대표(`seller_owner`)가 0인 셀러는 멤버를 부를 수도 뺄 수도 없이 잠긴다. **내보내기·역할 변경·탈퇴** 셋이 그 수를 줄이고,
+셋 다 막는다 — 앞의 둘은 `SELLER_LAST_OWNER`, 탈퇴는 `WITHDRAWAL_LAST_OWNER`(422, 대표를 넘긴 뒤에 나간다).
+DB 에서는 `user_role_keeps_seller_owner`·`app_user_withdrawal_keeps_seller_owner`(지연 트리거)가 같은 것을 막는다.
+**탈퇴한 대표는 안 센다** — 탈퇴는 역할 행을 남긴다. 폐업한 셀러(`seller.deleted_at`)는 대표가 없어도 된다.
+
 ## 판정 결과의 종류
 
 XACML 3.0 은 판정 결과를 넷으로 나눈다. 우리 `Decision` 과 대조하면 이렇다.

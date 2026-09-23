@@ -39,15 +39,20 @@ class RetainedColumnsTest extends PostgresTestBase {
      *
      * <p>남은 `order_item.withdrawal_restriction_reason` 은 이름만 사유고
      * <b>`check` 로 닫힌 열거값</b>이라 사람 글이 안 들어온다 — 처음부터 자유 텍스트가 아니었다.
+     *
+     * <p><b>송장(`carrier_code`·`tracking_no`, `57`)은 공급 기록이다</b> — 전자상거래법 시행령 제6조제1항제3호
+     * 「대금결제 및 재화등의 공급에 관한 기록: 5년」(`D2` R6). 조문이 칸을 열거하지 않아서 **송장을 3호에 넣은 것은 해석**이다.
+     * 주문자와 이어져 있어 개인정보보호법 제2조제1호나목(쉽게 결합해 알아볼 수 있는 정보)에 들 수 있지만, 다른 법령이 보존을
+     * 요구하면 파기하지 않는다(같은 법 제21조제1항 단서). 원문은 2026-09-23 에 law.go.kr 에서 확인했다.
      */
     private static final Map<String, List<String>> RETAINED = Map.of(
             "shop_order", List.of("commission_total", "created_at", "discount_total", "order_id",
                     "order_number", "payable_amount", "shipping_fee_total", "status",
                     "total_amount", "updated_at", "user_id"),
-            "seller_order", List.of("agreed_lead_days", "auto_confirm_at", "closed_at",
+            "seller_order", List.of("agreed_lead_days", "auto_confirm_at", "carrier_code", "closed_at",
                     "created_at", "delivered_at", "order_id", "return_reason", "seller_id",
                     "seller_order_id", "seller_order_number", "ship_due_at", "shipped_at",
-                    "shipping_fee", "status", "supply_lead_days", "updated_at",
+                    "shipping_fee", "status", "supply_lead_days", "tracking_no", "updated_at",
                     "withdrawal_expire_at"),
             "order_item", List.of("commission_amount", "commission_bp", "created_at",
                     "discount_amount", "line_amount", "option_label", "order_item_id",

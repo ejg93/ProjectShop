@@ -45,6 +45,26 @@ public enum ErrorCode {
     PASSWORD_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "password-mismatch", "비밀번호가 맞지 않는다"),
 
     /**
+     * 흔하거나 추측하기 쉬운 비밀번호다(`D14-2`, NIST SP 800-63B). 목록에 있거나, 서비스 이름·그 사람의
+     * 이메일 앞부분·이름을 품거나, 한 글자를 되풀이한 것이다. <b>어느 것에 걸렸는지는 안 가른다</b> —
+     * 가르면 목록에 무엇이 있는지를 하나씩 물어볼 수 있다.
+     */
+    PASSWORD_TOO_COMMON(HttpStatus.UNPROCESSABLE_CONTENT, "password-too-common",
+            "흔하거나 추측하기 쉬운 비밀번호다"),
+
+    /**
+     * 대행할 수 없다(`16b`). 권한이 없거나, 대상이 관리자·자기 자신·탈퇴·정지 계정이다 —
+     * <b>넷을 안 가른다</b>. 가르면 계정 번호를 두드려 누가 관리자인지를 셀 수 있다.
+     */
+    IMPERSONATION_FORBIDDEN(HttpStatus.FORBIDDEN, "impersonation-forbidden", "그 계정을 대행할 수 없다"),
+
+    /** 대행 중에는 쓰기가 막힌다(`16b`). 보기만 한다 — 끝내기와 로그아웃만 열려 있다 */
+    IMPERSONATION_READ_ONLY(HttpStatus.FORBIDDEN, "impersonation-read-only", "대행 중에는 보기만 한다"),
+
+    /** 이미 대행 중인데 또 시작하거나, 대행 중이 아닌데 끝낸다 */
+    IMPERSONATION_CONFLICT(HttpStatus.CONFLICT, "impersonation-conflict", "대행 상태가 맞지 않는다"),
+
+    /**
      * 재설정 토큰이 없거나, 만료됐거나, 이미 썼다(`5c-1`).
      *
      * <p><b>셋을 안 가른다.</b> 「만료됐다」와 「그런 토큰이 없다」를 갈라 주면 남의 링크를
@@ -155,6 +175,15 @@ public enum ErrorCode {
             "마지막 대표는 내보내거나 역할을 바꿀 수 없다"),
 
     /**
+     * 어느 살아 있는 셀러의 마지막 대표라 탈퇴할 수 없다(`Q169`).
+     *
+     * <p>탈퇴는 역할 행을 안 지워서 위의 검사로는 안 걸린다. 대표를 넘긴 뒤에 탈퇴한다(사용자 선택) —
+     * 풀어 주면 그 셀러가 위와 같은 자리로 잠긴다.
+     */
+    WITHDRAWAL_LAST_OWNER(HttpStatus.UNPROCESSABLE_CONTENT, "withdrawal-last-owner",
+            "대표로 있는 셀러의 대표를 넘기기 전에는 탈퇴할 수 없다"),
+
+    /**
      * 쿠폰을 쓸 수 없다.
      *
      * <p><b>넷을 안 가른다.</b> 없는 발급·남의 발급·이미 쓴 것·기한이 지난 것이 같은 응답이다 —
@@ -177,6 +206,28 @@ public enum ErrorCode {
             "이미 후기를 쓴 주문이다"),
 
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "review-not-found", "그런 후기가 없다"),
+
+    /**
+     * 이 후기에 그 조작을 할 권한이 없다(`Q167`) — 남의 상품 후기에 답하는 셀러, 신고를 처리하는
+     * 관리자가 아닌 사람이다. <b>쓰기의 {@link #REVIEW_NOT_ALLOWED} 와 가른다</b>: 그쪽은 넷을 한데
+     * 묶어 422 로 숨기는 자리고, 여기는 대상이 공개 글이라 숨길 것이 없어 403 이다.
+     */
+    REVIEW_FORBIDDEN(HttpStatus.FORBIDDEN, "review-forbidden", "이 후기에 그 조작을 할 권한이 없다"),
+
+    /** 같은 후기를 한 번만 신고한다({@code review_report_once}, `48`) */
+    REVIEW_ALREADY_REPORTED(HttpStatus.CONFLICT, "review-already-reported", "이미 신고한 후기다"),
+
+    REVIEW_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "review-report-not-found", "그런 신고가 없다"),
+
+    /**
+     * 처리한 신고는 다시 못 연다(`D7`, {@code check_review_report_transition}). 판단이 뒤집혔으면
+     * 신고가 아니라 후기를 되살린다 — 그래야 처음 판단과 뒤집은 판단이 둘 다 기록에 남는다.
+     */
+    REVIEW_REPORT_ALREADY_RESOLVED(HttpStatus.CONFLICT, "review-report-already-resolved",
+            "이미 처리한 신고다"),
+
+    /** 내려가지 않은 후기는 되살릴 것이 없다 */
+    REVIEW_NOT_BLOCKED(HttpStatus.CONFLICT, "review-not-blocked", "내려간 후기가 아니다"),
 
     /**
      * 쿠폰은 살아 있는데 이 주문에 안 맞는다.
@@ -390,6 +441,11 @@ public enum ErrorCode {
     // 403 이다. 볼 수 있는 셀러가 하나도 없는 것이라 <b>이 사람이라서</b> 안 되는 것이고,
     // 빈 목록을 주면 0건과 못 봄이 안 갈린다.
     SETTLEMENT_FORBIDDEN(HttpStatus.FORBIDDEN, "settlement-forbidden", "정산서를 볼 권한이 없다"),
+
+    // 매출 통계(`41`). 403 인 이유는 위 정산과 같다 — 볼 수 있는 셀러가 하나도 없는 사람이다.
+    SALES_STATS_FORBIDDEN(HttpStatus.FORBIDDEN, "sales-stats-forbidden", "매출 통계를 볼 권한이 없다"),
+    // 시작이 끝보다 늦거나 한 번에 1년을 넘긴다. 넘기면 원장을 통째로 긁는 질의가 된다.
+    STATS_RANGE_INVALID(HttpStatus.BAD_REQUEST, "stats-range-invalid", "통계 기간이 맞지 않는다"),
 
     // 지급(21)
     //

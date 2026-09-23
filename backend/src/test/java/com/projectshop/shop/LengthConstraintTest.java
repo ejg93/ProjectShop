@@ -119,6 +119,10 @@ class LengthConstraintTest extends PostgresTestBase {
                                 "body"),
                         component(com.projectshop.shop.review.ReviewController.EditReviewRequest.class,
                                 "body"))),
+                // 셀러 답글(`Q167`). 입구가 생겨서 `NOT_COMPARED` 에서 옮겼다.
+                Arguments.of("review_reply_body_length_check", List.of(
+                        component(com.projectshop.shop.review.ReviewController.ReplyRequest.class,
+                                "body"))),
                 // 쿠폰 코드는 입구가 둘이다(`Q163`) — 만드는 쪽과 받는 쪽. 받는 쪽이 더 길면
                 // 화면이 통과시킨 코드가 서버에서 못 찾는 코드가 된다.
                 Arguments.of("coupon_code_length_check", List.of(
@@ -185,8 +189,6 @@ class LengthConstraintTest extends PostgresTestBase {
                     "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5a`)"),
             Map.entry("seller_invitation_email_length_check",
                     "초대 입구가 아직 없다(`16a`). 값은 짝인 app_user.email 과 같은 254 다"),
-            Map.entry("review_reply_body_length_check",
-                    "답글 입구가 아직 없다(`Q167`). 값은 짝인 review.body 와 같다"),
             Map.entry("compensation_note_reason_length_check",
                     "쓰는 코드가 아직 없다 — 배상을 넣는 입구가 `43a-4c` 다. 그 입구가 서면 pairs() 로 옮긴다"),
             Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),

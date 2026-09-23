@@ -68,7 +68,9 @@ class ScreenLengthTest {
             "app/checkout/checkout-form.tsx  cardNumber",
                     "상한이 @Size 가 아니라 @Pattern 안에 있다 — `[0-9][0-9 -]{10,23}[0-9]` 라 25자다",
             "app/checkout/checkout-form.tsx  postalCode",
-                    "상한이 @Pattern 안에 있다 — `^[0-9]{5}$` 라 5자다"));
+                    "상한이 @Pattern 안에 있다 — `^[0-9]{5}$` 라 5자다",
+            "app/seller/orders/[sellerOrderNumber]/ship-form.tsx  trackingNo",
+                    "상한이 @Pattern 안에 있다 — 숫자 14자리 사이마다 하이픈이 하나씩 끼면 27자다(`57`)"));
 
     /**
      * <b>같은 이름의 요청 칸이 서로 다른 상한을 가진 자리.</b> 화면이 어느 쪽으로 보내는지를
@@ -235,6 +237,7 @@ class ScreenLengthTest {
             Map.entry("app/me/account-forms.tsx  emailPassword", "〃"),
             Map.entry("app/me/account-forms.tsx  newPassword", "〃"),
             Map.entry("app/me/withdraw/withdraw-form.tsx  password", "〃"),
+            Map.entry("app/password-reset/reset-forms.tsx  newPassword", "〃 — 재설정(`Q180`)"),
             Map.entry("app/signup/signup-form.tsx  password", "〃"),
 
             // 아래 넷은 글자를 받는 칸이 아니다. maxLength 속성 자체가 안 걸린다.
@@ -245,12 +248,24 @@ class ScreenLengthTest {
             Map.entry("app/seller/products/new/product-form.tsx  stockCount", "〃"),
             Map.entry("app/seller/products/[productId]/images/image-manager.tsx  file",
                     "type=file 이다. 글자가 아니라 파일이고 크기·형식은 서버가 막는다(`Q140`)"),
+            Map.entry("app/me/reviews/my-review-photos.tsx  file",
+                    "type=file 이다. 글자가 아니라 파일이고 크기·형식·장수는 서버가 막는다(`Q174`)"),
             Map.entry("app/admin/roles/page.tsx  userId",
                     "type=number 다. maxLength 가 안 걸리고 아래쪽은 min 이 든다(`16`)"),
             Map.entry("app/seller/members/member-panel.tsx  roleCode",
                     "select 다. 고를 수 있는 값이 목록으로 닫혀 있다(`16a`)"),
             Map.entry("app/orders/[orderNumber]/review-form.tsx  rating",
                     "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q160`)"),
+            Map.entry("app/me/reviews/my-review-actions.tsx  rating",
+                    "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q171`)"),
+            Map.entry("app/products/[productId]/report-button.tsx  reason",
+                    "select 다. 네 사유뿐이고 서버 @Pattern 과 review_report_reason_check 가 든다(`Q171`)"),
+            Map.entry("app/copyright-report/report-form.tsx  imageId",
+                    "radio 다. 고를 수 있는 값이 그 상품의 사진 번호로 닫혀 있다(`Q183`)"),
+            Map.entry("components/product-actions.tsx  backToSale",
+                    "radio 다. 참·거짓 둘뿐이고 서버 record 가 Boolean 으로 받는다(`Q182`)"),
+            Map.entry("app/seller/orders/[sellerOrderNumber]/ship-form.tsx  carrierCode",
+                    "select 다. 택배사 다섯뿐이고 서버 Carrier 열거형과 seller_order_carrier_code_check 가 든다(`57`)"),
 
             // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
             // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라

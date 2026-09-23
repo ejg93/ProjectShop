@@ -2,6 +2,9 @@ package com.projectshop.shop.product;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -61,5 +64,27 @@ class ProductTransitionsTest {
         assertThat(ProductTransitions.all())
                 .filteredOn(t -> t.to() == ProductStatus.ON_SALE)
                 .hasSize(3);
+    }
+
+    /**
+     * 표의 줄마다 화면이 부르는 이름(`Q182`). **변이 시험이 이 함수를 빠른 레인이 안 부른다고 짚었다**(`Q188`) —
+     * 이름이 바뀌면 화면의 버튼이 조용히 사라진다({@code productActionsFor} 가 모르는 이름을 버린다).
+     */
+    @Test
+    @DisplayName("표의 줄마다 화면이 부르는 이름이 정해져 있다")
+    void namesEveryTransitionForTheScreen() {
+        Map<String, String> named = ProductTransitions.all().stream()
+                .collect(Collectors.toMap(t -> t.from() + ">" + t.to(), ProductTransitions::actionName));
+
+        assertThat(named).containsExactlyInAnyOrderEntriesOf(Map.of(
+                "DRAFT>PENDING_REVIEW", "SUBMIT_REVIEW",
+                "PENDING_REVIEW>ON_SALE", "APPROVE",
+                "PENDING_REVIEW>DRAFT", "REJECT",
+                "ON_SALE>SUSPENDED", "SUSPEND",
+                "SUSPENDED>ON_SALE", "RESUME",
+                "ON_SALE>BLOCKED", "BLOCK",
+                "SUSPENDED>BLOCKED", "BLOCK",
+                "BLOCKED>ON_SALE", "UNBLOCK",
+                "BLOCKED>DRAFT", "UNBLOCK"));
     }
 }

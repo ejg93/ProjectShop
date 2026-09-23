@@ -54,6 +54,9 @@ class AllowedTest {
 
         assertThat(allowed.covers("basic")).isTrue();
         assertThat(allowed.covers("payment")).isFalse();
+        assertThat(allowed.values())
+                .as("응답으로 내보내는 값이다 — 비면 화면이 볼 수 있는 필드 그룹을 하나도 모른다(`Q191`)")
+                .containsExactlyInAnyOrder("basic", "shipping");
     }
 
     @Test

@@ -13,6 +13,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import com.projectshop.shop.StorageTestBase;
+import com.projectshop.shop.support.ImagePipeline;
+import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -31,6 +33,11 @@ class CopyrightReportServiceTest extends StorageTestBase {
 
     @Autowired
     private CopyrightReportService service;
+
+    @Autowired
+    private CopyrightReportQuery query;
+
+    private static final Paging FIRST = new Paging(0, 20);
 
     @Autowired
     private ProductImageService imageService;
@@ -63,7 +70,7 @@ class CopyrightReportServiceTest extends StorageTestBase {
 
         long productId = productService.create(owner, tshirt(sellerId)).productId();
         image = imageService.upload(owner, productId,
-                new ProductImageService.Incoming("photo.jpg", ProductImageFixture.jpegBytes(80, 60)));
+                new ImagePipeline.Incoming("photo.jpg", ProductImageFixture.jpegBytes(80, 60)));
     }
 
     /**
@@ -146,6 +153,40 @@ class CopyrightReportServiceTest extends StorageTestBase {
                 .single();
 
         assertThat(decision).isEqualTo("rejected");
+    }
+
+    /**
+     * 판정하려면 신고를 볼 수 있어야 한다(`Q183`). 목록이 없던 동안은 절차가 있어도 돌릴 수가 없었다.
+     */
+    @Test
+    @DisplayName("관리자는 판정 전 신고를 보고, 판정하면 판정한 쪽으로 옮겨 간다")
+    void 관리자는_판정_전_신고를_보고_판정하면_옮겨_간다() {
+        long reportId = report();
+
+        assertThat(query.find(admin, true, FIRST).items())
+                .singleElement()
+                .satisfies(item -> {
+                    assertThat(item.copyrightReportId()).isEqualTo(reportId);
+                    assertThat(item.thumbnailUrl()).isNotNull();
+                    assertThat(item.decision()).isNull();
+                });
+
+        service.decide(admin, reportId, CopyrightDecision.REJECTED);
+
+        assertThat(query.find(admin, true, FIRST).items()).isEmpty();
+        assertThat(query.find(admin, false, FIRST).items())
+                .singleElement()
+                .satisfies(item -> assertThat(item.decision()).isEqualTo("REJECTED"));
+    }
+
+    @Test
+    @DisplayName("셀러는 자기 상품에 들어온 신고도 못 본다 — 신고의 상대다")
+    void 셀러는_신고를_못_본다() {
+        report();
+
+        assertThatThrownBy(() -> query.find(owner, true, FIRST))
+                .isInstanceOf(ShopException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_FORBIDDEN);
     }
 
     private long report() {

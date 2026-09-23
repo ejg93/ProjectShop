@@ -112,6 +112,12 @@ class TriggerCoverageTest extends PostgresTestBase {
                     "팔 수 없는 상태의 상품을 판매중으로 못 돌리게 막는다. `ProductQueryTest` 가 지난다"),
             Map.entry("product_image.product_image_limit",
                     "상품당 사진 수 상한을 넘기지 못하게 막는다. `ProductImageServiceTest` 가 지난다"),
+            Map.entry("review_image.review_image_limit",
+                    "후기당 사진 수 상한을 넘기지 못하게 막는다(`Q159`). 앱이 먼저 422 로 답해서 트리거는 `ReviewImageServiceTest` 의 행 삽입만 지난다"),
+            Map.entry("user_role.user_role_keeps_seller_owner",
+                    "살아 있는 셀러의 마지막 대표 역할을 없애지 못하게 막는다(`Q169`). `SellerOwnerRaceTest`·`SellerMemberServiceTest` 가 지난다"),
+            Map.entry("app_user.app_user_withdrawal_keeps_seller_owner",
+                    "마지막 대표의 탈퇴를 막는다(`Q169`). `SellerMemberServiceTest` 가 지난다"),
 
             // 5. 재고 — 둘
             Map.entry("sku_stock.sku_stock_records_initial",

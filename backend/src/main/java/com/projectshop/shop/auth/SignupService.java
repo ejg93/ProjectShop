@@ -1,5 +1,6 @@
 package com.projectshop.shop.auth;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,11 +29,14 @@ public class SignupService {
 
     private final JdbcClient jdbc;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicy passwordPolicy;
     private final AuditLog auditLog;
 
-    public SignupService(JdbcClient jdbc, PasswordEncoder passwordEncoder, AuditLog auditLog) {
+    public SignupService(JdbcClient jdbc, PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy,
+            AuditLog auditLog) {
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
+        this.passwordPolicy = passwordPolicy;
         this.auditLog = auditLog;
     }
 
@@ -111,6 +115,11 @@ public class SignupService {
     }
 
     private long insertUser(Command command) {
+        // 흔한·추측하기 쉬운 비밀번호를 거른다(`D14-2`). 이메일 앞부분과 이름은 이 사람에게서만 나오는 문맥이라
+        // 요청 검증(`@Password`)이 못 보고 여기서 넘긴다.
+        passwordPolicy.requireAcceptable(command.password(),
+                Arrays.asList(PasswordPolicy.localPartOf(command.email()), command.displayName()));
+
         // 이메일 중복을 미리 조회해서 막지 않는다. 조회와 삽입 사이에 남이 끼어들 수 있어서
         // 어차피 유니크 인덱스가 최종 판단이다. 둘 다 두면 같은 규칙이 두 군데가 된다.
         try {

@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.support.ImagePipeline;
 import com.projectshop.shop.support.TaxRetention;
 
 /**
@@ -104,9 +105,11 @@ public class TransactionPurgeService {
     private static final int OUTBOX_DAYS = 7;
 
     private final JdbcClient jdbc;
+    private final ImagePipeline images;
 
-    TransactionPurgeService(JdbcClient jdbc) {
+    TransactionPurgeService(JdbcClient jdbc, ImagePipeline images) {
         this.jdbc = jdbc;
+        this.images = images;
     }
 
     /**
@@ -391,6 +394,38 @@ public class TransactionPurgeService {
     }
 
     /**
+     * 파기할 주문들의 후기 사진을 저장소와 표에서 지운다(`Q159`). 후기를 지우기 바로 앞에 부른다.
+     *
+     * <p><b>후기 사진은 공개 게시물이다</b>(사용자 선택) — 보유기간이 후기와 같아서 후기가 사라지는 이 자리가 그 끝이다.
+     */
+    private void purgeReviewImages(List<Long> orderIds) {
+        record Keys(long reviewImageId, String objectKey, String thumbnailKey) {}
+
+        List<Keys> keys = jdbc.sql("""
+                        select ri.review_image_id, ri.object_key, ri.thumbnail_key
+                          from review_image ri
+                          join review r on r.review_id = ri.review_id
+                         where r.order_item_id in (
+                             select order_item_id from order_item
+                              where seller_order_id in (
+                                  select seller_order_id from seller_order where order_id in (:ids)))
+                        """)
+                .param("ids", orderIds)
+                .query((rs, rowNum) -> new Keys(rs.getLong("review_image_id"),
+                        rs.getString("object_key"), rs.getString("thumbnail_key")))
+                .list();
+
+        for (Keys key : keys) {
+            images.delete(key.objectKey(), key.thumbnailKey());
+        }
+        if (!keys.isEmpty()) {
+            jdbc.sql("delete from review_image where review_image_id in (:ids)")
+                    .param("ids", keys.stream().map(Keys::reviewImageId).toList())
+                    .update();
+        }
+    }
+
+    /**
      * 보존 기간이 지난 주문을 지운다.
      *
      * <p><b>순서가 있다.</b> {@code order_item} → {@code seller_order} → {@code shop_order} 다 —
@@ -411,6 +446,12 @@ public class TransactionPurgeService {
         jdbc.sql("delete from coupon_issue where used_order_id in (:ids)")
                 .param("ids", orderIds)
                 .update();
+
+        // **후기 사진은 저장소까지 지운다**(`Q159`). 행은 후기의 cascade 로도 사라지지만 **cascade 를 파기
+        // 수단으로 쓰지 않는다**(`D23`) — 그렇게 두면 공개 버킷에 주인 없는 사진이 남는다. 열쇠를 잃기 전에
+        // 객체를 먼저 지우고 행을 지운다(`ImagePipeline.delete`). 이 트랜잭션이 뒤에서 실패하면 객체만 먼저
+        // 사라진 행이 남는데, 보존기간이 끝나 곧 지워질 후기라 그쪽이 덜 나쁘다.
+        purgeReviewImages(orderIds);
 
         // 후기가 주문 줄을 restrict 로 잡는다(`46`). 안 지우면 아래 delete 가 통째로 실패한다.
         //

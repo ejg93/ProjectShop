@@ -3,6 +3,7 @@ import Link from "next/link";
 import { apiSessionOptional } from "@/lib/api-session";
 import { can, type Me } from "@/lib/permissions";
 
+import { EndImpersonationButton } from "./end-impersonation-button";
 import { LogoutButton } from "./logout-button";
 
 /**
@@ -68,6 +69,42 @@ function canSeeMembers(me: Me | null): boolean {
   return can(me, "seller_member", "read");
 }
 
+/** 받은 후기에 답한다(`Q171`). 셀러 사람만 받는다 — 관리자에게는 안 준다(`V85`) */
+function canReplyReviews(me: Me | null): boolean {
+  return can(me, "review", "reply");
+}
+
+/** 상품을 검수한다(`Q182`). 승인·반려·차단은 관리자만이다 — 셀러가 자기 상품을 승인하면 검수가 뜻이 없다 */
+function canReviewProducts(me: Me | null): boolean {
+  return can(me, "product", "review");
+}
+
+/** 저작권 신고를 판정한다(`Q183`). 판정과 같은 권한이 목록을 연다 — 셀러는 신고의 상대라 못 본다 */
+function canModerateProducts(me: Me | null): boolean {
+  return can(me, "product", "moderate");
+}
+
+/**
+ * 환불을 승인·반려한다(`Q185`). 관리자만이다 — 환급 의무자가 우리라서 이행 여부를 남이 못 정한다(`D2` R5).
+ * 요청 권한({@code request_refund})과 갈린 권한이라 고객·셀러에게는 이 링크가 없다
+ */
+function canDecideRefunds(me: Me | null): boolean {
+  return can(me, "payment", "refund");
+}
+
+/**
+ * 매출 통계로 갈 수 있나(`41a`). 정산서와 같이 셀러와 관리자·감사자가 같은 링크를 쓴다 — 합의 범위는 서버가 가른다.
+ * 직원에게는 없는 권한이다(`V103`)
+ */
+function canReadSalesStats(me: Me | null): boolean {
+  return can(me, "sales_stats", "read");
+}
+
+/** 후기 신고를 처리한다(`Q171`). 관리자만이다 — 셀러에게 열면 불리한 후기를 내리는 자리가 된다 */
+function canModerateReviews(me: Me | null): boolean {
+  return can(me, "review", "moderate");
+}
+
 /**
  * 모든 화면이 쓰는 머리. 어디에 있든 상품·장바구니·계정으로 갈 수 있다.
  *
@@ -94,6 +131,18 @@ export async function SiteHeader() {
 
   return (
     <header className="border-b border-border">
+      {/*
+        대행 중이면 맨 위에 띠를 둔다(`16b`). 화면이 그 사람의 것이라 관리자가 **지금 누구로 보고 있는지**를
+        잊으면 그 화면을 자기 것으로 읽는다 — 역할을 띠의 말로 알리고(role=status) 끝내는 길을 같이 둔다.
+      */}
+      {me?.impersonatedBy ? (
+        <div role="status" className="bg-danger-text text-surface">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-2 text-xs">
+            <span>다른 사용자의 화면을 보는 중입니다. 보기만 할 수 있습니다.</span>
+            <EndImpersonationButton />
+          </div>
+        </div>
+      ) : null}
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
         <Link href="/" className="font-semibold tracking-tight">
           ProjectShop
@@ -125,6 +174,9 @@ export async function SiteHeader() {
           {canManageProducts(me) ? (
             <HeaderLink href="/seller/inquiries">받은 문의</HeaderLink>
           ) : null}
+          {canReplyReviews(me) ? (
+            <HeaderLink href="/seller/reviews">받은 후기</HeaderLink>
+          ) : null}
           {/*
             멤버는 **속한 사람이면 본다**(`16a`). 부르고 거두는 것은 대표만이고, 그 갈림은
             응답의 `canManage` 가 든다 — 링크를 대표에게만 보이면 담당자가 같이 일하는 사람을
@@ -139,6 +191,9 @@ export async function SiteHeader() {
           */}
           {canReadSettlements(me) ? (
             <HeaderLink href="/seller/settlements">정산서</HeaderLink>
+          ) : null}
+          {canReadSalesStats(me) ? (
+            <HeaderLink href="/seller/sales">매출</HeaderLink>
           ) : null}
           {/*
             감사 기록은 관리자·감사자만 본다(`V12`). **관리자에게 갈 화면이 여기 하나뿐이다**
@@ -155,6 +210,20 @@ export async function SiteHeader() {
 
           {canManageCoupons(me) ? (
             <HeaderLink href="/admin/coupons">쿠폰</HeaderLink>
+          ) : null}
+
+          {canModerateReviews(me) ? (
+            <HeaderLink href="/admin/review-reports">후기 신고</HeaderLink>
+          ) : null}
+
+          {canReviewProducts(me) ? (
+            <HeaderLink href="/admin/products">상품 검수</HeaderLink>
+          ) : null}
+          {canModerateProducts(me) ? (
+            <HeaderLink href="/admin/copyright-reports">저작권 신고</HeaderLink>
+          ) : null}
+          {canDecideRefunds(me) ? (
+            <HeaderLink href="/admin/refunds">환불 처리</HeaderLink>
           ) : null}
         </nav>
 

@@ -1,7 +1,11 @@
 import Link from "next/link";
 
 import { apiPublic } from "@/lib/api";
+import { apiSessionOptional } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
+import { can, type Me } from "@/lib/permissions";
+
+import { ReportButton } from "./report-button";
 
 /**
  * 후기 한 줄(`Q160`).
@@ -19,6 +23,8 @@ type Review = {
   createdAt: string;
   /** 지금 보는 사람이 쓴 것인가. 로그인 안 했으면 전부 거짓 */
   mine: boolean;
+  /** 사진. 목록은 썸네일로 그리고 누르면 원본을 연다(`Q159`). 둘 다 만료 5분 서명 URL 이다 */
+  photos: { thumbnailUrl: string; originalUrl: string }[];
 };
 
 type ReviewPage = {
@@ -50,6 +56,9 @@ export async function ProductReviews({ productId }: { productId: number }) {
   const page = await apiPublic<ReviewPage>(
     `/api/products/${productId}/reviews?page=0&size=${PAGE_SIZE}`,
   );
+  // 신고는 로그인한 사람만 한다(`Q171`). 목록은 공개 입구로 읽고(`Q170`), 세션으로는
+  // 버튼을 그릴지만 묻는다 — 머리글(`site-header`)이 같은 목록을 같은 방법으로 읽는다.
+  const canReport = can(await apiSessionOptional<Me>("/api/me/permissions"), "review", "report");
 
   return (
     <section className="grid gap-4 border-t border-border pt-8">
@@ -99,12 +108,32 @@ export async function ProductReviews({ productId }: { productId: number }) {
 
               <p className="whitespace-pre-wrap text-sm">{review.body}</p>
 
+              {review.photos.length === 0 ? null : (
+                <ul className="flex flex-wrap gap-2">
+                  {review.photos.map((photo, index) => (
+                    <li key={photo.thumbnailUrl}>
+                      <a href={photo.originalUrl} target="_blank" rel="noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photo.thumbnailUrl}
+                          alt={`${review.writerName} 님의 후기 사진 ${index + 1}`}
+                          className="h-20 w-20 rounded-ui border border-border object-cover"
+                        />
+                        <span className="sr-only">(새 창에서 원본 열기)</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
               {review.reply ? (
                 <div className="grid gap-1 rounded-ui border border-border bg-surface-raised px-3 py-2">
                   <p className="text-xs font-medium">판매자 답글</p>
                   <p className="whitespace-pre-wrap text-sm">{review.reply}</p>
                 </div>
               ) : null}
+
+              {canReport ? <ReportButton reviewId={review.reviewId} /> : null}
             </li>
           ))}
         </ul>

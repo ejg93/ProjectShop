@@ -1,9 +1,12 @@
 import Link from "next/link";
 
 import { apiPublic } from "@/lib/api";
+import { apiSessionOptional } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
+import { can, type Me } from "@/lib/permissions";
 
 import { AskForm } from "./ask-form";
+import { BlockInquiryButton } from "./block-inquiry-button";
 
 /**
  * 공개 Q&A 한 줄(`59`). <b>낸 사람을 실을 칸이 아예 없다</b> —
@@ -33,6 +36,8 @@ type Page = { items: PublicEntry[]; page: number; size: number; total: number };
  */
 export async function ProductInquiries({ productId }: { productId: number }) {
   const page = await apiPublic<Page>(`/api/products/${productId}/inquiries?size=20`);
+  // 게시 중단은 관리자만 한다(`Q184`, `R34`). 목록은 공개 입구로 읽고 세션으로는 버튼을 그릴지만 묻는다.
+  const canBlock = can(await apiSessionOptional<Me>("/api/me/permissions"), "inquiry", "block");
 
   return (
     <section aria-labelledby="inquiry-heading" className="grid gap-4 border-t border-border pt-6">
@@ -65,6 +70,8 @@ export async function ProductInquiries({ productId }: { productId: number }) {
                   <p className="whitespace-pre-wrap">{item.answer}</p>
                 </div>
               )}
+
+              {canBlock ? <BlockInquiryButton inquiryNumber={item.inquiryNumber} /> : null}
             </li>
           ))}
         </ul>

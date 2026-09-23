@@ -1,6 +1,7 @@
 package com.projectshop.shop.account;
 
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -14,6 +15,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.VisibleFieldGroups;
 import com.projectshop.shop.auth.PermissionEvaluator;
+import com.projectshop.shop.auth.PasswordPolicy;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 
@@ -32,14 +34,16 @@ public class AccountService {
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicy passwordPolicy;
     private final AuditLog auditLog;
 
     AccountService(JdbcClient jdbc, PermissionEvaluator evaluator,
-            PasswordEncoder passwordEncoder, AuditLog auditLog) {
+            PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy, AuditLog auditLog) {
 
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.passwordEncoder = passwordEncoder;
+        this.passwordPolicy = passwordPolicy;
         this.auditLog = auditLog;
     }
 
@@ -143,17 +147,24 @@ public class AccountService {
     public void changePassword(long userId, String currentPassword, String newPassword) {
         requireUpdatePermission(userId);
 
-        String stored = jdbc.sql(
-                        "select password_hash from app_user where user_id = :id and deleted_at is null")
+        record Stored(String passwordHash, String email, String displayName) {}
+        Stored stored = jdbc.sql("""
+                        select password_hash, email, display_name from app_user
+                         where user_id = :id and deleted_at is null
+                        """)
                 .param("id", userId)
-                .query(String.class)
+                .query(Stored.class)
                 .single();
 
-        if (!passwordEncoder.matches(currentPassword, stored)) {
+        if (!passwordEncoder.matches(currentPassword, stored.passwordHash())) {
             // 로그인 실패와 같은 문구를 쓸 이유가 없다. 여기는 이미 본인이 로그인해 있는 자리라
             // 계정 존재 여부가 새지 않는다(D14).
             throw new ShopException(ErrorCode.PASSWORD_MISMATCH, "현재 비밀번호가 맞지 않는다");
         }
+
+        // 흔한·추측하기 쉬운 비밀번호를 거른다(`D14-2`). 가입에서만 막으면 바꿔서 우회한다.
+        passwordPolicy.requireAcceptable(newPassword,
+                Arrays.asList(PasswordPolicy.localPartOf(stored.email()), stored.displayName()));
 
         jdbc.sql("update app_user set password_hash = :hash where user_id = :id")
                 .param("hash", passwordEncoder.encode(newPassword))

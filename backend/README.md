@@ -58,6 +58,8 @@ curl localhost:8080/actuator/health
 | `EVENTS_SINK` | `none`. `kafka` 로 켜면 아웃박스 표의 사건이 브로커로 나간다. **배포는 `none` 이다** — 브로커를 안 올린다 |
 | `RATE_LIMIT_ENABLED` | `true`. 끄면 로그인·가입 입구의 요청 제한 필터가 아예 안 붙는다(`SecurityConfig`). **배포에서 끄지 않는다** — 느린 레인이 401 자리에 429 를 받아서 끄는 값이라 시험 전용이다 |
 | `RATE_LIMIT_KEY_PREFIX` | `rate:`. 제한 열쇠 앞에 붙는다. **관리형 Redis 를 남과 나눠 쓸 때만 고친다** — 세션의 `shop:session` 과 안 섞이게 갈라 둔 값이다 |
+| `APP_PASSWORD_RESET_URL_TEMPLATE` | `http://localhost:3000/password-reset?token={token}`. 재설정 메일이 여는 화면(`Q180`). **지금은 발송기가 목업이라(`MockNotificationSender`) 메일이 안 나가서 배포에 영향이 없다** — 진짜 발송기를 붙이는 날 배포의 프론트 주소로 준다. 안 주면 메일의 링크가 받는 사람의 `localhost` 를 연다 |
+| `APP_EMAIL_CHANGE_URL_TEMPLATE` | `http://localhost:3000/email-confirm?token={token}`. 이메일 변경 확인 메일이 여는 화면(`Q181`). 위 재설정과 같은 사정이다 — 발송기가 목업인 동안은 영향이 없고, 진짜 발송기를 붙이는 날 배포의 프론트 주소로 준다 |
 
 ## 호스팅에 올릴 때
 

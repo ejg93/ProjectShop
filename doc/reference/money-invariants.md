@@ -163,6 +163,9 @@
 | `sum(refund_item.amount) <= order_item.line_amount - order_item.discount_amount` | `assert_refund_item_within_order_item` |
 | `sum(refund_item.commission_refund) <= order_item.commission_amount` | `assert_refund_item_within_order_item` |
 | 항목을 통째로 환불하면 `sum(commission_refund) = order_item.commission_amount` | 테스트 |
+| `sum(refund_item.discount_refund) <= order_item.discount_amount` | `assert_refund_item_within_order_item`(`Q168`) |
+| 항목을 통째로 환불하면 `sum(amount + discount_refund) = order_item.line_amount` | 테스트(`RefundMathTest`) |
+| 정산 뒤 통째로 환불하면 두 정산서의 합 = 배송비 | 테스트(`SettlementCloseBatchTest`) |
 
 **천장이 「실제로 받은 값」이다**(`Q164`). `50` 이 결제액을 「항목합 + 배송비합 − 할인합」으로 줄였는데
 환불 쪽이 할인 전 값을 그대로 쓰고 있었다 — **전액 환불은 결제액 상한에 걸려 막히고**, 부분 환불은
@@ -186,6 +189,11 @@ commission_refund = 마지막 수량이면  commission_amount - 이미 나간 �
 수수료가 항목 단위로 이미 잘린 값이라(`money-rules.md`) 수량으로 또 나누면 1원이 남는데,
 안 몰아 주면 **통째로 환불했는데 그 1원이 정산에 우리 몫으로 남는다.** 위 표의 마지막 줄이
 그것을 잡는 자리고, 상한만 보는 트리거로는 안 걸려서 강제 지점이 테스트다.
+
+**할인도 같은 규칙이다**(`Q168`). `discount_refund` 를 환불 순간에 박제하고 잔액을 마지막 수량에 몬다.
+정산은 `sale_reversal = −(amount + discount_refund)`·`coupon_discount_reversal = +discount_refund` 로 읽기만 한다 —
+**판매(`line_amount`, 할인 전)와 판매되돌림이 같은 축에 선다.** 정산이 비율로 다시 계산하던 때는 나눠서 환불하면
+버림이 쌓였고, 그보다 앞서 되돌림만 할인 후 축이라 **정산 뒤 환불할 때마다 셀러가 할인액을 한 번 더 받았다**(마무리 44차 독립 리뷰).
 
 배송비는 나누지 않는다. `seller_order` 단위라 항목별로 가를 근거가 없어서,
 그 묶음이 비워질 때 전액이고 그전에는 0 이다.

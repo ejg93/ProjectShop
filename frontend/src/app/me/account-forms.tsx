@@ -213,6 +213,8 @@ function messageOf(error: unknown): string {
   switch (error.slug) {
     case "password-mismatch":
       return "현재 비밀번호가 맞지 않습니다.";
+    case "password-too-common":
+      return "흔하거나 추측하기 쉬운 비밀번호입니다. 이메일이나 이름이 들어가지 않은 다른 비밀번호를 써 주세요.";
     case "email-taken":
       return "이미 가입된 이메일입니다.";
     case "account-forbidden":

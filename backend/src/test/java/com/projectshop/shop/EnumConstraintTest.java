@@ -134,7 +134,8 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("seller.MailOrderExemption", List.of("seller_exempt_reason_check"));
         pairs.put("product.ProductStatus", List.of("product_status_check"));
         pairs.put("product.SkuStatus", List.of("sku_status_check"));
-        pairs.put("product.ImageContentType", List.of("product_image_content_type_check"));
+        pairs.put("support.ImageContentType", List.of("product_image_content_type_check",
+                                                     "review_image_content_type_check"));
         pairs.put("product.CopyrightDecision", List.of("copyright_report_decision_check"));
         pairs.put("support.WithdrawalRestrictionReason", List.of("product_withdrawal_reason_check"));
         pairs.put("product.StockReason", List.of("sku_stock_movement_reason_check"));
@@ -145,6 +146,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("order.ContractClause", List.of("order_contract_document_clause_check"));
         pairs.put("order.ReturnStatus", List.of("return_request_status_check"));
         pairs.put("order.ReturnShippingFeeBearer", List.of("return_shipping_fee_bearer_check"));
+        pairs.put("order.Carrier", List.of("seller_order_carrier_code_check"));
         pairs.put("order.OrderStatusService$ReturnReason", List.of("seller_order_return_reason_check",
                                                                   "return_request_reason_code_check"));
         pairs.put("payment.PaymentMethod", List.of("payment_method_check"));
@@ -155,6 +157,8 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("inquiry.InquiryKind", List.of("inquiry_kind_check"));
         pairs.put("inquiry.InquiryStatus", List.of("inquiry_status_check"));
         pairs.put("inquiry.BlockReason", List.of("inquiry_blocked_reason_check"));
+        pairs.put("review.ReviewReason", List.of("review_report_reason_check", "review_blocked_reason_check"));
+        pairs.put("review.ReviewReportStatus", List.of("review_report_status_check"));
         pairs.put("notification.NotificationKind", List.of("notification_kind_check",
                                                           "notification_template_kind_check"));
         pairs.put("notification.NotificationEventType", List.of("notification_event_type_check"));

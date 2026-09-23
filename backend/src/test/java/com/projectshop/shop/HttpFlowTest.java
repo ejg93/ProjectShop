@@ -502,7 +502,10 @@ class HttpFlowTest extends HttpTestBase {
             assertThat(list.body()).contains("\"seller_order_number\"");
 
             String number = sellerOrderNumberOf(product.sellerId());
-            assertThat(seller.post("/api/shipments/" + number + "/ship", null).is(204))
+            // 발송은 송장을 필수로 받는다(`57`).
+            assertThat(seller.post("/api/shipments/" + number + "/ship", """
+                            {"carrier_code": "CJ", "tracking_no": "1234-5678-9012"}
+                            """).is(204))
                     .as("셀러 처리 경로가 안 열리면 주문이 영원히 준비중이다")
                     .isTrue();
         }

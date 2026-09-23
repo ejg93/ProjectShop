@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 import { WithdrawForm } from "./withdraw-form";
 
@@ -80,6 +80,19 @@ describe("탈퇴 화면", () => {
 
     // 눈으로 보면 문구가 뜨지만 역할이 없으면 스크린 리더는 안 읽는다(`D20`).
     expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("마지막 대표면 무엇을 하면 되는지 말한다", async () => {
+    // 대표가 0인 셀러는 잠긴다(`Q169`). 「탈퇴하지 못했습니다」만 뜨면 사용자가 같은 버튼을 또 누른다.
+    vi.mocked(api).mockRejectedValue(
+      new ApiError(422, "tag:projectshop.example,2026:error:withdrawal-last-owner", "last owner"),
+    );
+
+    const { container } = render(<WithdrawForm />);
+    fireEvent.submit(container.querySelector("form")!);
+
+    expect(await screen.findByText(/대표를 넘긴 뒤/)).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("보내기 버튼이 처음부터 눌린 채로 있지 않다", () => {

@@ -196,6 +196,24 @@ public class BatchRuns {
     }
 
     /**
+     * 기간 안에서 그 배치가 성공한 기준일들(`41`). 날마다 {@link #succeeded} 를 부르면 기간 길이만큼 질의가 나간다.
+     *
+     * @param to 이날까지 든다
+     */
+    public Set<LocalDate> succeededBetween(String batchName, LocalDate from, LocalDate to) {
+        return jdbc.sql("""
+                        select distinct baseline_date from batch_run
+                         where batch_name = :name and status = 'succeeded'
+                           and baseline_date between :from and :to
+                        """)
+                .param("name", batchName)
+                .param("from", from)
+                .param("to", to)
+                .query(LocalDate.class)
+                .set();
+    }
+
+    /**
      * 그 회차를 다시 돌려야 하나(`D19` 2층).
      *
      * <p>셋을 다 만족해야 한다 — <b>아직 성공한 적이 없고</b>, <b>마지막 회차가 다시 해 볼 것</b>이고,

@@ -40,7 +40,8 @@ public class ProductReviewService {
         this.auditLog = auditLog;
     }
 
-    private record Product(long sellerId, ProductStatus status) {
+    /** @param createdByUserId 등록자. 판정 대상에 실어야 담당자의 {@code own} 이 덮인다(`Q182`, `Q161` 과 같은 구멍) */
+    private record Product(long sellerId, long createdByUserId, ProductStatus status) {
     }
 
     /** 검수를 신청한다. {@code draft} → {@code pending_review} */
@@ -150,8 +151,8 @@ public class ProductReviewService {
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_TRANSITION_NOT_ALLOWED,
                         product.status().code() + " 에서 " + to.code() + " 로 갈 수 없다"));
 
-        if (!evaluator.decide(actorUserId, "product", action, Target.ofSeller(product.sellerId()))
-                .allowed()) {
+        if (!evaluator.decide(actorUserId, "product", action,
+                        Target.of(product.createdByUserId(), product.sellerId())).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
         return product;
@@ -190,11 +191,11 @@ public class ProductReviewService {
 
     private Product load(long productId) {
         return jdbc.sql("""
-                        select seller_id, status from product
+                        select seller_id, created_by_user_id, status from product
                          where product_id = :id and deleted_at is null
                         """)
                 .param("id", productId)
-                .query((rs, rowNum) -> new Product(rs.getLong("seller_id"),
+                .query((rs, rowNum) -> new Product(rs.getLong("seller_id"), rs.getLong("created_by_user_id"),
                         ProductStatus.of(rs.getString("status"))))
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));

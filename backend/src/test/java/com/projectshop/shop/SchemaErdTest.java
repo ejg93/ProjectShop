@@ -56,7 +56,7 @@ class SchemaErdTest extends PostgresTestBase {
                 "compensation", "compensation_note", "payment", "payment_card",
                 "idempotency_key", "cart", "cart_item", "coupon", "coupon_issue"));
         GROUPS.put("product", List.of(
-                "review", "review_reply", "review_report",
+                "review", "review_image", "review_reply", "review_report",
                 "product", "product_image", "product_option", "product_option_value",
                 "product_substantiation", "sku", "sku_option_value", "sku_stock",
                 "sku_stock_movement", "copyright_report"));
@@ -66,7 +66,7 @@ class SchemaErdTest extends PostgresTestBase {
                 "seller_invitation"));
         GROUPS.put("settlement", List.of(
                 "settlement", "settlement_cycle", "settlement_item",
-                "refund", "refund_item", "refund_note"));
+                "refund", "refund_item", "refund_note", "seller_daily_sales"));
         GROUPS.put("permission", List.of(
                 "permission", "permission_field_group", "role",
                 "role_permission", "role_permission_field", "user_role"));

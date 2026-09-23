@@ -121,6 +121,7 @@ SKU 를 물리 삭제하지 않으므로(수명 컬럼을 쓴다) 실제로 걸�
 | `review` → `order_item` | **restrict** | 무엇에 대한 후기인가가 끊기면 안 된다. 거래 기록이 5년 남는다(`R6`) |
 | `review` → `product`·`app_user` | **restrict** | 같은 이유. 어긋나는 것은 `review_check_target` 이 막는다 |
 | `review_reply`·`review_report` → `review` | cascade | 후기가 없으면 답글도 신고도 가리킬 것이 없다. 애그리거트 안쪽 |
+| `review_image` → `review` | cascade | 후기가 없으면 사진도 가리킬 것이 없다. 애그리거트 안쪽(`Q159`). **파기는 cascade 가 아니라 `TransactionPurgeService` 가 저장소 객체와 같이 지운다** — cascade 로 두면 행만 사라지고 공개 버킷에 사진이 남는다 |
 | `coupon_issue` → `coupon`·`app_user` | **restrict** | 나간 쿠폰이 가리킬 곳을 잃으면 안 된다. 정의를 지우려면 발급부터 거둔다 |
 | `coupon_issue` → `shop_order`(쓴 주문) | **restrict** | 할인액이 정산의 근거라 주문이 먼저 사라지면 안 된다 |
 | `seller_invitation` → `role` | **restrict** | 초대가 가리키는 역할은 먼저 못 지운다 |
@@ -233,6 +234,7 @@ AppUser ─┬─ UserRole                (user_role)
 | `policy_document` | 문안의 판. `order_contract_document` 가 restrict 로 가리킨다 |
 | `notification_template` | 위와 같다 |
 | `batch_run` | 회차 기록. 외래키가 없다 |
+| `seller_daily_sales` | 파생 집계(`40`). 원장에서 언제든 다시 만든다 — 셀러를 restrict 로 가리킬 뿐 어느 덩어리에도 안 속한다. **원장이 이긴다**: 갈리면 이 표를 고치지 않고 다시 센다 |
 | `copyright_report` | 신고 기록(`Q94`, `D2` `R42`). **사진이 사라져도 남는다** — `product_image_id` 가 `set null` 이고 `product_id` 가 남아서 무엇을 내렸는지를 든다. 접수된 사실 자체가 절차를 돌린 증거라 지우지 않는다 |
 | `audit_log` | 사건 기록. 외래키가 없다 — 계정이 파기돼도 남아야 한다(`D13` 「감사 로그는 예외다」) |
 | `outbox_event` | 바깥에 알릴 사건(`Q57`, `D12`). **외래키가 없다** — 원천 행이 파기돼도 보낸 사실은 남고, 소비자가 이미 받았을 수 있다. 채우는 것은 앱이 아니라 원천 표의 트리거다 |

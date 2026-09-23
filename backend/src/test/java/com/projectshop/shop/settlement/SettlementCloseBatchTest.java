@@ -180,6 +180,52 @@ class SettlementCloseBatchTest extends PostgresTestBase {
                     .isZero();
         }
 
+        /**
+         * <b>거래가 통째로 없어지면 셀러에게 남는 것은 배송비뿐이다</b>(`Q168`). 이 흐름(정산 뒤
+         * 결제 오류 환불)은 배송비를 안 되돌린다.
+         *
+         * <p>쿠폰 줄끼리만 보면 초록이었다 — 위 시험이 그렇다. 틀린 것은 <b>판매되돌림이 할인 후 축</b>이라
+         * 판매 10,000 에 되돌림 −9,000 이 선 것이었고, 그 1,000 은 쿠폰 줄이 아니라 두 회차의
+         * <b>합계</b>에서만 드러난다. 지연 트리거가 롤백 시험에서 안 터지므로 합을 직접 센다.
+         */
+        @Test
+        @DisplayName("셀러가 문 쿠폰 주문을 정산 뒤 통째로 환불하면 두 정산서의 합이 배송비다")
+        void 셀러가_문_쿠폰_주문을_정산_뒤_통째로_환불하면_두_정산서의_합이_배송비다() {
+            assertThat(netAfterFullRefund("seller"))
+                    .as("1,000 이 남으면 정산 뒤 환불할 때마다 셀러가 할인액을 한 번 더 받는다")
+                    .isEqualTo(SHIPPING_FEE);
+        }
+
+        @Test
+        @DisplayName("몰이 문 쿠폰 주문을 정산 뒤 통째로 환불하면 두 정산서의 합이 배송비다")
+        void 몰이_문_쿠폰_주문을_정산_뒤_통째로_환불하면_두_정산서의_합이_배송비다() {
+            assertThat(netAfterFullRefund("mall"))
+                    .as("몰 부담이면 셀러는 정가를 받았고 정가를 토해 낸다 — 할인이 끼면 안 된다")
+                    .isEqualTo(SHIPPING_FEE);
+        }
+
+        private long netAfterFullRefund(String bearer) {
+            long sellerOrderId = confirmedOrderWithCoupon(PERIOD_END, bearer, 1_000);
+            prerequisiteSucceeded(PERIOD_END);
+            batch.close(PERIOD_END);
+
+            LocalDate nextEnd = PERIOD_END.plusMonths(1).withDayOfMonth(
+                    PERIOD_END.plusMonths(1).lengthOfMonth());
+            approveRefund(sellerOrderId, nextEnd);
+            prerequisiteSucceeded(nextEnd);
+            batch.close(nextEnd);
+
+            return jdbc.sql("""
+                            select coalesce(sum(i.amount), 0) from settlement_item i
+                              join settlement s on s.settlement_id = i.settlement_id
+                             where s.seller_id = :sellerId
+                               and i.kind <> 'carryover'
+                            """)
+                    .param("sellerId", sellerId)
+                    .query(Long.class)
+                    .single();
+        }
+
         @Test
         @DisplayName("몰이 문 쿠폰은 줄이 안 선다")
         void 몰이_문_쿠폰은_줄이_안_선다() {
@@ -639,6 +685,30 @@ class SettlementCloseBatchTest extends PostgresTestBase {
         OffsetDateTime decidedAt = decidedOn.atTime(12, 0)
                 .atZone(BusinessCalendar.ZONE).toOffsetDateTime();
 
+        // **할인을 뺀 값이 실제로 돌려준 대금이다**(`Q164`). 예전에는 `PRICE`(할인 전)를 넣어서
+        // 그 1,000 이 정산의 이중 계상과 정확히 상쇄됐고, 쿠폰 쓴 주문의 되돌림 버그를 못 잡았다(`Q168`).
+        long discount = jdbc.sql(
+                        "select discount_amount from order_item where seller_order_id = :id")
+                .param("id", sellerOrderId)
+                .query(Long.class)
+                .single();
+        long refunded = PRICE - discount;
+
+        // **환불에는 결제가 있어야 한다.** 이 fixture 의 주문은 결제 행 없이 구매확정까지 갔고,
+        // 환불 트리거가 지연이라 그 거짓이 안 드러났다 — 아래에서 트리거를 켜자 「결제 승인이 없는
+        // 주문의 환불이다」로 거부됐다(`Q168`). 한 주문에 두 번 부르는 시험이 있어서 없을 때만 넣는다.
+        jdbc.sql("""
+                        insert into payment (order_id, method, amount, status, approval_number)
+                        select so.order_id, 'card', o.payable_amount, 'approved', 'AP-' || so.order_id
+                          from seller_order so
+                          join shop_order o on o.order_id = so.order_id
+                         where so.seller_order_id = :id
+                           and not exists (select 1 from payment p
+                                            where p.order_id = so.order_id and p.status = 'approved')
+                        """)
+                .param("id", sellerOrderId)
+                .update();
+
         long refundId = jdbc.sql("""
                         insert into refund (refund_number, seller_order_id, status, reason_code,
                                             amount, requested_by_type, requested_by_user_id,
@@ -650,7 +720,7 @@ class SettlementCloseBatchTest extends PostgresTestBase {
                         """)
                 .param("number", "R-" + OrderFixture.sellerOrderNumber().substring(2))
                 .param("sellerOrderId", sellerOrderId)
-                .param("amount", PRICE)
+                .param("amount", refunded)
                 .param("decidedAt", decidedAt)
                 .query(Long.class)
                 .single();
@@ -663,14 +733,21 @@ class SettlementCloseBatchTest extends PostgresTestBase {
 
         jdbc.sql("""
                         insert into refund_item (refund_id, order_item_id, quantity,
-                                                 amount, commission_refund)
-                        values (:refundId, :orderItemId, 1, :amount, :commission)
+                                                 amount, commission_refund, discount_refund)
+                        values (:refundId, :orderItemId, 1, :amount, :commission, :discount)
                         """)
                 .param("refundId", refundId)
                 .param("orderItemId", orderItemId)
-                .param("amount", PRICE)
+                .param("amount", refunded)
                 .param("commission", COMMISSION)
+                .param("discount", discount)
                 .update();
+
+        // **환불 상한을 여기서 돌린다.** 트리거가 지연이라 롤백되는 시험에서는 안 터진다 —
+        // fixture 가 상한을 어겨도 초록이었고, 그 거짓 위에 선 시험이 아무것도 안 쟀다(`Q168`).
+        // 이름을 집어 켜고 끈다. `all` 로 켜면 뒤의 정산 마감이 지급액 지연 제약에 중간에 걸린다.
+        jdbc.sql("set constraints refund_amounts_check, refund_item_amounts_check immediate").update();
+        jdbc.sql("set constraints refund_amounts_check, refund_item_amounts_check deferred").update();
     }
 
     private long insertSku() {

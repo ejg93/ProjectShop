@@ -226,6 +226,29 @@ class ReviewModerationTest extends PostgresTestBase {
             List<String> reasons = List.of("광고", "욕설", "관련이 없는", "개인정보");
             assertThat(reasons).allSatisfy(reason -> assertThat(body).contains(reason));
         }
+
+        /**
+         * <b>가리키는 자리가 실제로 있어야 알린 것이다</b>(`Q171`). 제2판은 「고객센터」로 보냈는데
+         * 계약내용 서면(`V27`)은 고객센터를 운영하지 않는다고 적었다 — 두 공개 문서가 서로 다른 말을 했다.
+         * 실제로 받는 자리는 내 문의의 「불만·분쟁 접수」(`/me/inquiries` 의 `DISPUTE`)고,
+         * 내려간 사유는 내 후기(`/me/reviews`)에서 본다. 그 두 이름이 화면과 같아야 한다.
+         */
+        @Test
+        @DisplayName("이의제기는 실제로 받는 자리를 가리킨다")
+        void 이의제기는_실제로_받는_자리를_가리킨다() {
+            String body = jdbc.sql("""
+                            select body from policy_document
+                             where code = 'review_policy' and effective_at <= now()
+                             order by version desc limit 1
+                            """)
+                    .query(String.class)
+                    .single();
+
+            // 이름은 화면 쪽 시험과 같은 상수다 — 화면의 글자가 바뀌면 그 시험이 빨개진다(마무리 45차).
+            assertThat(body)
+                    .contains(ReviewPolicyScreenTest.DISPUTE_LABEL, ReviewPolicyScreenTest.MY_REVIEWS_LABEL)
+                    .doesNotContain("고객센터");
+        }
     }
 
     private void insertReply(long review, long user, String body) {

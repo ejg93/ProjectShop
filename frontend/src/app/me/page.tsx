@@ -142,6 +142,19 @@ export default async function MyPage() {
             내 쿠폰
           </Link>
 
+          {/* 내 후기(`Q171`). 내려간 후기의 사유를 보는 자리라 공개 고지(`R27`)가 여기를 가리킨다 */}
+          <Link
+            href="/me/reviews"
+            className="
+              rounded-ui border border-border px-4 py-2.5 text-sm font-semibold
+              transition-colors duration-200
+              hover:bg-surface-raised
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
+            "
+          >
+            내 후기
+          </Link>
+
           <Link
             href="/me/withdraw"
             className="

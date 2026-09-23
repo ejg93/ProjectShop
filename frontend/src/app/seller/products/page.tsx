@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Pager, pageNumberOf } from "@/components/pager";
+import { ProductActions } from "@/components/product-actions";
+import { Td, Th } from "@/components/table-cells";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
 import { productStatusHint, productStatusText } from "@/lib/product-text";
@@ -20,6 +22,8 @@ type SellerProduct = {
   minPriceInclVat: number;
   totalStock: number;
   createdAt: string;
+  /** 지금 할 수 있는 동작. 서버가 전이표와 판정으로 골랐다(`Q182`) */
+  allowedActions: string[];
 };
 
 type SellerProductPage = {
@@ -101,7 +105,7 @@ function ProductTable({ items }: { items: SellerProduct[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[44rem] border-collapse text-sm">
-        <caption className="sr-only">내 상품 목록. 이름, 상태, 최저가, 재고, 등록일, 사진 순</caption>
+        <caption className="sr-only">내 상품 목록. 이름, 상태, 최저가, 재고, 등록일, 사진, 할 일 순</caption>
         <thead>
           <tr className="border-b border-border text-left text-xs text-text-muted">
             <Th>상품</Th>
@@ -110,6 +114,7 @@ function ProductTable({ items }: { items: SellerProduct[] }) {
             <Th align="right">재고</Th>
             <Th>등록</Th>
             <Th>사진</Th>
+            <Th>할 일</Th>
           </tr>
         </thead>
         <tbody>
@@ -137,6 +142,9 @@ function ProductTable({ items }: { items: SellerProduct[] }) {
                 >
                   사진<span className="sr-only"> — {product.name}</span>
                 </Link>
+              </Td>
+              <Td>
+                <ProductActions productId={product.productId} allowedActions={product.allowedActions} />
               </Td>
             </tr>
           ))}
@@ -195,33 +203,5 @@ function Empty() {
       </Link>
       에서 시작하실 수 있습니다.
     </p>
-  );
-}
-
-function Th({ children, align }: { children: React.ReactNode; align?: "right" }) {
-  return (
-    <th scope="col" className={`px-2 py-2 font-medium ${align === "right" ? "text-right" : ""}`}>
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  align,
-  muted,
-}: {
-  children: React.ReactNode;
-  align?: "right";
-  muted?: boolean;
-}) {
-  return (
-    <td
-      className={`px-2 py-3 align-top ${align === "right" ? "text-right" : ""} ${
-        muted ? "text-text-muted" : ""
-      }`}
-    >
-      {children}
-    </td>
   );
 }

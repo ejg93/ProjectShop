@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
@@ -173,6 +174,70 @@ class MeWithdrawTest extends PostgresTestBase {
             withdraw(PASSWORD).andExpect(status().isNoContent());
 
             withdraw(PASSWORD).andExpect(status().isUnauthorized());
+        }
+
+        /**
+         * 탈퇴는 역할 행을 안 지워서 멤버 관리 쪽 검사로는 안 걸린다. 풀어 두면 그 셀러는
+         * 멤버를 부를 수도 뺄 수도 없이 잠긴다(`Q169`). 대표를 넘긴 뒤에 나간다(사용자 선택).
+         */
+        @Test
+        @DisplayName("살아 있는 셀러의 마지막 대표는 탈퇴 못 한다")
+        void lastOwnerCannotWithdraw() throws Exception {
+            long seller = fixture.insertSeller("bye-shop", "떠나는가게");
+            fixture.joinSeller(seller, userId);
+            fixture.grantOrg(userId, "seller_owner", seller);
+
+            withdraw(PASSWORD)
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.type").value(
+                            "tag:projectshop.example,2026:error:withdrawal-last-owner"));
+
+            assertThat(jdbc.sql("select deleted_at is null from app_user where user_id = :id")
+                    .param("id", userId).query(Boolean.class).single()).isTrue();
+        }
+
+        @Test
+        @DisplayName("대표가 하나 더 있으면 탈퇴한다")
+        void ownerWithCoOwnerCanWithdraw() throws Exception {
+            long seller = fixture.insertSeller("bye-shop2", "둘이가게");
+            fixture.joinSeller(seller, userId);
+            fixture.grantOrg(userId, "seller_owner", seller);
+            long other = fixture.insertUser("stay@test.local", "남는대표");
+            fixture.joinSeller(seller, other);
+            fixture.grantOrg(other, "seller_owner", seller);
+
+            withdraw(PASSWORD).andExpect(status().isNoContent());
+        }
+
+        @Test
+        @DisplayName("폐업한 셀러의 마지막 대표는 탈퇴한다")
+        void ownerOfClosedSellerCanWithdraw() throws Exception {
+            long seller = fixture.insertSeller("bye-shop3", "닫은가게");
+            fixture.joinSeller(seller, userId);
+            fixture.grantOrg(userId, "seller_owner", seller);
+            jdbc.sql("update seller set deleted_at = now() where seller_id = :id")
+                    .param("id", seller).update();
+
+            withdraw(PASSWORD).andExpect(status().isNoContent());
+        }
+
+        /**
+         * <b>탈퇴한 대표는 「남은 대표」가 아니다</b>(`Q169`). 탈퇴가 역할 행을 남기므로 역할만 세면
+         * 없는 사람이 대표로 남아 있는 것처럼 보이고, 산 대표가 나갈 수 있게 된다.
+         */
+        @Test
+        @DisplayName("이미 탈퇴한 대표는 남은 대표로 안 센다")
+        void withdrawnCoOwnerDoesNotCount() throws Exception {
+            long seller = fixture.insertSeller("bye-shop4", "빈자리가게");
+            fixture.joinSeller(seller, userId);
+            fixture.grantOrg(userId, "seller_owner", seller);
+            long gone = fixture.insertUser("gone@test.local", "먼저간대표");
+            fixture.joinSeller(seller, gone);
+            fixture.grantOrg(gone, "seller_owner", seller);
+            jdbc.sql("update app_user set deleted_at = now() where user_id = :id")
+                    .param("id", gone).update();
+
+            withdraw(PASSWORD).andExpect(status().isUnprocessableContent());
         }
 
         @Test

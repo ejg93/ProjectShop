@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import com.projectshop.shop.StorageTestBase;
+import com.projectshop.shop.support.ImagePipeline;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -101,7 +102,7 @@ class ProductImageServiceTest extends StorageTestBase {
     @Test
     @DisplayName("내용이 이미지가 아니면 헤더가 뭐라 적혀 있든 거부한다")
     void 내용이_이미지가_아니면_거부한다() {
-        ProductImageService.Incoming fake = new ProductImageService.Incoming(
+        ImagePipeline.Incoming fake = new ImagePipeline.Incoming(
                 "photo.jpg", "이건 그냥 글자다".getBytes());
 
         assertThatThrownBy(() -> service.upload(ownerA, productA, fake))
@@ -117,8 +118,8 @@ class ProductImageServiceTest extends StorageTestBase {
     @Test
     @DisplayName("내용이 PNG 인데 이름이 jpg 면 거부한다")
     void 확장자가_내용과_어긋나면_거부한다() {
-        ProductImageService.Incoming mislabeled =
-                new ProductImageService.Incoming("photo.jpg", ProductImageFixture.pngBytes(40, 30));
+        ImagePipeline.Incoming mislabeled =
+                new ImagePipeline.Incoming("photo.jpg", ProductImageFixture.pngBytes(40, 30));
 
         assertThatThrownBy(() -> service.upload(ownerA, productA, mislabeled))
                 .isInstanceOf(ShopException.class)
@@ -128,8 +129,8 @@ class ProductImageServiceTest extends StorageTestBase {
     @Test
     @DisplayName("확장자가 없는 이름도 거부한다")
     void 확장자가_없으면_거부한다() {
-        ProductImageService.Incoming noExtension =
-                new ProductImageService.Incoming("photo", ProductImageFixture.jpegBytes(40, 30));
+        ImagePipeline.Incoming noExtension =
+                new ImagePipeline.Incoming("photo", ProductImageFixture.jpegBytes(40, 30));
 
         assertThatThrownBy(() -> service.upload(ownerA, productA, noExtension))
                 .isInstanceOf(ShopException.class)
@@ -140,7 +141,7 @@ class ProductImageServiceTest extends StorageTestBase {
     @DisplayName("png 이름에 PNG 내용이면 통과한다")
     void 짝이_맞으면_통과한다() {
         ProductImageService.Uploaded uploaded = service.upload(ownerA, productA,
-                new ProductImageService.Incoming("photo.png", ProductImageFixture.pngBytes(40, 30)));
+                new ImagePipeline.Incoming("photo.png", ProductImageFixture.pngBytes(40, 30)));
 
         assertThat(uploaded.objectKey()).endsWith(".png");
     }
@@ -149,7 +150,7 @@ class ProductImageServiceTest extends StorageTestBase {
     @DisplayName("5 MiB 를 넘으면 거부한다")
     void 너무_크면_거부한다() {
         byte[] big = new byte[5 * 1024 * 1024 + 1];
-        ProductImageService.Incoming file = new ProductImageService.Incoming("big.jpg", big);
+        ImagePipeline.Incoming file = new ImagePipeline.Incoming("big.jpg", big);
 
         assertThatThrownBy(() -> service.upload(ownerA, productA, file))
                 .isInstanceOf(ShopException.class)
@@ -304,8 +305,8 @@ class ProductImageServiceTest extends StorageTestBase {
                 .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_NOT_FOUND);
     }
 
-    private static ProductImageService.Incoming jpeg(String name, int width, int height) {
-        return new ProductImageService.Incoming(name, ProductImageFixture.jpegBytes(width, height));
+    private static ImagePipeline.Incoming jpeg(String name, int width, int height) {
+        return new ImagePipeline.Incoming(name, ProductImageFixture.jpegBytes(width, height));
     }
 
     private static ProductService.Command tshirt(long sellerId) {
