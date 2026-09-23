@@ -63,6 +63,9 @@ public enum ErrorCode {
 
     /** 이미 대행 중인데 또 시작하거나, 대행 중이 아닌데 끝낸다 */
     IMPERSONATION_CONFLICT(HttpStatus.CONFLICT, "impersonation-conflict", "대행 상태가 맞지 않는다"),
+    // 대행을 연 관리자가 탈퇴했거나 대행 권한을 잃었다(`Q195`). 대행 세션을 끝내고 다시 로그인하게 한다 —
+    // 계정 비활성(`ACCOUNT_INACTIVE`)과 가르는 것은 로그에서 「누가 죽었나」가 달라서다.
+    IMPERSONATION_REVOKED(HttpStatus.UNAUTHORIZED, "impersonation-revoked", "대행을 연 관리자가 더는 대행할 수 없다"),
 
     /**
      * 재설정 토큰이 없거나, 만료됐거나, 이미 썼다(`5c-1`).
@@ -329,6 +332,10 @@ public enum ErrorCode {
     // 나중에 데이터가 왜 이 모양인지 아무도 모른다.
     TRANSITION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "transition-reason-required",
             "관리자 처리에는 사유가 필요하다"),
+
+    // 배상 판정에 이은 문의가 그 묶음의 것이 아니다(`43a-4c`). 이으면 분쟁 기록이 다른 거래를 가리킨다.
+    COMPENSATION_INQUIRY_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "compensation-inquiry-mismatch",
+            "그 문의는 이 배송 묶음의 것이 아니다"),
 
     // 주문에 쓰인 SKU 가 있으면 옵션 축을 못 바꾼다. 바꾸면 지나간 주문의 옵션 라벨이
     // 가리키던 것이 사라진다 — 영수증이 뜻을 잃는다.

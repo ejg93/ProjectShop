@@ -96,7 +96,12 @@ export default async function MyReviewsPage() {
 
               <MyReviewPhotos reviewId={item.reviewId} photos={item.photos} />
 
-              <MyReviewActions reviewId={item.reviewId} rating={item.rating} body={item.body} />
+              <MyReviewActions
+                reviewId={item.reviewId}
+                rating={item.rating}
+                body={item.body}
+                blocked={item.blockedAt !== null}
+              />
             </li>
           ))}
         </ul>

@@ -56,17 +56,22 @@ public class SalesStatsQuery {
     /**
      * 하루치 합. 매출이 없는 날도 0 으로 한 줄이 선다 — 빈 날을 빼면 화면이 날짜를 다시 채워야 한다.
      *
-     * @param netAmount 결제에서 환불을 뺀 것. 둘이 같은 축이라(할인 뒤, 배송비 제외) 뺄 수 있다({@code V102})
+     * @param netAmount 결제에서 환불을 뺀 것. 둘이 같은 축이라(할인 뒤, 배송비 제외) 뺄 수 있다({@code V102}) — 고객이 낸 돈의 축이다
+     * @param mallDiscountAmount         결제된 줄의 할인 중 몰이 문 몫(`Q197`)
+     * @param refundedMallDiscountAmount 환불이 되돌린 할인 중 몰이 문 몫
+     * @param sellerNetAmount 셀러 매출 — 순매출에 몰이 문 할인을 되더한 것. <b>정산서의 판매 축이다</b>(`Q168`):
+     *                        몰 쿠폰이면 셀러는 정가를 받는다. 둘을 같이 내려서 화면이 두 축을 나란히 적는다
      */
     @Schema(name = "SalesStatsDay")
     public record Day(LocalDate salesDate, int orderCount, int soldQuantity, long paidAmount, int refundCount,
-            long refundedAmount, long netAmount) {
+            long refundedAmount, long netAmount, long mallDiscountAmount, long refundedMallDiscountAmount,
+            long sellerNetAmount) {
     }
 
     /** 기간 합 */
     @Schema(name = "SalesStatsTotal")
     public record Total(int orderCount, int soldQuantity, long paidAmount, int refundCount, long refundedAmount,
-            long netAmount) {
+            long netAmount, long mallDiscountAmount, long refundedMallDiscountAmount, long sellerNetAmount) {
     }
 
     /**
@@ -113,7 +118,8 @@ public class SalesStatsQuery {
         }
         jdbc.sql("""
                         select seller_id, sales_date, order_count, sold_quantity, paid_amount,
-                               refund_count, refunded_amount
+                               refund_count, refunded_amount, mall_discount_amount,
+                               refunded_mall_discount_amount
                           from seller_daily_sales
                          where sales_date = any(cast(:days as date[]))
                            and (:everything or seller_id = any(:sellers))
@@ -125,7 +131,8 @@ public class SalesStatsQuery {
                 .query((RowCallbackHandler) rs -> sums.computeIfAbsent(rs.getObject("sales_date", LocalDate.class),
                                 key -> new Sum())
                         .add(rs.getInt("order_count"), rs.getInt("sold_quantity"), rs.getLong("paid_amount"),
-                                rs.getInt("refund_count"), rs.getLong("refunded_amount")));
+                                rs.getInt("refund_count"), rs.getLong("refunded_amount"),
+                                rs.getLong("mall_discount_amount"), rs.getLong("refunded_mall_discount_amount")));
     }
 
     /**
@@ -147,7 +154,7 @@ public class SalesStatsQuery {
                 .filter(day -> wanted.contains(day.salesDate()) && visible.covers(day.sellerId()))
                 .forEach(day -> sums.computeIfAbsent(day.salesDate(), key -> new Sum())
                         .add(day.orderCount(), day.soldQuantity(), day.paidAmount(), day.refundCount(),
-                                day.refundedAmount()));
+                                day.refundedAmount(), day.mallDiscountAmount(), day.refundedMallDiscountAmount()));
     }
 
     /** 날짜 하나 또는 기간 전체를 더해 가는 자리. 셀러 여럿의 줄이 한 날로 모인다 */
@@ -157,27 +164,38 @@ public class SalesStatsQuery {
         private long paidAmount;
         private int refundCount;
         private long refundedAmount;
+        private long mallDiscountAmount;
+        private long refundedMallDiscountAmount;
 
-        void add(int orders, int quantity, long paid, int refunds, long refunded) {
+        void add(int orders, int quantity, long paid, int refunds, long refunded, long mallDiscount,
+                long refundedMallDiscount) {
             orderCount += orders;
             soldQuantity += quantity;
             paidAmount += paid;
             refundCount += refunds;
             refundedAmount += refunded;
+            mallDiscountAmount += mallDiscount;
+            refundedMallDiscountAmount += refundedMallDiscount;
         }
 
         void add(Sum other) {
-            add(other.orderCount, other.soldQuantity, other.paidAmount, other.refundCount, other.refundedAmount);
+            add(other.orderCount, other.soldQuantity, other.paidAmount, other.refundCount, other.refundedAmount,
+                    other.mallDiscountAmount, other.refundedMallDiscountAmount);
+        }
+
+        /** 셀러 매출 — 고객 결제에 몰이 문 할인을 되더한 축(`Q197`). 정산서의 판매 줄과 같은 축이다 */
+        long sellerNet() {
+            return paidAmount + mallDiscountAmount - refundedAmount - refundedMallDiscountAmount;
         }
 
         Day toDay(LocalDate day) {
             return new Day(day, orderCount, soldQuantity, paidAmount, refundCount, refundedAmount,
-                    paidAmount - refundedAmount);
+                    paidAmount - refundedAmount, mallDiscountAmount, refundedMallDiscountAmount, sellerNet());
         }
 
         Total toTotal() {
             return new Total(orderCount, soldQuantity, paidAmount, refundCount, refundedAmount,
-                    paidAmount - refundedAmount);
+                    paidAmount - refundedAmount, mallDiscountAmount, refundedMallDiscountAmount, sellerNet());
         }
     }
 

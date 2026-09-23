@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -172,6 +173,29 @@ public class ShipmentController {
         actions.run(user.id(), sellerOrderNumber, Action.REJECT_RETURN, request.reason(), null,
                 new ReturnRequestService.Decision.Reject(request.decisionReason()));
 
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 관리자 강제 전이 요청(`16c`). <b>사유가 필수다</b> — {@link ActionRequest} 와 달리 본문이 없으면 400 이다.
+     *
+     * @param to 갈 곳. {@code CANCELLED}·{@code SHIPPING}·{@code DELIVERED} 중 지금 상태에서 열린 것이다
+     *           — 주문 상세의 {@code forcible_statuses} 가 그 목록이다
+     */
+    public record ForceRequest(@NotBlank String to, @NotBlank @Size(max = 500) String reason) {
+    }
+
+    /**
+     * 관리자가 전이표와 상태 축 밖으로 옮긴다(`16c`, {@code order:force_status}). CS 가 쓰는 길이다 —
+     * 배송 중 분실 취소, 송장 없는 직접 배송, 조회 안 되는 배송완료.
+     */
+    @PostMapping("/{sellerOrderNumber}/force-status")
+    public ResponseEntity<Void> forceStatus(
+            @AuthenticationPrincipal ShopUser user,
+            @PathVariable String sellerOrderNumber,
+            @Valid @RequestBody ForceRequest request) {
+
+        actions.force(user.id(), sellerOrderNumber, request.to(), request.reason());
         return ResponseEntity.noContent().build();
     }
 

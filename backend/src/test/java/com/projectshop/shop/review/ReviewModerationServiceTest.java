@@ -34,6 +34,9 @@ class ReviewModerationServiceTest extends PostgresTestBase {
     private ReviewQuery query;
 
     @Autowired
+    private ReviewService reviews;
+
+    @Autowired
     private JdbcClient jdbc;
 
     private ReviewFixture fixture;
@@ -254,6 +257,79 @@ class ReviewModerationServiceTest extends PostgresTestBase {
                     .isInstanceOf(ShopException.class)
                     .extracting(e -> ((ShopException) e).code())
                     .isEqualTo(ErrorCode.REVIEW_FORBIDDEN);
+        }
+    }
+
+    /**
+     * 내려간 후기는 지워도 자리를 차지한다(`Q194`, `V105`). 쓴 사람의 지우기가 `blocked_at` 을 안 봐서, 지우고 새로 쓰면
+     * 제재를 피했다(마무리 45차 독립 리뷰). 입구와 색인 두 겹을 따로 잰다 — 입구만 보면 색인이 빠져도 초록이다.
+     */
+    @Nested
+    @DisplayName("내려간 후기의 자리")
+    class BlockedSlot {
+
+        @Test
+        @DisplayName("내려간 후기를 지워도 같은 주문에 새로 못 쓴다")
+        void 내려간_후기를_지워도_같은_주문에_새로_못_쓴다() {
+            block();
+            reviews.delete(buyerId, reviewId);
+
+            assertThatThrownBy(() -> reviews.create(buyerId, new ReviewService.NewReview(orderItemId(), 5, "다시 씁니다")))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(e -> ((ShopException) e).code())
+                    .isEqualTo(ErrorCode.REVIEW_ALREADY_WRITTEN);
+        }
+
+        @Test
+        @DisplayName("입구를 거치지 않고 넣어도 DB 가 막는다")
+        void 입구를_거치지_않고_넣어도_DB_가_막는다() {
+            block();
+            jdbc.sql("update review set deleted_at = now() where review_id = :id").param("id", reviewId).update();
+
+            assertThatThrownBy(() -> fixture.insertReview(orderItemId(), productId, buyerId, 5, "다시 씁니다"))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class)
+                    .hasMessageContaining("후기 자리를 차지한다");
+        }
+
+        @Test
+        @DisplayName("안 내려간 후기는 지우면 다시 쓸 수 있다")
+        void 안_내려간_후기는_지우면_다시_쓸_수_있다() {
+            reviews.delete(buyerId, reviewId);
+
+            reviews.create(buyerId, new ReviewService.NewReview(orderItemId(), 5, "다시 씁니다"));
+        }
+
+        /**
+         * 신고가 대기 중일 때 쓴 사람이 지우고 새로 쓴 뒤 그 신고를 받아들인다(마무리 46차 독립 리뷰).
+         * 자리 규칙을 유일 색인으로 걸었을 때는 옛 행이 색인에 들어와 새 행과 겹쳐 500 이 났고 그 신고를 끝내 못 받아들였다.
+         */
+        @Test
+        @DisplayName("지우고 새로 쓴 뒤에도 옛 신고를 받아들일 수 있다")
+        void 지우고_새로_쓴_뒤에도_옛_신고를_받아들인다() {
+            moderation.report(reporterId, reviewId, ReviewReason.ABUSE);
+            long reportId = jdbc.sql("select review_report_id from review_report where review_id = :id")
+                    .param("id", reviewId).query(Long.class).single();
+            reviews.delete(buyerId, reviewId);
+            reviews.create(buyerId, new ReviewService.NewReview(orderItemId(), 5, "다시 씁니다"));
+
+            moderation.acceptReport(adminId, reportId);
+
+            assertThat(jdbc.sql("select status from review_report where review_report_id = :id")
+                    .param("id", reportId).query(String.class).single())
+                    .isEqualTo("accepted");
+        }
+
+        private void block() {
+            jdbc.sql("update review set blocked_at = now(), blocked_reason = 'abuse' where review_id = :id")
+                    .param("id", reviewId)
+                    .update();
+        }
+
+        private long orderItemId() {
+            return jdbc.sql("select order_item_id from review where review_id = :id")
+                    .param("id", reviewId)
+                    .query(Long.class)
+                    .single();
         }
     }
 }

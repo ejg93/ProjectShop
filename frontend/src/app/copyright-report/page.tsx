@@ -14,6 +14,9 @@ type ProductDetail = {
   imageIds: number[];
 };
 
+/** 공개 후기 목록에서 사진만 쓴다(`Q196`) */
+type ReviewPage = { items: { photos: { reviewImageId: number; thumbnailUrl: string }[] }[] };
+
 /**
  * 저작권 침해 신고(`Q183`, 저작권법 제103조, `D2` `R42`).
  *
@@ -44,22 +47,27 @@ export default async function CopyrightReportPage({
   }
 
   const images = product.imageIds.map((imageId, index) => ({ imageId, url: product.imageUrls[index] }));
+  // 후기 사진도 같은 절차를 받는다(`Q196`). 공개 후기 목록이 싣는 사진이 곧 신고할 수 있는 표면이다.
+  const reviews = await apiPublic<ReviewPage>(`/api/products/${productId}/reviews?size=50`);
+  const reviewImages = reviews.items.flatMap((review) =>
+    review.photos.map((photo) => ({ reviewImageId: photo.reviewImageId, url: photo.thumbnailUrl })),
+  );
 
   return (
     <div className="mx-auto grid w-full max-w-2xl flex-1 content-start gap-8 px-4 py-16">
       <div className="grid gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">저작권 침해 신고</h1>
         <p className="text-sm text-text-muted">
-          「{product.name}」의 사진이 권리를 침해한다면 알려 주세요. 로그인하지 않아도 됩니다.
+          「{product.name}」의 상품 사진이나 후기 사진이 권리를 침해한다면 알려 주세요. 로그인하지 않아도 됩니다.
           <br />
           관리자가 확인한 뒤 게시를 중단하거나 기각합니다. 연락드릴 수 있게 이메일을 적어 주세요.
         </p>
       </div>
 
-      {images.length === 0 ? (
+      {images.length === 0 && reviewImages.length === 0 ? (
         <p className="text-sm text-text-muted">이 상품에는 신고할 사진이 없습니다.</p>
       ) : (
-        <CopyrightReportForm images={images} />
+        <CopyrightReportForm images={images} reviewImages={reviewImages} />
       )}
     </div>
   );

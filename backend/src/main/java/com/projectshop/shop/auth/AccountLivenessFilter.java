@@ -2,11 +2,13 @@ package com.projectshop.shop.auth;
 
 import java.io.IOException;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 
 import com.projectshop.shop.error.ErrorCode;
@@ -36,10 +38,13 @@ class AccountLivenessFilter extends OncePerRequestFilter {
 
     private final PermissionRuleLoader loader;
     private final ProblemWriter problems;
+    private final ObjectProvider<PermissionEvaluator> evaluators;
 
-    AccountLivenessFilter(PermissionRuleLoader loader, ProblemWriter problems) {
+    AccountLivenessFilter(PermissionRuleLoader loader, ProblemWriter problems,
+            ObjectProvider<PermissionEvaluator> evaluators) {
         this.loader = loader;
         this.problems = problems;
+        this.evaluators = evaluators;
     }
 
     @Override
@@ -58,6 +63,11 @@ class AccountLivenessFilter extends OncePerRequestFilter {
             problems.write(request, response, ErrorCode.ACCOUNT_INACTIVE);
             return;
         }
+        if (authentication instanceof ImpersonationToken token && !impersonatorStillAllowed(token)) {
+            expire(request);
+            problems.write(request, response, ErrorCode.IMPERSONATION_REVOKED);
+            return;
+        }
 
         chain.doFilter(request, response);
     }
@@ -68,6 +78,23 @@ class AccountLivenessFilter extends OncePerRequestFilter {
      * <p>401 만 주고 세션을 두면 다음 요청마다 같은 조회가 다시 돈다.
      * 여기서 끊으면 그 브라우저는 로그인 화면으로 돌아가고 조회도 멈춘다.
      */
+    /**
+     * 대행 세션이면 대행자도 본다(`Q195`).
+     *
+     * <p><b>주인(principal)이 대상 사용자라 위 검사는 대상만 본다</b> — 대행 중에 관리자가 탈퇴하거나 대행 권한을 잃어도
+     * 절대 만료까지 대상 화면이 열려 있었다(마무리 45차 독립 리뷰). Spring Session 의 주인 색인도 대상 이메일로 옮겨 가서,
+     * 관리자 이메일로 세션을 찾아 닫는 탈퇴 경로가 이 세션을 못 찾는다 — 그래서 요청마다 여기서 다시 묻는다.
+     *
+     * <p>대행을 열 때와 같은 판정을 그대로 묻는다({@code ImpersonationService.start}). 권한 캐시는 역할을 거둘 때 비워진다.
+     */
+    private boolean impersonatorStillAllowed(ImpersonationToken token) {
+        long impersonator = token.impersonatorUserId();
+        return loader.isAlive(impersonator)
+                && evaluators.getObject()
+                        .decide(impersonator, "user", "impersonate", Target.ownedBy(token.targetUserId()))
+                        .allowed();
+    }
+
     private void expire(HttpServletRequest request) {
         SecurityContextHolder.clearContext();
 

@@ -146,8 +146,11 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `order:receive_return` | | A/seller | A/all | D/all |
 | `order:approve_return` | | | A/all | D/all |
 | `order:reject_return` | | | A/all | D/all |
+| `order:force_status` | | | A/all | D/all |
 | `payment:read` | A/own | A/seller | A/all | A/all |
 | `payment:refund` | | | A/all | D/all |
+| `compensation:read` | | | A/all | A/all |
+| `compensation:decide` | | | A/all | D/all |
 | `user:read` | A/own | A/own | A/all | A/all |
 | `user:update` | A/own | A/own | A/all | D/all |
 | `role:read` | | | A/all | A/all |
@@ -314,6 +317,7 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 | `receive_return` | `return_requested` | 셀러 |
 | `approve_return` | `return_requested` | **관리자** |
 | `reject_return` | `return_requested` | **관리자** |
+| `force_status` | **전부** — 이 표에 없어서 축이 안 막는다(`V106`). 갈 곳은 `OrderTransitions` 의 강제 표가 닫는다 | **관리자** |
 
 **반품 셋이 `V64` 에서 늘었다**(`43a-2`). 같은 이유가 한 번 더 걸린 자리다 —
 `update_status` 가 `return_requested` 를 들고 있는 동안 **셀러가 `DELIVER` 로 거절 복귀를 밀 수 있었다.**
@@ -371,7 +375,7 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 | **SQL 소유 조건** | 소유자 말고 아무도 못 하고, 소유자는 언제나 되는 동작 | `PaymentController.pay` · `OrderController.create` · `CartController.add` · `CartController.changeQuantity` · `CartController.remove` |
 | **본인 계정** | 판정할 역할이 없다 — 남이 대신 하는 경로가 아예 없다. 탈퇴는 비밀번호를 다시 받고 이메일 변경은 확인 토큰이 막는다 | `MeController.withdraw` · `MeController.changePassword` · `MeController.changeEmail` · `MeController.confirmEmail` |
 | **인증 이전** | 판정할 사람이 아직 없다 | `AuthController.signUp` · `AuthController.logIn` · `AuthController.logOut` · `AuthController.requestPasswordReset` · `AuthController.confirmPasswordReset` |
-| **법이 로그인을 막는다** | 저작권자가 우리 회원일 이유가 없다. 회원만 신고할 수 있게 하면 **법이 요구한 절차에 가입이라는 관문이 하나 붙는다**(저작권법 제102조, `D2` `R42`). 판정 쪽은 반대로 로그인이 필요하다 — 누가 언제 무엇을 했는지가 증거다 | `CopyrightReportController.report` |
+| **법이 로그인을 막는다** | 저작권자가 우리 회원일 이유가 없다. 회원만 신고할 수 있게 하면 **법이 요구한 절차에 가입이라는 관문이 하나 붙는다**(저작권법 제102조, `D2` `R42`). 판정 쪽은 반대로 로그인이 필요하다 — 누가 언제 무엇을 했는지가 증거다 | `CopyrightReportController.report`·`CopyrightReportController.reportReviewImage`(후기 사진, `Q196`) |
 
 **아래 둘은 `Q56` 이 찾았다**(2026-09-15). 표가 셋이었는데 규칙을 돌려 보니 실물이 다섯 자리였다 —
 문서가 「나머지 전부」로 뭉쳐 둔 자리에 판정을 안 지나는 입구가 **아홉** 더 있었다 — 본인 계정 넷과 인증 이전 다섯이다.

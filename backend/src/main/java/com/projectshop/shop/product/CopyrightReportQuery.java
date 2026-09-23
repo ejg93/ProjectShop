@@ -41,13 +41,15 @@ public class CopyrightReportQuery {
     /**
      * 신고 한 줄.
      *
-     * @param thumbnailUrl  신고된 사진의 썸네일. 이미 내렸거나 셀러가 지웠으면 {@code null} 이다
+     * @param target        무엇을 신고했나(`Q196`) — 상품 사진이나 후기 사진. 사진이 지워져도 남는다
+     * @param thumbnailUrl  신고된 사진의 썸네일. 이미 내렸거나 올린 사람이 지웠으면 {@code null} 이다 — 대상이 후기
+     *                      사진이면 그 사진의 것이다. <b>관리자가 사진을 보고 판정한다</b>
      * @param reporterEmail 권리자에게 결과를 알리는 자리라 관리자에게만 나간다
      * @param decision      판정(대문자). 아직 안 봤으면 {@code null}
      */
     @Schema(name = "CopyrightReport")
-    public record Item(long copyrightReportId, long productId, String productName, Long productImageId,
-            String thumbnailUrl, String reporterName, String reporterEmail, String claimedWork,
+    public record Item(long copyrightReportId, long productId, String productName, String target,
+            Long productImageId, Long reviewImageId, String thumbnailUrl, String reporterName, String reporterEmail, String claimedWork,
             OffsetDateTime reportedAt, String decision, OffsetDateTime decidedAt) {}
 
     @Schema(name = "CopyrightReportPage")
@@ -69,12 +71,15 @@ public class CopyrightReportQuery {
         // 조건과 정렬은 두 값 중 하나라 사용자 입력이 섞일 자리가 없다 — 바인딩 변수로는 못 넘긴다.
         List<Item> items = jdbc.sql("""
                                 select cr.copyright_report_id, cr.product_id, p.name as product_name,
-                                       cr.product_image_id, pi.thumbnail_key, cr.reporter_name,
+                                       cr.target, cr.product_image_id, cr.review_image_id,
+                                       coalesce(pi.thumbnail_key, ri.thumbnail_key) as thumbnail_key,
+                                       cr.reporter_name,
                                        cr.reporter_email, cr.claimed_work, cr.reported_at,
                                        cr.decision, cr.decided_at
                                   from copyright_report cr
                                   join product p on p.product_id = cr.product_id
                                   left join product_image pi on pi.product_image_id = cr.product_image_id
+                                  left join review_image ri on ri.review_image_id = cr.review_image_id
                                  where {where}
                                  order by {order}
                                  limit :size offset :offset
@@ -88,7 +93,9 @@ public class CopyrightReportQuery {
                                     rs.getLong("copyright_report_id"),
                                     rs.getLong("product_id"),
                                     rs.getString("product_name"),
+                                    EnumValue.of(rs.getString("target"), CopyrightTarget::of),
                                     rs.getObject("product_image_id", Long.class),
+                                    rs.getObject("review_image_id", Long.class),
                                     thumbnailKey == null ? null : images.url(thumbnailKey),
                                     rs.getString("reporter_name"),
                                     rs.getString("reporter_email"),

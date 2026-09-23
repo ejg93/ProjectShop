@@ -70,9 +70,12 @@ public class ReviewQuery {
     /**
      * 후기 사진 한 장(`Q159`). <b>목록은 썸네일로 그리고 누르면 원본을 연다</b>(`media-rules.md` 「썸네일」).
      * 둘 다 만료 5분 서명 URL 이다.
+     *
+     * @param reviewImageId <b>번호를 싣는다</b>(`Q196`) — 저작권 신고가 이 번호로 받는다. 상품 사진의 번호가
+     *                      공개 상세에 이미 나가는 것(`Q183`)과 같은 판단이다: 바깥 시스템이 부르는 단위가 아니다(`D9`)
      */
     @Schema(name = "ReviewPhoto")
-    public record Photo(String thumbnailUrl, String originalUrl) {}
+    public record Photo(long reviewImageId, String thumbnailUrl, String originalUrl) {}
 
     /** 평점 요약. <b>목록과 같이 나간다</b> — 따로 부르면 쪽을 넘길 때마다 다시 센다 */
     @Schema(name = "ProductReviewSummary")
@@ -358,7 +361,8 @@ public class ReviewQuery {
         Map<Long, List<PhotoRow>> photos = photosOf(items.stream().map(Item::reviewId).toList());
         return items.stream()
                 .map(item -> item.withPhotos(photos.getOrDefault(item.reviewId(), List.of()).stream()
-                        .map(photo -> new Photo(images.url(photo.thumbnailKey()), images.url(photo.objectKey())))
+                        .map(photo -> new Photo(photo.reviewImageId(), images.url(photo.thumbnailKey()),
+                                images.url(photo.objectKey())))
                         .toList()))
                 .toList();
     }

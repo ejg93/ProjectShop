@@ -140,6 +140,15 @@ public class SettlementService {
                                and (r.decided_at at time zone 'Asia/Seoul')::date
                                    between :start and :end
                             union
+                            -- 셀러가 무는 배상만 있는 셀러도 정산서가 선다(`43a-4c`). 안 고르면 그 판정이
+                            -- 어느 정산서에도 안 실린다 — 미인도 배상은 대개 확정 거래가 없는 달에 온다.
+                            select so.seller_id
+                              from compensation c
+                              join seller_order so on so.seller_order_id = c.seller_order_id
+                             where c.bearer = 'seller'
+                               and (c.decided_at at time zone 'Asia/Seoul')::date
+                                   between :start and :end
+                            union
                             select s.seller_id
                               from settlement s
                              where s.carried_over < 0

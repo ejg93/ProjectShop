@@ -53,6 +53,29 @@ describe("저작권 신고", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("접수 번호는 42");
   });
 
+  /** 후기 사진은 다른 입구로 간다(`Q196`). 상품 사진 입구로 보내면 엉뚱한 번호의 상품 사진이 신고된다 */
+  it("후기 사진을 고르면 후기 사진 입구로 보낸다", async () => {
+    const { container } = render(
+      <CopyrightReportForm
+        images={[{ imageId: 7, url: "https://example.test/a.jpg" }]}
+        reviewImages={[{ reviewImageId: 3, url: "https://example.test/r.jpg" }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByAltText("후기 사진 1"));
+    fireEvent.change(screen.getByLabelText("신고하시는 분"), { target: { value: "권리자" } });
+    fireEvent.change(screen.getByLabelText("연락받을 이메일"), { target: { value: "r@test.local" } });
+    fireEvent.change(screen.getByLabelText("권리가 있는 저작물"), { target: { value: "우리 화보" } });
+    fireEvent.submit(container.querySelector("form")!);
+
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith("/api/copyright-reports/review-images/3", {
+        method: "POST",
+        body: { reporterName: "권리자", reporterEmail: "r@test.local", claimedWork: "우리 화보" },
+      }),
+    );
+  });
+
   it("게시 중단은 한 번 더 묻고 소문자 판정값으로 보낸다", async () => {
     render(<CopyrightDecisionButtons reportId={5} />);
 

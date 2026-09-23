@@ -101,6 +101,9 @@ class TriggerCoverageTest extends PostgresTestBase {
             Map.entry("review.review_check_target",
                     "후기의 상품·작성자가 주문 줄과 어긋나는 것을 막는다. `ReviewSchemaTest` 가 지난다"),
             Map.entry("review.review_set_updated_at", TOUCH + ". `ReviewSchemaTest` 가 지난다"),
+            Map.entry("review.review_blocked_keeps_slot",
+                    "내려간 후기가 지워진 뒤 같은 주문 줄에 새 후기를 넣는 것을 막는다(`Q194`, `V105`). "
+                            + "`ReviewModerationServiceTest` 가 지난다"),
             Map.entry("review_reply.review_reply_check_seller",
                     "남의 셀러 사람이 답글을 다는 것을 막는다. `ReviewModerationTest` 가 지난다"),
             Map.entry("review_reply.review_reply_set_updated_at",

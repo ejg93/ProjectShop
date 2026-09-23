@@ -83,6 +83,17 @@ public class CopyrightReportController {
                 request.reporterName(), request.reporterEmail(), request.claimedWork()));
     }
 
+    /** 후기 사진을 신고한다(`Q196`). 상품 사진과 같은 요청이고 로그인 없이 받는다 */
+    @PostMapping("/review-images/{reviewImageId}")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CopyrightReportService.Received reportReviewImage(
+            @PathVariable long reviewImageId,
+            @Valid @RequestBody ReportRequest request) {
+
+        return service.reportReviewImage(reviewImageId, new CopyrightReportService.Command(
+                request.reporterName(), request.reporterEmail(), request.claimedWork()));
+    }
+
     @PostMapping("/{reportId}/decision")
     public void decide(
             @AuthenticationPrincipal ShopUser user,

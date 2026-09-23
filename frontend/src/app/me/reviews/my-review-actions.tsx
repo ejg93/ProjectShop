@@ -12,16 +12,20 @@ import { ApiError, api } from "@/lib/api";
  * 말이 달라진」 후기가 남는다.
  *
  * <p><b>지우기는 한 번 더 묻는다.</b> 대화상자가 아니라 이 자리에서 — 되돌릴 수 없는 것을 한 번에
- * 누르게 두면 목록을 훑다가 잘못 누른 손이 그대로 남는다. 지운 뒤에는 같은 주문에 다시 쓸 수 있다.
+ * 누르게 두면 목록을 훑다가 잘못 누른 손이 그대로 남는다. 지운 뒤에는 같은 주문에 다시 쓸 수 있다 —
+ * <b>게시가 중단된 후기는 빼고</b>(`Q194`, `V105`). 그 후기는 지워도 자리를 차지해서, 묻는 말에 그것을 적는다.
  */
 export function MyReviewActions({
   reviewId,
   rating: initialRating,
   body: initialBody,
+  blocked = false,
 }: {
   reviewId: number;
   rating: number;
   body: string;
+  /** 게시가 중단됐나. 그러면 지워도 이 주문에 새 후기를 못 쓴다(`V105`) */
+  blocked?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -110,7 +114,11 @@ export function MyReviewActions({
         </form>
       ) : mode === "confirmingDelete" ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span>이 후기를 지우시겠습니까?</span>
+          <span>
+            {blocked
+              ? "게시가 중단된 후기는 지워도 이 주문에 새 후기를 쓸 수 없습니다. 지우시겠습니까?"
+              : "이 후기를 지우시겠습니까?"}
+          </span>
           <button
             type="button"
             disabled={pending}

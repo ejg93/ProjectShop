@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.order.OrderFixture;
+import com.projectshop.shop.stats.DailySalesService;
 import com.projectshop.shop.support.BusinessCalendar;
 
 /**
@@ -41,6 +42,9 @@ class SettlementCloseBatchTest extends PostgresTestBase {
 
     @Autowired
     private SettlementCloseBatch batch;
+
+    @Autowired
+    private DailySalesService dailySales;
 
     @Autowired
     private JdbcClient jdbc;
@@ -238,6 +242,32 @@ class SettlementCloseBatchTest extends PostgresTestBase {
             assertThat(payoutAmount())
                     .as("몰이 문 할인은 셀러 지급액을 안 건드린다")
                     .isEqualTo(PRICE - COMMISSION + SHIPPING_FEE);
+        }
+
+        /**
+         * 매출 통계와 정산서의 대조(`Q197`). <b>셀러 매출(고객 결제 + 몰이 문 할인)이 정산서의 판매 축과 같다</b> —
+         * 몰 쿠폰이면 셀러는 정가를 받고(판매 줄), 셀러 쿠폰이면 할인 줄이 빠진다. 전에는 매출 화면이 고객 결제만 세서
+         * 몰 쿠폰 주문에서 정산서보다 할인액만큼 작았고 둘을 맞출 칸이 없었다.
+         */
+        @Test
+        @DisplayName("셀러 매출이 정산서의 판매·할인 줄 합과 같다 — 몰 쿠폰이든 셀러 쿠폰이든")
+        void 셀러_매출이_정산서_판매_축과_같다() {
+            paidInPeriod(confirmedOrderWithCoupon(PERIOD_END, "mall", 1_000));
+            paidInPeriod(confirmedOrderWithCoupon(PERIOD_END, "seller", 700));
+            prerequisiteSucceeded(PERIOD_END);
+
+            batch.close(PERIOD_END);
+
+            long sellerRevenue = dailySales.tally(PERIOD_END.withDayOfMonth(1), PERIOD_END.plusDays(1)).stream()
+                    .filter(day -> day.sellerId() == sellerId)
+                    .mapToLong(day -> day.paidAmount() + day.mallDiscountAmount()
+                            - day.refundedAmount() - day.refundedMallDiscountAmount())
+                    .sum();
+
+            assertThat(sellerRevenue)
+                    .as("정산서의 판매 축(판매 줄 + 셀러 쿠폰 줄)과 한 원도 안 갈려야 두 화면을 맞출 수 있다")
+                    .isEqualTo(lineSum("sale") + lineSum("coupon_discount"))
+                    .isEqualTo(2 * PRICE - 700);
         }
 
         @Test
@@ -611,6 +641,20 @@ class SettlementCloseBatchTest extends PostgresTestBase {
                 .update();
 
         return sellerOrderId;
+    }
+
+    /** 그 묶음의 주문에 승인된 결제를 기간 안에 남긴다. 매출 통계는 결제가 승인된 날로 센다(`40`) */
+    private void paidInPeriod(long sellerOrderId) {
+        jdbc.sql("""
+                        insert into payment (order_id, status, method, amount, approval_number, created_at)
+                        select o.order_id, 'approved', 'transfer', o.payable_amount, 'T-Q197-' || o.order_id, :at
+                          from shop_order o
+                          join seller_order so on so.order_id = o.order_id
+                         where so.seller_order_id = :id
+                        """)
+                .param("id", sellerOrderId)
+                .param("at", PERIOD_END.withDayOfMonth(15).atStartOfDay(BusinessCalendar.ZONE).toOffsetDateTime())
+                .update();
     }
 
     private long couponLineAmount(long sellerOrderId) {

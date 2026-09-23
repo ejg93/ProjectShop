@@ -69,6 +69,8 @@ class ScreenLengthTest {
                     "상한이 @Size 가 아니라 @Pattern 안에 있다 — `[0-9][0-9 -]{10,23}[0-9]` 라 25자다",
             "app/checkout/checkout-form.tsx  postalCode",
                     "상한이 @Pattern 안에 있다 — `^[0-9]{5}$` 라 5자다",
+            "app/admin/orders/[orderNumber]/compensations.tsx  inquiryNumber",
+                    "상한이 @Pattern 안에 있다 — `Q-` 와 날짜 8자리·하이픈·6자리라 17자다(`43a-4c`)",
             "app/seller/orders/[sellerOrderNumber]/ship-form.tsx  trackingNo",
                     "상한이 @Pattern 안에 있다 — 숫자 14자리 사이마다 하이픈이 하나씩 끼면 27자다(`57`)"));
 
@@ -266,6 +268,21 @@ class ScreenLengthTest {
                     "radio 다. 참·거짓 둘뿐이고 서버 record 가 Boolean 으로 받는다(`Q182`)"),
             Map.entry("app/seller/orders/[sellerOrderNumber]/ship-form.tsx  carrierCode",
                     "select 다. 택배사 다섯뿐이고 서버 Carrier 열거형과 seller_order_carrier_code_check 가 든다(`57`)"),
+            // 관리자 주문 조회의 거르는 칸(`Q176`). 저장하는 값이 아니라 GET 조건이다.
+            Map.entry("app/admin/orders/order-list.tsx  status",
+                    "select 다. 결제 상태 넷뿐이고 모르는 값은 서버가 400 으로 돌린다"),
+            Map.entry("app/admin/orders/order-list.tsx  from",
+                    "type=date 다. 브라우저가 날짜 꼴로 닫고 서버가 LocalDate 로 받는다"),
+            Map.entry("app/admin/orders/order-list.tsx  until", "〃"),
+            // 손해배상 판정 칸(`43a-4c`). 글자는 사유(basis)와 문의 번호뿐이고 둘 다 위에서 잇는다.
+            Map.entry("app/admin/orders/[orderNumber]/compensations.tsx  kind",
+                    "select 다. 둘뿐이고 서버 CompensationKind 와 compensation_kind_check 가 든다"),
+            Map.entry("app/admin/orders/[orderNumber]/compensations.tsx  bearer",
+                    "select 다. 둘뿐이고 서버 CompensationBearer 와 compensation_bearer_check 가 든다"),
+            Map.entry("app/admin/orders/[orderNumber]/compensations.tsx  amount",
+                    "type=number 다. 1~1억은 min/max 와 서버 @Positive·@Max, 표의 compensation_amount_check 가 든다"),
+            Map.entry("app/admin/orders/[orderNumber]/force-status-form.tsx  to",
+                    "select 다. 서버가 내린 forcibleStatuses 로 닫혀 있고 표 밖은 서버가 409 로 돌린다(`16c`)"),
 
             // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
             // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라

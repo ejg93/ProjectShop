@@ -8,10 +8,22 @@ import { ApiError, api } from "@/lib/api";
  * 저작권 침해 신고서(`Q183`).
  *
  * <p><b>사진 하나를 고른다.</b> 서버가 사진 단위로 받는다 — 판정하면 그 사진이 저장소에서 사라진다(`Q94`).
+ * <b>후기 사진도 고를 수 있다</b>(`Q196`) — 이용자가 올리는 두 번째 공개 표면이라 같은 절차를 받는다. 입구가 둘이라
+ * 무엇을 골랐는지를 종류와 번호로 든다.
  */
-export function CopyrightReportForm({ images }: { images: { imageId: number; url: string }[] }) {
+export function CopyrightReportForm({
+  images,
+  reviewImages = [],
+}: {
+  images: { imageId: number; url: string }[];
+  reviewImages?: { reviewImageId: number; url: string }[];
+}) {
   const [pending, startTransition] = useTransition();
-  const [imageId, setImageId] = useState(images[0].imageId);
+  const [choice, setChoice] = useState<{ kind: "product" | "review"; id: number }>(
+    images.length > 0
+      ? { kind: "product", id: images[0].imageId }
+      : { kind: "review", id: reviewImages[0].reviewImageId },
+  );
   const [receipt, setReceipt] = useState<number | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -22,7 +34,9 @@ export function CopyrightReportForm({ images }: { images: { imageId: number; url
     startTransition(async () => {
       try {
         const received = await api<{ copyrightReportId: number }>(
-          `/api/copyright-reports/images/${imageId}`,
+          choice.kind === "product"
+            ? `/api/copyright-reports/images/${choice.id}`
+            : `/api/copyright-reports/review-images/${choice.id}`,
           {
             method: "POST",
             body: {
@@ -59,14 +73,31 @@ export function CopyrightReportForm({ images }: { images: { imageId: number; url
               <input
                 type="radio"
                 name="imageId"
-                value={image.imageId}
-                checked={imageId === image.imageId}
-                onChange={() => setImageId(image.imageId)}
+                value={`product-${image.imageId}`}
+                checked={choice.kind === "product" && choice.id === image.imageId}
+                onChange={() => setChoice({ kind: "product", id: image.imageId })}
               />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={image.url}
                 alt={`상품 사진 ${index + 1}`}
+                className="h-24 w-24 rounded-ui border border-border object-cover"
+              />
+            </label>
+          ))}
+          {reviewImages.map((image, index) => (
+            <label key={`review-${image.reviewImageId}`} className="grid cursor-pointer gap-1">
+              <input
+                type="radio"
+                name="imageId"
+                value={`review-${image.reviewImageId}`}
+                checked={choice.kind === "review" && choice.id === image.reviewImageId}
+                onChange={() => setChoice({ kind: "review", id: image.reviewImageId })}
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={image.url}
+                alt={`후기 사진 ${index + 1}`}
                 className="h-24 w-24 rounded-ui border border-border object-cover"
               />
             </label>

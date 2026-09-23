@@ -2,6 +2,8 @@ package com.projectshop.shop.order;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -9,6 +11,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
@@ -106,14 +109,68 @@ public class OrderActionService {
     private final PermissionEvaluator evaluator;
     private final OrderStatusService statuses;
     private final ReturnRequestService returns;
+    private final AuditLog auditLog;
 
     OrderActionService(JdbcClient jdbc, PermissionEvaluator evaluator, OrderStatusService statuses,
-            ReturnRequestService returns) {
+            ReturnRequestService returns, AuditLog auditLog) {
 
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.statuses = statuses;
         this.returns = returns;
+        this.auditLog = auditLog;
+    }
+
+    /**
+     * 관리자가 전이표와 상태 축 밖으로 옮긴다(`16c`, {@code order:force_status}).
+     *
+     * <p><b>갈 곳은 {@link OrderTransitions#forcible} 이 닫는다</b> — 취소·배송중·배송완료. 곁가지(재고·발송 시각·기한)는
+     * {@link OrderStatusService} 가 출발지를 보고 맞춘다. <b>배송중으로 옮긴 묶음은 송장이 비어 있다</b>(`57`) —
+     * 송장 없는 직접 배송이 이 동작의 이유 중 하나라 DB 가 일부러 안 막는다(`V104`).
+     *
+     * <p><b>감사 로그에 결과를 남긴다</b>(`4b`). 이력 행에도 사유가 남지만 그것은 주문의 생애고,
+     * 감사 로그는 「누가 이 권한을 썼나」를 셀 자리다 — 권한 하나를 따로 세운 이유가 그것이다({@code V106}).
+     *
+     * @param to     {@code CANCELLED}·{@code SHIPPING}·{@code DELIVERED}
+     * @param reason 필수다. 비면 400 이다 — DB 도 같은 것을 막는다({@code order_status_history_admin_reason_check})
+     */
+    @Transactional
+    public void force(long userId, String sellerOrderNumber, String to, String reason) {
+        Row row = find(sellerOrderNumber);
+
+        Target target = Target.of(row.buyerUserId(), row.sellerId()).inStatus(row.status());
+        if (!evaluator.decide(userId, "order", "force_status", target).allowed()) {
+            throw notFound(sellerOrderNumber);
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new ShopException(ErrorCode.TRANSITION_REASON_REQUIRED);
+        }
+
+        Shipment from = Shipment.of(row.status());
+        Shipment destination = Arrays.stream(Shipment.values())
+                .filter(status -> status.name().equals(to.toUpperCase(Locale.ROOT)))
+                .findFirst()
+                .orElseThrow(() -> new ShopException(ErrorCode.VALIDATION_FAILED, "그런 배송 상태가 없다: " + to));
+
+        // 강제 표는 상태 서비스가 본다 — 전이표 밖으로 가는 길이 거기 하나라서다(마무리 46차).
+        statuses.forceShipment(row.sellerOrderId(), destination, Actor.admin(userId, reason));
+        auditLog.record(AuditLog.Kind.OUTCOME, "order.status_forced", userId,
+                AuditLog.Target.of("seller_order", row.sellerOrderId()),
+                Map.of("from", from.name(), "to", destination.name()));
+    }
+
+    /**
+     * 이 사람이 이 묶음을 강제로 옮길 수 있는 곳(`16c`). 권한이 없으면 비어 있다.
+     *
+     * <p>{@link #allowedActions} 와 따로 둔다 — 관리자는 모든 권한을 {@code all} 로 가져서 거기에 구매확정·반품 요청
+     * 같은 고객 동작까지 섞여 온다(`Q176`). 강제 전이 버튼은 이 판정 하나로 고른다.
+     */
+    public List<String> forcibleStatuses(long userId, long buyerUserId, long sellerId, String status) {
+        Target target = Target.of(buyerUserId, sellerId).inStatus(status);
+        if (!evaluator.allowedActions(userId, "order", Set.of("force_status"), target).contains("force_status")) {
+            return List.of();
+        }
+        return OrderTransitions.forcibleFrom(Shipment.of(status)).stream().map(Enum::name).toList();
     }
 
     /**

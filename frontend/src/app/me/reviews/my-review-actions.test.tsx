@@ -40,6 +40,15 @@ describe("내 후기 조작", () => {
     );
   });
 
+  /** 내려간 후기는 지워도 자리를 차지한다(`Q194`, `V105`). 모르고 지우면 새로 쓸 수 있다고 믿는다 */
+  it("게시가 중단된 후기는 지워도 새로 못 쓴다고 묻는다", () => {
+    render(<MyReviewActions reviewId={5} rating={4} body="열 자가 넘는 원래 후기입니다" blocked />);
+
+    fireEvent.click(screen.getByRole("button", { name: "지우기" }));
+
+    expect(screen.getByText(/지워도 이 주문에 새 후기를 쓸 수 없습니다/)).toBeInTheDocument();
+  });
+
   it("고치면 별점과 글을 같이 보낸다", async () => {
     render(<MyReviewActions reviewId={5} rating={4} body="열 자가 넘는 원래 후기입니다" />);
 

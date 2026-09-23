@@ -13,14 +13,18 @@ const DAY: SalesDay = {
   refundCount: 1,
   refundedAmount: 10000,
   netAmount: 20000,
+  mallDiscountAmount: 1000,
+  refundedMallDiscountAmount: 0,
+  sellerNetAmount: 21000,
 };
 
 const REPORT: SalesReport = {
   from: "2026-09-22",
   to: "2026-09-24",
   days: [DAY, { ...DAY, salesDate: "2026-09-23", orderCount: 1, soldQuantity: 1, paidAmount: 5000, refundCount: 0,
-    refundedAmount: 0, netAmount: 5000 }],
-  total: { orderCount: 3, soldQuantity: 4, paidAmount: 35000, refundCount: 1, refundedAmount: 10000, netAmount: 25000 },
+    refundedAmount: 0, netAmount: 5000, mallDiscountAmount: 0, sellerNetAmount: 5000 }],
+  total: { orderCount: 3, soldQuantity: 4, paidAmount: 35000, refundCount: 1, refundedAmount: 10000, netAmount: 25000,
+    mallDiscountAmount: 1000, refundedMallDiscountAmount: 0, sellerNetAmount: 26000 },
 };
 
 /**
@@ -45,6 +49,15 @@ describe("매출 통계", () => {
     const totalRow = rows[rows.length - 1];
     expect(within(totalRow).getByRole("rowheader", { name: "합계" })).toBeInTheDocument();
     expect(within(totalRow).getByText("25,000원")).toBeInTheDocument();
+  });
+
+  /** 몰이 문 쿠폰이면 셀러는 정가를 받는다(`Q197`) — 고객 결제만 세면 정산서보다 할인액만큼 작다 */
+  it("셀러 매출을 순매출 옆에 적는다 — 정산서와 맞춰 볼 축이다", () => {
+    render(<SalesView report={REPORT} range={7} />);
+
+    const rows = screen.getAllByRole("row");
+    expect(within(rows[rows.length - 1]).getByText("26,000원")).toBeInTheDocument();
+    expect(screen.getByText("셀러 매출 (정산 금액 축)")).toBeInTheDocument();
   });
 
   it("고른 기간을 알린다", () => {

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -18,6 +19,8 @@ import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.review.ReviewFixture;
+import com.projectshop.shop.review.ReviewImageService;
 
 /**
  * 남의 저작물 신고·삭제({@code Q94}, {@code D2} {@code R42}).
@@ -47,6 +50,9 @@ class CopyrightReportServiceTest extends StorageTestBase {
 
     @Autowired
     private S3Client s3;
+
+    @Autowired
+    private ReviewImageService reviewImages;
 
     @Autowired
     private JdbcClient jdbc;
@@ -187,6 +193,64 @@ class CopyrightReportServiceTest extends StorageTestBase {
         assertThatThrownBy(() -> query.find(owner, true, FIRST))
                 .isInstanceOf(ShopException.class)
                 .hasFieldOrPropertyWithValue("code", ErrorCode.PRODUCT_FORBIDDEN);
+    }
+
+    /**
+     * 후기 사진도 같은 절차다(`Q196`, `R42`). <b>게시 중단이 저장소 객체까지 지워야 한다</b> — 전에는 후기 신고로
+     * 내려도 {@code blocked_at} 만 서고 사진이 공개 버킷에 남았다. 신고된 것은 사진이라 후기 글은 남는다.
+     */
+    @Test
+    @DisplayName("후기 사진도 게시 중단하면 저장소에서 사라지고 후기 글은 남는다")
+    void 후기_사진도_게시_중단하면_저장소에서_사라진다() {
+        ReviewFixture reviews = new ReviewFixture(jdbc);
+        long reviewProduct = reviews.insertProduct("후기 상품");
+        long orderItemId = reviews.placeOrder(reviewProduct, "delivered");
+        reviews.insertReview(orderItemId, reviewProduct, reviews.buyerId(), 5, "사진과 같은 물건이 왔어요");
+        long reviewId = jdbc.sql("select review_id from review where order_item_id = :id")
+                .param("id", orderItemId).query(Long.class).single();
+        long reviewImageId = reviewImages.upload(reviews.buyerId(), reviewId,
+                new ImagePipeline.Incoming("photo.jpg", ProductImageFixture.jpegBytes(80, 60))).reviewImageId();
+        List<String> keys = jdbc.sql("select object_key, thumbnail_key from review_image where review_image_id = :id")
+                .param("id", reviewImageId)
+                .query((rs, rowNum) -> List.of(rs.getString("object_key"), rs.getString("thumbnail_key")))
+                .single();
+
+        long reportId = service.reportReviewImage(reviewImageId, new CopyrightReportService.Command(
+                "권리자", "rights@test.local", "우리 화보 사진이다")).copyrightReportId();
+
+        assertThat(query.find(admin, true, FIRST).items())
+                .as("관리자가 사진을 보고 판정한다 — 대기열에 후기 사진이 실린다")
+                .anySatisfy(item -> {
+                    assertThat(item.copyrightReportId()).isEqualTo(reportId);
+                    assertThat(item.target()).isEqualTo("REVIEW_IMAGE");
+                    assertThat(item.thumbnailUrl()).isNotNull();
+                });
+
+        service.decide(admin, reportId, CopyrightDecision.TAKEN_DOWN);
+
+        for (String key : keys) {
+            assertThatThrownBy(() -> s3.headObject(b -> b.bucket(PUBLIC_BUCKET).key(key)))
+                    .isInstanceOf(NoSuchKeyException.class);
+        }
+        assertThat(jdbc.sql("select count(*) from review where review_id = :id and deleted_at is null")
+                .param("id", reviewId).query(Long.class).single())
+                .as("글까지 내리면 저작권 절차로 후기를 지우는 길이 된다")
+                .isEqualTo(1);
+    }
+
+    /** 무엇을 신고했나와 가리키는 칸이 갈리면 판정 이력이 다른 사진을 말한다(`V109`) */
+    @Test
+    @DisplayName("신고 대상 종류와 가리키는 칸이 어긋나면 DB 가 막는다")
+    void 신고_대상_종류와_가리키는_칸이_어긋나면_막는다() {
+        assertThatThrownBy(() -> jdbc.sql("""
+                        insert into copyright_report (product_image_id, product_id, target,
+                                                      reporter_name, reporter_email, claimed_work)
+                        select product_image_id, product_id, 'review_image', '권리자', 'r@test.local', '작품'
+                          from product_image where product_image_id = :id
+                        """)
+                .param("id", image.productImageId())
+                .update())
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private long report() {

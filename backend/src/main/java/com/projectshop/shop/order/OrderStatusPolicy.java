@@ -83,6 +83,9 @@ class OrderStatusPolicy implements StatusPolicy {
      * <b>관리자도 같이 걸린다.</b> 축은 규칙 위에 있어서 스코프로 비켜 갈 수 없다.
      * 운영이 종착 주문을 강제로 옮겨야 할 일이 생기면 이 표에 예외를 파지 말고
      * 별도 동작(`order:force_status`)을 만든다 — 그래야 그 권한을 누구에게 줬는지가 데이터로 남는다.
+     * <b>그 동작이 {@link #BY_ACTION} 에 없는 것이 곧 그 설계다</b>(`16c`, `V106`) — 없으면 전부 열리고,
+     * 갈 곳은 {@code OrderTransitions.forcible} 이 닫는다. <b>끝난 상태에서 나가는 줄은 아직 그 표에 없다</b> —
+     * 되살리기의 곁가지(재고·종료 시각·기한)를 먼저 세워야 해서 `Q201` 이 든다.
      */
     @Override
     public Allowed<String> allowedStatuses(String resource, String action) {

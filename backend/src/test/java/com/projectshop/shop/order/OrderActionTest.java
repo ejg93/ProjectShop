@@ -564,6 +564,178 @@ class OrderActionTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 관리자 강제 전이(`16c`). <b>도착이 셋이고 곁가지를 출발지가 정한다</b>(2026-09-23 사용자 선택) —
+     * 배송중에서 온 취소가 재고를 되돌리면 없는 물건을 또 팔고, 준비중에서 바로 온 배송완료가 기한을 안 박으면
+     * 청약철회 7일이 영영 시작 안 된다. 둘 다 초록인 채로 틀린다.
+     */
+    @Nested
+    @DisplayName("강제 전이")
+    class Force {
+
+        private long admin;
+
+        @BeforeEach
+        void admin() {
+            admin = fixture.insertUser("oa-force-admin@test.local", "관리자");
+            fixture.grantGlobal(admin, "admin");
+        }
+
+        @Test
+        @DisplayName("배송 중 분실 취소는 재고를 안 되돌린다")
+        void lostParcelKeepsStock() {
+            String number = paidShipment();
+            actions.run(alphaOwner, number, Action.SHIP, null);
+            int before = onHand(alphaSku);
+
+            actions.force(admin, number, "CANCELLED", "택배 분실 확인");
+
+            assertThat(statusOf(number)).isEqualTo("cancelled");
+            assertThat(onHand(alphaSku)).as("물건이 창고에 없다").isEqualTo(before);
+        }
+
+        @Test
+        @DisplayName("보내기 전 강제 취소는 재고를 되돌린다")
+        void cancelBeforeShippingRestocks() {
+            String number = paidShipment();
+            int before = onHand(alphaSku);
+
+            actions.force(admin, number, "CANCELLED", "셀러 연락 두절");
+
+            assertThat(onHand(alphaSku)).isEqualTo(before + 1);
+        }
+
+        @Test
+        @DisplayName("준비중에서 바로 배송완료로 가면 발송 시각과 청약철회 기한을 박는다")
+        void deliveredFromPreparingStampsBoth() {
+            String number = paidShipment();
+
+            actions.force(admin, number, "DELIVERED", "퀵으로 직접 전달 확인");
+
+            assertThat(jdbc.sql("""
+                            select shipped_at is not null and withdrawal_expire_at is not null
+                              from seller_order where seller_order_number = :number
+                            """)
+                    .param("number", number).query(Boolean.class).single())
+                    .as("기한이 비면 7일이 시작 안 되고, 발송 시각이 비면 「발송 기한 지남」이 영영 켜진다")
+                    .isTrue();
+        }
+
+        /** 송장 없는 직접 배송이 이 동작의 이유 중 하나다. DB 가 일부러 안 막는다(`57`, `V104`) */
+        @Test
+        @DisplayName("강제 발송은 송장이 비어 있다")
+        void forcedShipHasNoTracking() {
+            String number = paidShipment();
+
+            actions.force(admin, number, "SHIPPING", "직접 배송");
+
+            assertThat(statusOf(number)).isEqualTo("shipping");
+            assertThat(jdbc.sql("select tracking_no from seller_order where seller_order_number = :number")
+                    .param("number", number).query(String.class).optional()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("끝난 묶음은 강제로도 못 옮긴다")
+        void terminalStaysClosed() {
+            String number = confirmedShipment();
+
+            assertThatThrownBy(() -> actions.force(admin, number, "DELIVERED", "되돌림"))
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.ORDER_TRANSITION_NOT_ALLOWED));
+        }
+
+        @Test
+        @DisplayName("사유가 없으면 못 옮긴다")
+        void needsReason() {
+            String number = paidShipment();
+
+            assertThatThrownBy(() -> actions.force(admin, number, "CANCELLED", " "))
+                    .isInstanceOfSatisfying(ShopException.class, e ->
+                            assertThat(e.code()).isEqualTo(ErrorCode.TRANSITION_REASON_REQUIRED));
+        }
+
+        @Test
+        @DisplayName("셀러와 감사자는 못 부른다 — 없는 묶음과 같은 답이다")
+        void onlyAdmin() {
+            String number = paidShipment();
+            long auditor = fixture.insertUser("oa-force-auditor@test.local", "감사자");
+            fixture.grantGlobal(auditor, "auditor");
+
+            for (long user : new long[] {alphaOwner, auditor, buyer}) {
+                assertThatThrownBy(() -> actions.force(user, number, "CANCELLED", "시도"))
+                        .isInstanceOfSatisfying(ShopException.class, e ->
+                                assertThat(e.code()).isEqualTo(ErrorCode.SELLER_ORDER_NOT_FOUND));
+            }
+            assertThat(statusOf(number)).isEqualTo("preparing");
+        }
+
+        @Test
+        @DisplayName("감사 로그에 결과가 남는다")
+        void leavesAuditOutcome() {
+            String number = paidShipment();
+
+            actions.force(admin, number, "SHIPPING", "직접 배송");
+
+            assertThat(jdbc.sql("""
+                            select count(*) from audit_log
+                             where actor_user_id = :admin and target_id = :target
+                               and event_type = 'order.status_forced'
+                            """)
+                    .param("admin", admin).param("target", idOf(number)).query(Long.class).single())
+                    .isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("갈 수 있는 곳은 관리자에게만 내려간다")
+        void forcibleStatusesOnlyForAdmin() {
+            String number = paidShipment();
+            String orderNumber = orderNumberOf(number);
+
+            assertThat(orders.findByNumber(admin, orderNumber).sellerOrders().getFirst().forcibleStatuses())
+                    .containsExactly("SHIPPING", "DELIVERED", "CANCELLED");
+            assertThat(orders.findByNumber(buyer, orderNumber).sellerOrders().getFirst().forcibleStatuses())
+                    .isEmpty();
+        }
+
+        /** 결제 안 된 묶음은 강제 전이 입구가 못 찾는다(`seller_order_visible`) — 목록이 폼을 세우면 누를 때마다 404 다 */
+        @Test
+        @DisplayName("결제 안 된 주문에는 갈 곳이 안 내려간다")
+        void unpaidOrderOffersNothing() {
+            long orderId = placeOrder(List.of(alphaSku));
+            String orderNumber = jdbc.sql("select order_number from shop_order where order_id = :id")
+                    .param("id", orderId).query(String.class).single();
+
+            assertThat(orders.findByNumber(admin, orderNumber).sellerOrders().getFirst().forcibleStatuses())
+                    .isEmpty();
+        }
+
+        /**
+         * 범위는 `V106` 의 검사 블록이 적용 때 한 번 본다. 뒤의 마이그레이션이 넓혀도 그 블록은 다시 안 돈다 —
+         * 그래서 지금 DB 의 부여를 매번 잰다(마무리 45차 독립 리뷰).
+         */
+        @Test
+        @DisplayName("강제 전이는 관리자에게만 열려 있고 감사자에게는 거부가 걸려 있다")
+        void grantsStayWithAdmin() {
+            List<String> grants = jdbc.sql("""
+                            select r.code || ':' || rp.scope || ':' || rp.effect
+                              from role_permission rp
+                              join role r on r.role_id = rp.role_id
+                              join permission p on p.permission_id = rp.permission_id
+                             where p.resource = 'order' and p.action = 'force_status'
+                             order by 1
+                            """)
+                    .query(String.class)
+                    .list();
+
+            assertThat(grants).containsExactly("admin:all:allow", "auditor:all:deny");
+        }
+
+        private int onHand(long skuId) {
+            return jdbc.sql("select on_hand from sku_stock where sku_id = :skuId")
+                    .param("skuId", skuId).query(Integer.class).single();
+        }
+    }
+
     @Nested
     @DisplayName("이력의 행위자")
     class ActorType {

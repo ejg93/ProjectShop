@@ -100,6 +100,8 @@ public class SecurityConfig {
             // 회원만 신고할 수 있게 하면 법이 요구한 절차에 가입이라는 관문이 하나 붙는다.
             // 판정 경로는 여기 없다. 그쪽은 누가 언제 무엇을 했는지가 증거라 로그인이 필요하다.
             "/api/copyright-reports/images/*",
+            // 후기 사진도 같은 절차다(`Q196`) — 이용자가 올리는 두 번째 공개 표면이다.
+            "/api/copyright-reports/review-images/*",
             // 상품 공개 목록. 비로그인도 본다 — 사는 사람은 로그인 전에 물건을 고른다.
             // 이 경로는 판정이 없다. on_sale 만 나가므로 감출 것이 없다(청크 8).
             //
@@ -221,7 +223,7 @@ public class SecurityConfig {
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 // 인가 직전에 둔다. 인증이 확정된 뒤여야 principal 을 볼 수 있고,
                 // 인가 전이어야 죽은 계정이 아무것도 통과하지 못한다.
-                .addFilterBefore(new AccountLivenessFilter(ruleLoader, problems), AuthorizationFilter.class)
+                .addFilterBefore(new AccountLivenessFilter(ruleLoader, problems, evaluators), AuthorizationFilter.class)
                 // 대행 중의 쓰기를 여기 한 곳에서 막는다(`16b`). 입구마다 두면 새 입구가 빠뜨린다.
                 // 인증이 확정된 뒤라 대행 토큰이 보이고, 인가 전이라 막힌 요청이 아무것도 건드리지 못한다.
                 .addFilterBefore(new ImpersonationReadOnlyFilter(problems), AuthorizationFilter.class);
