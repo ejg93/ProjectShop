@@ -361,7 +361,10 @@ val mutationTargets = listOf(
 	"com.projectshop.shop.payment.RefundMath",
 	"com.projectshop.shop.auth.PasswordPolicy",
 	"com.projectshop.shop.support.TaxRetention",
-	"com.projectshop.shop.support.BusinessCalendar")
+	"com.projectshop.shop.support.BusinessCalendar",
+	// 누가 무엇을 할 수 있나를 가르는 표(`Q188`). 부등호 하나가 권한 구멍이 된다.
+	"com.projectshop.shop.product.ProductTransitions",
+	"com.projectshop.shop.order.OrderStatusPolicy")
 
 tasks.register<JavaExec>("mutationTest") {
 	description = "순수 계산 클래스에 변이를 넣고 빠른 레인 시험이 잡는지 본다(69). 손으로 돌린다."
