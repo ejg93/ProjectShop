@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { expectNoAxeViolations } from "@/test/axe";
+
 import { type OrderRefund, RefundLines } from "./refund-lines";
 
 const REFUND: OrderRefund = {
@@ -49,5 +51,16 @@ describe("구매자의 환불 줄", () => {
     render(<RefundLines refunds={[REFUND]} rejectionReasons={{}} />);
 
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("기한 넘김과 반려가 같이 있어도 접근성 규칙을 지킨다(`Q193`)", async () => {
+    const { container } = render(
+      <RefundLines
+        refunds={[{ ...REFUND, overdue: true }, { ...REFUND, refundNumber: "R-2", status: "REJECTED" }]}
+        rejectionReasons={{ "R-2": "반품 상품이 도착하지 않았습니다" }}
+      />,
+    );
+
+    await expectNoAxeViolations(container);
   });
 });

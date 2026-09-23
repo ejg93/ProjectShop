@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { expectNoAxeViolations } from "@/test/axe";
+
 import { ApiError, api } from "@/lib/api";
 
 import { RefundDecision } from "./refund-decision";
@@ -81,5 +83,14 @@ describe("환불 승인·반려", () => {
     fireEvent.click(screen.getByRole("button", { name: "승인" }));
 
     expect(await screen.findByText(/이미 처리된 환불입니다/)).toBeInTheDocument();
+  });
+
+  it("반려 칸을 연 모양이 접근성 규칙을 지킨다(`Q193`)", async () => {
+    const { container } = render(
+      <RefundDecision refundNumber="R-1" amount={20000} overdue={false} allowedActions={["APPROVE", "REJECT"]} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "반려" }));
+
+    await expectNoAxeViolations(container);
   });
 });

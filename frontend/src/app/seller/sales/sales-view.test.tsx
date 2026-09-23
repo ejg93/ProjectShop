@@ -1,6 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { expectNoAxeViolations } from "@/test/axe";
+
 import { type SalesDay, type SalesReport, SalesView, salesRange } from "./sales-view";
 
 const DAY: SalesDay = {
@@ -50,5 +52,11 @@ describe("매출 통계", () => {
 
     expect(screen.getByRole("link", { name: "최근 30일" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "최근 7일" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("표와 기간 고르기가 접근성 규칙을 지킨다(`Q193`)", async () => {
+    const { container } = render(<SalesView report={REPORT} range={30} />);
+
+    await expectNoAxeViolations(container);
   });
 });

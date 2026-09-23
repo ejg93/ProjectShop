@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { expectNoAxeViolations } from "@/test/axe";
+
 import { ApiError, api } from "@/lib/api";
 
 import { ShipForm } from "./ship-form";
@@ -56,5 +58,11 @@ describe("송장과 함께 발송", () => {
     fireEvent.click(screen.getByRole("button", { name: "발송 처리" }));
 
     expect(await screen.findByText("택배사와 송장 번호를 확인해 주세요.")).toBeInTheDocument();
+  });
+
+  it("접근성 규칙을 지킨다(`Q193`)", async () => {
+    const { container } = render(<ShipForm sellerOrderNumber="S-1" />);
+
+    await expectNoAxeViolations(container);
   });
 });
