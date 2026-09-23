@@ -183,7 +183,8 @@ public class ReviewService {
     private boolean exists(long orderItemId) {
         return Boolean.TRUE.equals(jdbc.sql("""
                         select exists(select 1 from review
-                                       where order_item_id = :id and deleted_at is null)
+                                       where order_item_id = :id
+                                         and (deleted_at is null or blocked_at is not null))
                         """)
                 .param("id", orderItemId)
                 .query(Boolean.class)
