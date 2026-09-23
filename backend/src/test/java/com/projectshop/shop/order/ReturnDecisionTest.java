@@ -54,6 +54,12 @@ class ReturnDecisionTest extends PostgresTestBase {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    private SellerOrderQuery sellerOrders;
+
+    @Autowired
+    private OrderQuery orders;
+
     private AuthFixture fixture;
     private long buyer;
     private long sellerOwner;
@@ -92,7 +98,7 @@ class ReturnDecisionTest extends PostgresTestBase {
         @DisplayName("셀러는 승인을 못 한다")
         void sellerCannotApprove() {
             String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
-            actions.receiveReturn(sellerOwner, number, null);
+            actions.receiveReturn(sellerOwner, number, null, null);
 
             assertThatThrownBy(() -> approve(sellerOwner, number, true))
                     .as("판정이 셀러에게 열리면 셀러의 소견이 곧 결론이 된다(제17조제5항)")
@@ -134,7 +140,7 @@ class ReturnDecisionTest extends PostgresTestBase {
         void sellerReceives() {
             String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
 
-            assertThatCode(() -> actions.receiveReturn(sellerOwner, number, null))
+            assertThatCode(() -> actions.receiveReturn(sellerOwner, number, null, null))
                     .as("물건이 왔는지는 받아 본 셀러가 안다")
                     .doesNotThrowAnyException();
 
@@ -150,7 +156,7 @@ class ReturnDecisionTest extends PostgresTestBase {
         @DisplayName("승인이 묶음을 닫고 커밋을 지난다")
         void approvedBundleCloses() {
             String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
-            actions.receiveReturn(sellerOwner, number, null);
+            actions.receiveReturn(sellerOwner, number, null, null);
 
             approve(admin, number, true);
 
@@ -180,7 +186,7 @@ class ReturnDecisionTest extends PostgresTestBase {
         void restockReturnsStock() {
             int before = stockOf(sku);
             String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
-            actions.receiveReturn(sellerOwner, number, null);
+            actions.receiveReturn(sellerOwner, number, null, null);
 
             approve(admin, number, true);
 
@@ -196,7 +202,7 @@ class ReturnDecisionTest extends PostgresTestBase {
         void noRestockKeepsStock() {
             String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
             int afterOrder = stockOf(sku);
-            actions.receiveReturn(sellerOwner, number, null);
+            actions.receiveReturn(sellerOwner, number, null, null);
 
             approve(admin, number, false);
 
@@ -261,7 +267,7 @@ class ReturnDecisionTest extends PostgresTestBase {
         @DisplayName("하자를 인정하면 판매자가 문다")
         void defectApprovedIsSeller() {
             String number = requestedReturn(ReturnReason.DEFECT);
-            actions.receiveReturn(sellerOwner, number, null);
+            actions.receiveReturn(sellerOwner, number, null, null);
 
             approve(admin, number, false);
 
@@ -273,7 +279,7 @@ class ReturnDecisionTest extends PostgresTestBase {
         @DisplayName("단순 변심을 인정해도 소비자가 문다")
         void changeOfMindApprovedIsConsumer() {
             String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
-            actions.receiveReturn(sellerOwner, number, null);
+            actions.receiveReturn(sellerOwner, number, null, null);
 
             approve(admin, number, true);
 
@@ -292,6 +298,116 @@ class ReturnDecisionTest extends PostgresTestBase {
             reject(admin, number, "검수 결과 하자가 아니다");
 
             assertThat(bearerOf(number)).isEqualTo("consumer");
+        }
+    }
+
+    /**
+     * 입고와 검수, 그리고 화면이 받는 진행(`43a-5`).
+     *
+     * <p><b>검수를 상태로 따로 안 세운다</b>(2026-09-23 결정) — 입고 때 소견을 적으면 한 번에 {@code inspected} 다.
+     * 소견은 제17조제5항의 훼손 책임을 입증하는 근거다(`D2` R37).
+     */
+    @Nested
+    @DisplayName("입고와 검수")
+    class ReceiveAndInspect {
+
+        @Test
+        @DisplayName("소견을 같이 적으면 한 번에 검수까지 가고 커밋을 지난다")
+        void noteMovesToInspected() {
+            String number = requestedReturn(ReturnReason.DEFECT);
+
+            actions.receiveReturn(sellerOwner, number, null, "상자 모서리 눌림. 본품 이상 없음");
+
+            assertThat(returnStatusOf(number)).isEqualTo("inspected");
+            assertThat(jdbc.sql("""
+                            select rr.inspected_by_user_id = :owner and rr.inspected_at = rr.received_at
+                                   and n.inspection_note = '상자 모서리 눌림. 본품 이상 없음'
+                              from return_request rr
+                              join return_note n on n.return_request_id = rr.return_request_id
+                              join seller_order so on so.seller_order_id = rr.seller_order_id
+                             where so.seller_order_number = :number
+                            """)
+                    .param("owner", sellerOwner)
+                    .param("number", number)
+                    .query(Boolean.class)
+                    .single())
+                    .as("검수한 사람·시각과 소견이 한 번에 남는다").isTrue();
+            assertThatCode(ReturnDecisionTest.this::flush)
+                    .as("inspected 는 received_at·inspected_at 을 같이 요구한다(V63 timeline·inspected_by)")
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("소견 없이 받으면 입고에 멈춘다")
+        void blankNoteStopsAtReceived() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+
+            actions.receiveReturn(sellerOwner, number, null, "   ");
+
+            assertThat(returnStatusOf(number)).isEqualTo("received");
+            assertThat(sellerOrders.findByNumber(sellerOwner, number).returnRequest().inspectedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("검수까지 간 반품도 승인된다 — 판정은 입고만 본다")
+        void inspectedCanBeApproved() {
+            String number = requestedReturn(ReturnReason.DEFECT);
+            actions.receiveReturn(sellerOwner, number, null, "하자 확인");
+
+            approve(admin, number, false);
+
+            assertThat(returnStatusOf(number)).isEqualTo("approved");
+            assertThatCode(ReturnDecisionTest.this::flush).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("입고 버튼은 셀러에게, 접수·수거 상태에서만 선다")
+        void receiveIsOfferedToSellerUntilReceived() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+
+            ReturnRequestQuery.Progress seen = sellerOrders.findByNumber(sellerOwner, number).returnRequest();
+            assertThat(seen.status()).isEqualTo("REQUESTED");
+            assertThat(seen.reasonCode()).isEqualTo(ReturnReason.CHANGE_OF_MIND);
+            assertThat(seen.allowedActions()).containsExactly("RECEIVE");
+            assertThat(bundleOf(buyer, number).returnRequest().allowedActions())
+                    .as("사는 사람은 진행만 본다").isEmpty();
+            assertThat(bundleOf(admin, number).returnRequest().allowedActions())
+                    .as("관리자는 사유를 달고 입구를 부를 수 있어도 화면이 권하지 않는다").isEmpty();
+
+            actions.receiveReturn(sellerOwner, number, null, null);
+
+            assertThat(sellerOrders.findByNumber(sellerOwner, number).returnRequest().allowedActions())
+                    .as("두 번 받으면 409 다 — 권하지 않는다").isEmpty();
+        }
+
+        @Test
+        @DisplayName("입고 전에는 관리자에게 승인을 안 권한다")
+        void approvalIsOfferedAfterReceipt() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+
+            assertThat(bundleOf(admin, number).allowedActions())
+                    .as("입고 없는 승인은 RETURN_NOT_RECEIVED 다 — 누르면 튕기는 버튼이 된다")
+                    .containsExactly("REJECT_RETURN");
+
+            actions.receiveReturn(sellerOwner, number, null, null);
+
+            assertThat(bundleOf(admin, number).allowedActions())
+                    .containsExactlyInAnyOrder("APPROVE_RETURN", "REJECT_RETURN");
+        }
+
+        private OrderQuery.SellerOrder bundleOf(long viewer, String number) {
+            String orderNumber = jdbc.sql("""
+                            select o.order_number from shop_order o
+                              join seller_order so on so.order_id = o.order_id
+                             where so.seller_order_number = :number
+                            """)
+                    .param("number", number)
+                    .query(String.class)
+                    .single();
+            return orders.findByNumber(viewer, orderNumber).sellerOrders().stream()
+                    .filter(bundle -> number.equals(bundle.sellerOrderNumber()))
+                    .findFirst()
+                    .orElseThrow();
         }
     }
 

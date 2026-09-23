@@ -260,7 +260,7 @@ public class OrderActionService {
      *
      * <p><b>{@link Action} 이 아니다.</b> 입고는 반품 표 안의 진행이고 묶음을 안 옮긴다 —
      * {@code Action} 은 옮겨 놓을 상태를 들고 있어야 해서 여기 안 들어온다.
-     * 그래서 {@code allowed_actions} 에도 안 실린다(`43a-3` 이 반품 진행 화면에서 답한다).
+     * 그래서 묶음의 {@code allowed_actions} 에 안 실리고 반품 진행의 목록({@link #returnActions})에 실린다(`43a-5`).
      *
      * <p>대신 <b>판정과 행위자 결정은 같은 자리를 지난다</b>. 갈라 두면 이 경로만
      * 스코프를 안 보게 되는 날이 온다.
@@ -268,7 +268,7 @@ public class OrderActionService {
      * <p><b>입고 시각이 환급 기산점이다</b> — 제18조제2항 1호(`D2` R5).
      */
     @Transactional
-    public void receiveReturn(long userId, String sellerOrderNumber, String reason) {
+    public void receiveReturn(long userId, String sellerOrderNumber, String reason, String inspectionNote) {
         Row row = find(sellerOrderNumber);
 
         Target target = Target.of(row.buyerUserId(), row.sellerId()).inStatus(row.status());
@@ -276,7 +276,7 @@ public class OrderActionService {
             throw notFound(sellerOrderNumber);
         }
 
-        returns.receive(row.sellerOrderId(), actorOf(userId, row, reason));
+        returns.receive(row.sellerOrderId(), actorOf(userId, row, reason), inspectionNote);
     }
 
     /**
@@ -294,9 +294,12 @@ public class OrderActionService {
      * <p>이름은 {@link Action} 그대로다. <b>소문자·하이픈으로 바꾸면 경로가 된다</b> —
      * {@code REQUEST_RETURN} 이 {@code /api/shipments/{번호}/request-return} 이다.
      * 화면이 동작마다 경로를 표로 들고 있지 않게 하려는 것이다.
+     *
+     * @param returnRequest 이 묶음의 반품 진행. 없으면 null — 승인을 권할지가 입고에 걸려 있다
      */
-    public List<String> allowedActions(long userId, long buyerUserId, long sellerId, String status) {
-        return allowedActions(userId, memberOf(userId), buyerUserId, sellerId, status);
+    public List<String> allowedActions(long userId, long buyerUserId, long sellerId, String status,
+            ReturnRequestQuery.Progress returnRequest) {
+        return allowedActions(userId, memberOf(userId), buyerUserId, sellerId, status, returnRequest);
     }
 
     /**
@@ -305,12 +308,16 @@ public class OrderActionService {
      *
      * <p><b>누구 몫인지로 거른다</b>({@link Party}). 판정을 통과한 동작 중에서 주문자에게는 주문자 몫을, 소속에게는
      * 셀러 몫을, 둘 다 아닌 사람(관리자)에게는 관리자 몫(반품 판정)만 권한다.
+     *
+     * <p><b>입고 전에는 승인을 안 권한다</b>(`43a-5`). 판정이 입고를 요구해서({@code RETURN_NOT_RECEIVED}, `V63`)
+     * 권하면 누르는 순간 튕기는 버튼이 된다. 거절은 입고 없이도 된다.
      */
     public List<String> allowedActions(long userId, Set<Long> memberOf, long buyerUserId, long sellerId,
-            String status) {
+            String status, ReturnRequestQuery.Progress returnRequest) {
         Shipment from = Shipment.of(status);
         boolean buyer = userId == buyerUserId;
         boolean member = memberOf.contains(sellerId);
+        boolean received = returnRequest != null && returnRequest.received();
         Target target = Target.of(buyerUserId, sellerId).inStatus(status);
 
         Set<String> permitted = evaluator.allowedActions(userId, "order",
@@ -323,8 +330,29 @@ public class OrderActionService {
                 .filter(action -> permitted.contains(action.permission()))
                 .filter(action -> OrderTransitions.allows(from, action.to()))
                 .filter(action -> action.party.offeredTo(buyer, member))
+                .filter(action -> action != Action.APPROVE_RETURN || received)
                 .map(Enum::name)
                 .toList();
+    }
+
+    /**
+     * 반품 진행 안에서 이 사람이 할 수 있는 것(`43a-5`). 지금은 입고({@code RECEIVE}) 하나다.
+     *
+     * <p><b>묶음의 목록과 가른다.</b> 입고는 묶음을 안 옮기고 경로가 {@code /api/returns/{번호}/receive} 라
+     * 묶음 목록의 「이름이 곧 경로」 짝에 못 들어간다({@link ReturnController}).
+     *
+     * <p><b>셀러 몫이다</b> — 물건이 왔는지는 받아 본 쪽이 안다. 관리자는 사유를 달고 입구를 직접 부를 수 있지만
+     * 화면이 권하지는 않는다({@link Party} 와 같은 판단).
+     */
+    public List<String> returnActions(long userId, Set<Long> memberOf, long buyerUserId, long sellerId,
+            String status, ReturnRequestQuery.Progress returnRequest) {
+        if (returnRequest == null || !returnRequest.receivable() || !memberOf.contains(sellerId)) {
+            return List.of();
+        }
+        Target target = Target.of(buyerUserId, sellerId).inStatus(status);
+        return evaluator.allowedActions(userId, "order", Set.of("receive_return"), target).contains("receive_return")
+                ? List.of("RECEIVE")
+                : List.of();
     }
 
     /** 이 사람이 속한 셀러들. 버튼을 고를 때 한 번 읽는다 */

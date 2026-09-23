@@ -14,6 +14,7 @@ import {
 } from "@/lib/order-text";
 
 import { OrderActions } from "@/components/order-actions";
+import { type ReturnProgress, ReturnProgressView } from "@/components/return-progress";
 import { ShipDelayNotice } from "@/components/ship-delay-notice";
 import { PolicyBody } from "@/components/policy-document";
 
@@ -52,6 +53,8 @@ type SellerOrder = {
   trackingNo: string | null;
   items: Item[];
   allowedActions: string[];
+  /** 가장 최근 반품의 진행(`43a-5`). 반품이 없으면 null — 물건이 들어왔나·판정이 났나를 여기서 본다 */
+  returnRequest: ReturnProgress | null;
 };
 
 type HistoryEntry = {
@@ -272,6 +275,8 @@ function SellerBundle({
       </p>
 
       <Deadlines bundle={bundle} />
+
+      {bundle.returnRequest ? <ReturnProgressView progress={bundle.returnRequest} /> : null}
 
       <RefundLines refunds={refunds} rejectionReasons={rejectionReasons} />
 

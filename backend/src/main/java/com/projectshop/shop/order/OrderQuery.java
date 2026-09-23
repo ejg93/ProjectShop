@@ -70,11 +70,14 @@ public class OrderQuery {
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
     private final OrderActionService actions;
+    private final ReturnRequestQuery returnRequests;
 
-    OrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator, OrderActionService actions) {
+    OrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator, OrderActionService actions,
+            ReturnRequestQuery returnRequests) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.actions = actions;
+        this.returnRequests = returnRequests;
     }
 
     /** 목록 한 줄. 무엇을 샀는지는 상세가 답한다 — 목록에 상품을 붙이면 화면마다 다른 요약이 필요해진다 */
@@ -119,12 +122,14 @@ public class OrderQuery {
      * @param allowedActions     지금 이 묶음에 할 수 있는 것. 소문자·하이픈이 곧 경로다
      * @param forcibleStatuses   관리자가 강제로 옮길 수 있는 곳(`16c`). 권한이 없으면 비어 있다 — 관리자에게는
      *                           {@code allowedActions} 에 고객 동작까지 섞여 와서 강제 전이 버튼은 이것으로 고른다
+     * @param returnRequest      가장 최근 반품의 진행(`43a-5`). 반품이 없으면 null 이다
      */
     public record SellerOrder(String sellerOrderNumber, String sellerName, String status,
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime shipDueAt, OffsetDateTime shippedAt,
             boolean shipOverdue, String carrierCode, String trackingNo,
-            List<Item> items, List<String> allowedActions, List<String> forcibleStatuses) {
+            List<Item> items, List<String> allowedActions, List<String> forcibleStatuses,
+            ReturnRequestQuery.Progress returnRequest) {
     }
 
     /**
@@ -435,6 +440,7 @@ public class OrderQuery {
                 .forEach(row -> itemsBySellerOrder
                         .computeIfAbsent(row.sellerOrderId(), key -> new ArrayList<>())
                         .add(row.item()));
+        Map<Long, ReturnRequestQuery.Progress> returnsBySellerOrder = returnRequests.latestByOrder(orderId);
 
         return jdbc.sql("""
                         select so.seller_order_id, so.seller_order_number, so.seller_id,
@@ -449,26 +455,32 @@ public class OrderQuery {
                          order by so.seller_order_id
                         """)
                 .param("orderId", orderId)
-                .query((rs, rowNum) -> new SellerOrder(
-                        rs.getString("seller_order_number"),
-                        rs.getString("seller_name"),
-                        EnumValue.of(rs.getString("status"), OrderTransitions.Shipment::of),
-                        rs.getLong("shipping_fee"),
-                        rs.getObject("delivered_at", OffsetDateTime.class),
-                        rs.getObject("withdrawal_expire_at", OffsetDateTime.class),
-                        rs.getObject("auto_confirm_at", OffsetDateTime.class),
-                        rs.getObject("ship_due_at", OffsetDateTime.class),
-                        rs.getObject("shipped_at", OffsetDateTime.class),
-                        rs.getBoolean("ship_overdue"),
-                        EnumValue.of(rs.getString("carrier_code"), Carrier::of),
-                        rs.getString("tracking_no"),
-                        List.copyOf(itemsBySellerOrder.getOrDefault(
-                                rs.getLong("seller_order_id"), List.of())),
-                        actions.allowedActions(viewerId, memberOf, buyerUserId,
-                                rs.getLong("seller_id"), rs.getString("status")),
-                        // 결제 안 된 묶음은 강제 전이 입구가 못 찾는다(`seller_order_visible`) — 목록도 비운다(마무리 46차).
-                        paid ? actions.forcibleStatuses(viewerId, buyerUserId,
-                                rs.getLong("seller_id"), rs.getString("status")) : List.of()))
+                .query((rs, rowNum) -> {
+                    long sellerId = rs.getLong("seller_id");
+                    String status = rs.getString("status");
+                    ReturnRequestQuery.Progress returnRequest = returnsBySellerOrder.get(rs.getLong("seller_order_id"));
+                    return new SellerOrder(
+                            rs.getString("seller_order_number"),
+                            rs.getString("seller_name"),
+                            EnumValue.of(status, OrderTransitions.Shipment::of),
+                            rs.getLong("shipping_fee"),
+                            rs.getObject("delivered_at", OffsetDateTime.class),
+                            rs.getObject("withdrawal_expire_at", OffsetDateTime.class),
+                            rs.getObject("auto_confirm_at", OffsetDateTime.class),
+                            rs.getObject("ship_due_at", OffsetDateTime.class),
+                            rs.getObject("shipped_at", OffsetDateTime.class),
+                            rs.getBoolean("ship_overdue"),
+                            EnumValue.of(rs.getString("carrier_code"), Carrier::of),
+                            rs.getString("tracking_no"),
+                            List.copyOf(itemsBySellerOrder.getOrDefault(
+                                    rs.getLong("seller_order_id"), List.of())),
+                            actions.allowedActions(viewerId, memberOf, buyerUserId, sellerId, status, returnRequest),
+                            // 결제 안 된 묶음은 강제 전이 입구가 못 찾는다(`seller_order_visible`) — 목록도 비운다(마무리 46차).
+                            paid ? actions.forcibleStatuses(viewerId, buyerUserId, sellerId, status) : List.of(),
+                            returnRequest == null ? null : returnRequest.withAllowedActions(
+                                    actions.returnActions(viewerId, memberOf, buyerUserId, sellerId, status,
+                                            returnRequest)));
+                })
                 .list();
     }
 

@@ -1,3 +1,4 @@
+import { type ReturnProgress, ReturnProgressView } from "@/components/return-progress";
 import { dateTimeText, priceText } from "@/lib/format";
 import {
   carrierText,
@@ -10,6 +11,7 @@ import { refundStatusText } from "@/lib/refund-text";
 
 import { type CompensationListing, Compensations } from "./compensations";
 import { ForceStatusForm } from "./force-status-form";
+import { ReturnDecision } from "./return-decision";
 
 type Item = {
   orderItemId: number;
@@ -29,6 +31,10 @@ type SellerOrder = {
   items: Item[];
   /** 관리자가 강제로 옮길 수 있는 곳(`16c`). 서버가 고르고 권한이 없으면 비어 있다 */
   forcibleStatuses: string[];
+  /** 관리자 몫만 온다(`Q202`) — 반품 승인·거절. 승인은 입고 뒤에만 실린다(`43a-5`) */
+  allowedActions: string[];
+  /** 가장 최근 반품의 진행(`43a-5`). 반품이 없으면 null */
+  returnRequest: ReturnProgress | null;
 };
 
 type HistoryEntry = {
@@ -91,8 +97,8 @@ const SHIPPED_OR_LATER = new Set(["SHIPPING", "DELIVERED", "CONFIRMED", "RETURN_
 /**
  * 관리자 주문 상세(`Q176`).
  *
- * <p><b>응답의 {@code allowedActions} 를 안 그린다</b> — 관리자는 모든 권한을 {@code all} 로 가져서 구매확정·반품 요청
- * 같은 고객 동작까지 거기 섞여 온다. 관리자의 쓰기는 강제 전이(`16c`) 폼 하나고, 갈 곳은 {@code forcibleStatuses} 가 고른다.
+ * <p><b>응답의 {@code allowedActions} 는 반품 판정 폼만 읽는다</b> — `Q202` 뒤로 관리자에게는 관리자 몫(승인·거절)만 온다.
+ * 그 밖의 쓰기는 강제 전이(`16c`) 폼이고, 갈 곳은 {@code forcibleStatuses} 가 고른다.
  */
 export function OrderDetailView({
   order,
@@ -172,6 +178,8 @@ function Bundle({ bundle, compensations }: { bundle: SellerOrder; compensations?
         ))}
       </ul>
 
+      {bundle.returnRequest ? <ReturnProgressView progress={bundle.returnRequest} /> : null}
+      <ReturnDecision sellerOrderNumber={bundle.sellerOrderNumber} allowedActions={bundle.allowedActions} />
       <ForceStatusForm sellerOrderNumber={bundle.sellerOrderNumber} forcibleStatuses={bundle.forcibleStatuses} />
       {compensations ? <Compensations sellerOrderNumber={bundle.sellerOrderNumber} listing={compensations} /> : null}
     </section>

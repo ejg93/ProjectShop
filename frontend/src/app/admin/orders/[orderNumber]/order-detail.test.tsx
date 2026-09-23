@@ -25,6 +25,8 @@ const ORDER: AdminOrderDetail = {
       trackingNo: null,
       items: [{ orderItemId: 1, productName: "머그컵", optionLabel: null, quantity: 1, lineAmount: 10000 }],
       forcibleStatuses: ["DELIVERED", "CANCELLED"],
+      allowedActions: [],
+      returnRequest: null,
     },
   ],
   history: [
@@ -77,6 +79,43 @@ describe("관리자 주문 상세", () => {
   it("접근성 위반이 없다", async () => {
     const { container } = render(<OrderDetailView order={ORDER} />);
 
+    await expectNoAxeViolations(container);
+  });
+
+  it("반품 판정은 서버가 준 것만 선다 — 입고 전이면 거절만", async () => {
+    const bundle = {
+      ...ORDER.sellerOrders[0],
+      status: "RETURN_REQUESTED",
+      allowedActions: ["REJECT_RETURN"],
+      returnRequest: {
+        status: "REQUESTED", reasonCode: "DEFECT", requestedAt: "2026-09-23T02:00:00Z",
+        receivedAt: null, inspectedAt: null, decidedAt: null, allowedActions: [],
+      },
+    };
+    const { container } = render(<OrderDetailView order={{ ...ORDER, sellerOrders: [bundle] }} />);
+
+    // 판정이 입고를 요구해서(`V63`) 서버가 승인을 안 실었다 — 화면이 상태를 보고 다시 고르지 않는다.
+    expect(screen.getByRole("button", { name: "반품 거절" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "반품 승인" })).not.toBeInTheDocument();
+    expect(screen.getByText("표시·광고와 다름")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it("입고 뒤에는 승인 폼이 재고 복구를 묻는다", async () => {
+    const bundle = {
+      ...ORDER.sellerOrders[0],
+      status: "RETURN_REQUESTED",
+      allowedActions: ["APPROVE_RETURN", "REJECT_RETURN"],
+      returnRequest: {
+        status: "INSPECTED", reasonCode: "CHANGE_OF_MIND", requestedAt: "2026-09-23T02:00:00Z",
+        receivedAt: "2026-09-24T02:00:00Z", inspectedAt: "2026-09-24T02:00:00Z", decidedAt: null, allowedActions: [],
+      },
+    };
+    const { container } = render(<OrderDetailView order={{ ...ORDER, sellerOrders: [bundle] }} />);
+
+    expect(screen.getByRole("button", { name: "반품 승인" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "다시 판매합니다" })).toBeChecked();
+    expect(screen.getByText("검수 마침")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 });

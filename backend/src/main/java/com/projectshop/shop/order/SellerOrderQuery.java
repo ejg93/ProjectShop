@@ -46,11 +46,14 @@ public class SellerOrderQuery {
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
     private final OrderActionService actions;
+    private final ReturnRequestQuery returnRequests;
 
-    SellerOrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator, OrderActionService actions) {
+    SellerOrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator, OrderActionService actions,
+            ReturnRequestQuery returnRequests) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.actions = actions;
+        this.returnRequests = returnRequests;
     }
 
     /**
@@ -87,6 +90,7 @@ public class SellerOrderQuery {
      *                       타입으로 두면 표기를 고르는 자리가 없어서 빠뜨림이 성립하지 않는다
      * @param carrierCode    택배사(`57`). 보내기 전이면 비어서 응답에서 빠진다
      * @param trackingNo 송장 번호(`57`). 위와 같이 같이 있거나 같이 없다
+     * @param returnRequest  가장 최근 반품의 진행(`43a-5`). 입고 버튼은 그 안의 {@code allowedActions} 가 고른다
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Schema(name = "SellerOrderDetail")
@@ -95,7 +99,7 @@ public class SellerOrderQuery {
             OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
             OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue,
             Carrier carrierCode, String trackingNo,
-            OrderStatusService.ReturnReason returnReason,
+            OrderStatusService.ReturnReason returnReason, ReturnRequestQuery.Progress returnRequest,
             List<OrderQuery.Item> items, List<String> allowedActions, OrderQuery.Shipping shipping,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
     }
@@ -223,6 +227,12 @@ public class SellerOrderQuery {
             throw notFound(sellerOrderNumber);
         }
 
+        java.util.Set<Long> memberOf = actions.memberOf(viewerId);
+        ReturnRequestQuery.Progress returnRequest = returnRequests.latestOf(row.sellerOrderId())
+                .map(progress -> progress.withAllowedActions(actions.returnActions(viewerId, memberOf,
+                        row.buyerUserId(), row.sellerId(), row.status(), progress)))
+                .orElse(null);
+
         return new Detail(
                 row.sellerOrderNumber(),
                 row.orderNumber(),
@@ -238,8 +248,10 @@ public class SellerOrderQuery {
                 Carrier.of(row.carrierCode()),
                 row.trackingNo(),
                 OrderStatusService.ReturnReason.of(row.returnReason()),
+                returnRequest,
                 itemsOf(row.sellerOrderId()),
-                actions.allowedActions(viewerId, row.buyerUserId(), row.sellerId(), row.status()),
+                actions.allowedActions(viewerId, memberOf, row.buyerUserId(), row.sellerId(), row.status(),
+                        returnRequest),
                 decision.canSee(OrderFields.SHIPPING) ? shippingOf(row.orderId()) : null,
                 VisibleFieldGroups.of(decision, OrderFields.values()));
     }

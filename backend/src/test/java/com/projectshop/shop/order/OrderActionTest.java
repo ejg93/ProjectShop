@@ -473,7 +473,7 @@ class OrderActionTest extends PostgresTestBase {
             assertThat(allowedFor(admin, paid)).as("구매확정·반품 요청은 고객 몫이다").isEmpty();
 
             actions.run(buyer, paid, Action.REQUEST_RETURN, null);
-            assertThat(allowedFor(admin, paid)).containsExactlyInAnyOrder("APPROVE_RETURN", "REJECT_RETURN");
+            assertThat(allowedFor(admin, paid)).as("승인은 입고 뒤에 선다(`43a-5`)").containsExactly("REJECT_RETURN");
             assertThat(allowedForBuyer(paid)).as("고객은 판정을 못 받는다").isEmpty();
         }
 
