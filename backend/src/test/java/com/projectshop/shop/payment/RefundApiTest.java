@@ -301,6 +301,25 @@ class RefundApiTest extends PostgresTestBase {
                     .andExpect(jsonPath("$.items[0].allowed_actions").isEmpty());
         }
 
+        /**
+         * 스위퍼가 낸 요청은 낸 사람이 없다(`V25`). PG 가 막혀 자동 승인이 밀리면 관리자가 대기열에서 처리한다 —
+         * 그 칸을 {@code long} 으로 읽으면 여기서 터진다(`Q187`).
+         */
+        @Test
+        @DisplayName("시스템이 낸 요청은 관리자가 처리할 수 있다")
+        void offersDecisionsOnSystemRequests() throws Exception {
+            String number = requestAndRead();
+            jdbc.sql("""
+                            update refund set requested_by_type = 'system', requested_by_user_id = null
+                             where refund_number = :n
+                            """)
+                    .param("n", number)
+                    .update();
+
+            mvc.perform(get("/api/refunds").with(user(admin)))
+                    .andExpect(jsonPath("$.items[0].allowed_actions[0]").value("APPROVE"));
+        }
+
         @Test
         @DisplayName("처리가 끝난 것에는 버튼이 없다")
         void withholdsDecisionsOnceDecided() throws Exception {

@@ -147,7 +147,7 @@ public class RefundQuery {
                         rs.getBoolean("overdue"),
                         rs.getObject("created_at", OffsetDateTime.class),
                         allowedActions(viewerId, rs.getString("status"), rs.getLong("user_id"),
-                                rs.getLong("seller_id"), rs.getLong("requested_by_user_id"))))
+                                rs.getLong("seller_id"), rs.getObject("requested_by_user_id", Long.class))))
                 .list();
 
         Long total = jdbc.sql("""
@@ -265,8 +265,10 @@ public class RefundQuery {
      * 판정은 {@code decide} 에 맡기고 여기서 새로 짜지 않는다. 승인과 반려가 한 권한이라 둘이 같이 나거나 같이 빠진다.
      */
     private List<String> allowedActions(long viewerId, String storedStatus, long buyerUserId, long sellerId,
-            long requestedByUserId) {
-        if (!RefundStatus.REQUESTED.code().equals(storedStatus) || requestedByUserId == viewerId) {
+            Long requestedByUserId) {
+        // 시스템이 낸 요청은 낸 사람이 없다(`V25`) — 누가 처리해도 자기 승인이 아니다.
+        boolean ownRequest = Long.valueOf(viewerId).equals(requestedByUserId);
+        if (!RefundStatus.REQUESTED.code().equals(storedStatus) || ownRequest) {
             return List.of();
         }
 
