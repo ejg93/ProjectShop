@@ -531,7 +531,9 @@ class ArchitectureTest {
             // 저작권 신고 접수(Q94, D2 R42). 법이 요구한 절차라 로그인을 안 받는다 —
             // 저작권자가 우리 회원일 이유가 없고, 회원만 신고할 수 있게 하면
             // 그 절차에 가입이라는 관문이 하나 붙는다. 판정 쪽은 이 목록에 없다.
-            "CopyrightReportController.report");
+            "CopyrightReportController.report",
+            // 후기 사진도 같은 절차다(`Q196`) — 이용자가 올리는 두 번째 공개 표면이다.
+            "CopyrightReportController.reportReviewImage");
 
     /** 목록의 항목이 실재하는 쓰기 입구인가. 죽은 줄을 남기지 않는다(`Q56`) */
     @ArchTest

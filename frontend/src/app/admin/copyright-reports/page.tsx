@@ -15,6 +15,8 @@ type CopyrightReport = {
   copyrightReportId: number;
   productId: number;
   productName: string;
+  /** 무엇을 신고했나(`Q196`) — 상품 사진이나 후기 사진 */
+  target: "PRODUCT_IMAGE" | "REVIEW_IMAGE";
   productImageId: number | null;
   thumbnailUrl: string | null;
   reporterName: string;
@@ -83,7 +85,7 @@ export default async function CopyrightReportsPage({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={item.thumbnailUrl}
-                  alt={`${item.productName} 의 신고된 사진`}
+                  alt={`${item.productName} 의 신고된 ${item.target === "REVIEW_IMAGE" ? "후기 사진" : "상품 사진"}`}
                   className="h-24 w-24 rounded-ui border border-border object-cover"
                 />
               ) : (
@@ -94,6 +96,7 @@ export default async function CopyrightReportsPage({
                   <Link href={`/products/${item.productId}`} className="font-semibold underline">
                     {item.productName}
                   </Link>
+                  <span>{item.target === "REVIEW_IMAGE" ? "후기 사진" : "상품 사진"}</span>
                   <span className="text-text-muted">접수 {dateText(item.reportedAt)}</span>
                   {item.decision === null ? null : (
                     <span className="font-semibold">

@@ -12,7 +12,7 @@ import com.projectshop.shop.order.OrderFixture;
  * `sku` → `order_item`) 베낀 수만큼 고쳐야 하고, 하나를 빠뜨리면 그 시험만 원인과 무관해
  * 보이는 곳에서 깨진다({@code OrderFixture.attachContractDocuments} 와 같은 판단).
  */
-class ReviewFixture {
+public class ReviewFixture {
 
     private final JdbcClient jdbc;
     private final AuthFixture auth;
@@ -21,7 +21,7 @@ class ReviewFixture {
     private final long buyerId;
     private final long sellerMemberId;
 
-    ReviewFixture(JdbcClient jdbc) {
+    public ReviewFixture(JdbcClient jdbc) {
         this.jdbc = jdbc;
         this.auth = new AuthFixture(jdbc);
         this.sellerId = auth.insertSeller("review-seller", "후기셀러");
@@ -34,7 +34,7 @@ class ReviewFixture {
         auth.joinSeller(sellerId, sellerMemberId);
     }
 
-    long buyerId() {
+    public long buyerId() {
         return buyerId;
     }
 
@@ -54,7 +54,7 @@ class ReviewFixture {
         return userId;
     }
 
-    long insertProduct(String name) {
+    public long insertProduct(String name) {
         return jdbc.sql("""
                         insert into product (seller_id, created_by_user_id, name)
                         values (:sellerId, :userId, :name)
@@ -75,7 +75,7 @@ class ReviewFixture {
      *
      * @return {@code order_item_id}
      */
-    long placeOrder(long productId, String shipmentStatus) {
+    public long placeOrder(long productId, String shipmentStatus) {
         long orderId = jdbc.sql("""
                         insert into shop_order (order_number, user_id, total_amount,
                                                 commission_total, shipping_fee_total, payable_amount)
@@ -129,7 +129,7 @@ class ReviewFixture {
                 .single();
     }
 
-    void insertReview(long orderItemId, long productId, long userId, int rating, String body) {
+    public void insertReview(long orderItemId, long productId, long userId, int rating, String body) {
         jdbc.sql("""
                         insert into review (order_item_id, product_id, user_id, rating, body)
                         values (:orderItem, :product, :user, :rating, :body)

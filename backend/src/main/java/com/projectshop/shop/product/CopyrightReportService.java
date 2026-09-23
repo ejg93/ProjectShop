@@ -62,8 +62,8 @@ public class CopyrightReportService {
     public Received report(long productImageId, Command command) {
         long id = jdbc.sql("""
                         insert into copyright_report
-                            (product_image_id, product_id, reporter_name, reporter_email, claimed_work)
-                        select i.product_image_id, i.product_id, :name, :email, :claimedWork
+                            (product_image_id, product_id, target, reporter_name, reporter_email, claimed_work)
+                        select i.product_image_id, i.product_id, 'product_image', :name, :email, :claimedWork
                           from product_image i
                          where i.product_image_id = :imageId
                         returning copyright_report_id
@@ -75,6 +75,34 @@ public class CopyrightReportService {
                 .query(Long.class)
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        return new Received(id);
+    }
+
+    /**
+     * 후기 사진을 신고받는다(`Q196`). 상품 사진과 같은 절차다 — 후기 사진도 우리가 여는 공개 표면이라
+     * 권리자가 알려 올 자리가 없으면 그 사진에 대해 책임 제한을 못 받는다(저작권법 제103조, `R42`).
+     *
+     * <p><b>지운 후기의 사진은 안 받는다.</b> 후기를 지우면 공개 목록에서 빠져서 신고할 표면이 없다.
+     */
+    @Transactional
+    public Received reportReviewImage(long reviewImageId, Command command) {
+        long id = jdbc.sql("""
+                        insert into copyright_report
+                            (review_image_id, product_id, target, reporter_name, reporter_email, claimed_work)
+                        select ri.review_image_id, r.product_id, 'review_image', :name, :email, :claimedWork
+                          from review_image ri
+                          join review r on r.review_id = ri.review_id
+                         where ri.review_image_id = :imageId and r.deleted_at is null
+                        returning copyright_report_id
+                        """)
+                .param("imageId", reviewImageId)
+                .param("name", command.reporterName())
+                .param("email", command.reporterEmail())
+                .param("claimedWork", command.claimedWork())
+                .query(Long.class)
+                .optional()
+                .orElseThrow(() -> new ShopException(ErrorCode.REVIEW_NOT_FOUND));
 
         return new Received(id);
     }
@@ -108,6 +136,9 @@ public class CopyrightReportService {
         if (decision == CopyrightDecision.TAKEN_DOWN && pending.productImageId() != null) {
             takeDown(pending.productImageId());
         }
+        if (decision == CopyrightDecision.TAKEN_DOWN && pending.reviewImageId() != null) {
+            takeDownReviewImage(pending.reviewImageId());
+        }
 
         jdbc.sql("""
                         update copyright_report
@@ -125,8 +156,8 @@ public class CopyrightReportService {
                 Map.of("decision", decision.code()));
     }
 
-    /** @param productImageId 사진이 이미 사라졌으면 {@code null} 이다 */
-    private record Pending(Long productImageId, long sellerId) {
+    /** @param productImageId·reviewImageId 신고한 쪽 하나만 차고, 사진이 이미 사라졌으면 둘 다 {@code null} 이다 */
+    private record Pending(Long productImageId, Long reviewImageId, long sellerId) {
     }
 
     /**
@@ -140,7 +171,7 @@ public class CopyrightReportService {
      * <p>{@code product_image_id} 는 <b>지울 대상을 찾을 때만</b> 쓰고 그때는 {@code null} 일 수 있다.
      */
     private static final String FIND_PENDING = """
-            select r.product_image_id, p.seller_id
+            select r.product_image_id, r.review_image_id, p.seller_id
               from copyright_report r
               join product p on p.product_id = r.product_id
              where r.copyright_report_id = :id and r.decided_at is null
@@ -165,6 +196,29 @@ public class CopyrightReportService {
         storage.delete(Visibility.PUBLIC, keys.thumbnailKey());
 
         jdbc.sql("delete from product_image where product_image_id = :id")
+                .param("id", imageId)
+                .update();
+    }
+
+    /**
+     * 후기 사진을 내린다(`Q196`). 상품 사진과 같은 순서다 — <b>저장소를 먼저 지운다</b>.
+     *
+     * <p><b>후기 글은 그대로다.</b> 신고된 것은 사진이고 글은 사는 사람의 말이라, 글까지 내리면 저작권 절차로
+     * 후기를 지우는 길이 된다. 글을 내리는 것은 후기 신고(`Q171`)의 몫이다.
+     */
+    private void takeDownReviewImage(long imageId) {
+        Keys keys = jdbc.sql("""
+                        select object_key, thumbnail_key from review_image
+                         where review_image_id = :id
+                        """)
+                .param("id", imageId)
+                .query(Keys.class)
+                .single();
+
+        storage.delete(Visibility.PUBLIC, keys.objectKey());
+        storage.delete(Visibility.PUBLIC, keys.thumbnailKey());
+
+        jdbc.sql("delete from review_image where review_image_id = :id")
                 .param("id", imageId)
                 .update();
     }

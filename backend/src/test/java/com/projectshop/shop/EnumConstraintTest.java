@@ -137,6 +137,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("support.ImageContentType", List.of("product_image_content_type_check",
                                                      "review_image_content_type_check"));
         pairs.put("product.CopyrightDecision", List.of("copyright_report_decision_check"));
+        pairs.put("product.CopyrightTarget", List.of("copyright_report_target_check"));
         pairs.put("support.WithdrawalRestrictionReason", List.of("product_withdrawal_reason_check"));
         pairs.put("product.StockReason", List.of("sku_stock_movement_reason_check"));
         pairs.put("order.OrderTransitions$Payment", List.of("shop_order_status_check"));
