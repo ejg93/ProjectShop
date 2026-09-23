@@ -736,7 +736,8 @@
 | 2026-09-23 | `69`. 변이 테스트 — 설치와 첫 판 | 완료 — `build.gradle.kts`(`mutationTest`), `RefundMathTest`(여덟 — 부분 수량·지연배상금·수량 0·다 돌려받은 항목)·`BusinessCalendarTest`(상한 끝·더하기 쪽 상한)·`PasswordPolicyTest`(네 글자·이메일 앞부분), `stack.md`(Windows 에서 PIT 가 에이전트를 못 찾는 함정). **적용범위 문서는 `69a` 로 뗐다**(신규). 첫 판에서 **지연배상금 식을 빠른 레인이 한 번도 안 불렀다** — 법이 정한 돈인데 느린 레인의 흐름 시험 하나에만 기대고 있었다. 살아남음 12 → 1(동치), 안 덮임 12 → 8(DB) | 0c90181 |
 | 2026-09-23 | `69a`. 변이 시험의 적용범위 | 완료 — `testing-strategy.md`(절 하나), `quality-gates.md`(행 둘). 남은 변이의 처분을 셋으로 갈랐다 — 시험을 더한다 · 동치면 근거를 적고 둔다 · DB 를 타면 느린 레인 몫. 동치 하나(`PasswordPolicy.load` 빈 줄 거르기)의 근거를 그 표에 적었다 | 9fd58ff |
 | 2026-09-23 | `Q188`. 변이 시험 대상 넓히기 — 전이표·주문 상태 정책 | 완료 — `build.gradle.kts`(대상 둘), `ProductTransitionsTest`(이름 시험 하나). 오늘 `Q182` 가 더한 `actionName` 을 빠른 레인이 안 부르고 있었다 — 느린 레인의 `ProductReviewActionsTest` 만 지났다. `OrderTransitions` 는 같은 이름의 빠른 시험이 없어 뺐다 | 9228d03 |
-| 2026-09-23 | `Q189`. 표 조각을 한 벌로 | 완료 — `admin/audit`·`seller/orders`·`seller/products`·`seller/settlements` 의 `page.tsx`(로컬 정의 삭제), `components/table-cells.test.ts`(신설). **흡수**: `43a-5` 의 「표 조각」 몫 — 그 행 문장을 닫았다. 간격을 `py-2 pr-3` 하나로 맞춘 것은 넷이 같은 밀도(작업 화면)라서다 | |
+| 2026-09-23 | `Q189`. 표 조각을 한 벌로 | 완료 — `admin/audit`·`seller/orders`·`seller/products`·`seller/settlements` 의 `page.tsx`(로컬 정의 삭제), `components/table-cells.test.ts`(신설). **흡수**: `43a-5` 의 「표 조각」 몫 — 그 행 문장을 닫았다. 간격을 `py-2 pr-3` 하나로 맞춘 것은 넷이 같은 밀도(작업 화면)라서다 | 4ca716c |
+| 2026-09-23 | `Q190`. 변이 시험 대상 넓히기 — 기한·청약철회·정렬·재시도 | 완료 — `build.gradle.kts`(대상 넷), `RetriesTest`(셋 — 감싼 충돌·대기 하한·대기 중 끊김), `testing-strategy.md`(동치 근거), `quality-gates.md`(`Q189` 가 빠뜨린 게이트 행). 넷 중 `Retries` 만 빈틈이 있었다 — **서비스가 예외를 한 겹 감싸 던지는 날 재시도가 조용히 꺼지는** 자리를 시험이 안 보고 있었다 | |
 
 ## 기록 규칙
 

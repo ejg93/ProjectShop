@@ -65,6 +65,62 @@ class RetriesTest {
                     .hasValue(3);
         }
 
+        /**
+         * 충돌이 한 겹 감싸여 와도 찾는다(`Q190`). 변이 시험이 원인 사슬을 도는 조건을 뒤집어도 안 깨지는 것을 짚었다 —
+         * 서비스가 예외를 감싸 던지는 날 재시도가 조용히 꺼진다.
+         */
+        @Test
+        @DisplayName("감싼 노출 번호 충돌도 다시 돈다")
+        void retriesWrappedExposedNumberConflict() {
+            AtomicInteger attempts = new AtomicInteger();
+
+            String result = Retries.onConflict(() -> {
+                if (attempts.incrementAndGet() < 2) {
+                    throw new IllegalStateException("감쌌다", new ExposedNumber.Conflict(
+                            "seller_order_number_unique", duplicateOf("seller_order_number_unique")));
+                }
+                return "됐다";
+            });
+
+            assertThat(result).isEqualTo("됐다");
+            assertThat(attempts).hasValue(2);
+        }
+
+        /** 곧바로 다시 부딪치지 않게 기다린다. 하한만 잰다 — 상한은 기계가 바쁘면 흔들린다 */
+        @Test
+        @DisplayName("다시 돌기 전에 기다린다")
+        void waitsBeforeRetrying() {
+            AtomicInteger attempts = new AtomicInteger();
+            long started = System.nanoTime();
+
+            Retries.onConflict(() -> {
+                if (attempts.incrementAndGet() < 2) {
+                    throw deadlock();
+                }
+                return "됐다";
+            });
+
+            assertThat(java.time.Duration.ofNanos(System.nanoTime() - started))
+                    .as("첫 대기가 50ms 다")
+                    .isGreaterThanOrEqualTo(java.time.Duration.ofMillis(50));
+        }
+
+        /** 기다리다 끊기면 끊김 표시를 되살리고 멈춘다 — 삼키면 스레드를 멈추려던 쪽이 그 사실을 잃는다 */
+        @Test
+        @DisplayName("기다리다 끊기면 멈추고 끊김을 되살린다")
+        void stopsAndKeepsTheInterruptWhenInterrupted() {
+            Thread.currentThread().interrupt();
+            try {
+                assertThatThrownBy(() -> Retries.onConflict(() -> {
+                    throw deadlock();
+                }))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessageContaining("끊겼다");
+            } finally {
+                assertThat(Thread.interrupted()).as("끊김 표시가 남아 있어야 한다").isTrue();
+            }
+        }
+
         @Test
         @DisplayName("같은 insert 의 다른 유일 제약을 어긴 것은 다시 돌지 않는다")
         void doesNotRetryWhenAnotherConstraintFailed() {
