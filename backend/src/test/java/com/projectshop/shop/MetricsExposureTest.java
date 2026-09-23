@@ -111,6 +111,7 @@ class MetricsExposureTest extends HttpTestBase {
                   "email": "%s",
                   "password": "%s",
                   "display_name": "http",
+                  "birth_date": "1990-01-01",
                   "consents": {"terms_of_service": true, "privacy_collect": true}
                 }
                 """.formatted(email(name), PASSWORD));

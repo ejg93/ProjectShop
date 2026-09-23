@@ -285,6 +285,8 @@ class ScreenLengthTest {
                     "select 다. 서버가 내린 forcibleStatuses 로 닫혀 있고 표 밖은 서버가 409 로 돌린다(`16c`)"),
             Map.entry("app/admin/orders/[orderNumber]/return-decision.tsx  restock",
                     "radio 다. 참·거짓 둘뿐이고 서버 ApproveReturnRequest 가 @NotNull Boolean 으로 받는다(`43a-5`)"),
+            Map.entry("app/signup/signup-form.tsx  birthDate",
+                    "type=date 다. 브라우저가 날짜 꼴로 닫고 서버가 @Past LocalDate 로 받는다(`11b`)"),
             Map.entry("app/seller/webhooks/webhook-actions.tsx  eventTypes",
                     "checkbox 다. 사건 넷뿐이고 서버 Set<WebhookEventType> 과 webhook_endpoint_event_types_check 가 든다(`Q175`)"),
 

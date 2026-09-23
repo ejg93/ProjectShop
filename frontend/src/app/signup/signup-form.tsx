@@ -41,7 +41,7 @@ export type ConsentItem = {
  * <p>동의 항목은 여기 없다. 그쪽은 서버가 칸 이름이 아니라 <b>항목 코드</b>로 말하고,
  * 화면도 입력칸이 아니라 체크박스 줄이라 붙일 자리가 다르다.
  */
-const FORM_FIELDS = ["email", "password", "displayName"] as const;
+const FORM_FIELDS = ["email", "password", "displayName", "birthDate"] as const;
 
 type FormField = (typeof FORM_FIELDS)[number];
 
@@ -97,6 +97,7 @@ export function SignupForm({
           email: form.get("email"),
           password: form.get("password"),
           displayName: form.get("displayName"),
+          birthDate: form.get("birthDate"),
           // 건드린 적 없는 선택 항목도 false 로 보낸다. 서버가 거부(행 있음)와
           // 안 건드림(행 없음)을 가르는데, 가입 화면은 전부를 물었으므로 안 건드린 것이 없다.
           consents: Object.fromEntries(items.map((item) => [item.code, granted[item.code] ?? false])),
@@ -137,6 +138,9 @@ export function SignupForm({
         />
         <Field name="displayName" type="text" label="이름" autoComplete="name" maxLength={50}
                 error={fieldErrors.displayName} />
+        {/* 만 19세 미만은 받지 않는다(`11b`). 나이는 오늘(KST)에 걸려서 화면이 안 재고 서버가 422 로 답한다 */}
+        <Field name="birthDate" type="date" label="생년월일" autoComplete="bday"
+                hint="만 19세 이상만 가입하실 수 있습니다." error={fieldErrors.birthDate} />
       </div>
 
       <fieldset className="grid gap-4">
@@ -306,6 +310,8 @@ function messageOf(error: unknown): string {
   switch (error.slug) {
     case "email-taken":
       return "이미 가입된 이메일입니다. 로그인해 주세요.";
+    case "underage-signup":
+      return "만 19세 이상만 가입하실 수 있습니다.";
     case "required-consent-missing":
       return "필수 항목에 동의하셔야 가입하실 수 있습니다.";
     case "consent-dependency":

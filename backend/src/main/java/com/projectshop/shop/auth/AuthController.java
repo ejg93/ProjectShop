@@ -1,5 +1,6 @@
 package com.projectshop.shop.auth;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 import java.net.URI;
@@ -33,6 +34,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -85,6 +87,7 @@ public class AuthController {
                 request.email(),
                 request.password(),
                 request.displayName(),
+                request.birthDate(),
                 request.consents(),
                 http.getRemoteAddr()));
 
@@ -234,6 +237,9 @@ public class AuthController {
             @NotBlank @Password String password,
 
             @NotBlank @Size(max = 50) String displayName,
+
+            /* 만 19세 이상인지는 서비스가 본다(`11b`) — 나이는 오늘(KST)에 걸려서 애노테이션이 못 잰다 */
+            @NotNull @Past LocalDate birthDate,
 
             @NotNull Map<String, Boolean> consents) {
     }

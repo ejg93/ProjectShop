@@ -37,7 +37,7 @@ class AccountPurgeServiceTest extends PostgresTestBase {
     class AfterGrace {
 
         @Test
-        @DisplayName("이메일·이름·비밀번호 해시가 비워진다")
+        @DisplayName("이메일·이름·비밀번호 해시·생년월일이 비워진다")
         void clearsIdentifyingFields() {
             long userId = withdrawnUser("purge-1@example.com", NOW.minusDays(31));
 
@@ -49,6 +49,7 @@ class AccountPurgeServiceTest extends PostgresTestBase {
                     .isNull();
             assertThat(row.get("display_name")).isNull();
             assertThat(row.get("password_hash")).isNull();
+            assertThat(row.get("birth_date")).as("생년월일도 가입 때 받은 개인정보다(`11b`)").isNull();
         }
 
         @Test
@@ -295,8 +296,8 @@ class AccountPurgeServiceTest extends PostgresTestBase {
 
     private long insertUser(String email) {
         return jdbc.sql("""
-                        insert into app_user (email, password_hash, display_name)
-                        values (:email, 'not-a-real-hash', '테스트')
+                        insert into app_user (email, password_hash, display_name, birth_date)
+                        values (:email, 'not-a-real-hash', '테스트', date '1990-01-01')
                         returning user_id
                         """)
                 .param("email", email)
@@ -328,7 +329,7 @@ class AccountPurgeServiceTest extends PostgresTestBase {
 
     private Map<String, Object> accountRow(long userId) {
         return jdbc.sql("""
-                        select email, display_name, password_hash, deleted_at
+                        select email, display_name, password_hash, birth_date, deleted_at
                           from app_user where user_id = :id
                         """)
                 .param("id", userId)

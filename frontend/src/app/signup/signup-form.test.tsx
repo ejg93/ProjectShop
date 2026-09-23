@@ -177,6 +177,25 @@ describe("가입 화면", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("생년월일을 싣고, 만 19세 미만이면 그 까닭을 말한다", async () => {
+    const { ApiError } = await import("@/lib/api");
+    vi.mocked(api).mockRejectedValueOnce(
+      new ApiError(422, "tag:projectshop.example,2026:error:underage-signup", "만 19세 미만은 가입할 수 없다", undefined, []),
+    );
+    const { container } = renderForm();
+
+    fireEvent.change(screen.getByLabelText("생년월일"), { target: { value: "2010-05-05" } });
+    check(/이용약관/);
+    check(/개인정보 수집·이용/);
+    submitForm(container);
+
+    // 나이는 오늘(KST)에 걸려서 화면이 안 잰다 — 서버가 422 로 답하고 화면은 그 말을 옮긴다(`11b`).
+    expect(await screen.findByText("만 19세 이상만 가입하실 수 있습니다.", { selector: "[role=alert] p" }))
+      .toBeInTheDocument();
+    const body = vi.mocked(api).mock.calls[0][1]!.body as { birthDate: string };
+    expect(body.birthDate).toBe("2010-05-05");
+  });
+
   it("비밀번호 규칙을 입력칸 옆에서 말한다", () => {
     renderForm();
 

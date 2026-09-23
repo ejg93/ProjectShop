@@ -87,6 +87,9 @@ public enum ErrorCode {
     UNKNOWN_CONSENT_ITEM(HttpStatus.UNPROCESSABLE_CONTENT, "unknown-consent-item", "모르는 동의 항목이다"),
     REQUIRED_CONSENT_MISSING(HttpStatus.UNPROCESSABLE_CONTENT, "required-consent-missing",
             "필수 동의 항목이다"),
+    /** 만 19세 미만(`11b`). 형식은 맞는데 값이 규칙에 안 맞아서 422 다(`D5`) */
+    UNDERAGE_SIGNUP(HttpStatus.UNPROCESSABLE_CONTENT, "underage-signup",
+            "만 19세 미만은 가입할 수 없다"),
     CONSENT_DEPENDENCY(HttpStatus.UNPROCESSABLE_CONTENT, "consent-dependency",
             "먼저 동의해야 하는 항목이 있다"),
     REQUIRED_CONSENT_REVOKE(HttpStatus.UNPROCESSABLE_CONTENT, "required-consent-revoke",
