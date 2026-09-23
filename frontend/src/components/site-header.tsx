@@ -166,7 +166,7 @@ export async function SiteHeader() {
         </div>
       ) : null}
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
-        <Link href="/" className="font-semibold tracking-tight">
+        <Link href="/" className="whitespace-nowrap font-semibold tracking-tight">
           ProjectShop
         </Link>
 
@@ -179,80 +179,6 @@ export async function SiteHeader() {
             링크**가 되고, 그건 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20` 「권한 없는 것은 숨긴다」).
           */}
           {me ? <HeaderLink href="/orders">내 주문</HeaderLink> : null}
-          {/*
-            셀러에게만 보인다. 사는 사람에게 그리면 **누르는 순간 튕기는 링크**가 되고,
-            그건 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20` 「권한 없는 것은 숨긴다」).
-          */}
-          {canHandleOrders(me) ? (
-            <HeaderLink href="/seller/orders">받은 주문</HeaderLink>
-          ) : null}
-          {canManageProducts(me) ? (
-            <HeaderLink href="/seller/products">내 상품</HeaderLink>
-          ) : null}
-          {/*
-            받은 문의는 상품을 다루는 사람이 답한다(`59-1`). 판정이 `inquiry:answer` 를
-            `seller_owner` 에게 `seller` 스코프로 열었고(`V54`), 그 사람이 곧 상품을 관리하는 사람이다.
-          */}
-          {canManageProducts(me) ? (
-            <HeaderLink href="/seller/inquiries">받은 문의</HeaderLink>
-          ) : null}
-          {canReplyReviews(me) ? (
-            <HeaderLink href="/seller/reviews">받은 후기</HeaderLink>
-          ) : null}
-          {/*
-            멤버는 **속한 사람이면 본다**(`16a`). 부르고 거두는 것은 대표만이고, 그 갈림은
-            응답의 `canManage` 가 든다 — 링크를 대표에게만 보이면 담당자가 같이 일하는 사람을
-            못 보게 된다.
-          */}
-          {canSeeMembers(me) ? (
-            <HeaderLink href="/seller/members">멤버</HeaderLink>
-          ) : null}
-          {/*
-            정산서는 파는 쪽과 관리자·감사자가 같이 본다(`20-1`). 사는 사람은 이 자원에
-            권한이 없다(`V56`) — 정산은 우리와 셀러 사이의 계산이다.
-          */}
-          {canReadSettlements(me) ? (
-            <HeaderLink href="/seller/settlements">정산서</HeaderLink>
-          ) : null}
-          {canReadSalesStats(me) ? (
-            <HeaderLink href="/seller/sales">매출</HeaderLink>
-          ) : null}
-          {canManageWebhooks(me) ? (
-            <HeaderLink href="/seller/webhooks">웹훅</HeaderLink>
-          ) : null}
-          {/*
-            감사 기록은 관리자·감사자만 본다(`V12`). **관리자에게 갈 화면이 여기 하나뿐이다**
-            (`Q132`) — 역할은 셋인데 화면군이 둘이라, 이 링크가 없으면 관리자로 들어온 사람은
-            자기 권한에 닿을 입구를 화면에서 못 찾는다.
-          */}
-          {canReadAuditLogs(me) ? (
-            <HeaderLink href="/admin/audit">감사 기록</HeaderLink>
-          ) : null}
-
-          {canEditRoles(me) ? (
-            <HeaderLink href="/admin/roles">역할 편집</HeaderLink>
-          ) : null}
-
-          {canManageCoupons(me) ? (
-            <HeaderLink href="/admin/coupons">쿠폰</HeaderLink>
-          ) : null}
-
-          {canModerateReviews(me) ? (
-            <HeaderLink href="/admin/review-reports">후기 신고</HeaderLink>
-          ) : null}
-
-          {canReviewProducts(me) ? (
-            <HeaderLink href="/admin/products">상품 검수</HeaderLink>
-          ) : null}
-          {canModerateProducts(me) ? (
-            <HeaderLink href="/admin/copyright-reports">저작권 신고</HeaderLink>
-          ) : null}
-          {canDecideRefunds(me) ? (
-            <HeaderLink href="/admin/refunds">환불 처리</HeaderLink>
-          ) : null}
-          {canReadAllOrders(me) ? (
-            <HeaderLink href="/admin/orders">주문 조회</HeaderLink>
-          ) : null}
         </nav>
 
         <div className="flex items-center gap-5">
@@ -266,7 +192,73 @@ export async function SiteHeader() {
           )}
         </div>
       </div>
+
+      <LinkRow label="판매" links={sellingLinks(me)} />
+      <LinkRow label="관리" links={managingLinks(me)} />
     </header>
+  );
+}
+
+/**
+ * 판매 줄의 링크(`Q213`). 셀러에게만 보인다 — 사는 사람에게 그리면 **누르는 순간 튕기는 링크**가 되고,
+ * 그건 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20` 「권한 없는 것은 숨긴다」). 관리자는 모든 셀러를 `all` 로 봐서 같이 본다.
+ */
+function sellingLinks(me: Me | null): React.ReactElement[] {
+  return [
+    canHandleOrders(me) && <HeaderLink key="orders" href="/seller/orders">받은 주문</HeaderLink>,
+    canManageProducts(me) && <HeaderLink key="products" href="/seller/products">내 상품</HeaderLink>,
+    // 받은 문의는 상품을 다루는 사람이 답한다(`59-1`). 판정이 `inquiry:answer` 를 `seller_owner` 에게 `seller`
+    // 스코프로 열었고(`V54`), 그 사람이 곧 상품을 관리하는 사람이다.
+    canManageProducts(me) && <HeaderLink key="inquiries" href="/seller/inquiries">받은 문의</HeaderLink>,
+    canReplyReviews(me) && <HeaderLink key="reviews" href="/seller/reviews">받은 후기</HeaderLink>,
+    // 멤버는 **속한 사람이면 본다**(`16a`). 부르고 거두는 것은 대표만이고, 그 갈림은 응답의 `canManage` 가 든다 —
+    // 링크를 대표에게만 보이면 담당자가 같이 일하는 사람을 못 보게 된다.
+    canSeeMembers(me) && <HeaderLink key="members" href="/seller/members">멤버</HeaderLink>,
+    // 정산서는 파는 쪽과 관리자·감사자가 같이 본다(`20-1`). 사는 사람은 이 자원에 권한이 없다(`V56`) —
+    // 정산은 우리와 셀러 사이의 계산이다.
+    canReadSettlements(me) && <HeaderLink key="settlements" href="/seller/settlements">정산서</HeaderLink>,
+    canReadSalesStats(me) && <HeaderLink key="sales" href="/seller/sales">매출</HeaderLink>,
+    canManageWebhooks(me) && <HeaderLink key="webhooks" href="/seller/webhooks">웹훅</HeaderLink>,
+  ].filter((link) => link !== false);
+}
+
+/** 관리 줄의 링크(`Q213`). 관리자·감사자의 화면이다 */
+function managingLinks(me: Me | null): React.ReactElement[] {
+  return [
+    // 감사 기록은 관리자·감사자만 본다(`V12`). **관리자에게 갈 화면이 여기 하나뿐이었다**(`Q132`) — 역할은 셋인데
+    // 화면군이 둘이라, 이 링크가 없으면 관리자로 들어온 사람은 자기 권한에 닿을 입구를 화면에서 못 찾는다.
+    canReadAuditLogs(me) && <HeaderLink key="audit" href="/admin/audit">감사 기록</HeaderLink>,
+    canEditRoles(me) && <HeaderLink key="roles" href="/admin/roles">역할 편집</HeaderLink>,
+    canManageCoupons(me) && <HeaderLink key="coupons" href="/admin/coupons">쿠폰</HeaderLink>,
+    canModerateReviews(me) && <HeaderLink key="review-reports" href="/admin/review-reports">후기 신고</HeaderLink>,
+    canReviewProducts(me) && <HeaderLink key="products" href="/admin/products">상품 검수</HeaderLink>,
+    canModerateProducts(me) && (
+      <HeaderLink key="copyright-reports" href="/admin/copyright-reports">저작권 신고</HeaderLink>
+    ),
+    canDecideRefunds(me) && <HeaderLink key="refunds" href="/admin/refunds">환불 처리</HeaderLink>,
+    canReadAllOrders(me) && <HeaderLink key="orders" href="/admin/orders">주문 조회</HeaderLink>,
+  ].filter((link) => link !== false);
+}
+
+/**
+ * 역할 링크 한 줄(`Q213`). **그 링크가 하나라도 있을 때만 줄을 세운다** — 사는 사람의 머리는 그대로 한 줄이다.
+ *
+ * <p>관리자는 링크가 열일곱이라 한 줄에 두면 글자 단위로 꺾였다(「상/품」「멤/버」). 첫 줄은 쇼핑·계정만 두고 역할 링크는
+ * 줄을 나눠, 넘치면 링크 단위로 다음 줄로 흐른다. 줄마다 `nav` 에 이름을 붙인다 — 보이는 이름표는 그 이름과 같아서 화면낭독기에는 숨긴다.
+ */
+function LinkRow({ label, links }: { label: string; links: React.ReactElement[] }) {
+  if (links.length === 0) {
+    return null;
+  }
+  return (
+    <div className="border-t border-border">
+      <nav aria-label={`${label} 메뉴`} className="mx-auto flex max-w-6xl items-baseline gap-4 px-4 py-2 text-sm">
+        <span aria-hidden="true" className="shrink-0 font-medium">
+          {label}
+        </span>
+        <div className="flex flex-wrap gap-x-5 gap-y-1">{links}</div>
+      </nav>
+    </div>
   );
 }
 
@@ -275,7 +267,7 @@ function HeaderLink({ href, children }: { href: string; children: string }) {
     <Link
       href={href}
       className="
-        rounded-ui text-sm text-text-muted
+        whitespace-nowrap rounded-ui text-sm text-text-muted
         transition-colors duration-200
         hover:text-text
         focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-text
