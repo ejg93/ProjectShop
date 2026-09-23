@@ -14,6 +14,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionRuleLoader;
 import com.projectshop.shop.consent.ConsentService;
+import com.projectshop.shop.seller.SellerMemberService;
 
 /**
  * 탈퇴. 계정의 수명을 끊는다.
@@ -37,11 +38,12 @@ public class WithdrawalService {
     private final FindByIndexNameSessionRepository<? extends Session> sessions;
     private final AuditLog auditLog;
     private final ConsentService consentService;
+    private final SellerMemberService sellerMembers;
 
     WithdrawalService(JdbcClient jdbc, PasswordEncoder passwordEncoder,
             PermissionRuleLoader ruleLoader,
             FindByIndexNameSessionRepository<? extends Session> sessions, AuditLog auditLog,
-            ConsentService consentService) {
+            ConsentService consentService, SellerMemberService sellerMembers) {
 
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
@@ -49,6 +51,7 @@ public class WithdrawalService {
         this.sessions = sessions;
         this.auditLog = auditLog;
         this.consentService = consentService;
+        this.sellerMembers = sellerMembers;
     }
 
     /**
@@ -71,6 +74,10 @@ public class WithdrawalService {
         if (!passwordEncoder.matches(password, account.passwordHash())) {
             throw new ShopException(ErrorCode.PASSWORD_MISMATCH);
         }
+
+        // 마지막 대표는 대표를 넘긴 뒤에 나간다(`Q169`, 사용자 선택). 탈퇴는 역할 행을 안 지워서
+        // 멤버 관리 쪽 검사로는 안 걸린다. DB 트리거가 같은 것을 막고 여기는 그것을 422 로 답한다.
+        sellerMembers.requireNotLastOwnerAnywhere(userId);
 
         // 동의를 어떻게 거두느냐는 여기서 안 정한다. 남의 자원이라 규칙도 그쪽에 있다(`5m`).
         consentService.revokeAll(userId, actorIp);

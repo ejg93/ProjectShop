@@ -294,6 +294,52 @@ class SellerMemberServiceTest extends PostgresTestBase {
             assertThat(orgRoleCount(owner, "seller_staff", seller)).isEqualTo(1);
         }
 
+        /**
+         * 앱을 안 거치는 길(`psql`, 앞으로 생길 입구)도 막힌다(`Q169`). 트리거가 지연이라 롤백되는
+         * 시험에서는 안 터지므로 그 자리에서 켠다.
+         */
+        @Test
+        @DisplayName("앱을 거치지 않고 마지막 대표 역할을 지워도 DB 가 막는다")
+        void 앱을_거치지_않고_마지막_대표_역할을_지워도_DB_가_막는다() {
+            jdbc.sql("delete from user_role where user_id = :id and seller_id = :seller")
+                    .param("id", owner).param("seller", seller).update();
+
+            assertThatThrownBy(() -> jdbc.sql(
+                            "set constraints user_role_keeps_seller_owner immediate").update())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("마지막 대표");
+        }
+
+        @Test
+        @DisplayName("앱을 거치지 않고 마지막 대표가 탈퇴해도 DB 가 막는다")
+        void 앱을_거치지_않고_마지막_대표가_탈퇴해도_DB_가_막는다() {
+            jdbc.sql("update app_user set deleted_at = now() where user_id = :id")
+                    .param("id", owner).update();
+
+            assertThatThrownBy(() -> jdbc.sql(
+                            "set constraints app_user_withdrawal_keeps_seller_owner immediate").update())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("마지막 대표");
+        }
+
+        /**
+         * 넘기는 것은 「새 대표를 넣고 옛 대표를 뺀다」 두 걸음이다. 트리거가 즉시면 순서에 따라
+         * 중간에 0이 되어 넘길 수가 없다 — 지연인 이유다.
+         */
+        @Test
+        @DisplayName("한 트랜잭션 안에서 대표를 넘기는 것은 된다")
+        void 한_트랜잭션_안에서_대표를_넘기는_것은_된다() {
+            jdbc.sql("delete from user_role where user_id = :id and seller_id = :seller")
+                    .param("id", owner).param("seller", seller).update();
+            jdbc.sql("delete from user_role where user_id = :id and seller_id = :seller")
+                    .param("id", staff).param("seller", seller).update();
+            fixture.grantOrg(staff, "seller_owner", seller);
+
+            jdbc.sql("set constraints user_role_keeps_seller_owner immediate").update();
+
+            assertThat(orgRoleCount(staff, "seller_owner", seller)).isEqualTo(1);
+        }
+
         @Test
         @DisplayName("전역 역할은 이 입구로 못 준다")
         void 전역_역할은_이_입구로_못_준다() {

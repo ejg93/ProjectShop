@@ -343,19 +343,71 @@ public class SellerMemberService {
      * 관리자의 직접 개입뿐이다.
      */
     private void requireAnotherOwnerRemains(long sellerId, long userId) {
+        requireAnotherLiveOwner(sellerId, userId, ErrorCode.SELLER_LAST_OWNER);
+    }
+
+    /**
+     * 탈퇴하려는 사람이 어느 살아 있는 셀러의 마지막 대표인가(`Q169`).
+     *
+     * <p><b>탈퇴는 역할을 안 지운다</b> — {@code app_user.deleted_at} 만 채운다. 그래서 내보내기·역할
+     * 변경의 검사로는 안 걸리고, 마지막 대표가 탈퇴하면 그 셀러가 잠긴다. <b>대표를 넘긴 뒤에만
+     * 탈퇴한다</b>(사용자 선택). DB 는 {@code app_user_withdrawal_keeps_seller_owner} 가 같은 것을 막고,
+     * 여기는 그것을 500 이 아니라 422 로 답하는 자리다.
+     *
+     * <p><b>셀러 번호 순으로 잠근다</b> — 트리거와 같은 순서라야 교착이 안 난다.
+     */
+    @Transactional
+    public void requireNotLastOwnerAnywhere(long userId) {
+        List<Long> ownedSellerIds = jdbc.sql("""
+                        select ur.seller_id
+                          from user_role ur
+                          join role r on r.role_id = ur.role_id
+                          join seller s on s.seller_id = ur.seller_id
+                         where ur.user_id = :userId
+                           and r.code = 'seller_owner'
+                           and s.deleted_at is null
+                         order by ur.seller_id
+                        """)
+                .param("userId", userId)
+                .query(Long.class)
+                .list();
+
+        for (long sellerId : ownedSellerIds) {
+            requireAnotherLiveOwner(sellerId, userId, ErrorCode.WITHDRAWAL_LAST_OWNER);
+        }
+    }
+
+    /**
+     * 이 사람 말고 <b>살아 있는</b> 대표가 하나라도 남나.
+     *
+     * <p><b>셀러 행을 먼저 잠근다</b>(`Q169`). 잠금 없이 세면 대표 둘이 동시에 서로를 내보낼 때
+     * 둘 다 「하나 남는다」를 보고 통과해서 대표가 0이 된다. 잠그면 뒤에 온 쪽이 앞의 커밋을
+     * 기다렸다가 새로 센다 — DB 트리거({@code user_role_keeps_seller_owner})가 같은 자리를 잠그는데,
+     * 여기서 먼저 잡아야 그 트리거의 500 이 아니라 이 422 로 답한다.
+     *
+     * <p><b>탈퇴한 대표는 안 센다.</b> 탈퇴는 역할 행을 남기므로 역할만 세면 없는 사람이 「남은 대표」가 된다.
+     */
+    private void requireAnotherLiveOwner(long sellerId, long userId, ErrorCode whenNone) {
+        jdbc.sql("select seller_id from seller where seller_id = :sellerId for update")
+                .param("sellerId", sellerId)
+                .query(Long.class)
+                .optional();
+
         boolean remains = Boolean.TRUE.equals(jdbc.sql("""
                         select exists(
                             select 1 from user_role ur
                               join role r on r.role_id = ur.role_id
+                              join app_user u on u.user_id = ur.user_id
                              where ur.seller_id = :sellerId and ur.user_id <> :userId
-                               and r.code = 'seller_owner')
+                               and r.code = 'seller_owner'
+                               and u.deleted_at is null)
                         """)
                 .param("sellerId", sellerId)
                 .param("userId", userId)
                 .query(Boolean.class)
                 .single());
         if (!remains) {
-            throw new ShopException(ErrorCode.SELLER_LAST_OWNER);
+            throw new ShopException(whenNone);
         }
     }
 
