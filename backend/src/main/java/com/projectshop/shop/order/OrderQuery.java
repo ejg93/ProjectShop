@@ -108,12 +108,15 @@ public class OrderQuery {
      * @param shipOverdue        발송이 늦었나. <b>서버가 판단한다</b> — 화면이 두 시각을 비교하면
      *                           시계 차이만큼 답이 갈리고, 아직 안 보낸 것과 늦게 보낸 것을
      *                           가르는 규칙이 두 벌이 된다
+     * @param carrierCode        택배사(`57`). 보내기 전이거나 송장 없이 옮겨진 묶음이면 비어 있다
+     * @param trackingNo     송장 번호. 사는 사람이 택배사 화면에서 따라가는 열쇠다 — 위치는 우리가 안 다룬다
      * @param allowedActions     지금 이 묶음에 할 수 있는 것. 소문자·하이픈이 곧 경로다
      */
     public record SellerOrder(String sellerOrderNumber, String sellerName, String status,
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime shipDueAt, OffsetDateTime shippedAt,
-            boolean shipOverdue, List<Item> items, List<String> allowedActions) {
+            boolean shipOverdue, String carrierCode, String trackingNo,
+            List<Item> items, List<String> allowedActions) {
     }
 
     /**
@@ -344,7 +347,7 @@ public class OrderQuery {
                         select so.seller_order_id, so.seller_order_number, so.seller_id,
                                s.name as seller_name, so.status, so.shipping_fee,
                                so.delivered_at, so.withdrawal_expire_at, so.auto_confirm_at,
-                               so.ship_due_at, so.shipped_at,
+                               so.ship_due_at, so.shipped_at, so.carrier_code, so.tracking_no,
                                (so.ship_due_at is not null
                                 and coalesce(so.shipped_at, now()) > so.ship_due_at) as ship_overdue
                           from seller_order so
@@ -364,6 +367,8 @@ public class OrderQuery {
                         rs.getObject("ship_due_at", OffsetDateTime.class),
                         rs.getObject("shipped_at", OffsetDateTime.class),
                         rs.getBoolean("ship_overdue"),
+                        EnumValue.of(rs.getString("carrier_code"), Carrier::of),
+                        rs.getString("tracking_no"),
                         List.copyOf(itemsBySellerOrder.getOrDefault(
                                 rs.getLong("seller_order_id"), List.of())),
                         actions.allowedActions(viewerId, buyerUserId,

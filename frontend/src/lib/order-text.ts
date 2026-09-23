@@ -46,6 +46,17 @@ const RETURN_REASON: Record<string, string> = {
   DEFECT: "표시·광고와 다름",
 };
 
+/**
+ * 택배사(`57`). 발송 폼이 고르는 값이고 사는 사람 화면이 그대로 읽는다 — 목록이 둘이면 한쪽만 늘어나는 날이 온다.
+ */
+export const CARRIERS: Record<string, string> = {
+  CJ: "CJ대한통운",
+  HANJIN: "한진택배",
+  LOTTE: "롯데택배",
+  EPOST: "우체국택배",
+  LOGEN: "로젠택배",
+};
+
 export function paymentStatusText(status: string): string {
   return PAYMENT_STATUS[status] ?? status;
 }
@@ -56,6 +67,10 @@ export function shipmentStatusText(status: string): string {
 
 export function returnReasonText(reason: string): string {
   return RETURN_REASON[reason] ?? reason;
+}
+
+export function carrierText(carrier: string): string {
+  return CARRIERS[carrier] ?? carrier;
 }
 
 /**

@@ -85,6 +85,8 @@ public class SellerOrderQuery {
      *                       <b>{@code String} 이 아니라 열거값이다</b>(`43a-6`) — 이 칸이 문자열이던 동안
      *                       {@link #enumValue} 를 안 지나서 저장값이 소문자로 새 나갔다.
      *                       타입으로 두면 표기를 고르는 자리가 없어서 빠뜨림이 성립하지 않는다
+     * @param carrierCode    택배사(`57`). 보내기 전이면 비어서 응답에서 빠진다
+     * @param trackingNo 송장 번호(`57`). 위와 같이 같이 있거나 같이 없다
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Schema(name = "SellerOrderDetail")
@@ -92,6 +94,7 @@ public class SellerOrderQuery {
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
             OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue,
+            Carrier carrierCode, String trackingNo,
             OrderStatusService.ReturnReason returnReason,
             List<OrderQuery.Item> items, List<String> allowedActions, OrderQuery.Shipping shipping,
             @JsonProperty("_visible_field_groups") List<String> visibleFieldGroups) {
@@ -103,6 +106,7 @@ public class SellerOrderQuery {
             OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime createdAt,
             OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue,
+            String carrierCode, String trackingNo,
             String returnReason) {
     }
 
@@ -185,7 +189,7 @@ public class SellerOrderQuery {
                                so.status, so.shipping_fee, so.delivered_at,
                                so.withdrawal_expire_at, so.auto_confirm_at, so.created_at,
                                so.ship_due_at, so.shipped_at, so.is_ship_overdue,
-                               so.return_reason
+                               so.carrier_code, so.tracking_no, so.return_reason
                           from seller_order_visible so
                           join shop_order o on o.order_id = so.order_id
                          where so.seller_order_number = :number
@@ -207,6 +211,8 @@ public class SellerOrderQuery {
                         rs.getObject("ship_due_at", OffsetDateTime.class),
                         rs.getObject("shipped_at", OffsetDateTime.class),
                         rs.getBoolean("is_ship_overdue"),
+                        rs.getString("carrier_code"),
+                        rs.getString("tracking_no"),
                         rs.getString("return_reason")))
                 .optional()
                 .orElseThrow(() -> notFound(sellerOrderNumber));
@@ -229,6 +235,8 @@ public class SellerOrderQuery {
                 row.shipDueAt(),
                 row.shippedAt(),
                 row.shipOverdue(),
+                Carrier.of(row.carrierCode()),
+                row.trackingNo(),
                 OrderStatusService.ReturnReason.of(row.returnReason()),
                 itemsOf(row.sellerOrderId()),
                 actions.allowedActions(viewerId, row.buyerUserId(), row.sellerId(), row.status()),

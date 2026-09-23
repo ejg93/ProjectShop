@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
 import { dateText, dateTimeText, priceText } from "@/lib/format";
 import {
+  carrierText,
   paymentStatusText,
   shipmentStatusText,
   fromStatusText,
@@ -46,6 +47,9 @@ type SellerOrder = {
   shippedAt: string | null;
   /** 늦었나. 서버가 판단한 값이라 화면이 다시 재지 않는다 */
   shipOverdue: boolean;
+  /** 택배사와 송장(`57`). 보내기 전이면 비어 있다 — 위치는 우리가 안 다룬다 */
+  carrierCode: string | null;
+  trackingNo: string | null;
   items: Item[];
   allowedActions: string[];
 };
@@ -225,6 +229,12 @@ function SellerBundle({
         </h2>
         <p className="text-sm">{shipmentStatusText(bundle.status)}</p>
       </div>
+
+      {bundle.carrierCode ? (
+        <p className="text-sm text-text-muted">
+          {carrierText(bundle.carrierCode)} 송장 {bundle.trackingNo}
+        </p>
+      ) : null}
 
       {/*
         보내기로 한 날이 지났다는 것을 맨 위에서 알린다(`43a-4a`, `D2` R38·R39).

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
@@ -39,9 +40,11 @@ import com.projectshop.shop.order.OrderActionService.Action;
 public class ShipmentController {
 
     private final OrderActionService actions;
+    private final ShipmentTrackingService tracking;
 
-    ShipmentController(OrderActionService actions) {
+    ShipmentController(OrderActionService actions, ShipmentTrackingService tracking) {
         this.actions = actions;
+        this.tracking = tracking;
     }
 
     /**
@@ -51,6 +54,19 @@ public class ShipmentController {
      * 본문을 만들어야 하고, 그 자리를 채우려고 화면이 빈 문자열을 넣기 시작한다.
      */
     public record ActionRequest(@Size(max = 500) String reason) {
+    }
+
+    /**
+     * 발송 요청(`57`). <b>본문이 필수다</b> — 송장 없는 발송은 사는 사람이 물건을 따라갈 길이 없다.
+     *
+     * <p>송장 번호는 하이픈을 섞어 와도 받는다. 택배사 화면의 번호를 그대로 붙여 넣는 자리라서고, 숫자 10~14자리인지만
+     * 본다 — 떼는 것은 {@link ShipmentTrackingService} 다.
+     *
+     * @param carrierCode 택배사. 열거값이라 대문자다(`D5`)
+     */
+    public record ShipRequest(
+            @NotNull Carrier carrierCode,
+            @NotNull @Pattern(regexp = "(?:[0-9]-?){9,13}[0-9]") String trackingNo) {
     }
 
     /**
@@ -96,14 +112,15 @@ public class ShipmentController {
             @Size(max = 500) String reason) {
     }
 
-    /** 셀러가 물건을 보냈다 */
+    /** 셀러가 물건을 보냈다. 택배사와 송장 번호가 같이 온다(`57`) */
     @PostMapping("/{sellerOrderNumber}/ship")
     public ResponseEntity<Void> ship(
             @AuthenticationPrincipal ShopUser user,
             @PathVariable String sellerOrderNumber,
-            @Valid @RequestBody(required = false) ActionRequest request) {
+            @Valid @RequestBody ShipRequest request) {
 
-        return run(user, sellerOrderNumber, Action.SHIP, request);
+        tracking.ship(user.id(), sellerOrderNumber, request.carrierCode(), request.trackingNo());
+        return ResponseEntity.noContent().build();
     }
 
     /** 셀러가 배송을 끝냈다. 청약철회·자동확정 기한이 이 시점에 박제된다(`D10`) */

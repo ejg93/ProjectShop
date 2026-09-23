@@ -68,7 +68,9 @@ class ScreenLengthTest {
             "app/checkout/checkout-form.tsx  cardNumber",
                     "상한이 @Size 가 아니라 @Pattern 안에 있다 — `[0-9][0-9 -]{10,23}[0-9]` 라 25자다",
             "app/checkout/checkout-form.tsx  postalCode",
-                    "상한이 @Pattern 안에 있다 — `^[0-9]{5}$` 라 5자다"));
+                    "상한이 @Pattern 안에 있다 — `^[0-9]{5}$` 라 5자다",
+            "app/seller/orders/[sellerOrderNumber]/ship-form.tsx  trackingNo",
+                    "상한이 @Pattern 안에 있다 — 숫자 14자리 사이마다 하이픈이 하나씩 끼면 27자다(`57`)"));
 
     /**
      * <b>같은 이름의 요청 칸이 서로 다른 상한을 가진 자리.</b> 화면이 어느 쪽으로 보내는지를
@@ -262,6 +264,8 @@ class ScreenLengthTest {
                     "radio 다. 고를 수 있는 값이 그 상품의 사진 번호로 닫혀 있다(`Q183`)"),
             Map.entry("components/product-actions.tsx  backToSale",
                     "radio 다. 참·거짓 둘뿐이고 서버 record 가 Boolean 으로 받는다(`Q182`)"),
+            Map.entry("app/seller/orders/[sellerOrderNumber]/ship-form.tsx  carrierCode",
+                    "select 다. 택배사 다섯뿐이고 서버 Carrier 열거형과 seller_order_carrier_code_check 가 든다(`57`)"),
 
             // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
             // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라
