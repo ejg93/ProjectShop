@@ -382,7 +382,7 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 **범위를 떠볼 때는 `covers` 다**(`Q204`). 목록이 「전체 범위냐」·「이 셀러를 보냐」로 갈래를 고를 때 `decide` 를 쓰면
 정상 갈래의 거부가 감사에 쌓인다 — 셀러가 제 주문 목록을 열 때마다 한 줄씩 쌓이고 있었다(`QueryBudgetTest` 가 문장 수로 잡았다).
 `covers` 는 `allowedActions` 로 먼저 떠보고 열려 있을 때만 `decide` 를 지난다 — **허용은 그대로 `decide` 가 정하고**,
-끝내 볼 것이 없어 막는 자리는 부르는 쪽이 `decide` 로 거부를 남긴다. 쓰는 곳: `SellerOrderQuery`·`SettlementQuery`·`RefundQuery`·`ProductQuery`.
+끝내 볼 것이 없어 막는 자리는 부르는 쪽이 `decide` 로 거부를 남긴다. 쓰는 곳: `SellerOrderQuery`·`SettlementQuery`·`RefundQuery`·`ProductQuery`·`SalesStatsQuery` — `ScopeProbeAuditTest` 가 다섯을 두 방향으로 잰다.
 **진짜 문지기는 `decide` 그대로다** — `OrderQuery.findAll` 의 「전체 범위가 아니면 403」처럼 거부가 곧 막힌 시도인 자리.
 
 **아래 둘은 `Q56` 이 찾았다**(2026-09-15). 표가 셋이었는데 규칙을 돌려 보니 실물이 다섯 자리였다 —
