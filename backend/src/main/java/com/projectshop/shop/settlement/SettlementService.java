@@ -336,24 +336,26 @@ public class SettlementService {
      * <p><b>부호가 양수다.</b> 되돌리는 것은 원래 줄의 반대고, 공급자는 그대로 셀러다 —
      * 되돌림이 공급자를 바꾸지 않는다(`V89`).
      *
-     * <p><b>환불한 만큼만 되돌린다.</b> 부분 환불이면 그 항목에서 돌려준 수량의 몫이고,
-     * 그 비율은 <b>환불 대금이 이미 들고 있다</b> — `Q164` 가 환불액에서 할인을 빼도록
-     * 고쳐서, 되돌릴 쿠폰은 「원래 배분액 × 환불 수량 ÷ 주문 수량」이다.
+     * <p><b>환불한 만큼만 되돌린다.</b> 그 몫은 환불 항목이 박제한 {@code discount_refund} 다
+     * (`Q168`) — 여기서 비율로 다시 계산하면 나눠서 환불할 때 버림이 쌓여 통째로 환불해도
+     * 할인 몫이 몇 원 덜 되돌아간다. 환불 쪽({@code RefundMath.discountRefund})이 잔액을
+     * 마지막 수량에 몰아서 끝을 맞춘다.
+     *
+     * <p><b>셀러가 문 쿠폰만 되돌린다</b> — {@code coupon_discount} 줄이 섰던 항목이다.
+     * 몰이 문 쿠폰은 셀러가 정가를 받았으므로 되돌릴 부담이 없다.
      */
     private void insertCouponReversalLines(long settlementId, long sellerId,
             LocalDate periodStart, LocalDate periodEnd) {
         jdbc.sql("""
                         insert into settlement_item (settlement_id, kind, amount, refund_item_id)
-                        select :settlementId, 'coupon_discount_reversal',
-                               oi.discount_amount * ri.quantity / oi.quantity, ri.refund_item_id
+                        select :settlementId, 'coupon_discount_reversal', ri.discount_refund,
+                               ri.refund_item_id
                           from refund_item ri
                           join refund r on r.refund_id = ri.refund_id
                           join seller_order so on so.seller_order_id = r.seller_order_id
-                          join order_item oi on oi.order_item_id = ri.order_item_id
                          where so.seller_id = :sellerId
                            and r.status = 'approved'
-                           and oi.discount_amount > 0
-                           and oi.discount_amount * ri.quantity / oi.quantity > 0
+                           and ri.discount_refund > 0
                            and (r.decided_at at time zone 'Asia/Seoul')::date
                                between :start and :end
                            and exists (select 1 from settlement_item paid
@@ -380,12 +382,19 @@ public class SettlementService {
      * 되돌릴 것이 없고, 그때 회수 줄을 세우면 안 준 돈을 두 번 빼는 것이 된다.
      *
      * <p>수수료는 <b>돌려주는 쪽</b>이라 양수다 — 거래가 없어졌으니 몰도 안 받는다.
+     *
+     * <p><b>판매되돌림은 판매와 같은 축(할인 전)이다</b>(`Q168`). {@code sale} 이
+     * {@code line_amount} 로 서므로 되돌림도 {@code amount + discount_refund} 를 뺀다.
+     * {@code -amount}(할인 후)만 빼면 그 위에 선 {@code coupon_discount_reversal} 과 겹쳐
+     * <b>정산 뒤 환불할 때마다 셀러가 할인액을 한 번 더 받는다</b> — `Q164` 가 {@code amount} 를
+     * 할인 후로 바꾸면서 이 전제를 없앴다(마무리 44차 독립 리뷰).
      */
     private void insertReversalLines(long settlementId, long sellerId,
             LocalDate periodStart, LocalDate periodEnd) {
         jdbc.sql("""
                         insert into settlement_item (settlement_id, kind, amount, refund_item_id)
-                        select :settlementId, 'sale_reversal', -ri.amount, ri.refund_item_id
+                        select :settlementId, 'sale_reversal', -(ri.amount + ri.discount_refund),
+                               ri.refund_item_id
                           from refund_item ri
                           join refund r on r.refund_id = ri.refund_id
                           join seller_order so on so.seller_order_id = r.seller_order_id

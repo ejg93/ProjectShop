@@ -32,12 +32,17 @@ class RefundMathTest {
      */
     private static Item item(int refundedQuantity, long refundedCommission) {
         return new Item(7L, 3, 10_000, COMMISSION, 0, refundedQuantity, refundedCommission,
-                10_000L * refundedQuantity);
+                  10_000L * refundedQuantity, 0);
     }
 
     /** 3개 30,000 에 할인 1,000. 3으로 안 나눠떨어져서 여기도 절사 잔액이 생긴다 */
     private static Item discounted(int refundedQuantity, long refundedAmount) {
-        return new Item(7L, 3, 10_000, COMMISSION, 1_000, refundedQuantity, 0, refundedAmount);
+        return discounted(refundedQuantity, refundedAmount, 0);
+    }
+
+    private static Item discounted(int refundedQuantity, long refundedAmount, long refundedDiscount) {
+        return new Item(7L, 3, 10_000, COMMISSION, 1_000, refundedQuantity, 0, refundedAmount,
+                refundedDiscount);
     }
 
     /**
@@ -75,6 +80,46 @@ class RefundMathTest {
         @DisplayName("할인이 없으면 항목 금액 그대로다")
         void 할인이_없으면_항목_금액_그대로다() {
             assertThat(RefundMath.amountRefund(item(0, 0), 3)).isEqualTo(30_000);
+        }
+    }
+
+    /**
+     * 되돌린 할인을 박제한다(`Q168`). 정산이 {@code amount + discount_refund} 로 판매되돌림을 세우므로
+     * <b>둘의 합이 할인 전 값과 끝까지 같아야</b> 판매와 판매되돌림이 같은 축에 선다.
+     */
+    @Nested
+    @DisplayName("되돌릴 할인은")
+    class DiscountRefund {
+
+        @Test
+        @DisplayName("통째로면 배분된 할인 전부다")
+        void 통째로면_배분된_할인_전부다() {
+            assertThat(RefundMath.discountRefund(discounted(0, 0), 3)).isEqualTo(1_000);
+        }
+
+        @Test
+        @DisplayName("나눠 돌려줘도 합이 배분된 할인과 같다")
+        void 나눠_돌려줘도_합이_배분된_할인과_같다() {
+            long first = RefundMath.discountRefund(discounted(0, 0, 0), 1);
+            long second = RefundMath.discountRefund(discounted(1, 0, first), 1);
+            long third = RefundMath.discountRefund(discounted(2, 0, first + second), 1);
+
+            assertThat(first + second + third)
+                    .as("비율로 매번 버리면 999 가 되고, 셀러는 판 것보다 1원 덜 토해 낸다")
+                    .isEqualTo(1_000);
+        }
+
+        @Test
+        @DisplayName("대금과 더하면 할인 전 값이다")
+        void 대금과_더하면_할인_전_값이다() {
+            long amount1 = RefundMath.amountRefund(discounted(0, 0, 0), 1);
+            long discount1 = RefundMath.discountRefund(discounted(0, 0, 0), 1);
+            long amount2 = RefundMath.amountRefund(discounted(1, amount1, discount1), 2);
+            long discount2 = RefundMath.discountRefund(discounted(1, amount1, discount1), 2);
+
+            assertThat(amount1 + discount1 + amount2 + discount2)
+                    .as("정산의 sale_reversal 합이 sale(line_amount)과 같아야 한다")
+                    .isEqualTo(30_000);
         }
     }
 

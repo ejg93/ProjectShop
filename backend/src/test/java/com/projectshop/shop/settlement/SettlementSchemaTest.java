@@ -694,8 +694,8 @@ class SettlementSchemaTest extends PostgresTestBase {
 
         return jdbc.sql("""
                         insert into refund_item (refund_id, order_item_id, quantity,
-                                                 amount, commission_refund)
-                        values (:refundId, :orderItemId, 1, :amount, :commission)
+                                                 amount, commission_refund, discount_refund)
+                        values (:refundId, :orderItemId, 1, :amount, :commission, 0)
                         returning refund_item_id
                         """)
                 .param("refundId", refundId)

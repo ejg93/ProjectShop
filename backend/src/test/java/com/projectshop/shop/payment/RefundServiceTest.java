@@ -601,8 +601,8 @@ class RefundServiceTest extends PostgresTestBase {
 
         jdbc.sql("""
                         insert into refund_item (refund_id, order_item_id, quantity,
-                                                 amount, commission_refund)
-                        values (:refundId, :itemId, :quantity, :amount, 0)
+                                                 amount, commission_refund, discount_refund)
+                        values (:refundId, :itemId, :quantity, :amount, 0, 0)
                         """)
                 .param("refundId", refundId)
                 .param("itemId", itemId)
