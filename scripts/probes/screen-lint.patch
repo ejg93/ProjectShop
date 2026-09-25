@@ -1,0 +1,33 @@
+# gate: eslint 화면 규칙 셋(Q228)
+# run: cd frontend && npx eslint --no-cache src/app/page.tsx src/components/site-footer.tsx
+# expect: page·layout 은 서버 컴포넌트로 둔다
+# expect: 화면에 force-static 을 안 건다
+# expect: fetchCache 를 안 건다
+# expect: 화면은 오류의 message 를 안 그린다
+diff --git a/frontend/src/app/page.tsx b/frontend/src/app/page.tsx
+index 39e3f1b..0c22e3e 100644
+--- a/frontend/src/app/page.tsx
++++ b/frontend/src/app/page.tsx
+@@ -1,3 +1,5 @@
++"use client";
++
+ import Link from "next/link";
+ 
+ /**
+@@ -33,3 +35,6 @@ export default function Home() {
+     </div>
+   );
+ }
++
++export const dynamic = "force-static";
++export const fetchCache = "force-no-store";
+diff --git a/frontend/src/components/site-footer.tsx b/frontend/src/components/site-footer.tsx
+index fb456f6..acab8bf 100644
+--- a/frontend/src/components/site-footer.tsx
++++ b/frontend/src/components/site-footer.tsx
+@@ -45,3 +45,5 @@ function FooterLink({ href, children }: { href: string; children: string }) {
+     </Link>
+   );
+ }
++
++export const probeMessage = new Error("probe").message;

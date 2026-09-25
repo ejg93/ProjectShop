@@ -1,0 +1,17 @@
+# gate: api-session vitest 세션 만료(Q228)
+# run: cd frontend && npx vitest run src/lib/api-session.test.ts
+# expect: 세션 쿠키가 있는데 401 이면 만료로 보낸다
+# expect: Tests +1 failed
+diff --git a/frontend/src/lib/api-session.ts b/frontend/src/lib/api-session.ts
+index ecdd2c0..7b06726 100644
+--- a/frontend/src/lib/api-session.ts
++++ b/frontend/src/lib/api-session.ts
+@@ -76,7 +76,7 @@ export async function apiSession<T>(path: string, opaqueKeys: readonly string[]
+ 
+   if (response.status === 401) {
+     // 던지지 않고 여기서 보낸다. 예외로 올리면 화면마다 같은 처리를 다시 적게 된다.
+-    redirect((await cookies()).get(SESSION_COOKIE) ? SESSION_EXPIRED : LOGIN_REQUIRED);
++    redirect(LOGIN_REQUIRED);
+   }
+ 
+   if (response.status === 403) {

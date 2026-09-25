@@ -19,6 +19,8 @@ export function EndImpersonationButton() {
     startTransition(async () => {
       try {
         await api("/api/admin/impersonation/end", { method: "POST" });
+        // 전체 새로고침이 의도다 — 세션 주체가 관리자로 돌아와 라우터 캐시에 남은 그 사람의 화면 조각을 다 버린다(`Q228`).
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.assign("/admin/roles");
       } catch {
         setFailed(true);

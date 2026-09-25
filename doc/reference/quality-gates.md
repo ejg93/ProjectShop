@@ -127,6 +127,8 @@
 | 층간 문자열 대조 | 4 테스트 | 로컬·CI | 화면이 든 값이 백엔드 실물과 갈리는 것. `ErrorSlugScreenTest`(오류 슬러그)·`OrderRecordTextTest`(상태 문구)·**`WithdrawalNoticeScreenTest`(제한 사유, `D2` R4)**·**`PasswordHintScreenTest`(비밀번호 길이)**(`Q20-2`). **화면 테스트로는 못 잡는다** — 같은 틀린 값을 쓰면 초록이다 | `Q16` 2026-09-05. `Q20-2` 2026-09-11 — **실물이 갈려 있었다**: 화면이 `PERISHABLE`·`SEALED_COPYRIGHT`, 실물은 `COPYABLE_MEDIA`·`DIGITAL_CONTENT` |
 | `axe-core` | 4 테스트 | 로컬·CI | 그려진 DOM 의 접근성 위반(`Q21`, `src/test/axe.ts`). **`jsx-a11y` 가 못 보는 자리만** — 조건부로 생긴 DOM. 건 자리는 `signup-form` 하나 | `Q21` 2026-09-11 — 라벨 연결을 떼니 `label(critical)`·`label-title-only(serious)` 둘이 떴다 |
 | 서버 입구 린트 | 4 테스트 | 로컬·CI | 화면이 `fetch` 를 직접 쓰거나 `next/headers` 를 `api-session.ts` 밖에서 드는 것(`Q29`, `D24`). `no-restricted-globals`·`no-restricted-imports` 둘, 예외는 `src/lib/api*.ts` 와 테스트. **클라이언트가 `api-session` 을 드는 것은 빌드가 막는다** — `next/headers` 가 클라이언트 번들에 들어가면 `next build` 가 자체로 선다(1층) | `Q29` 2026-09-13 — 화면 파일에 둘을 심으니 `2 problems (2 errors)`. 클라이언트 컴포넌트에서 `api-session` 을 드니 `Ecmascript file had an error` 로 빌드가 섰다 |
+| 화면 규칙 린트 | 4 테스트 | 로컬·CI | 화면이 오류의 `message` 를 읽는 것 · `page.tsx`·`layout.tsx` 의 `"use client"` · `force-static`·`fetchCache` export(`Q228`, 원장 ⑩ 절반·⑪·⑫ — `D20`·`D24`). `no-restricted-syntax` 셋, 범위는 `src/app/**`·`src/components/**`(시험 제외) — `"use client"` 만 page·layout | `Q228` 2026-09-26 — `scripts/probes/screen-lint.patch`(넷을 한 판에 넣어 넷 다 빨강) |
+| `api-session.test.ts` 세션 만료 | 4 테스트 | 로컬·CI(frontend) | 세션 쿠키가 있는 401 이 `?reason=session-expired` 가 아니라 `login-required` 로 가는 것(`Q228`, 원장 ⑬). 전에는 쿠키 없는 401 만 쟀다 | `Q228` 2026-09-26 — `scripts/probes/session-expired.patch`(분기를 지워 그 경우 빨강) |
 | `ResponseTimeFormatTest` | **2 설정** + 4 테스트 | `./gradlew build` | 응답 시각이 `Z` 가 아닌 것(`Q35`, `time-rules.md` 「표현 — 층마다」). 막는 것은 `spring.jackson.time-zone: UTC` 고 테스트는 그 설정이 실제 문자열을 정하는지 고정한다 | `Q35` 2026-09-13 — 설정을 `Asia/Seoul` 로 바꾸니 `2026-09-13T01:15:48.765248+09:00` 이 나가 빨갰다 |
 | `RequirementEnforcementTest` | 4 테스트 | `./gradlew build`(느린 레인) | **법 층.** `D2` 요건표 「강제 지점」 칸의 제약·인덱스 22·클래스.메서드 17·파일 1·`V` 26 이 실물인지(`Q33`). `req-coverage.sh` 의 반대 방향 — 그쪽은 테스트가 R 을 언급하나, 이쪽은 표가 적은 이름이 있나. 요건표는 `integrationTest` 입력으로 신고돼 표만 고쳐도 돈다 | `Q33` 2026-09-13 — 표의 `product_withdrawal_reason_check` 줄기를 틀리니 R4 를 짚었다. **접미사를 틀린 첫 시도는 조용히 통과했다** — 모양에서 빠져서다. javadoc 에 적었다 |
 | `doc-lint.sh` | 4 테스트 | 로컬·CI | 제목 파편·중복 문장·**존댓말 어미 열**(`Q218` — 넷에서 열로, `-Mutf8`)·**표 셀 중복**(`Q218` — 30자 이상, 세울 때 있던 14 는 목록으로)·**설계 행 형식**(`Q218` — 번호 절차가 있는 행의 결정·실패 사다리·닫힘 번호, 0 기준)·**깨진 UTF-8**(`Q217`)·**기준 문서 제목의 날짜**(`2c-2`)·**분할표 칸 누락**(`2t`, 기준선은 `doc-lint.sh` 의 값이고 줄기만 한다)·**「현재 상태」 25줄 초과**(`2u`)·**이력 날짜 역순**(`W3`, 기준선 7에서 줄기만 한다) | `2c-2` 2026-09-06. `2x-1` 2026-09-11 — 부르는 훅이 JSON 을 파싱하고 명령 위치를 본다. `Q218` 2026-09-25 — 넷을 실물 문서에서 하나씩 부쉈다(「해요」·같은 30자 셀 둘·`Q220` 의 「실패 사다리」 표시·UTF-8 은 `Q217`) |
@@ -235,7 +237,7 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 **규약 문서 일곱(`D5`·`D14`·`D16`·`D20`·`D22`·`D23`·`D24`)의 굵은 규칙을 위 게이트 표에 대조해, 기계가 안 보는 것만 여기 적는다**(`Q222`, 2026-09-25 Fable).
 규칙이 문서에만 있으면 「지켜졌다」는 사람 기억이고, 그 기억은 하루를 못 간다(`/warmup`).
 줄이 하나 없어질 때마다 그 규칙은 위 표로 올라간다 — **이 절이 비는 것이 목표다.**
-**올라간 줄은 번호를 그대로 둔다** — ①~⑤ 는 `Q226`, ⑥~⑨ 는 `Q227` 이 위 표로 올렸고, 코드 주석과 위 표가 부르는 「원장 ①」 같은 번호는 그 두 청크의 `PLAN.md` 행이 든다.
+**올라간 줄은 번호를 그대로 둔다** — ①~⑤ 는 `Q226`, ⑥~⑨ 는 `Q227`, ⑪~⑬ 과 ⑩ 의 `message` 절반은 `Q228` 이 위 표로 올렸고, 코드 주석과 위 표가 부르는 「원장 ①」 같은 번호는 그 두 청크의 `PLAN.md` 행이 든다.
 
 **방향이 위 표와 반대다.** 표는 게이트에서 출발해 「무엇을 막나」를 적고, 원장은 규칙에서 출발해 「무엇이 재나」를 묻는다.
 `RequirementEnforcementTest` 가 법 요건(`D2`)에 같은 물음을 던지고 여기는 규약에 던진다.
@@ -244,11 +246,8 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 
 | # | 규칙 | 문서 | 지금 실물 | 처분 |
 |---|---|---|---|---|
-| ⑩ | 화면은 서버 문구(`detail`·`message`)를 그대로 안 적는다 | `D20`·`D24` | `seller/products/new/product-form.tsx:81` 이 `e.message` 를 그린다. `admin/audit` 의 `row.detail` 은 감사 JSON 이라 다른 것 | `Q228` ① — eslint `no-restricted-syntax`, `src/app/**` |
-| ⑪ | `page.tsx`·`layout.tsx` 에 `"use client"` 를 안 붙인다 — 경계는 잎사귀 | `D24` | 위반 0(page 44). 막는 것 없음 | `Q228` ② — eslint 파일 범위 규칙 |
-| ⑫ | 인증 라우트에 `force-static`·`fetchCache` 를 안 건다 | `D24` | 위반 0. 막는 것 없음 — `no-store` 는 입구 둘이 명시한다 | `Q228` ③ — eslint: `app/**` 에서 그 두 export 금지 |
-| ⑬ | 401 은 `?reason=session-expired` 를 붙여 로그인으로 보낸다 | `D24`·`D20` | `api-session.ts` 가 한다. 있는 시험은 쿠키 없는 401(`login-required`)만 잰다 | `Q228` ④ — `api-session` vitest 한 경우 |
-| ⑭ | 조작 버튼은 `allowedActions` 로 그린다 — 상태만 보고 안 그린다 | `D20` | **3곳**이 상태로 그린다: `me/inquiries/page.tsx:158`(`RECEIVED`→거두기) · `admin/review-reports/page.tsx:118`(`PENDING`→처리) · `:122`(`ACCEPTED`→복구). 문서 스스로 「lint 로 못 잰다」 | `Q228` ⑤ — 응답에 `allowedActions` 가 있는 것은 그것으로. 없으면 서버가 싣는 것이 먼저라 새 행 |
+| ⑩ | 화면은 서버 문구(`detail`)를 그대로 안 적는다 | `D20`·`D24` | **열두 화면이 `caught.detail` 을 그린다**(`Q228` 이 셌다 — 원장을 세울 때는 JSX 자리만 봐서 하나로 셌다). `message` 절반은 `Q228` 이 린트로 올렸다(`ApiError` 는 `super(detail)` 이라 `message` 가 곧 서버 문구) | `Q233` — 화면 문구를 `type` 마다 정할지 이 규칙을 고칠지 사용자 결정 |
+| ⑭ | 조작 버튼은 `allowedActions` 로 그린다 — 상태만 보고 안 그린다 | `D20` | **3곳**이 상태로 그린다: `me/inquiries/page.tsx:158`(`RECEIVED`→거두기) · `admin/review-reports/page.tsx:118`(`PENDING`→처리) · `:122`(`ACCEPTED`→복구). 문서 스스로 「lint 로 못 잰다」 | `Q234` — 서버가 먼저 싣는다(`Q228` ⑤ 가 봤다: 문의 응답은 칸이 있지만 `ANSWER` 만 싣고, 후기 신고 응답은 칸이 없다) |
 | ⑮ | 4xx 는 `ERROR` 로그가 아니다 | `D16` | `log.error` 9 — 처리 못 한 예외 1·배치·스위퍼 8. 위반 0 | **못 내린다** — 4xx 인지는 실행 때 정해진다. 마무리 대조 |
 | ⑯ | 객체·요청 본문을 통째로 안 찍는다 | `D16` | `LogArgumentTest` 는 이름이 뻔한 접근자만 | **못 내린다** — 글자로 `toString` 이 안 보인다(문서가 이미 적음). 독립 리뷰 |
 | ⑰ | 바깥 조인 쪽 숫자는 `getObject` 로 받는다 | `D23` | `getLong(` 176 — 어느 것이 `left join` 쪽인지는 SQL 을 읽어야 안다 | **못 내린다** 정적으로. 독립 리뷰의 SQL 대조 |
