@@ -20,6 +20,7 @@ import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
  * 웹훅 엔드포인트 등록(`29`).
@@ -40,6 +41,9 @@ class WebhookEndpointServiceTest extends PostgresTestBase {
 
     @Autowired
     private WebhookSecretCipher cipher;
+
+    @Autowired
+    private WebhookDeliveryQuery deliveries;
 
     @Autowired
     private JdbcClient jdbc;
@@ -178,6 +182,20 @@ class WebhookEndpointServiceTest extends PostgresTestBase {
         endpoints.resend(owner, deliveryId);
         assertThat(jdbc.sql("select status from webhook_delivery where webhook_delivery_id = :id")
                 .param("id", deliveryId).query(String.class).single()).isEqualTo("pending");
+    }
+
+    /** 누르면 403 인 버튼을 서버가 권하지 않는다 — 보기만 하는 관리자의 발송 목록에는 {@code RESEND} 가 없다(`D20`, `Q79`) */
+    @Test
+    @DisplayName("다시 보낼 수 없는 사람의 발송 목록에는 재발송이 안 실린다")
+    void resendIsOfferedOnlyToWhoCanResend() {
+        long endpointId = endpoints.register(owner, sellerId, "http://127.0.0.1:14/hook", ORDERS).webhookEndpointId();
+        failedDelivery(endpointId);
+        long admin = admin();
+
+        assertThat(deliveries.find(owner, endpointId, null, new Paging(0, 20)).items())
+                .singleElement().satisfies(delivery -> assertThat(delivery.allowedActions()).containsExactly("RESEND"));
+        assertThat(deliveries.find(admin, endpointId, null, new Paging(0, 20)).items())
+                .singleElement().satisfies(delivery -> assertThat(delivery.allowedActions()).isEmpty());
     }
 
     @Test

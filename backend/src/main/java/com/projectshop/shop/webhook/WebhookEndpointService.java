@@ -230,6 +230,11 @@ public class WebhookEndpointService {
                 rs.getObject("created_at", OffsetDateTime.class));
     }
 
+    /** 이 사람이 그 셀러의 발송을 다시 보낼 수 있나. 발송 목록이 {@code RESEND} 를 실을지 여기서 고른다 */
+    boolean canResend(long userId, long sellerId) {
+        return allowed(userId, sellerId, MANAGE);
+    }
+
     private void require(long userId, long sellerId, String action) {
         if (!allowed(userId, sellerId, action)) {
             throw new ShopException(ErrorCode.WEBHOOK_FORBIDDEN);

@@ -128,8 +128,8 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 
 ## 지금 데이터 — 역할 × 권한 매트릭스
 
-마이그레이션 V3·V5·V6·V20 이 넣은 값이다. 청크 4c 의 회귀 테스트가 이 표를 고정한다.
-**웹훅 줄 셋은 `WebhookEndpointServiceTest` 가 고정한다**(`Q211`) — 4c 의 스냅숏은 판정기 조합만 들고 역할이 없다.
+마이그레이션 V3·V5·V6·V20 이 넣은 값이다. **이 표 전체를 고정하는 시험은 없다** — 청크 4c 의 스냅숏(`PermissionMatrixTest`)은
+판정기의 범위·효과 조합만 들고 역할×권한 행을 안 든다(`Q211` 재대조). **웹훅 줄 셋은 `WebhookEndpointServiceTest` 가 고정한다.**
 
 `A/범위` 는 allow, `D/범위` 는 deny 다. 빈 칸은 규칙 없음이다.
 

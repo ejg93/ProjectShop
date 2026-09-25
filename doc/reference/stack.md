@@ -1639,6 +1639,9 @@ JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이�
 **타임아웃의 뜻이 다르다.** JDK 의 요청 타임아웃은 응답 머리까지의 상한이고, Apache 의 응답 타임아웃은 읽기 사이의 무활동이라
 머리를 한 바이트씩 흘리는 서버를 그것만으로 못 끊는다 — 발송기는 한 건의 상한을 따로 두고 넘으면 요청을 끊는다(`abort`).
 **응답을 `try-with-resources` 로 닫지 않는다** — 끊은 뒤 닫기가 던지는 예외가 받은 상태 코드를 덮는다.
+**감시가 끊은 읽기는 `SocketException` 을 던진다**(`InterruptedIOException` 이 아니다) — 끊은 것이 감시였는지를 따로 들고
+「타임아웃」으로 적는다. **`xn--` 이름은 유니코드로 넘어온다** — httpcore5 `Host` 가 퓨니코드를 풀어 리졸버에 준다. 검사한 이름과
+견줄 때 둘 다 `IDN.toASCII` 로 바꾼다(마무리 53차 독립 리뷰).
 
 ### 로컬 npm 10 은 lockfile 의 `libc` 칸을 지운다
 

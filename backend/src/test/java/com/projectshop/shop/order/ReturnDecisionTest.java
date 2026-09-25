@@ -281,6 +281,28 @@ class ReturnDecisionTest extends PostgresTestBase {
                     .hasMessageContaining("return_request_damaged_inspected_check");
         }
 
+        /**
+         * 두 표에 걸친 절반 — 검수 시각은 있는데 소견 글이 없으면 지연 트리거가 커밋에서 막는다(`V115`). 서비스로 훼손 거절을 한 뒤
+         * 같은 트랜잭션에서 소견을 지워 그 모양을 만든다 — 트리거는 커밋 때의 행을 본다.
+         */
+        @Test
+        @DisplayName("소견 글 없는 훼손 거절은 커밋에서 막힌다")
+        void damagedRejectionNeedsInspectionNote() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+            actions.receiveReturn(sellerOwner, number, null, "본품 표면에 긁힘");
+            reject(admin, number, RejectionReason.DAMAGED, "사용으로 훼손됐다");
+            jdbc.sql("""
+                            update return_note set inspection_note = null
+                             where return_request_id = (select rr.return_request_id from return_request rr
+                                                          join seller_order so on so.seller_order_id = rr.seller_order_id
+                                                         where so.seller_order_number = :number)
+                            """)
+                    .param("number", number).update();
+
+            assertThatThrownBy(ReturnDecisionTest.this::flush)
+                    .hasMessageContaining("훼손 거절에는 검수 소견이 필요하다");
+        }
+
         @Test
         @DisplayName("검수 전의 훼손 거절은 422 다")
         void damagedRejectionBeforeInspectionIs422() {

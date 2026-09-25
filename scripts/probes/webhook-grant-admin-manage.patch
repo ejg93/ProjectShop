@@ -1,0 +1,16 @@
+# gate: WebhookEndpointServiceTest 부여(Q211)
+# run: cd backend && ./gradlew integrationTest --tests '*WebhookEndpointServiceTest' -q
+# expect: FAILED com\.projectshop\.shop\.webhook\.WebhookEndpointServiceTest 웹훅 권한은 걸기는 대표만
+diff --git a/backend/src/test/java/com/projectshop/shop/webhook/WebhookEndpointServiceTest.java b/backend/src/test/java/com/projectshop/shop/webhook/WebhookEndpointServiceTest.java
+index 975f9b6..ddf47a2 100644
+--- a/backend/src/test/java/com/projectshop/shop/webhook/WebhookEndpointServiceTest.java
++++ b/backend/src/test/java/com/projectshop/shop/webhook/WebhookEndpointServiceTest.java
+@@ -219,6 +219,8 @@ class WebhookEndpointServiceTest extends PostgresTestBase {
+     @Test
+     @DisplayName("웹훅 권한은 걸기는 대표만, 보기는 대표·관리자·감사자, 지우기는 대표·관리자로만 열려 있다")
+     void grantsStayWithinTheDecidedScopes() {
++        // 부순다: `V114` 전의 관리자 manage/all 을 되살린다
++        jdbc.sql("insert into role_permission (role_id, permission_id, scope, effect) select r.role_id, p.permission_id, 'all', 'allow' from role r join permission p on p.resource = 'webhook' and p.action = 'manage' where r.code = 'admin'").update();
+         List<String> grants = jdbc.sql("""
+                         select p.action || ':' || r.code || ':' || rp.scope || ':' || rp.effect
+                           from role_permission rp

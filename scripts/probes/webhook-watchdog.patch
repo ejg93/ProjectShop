@@ -1,0 +1,16 @@
+# gate: WebhookSenderTest 한 건의 상한(Q210)
+# run: cd backend && ./gradlew test --tests '*WebhookSenderTest' -q
+# expect: FAILED com\.projectshop\.shop\.webhook\.WebhookSenderTest 머리를 흘리는 서버도 한 건의 상한에서 끊기고 타임아웃으로 적힌다
+diff --git a/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java b/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java
+index 45e3282..11b007f 100644
+--- a/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java
++++ b/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java
+@@ -169,7 +169,7 @@ class WebhookSender {
+         ScheduledFuture<?> deadline = watchdog.schedule(() -> {
+             expired.set(true);
+             post.abort();
+-        }, maxExchange.toMillis(), TimeUnit.MILLISECONDS);
++        }, maxExchange.toMillis() * 100, TimeUnit.MILLISECONDS);
+         PINNED.set(target);
+         try {
+             ClassicHttpResponse response = client.executeOpen(null, post, null);

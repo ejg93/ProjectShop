@@ -2,6 +2,7 @@ package com.projectshop.shop.webhook;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.IDN;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -11,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -90,12 +92,18 @@ class WebhookSender {
     /** 지금 이 스레드가 보내는 건의 검사 결과. 발송기는 스레드마다 한 요청이라 이것으로 이름 풀이에 넘긴다 */
     private static final ThreadLocal<WebhookUrlPolicy.Target> PINNED = new ThreadLocal<>();
 
-    /** 검사한 이름이면 검사한 주소를, 아니면 거절한다 — 시스템 풀이로 넘기지 않는다 */
+    /**
+     * 검사한 이름이면 검사한 주소를, 아니면 거절한다 — 시스템 풀이로 넘기지 않는다.
+     *
+     * <p><b>이름은 ASCII 로 바꿔 견준다.</b> httpcore5 는 {@code xn--} 로 시작하는 이름을 유니코드로 바꿔 넘기는데
+     * ({@code Host} 생성자), 검사한 URI 의 호스트는 퓨니코드 그대로다 — 글자로 견주면 IDN 주소가 매번 「검사 안 된 이름」이
+     * 된다(마무리 53차 독립 리뷰).
+     */
     static final DnsResolver PINNED_RESOLVER = new DnsResolver() {
         @Override
         public InetAddress[] resolve(String host) throws UnknownHostException {
             WebhookUrlPolicy.Target target = PINNED.get();
-            if (target == null || !host.equalsIgnoreCase(target.uri().getHost())) {
+            if (target == null || !ascii(host).equalsIgnoreCase(ascii(target.uri().getHost()))) {
                 throw new UnknownHostException("검사 안 된 이름이다: " + host);
             }
             return target.addresses().toArray(InetAddress[]::new);
@@ -106,6 +114,10 @@ class WebhookSender {
             return host;
         }
     };
+
+    private static String ascii(String host) {
+        return IDN.toASCII(host, IDN.ALLOW_UNASSIGNED);
+    }
 
     private final CloseableHttpClient client;
     private final Duration maxExchange;
@@ -151,7 +163,13 @@ class WebhookSender {
         post.setHeader("webhook-signature", signature(secret, eventId, timestamp, body));
         post.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON.withCharset(StandardCharsets.UTF_8)));
 
-        ScheduledFuture<?> deadline = watchdog.schedule(post::abort, maxExchange.toMillis(), TimeUnit.MILLISECONDS);
+        // 상한이 끊으면 막혀 있던 읽기가 {@code SocketException} 을 던진다({@code InterruptedIOException} 이 아니다) —
+        // 그래서 끊은 것이 이 감시였는지를 따로 들고 「타임아웃」으로 적는다(마무리 53차 독립 리뷰).
+        AtomicBoolean expired = new AtomicBoolean();
+        ScheduledFuture<?> deadline = watchdog.schedule(() -> {
+            expired.set(true);
+            post.abort();
+        }, maxExchange.toMillis(), TimeUnit.MILLISECONDS);
         PINNED.set(target);
         try {
             ClassicHttpResponse response = client.executeOpen(null, post, null);
@@ -167,6 +185,9 @@ class WebhookSender {
             }
             return new Result(null, "타임아웃");
         } catch (IOException e) {
+            if (expired.get()) {
+                return new Result(null, "타임아웃");
+            }
             return new Result(null, "연결 실패: " + e.getClass().getSimpleName());
         } finally {
             PINNED.remove();

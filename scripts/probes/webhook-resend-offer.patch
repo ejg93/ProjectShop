@@ -1,0 +1,16 @@
+# gate: WebhookEndpointServiceTest 재발송 권유(Q211)
+# run: cd backend && ./gradlew integrationTest --tests '*WebhookEndpointServiceTest' -q
+# expect: FAILED com\.projectshop\.shop\.webhook\.WebhookEndpointServiceTest 다시 보낼 수 없는 사람의 발송 목록에는 재발송이 안 실린다
+diff --git a/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java b/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java
+index 19e8db5..325b059 100644
+--- a/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java
+@@ -79,7 +79,7 @@ public class WebhookDeliveryQuery {
+                             rs.getString("last_error"),
+                             rs.getObject("created_at", OffsetDateTime.class),
+                             rs.getObject("delivered_at", OffsetDateTime.class),
+-                            canResend && deliveryStatus.resendable() ? List.of("RESEND") : List.of());
++                            deliveryStatus.resendable() ? List.of("RESEND") : List.of());
+                 })
+                 .list();
+ 
