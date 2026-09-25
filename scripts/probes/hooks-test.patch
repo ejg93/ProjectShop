@@ -1,0 +1,12 @@
+# gate: hooks-test.sh
+# run: bash scripts/hooks-test.sh
+diff --git a/scripts/hooks/commit-guard.sh b/scripts/hooks/commit-guard.sh
+index 7b6a92d..3e58f06 100644
+--- a/scripts/hooks/commit-guard.sh
++++ b/scripts/hooks/commit-guard.sh
+@@ -33,4 +33,4 @@ for d in backend frontend compare tools; do
+ done
+ [ -z "$fail" ] && exit 0
+ echo "도장 없는 커밋은 work/* 에 안 올린다:$fail — 이 작업 트리에서 bash scripts/verify.sh 가 초록이어야 한다. 두 번 고쳐도 빨가면 wip/<청크> 가지에 커밋한다(CLAUDE.md 「청크 규칙」)." >&2
+-exit 2
++exit 0

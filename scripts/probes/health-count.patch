@@ -1,0 +1,15 @@
+# gate: HealthControllerTest 마이그레이션 수
+# run: cd backend && ./gradlew integrationTest --tests '*HealthControllerTest' -q
+diff --git a/backend/src/main/java/com/projectshop/shop/health/HealthController.java b/backend/src/main/java/com/projectshop/shop/health/HealthController.java
+index cbe9464..496e563 100644
+--- a/backend/src/main/java/com/projectshop/shop/health/HealthController.java
++++ b/backend/src/main/java/com/projectshop/shop/health/HealthController.java
+@@ -27,7 +27,7 @@ class HealthController {
+         String database = jdbcClient.sql("select current_database()")
+                 .query(String.class)
+                 .single();
+-        Long applied = jdbcClient.sql("select count(*) from flyway_schema_history where success")
++        Long applied = jdbcClient.sql("select count(*) from flyway_schema_history where success and installed_rank > 1")
+                 .query(Long.class)
+                 .single();
+         return new HealthResponse("shop-backend", database, applied, commit, OffsetDateTime.now());
