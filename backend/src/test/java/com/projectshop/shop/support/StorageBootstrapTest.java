@@ -3,11 +3,6 @@ package com.projectshop.shop.support;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -51,20 +46,9 @@ class StorageBootstrapTest extends StorageTestBase {
      * <b>이름이 「공개」라도 익명에게 안 열린다.</b> 여는 것은 앱이 내주는 서명 URL 이고,
      * 버킷 자체는 갈래와 무관하게 비공개다({@code media-rules.md} 「공개 쪽도 판정을 지난다」).
      */
-    @Test
-    @DisplayName("공개 버킷도 익명으로는 못 읽는다")
-    void 공개_버킷도_익명으로는_못_읽는다() throws IOException, InterruptedException {
-        s3.putObject(
-                PutObjectRequest.builder().bucket(PUBLIC_BUCKET).key("probe.txt").build(),
-                RequestBody.fromString("probe"));
-
-        HttpResponse<Void> response = HttpClient.newHttpClient().send(
-                HttpRequest.newBuilder(URI.create(MINIO.getS3URL() + "/" + PUBLIC_BUCKET + "/probe.txt"))
-                        .GET().build(),
-                HttpResponse.BodyHandlers.discarding());
-
-        assertThat(response.statusCode()).isIn(401, 403);
-    }
+    // 「공개 버킷도 익명으로는 못 읽는다」 시험이 여기 있었다(`26`). MinIO 의 기본 정책을 재던 것이라
+    // S3Mock 으로 바꾸며 지웠다(`Q229`) — S3Mock 은 자격 증명을 안 봐서 익명 GET 이 200 이고, 우리 코드가
+    // 버킷 정책을 정하는 자리는 없다(R2 버킷은 기본이 비공개). 재려면 R2 에서 재야 하고 그건 배포 뒤 손 확인이다.
 
     @Test
     @DisplayName("없는 열쇠는 없다고 한다")

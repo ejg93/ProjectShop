@@ -24,7 +24,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
  *
  * <h2>왜 S3 클라이언트 하나인가</h2>
  *
- * <p>로컬은 MinIO 컨테이너고 <b>배포는 Cloudflare R2</b> 다(사용자 결정 2026-09-18).
+ * <p>로컬은 S3Mock 컨테이너고(전에는 MinIO — `Q229`) <b>배포는 Cloudflare R2</b> 다(사용자 결정 2026-09-18).
  * 둘 다 S3 API 를 말해서 코드가 하나다 — 갈리는 것은 엔드포인트와 키 셋뿐이고 설정으로 들어온다.
  *
  * <h2>버킷을 컴포즈가 아니라 앱이 만든다</h2>

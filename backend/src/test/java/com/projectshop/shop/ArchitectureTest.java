@@ -197,7 +197,7 @@ class ArchitectureTest {
                             + " io.micrometer 는 Spring·Jackson 과 같은 자리다 — 지표 라이브러리고 자원이 아니다 (Q53)."
                             + " org.apache.kafka 도 같다 — 발행기가 ProducerRecord 로 헤더를 싣는다 (33b)."
                             + " software.amazon.awssdk 도 같다 — 저장소를 S3 API 로 부르는 클라이언트고"
-                            + " 자원이 아니다. 로컬 MinIO 와 배포 R2 가 같은 API 라 클라이언트가 하나다 (26).");
+                            + " 자원이 아니다. 로컬 S3Mock 과 배포 R2 가 같은 API 라 클라이언트가 하나다 (26).");
 
     /**
      * 「목록 조회」 — 페이지를 내주는 조회는 {@link Paging} 을 받는다(`Q23`).

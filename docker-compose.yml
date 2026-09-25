@@ -110,26 +110,26 @@ services:
   # S3 호환 버킷은 만들 때부터 비공개고, 여는 코드를 안 쓰는 것이 막는 방법이다.
   #
   # **콘솔 포트를 연다.** 버킷이 정말 비공개인지 눈으로 볼 자리가 있어야 한다.
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: shop-minio
+  s3mock:
+    image: adobe/s3mock:5.2.3
+    container_name: shop-s3mock
     restart: unless-stopped
-    # **quay.io 다.** Docker Hub 의 `minio/minio` 는 2025 에 없어졌다 — `docker pull` 이
-    # 「repository does not exist」로 떨어진다. Testcontainers 의 `MinIOContainer` 기본값도
-    # 그 좌표라 테스트에서 이미지를 명시한다(`stack.md`).
-    command: ["server", "/data", "--console-address", ":9001"]
+    # **MinIO 가 아니다**(2026-09-25, `Q229`). Docker Hub 의 `minio/minio` 는 2025 에 없어졌고
+    # `quay.io/minio/minio` 는 인증을 요구하기 시작해 CI 가 못 당겼다. 우리 S3 호출은 다섯이고
+    # 배포는 R2 라 로컬은 목이면 된다 — `adobe/s3mock` 은 Docker Hub 에 공개다(`stack.md`).
+    # 자격 증명은 안 본다. 콘솔이 없으므로 버킷은 `aws s3api --endpoint-url` 로 본다.
     environment:
-      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-shop}
-      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-shopshop}
+      # 지운 뒤에도 남기려면 루트를 볼륨에 둔다 — 기본은 임시 폴더라 컨테이너가 죽으면 사라진다.
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /data
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
       TZ: Asia/Seoul
     ports:
-      - "${STORAGE_PORT:-9000}:9000"
-      - "${STORAGE_CONSOLE_PORT:-9001}:9001"
+      - "${STORAGE_PORT:-9000}:9090"
     volumes:
-      - minio-data:/data
+      - s3mock-data:/data
     healthcheck:
-      # MinIO 가 스스로 여는 준비 상태 경로다. 포트가 열린 것과 저장소가 받을 수 있는 것은 다르다.
-      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      # 이미지에 curl 이 없다. bash 의 /dev/tcp 로 포트가 열렸는지만 본다.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9090"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -138,4 +138,4 @@ volumes:
   db-data:
   redis-data:
   kafka-data:
-  minio-data:
+  s3mock-data:

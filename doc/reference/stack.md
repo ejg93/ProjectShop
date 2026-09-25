@@ -1330,7 +1330,9 @@ management:
 
 **고친 줄을 눈으로 본다.** 치환한 뒤 그 줄을 다시 찍어서 바뀐 것을 확인하고 넘어간다.
 
-### 파일 저장소로 MinIO 를 골랐다
+### 파일 저장소로 MinIO 를 골랐다 — 지금은 S3Mock 이다
+
+**2026-09-25 에 S3Mock 으로 바꿨다**(`Q229`, 사용자 결정) — 아래 근거는 그대로고 이미지만 갈았다. 이유는 다음 절.
 
 **S3 API 를 말하는 것 중에 가장 가볍다**(`26`). 고르는 기준이 하나였다 —
 **배포(Cloudflare R2)와 같은 API 여야 클라이언트가 하나**다. 로컬만 다른 것을 쓰면
@@ -1345,20 +1347,27 @@ management:
 **관례라 근거만 대면 버린다**(4순위). 버리는 날은 **S3 API 를 안 쓰기로 할 때**고,
 그때는 `ObjectStorage` 하나만 고치면 되게 파사드를 뒀다.
 
-### MinIO 이미지는 Docker Hub 에 없다
+### MinIO 공개 이미지가 사라졌다 — S3Mock 을 쓴다
 
-`minio/minio` 를 받으려 하면 **「repository does not exist」**로 떨어진다. `quay.io/minio/minio` 가
-지금 자리다(2026-09-18 실측, `26`).
+`minio/minio` 는 Docker Hub 에서 2025 에 없어졌고(「repository does not exist」, 2026-09-18 실측)
+그 뒤 쓰던 `quay.io/minio/minio` 는 **2026-09-25 부터 매니페스트에 401** 을 준다 — `docker pull` 이
+「unexpected status from HEAD request … 401 UNAUTHORIZED」로 떨어진다. **로컬은 캐시가 있어 돌고 CI 만 죽는다** —
+PR #80 이 세 번 연속 `ContainerFetchException` 이었고, 원인이 「당김이 느리다」로 읽혀서 한 번 헛돌았다.
+GHCR 에도 없다. `bitnamilegacy/minio` 는 갱신이 멈춘 레거시라 안 골랐다.
 
-**Testcontainers 가 한 겹 더 막는다.** `MinIOContainer` 의 기본 좌표가 `minio/minio` 라,
-다른 레지스트리 이름을 주면 **이미지를 받기 전에** 거부한다.
+**`adobe/s3mock`(Docker Hub 공개, Apache-2.0)으로 바꿨다.** 우리가 부르는 S3 호출은 다섯
+(`createBucket`·`putObject`·`getObject`·`deleteObject`·`presignGetObject`)이고 배포는 R2 라 로컬은 목이면 된다.
 
-```
-Failed to verify that image 'quay.io/minio/minio:…' is a compatible substitute for 'minio/minio'
-```
+| 무엇 | MinIO 였을 때 | S3Mock |
+|---|---|---|
+| 포트 | 9000 (콘솔 9001) | **9090**, 콘솔 없음 — 버킷은 `aws s3api list-buckets --endpoint-url http://localhost:9000` 으로 본다 |
+| 자격 증명 | `MINIO_ROOT_USER`·`PASSWORD` | **안 본다.** SDK 가 빈 값을 거부하니 아무 값이나 준다 |
+| 지속 | `/data` 볼륨 | `COM_ADOBE_TESTING_S3MOCK_STORE_ROOT=/data` + `RETAIN_FILES_ON_EXIT=true` 없이는 임시 폴더다 |
+| Testcontainers | `MinIOContainer` 모듈 | `GenericContainer`(`StorageTestBase.S3MOCK`) — 모듈 의존을 뺐다 |
+| 헬스체크 | `mc ready local` | 이미지에 curl 이 없어 bash `/dev/tcp` 로 포트만 본다 |
 
-**받을 수 없다는 뜻이 아니라 이름이 다르다는 뜻**이라 메시지가 원인에서 멀다.
-`DockerImageName.parse(…).asCompatibleSubstituteFor("minio/minio")` 로 같은 것이라고 말해 준다.
+**같은 이미지 좌표를 두 자리가 든다** — `StorageTestBase.S3MOCK_IMAGE` 와 컴포즈. 갈리면 테스트가 통과해도 로컬이 깨진다.
+
 
 ### 되돌리기는 맨 뒤부터만 된다
 
@@ -1623,7 +1632,7 @@ fork 분배가 바뀌자 기본 상한 100 을 넘어 `FATAL: sorry, too many cl
 |---|---|
 | Next.js 버전, 패키지 매니저 | 청크 13 |
 | springdoc-openapi | 청크 2a |
-| MinIO | 청크 26 |
+| S3Mock(전에는 MinIO) | 청크 26, `Q229` 가 갈았다 |
 
 정해지면 위 표에 줄을 더한다.
 
