@@ -2,6 +2,7 @@ package com.projectshop.shop.product;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.util.List;
 
 import org.springdoc.core.annotations.ParameterObject;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -87,13 +89,14 @@ public class SellerProductController {
      * <p>판정은 {@link ProductImageService} 가 한다. 남의 상품이면 403 이다.
      */
     @PostMapping("/{productId}/images")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ProductImageService.Uploaded upload(
+    public ResponseEntity<ProductImageService.Uploaded> upload(
             @AuthenticationPrincipal ShopUser user,
             @PathVariable long productId,
             @RequestPart("file") MultipartFile file) {
 
-        return productImageService.upload(user.id(), productId, incoming(file));
+        // `Location` 은 그 사진을 드는 GET 이다 — 사진만 여는 경로가 없고 상품 상세가 사진 목록을 싣는다(`Q227`, `D5` 「상태 코드」).
+        return ResponseEntity.created(URI.create("/api/products/" + productId))
+                .body(productImageService.upload(user.id(), productId, incoming(file)));
     }
 
     /**

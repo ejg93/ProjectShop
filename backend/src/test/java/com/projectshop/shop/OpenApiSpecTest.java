@@ -2,6 +2,7 @@ package com.projectshop.shop;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -149,6 +150,37 @@ class OpenApiSpecTest extends HttpTestBase {
                             + " (api-guidelines.md 「목록 조회」). 실린 것: %s", route, names)
                     .contains("page", "size");
         }
+    }
+
+    /**
+     * 목록 껍데기는 {@code items}·{@code page}·{@code size}·{@code total} 넷이다(`Q227`, {@code quality-gates.md} 「규칙 원장」 ⑨).
+     *
+     * <p>위 시험은 목록 경로가 page·size 를 <b>요청</b>에 싣는지만 봤다. 응답 껍데기 이름이 섞이면({@code content}·{@code count})
+     * 화면이 엔드포인트마다 다른 코드를 쓴다({@code api-guidelines.md} 「목록 조회 — 응답」).
+     *
+     * <p><b>{@code page} 가 {@code items} 나 {@code total} 과 같이 있을 때만 껍데기로 본다.</b> {@code total} 은 금액으로도 쓰이고
+     * (장바구니 {@code Cart(items, total)}·쿠폰 {@code Applied}), {@code items} 만 있는 도메인 목록(주문 항목)은 껍데기가 아니다.
+     */
+    @Test
+    @DisplayName("목록 응답 껍데기가 items·page·size·total 넷을 다 싣는다")
+    void pageEnvelopesCarryAllFour() {
+        JsonNode schemas = spec().path("components").path("schemas");
+        List<String> envelopes = new ArrayList<>();
+        List<String> partial = new ArrayList<>();
+        for (String name : names(schemas)) {
+            Set<String> properties = new java.util.TreeSet<>(names(schemas.path(name).path("properties")));
+            if (!properties.contains("page") || !(properties.contains("items") || properties.contains("total"))) {
+                continue;
+            }
+            envelopes.add(name);
+            if (!properties.containsAll(Set.of("items", "page", "size", "total"))) {
+                partial.add(name + " " + properties);
+            }
+        }
+        assertThat(envelopes).as("목록 껍데기를 0개 찾았다 — 스키마를 못 걷었거나 기준이 바뀌었다").hasSizeGreaterThan(5);
+        assertThat(partial)
+                .as("껍데기 넷 중 빠진 것이 있다 — 이름을 하나로 고정한다(api-guidelines.md 「목록 조회 — 응답」)")
+                .isEmpty();
     }
 
     /**

@@ -392,4 +392,12 @@ public class ReviewQuery {
                 .list();
         return grouped;
     }
+
+    /** 후기가 달린 상품. 후기 사진을 올린 응답의 `Location` 이 그 상품의 후기 목록을 가리킨다(`Q227`) */
+    public long productIdOf(long reviewId) {
+        return jdbc.sql("select product_id from review where review_id = :reviewId")
+                .param("reviewId", reviewId)
+                .query(Long.class)
+                .single();
+    }
 }

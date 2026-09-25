@@ -117,7 +117,7 @@ class SellerMemberController {
     /** 멤버의 조직 역할을 바꾼다(`Q165`). 소속은 그대로다 */
     record RoleRequest(@NotBlank @Size(max = 50) String roleCode) {}
 
-    @PatchMapping("/members/{userId}")
+    @PatchMapping(value = "/members/{userId}", consumes = "application/merge-patch+json")
     ResponseEntity<Void> changeRole(@AuthenticationPrincipal ShopUser actor,
             @PathVariable long sellerId, @PathVariable long userId,
             @Valid @RequestBody RoleRequest request) {

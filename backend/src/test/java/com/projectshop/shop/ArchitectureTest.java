@@ -10,8 +10,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
+import java.lang.reflect.Parameter;
+import java.lang.reflect.RecordComponent;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
@@ -49,7 +52,9 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.projectshop.shop.auth.PermissionEvaluator;
@@ -360,6 +365,99 @@ class ArchitectureTest {
                     .should().beAssignableTo(Record.class)
                     .allowEmptyShould(true)
                     .because("record 가 불변이라 만든 뒤에 안 바뀌고 equals·toString 이 공짜다 (coding-rules.md 「값」)");
+
+    /**
+     * 「PATCH 는 패치 문서의 형식을 밝힌다」(`Q227`, {@code quality-gates.md} 「규칙 원장」 ⑥, RFC 5789·7396).
+     *
+     * <p><b>셋 중 하나만 밝혔었다</b>({@code MeController}). 나머지 둘은 {@code application/json} 을 받아
+     * {@code null} 이 삭제인지 무시인지를 정할 자리가 없었다. 화면은 {@code api.ts} 가 PATCH 에 merge-patch 를 붙여서 안 깨졌다.
+     */
+    @ArchTest
+    static final ArchRule PATCH_는_merge_patch_를_밝힌다 =
+            methods()
+                    .that().areAnnotatedWith(PatchMapping.class)
+                    .should(consumeMergePatch())
+                    .allowEmptyShould(true)
+                    .because("부재와 null 을 가르는 것이 패치 문서의 미디어 타입이다 (api-guidelines.md 「PATCH 는 패치 문서의 형식을 밝힌다」)");
+
+    /**
+     * 「동작 — CRUD 가 아닌 것」 — 상태는 하위 경로 {@code POST} 로 바꾼다. 수정 입구의 본문에 {@code status} 가 없다
+     * (`Q227`, 원장 ⑦). 전이표를 거치지 않는 상태 변경 경로가 생기는 것을 막는다(ADR 0009). 위반은 0 이었다.
+     */
+    @ArchTest
+    static final ArchRule 수정_입구의_본문에_status_가_없다 =
+            methods()
+                    .that().areAnnotatedWith(PatchMapping.class)
+                    .or().areAnnotatedWith(PutMapping.class)
+                    .should(takeNoStatusInBody())
+                    .allowEmptyShould(true)
+                    .because("상태는 동작의 결과지 클라이언트가 정하는 값이 아니다 (api-guidelines.md 「동작」)");
+
+    /** 본문만 주는 201 이 정당한 자리. 신고자가 다시 볼 경로가 없는 둘이다({@code api-guidelines.md} 「상태 코드」) */
+    private static final Set<String> CREATED_WITHOUT_LOCATION = Set.of(
+            "com.projectshop.shop.product.CopyrightReportController.report",
+            "com.projectshop.shop.product.CopyrightReportController.reportReviewImage");
+
+    /**
+     * 「201 은 {@code Location} 을 싣는다」(`Q227`, 원장 ⑧). {@code @ResponseStatus(CREATED)} 는 헤더를 못 실어서
+     * 그 꼴은 예외 목록 둘뿐이다 — 나머지는 {@code ResponseEntity.created(…)} 로 만든 자원을 가리킨다.
+     * 사진 올리기 둘이 이 꼴이었다.
+     */
+    @ArchTest
+    static final ArchRule 본문만_주는_201_은_예외_목록뿐이다 =
+            methods()
+                    .that().areAnnotatedWith(ResponseStatus.class)
+                    .should(notAnswerCreatedOutsideAllowList())
+                    .allowEmptyShould(true)
+                    .because("201 은 Location 헤더로 새 자원을 가리킨다 (api-guidelines.md 「상태 코드」, RFC 9110)");
+
+    private static ArchCondition<JavaMethod> consumeMergePatch() {
+        return new ArchCondition<>("consumes 에 application/merge-patch+json 을 단다") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                String[] consumes = method.getAnnotationOfType(PatchMapping.class).consumes();
+                if (!Arrays.asList(consumes).contains("application/merge-patch+json")) {
+                    events.add(SimpleConditionEvent.violated(method,
+                            method.getFullName() + " 의 consumes 가 " + Arrays.toString(consumes)));
+                }
+            }
+        };
+    }
+
+    private static ArchCondition<JavaMethod> takeNoStatusInBody() {
+        return new ArchCondition<>("@RequestBody record 에 status 성분이 없다") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                for (Parameter parameter : method.reflect().getParameters()) {
+                    Class<?> type = parameter.getType();
+                    if (!parameter.isAnnotationPresent(RequestBody.class) || !type.isRecord()) {
+                        continue;
+                    }
+                    for (RecordComponent component : type.getRecordComponents()) {
+                        if (component.getName().equals("status")) {
+                            events.add(SimpleConditionEvent.violated(method,
+                                    method.getFullName() + " 의 본문 " + type.getSimpleName() + " 에 status 가 있다"));
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    private static ArchCondition<JavaMethod> notAnswerCreatedOutsideAllowList() {
+        return new ArchCondition<>("@ResponseStatus(CREATED) 는 예외 목록에만 단다") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                ResponseStatus status = method.getAnnotationOfType(ResponseStatus.class);
+                boolean created = status.value() == HttpStatus.CREATED || status.code() == HttpStatus.CREATED;
+                String name = method.getOwner().getName() + "." + method.getName();
+                if (created && !CREATED_WITHOUT_LOCATION.contains(name)) {
+                    events.add(SimpleConditionEvent.violated(method,
+                            name + " 가 Location 없이 201 이다 — ResponseEntity.created(…) 로 그 자원의 GET 을 가리킨다"));
+                }
+            }
+        };
+    }
 
     @ArchTest
     static final ArchRule 시각을_LocalDateTime_으로_안_주고받는다 =
