@@ -224,6 +224,42 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 **이 규칙을 4위로 내리는 것은 `69`(변이 테스트)다** — 테스트를 부수는 것을 기계가 한다.
 여기는 5위(문서)라 사람이 「끝 — 이 다섯」에서 읽어야 걸린다(`CLAUDE.md`).
 
+## 규칙 원장 — 문서에만 있는 규칙
+
+**규약 문서 일곱(`D5`·`D14`·`D16`·`D20`·`D22`·`D23`·`D24`)의 굵은 규칙을 위 게이트 표에 대조해, 기계가 안 보는 것만 여기 적는다**(`Q222`, 2026-09-25 Fable).
+규칙이 문서에만 있으면 「지켜졌다」는 사람 기억이고, 그 기억은 하루를 못 간다(`/warmup`).
+줄이 하나 없어질 때마다 그 규칙은 위 표로 올라간다 — **이 절이 비는 것이 목표다.**
+
+**방향이 위 표와 반대다.** 표는 게이트에서 출발해 「무엇을 막나」를 적고, 원장은 규칙에서 출발해 「무엇이 재나」를 묻는다.
+`RequirementEnforcementTest` 가 법 요건(`D2`)에 같은 물음을 던지고 여기는 규약에 던진다.
+없는 테스트를 이름으로 부르는 문서는 `IdentifierReferenceTest` 가 이미 잡으므로 여기 안 온다 —
+원장이 보는 것은 **이름은 실재하는데 그 규칙을 안 재는 것**이다.
+
+| # | 규칙 | 문서 | 지금 실물 | 처분 |
+|---|---|---|---|---|
+| ① | 열거형으로 분기하는 `switch` 에 `default` 를 안 둔다 | `D23` | `ProductTransitions.java:96` `default -> "UNBLOCK"` — 중첩 `switch`, 「다수의 정답」 예외인지 근거 주석이 없다. javac 에 그 lint 가 없고 ArchUnit 은 `switch` 를 못 본다 | `Q226` ① — 텍스트 검사. `default` 마다 `// default-ok: <사유>` 마커, 없으면 빨강(`SqlTextTest` 의 마커 꼴) |
+| ② | DTO·요청·응답·조회 결과는 `record` | `D23` | 위반 0. 막는 것 없음 | `Q226` ② — ArchUnit: 이름이 `Request`·`Response`·`Summary`·`Detail`·`Page` 로 끝나면 record |
+| ③ | 시험은 순서에 안 기댄다 — 예외는 정리 검증 한 자리 | `D23` | `@TestMethodOrder` 1(`RateLimitFilterTest`). 둘째가 생겨도 초록 | `Q226` ③ — `TestConventionTest` 에 허용 목록 하나 |
+| ④ | 자체 헤더에 `X-` 를 안 붙인다 | `D5` | 위반 0. 막는 것 없음 | `Q226` ④ — main 에 `"X-` 리터럴 없음. 수신 `X-Forwarded-For` 는 톰캣 몫이라 안 걸린다 |
+| ⑤ | 지표 이름은 `shop.<표>.<무엇>`, 태그는 닫힌 목록 · 액추에이터 노출 목록은 문서와 같다 | `D16`·`D14` | 이름 10·태그 키 6(`action`·`allowed`·`code`·`name`·`resource`·`status`) 전부 규칙대로. 막는 것 없음 — `OutboxEventSchemaTest` 는 사건 이름만 잰다. 노출 목록은 `health,prometheus` 인데 `D14` 가 「`health` 하나」로 낡아 있었다(고쳤다) | `Q226` ⑤ — 등록된 미터의 둘째 토막이 실재 표(단수) 또는 `error` 인지, 태그 키가 목록 안인지, `exposure.include` 가 `D14` 표의 셀과 같은지 |
+| ⑥ | `PATCH` 는 `application/merge-patch+json` 을 밝힌다 — 필드가 하나뿐일 때도 | `D5` | **3 중 1**(`MeController`). `ReviewController.java:101`·`SellerMemberController.java:120` 는 안 밝힌다 | `Q227` ① — ArchUnit: `@PatchMapping` 의 `consumes` 는 merge-patch |
+| ⑦ | 상태 변경은 하위 경로 `POST`, `PATCH` 로 `status` 를 안 바꾼다 | `D5` | 위반 0. 막는 것 없음 | `Q227` ② — `PATCH`·`PUT` 요청 record 에 `status` 성분 없음 |
+| ⑧ | 201 에는 `Location` 을 싣는다 — 예외는 결제뿐 | `D5` | `@ResponseStatus(CREATED)` **4**(`CopyrightReportController` 둘 · 사진 올리기 둘)가 `Location` 없이 201. 문서의 예외는 결제 하나다 | `Q227` ③ — 가리킬 GET 이 있으면 `ResponseEntity.created`, 없으면 `D5` 예외 표에. 그 뒤 ArchUnit 이 `@ResponseStatus(CREATED)` 를 예외 목록 밖에서 막는다 |
+| ⑨ | 목록 껍데기는 `items`·`page`·`size`·`total` 넷이고 상한 목록은 맨 배열 | `D5` | `OpenApiSpecTest` 는 목록 경로가 `page`·`size` 를 **요청**에 싣나만 본다 | `Q227` ④ — 스펙에서 `items` 를 든 응답은 셋을 같이 든다 |
+| ⑩ | 화면은 서버 문구(`detail`·`message`)를 그대로 안 적는다 | `D20`·`D24` | `seller/products/new/product-form.tsx:81` 이 `e.message` 를 그린다. `admin/audit` 의 `row.detail` 은 감사 JSON 이라 다른 것 | `Q228` ① — eslint `no-restricted-syntax`, `src/app/**` |
+| ⑪ | `page.tsx`·`layout.tsx` 에 `"use client"` 를 안 붙인다 — 경계는 잎사귀 | `D24` | 위반 0(page 44). 막는 것 없음 | `Q228` ② — eslint 파일 범위 규칙 |
+| ⑫ | 인증 라우트에 `force-static`·`fetchCache` 를 안 건다 | `D24` | 위반 0. 막는 것 없음 — `no-store` 는 입구 둘이 명시한다 | `Q228` ③ — eslint: `app/**` 에서 그 두 export 금지 |
+| ⑬ | 401 은 `?reason=session-expired` 를 붙여 로그인으로 보낸다 | `D24`·`D20` | `api-session.ts` 가 하고 시험 0 | `Q228` ④ — `api-session` vitest 한 경우 |
+| ⑭ | 조작 버튼은 `allowedActions` 로 그린다 — 상태만 보고 안 그린다 | `D20` | **3곳**이 상태로 그린다: `me/inquiries/page.tsx:158`(`RECEIVED`→거두기) · `admin/review-reports/page.tsx:118`(`PENDING`→처리) · `:122`(`ACCEPTED`→복구). 문서 스스로 「lint 로 못 잰다」 | `Q228` ⑤ — 응답에 `allowedActions` 가 있는 것은 그것으로. 없으면 서버가 싣는 것이 먼저라 새 행 |
+| ⑮ | 4xx 는 `ERROR` 로그가 아니다 | `D16` | `log.error` 9 — 처리 못 한 예외 1·배치·스위퍼 8. 위반 0 | **못 내린다** — 4xx 인지는 실행 때 정해진다. 마무리 대조 |
+| ⑯ | 객체·요청 본문을 통째로 안 찍는다 | `D16` | `LogArgumentTest` 는 이름이 뻔한 접근자만 | **못 내린다** — 글자로 `toString` 이 안 보인다(문서가 이미 적음). 독립 리뷰 |
+| ⑰ | 바깥 조인 쪽 숫자는 `getObject` 로 받는다 | `D23` | `getLong(` 176 — 어느 것이 `left join` 쪽인지는 SQL 을 읽어야 안다 | **못 내린다** 정적으로. 독립 리뷰의 SQL 대조 |
+| ⑱ | 상수 옆에 고른 이유, 법 값에는 요건 번호 | `D23` | `RequirementEnforcementTest` 는 요건표→코드만 | **못 내린다** — 주석의 뜻을 읽어야 한다. 독립 리뷰 |
+| ⑲ | Java 필드는 컬럼 이름의 camelCase, 축약 없음 | `D22` | `SchemaNamingTest` 는 SQL 쪽만. API 로 새는 쪽은 `OpenApiSpecTest` 표기가 잰다 | **못 내린다** 싸게 — record 성분과 컬럼을 잇는 표가 없다. 독립 리뷰 |
+| ⑳ | 의존성을 더할 때 라이선스를 본다 — GPL 계열이면 멈춘다 | `D23` | 막는 것 없음. 플러그인 없음 | **안 세움** — 도구 도입은 결정이다. 마무리 대조가 `build.gradle.kts` diff 를 본다 |
+
+**대조에서 뺀 것**: 이미 표에 있는 것(`ArchitectureTest` 열다섯·`SqlTextTest`·`SchemaNamingTest`·`LogArgumentTest`·`OpenApiSpecTest`·`TestConventionTest`·`ScreenLengthTest`·`HttpFlowTest`·`SessionStoreTest`·eslint 입구·운반·`react/no-danger`·`form-pending`·`forbidden`·`screen-text`), 표 밖이지만 시험이 있는 것(`LoginAttemptTest` 5회/15분 · `AuthLoginTest` 같은 문구 · `ProblemResponseTest` 프레임워크 오류 `type`·검증 필드 snake_case·`trace_id` · `WebhookUrlPolicyTest` · `WWW-Authenticate` · `Idempotency-Key`), 절차 규칙(「문서를 먼저 고친다」·「값 옆에 출처」의 절차 쪽), 판단 규칙(「마스킹은 갈릴 때만」·「모르는 칸을 지목하지 않는다」·「확인 문구는 무엇이 사라지는지」·「빈 상태 둘을 가른다」). 절차·판단은 `/wrapup` 대조와 독립 리뷰가 본다.
+
 ## 문턱
 
 ### 정해진 것
