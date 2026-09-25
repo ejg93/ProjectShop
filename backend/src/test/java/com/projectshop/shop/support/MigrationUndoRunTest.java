@@ -121,11 +121,17 @@ class MigrationUndoRunTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 되돌리는 파일을 번호 역순으로. <b>0개면 실패한다</b>(`Q224`) — 목록이 비면 루프가 안 돌고 `failed` 가 비어 초록이 된다.
+     * 정규식을 깨 보니 실제로 그랬다.
+     */
     private static List<Path> undoFilesNewestFirst() throws IOException {
         try (Stream<Path> files = Files.list(UNDO)) {
-            return files.filter(file -> VERSION.matcher(file.getFileName().toString()).find())
+            List<Path> found = files.filter(file -> VERSION.matcher(file.getFileName().toString()).find())
                     .sorted(Comparator.comparingInt(MigrationUndoRunTest::versionOf).reversed())
                     .toList();
+            assertThat(found).as("되돌리는 파일을 0개 읽었다 — 경로나 이름 규칙이 바뀌었다: %s", UNDO).isNotEmpty();
+            return found;
         }
     }
 
