@@ -1586,6 +1586,15 @@ fork 분배가 바뀌자 기본 상한 100 을 넘어 `FATAL: sorry, too many cl
 
 **Gradle 플러그인(`info.solidsoft.pitest`)을 안 쓴 이유**: Gradle 9 와 맞는 판을 확인하지 못했다. 명령줄은
 빌드 도구 판에 안 묶인다.
+### awk 의 `length` 는 로케일을 탄다 — 로컬은 바이트, CI 는 글자
+
+Git Bash 는 로케일이 비어 있어 `awk 'length($0)'` 가 **바이트**를 세고, 리눅스 러너는 `C.UTF-8` 이라 **글자**를 센다.
+한글 26글자가 로컬에서 69, CI 에서 29 다. 그래서 `doc-lint.sh` 의 문턱(30바이트 셀)이 로컬에서는 걸리고
+CI 에서는 안 걸려 **자기 시험이 CI 에서만 빨갰다**(마무리 50차, PR #81 `docs` 잡).
+
+**문턱이 있는 awk 는 `LC_ALL=C` 로 못박는다.** 로컬에서 재어 정한 값이면 바이트가 맞다.
+로컬에서 CI 를 흉내 내려면 `LC_ALL=C.UTF-8 LANG=C.UTF-8 bash scripts/doc-lint.sh --selftest` 다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고

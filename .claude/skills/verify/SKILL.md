@@ -15,11 +15,14 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 
 | 단계 | 명령 | 무엇이 도나 | 누가 요구하나 |
 |---|---|---|---|
-| **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test · **대조만 다르면** backend `gradlew test`(대조 포함), `doc/erd` 가 다르면 `SchemaErdTest` 까지(Docker 를 문다, `Q110`) | **Stop hook** — 청크를 닫을 때 |
+| **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test · **대조만 다르면** backend `gradlew test`(대조 포함), `doc/erd` 가 다르면 `SchemaErdTest` 까지(Docker 를 문다, `Q110`) · **새 `V*` 가 있으면** backend `test integrationTest`(Docker 가 없으면 `test` 만, 도장 `fast-nodb`) · **도구만 다르면** 셸 문법·`settings.json` 파싱·`doc-lint` 전체(`Q216`) | **Stop hook** — 청크를 닫을 때. **commit hook** — `work/*` 에 커밋할 때(`Q215`) |
 | **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(두 레인) · frontend `next build`·lint·test · **대조만 다르면** backend `gradlew build`(느린 레인의 대조까지) | **push hook** — 미는 것은 마무리 앞 한 번 |
 
 **full 은 Docker 를 먼저 본다**(`2z-3`). 안 떠 있으면 한 줄로 끝낸다 — 그전에는 느린 레인이 전부 FAILED 로 뜨고
 진짜 원인은 XML 리포트를 파야 나왔다.
+**빠른 도장은 새 `V*` 에서 Docker 가 없어도 안 선다**(`Q216`) — `gradlew test` 만 돌고 도장이 `fast-nodb` 다. Stop·commit hook 은 받고 push hook 은 안 받는다. 번들이 서는 값이 누수보다 커서다.
+
+**같은 지문은 두 번 안 돈다**(`Q216`). 레인의 지금 지문이 도장에 요청 단계 이상으로 있으면 「같은 지문을 <단계> 로 찍어 뒀다 → 건너뜀」이다 — `full` 도장은 빠른 요청도 덮고, `fast-nodb` 는 아무것도 안 덮는다. 문서만 고친 청크에서 frontend 레인(lint + vitest 7분)이 두 번 돌던 값이다.
 
 DB 를 타는 결함은 그래서 청크 여럿 뒤에 드러날 수 있다 — 청크가 커밋 하나라 `git bisect` 가 답한다.
 아래 표의 첫 네 줄이 그 두 레인이다. **나머지 줄은 손이고 도장이 안 본다** — 걸리면 돌리고 이력에 적는다.
@@ -34,23 +37,28 @@ DB 를 타는 결함은 그래서 청크 여럿 뒤에 드러날 수 있다 — 
 JAVA_HOME="C:/Program Files/Java/jdk-25"
 ```
 
-| 언제 | 명령 | 통과 기준 |
-|---|---|---|
-| **backend 를 건드렸으면, push 앞에** | `cd backend && ./gradlew build`(= `verify.sh --full`) | `BUILD SUCCESSFUL`. **테스트 두 레인이 여기서 다 돈다** — `test`(빠른 것)와 `integrationTest`(컨테이너) |
-| **화면을 건드렸으면, push 앞에** | `cd frontend && npm run build`(= `verify.sh --full`) | `Compiled successfully` + `Finished TypeScript`. 청크를 닫을 땐 `tsc --noEmit` 으로 타입만 본다(`2z-2`) |
-| 〃 | `npm run lint` | 출력 없음. **접근성 규칙이 포함돼 있다**(`D20`) |
-| 〃 | `npm test` | 실패 0 |
-| **로그인·상품·장바구니·주문서 화면을 건드렸으면** | 백엔드를 `local` 로 띄운 뒤 `cd frontend && npm run build && npm run e2e`. **3000 이 물려 있으면 `E2E_PORT=3010` 을 앞에 붙인다**(`Q137`) — 안 붙이면 `reuseExistingServer` 가 **남의 서버를 재사용해서 엉뚱한 앱에 초록이 난다** | 통과. CI 는 PR 에서 자동으로 돈다(`Q18-1`). 손으로 걸려면 `gh workflow run e2e.yml --ref <가지>` — **`e2e.yml` 이 `main` 에 있어야 뜬다** |
-| **푸시했으면** | 아래 「CI」 | 초록. **빨가면 다음 청크보다 먼저 친다** |
-| **고치는 중·청크를 닫을 때** | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**. 대신 **DB 를 타는 것은 여기서 안 돈다** — 그것은 push 앞의 `--full` 이 돈다(`2z-2`) |
-| 스키마·서비스만 볼 때 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(**70초대**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
-| **마이그레이션을 더했으면** | **빈 DB 를 만들어** `POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 **`db/migration` 파일 수 + `db/seed` 파일 수**. 시드가 늘어날 때마다 이 줄을 고치지 않게 세는 법으로 적는다(`Q130`). **테스트만으로는 기동 경로를 안 지난다**. 쓰던 DB 에 그냥 올리면 시드가 `V900+` 라 Flyway 가 순서를 어긴 것으로 보고 멈춘다(`stack.md`) |
-| 컨테이너 설정을 건드렸으면 | `docker compose config --quiet` 후 `docker compose up -d` | 종료 코드 0, `shop-db`·`shop-redis` 가 `healthy` |
-| 프록시·라우팅을 건드렸으면 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |
-| 시드·데모 데이터를 건드렸으면 | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. `V900`·`V904` 가 만든 계정과 `V900` 의 셀러 둘이 들어온다. **수를 여기 안 적는다** — 시드가 늘 때마다 고치게 되고, 위 줄이 같은 이유로 세는 법으로 바뀌었다. 비밀번호는 `test@test.local` 만 `test-account-1234` 고 나머지는 `demo-password-1234` 다. `V904` 의 아홉이 로그인 화면에 공개된다(`Q130`·`Q131`). **`local` 없이 뜨면 시드가 안 들어간다** |
-| 로그·추적을 건드렸으면 | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
-| **`CLAUDE.md`·`doc/reference/*` 를 고쳤으면** | **안 돌려도 된다** — `.claude/settings.json` 의 훅이 편집 직후에 돌린다(`2j`). 손으로 돌리려면 `bash scripts/doc-lint.sh` | 통과하면 아무 말이 없고, 깨지면 **편집한 그 자리에서 막힌다.** 잡는 것이 여섯이다 — 제목 파편(`batch-catalog.md`·`state-machines.md`·`PLAN.md` 가 실제로 이렇게 부서졌었다), 완전 중복 문장(`frontend-rules.md` 사례), **존댓말**(`2k-1`), **기준 문서 제목의 날짜**(`2c-2`. `external-references.md` 는 날짜가 내용이라 뺀다) |
-| **요건표(`D2`)에 R 을 더했으면** | `bash scripts/req-coverage.sh` | **게이트다**(`Q60`) — 테스트가 언급하지 않는 R 이 기준선 0 을 넘으면 `exit 1` 이고 CI `docs` 잡도 빨갛다. 새 R 은 테스트에 그 번호를 적거나, 요건표 「강제 지점」 칸을 미착수 · 조건 · 일부러 안 다룬다 · 문서뿐 중 하나로 굵게 선언한다 |
+**시점이 셋이다**(`Q219`) — 청크(커밋 앞) · 번들 끝(`/wrapup`) · push 뒤. `CLAUDE.md` 「검증」이 층을 정하고 이 표가 명령을 든다.
+**`(= verify.sh)` 라 적힌 줄의 명령은 스크립트와 같아야 한다** — 출력 다듬기(`-q`·`>/dev/null`·`2>&1 | tail`)만 빼고. 마무리 대조 첫 줄이 이 표를 본다.
+
+| 언제 | 시점 | 명령 | 통과 기준 |
+|---|---|---|---|
+| **backend 를 건드렸으면, push 앞에** | 번들 끝 | `cd backend && ./gradlew build`(= `verify.sh --full`) | `BUILD SUCCESSFUL`. **테스트 두 레인이 여기서 다 돈다** — `test`(빠른 것)와 `integrationTest`(컨테이너) |
+| **화면을 건드렸으면, push 앞에** | 번들 끝 | `cd frontend && npm run build`(= `verify.sh --full`) | `Compiled successfully` + `Finished TypeScript`. 청크를 닫을 땐 `tsc --noEmit` 으로 타입만 본다(`2z-2`) |
+| 〃 | 〃 | `npm run lint` | 출력 없음. **접근성 규칙이 포함돼 있다**(`D20`) |
+| 〃 | 〃 | `npm test` | 실패 0 |
+| **로그인·상품·장바구니·주문서 화면을 건드렸으면** | 번들 끝 | 백엔드를 `local` 로 띄운 뒤 `cd frontend && npm run build && npm run e2e`. **3000 이 물려 있으면 `E2E_PORT=3010` 을 앞에 붙인다**(`Q137`) — 안 붙이면 `reuseExistingServer` 가 **남의 서버를 재사용해서 엉뚱한 앱에 초록이 난다** | 통과. CI 는 PR 에서 자동으로 돈다(`Q18-1`). 손으로 걸려면 `gh workflow run e2e.yml --ref <가지>` — **`e2e.yml` 이 `main` 에 있어야 뜬다** |
+| **푸시했으면** | push 뒤 | 아래 「CI」 | 초록. **빨가면 다음 청크보다 먼저 친다** |
+| **고치는 중·청크를 닫을 때** | 청크 | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**. 대신 **DB 를 타는 것은 여기서 안 돈다** — 그것은 push 앞의 `--full` 이 돈다(`2z-2`). **예외는 새 `V*`** — 아래 줄 |
+| 스키마·서비스만 볼 때 | 청크 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(**70초대**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
+| **새 `V*` 를 더했으면, 청크 시점** | 청크 | `bash scripts/verify.sh`(스크립트가 스스로 `integrationTest` 를 붙인다, `Q216`) | 실패 0. 열거형·길이·이름 대조가 컨테이너 레인이라 **빠른 레인만으로는 번들 끝 `--full` 에서 처음 빨개진다**(번들 A). Docker 가 없으면 도장이 `fast-nodb` 고 그 청크의 대조는 번들 끝이 본다 |
+| **검증 도구를 고쳤으면**(`scripts/`·`.claude/settings.json`·`.claude/skills`) | 청크 | `bash scripts/verify.sh`(도구 레인, `Q216`) | 셸 문법·`settings.json` 파싱·`doc-lint` 전체가 초록. 훅이 실제로 막는지는 **stdin JSON 으로 손으로 잰다** — 그 회귀를 `Q221` 이 스크립트로 든다 |
+| **마이그레이션을 더했으면** | 번들 끝 | **빈 DB 를 만들어** `POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 **`db/migration` 파일 수 + `db/seed` 파일 수**. 시드가 늘어날 때마다 이 줄을 고치지 않게 세는 법으로 적는다(`Q130`). **테스트만으로는 기동 경로를 안 지난다**. 쓰던 DB 에 그냥 올리면 시드가 `V900+` 라 Flyway 가 순서를 어긴 것으로 보고 멈춘다(`stack.md`) |
+| 컨테이너 설정을 건드렸으면 | 청크 | `docker compose config --quiet` 후 `docker compose up -d` | 종료 코드 0, `shop-db`·`shop-redis` 가 `healthy` |
+| 프록시·라우팅을 건드렸으면 | 청크 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |
+| 시드·데모 데이터를 건드렸으면 | 청크 | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. `V900`·`V904` 가 만든 계정과 `V900` 의 셀러 둘이 들어온다. **수를 여기 안 적는다** — 시드가 늘 때마다 고치게 되고, 위 줄이 같은 이유로 세는 법으로 바뀌었다. 비밀번호는 `test@test.local` 만 `test-account-1234` 고 나머지는 `demo-password-1234` 다. `V904` 의 아홉이 로그인 화면에 공개된다(`Q130`·`Q131`). **`local` 없이 뜨면 시드가 안 들어간다** |
+| 로그·추적을 건드렸으면 | 청크 | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
+| **`CLAUDE.md`·`doc/reference/*` 를 고쳤으면** | 청크(편집 훅) | **안 돌려도 된다** — 편집 훅이 **그 파일 하나**를 `doc-lint.sh` 로 본다(`2j`, `Q217` 범위 모드). PLAN·PROGRESS 구조 검사와 게이트 표 대조는 그 파일을 고칠 때만 돈다. `verify.sh` 는 대조 레인이 돌 때 바뀐 문서를 범위로 한 번 더 본다. 손으로 돌리려면 `bash scripts/doc-lint.sh` | 통과하면 아무 말이 없고, 깨지면 **편집한 그 자리에서 막힌다.** 잡는 것이 여섯이다 — 제목 파편(`batch-catalog.md`·`state-machines.md`·`PLAN.md` 가 실제로 이렇게 부서졌었다), 완전 중복 문장(`frontend-rules.md` 사례), **존댓말**(`2k-1`), **기준 문서 제목의 날짜**(`2c-2`. `external-references.md` 는 날짜가 내용이라 뺀다) |
+| **요건표(`D2`)에 R 을 더했으면** | 청크 | `bash scripts/req-coverage.sh` | **게이트다**(`Q60`) — 테스트가 언급하지 않는 R 이 기준선 0 을 넘으면 `exit 1` 이고 CI `docs` 잡도 빨갛다. 새 R 은 테스트에 그 번호를 적거나, 요건표 「강제 지점」 칸을 미착수 · 조건 · 일부러 안 다룬다 · 문서뿐 중 하나로 굵게 선언한다 |
 
 프론트 명령은 전부 `frontend/` 안에서 돌린다.
 

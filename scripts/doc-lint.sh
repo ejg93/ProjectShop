@@ -6,6 +6,9 @@
 # 표 헤더·짧은 라벨은 여러 표에서 정당하게 반복되므로 제외한다. 잡는 것은 "문장 하나가
 # 통째로 두 번"인 사고(frontend-rules.md 사례)와 "제목 앞에 표 행이 눌어붙는" 사고
 # (batch-catalog.md·state-machines.md·PLAN.md 사례) 둘이다.
+#
+# **범위 모드**(`Q217`, ProjectTicket `B0-2`): 인자로 파일을 주면 그 파일만 본다 — 편집 훅이 쓴다.
+# 인자가 없으면 전체(CI·마무리·셸 편집 훅). PLAN·PROGRESS 의 구조 검사와 게이트 표 대조는 그 입력이 범위에 들 때만 돈다.
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
@@ -47,7 +50,7 @@ dup_check_files=(
 )
 
 # 존댓말 금지(「글 작성 규칙」 4번)를 기계로 내린다. 금지어가 문자열로 정해져 있어서
-# grep 으로 100% 잡히는 유일한 조항이다 — 나머지 여섯은 뜻을 읽어야 판정돼서 못 내린다.
+# grep 으로 100% 잡히는 유일한 조항이다. 1번(중복)은 완전 중복만 아래 셋(문장·표 행·표 셀)이 잡는다 — 나머지는 뜻을 읽어야 판정돼서 못 내린다.
 #
 # **`screen-rules.md` 는 뺀다.** 그 문서는 화면 문구를 정의하는 자리라
 # 존댓말이 인용이 아니라 본문이다(좋은 예/나쁜 예 표).
@@ -89,7 +92,7 @@ dup_table_rows() {
     | awk '{L[NR]=$0} END{for(i=1;i<=NR;i++){nx=(i<NR?L[i+1]:""); if (nx ~ /^[[:space:]]*\|[-:| ]+$/) continue; print L[i]}}' \
     | grep -E '^[[:space:]]*\|' \
     | grep -vE '^[[:space:]]*\|[-:| ]+$' \
-    | awk 'length($0) >= 40' \
+    | LC_ALL=C awk 'length($0) >= 40' \
     | sort | uniq -d
 }
 
@@ -126,6 +129,91 @@ gate_rows_missing_screen() { # 화면 뿌리, 게이트 표
 # 원문을 정규식으로 읽는 게이트는 자기 시험을 같이 세운다(`quality-gates.md`). **빠진 것은
 # 게이트가 스스로 못 알려 준다** — 실물이 초록인 것은 「구멍이 없다」와 「정규식이 아무것도 안 잡는다」가
 # 구별이 안 된다.
+# **존댓말 어미 열**(`Q218`, ProjectTicket `B0-3`). ~니다(「아니다」는 평서형이라 뺀다)·세요·십시오·해요·어요·예요·네요·나요·까요·죠.
+# 그전에는 넷(습니다·합니다·하세요·입니다)만 봐서 나머지 여섯이 샜다 — 넓힐 때 이 저장소 문서에 1건이었다.
+# 인용(백틱·「」·큰따옴표 안)은 걷어내고 본다. 코드펜스는 빈 줄로 바꿔 줄 번호를 지킨다.
+# **`-Mutf8` 이 없으면 정규식의 한글 리터럴이 바이트로 남아 아무것도 안 잡힌다** — `-CSD` 는 입출력만 풀지 소스는 안 푼다.
+# 파이프가 죽으면 2 를 돌려 부르는 쪽이 [검사 실패] 를 낸다 — 죽은 검사가 「이상 없음」이 되지 않게(`Q217`).
+honorific_hits() {
+  local stripped
+  stripped=$(awk '/^```/{c=!c; print ""; next} c{print ""; next} {print}' "$1" \
+    | perl -CSD -pe 's/`[^`]*`//g; s/\x{300C}.*?\x{300D}//g; s/"[^"]*"//g') || return 2
+  printf '%s\n' "$stripped" \
+    | perl -CSD -Mutf8 -ne 'print "$.:$_" if /(?<!아)니다|세요|십시오|해요|어요|예요|네요|나요|까요|죠(?=[.,)!? ]|$)/' || return 2
+}
+
+# **표 셀 중복**(`Q218`, ProjectTicket `B0-3`). 이 저장소는 내용의 대부분이 표라, 표 행을 빼는 「중복 문장」 검사가
+# 거의 눈을 감는다. 30자 이상 셀의 완전 중복을 본다. 코드펜스 안과 「」 안(화면 문구·법조문 인용)은 걷는다.
+# **길이는 바이트다**(`LC_ALL=C`) — 이 파일의 문턱 셋(40·30·20)이 다 그렇다. 로케일이 UTF-8 이면 awk `length` 가 글자를 세서
+# 로컬(Git Bash, 바이트)과 CI(리눅스, 글자)가 다른 답을 냈다 — 마무리 50차 PR 의 `docs` 잡에서 이 자기 시험이 빨갰다.
+cell_dups() {
+  awk '/^```/{c=!c; next} !c' "$1" | perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' \
+    | LC_ALL=C awk -F'|' '/^\|/{for(i=2;i<NF;i++){s=$i; gsub(/^ +| +$/,"",s); if(length(s)>=30) print s}}' | sort | uniq -d
+}
+# **세울 때 있던 것은 목록으로 둔다**(파일 탭 셀). 14건 다 표의 값(법 이름·상태 전이·시험 이름·머리 칸)이
+# 여러 행에 서는 모양이라 「같은 말을 두 번」이 아니었다. **수로 세지 않는다** — 수를 세는 래칫은 어느 셀인지를
+# 못 봐서 새 중복이 옛 것 뒤에 숨는다(`Q142` 가 적어 둔 약점). 목록에서 하나가 사라지면 그 줄을 지운다.
+cell_dup_known=$(cat <<'KNOWN'
+.claude/prompts/bundle-session.md	**결정을 계획 단계에 몬다**
+doc/reference/commerce-compliance.md	`43a-4a`, `43a-4b`, `43a-4c`(판정 입구·관리자 화면, 정산이 배상만 있는 셀러도 고른다)
+doc/reference/commerce-compliance.md	전자상거래법 제20조의3
+doc/reference/commerce-compliance.md	정보통신망법 제50조의7
+doc/reference/data-lifecycle.md	**주문을 따라간다**(5년)
+doc/reference/data-lifecycle.md	**확정신고기한 다음날 + 5년**
+doc/reference/external-references.md	SQL Style Guide (Simon Holywell)
+doc/reference/frontend-rules.md	필요 없다 — 읽기만 한다
+doc/reference/money-invariants.md	`SettlementCloseBatchTest`(청크 19)
+doc/reference/money-invariants.md	`assert_refund_item_within_order_item`
+doc/reference/permission-rules.md	연결 없음 → 제한 없음
+doc/reference/state-machines.md	`confirmed` → `return_requested`
+doc/reference/state-machines.md	`payment_pending` → `payment_expired`
+doc/reference/state-machines.md	`return_requested` → `delivered`
+KNOWN
+)
+
+# **설계 행 형식**(`Q218`, `/design` 「행 형식」). 「번호 절차」가 있는 안 닫힌 행은 결정·실패 사다리가 있고
+# 닫힘이 번호 하나(①~⑨)를 가리킨다. 하나라도 빠지면 실행 세션(Opus)이 그 행에서 멈춘다 — 설계가 없애려는 것이
+# 바로 그 멈춤이다. **0 기준** — 설계 세션이 미달 여덟을 채웠다(2026-09-25).
+design_rows_incomplete() {
+  awk '/^## 청크 분할표/{on=1} /^## 이 계획을 고칠 때/{on=0} on && /^\| [^-|*][^|]*\|/{
+    n=split($0,c,"|"); id=c[2]; gsub(/^ +| +$/,"",id); nm=c[3]; gsub(/^ +/,"",nm);
+    last=c[n-1]; gsub(/^ +| +$/,"",last);
+    if (id=="#" || id=="칸" || id ~ /^~~/ || nm ~ /^~~/ || last=="완료") next;
+    if ($0 !~ /\*\*번호 절차\*\*/) next;
+    if ($0 !~ /\*\*결정\*\*/ || $0 !~ /\*\*실패 사다리\*\*/ || $0 !~ /\*\*닫힘\*\*:? *(①|②|③|④|⑤|⑥|⑦|⑧|⑨)/) print id
+  }' "$1"
+}
+
+# **이력 해시 빈 칸**(`Q218` 이 `PlanProgressConsistencyTest` 에서 옮겼다, `Q142`). 완료 행의 커밋 칸이 비었나 —
+# **마지막 완료 행 하나는 면제**다(자기 해시를 모른다. 다음 커밋이 채운다). 편집 훅에서 돌아 39초 빌드 전에 안다.
+# **날짜로 가른다.** 옮긴 날(2026-09-25) 전의 빈 칸은 그때의 사실이라 소급해 안 채우는 래칫이고, 그날부터는 0 기준이다 —
+# 수만 세던 Java 판은 옛 빈 행 하나를 채우고 새 행 하나를 비우면 초록이었다. 마무리 49차가 실제로 그 모양을 밟았다
+# (끼우기 스크립트가 해시를 옛 행에 넣었다). 출력: `old<탭>날짜 청크` / `new<탭>날짜 청크`.
+history_hash_cutoff=2026-09-25
+history_no_hash() {
+  awk -v cut="$history_hash_cutoff" '/^## 이력/{on=1; next} on && /^## /{on=0} on && /^\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|/{rows[++n]=$0}
+    END{
+      for(i=1;i<=n;i++){ m=split(rows[i],c,"|"); r=c[4]; gsub(/^ +/,"",r); if(r ~ /^완료/) last=i }
+      for(i=1;i<=n;i++){
+        if(i==last) continue
+        m=split(rows[i],c,"|"); r=c[4]; gsub(/^ +/,"",r); h=c[m-1]; gsub(/ /,"",h)
+        if(r !~ /^완료/ || h!="") continue
+        d=substr(rows[i],3,10); lb=c[3]; gsub(/^ +| +$/,"",lb)
+        print ((d < cut) ? "old" : "new") "\t" d " " substr(lb,1,60)
+      }
+    }' "$1"
+}
+
+# 범위: 인자를 저장소 상대 경로로 맞춰 두고, 목록마다 그 안에 든 것만 남긴다. 목록 밖 파일은 조용히 통과(`Q217`).
+# 훅은 `C:\…` 꼴을 준다 — Git Bash 의 `pwd` 는 `/c/…` 고 `pwd -W` 는 `C:/…` 다. 둘 다 벗긴다.
+scope=()
+root_posix=$(pwd); root_win=$(pwd -W 2>/dev/null || pwd)
+norm_path() { local a=${1//\\//}; a=${a#"$root_posix/"}; a=${a#"$root_win/"}; a=${a#./}; printf '%s' "$a"; }
+in_scope() { [ "${#scope[@]}" -eq 0 ] && return 0; local x; for x in "${scope[@]}"; do [ "$x" = "$1" ] && return 0; done; return 1; }
+in_scope_glob() { [ "${#scope[@]}" -eq 0 ] && return 0; local x; for x in "${scope[@]}"; do case "$x" in $1) return 0 ;; esac; done; return 1; }
+narrow() { local f; for f in "$@"; do in_scope "$f" && printf '%s\n' "$f"; done; }
+
+
 if [ "${1:-}" = "--selftest" ]; then
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
@@ -202,9 +290,66 @@ if [ "${1:-}" = "--selftest" ]; then
   st_screen "원문을 안 읽는 화면 시험 — 표에 없어도 안 걸려야 한다" \
     'render(<Form />); expect(screen.getByRole("button")).toBeTruthy();' '| 다른 게이트 | 4 테스트 |' 0
 
+  st_fn() { # 이름, 함수, 본문, 걸려야 하나(1/0), [grep 패턴]
+    printf '%s\n' "$3" > "$tmp/fn.md"
+    got=$("$2" "$tmp/fn.md" | grep -c "${5:-.}" || true)
+    if { [ "$4" = 1 ] && [ "$got" -eq 0 ]; } || { [ "$4" = 0 ] && [ "$got" -ne 0 ]; }; then
+      echo "  [실패] $1 — 걸려야 하나=$4 실제=$got"; st_fail=1
+    else
+      echo "  [통과] $1"
+    fi
+  }
+  echo "존댓말 어미 열 넷을 잰다:"
+  st_fn "「하세요」 — 걸려야 한다" honorific_hits '여기서 확인하세요.' 1
+  st_fn "「해요」·「죠」 — 걸려야 한다" honorific_hits '이렇게 해요. 그렇죠.' 1
+  st_fn "「아니다」 — 안 걸려야 한다" honorific_hits '이것은 규칙이 아니다.' 0
+  st_fn "백틱·「」 안의 인용 — 안 걸려야 한다" honorific_hits '`하세요` 는 금지어고 「확인하세요」 도 인용이다.' 0
+  echo "표 셀 중복 셋을 잰다:"
+  st_fn "30자 넘는 같은 셀 둘 — 걸려야 한다" cell_dups '| 가 | 서른 자가 넘는 긴 셀 하나를 두 행에 똑같이 적었다 |
+| 나 | 서른 자가 넘는 긴 셀 하나를 두 행에 똑같이 적었다 |' 1
+  st_fn "「」 안만 같다 — 안 걸려야 한다" cell_dups '| 가 | 「서른 자가 넘는 화면 문구를 인용한 칸이 여기 있다」 |
+| 나 | 「서른 자가 넘는 화면 문구를 인용한 칸이 여기 있다」 |' 0
+  st_fn "짧은 셀 반복 — 안 걸려야 한다" cell_dups '| 가 | 없다 |
+| 나 | 없다 |' 0
+  echo "설계 행 형식 셋을 잰다:"
+  st_fn "번호 절차만 있고 실패 사다리가 없다 — 걸려야 한다" design_rows_incomplete '## 청크 분할표
+| X1 | 무엇 | **결정**: 가. **번호 절차**: ① 하나 ② 시험. **축**: 규약. **강제 지점**: 시험. **닫힘**: ② | — |' 1
+  st_fn "결정·실패 사다리·닫힘 번호가 다 있다 — 안 걸려야 한다" design_rows_incomplete '## 청크 분할표
+| X2 | 무엇 | **결정**: 가. **번호 절차**: ① 하나 ② 시험. **닫힘**: ②. **실패 사다리**: 접는다 | — |' 0
+  st_fn "닫힌 행 — 안 걸려야 한다" design_rows_incomplete '## 청크 분할표
+| X3 | ~~무엇~~ | **번호 절차**: ① 하나 | 완료 |' 0
+  echo "이력 해시 빈 칸 셋을 잰다:"
+  st_fn "옮긴 날 뒤의 빈 칸(마지막 아님) — 걸려야 한다" history_no_hash '## 이력
+| 2026-09-26 | `A1`. 가 | 완료 — 한 것 | |
+| 2026-09-26 | `A2`. 나 | 완료 — 한 것 | |' 1 '^new'
+  st_fn "마지막 완료 행만 비었다 — 안 걸려야 한다" history_no_hash '## 이력
+| 2026-09-26 | `A1`. 가 | 완료 — 한 것 | abc1234 |
+| 2026-09-26 | `A2`. 나 | 완료 — 한 것 | |' 0 '^new'
+  st_fn "옮긴 날 전의 빈 칸 — new 로 안 센다" history_no_hash '## 이력
+| 2026-08-01 | `A0`. 옛 | 완료 — 한 것 | |
+| 2026-09-26 | `A2`. 나 | 완료 — 한 것 | |' 0 '^new'
+  echo "범위 모드 다섯 모양을 잰다:"
+  st_scope() { # 이름, 기대(0=참/1=거짓), 명령...
+    local name=$1 want=$2 got; shift 2
+    if "$@" >/dev/null; then got=0; else got=1; fi
+    if [ "$got" = "$want" ]; then echo "  [통과] $name"; else echo "  [실패] $name — 기대=$want 실제=$got"; st_fail=1; fi
+  }
+  scope=(CLAUDE.md); st_scope "범위가 CLAUDE.md 면 PLAN 검사가 안 돈다" 1 in_scope PLAN.md
+  scope=(); st_scope "범위가 비면 전체다" 0 in_scope PLAN.md
+  scope=("$(norm_path "${root_win//\//\\}\\PLAN.md")"); st_scope "훅이 주는 윈도 절대 경로를 저장소 상대로 맞춘다" 0 in_scope PLAN.md
+  scope=(doc/nope.md); st_scope "목록 밖 파일은 어느 목록에도 안 든다" 0 test -z "$(narrow CLAUDE.md PLAN.md)"
+  scope=()
+  st_scope "범위 밖 파일 하나로 돌리면 아무것도 안 걸린다" 0 bash "$0" doc/nope.md
+
   [ "$st_fail" -eq 0 ] && echo "자기 시험 통과"
   exit "$st_fail"
 fi
+
+for a in "$@"; do scope+=("$(norm_path "$a")"); done
+mapfile -t title_check_files < <(narrow "${title_check_files[@]}")
+mapfile -t dup_check_files < <(narrow "${dup_check_files[@]}")
+mapfile -t honorific_check_files < <(narrow "${honorific_check_files[@]}")
+mapfile -t dated_title_files < <(narrow "${dated_title_files[@]}")
 
 fail=0
 
@@ -222,6 +367,11 @@ for f in "${title_check_files[@]}"; do
       fail=1
       ;;
   esac
+  # 깨진 UTF-8(`Q217`, ProjectTicket `B0-3`). 셸로 넣은 줄의 이스케이프가 바이트를 깨면 아래 perl 검사가 죽으면서 「이상 없음」이 난다.
+  if ! iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1; then
+    echo "[UTF-8 깨짐] $f — 유효하지 않은 바이트가 있다. 셸로 넣은 줄이면 awk -v·echo -e 의 이스케이프를 의심한다"
+    fail=1
+  fi
 done
 
 for f in "${dup_check_files[@]}"; do
@@ -231,7 +381,7 @@ for f in "${dup_check_files[@]}"; do
   dups=$(awk '/^```/{c=!c; next} !c' "$f" \
     | grep -vE '^[[:space:]]*(\||#+[[:space:]])' \
     | sed '/^[[:space:]]*$/d' \
-    | awk 'length($0) >= 20' \
+    | LC_ALL=C awk 'length($0) >= 20' \
     | sort | uniq -d)
   if [ -n "$dups" ]; then
     echo "[중복 문장] $f:"
@@ -245,7 +395,26 @@ for f in "${dup_check_files[@]}"; do
     echo "$rows" | cut -c1-160 | sed 's/^/    /'
     fail=1
   fi
+
+  case "$f" in doc/reference/screen-rules.md) ;; *)
+    cells_new=$(cell_dups "$f" | while IFS= read -r s; do printf '%s\t%s\n' "$f" "$s"; done \
+      | grep -vxF -f <(printf '%s\n' "$cell_dup_known") || true)
+    if [ -n "$cells_new" ]; then
+      echo "[중복 셀] $f — 같은 말이 표의 두 칸에 있다. 한쪽을 지우거나 다르게 적는다(CLAUDE.md 「글 작성 규칙」 1번):"
+      echo "$cells_new" | cut -f2 | cut -c1-160 | sed 's/^/    /'
+      fail=1
+    fi ;;
+  esac
 done
+
+# 알려진 셀 중복 목록에서 사라진 것(`Q218`). 전체 모드에서만 본다 — 범위 모드는 목록의 다른 파일을 안 읽는다.
+if [ "${#scope[@]}" -eq 0 ]; then
+  while IFS=$'\t' read -r kf ks; do
+    [ -n "$kf" ] || continue
+    cell_dups "$kf" | grep -qxF -- "$ks" \
+      || echo "[기준선 내릴 것] $kf 의 알려진 셀 중복이 사라졌다 — scripts/doc-lint.sh 의 cell_dup_known 에서 그 줄을 지운다: ${ks:0:60}"
+  done <<< "$cell_dup_known"
+fi
 
 for f in "${dated_title_files[@]}"; do
   [ -f "$f" ] || continue
@@ -275,9 +444,9 @@ for f in "${honorific_check_files[@]}"; do
   #
   # `perl -CSD` 를 쓰는 이유: `sed 's/「[^」]*」//g'` 가 **조용히 안 먹는다.**
   # 멀티바이트 문자를 문자 클래스에 넣으면 바이트 단위로 갈라져서, 걸러진 척하고 통과한다.
-  hits=$(awk '/^```/{c=!c; print ""; next} c{print ""; next} {print}' "$f" \
-    | perl -CSD -pe 's/`[^`]*`//g; s/\x{300C}.*?\x{300D}//g; s/"[^"]*"//g' \
-    | grep -nE '(습니다|합니다|하세요|입니다)')
+  # 어미 열과 걷어 내는 법은 위 `honorific_hits` 가 든다(`Q218`). 파이프가 죽으면 「이상 없음」이 아니라 검사 실패다(`Q217`).
+  hits=$(honorific_hits "$f") \
+    || { echo "[검사 실패] $f — 존댓말 검사 파이프가 죽었다(perl). 위에 [UTF-8 깨짐] 이 있으면 그것이 원인이다"; fail=1; continue; }
   if [ -n "$hits" ]; then
     echo "[존댓말] $f — 개발자가 읽는 글은 평서형이다(CLAUDE.md 「글 작성 규칙」 4번):"
     echo "$hits" | sed 's/^/    /'
@@ -297,6 +466,8 @@ plan_open_rows() {
   }' PLAN.md
 }
 
+# **PLAN 검사 셋은 PLAN.md 가 범위에 들 때만 돈다**(`Q217`).
+if in_scope PLAN.md; then
 # 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
 # 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
 # 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
@@ -309,6 +480,13 @@ if [ "$plan_open_incomplete" -gt "$plan_open_incomplete_baseline" ]; then
   fail=1
 elif [ "$plan_open_incomplete" -lt "$plan_open_incomplete_baseline" ]; then
   echo "[기준선 내릴 것] PLAN.md — 칸 빠진 행이 ${plan_open_incomplete}개로 줄었다. scripts/doc-lint.sh 의 plan_open_incomplete_baseline 을 그 수로 내린다"
+fi
+
+design_incomplete=$(design_rows_incomplete PLAN.md)
+if [ -n "$design_incomplete" ]; then
+  echo "[설계 행 누락] PLAN.md — 번호 절차가 있는 안 닫힌 행에 결정·실패 사다리·「닫힘: ①~⑨」 중 빠진 것이 있다(/design 「행 형식」):"
+  echo "$design_incomplete" | sed 's/^/    /'
+  fail=1
 fi
 
 # 구간 표(「구간 — 배포를 결승선으로 놓는다」)가 안 닫힌 청크를 다 담나. 담기는 것이 **차례**라
@@ -365,6 +543,8 @@ if [ -n "${near_incomplete//[$'\n' ]/}" ]; then
   fail=1
 fi
 
+fi
+
 # 차례를 주장하는 문장이 구간 표 밖에 있나. **차례의 주인은 `PLAN.md` 「구간」 표 하나다** —
 # `PROGRESS.md` 「현재 상태」가 순서를 그 표에 넘겼고, 그러면 다른 자리의 같은 말은
 # **사본**이라 원본이 바뀌어도 안 따라온다.
@@ -381,14 +561,17 @@ fi
 order_word='(맨 마지막|마지막 청크|맨 뒤)'
 chunk_ref='(`(Q|D)?[0-9]+[a-z0-9-]*`|Q[0-9]+)'
 order_claims=""
+# 범위 모드면 범위에 든 파일만 훑는다(`Q217`) — 문서 서른을 다 읽으면 한 파일 편집에 3초가 붙는다.
 for f in README.md backend/README.md CLAUDE.md doc/reference/*.md; do
   [ -f "$f" ] || continue
+  in_scope "$f" || continue
   h=$(perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' "$f" | grep -nE "$order_word" | grep -E "$chunk_ref")
   [ -n "$h" ] && order_claims="${order_claims}$(echo "$h" | sed "s|^|  $f:|")"$'\n'
 done
 # `PLAN.md` 는 구간 절(`## 구간` ~ 다음 `## `)을 뺀 나머지, `PROGRESS.md` 는 이력을 뺀 나머지.
 for pair in "PLAN.md:^## 구간" "PROGRESS.md:^## 이력"; do
   f=${pair%%:*}; skip=${pair#*:}
+  in_scope "$f" || continue
   h=$(awk -v skip="$skip" '$0 ~ skip {off=1; next} off && /^## /{off=0} {print (off ? "" : $0)}' "$f" \
     | perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' | grep -nE "$order_word" | grep -E "$chunk_ref")
   [ -n "$h" ] && order_claims="${order_claims}$(echo "$h" | sed "s|^|  $f:|")"$'\n'
@@ -399,6 +582,8 @@ if [ -n "${order_claims//[$'\n' ]/}" ]; then
   fail=1
 fi
 
+# **PROGRESS 검사 둘은 PROGRESS.md 가 범위에 들 때만 돈다**(`Q217`).
+if in_scope PROGRESS.md; then
 # 이력이 날짜순인가(`W3`). 앞줄보다 이른 날짜가 오면 센다 — 그 수가 기준선을 넘으면 빨갛다.
 # **기준선은 내리기만 한다.** 2026-09-11 에 이미 일곱이었고(299~393줄이 통째로 역순이다)
 # 그것을 되돌리면 diff 가 95줄 이동이라 아무도 못 읽는다. **새 줄이 그 수를 늘리는 것만 막는다.**
@@ -420,6 +605,22 @@ elif [ "$history_unsorted" -lt "$history_unsorted_baseline" ]; then
   echo "[기준선 내릴 것] PROGRESS.md — 이력 어긋남이 ${history_unsorted}곳으로 줄었다. scripts/doc-lint.sh 의 history_unsorted_baseline 을 그 수로 내린다"
 fi
 
+history_old_empty_baseline=224
+history_empty=$(history_no_hash PROGRESS.md)
+history_new_empty=$(printf '%s\n' "$history_empty" | grep '^new' | cut -f2)
+history_old_empty=$(printf '%s\n' "$history_empty" | grep -c '^old' || true)
+if [ -n "$history_new_empty" ]; then
+  echo "[이력 해시 빈 칸] PROGRESS.md — ${history_hash_cutoff} 뒤의 완료 행에 커밋 칸이 비었다(마지막 완료 행은 면제). 이름으로 찾아 git log --oneline 의 해시를 채운다:"
+  echo "$history_new_empty" | sed 's/^/    /'
+  fail=1
+fi
+if [ "$history_old_empty" -gt "$history_old_empty_baseline" ]; then
+  echo "[이력 해시 빈 칸] PROGRESS.md — ${history_hash_cutoff} 전의 빈 커밋 칸이 ${history_old_empty}개다(기준선 ${history_old_empty_baseline}). 옛 행의 해시를 지웠나 본다"
+  fail=1
+elif [ "$history_old_empty" -lt "$history_old_empty_baseline" ]; then
+  echo "[기준선 내릴 것] PROGRESS.md — ${history_hash_cutoff} 전의 빈 커밋 칸이 ${history_old_empty}개로 줄었다. **옛 행에 해시가 들어갔으면 먼저 그 해시가 그 행의 커밋인지 본다**(마무리 49차 사고) — 맞으면 history_old_empty_baseline 을 내린다"
+fi
+
 # 「현재 상태」는 표다(`2u`). 서사가 붙기 시작하면 세션마다 hook 이 그것을 통째로 주입한다(`2q`) —
 # 2026-09-06 에 119줄이었다. 상한을 넘으면 빨갛다.
 state_lines=$(awk '/^## 현재 상태$/{on=1; next} /^## /{on=0} on' PROGRESS.md | wc -l)
@@ -428,6 +629,10 @@ if [ "$state_lines" -gt 25 ]; then
   fail=1
 fi
 
+fi
+
+# **게이트 표 대조 셋은 그 표가 범위에 들 때만 돈다**(`Q217`) — 시험 소스는 편집 훅이 넘기는 파일이 아니다.
+if in_scope doc/reference/quality-gates.md; then
 # 게이트를 세웠으면 게이트 표에 행이 있나(`Q147`). 위 `gate_rows_missing` 이 잣대를 든다.
 gate_missing_baseline=0
 gate_missing=$(gate_rows_missing backend/src/test doc/reference/quality-gates.md)
@@ -459,6 +664,8 @@ if [ -n "${script_missing//[$'\n' ]/}" ]; then
   echo "[게이트 표 누락] CI 가 돌리는데 quality-gates.md 에 이름이 없는 스크립트:"
   printf '%s\n' "$script_missing" | sed 's/^/    /'
   fail=1
+fi
+
 fi
 
 if [ "$fail" -eq 0 ]; then

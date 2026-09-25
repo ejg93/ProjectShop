@@ -77,6 +77,10 @@ if [ -z "$signed" ]; then
 else
   bare=$(echo "$signed" | sed 's/\\u0026/\&/g; s/?.*$//')
   code=$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$bare")
-  case "$code" in 401|403) ;; *) echo "빨강 — 서명을 뗀 사진 주소가 $code 로 열린다(401·403 이어야 한다): $bare"; exit 1 ;; esac
+  # 「안 열린다」는 2xx 가 아니라는 뜻이다 — R2 는 서명이 없으면 400 InvalidArgument(Authorization) 이고 MinIO 였으면 403 이었다.
+  case "$code" in
+    2*) echo "빨강 — 서명을 뗀 사진 주소가 $code 로 열린다: $bare"; exit 1 ;;
+    000) echo "빨강 — 서명을 뗀 사진 주소를 못 불렀다(시간 초과·DNS). 「안 열린다」와 「못 봤다」를 가른다: $bare"; exit 1 ;;
+  esac
 fi
 echo "초록 — 두 서비스가 $want 이고 마이그레이션 $applied 개가 파일 수와 같다, 서명 뗀 사진 주소는 ${code:-안 잼} 이다"

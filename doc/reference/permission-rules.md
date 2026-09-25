@@ -361,7 +361,7 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 
 ## 판정을 안 지나는 입구 — 소유가 곧 권한인 자원
 
-이 문서의 `decide` 를 안 지나는 쓰기 입구가 셋 있다(2026-09-14 설계 점검). 결제·주문 생성·장바구니다.
+이 문서의 `decide` 를 안 지나는 쓰기 입구가 결제·주문 생성·장바구니 셋이다(2026-09-14 설계 점검).
 셋은 SQL 의 소유 조건으로 막는다 — `PaymentService.findPayable` 의 `where order_number = :orderNumber and user_id = :userId`,
 `OrderService.readLines` 의 `c.user_id = :userId`, `CartService` 의 쿠키·계정 조건.
 
