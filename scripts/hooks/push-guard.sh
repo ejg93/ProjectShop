@@ -24,7 +24,7 @@ st="$(git rev-parse --git-dir)/verify-stamp"
 head=$(bash scripts/verify-fingerprint.sh HEAD)
 main=$(bash scripts/verify-fingerprint.sh origin/main)
 fail=''
-for d in backend frontend compare; do
+for d in backend frontend compare tools; do
   h=$(echo "$head" | grep "^$d ")
   [ "$h" = "$(echo "$main" | grep "^$d ")" ] && continue
   grep -qx "$h full" "$st" 2>/dev/null || fail="$fail $d"

@@ -22,7 +22,7 @@ rm -f "$tmp"
 work=$(bash scripts/verify-fingerprint.sh "$tree")
 main=$(bash scripts/verify-fingerprint.sh origin/main)
 fail=''
-for d in backend frontend compare; do
+for d in backend frontend compare tools; do
   h=$(echo "$work" | grep "^$d ")
   [ "$h" = "$(echo "$main" | grep "^$d ")" ] && continue
   grep -q "^$h " "$st" 2>/dev/null || fail="$fail $d"

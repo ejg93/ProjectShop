@@ -15,11 +15,14 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 
 | 단계 | 명령 | 무엇이 도나 | 누가 요구하나 |
 |---|---|---|---|
-| **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test · **대조만 다르면** backend `gradlew test`(대조 포함), `doc/erd` 가 다르면 `SchemaErdTest` 까지(Docker 를 문다, `Q110`) | **Stop hook** — 청크를 닫을 때 |
+| **빠른 도장** | `bash scripts/verify.sh` | backend `gradlew test`(10초) · frontend `tsc --noEmit`·lint·test · **대조만 다르면** backend `gradlew test`(대조 포함), `doc/erd` 가 다르면 `SchemaErdTest` 까지(Docker 를 문다, `Q110`) · **새 `V*` 가 있으면** backend `test integrationTest`(Docker 가 없으면 `test` 만, 도장 `fast-nodb`) · **도구만 다르면** 셸 문법·`settings.json` 파싱·`doc-lint` 전체(`Q216`) | **Stop hook** — 청크를 닫을 때. **commit hook** — `work/*` 에 커밋할 때(`Q215`) |
 | **full 도장** | `bash scripts/verify.sh --full` | backend `gradlew build`(두 레인) · frontend `next build`·lint·test · **대조만 다르면** backend `gradlew build`(느린 레인의 대조까지) | **push hook** — 미는 것은 마무리 앞 한 번 |
 
 **full 은 Docker 를 먼저 본다**(`2z-3`). 안 떠 있으면 한 줄로 끝낸다 — 그전에는 느린 레인이 전부 FAILED 로 뜨고
 진짜 원인은 XML 리포트를 파야 나왔다.
+**빠른 도장은 새 `V*` 에서 Docker 가 없어도 안 선다**(`Q216`) — `gradlew test` 만 돌고 도장이 `fast-nodb` 다. Stop·commit hook 은 받고 push hook 은 안 받는다. 번들이 서는 값이 누수보다 커서다.
+
+**같은 지문은 두 번 안 돈다**(`Q216`). 레인의 지금 지문이 도장에 요청 단계 이상으로 있으면 「같은 지문을 <단계> 로 찍어 뒀다 → 건너뜀」이다 — `full` 도장은 빠른 요청도 덮고, `fast-nodb` 는 아무것도 안 덮는다. 문서만 고친 청크에서 frontend 레인(lint + vitest 7분)이 두 번 돌던 값이다.
 
 DB 를 타는 결함은 그래서 청크 여럿 뒤에 드러날 수 있다 — 청크가 커밋 하나라 `git bisect` 가 답한다.
 아래 표의 첫 네 줄이 그 두 레인이다. **나머지 줄은 손이고 도장이 안 본다** — 걸리면 돌리고 이력에 적는다.
@@ -42,8 +45,10 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | 〃 | `npm test` | 실패 0 |
 | **로그인·상품·장바구니·주문서 화면을 건드렸으면** | 백엔드를 `local` 로 띄운 뒤 `cd frontend && npm run build && npm run e2e`. **3000 이 물려 있으면 `E2E_PORT=3010` 을 앞에 붙인다**(`Q137`) — 안 붙이면 `reuseExistingServer` 가 **남의 서버를 재사용해서 엉뚱한 앱에 초록이 난다** | 통과. CI 는 PR 에서 자동으로 돈다(`Q18-1`). 손으로 걸려면 `gh workflow run e2e.yml --ref <가지>` — **`e2e.yml` 이 `main` 에 있어야 뜬다** |
 | **푸시했으면** | 아래 「CI」 | 초록. **빨가면 다음 청크보다 먼저 친다** |
-| **고치는 중·청크를 닫을 때** | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**. 대신 **DB 를 타는 것은 여기서 안 돈다** — 그것은 push 앞의 `--full` 이 돈다(`2z-2`) |
+| **고치는 중·청크를 닫을 때** | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**. 대신 **DB 를 타는 것은 여기서 안 돈다** — 그것은 push 앞의 `--full` 이 돈다(`2z-2`). **예외는 새 `V*`** — 아래 줄 |
 | 스키마·서비스만 볼 때 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(**70초대**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
+| **새 `V*` 를 더했으면, 청크 시점** | `bash scripts/verify.sh`(스크립트가 스스로 `integrationTest` 를 붙인다, `Q216`) | 실패 0. 열거형·길이·이름 대조가 컨테이너 레인이라 **빠른 레인만으로는 번들 끝 `--full` 에서 처음 빨개진다**(번들 A). Docker 가 없으면 도장이 `fast-nodb` 고 그 청크의 대조는 번들 끝이 본다 |
+| **검증 도구를 고쳤으면**(`scripts/`·`.claude/settings.json`·`.claude/skills`) | `bash scripts/verify.sh`(도구 레인, `Q216`) | 셸 문법·`settings.json` 파싱·`doc-lint` 전체가 초록. 훅이 실제로 막는지는 **stdin JSON 으로 손으로 잰다** — 그 회귀를 `Q221` 이 스크립트로 든다 |
 | **마이그레이션을 더했으면** | **빈 DB 를 만들어** `POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 **`db/migration` 파일 수 + `db/seed` 파일 수**. 시드가 늘어날 때마다 이 줄을 고치지 않게 세는 법으로 적는다(`Q130`). **테스트만으로는 기동 경로를 안 지난다**. 쓰던 DB 에 그냥 올리면 시드가 `V900+` 라 Flyway 가 순서를 어긴 것으로 보고 멈춘다(`stack.md`) |
 | 컨테이너 설정을 건드렸으면 | `docker compose config --quiet` 후 `docker compose up -d` | 종료 코드 0, `shop-db`·`shop-redis` 가 `healthy` |
 | 프록시·라우팅을 건드렸으면 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |
