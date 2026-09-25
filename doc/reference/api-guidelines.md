@@ -558,7 +558,7 @@ POST /api/settlements/{id}/confirm
 | `Idempotency-Key` | 멱등 요청. `POST /api/orders`·`POST /api/payments` 에 필수다 (D11) |
 | `Location` | 201 응답에서 새 자원 경로 |
 
-자체 헤더를 만들 때는 `X-` 를 붙이지 않는다. RFC 6648 이 그 관행을 폐기했다.
+자체 헤더를 만들 때는 `X-` 를 붙이지 않는다. RFC 6648 이 그 관행을 폐기했다. `SourceTextTest` 가 main 의 `"X-` 글자를 막는다(`Q226`).
 
 ## 인증
 

@@ -3,6 +3,7 @@ package com.projectshop.shop;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
@@ -340,6 +341,25 @@ class ArchitectureTest {
             noFields()
                     .should().haveRawType(LocalDateTime.class)
                     .because("LocalDateTime 은 시간대가 없어 서버 설정에 따라 다른 순간이 된다 (time-rules.md 「저장은 UTC」)");
+
+    /**
+     * 「값」 — 요청·응답·조회 결과는 {@code record} 다(`Q226`, {@code quality-gates.md} 「규칙 원장」 ②).
+     *
+     * <p>{@code coding-rules.md} 「값」이 정한 것인데 막는 것이 없었다. 위반은 0 이었다 — <b>위반이 0일 때 세우면 값이 싸다.</b>
+     * 이름 접미사({@code Request}·{@code Response}·{@code Summary}·{@code Detail}·{@code Page})로 가른다. record 는
+     * {@code java.lang.Record} 를 잇는다.
+     */
+    @ArchTest
+    static final ArchRule 요청_응답_조회_결과는_record_다 =
+            classes()
+                    .that().haveSimpleNameEndingWith("Request")
+                    .or().haveSimpleNameEndingWith("Response")
+                    .or().haveSimpleNameEndingWith("Summary")
+                    .or().haveSimpleNameEndingWith("Detail")
+                    .or().haveSimpleNameEndingWith("Page")
+                    .should().beAssignableTo(Record.class)
+                    .allowEmptyShould(true)
+                    .because("record 가 불변이라 만든 뒤에 안 바뀌고 equals·toString 이 공짜다 (coding-rules.md 「값」)");
 
     @ArchTest
     static final ArchRule 시각을_LocalDateTime_으로_안_주고받는다 =

@@ -358,7 +358,7 @@ v3 는 점수제라 사용자에게 퍼즐을 보여주지 않는다. 화면 흐
 | 자리 | 규칙 | 왜 |
 |---|---|---|
 | `/actuator/health` | 상세는 인증된 요청에만(`show-details: when-authorized`) | 공개 경로라서 `always` 면 아무나 DB·디스크·컴포넌트 목록을 본다. 살아 있나만 보는 데는 상세가 필요 없다 |
-| 액추에이터 노출 목록 | `health`·`prometheus` 둘(`Q53` — prometheus 는 `metric:read` 판정 뒤에만) | 늘릴 때마다 그것이 무엇을 흘리는지 본다 |
+| 액추에이터 노출 목록 | `health`·`prometheus` 둘(`Q53` — prometheus 는 `metric:read` 판정 뒤에만) | 늘릴 때마다 그것이 무엇을 흘리는지 본다. **`MetricNameTest` 가 `application.yml` 과 이 칸의 백틱 값을 대조한다**(`Q226`) |
 | `/api/docs`(`2a`) | 스펙만 연다. **Swagger UI 를 안 들인다** | 흘리는 것은 <b>경로·요청/응답 스키마</b>다 — 계약이라 비밀이 아니고 프론트가 읽어야 한다. UI 는 정적 자원과 경로를 더 열어서 노출면만 넓힌다 |
 | 세션 속 principal | 비밀번호 해시를 안 들고 있는다 | 아래 |
 | 응답 캐시(`Q61`) | 인증된 응답에 `no-store`. **플랫폼 기본값을 쓰되 재고 있는다** — `HttpFlowTest` 가 `/api/me` 와 공개 목록 둘을 잰다 | **표준이 자동으로 막아 주지 않는다** — RFC 9111 §3.5 의 「인증된 요청의 응답은 공유 캐시에 저장하지 않는다」는 `Authorization` 헤더 기준이고 우리 인증은 세션 쿠키다. 막는 것은 §5.2.2.5 의 `no-store` 지시어를 우리가 내보내는 것이다. 지금 값은 Spring Security 기본(`no-cache, no-store, max-age=0, must-revalidate`)이고 **우리가 정한 것이 아니라서** 기본이 바뀌거나 누가 `cacheControl().disable()` 을 넣으면 세션 붙은 응답이 프록시에 남는다 |
