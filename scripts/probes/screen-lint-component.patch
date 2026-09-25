@@ -1,0 +1,22 @@
+# gate: eslint 화면 규칙 — 화면 파일 블록(Q228)
+# run: cd frontend && npx eslint --no-cache src/components/site-footer.tsx
+# expect: 화면은 오류의 message 를 안 그린다
+# expect: 화면에 force-static 을 안 건다
+# expect: fetchCache 를 안 건다
+# expect: ✖ 6 problems \(6 errors
+diff --git a/frontend/src/components/site-footer.tsx b/frontend/src/components/site-footer.tsx
+index fb456f6..f057d77 100644
+--- a/frontend/src/components/site-footer.tsx
++++ b/frontend/src/components/site-footer.tsx
+@@ -45,3 +45,11 @@ function FooterLink({ href, children }: { href: string; children: string }) {
+     </Link>
+   );
+ }
++
++export const dynamic = "force-static";
++export const fetchCache = "force-no-store";
++const probeError = new Error("probe");
++export const probeMember = probeError.message;
++export const { message: probeDestructured } = probeError;
++export const probeString = ((e: unknown) => String(e))(probeError);
++export const probeTemplate = ((err: unknown) => `${err}`)(probeError);

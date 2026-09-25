@@ -6,15 +6,23 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 
 // 화면 규칙 셋(`Q228`, `quality-gates.md` 원장 ⑩~⑫). 파일 범위가 둘이라 조각으로 두고 아래 두 블록이 섞어 쓴다 —
 // 같은 규칙을 두 블록이 켜면 뒤 블록이 앞 블록을 **덮어서**(합치지 않는다) `page.tsx` 에는 둘을 다 싣는다.
-const NO_ERROR_MESSAGE = {
-  // `ApiError` 는 `super(detail)` 이라 `message` 가 서버 문구고, 다른 오류는 영어 기술어(`TypeError: Failed to fetch`)다.
-  selector: "MemberExpression[property.name='message']",
-  message:
-    "화면은 오류의 message 를 안 그린다 — 영어 기술어이거나 서버 문구다. ApiError 는 slug 로 갈라 자기 문구를 고른다(screen-rules.md 「서버 문구를 그대로 안 쓴다」)",
-};
+// `ApiError` 는 `super(detail)` 이라 `message` 가 서버 문구고, 다른 오류는 영어 기술어(`TypeError: Failed to fetch`)다.
+// **길이 넷이다**(마무리 52차 독립 리뷰가 둘을 더 찾았다) — 멤버 읽기 · 구조 분해 · `String(e)` · `${e}`.
+// 뒤 둘은 흔한 오류 변수 이름(`e`·`err`·`error`·`caught`)만 본다 — 이름을 바꾸면 빠지지만 이 저장소의 `catch` 는 그 넷이다.
+const ERROR_TEXT_MESSAGE =
+  "화면은 오류의 message 를 안 그린다 — 영어 기술어이거나 서버 문구다. ApiError 는 slug 로 갈라 자기 문구를 고른다(screen-rules.md 「서버 문구를 그대로 안 쓴다」)";
+const ERROR_NAME = "/^(e|err|error|caught)$/";
+const NO_ERROR_MESSAGE = [
+  { selector: "MemberExpression[property.name='message']", message: ERROR_TEXT_MESSAGE },
+  { selector: ":matches(VariableDeclarator, CatchClause) > ObjectPattern > Property[key.name='message']", message: ERROR_TEXT_MESSAGE },
+  { selector: `CallExpression[callee.name='String'] > Identifier[name=${ERROR_NAME}]`, message: ERROR_TEXT_MESSAGE },
+  { selector: `TemplateLiteral > Identifier[name=${ERROR_NAME}]`, message: ERROR_TEXT_MESSAGE },
+];
 const NO_STATIC_SEGMENT = [
   {
-    selector: "ExportNamedDeclaration VariableDeclarator[id.name='dynamic'][init.value='force-static']",
+    // `as const`·`satisfies` 로 감싸면 값이 한 층 안으로 들어간다 — 둘 다 본다
+    selector:
+      "ExportNamedDeclaration VariableDeclarator[id.name='dynamic']:matches([init.value='force-static'], [init.expression.value='force-static'])",
     message: "화면에 force-static 을 안 건다 — 로그인한 사람의 응답이 빌드 산출물로 굳는다(frontend-rules.md 「캐시 — 실수하면 남의 것이 보인다」)",
   },
   {
@@ -100,11 +108,11 @@ const eslintConfig = defineConfig([
   {
     files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
     ignores: ["**/*.test.ts", "**/*.test.tsx"],
-    rules: { "no-restricted-syntax": ["error", NO_ERROR_MESSAGE, ...NO_STATIC_SEGMENT] },
+    rules: { "no-restricted-syntax": ["error", ...NO_ERROR_MESSAGE, ...NO_STATIC_SEGMENT] },
   },
   {
     files: ["src/app/**/page.tsx", "src/app/**/layout.tsx"],
-    rules: { "no-restricted-syntax": ["error", NO_ERROR_MESSAGE, ...NO_STATIC_SEGMENT, NO_USE_CLIENT_ROUTE] },
+    rules: { "no-restricted-syntax": ["error", ...NO_ERROR_MESSAGE, ...NO_STATIC_SEGMENT, NO_USE_CLIENT_ROUTE] },
   },
   {
     files: ["src/lib/api.ts", "src/lib/api-session.ts"],

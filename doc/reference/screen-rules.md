@@ -478,7 +478,7 @@ skus[0].price_incl_vat  →  skus.0.priceInclVat   ← 줄까지 그리는 폼
 화면은 `type` 을 보고 **자기 문구를 고른다.** `detail` 을 그대로 찍으면 문체가 갈리고,
 서버 메시지를 다듬는 순간 화면 문구가 같이 바뀐다.
 
-**오류의 `message` 는 eslint 가 막는다**(`Q228`) — `ApiError` 는 `super(detail)` 이라 `message` 가 곧 서버 문구고,
+**오류의 `message` 는 eslint 가 막는다**(`Q228`) — 멤버 읽기·구조 분해·`String(e)`·`${e}` 넷이고 뒤 둘은 흔한 오류 변수 이름(`e`·`err`·`error`·`caught`)만 본다. `ApiError` 는 `super(detail)` 이라 `message` 가 곧 서버 문구고,
 다른 오류는 `TypeError: Failed to fetch` 같은 영어 기술어다. **`detail` 을 그대로 그리는 화면이 열둘 남았다** —
 문구를 `type` 마다 정할지 이 절을 고칠지를 `Q233` 이 사용자에게 묻는다.
 
