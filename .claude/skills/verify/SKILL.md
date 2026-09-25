@@ -52,7 +52,7 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | **고치는 중·청크를 닫을 때** | 청크 | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**. 대신 **DB 를 타는 것은 여기서 안 돈다** — 그것은 push 앞의 `--full` 이 돈다(`2z-2`). **예외는 새 `V*`** — 아래 줄 |
 | 스키마·서비스만 볼 때 | 청크 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(**70초대**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
 | **새 `V*` 를 더했으면, 청크 시점** | 청크 | `bash scripts/verify.sh`(스크립트가 스스로 `integrationTest` 를 붙인다, `Q216`) | 실패 0. 열거형·길이·이름 대조가 컨테이너 레인이라 **빠른 레인만으로는 번들 끝 `--full` 에서 처음 빨개진다**(번들 A). Docker 가 없으면 도장이 `fast-nodb` 고 그 청크의 대조는 번들 끝이 본다 |
-| **검증 도구를 고쳤으면**(`scripts/`·`.claude/settings.json`·`.claude/skills`) | 청크 | `bash scripts/verify.sh`(도구 레인, `Q216`) | 셸 문법·`settings.json` 파싱·`doc-lint` 전체가 초록. 훅이 실제로 막는지는 **stdin JSON 으로 손으로 잰다** — 그 회귀를 `Q221` 이 스크립트로 든다 |
+| **검증 도구를 고쳤으면**(`scripts/`·`.claude/settings.json`·`.claude/skills`) | 청크 | `bash scripts/verify.sh`(도구 레인, `Q216`) | 셸 문법·`settings.json` 파싱·`doc-lint` 전체·**`bash scripts/hooks-test.sh`**(훅 아홉·`doc-lint` 위반 다섯·지문, 43경우 — 임시 저장소라 실제 저장소를 안 건드린다, `Q221`)가 초록. 훅을 고쳤으면 그 경우를 이 스크립트에 더한다 |
 | **마이그레이션을 더했으면** | 번들 끝 | **빈 DB 를 만들어** `POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 **`db/migration` 파일 수 + `db/seed` 파일 수**. 시드가 늘어날 때마다 이 줄을 고치지 않게 세는 법으로 적는다(`Q130`). **테스트만으로는 기동 경로를 안 지난다**. 쓰던 DB 에 그냥 올리면 시드가 `V900+` 라 Flyway 가 순서를 어긴 것으로 보고 멈춘다(`stack.md`) |
 | 컨테이너 설정을 건드렸으면 | 청크 | `docker compose config --quiet` 후 `docker compose up -d` | 종료 코드 0, `shop-db`·`shop-redis` 가 `healthy` |
 | 프록시·라우팅을 건드렸으면 | 청크 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |

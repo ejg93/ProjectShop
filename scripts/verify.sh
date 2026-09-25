@@ -168,18 +168,20 @@ if [ "$erd_run" -eq 1 ]; then
 fi
 
 # **도구 레인**(`Q216`). 검증 도구 자체 — `scripts/`·`.claude/settings.json`·`.claude/skills` — 를 고친 청크는
-# 앞 세 레인이 다 「돌릴 것이 없다」로 빠졌다. 셸 문법 · settings.json 파싱 · doc-lint 전체. 빠름·full 이 같다.
+# 앞 세 레인이 다 「돌릴 것이 없다」로 빠졌다. 셸 문법 · settings.json 파싱 · doc-lint 전체 · 훅 회귀 시험(`Q221`). 빠름·full 이 같다.
 if changed tools; then
   if lv_tools=$(stamped tools); then
     echo "== tools: 같은 지문을 $lv_tools 로 찍어 뒀다 → 건너뜀"
   else
     tools_ran=1
     ran=1; lv_tools=$level
-    echo "== tools 지문이 origin/main 과 다르다 → bash -n scripts · settings.json 파싱 · doc-lint 전체"
+    echo "== tools 지문이 origin/main 과 다르다 → bash -n scripts · settings.json 파싱 · doc-lint 전체 · 훅 회귀 시험"
     { for f in scripts/*.sh scripts/hooks/*.sh; do bash -n "$f" || { echo "문법: $f"; false; }; done; } || ok=0
     node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json","utf8"))' \
       || { echo "settings.json 이 JSON 이 아니다"; ok=0; }
     bash scripts/doc-lint.sh >/dev/null || { bash scripts/doc-lint.sh | head -20; ok=0; }
+    # 훅 아홉과 doc-lint 위반 다섯을 임시 저장소로 잰다(`Q221`) — 훅이 조용히 `exit 0` 으로 바뀌어도 여기서 빨갛다.
+    hooks_out=$(bash scripts/hooks-test.sh 2>&1) || { printf '%s\n' "$hooks_out" | grep -v '\[통과\]'; ok=0; }
   fi
 fi
 
