@@ -4,6 +4,7 @@
 # **Railway 토큰 없이 잰다** — 두 서비스가 스스로 커밋을 말한다(백엔드 /api/health 의 commit, 프론트 /version).
 # 둘이 origin/main 과 같아질 때까지 기다리고, 그다음 백엔드가 적용한 마이그레이션 수가 파일 수(V + 배포 시드)와
 # 같은지 본다. 하나라도 다르면 빨강이다 — 헬스체크에 실패한 배포는 Railway 가 앞 판을 그대로 돌려서 조용하다(#70~#74).
+# **시험판이 있다**: `HealthControllerTest` 가 시험이 붓는 폴더의 `V*` 수를 세어 같은 값을 견준다(`Q223`) — 여기는 운영, 그쪽은 CI.
 #
 # DEPLOY_BASE_URL     기본은 운영 프론트. /api/health 는 프론트가 백엔드로 넘긴다
 # DEPLOY_WAIT_SECONDS 기본 600(10분)

@@ -1,0 +1,60 @@
+# gate: SourceTextTest·MetricNameTest·ArchUnit 둘(Q226)
+# run: cd backend && ./gradlew test --tests '*SourceTextTest' --tests '*MetricNameTest' --tests '*ArchitectureTest' --tests '*TestConventionTest' -q
+# expect: FAILED com\.projectshop\.shop\.SourceTextTest switch 의 default 가지마다 바로 위에 알려진 사유의 마커가 있다
+# expect: FAILED com\.projectshop\.shop\.SourceTextTest main 소스가 X- 로 시작하는 헤더 이름을 안 쓴다
+# expect: FAILED com\.projectshop\.shop\.MetricNameTest 지표 이름이 shop\.<표>\.<무엇> 이다
+# expect: FAILED com\.projectshop\.shop\.MetricNameTest 액추에이터 노출 목록이 security-baseline 「노출면」 표의 칸과 같다
+# expect: FAILED com\.projectshop\.shop\.ArchitectureTest 요청_응답_조회_결과는_record_다
+# expect: FAILED com\.projectshop\.shop\.TestConventionTest 시험_순서를_박는_것은_정리_검증_한_자리뿐이다
+diff --git a/backend/src/main/java/com/projectshop/shop/product/ProductTransitions.java b/backend/src/main/java/com/projectshop/shop/product/ProductTransitions.java
+index da7f574..43a0032 100644
+--- a/backend/src/main/java/com/projectshop/shop/product/ProductTransitions.java
++++ b/backend/src/main/java/com/projectshop/shop/product/ProductTransitions.java
+@@ -93,7 +93,6 @@ final class ProductTransitions {
+             case ON_SALE -> switch (transition.from()) {
+                 case PENDING_REVIEW -> "APPROVE";
+                 case SUSPENDED -> "RESUME";
+-                // default-ok: majority — 판매중으로 가는 줄은 검수대기·중지에서만 이름이 따로고 나머지(차단)는 다 「차단 해제」다
+                 default -> "UNBLOCK";
+             };
+             case DRAFT -> transition.from() == ProductStatus.PENDING_REVIEW ? "REJECT" : "UNBLOCK";
+diff --git a/backend/src/main/java/com/projectshop/shop/support/ProbeResponse.java b/backend/src/main/java/com/projectshop/shop/support/ProbeResponse.java
+new file mode 100644
+index 0000000..e777684
+--- /dev/null
++++ b/backend/src/main/java/com/projectshop/shop/support/ProbeResponse.java
+@@ -0,0 +1,9 @@
++package com.projectshop.shop.support;
++
++class ProbeResponse {
++    static final String HEADER = "X-Trace";
++
++    static void meter(io.micrometer.core.instrument.MeterRegistry registry) {
++        io.micrometer.core.instrument.Counter.builder("shop.foo.bar").register(registry);
++    }
++}
+diff --git a/backend/src/main/resources/application.yml b/backend/src/main/resources/application.yml
+index 117fbb8..1ccfed7 100644
+--- a/backend/src/main/resources/application.yml
++++ b/backend/src/main/resources/application.yml
+@@ -103,7 +103,7 @@ management:
+         # prometheus 는 관리자만 본다(`Q53`, 사용자 결정 2026-09-16). 지표에 업무 규모가
+         # 그대로 드러나서 — 배치 처리 건수·환급 대기 건수 — 로그인만으로 열면 손님에게 보인다.
+         # 막는 자리는 SecurityConfig 고 여기는 「무엇을 노출하나」만 정한다.
+-        include: health,prometheus
++        include: health,prometheus,env
+   prometheus:
+     metrics:
+       export:
+diff --git a/backend/src/test/java/com/projectshop/shop/SqlTextTest.java b/backend/src/test/java/com/projectshop/shop/SqlTextTest.java
+index c040b08..9746351 100644
+--- a/backend/src/test/java/com/projectshop/shop/SqlTextTest.java
++++ b/backend/src/test/java/com/projectshop/shop/SqlTextTest.java
+@@ -82,6 +82,7 @@ import org.junit.jupiter.api.Test;
+  * 위반의 첫 줄 바로 위에 있어야 한다. 텍스트 블록 안의 {@code \"""} 이스케이프는 안 센다 —
+  * 지금 {@code main} 에 없고, 생기면 그 파일을 잘못 걷어 오탐이 난다.
+  */
++@org.junit.jupiter.api.TestMethodOrder(org.junit.jupiter.api.MethodOrderer.OrderAnnotation.class)
+ class SqlTextTest {
+ 
+     private static final Path MAIN = Path.of("src", "main", "java");

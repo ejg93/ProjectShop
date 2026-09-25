@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,7 +15,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -98,7 +96,7 @@ public class ReviewController {
                 .body(new ReviewCreated(written.reviewId()));
     }
 
-    @PatchMapping("/api/reviews/{reviewId}")
+    @PatchMapping(value = "/api/reviews/{reviewId}", consumes = "application/merge-patch+json")
     ResponseEntity<Void> update(@AuthenticationPrincipal ShopUser user,
             @PathVariable long reviewId, @Valid @RequestBody EditReviewRequest request) {
         reviews.update(user.id(), reviewId, request.rating(), request.body());
@@ -214,10 +212,12 @@ public class ReviewController {
      * 상품 사진과 같이 {@code 201} 이고 본문에 번호가 간다.
      */
     @PostMapping("/api/reviews/{reviewId}/images")
-    @ResponseStatus(HttpStatus.CREATED)
-    ReviewImageService.Uploaded uploadImage(@AuthenticationPrincipal ShopUser user,
+    ResponseEntity<ReviewImageService.Uploaded> uploadImage(@AuthenticationPrincipal ShopUser user,
             @PathVariable long reviewId, @RequestPart("file") MultipartFile file) {
-        return images.upload(user.id(), reviewId, incoming(file));
+        ReviewImageService.Uploaded uploaded = images.upload(user.id(), reviewId, incoming(file));
+        // `Location` 은 그 사진을 드는 GET — 그 상품의 후기 목록이다(`Q227`, `D5` 「상태 코드」). 본문은 그대로 번호 하나다.
+        return ResponseEntity.created(URI.create("/api/products/" + query.productIdOf(reviewId) + "/reviews"))
+                .body(uploaded);
     }
 
     /** 사진 한 장을 뗀다. 경로가 사진 번호 하나다 — 어느 후기의 것인지는 행이 든다 */

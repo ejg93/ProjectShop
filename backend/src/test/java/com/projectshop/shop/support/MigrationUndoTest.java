@@ -71,25 +71,33 @@ class MigrationUndoTest {
                 .isEmpty();
     }
 
+    /**
+     * 마이그레이션 번호를 모은다. <b>0개면 실패한다</b>(`Q224`) — 경로나 이름 규칙이 바뀌어 아무것도 못 읽으면
+     * 아래 두 대조가 빈 목록끼리 견주고 초록이 된다. 정규식을 깨 보니 실제로 셋 다 초록이었다.
+     */
     private static List<Integer> versions(Path dir) throws IOException {
         try (Stream<Path> files = Files.list(dir)) {
-            return files.map(p -> p.getFileName().toString())
+            List<Integer> found = files.map(p -> p.getFileName().toString())
                     .map(VERSION::matcher)
                     .filter(Matcher::find)
                     .map(m -> Integer.parseInt(m.group(1)))
                     .sorted()
                     .toList();
+            assertThat(found).as("마이그레이션 파일을 0개 읽었다 — 경로나 이름 규칙이 바뀌었다: %s", dir).isNotEmpty();
+            return found;
         }
     }
 
     private static List<Integer> undoVersions() throws IOException {
         Pattern undo = Pattern.compile("^U(\\d+)__");
         try (Stream<Path> files = Files.list(UNDO)) {
-            return files.map(p -> p.getFileName().toString())
+            List<Integer> found = files.map(p -> p.getFileName().toString())
                     .map(undo::matcher)
                     .filter(Matcher::find)
                     .map(m -> Integer.parseInt(m.group(1)))
                     .toList();
+            assertThat(found).as("되돌리는 파일을 0개 읽었다 — 경로나 이름 규칙이 바뀌었다: %s", UNDO).isNotEmpty();
+            return found;
         }
     }
 }

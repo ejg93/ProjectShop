@@ -20,6 +20,7 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 
 **full 은 Docker 를 먼저 본다**(`2z-3`). 안 떠 있으면 한 줄로 끝낸다 — 그전에는 느린 레인이 전부 FAILED 로 뜨고
 진짜 원인은 XML 리포트를 파야 나왔다.
+**Windows 에서는 꺼져 있으면 먼저 켠다**(`Q232`, `scripts/docker-up.sh`) — `docker desktop start` 뒤 최대 3분 기다리고, 그래도 안 뜨면 그때 위처럼 선다. 손으로 켜려면 `bash scripts/docker-up.sh`.
 **빠른 도장은 새 `V*` 에서 Docker 가 없어도 안 선다**(`Q216`) — `gradlew test` 만 돌고 도장이 `fast-nodb` 다. Stop·commit hook 은 받고 push hook 은 안 받는다. 번들이 서는 값이 누수보다 커서다.
 
 **같은 지문은 두 번 안 돈다**(`Q216`). 레인의 지금 지문이 도장에 요청 단계 이상으로 있으면 「같은 지문을 <단계> 로 찍어 뒀다 → 건너뜀」이다 — `full` 도장은 빠른 요청도 덮고, `fast-nodb` 는 아무것도 안 덮는다. 문서만 고친 청크에서 frontend 레인(lint + vitest 7분)이 두 번 돌던 값이다.
@@ -51,13 +52,14 @@ JAVA_HOME="C:/Program Files/Java/jdk-25"
 | **고치는 중·청크를 닫을 때** | 청크 | `./gradlew test`(= `verify.sh`) | 실패 0. **컨테이너를 안 띄우는 레인이라 10초에 답한다**. 대신 **DB 를 타는 것은 여기서 안 돈다** — 그것은 push 앞의 `--full` 이 돈다(`2z-2`). **예외는 새 `V*`** — 아래 줄 |
 | 스키마·서비스만 볼 때 | 청크 | `./gradlew integrationTest` | 실패 0. 컨테이너를 띄우는 레인이다(**70초대**. 재사용을 켠 값이다 — `stack.md`). `HttpFlowTest` 가 관통 흐름을 진짜 HTTP 로 검증한다 |
 | **새 `V*` 를 더했으면, 청크 시점** | 청크 | `bash scripts/verify.sh`(스크립트가 스스로 `integrationTest` 를 붙인다, `Q216`) | 실패 0. 열거형·길이·이름 대조가 컨테이너 레인이라 **빠른 레인만으로는 번들 끝 `--full` 에서 처음 빨개진다**(번들 A). Docker 가 없으면 도장이 `fast-nodb` 고 그 청크의 대조는 번들 끝이 본다 |
-| **검증 도구를 고쳤으면**(`scripts/`·`.claude/settings.json`·`.claude/skills`) | 청크 | `bash scripts/verify.sh`(도구 레인, `Q216`) | 셸 문법·`settings.json` 파싱·`doc-lint` 전체가 초록. 훅이 실제로 막는지는 **stdin JSON 으로 손으로 잰다** — 그 회귀를 `Q221` 이 스크립트로 든다 |
+| **검증 도구를 고쳤으면**(`scripts/`·`.claude/settings.json`·`.claude/skills`) | 청크 | `bash scripts/verify.sh`(도구 레인, `Q216`) | 셸 문법·`settings.json` 파싱·`doc-lint` 전체·**`bash scripts/hooks-test.sh`**(훅 아홉·`doc-lint` 위반 다섯·지문, 43경우 — 임시 저장소라 실제 저장소를 안 건드린다, `Q221`)가 초록. 훅을 고쳤으면 그 경우를 이 스크립트에 더한다 |
 | **마이그레이션을 더했으면** | 번들 끝 | **빈 DB 를 만들어** `POSTGRES_DB=shop_check ./gradlew bootRun --args='--spring.profiles.active=local'` 후 `curl localhost:8080/api/health` | `applied_migrations` 가 **`db/migration` 파일 수 + `db/seed` 파일 수**. 시드가 늘어날 때마다 이 줄을 고치지 않게 세는 법으로 적는다(`Q130`). **테스트만으로는 기동 경로를 안 지난다**. 쓰던 DB 에 그냥 올리면 시드가 `V900+` 라 Flyway 가 순서를 어긴 것으로 보고 멈춘다(`stack.md`) |
 | 컨테이너 설정을 건드렸으면 | 청크 | `docker compose config --quiet` 후 `docker compose up -d` | 종료 코드 0, `shop-db`·`shop-redis` 가 `healthy` |
 | 프록시·라우팅을 건드렸으면 | 청크 | 백엔드를 띄운 뒤 `npm run dev` 하고 `curl localhost:3000/api/health` | 8080 을 직접 부른 것과 **같은 JSON**. 다르면 rewrite 가 안 걸린 것이다 |
 | 시드·데모 데이터를 건드렸으면 | 청크 | `./gradlew bootRun --args='--spring.profiles.active=local'` | `db/seed/` 가 같이 적용된다. `V900`·`V904` 가 만든 계정과 `V900` 의 셀러 둘이 들어온다. **수를 여기 안 적는다** — 시드가 늘 때마다 고치게 되고, 위 줄이 같은 이유로 세는 법으로 바뀌었다. 비밀번호는 `test@test.local` 만 `test-account-1234` 고 나머지는 `demo-password-1234` 다. `V904` 의 아홉이 로그인 화면에 공개된다(`Q130`·`Q131`). **`local` 없이 뜨면 시드가 안 들어간다** |
 | 로그·추적을 건드렸으면 | 청크 | 기동 후 `curl localhost:8080/api/health` 하고 `backend/logs/shop.log` | 요청마다 `[추적ID,스팬ID] c.p.s.o.RequestLogFilter : GET /api/health 200 5ms` 한 줄. **대괄호 값이 요청마다 달라야 한다** — 같으면 추적이 안 붙은 것이다(`D16`) |
 | **`CLAUDE.md`·`doc/reference/*` 를 고쳤으면** | 청크(편집 훅) | **안 돌려도 된다** — 편집 훅이 **그 파일 하나**를 `doc-lint.sh` 로 본다(`2j`, `Q217` 범위 모드). PLAN·PROGRESS 구조 검사와 게이트 표 대조는 그 파일을 고칠 때만 돈다. `verify.sh` 는 대조 레인이 돌 때 바뀐 문서를 범위로 한 번 더 본다. 손으로 돌리려면 `bash scripts/doc-lint.sh` | 통과하면 아무 말이 없고, 깨지면 **편집한 그 자리에서 막힌다.** 잡는 것이 여섯이다 — 제목 파편(`batch-catalog.md`·`state-machines.md`·`PLAN.md` 가 실제로 이렇게 부서졌었다), 완전 중복 문장(`frontend-rules.md` 사례), **존댓말**(`2k-1`), **기준 문서 제목의 날짜**(`2c-2`. `external-references.md` 는 날짜가 내용이라 뺀다) |
+| **게이트를 세우거나 고쳤으면** | 청크 | `bash scripts/gate-probe.sh <이름>`(`Q225`) — 트리가 깨끗해야 돈다. 새 게이트면 `scripts/probes/<이름>.patch` 를 먼저 만든다 — 머리 `# expect:` 에 부순 게이트의 실패 이름(`FAILED <FQCN> <시험 이름>` 나 `[실패] …`)을 적는다 | 「통과 — 부순 채로 빨강이었고 트리는 전과 같다」. `verify.sh` 는 안 부른다 — 탐침마다 빌드가 붙는다 |
 | **요건표(`D2`)에 R 을 더했으면** | 청크 | `bash scripts/req-coverage.sh` | **게이트다**(`Q60`) — 테스트가 언급하지 않는 R 이 기준선 0 을 넘으면 `exit 1` 이고 CI `docs` 잡도 빨갛다. 새 R 은 테스트에 그 번호를 적거나, 요건표 「강제 지점」 칸을 미착수 · 조건 · 일부러 안 다룬다 · 문서뿐 중 하나로 굵게 선언한다 |
 
 프론트 명령은 전부 `frontend/` 안에서 돌린다.

@@ -93,6 +93,7 @@ final class ProductTransitions {
             case ON_SALE -> switch (transition.from()) {
                 case PENDING_REVIEW -> "APPROVE";
                 case SUSPENDED -> "RESUME";
+                // default-ok: majority — 판매중으로 가는 줄은 검수대기·중지에서만 이름이 따로고 나머지(차단)는 다 「차단 해제」다
                 default -> "UNBLOCK";
             };
             case DRAFT -> transition.from() == ProductStatus.PENDING_REVIEW ? "REJECT" : "UNBLOCK";

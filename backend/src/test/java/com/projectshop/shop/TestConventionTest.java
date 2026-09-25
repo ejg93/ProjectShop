@@ -1,5 +1,6 @@
 package com.projectshop.shop;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
 import java.util.regex.Pattern;
@@ -15,6 +16,7 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 
 /**
@@ -65,6 +67,20 @@ class TestConventionTest {
                     .or().areAnnotatedWith(ParameterizedTest.class)
                     .should(한글_평서형_DisplayName_을_단다())
                     .because("실패 목록이 그대로 명세가 된다 (coding-rules.md 「테스트」)");
+
+    /**
+     * 「시험 순서에 기대지 않는다 — 한 자리만 예외다」(`Q226`, {@code quality-gates.md} 「규칙 원장」 ③).
+     *
+     * <p>예외는 「정리가 실제로 도나」를 재는 자리 하나다({@code coding-rules.md} — 정리 검증은 앞 시험이 남긴 상태를 봐야 한다).
+     * 그 자리가 {@code RateLimitFilterTest} 고, <b>둘째가 생기면 빨갛다</b> — 순서에 기대는 시험이 조용히 늘지 않게.
+     */
+    @ArchTest
+    static final ArchRule 시험_순서를_박는_것은_정리_검증_한_자리뿐이다 =
+            classes()
+                    .that().areAnnotatedWith(TestMethodOrder.class)
+                    .should().haveSimpleName("RateLimitFilterTest")
+                    .allowEmptyShould(true)
+                    .because("시험은 서로 독립이다 — 예외는 정리 검증 한 자리다 (coding-rules.md 「시험 순서에 기대지 않는다」)");
 
     private static ArchCondition<JavaMethod> 한글_평서형_DisplayName_을_단다() {
         return new ArchCondition<>("한글 평서형 @DisplayName 을 단다") {

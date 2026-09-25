@@ -114,6 +114,9 @@ class SellerProductImageApiTest extends HttpTestBase {
         assertThat(response.is(201))
                 .as("실제 상태 코드는 %s 였다", response.status())
                 .isTrue();
+        // 공개 상세(`/api/products/{id}`)를 가리키면 초안 상품에서 404 다 — 셀러의 사진 목록이 그 사진을 든다(`Q227`).
+        assertThat(response.headers().getLocation())
+                .hasToString("/api/seller/products/" + productId + "/images");
     }
 
     /**

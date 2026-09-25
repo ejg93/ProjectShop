@@ -1,0 +1,53 @@
+# gate: ArchitectureTest D5 계약 셋(Q227)
+# run: cd backend && ./gradlew test --tests '*ArchitectureTest' -q
+# expect: FAILED com\.projectshop\.shop\.ArchitectureTest PATCH_는_merge_patch_를_밝힌다
+# expect: FAILED com\.projectshop\.shop\.ArchitectureTest 수정_입구의_본문에_status_가_없다
+# expect: FAILED com\.projectshop\.shop\.ArchitectureTest 본문만_주는_201_은_예외_목록뿐이다
+diff --git a/backend/src/main/java/com/projectshop/shop/account/MeController.java b/backend/src/main/java/com/projectshop/shop/account/MeController.java
+index a01d80a..cf7b1f0 100644
+--- a/backend/src/main/java/com/projectshop/shop/account/MeController.java
++++ b/backend/src/main/java/com/projectshop/shop/account/MeController.java
+@@ -144,7 +144,7 @@ public class MeController {
+      * <p>{@code application/merge-patch+json}(RFC 7396)이 그 답을 정해 둔 형식이다.
+      * <b>{@code null} 은 그 필드를 지우라는 뜻</b>이고, 안 보낸 필드는 안 건드린다.
+      */
+-    @PatchMapping(consumes = "application/merge-patch+json")
++    @PatchMapping
+     public AccountService.Account update(
+             @AuthenticationPrincipal ShopUser user, @Valid @RequestBody UpdateRequest request) {
+ 
+diff --git a/backend/src/main/java/com/projectshop/shop/product/SellerProductController.java b/backend/src/main/java/com/projectshop/shop/product/SellerProductController.java
+index a29db3c..4372ea6 100644
+--- a/backend/src/main/java/com/projectshop/shop/product/SellerProductController.java
++++ b/backend/src/main/java/com/projectshop/shop/product/SellerProductController.java
+@@ -107,7 +107,7 @@ public class SellerProductController {
+      * 자기 행에 들고 있어서, 상품 번호를 또 받으면 <b>둘이 어긋난 요청</b>이 성립한다.
+      */
+     @DeleteMapping("/images/{productImageId}")
+-    @ResponseStatus(HttpStatus.NO_CONTENT)
++    @ResponseStatus(HttpStatus.CREATED)
+     public void deleteImage(
+             @AuthenticationPrincipal ShopUser user,
+             @PathVariable long productImageId) {
+diff --git a/backend/src/main/java/com/projectshop/shop/review/ReviewController.java b/backend/src/main/java/com/projectshop/shop/review/ReviewController.java
+index 20a7f1b..14c56be 100644
+--- a/backend/src/main/java/com/projectshop/shop/review/ReviewController.java
++++ b/backend/src/main/java/com/projectshop/shop/review/ReviewController.java
+@@ -66,7 +66,7 @@ public class ReviewController {
+     public record NewReviewRequest(
+             @Min(1) long orderItemId,
+             @Min(1) @Max(5) int rating,
+-            @NotBlank @Size(min = 10, max = 2000) String body) {}
++            @NotBlank @Size(min = 10, max = 2000) String body, String status) {}
+ 
+     /**
+      * 고칠 것. 별점도 같이 온다 — 글만 고치면 별과 말이 갈린다.
+@@ -77,7 +77,7 @@ public class ReviewController {
+      */
+     public record EditReviewRequest(
+             @Min(1) @Max(5) int rating,
+-            @NotBlank @Size(min = 10, max = 2000) String body) {}
++            @NotBlank @Size(min = 10, max = 2000) String body, String status) {}
+ 
+     record ReviewCreated(long reviewId) {}
+ 

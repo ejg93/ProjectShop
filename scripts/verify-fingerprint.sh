@@ -5,11 +5,43 @@
 # 그래서 빌드·테스트 결과를 바꾸는 경로만 고른다. 경로를 더할 때 여기 한 곳만 고친다.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-tree=${1:-HEAD}
+# **받은 이름을 트리 해시로 먼저 푼다**(`Q231`). Git Bash(MSYS)는 `origin/main:.claude/settings.json` 을 경로 목록으로 보고
+# 슬래시를 역슬래시로, 콜론을 세미콜론으로 바꿔 넘긴다 — `.` 으로 시작하는 경로가 방아쇠라 도구 레인만 틀렸고, 그래서 윈도에서는
+# `origin/main` 의 도구 지문이 늘 달라 도구 레인이 언제나 「바뀌었다」였다. 콜론 앞이 16진수면 안 건드린다. 리눅스 CI 는 무관하다.
+tree=$(git rev-parse -q --verify "${1:-HEAD}^{tree}") || { echo "트리를 못 풀었다: ${1:-HEAD}" >&2; exit 1; }
+# **경로마다 `git rev-parse` 를 부르지 않는다**(`Q221`). 레인 넷의 경로가 서른넷이라 윈도에서 한 번에 4.5초였고,
+# 지문을 두 번 부르는 Stop·commit·push 훅이 매번 10초를 먹었다. `git cat-file --batch-check` 한 번으로 받아 셸 안에서 고른다 —
+# 해시 입력(「경로 해시」 줄, 없으면 `-`)이 전과 글자까지 같아 찍어 둔 도장이 그대로 맞는다.
+# 아래 목록은 **빠른 길**일 뿐이다 — 레인에 경로를 더하고 여기 안 올려도 그 경로는 예전처럼 `rev-parse` 로 따로 풀려서
+# 지문이 조용히 비지 않는다(느려질 뿐이다). `lane compare …` 줄은 `BuildInputTest` 가 글자로 읽어서 레인 줄을 배열로 못 바꾼다.
+listed=(
+  backend/src backend/config backend/Dockerfile backend/build.gradle.kts backend/settings.gradle.kts backend/gradle backend/gradlew backend/gradle.properties
+  frontend/src frontend/e2e backend/src/main/resources/db/seed frontend/package.json frontend/package-lock.json frontend/tsconfig.json
+  frontend/next.config.ts frontend/eslint.config.mjs frontend/vitest.config.ts frontend/vitest.setup.ts
+  frontend/playwright.config.ts frontend/postcss.config.mjs frontend/Dockerfile frontend/scripts
+  docker-compose.yml PLAN.md PROGRESS.md doc/reference doc/erd scripts/verify-fingerprint.sh
+  scripts .claude/settings.json .claude/skills
+)
+# `git cat-file --batch-check` 는 `트리:경로` 를 표준 입력으로 줄마다 받아 한 프로세스로 푼다. `git ls-tree` 는 안 된다 —
+# `backend/src` 와 그 안의 `…/db/seed` 를 같이 주면 안으로 내려가서 바깥 줄을 안 찍는다(처음 판에서 그렇게 틀렸다).
+# 없는 경로는 `<입력> missing` 이라 `-` 로 적는다. 입력이 표준 입력이라 Git Bash 경로 변환(`Q231`)도 안 탄다.
+declare -A entry
+mapfile -t resolved < <(printf "$tree:%s\n" "${listed[@]}" | git cat-file --batch-check='%(objectname)')
+for i in "${!listed[@]}"; do
+  h=${resolved[$i]:-}
+  case "$h" in *" missing"|"") h=- ;; esac
+  entry[${listed[$i]}]=$h
+done
 lane() {
   local name=$1; shift
-  for p in "$@"; do printf '%s %s\n' "$p" "$(git rev-parse -q --verify "$tree:$p" 2>/dev/null || echo -)"; done \
-    | git hash-object --stdin | sed "s/^/$name /"
+  local p h text=
+  for p in "$@"; do
+    if [ -n "${entry[$p]+x}" ]; then h=${entry[$p]}
+    else h=$(git rev-parse -q --verify "$tree:$p" 2>/dev/null || echo -)
+    fi
+    text+="$p $h"$'\n'
+  done
+  printf '%s %s\n' "$name" "$(printf '%s' "$text" | git hash-object --stdin)"
 }
 # `backend/config` 는 SpotBugs 제외 목록이다(`점검 K`). **빌드 결과를 바꾼다** —
 # 제외를 넓히면 진짜 검출이 숨는데, 여기 없으면 도장이 안 바뀌어 Stop hook 이 안 막는다.

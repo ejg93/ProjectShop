@@ -124,7 +124,7 @@ RFC 5789 는 `PATCH` 의 본문이 「바꿀 것의 목록」이고 **그 형식
 `application/json` 으로 부분 갱신을 보내면 **`null` 이 삭제인지 무시인지**를 정할 자리가 없다.
 
 `application/merge-patch+json`(RFC 7396)을 쓴다 — **`null` 은 그 필드를 지우라는 뜻**이고,
-안 보낸 필드는 안 건드린다. `api.ts` 가 `PATCH` 에 그 타입을 자동으로 붙인다(`Q11`).
+안 보낸 필드는 안 건드린다. `api.ts` 가 `PATCH` 에 그 타입을 자동으로 붙인다(`Q11`). **`ArchitectureTest` 가 `@PatchMapping` 의 `consumes` 를 잰다**(`Q227`) — 셋 중 하나만 밝혔었다.
 
 **고칠 필드가 하나뿐일 때도 밝힌다.** 지금은 안 갈리지만 필드가 늘면 그때 갈리고,
 그때는 이미 쓰는 곳이 여럿이라 계약 변경이 된다.
@@ -166,6 +166,8 @@ RFC 5789 는 `PATCH` 의 본문이 「바꿀 것의 목록」이고 **그 형식
 **`Location` 이 만들어진 자원을 못 가리킬 때가 있다.** 결제(`POST /api/payments`)가 그 자리다 —
 결제 결과를 다시 보는 경로가 주문 상세뿐이라 거기를 가리킨다. 결제만 여는 경로를 따로 내면
 그 응답이 주문 상세의 `payment` 필드 그룹과 같은 것을 그리게 된다(청크 12-2).
+
+**저작권 신고 둘은 `Location` 없이 201 이다**(`Q227`) — `POST /api/copyright-reports/images/{id}`·`…/review-images/{id}`. 신고자가 그 신고를 다시 보는 경로가 없어(관리자 대기열뿐) 가리킬 GET 이 없다. 본문의 번호만 준다. **사진 올리기 둘은 그 사진을 드는 GET 을 가리킨다** — 상품 사진은 셀러의 사진 목록(`GET /api/seller/products/{id}/images` — 공개 상세는 파는 중인 것만 열어 초안이면 404 다), 후기 사진은 그 상품의 후기 목록. `ArchitectureTest` 가 이 둘 밖의 `@ResponseStatus(CREATED)` 를 막는다 — 그 꼴은 헤더를 못 싣는다.
 
 **바깥이 거절한 것은 4xx 가 아니다.** 카드 거절은 요청 처리가 성공한 결과라 201 로 내려가고
 본문의 `status` 가 그것을 말한다. 4xx 로 던지면 그 결과를 적은 기록이 같이 롤백된다(`D11`).
@@ -309,6 +311,7 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 }
 ```
 
+**`OpenApiSpecTest` 가 잰다**(`Q227`) — `page` 가 `items` 나 `total` 과 같이 있는 스키마는 넷을 다 싣는다(`total` 은 금액으로도 쓰여서 `page` 로 껍데기를 알아본다).
 껍데기 이름을 하나로 고정한다. `data`·`list`·`content` 를 섞어 쓰면 프론트가 엔드포인트마다 다른 코드를 쓴다.
 
 **빈 목록은 `[]` 다.** `null` 을 주지 않는다.
@@ -468,7 +471,7 @@ POST /api/orders/{id}/ship
 POST /api/settlements/{id}/confirm
 ```
 
-`PATCH /api/orders/{id}` 로 `status` 를 바꾸는 방식은 쓰지 않는다.
+`PATCH /api/orders/{id}` 로 `status` 를 바꾸는 방식은 쓰지 않는다. **`ArchitectureTest` 가 `PATCH`·`PUT` 본문 record 에 `status` 성분이 없는지 잰다**(`Q227`).
 전이표를 거치지 않는 상태 변경 경로가 생기기 때문이다(ADR 0009).
 상태는 **동작의 결과**지 클라이언트가 정하는 값이 아니다.
 
@@ -558,7 +561,7 @@ POST /api/settlements/{id}/confirm
 | `Idempotency-Key` | 멱등 요청. `POST /api/orders`·`POST /api/payments` 에 필수다 (D11) |
 | `Location` | 201 응답에서 새 자원 경로 |
 
-자체 헤더를 만들 때는 `X-` 를 붙이지 않는다. RFC 6648 이 그 관행을 폐기했다.
+자체 헤더를 만들 때는 `X-` 를 붙이지 않는다. RFC 6648 이 그 관행을 폐기했다. `SourceTextTest` 가 main 의 `"X-` 글자를 막는다(`Q226`).
 
 ## 인증
 

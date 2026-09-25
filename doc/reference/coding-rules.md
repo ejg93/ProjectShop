@@ -50,7 +50,7 @@ throw new RequiredConsentException(itemCode);
 
 ## 값
 
-**DTO·요청·응답·조회 결과는 `record`.** 상태를 들고 도는 것만 `class`.
+**DTO·요청·응답·조회 결과는 `record`.** 상태를 들고 도는 것만 `class`. **`ArchitectureTest` 가 이름 접미사로 잰다**(`Q226`).
 
 record 가 불변이라 만든 뒤에 바뀌지 않고, `equals`·`toString` 이 공짜다.
 DB 에서 읽은 행을 `Map<String, Object>` 로 들고 다니지 않는다 — 키 오타가 실행할 때만 드러난다.
@@ -155,7 +155,7 @@ assertThat(stillGranted)
 
 ### 시험 순서에 기대지 않는다 — 한 자리만 예외다
 
-**시험은 서로 독립이다.** 앞 시험이 남긴 것을 뒤가 읽으면 단독 실행이 안 되고,
+**시험은 서로 독립이다.** **`TestConventionTest` 가 허용 목록으로 잰다**(`Q226`) — `@TestMethodOrder` 는 `RateLimitFilterTest` 한 자리다. 앞 시험이 남긴 것을 뒤가 읽으면 단독 실행이 안 되고,
 빨간 시험 하나가 뒤의 것을 줄줄이 빨갛게 만들어 **원인이 안 읽힌다.**
 
 **예외는 「정리가 실제로 도나」를 재는 자리뿐이다**(`Q104`). 그것은 정의상
@@ -343,6 +343,8 @@ case SELLER -> ...;
 
 **`default` 가 진짜 필요한 자리**는 값마다가 아니라 **몇몇만 특별한** 경우다. 그때는
 `default` 가 오답이 아니라 다수의 정답이라, 값이 늘어도 그 답이 맞다.
+
+**`SourceTextTest` 가 막는다**(`Q226`). `default` 가지마다 바로 위 줄에 `// default-ok: <사유>` 를 단다 — 사유는 `majority`(위 경우)와 `string-switch`(열거형이 아니라 문자열을 가른다) 둘뿐이다. 마커 없는 `default`, 아래가 `default` 가 아닌 마커가 빨갛다.
 
 ### 표로 옮기고 싶어질 때
 

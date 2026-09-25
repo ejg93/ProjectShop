@@ -5,6 +5,8 @@
 # **PreToolUse 라 명령이 돌기 전에 잰다** — `verify.sh && git commit` 을 한 체인으로 내면 막힌다. 따로 낸다.
 # **작업 트리로 재는 틈**: 경로를 골라 일부만 커밋하면 검증 안 된 트리가 오른다. 인덱스로 재면 `git add … && git commit`
 # 한 줄이 늘 막혀서(add 가 돌기 전에 잰다) 작업 트리를 고른 것이고, 그 틈은 HEAD 를 보는 Stop·push hook 이 잡는다.
+# **명령 글자만 본다** — 임시 저장소를 만들며 `git commit` 을 하는 한 줄도 막힌다(2026-09-26 `Q221` 측정 중 실측).
+# 그런 일은 스크립트 파일로 돌린다. 파일 안의 `git commit` 은 이 훅이 안 본다.
 . "$(dirname "$0")/_tool-input.sh"
 c=$(tool_field command)
 

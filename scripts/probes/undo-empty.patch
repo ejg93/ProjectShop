@@ -1,0 +1,25 @@
+# gate: MigrationUndoTest
+# run: cd backend && ./gradlew test --tests '*MigrationUndoTest' -q
+# expect: FAILED com\.projectshop\.shop\.support\.MigrationUndoTest 
+diff --git a/backend/src/test/java/com/projectshop/shop/support/MigrationUndoTest.java b/backend/src/test/java/com/projectshop/shop/support/MigrationUndoTest.java
+index cbc7079..17ac383 100644
+--- a/backend/src/test/java/com/projectshop/shop/support/MigrationUndoTest.java
++++ b/backend/src/test/java/com/projectshop/shop/support/MigrationUndoTest.java
+@@ -39,7 +39,7 @@ class MigrationUndoTest {
+     /** 시드는 뺀다. {@code V900+} 는 데모 데이터라 되돌릴 스키마가 없다 */
+     private static final int SEED_FROM = 900;
+ 
+-    private static final Pattern VERSION = Pattern.compile("^V(\\d+)__");
++    private static final Pattern VERSION = Pattern.compile("^NOPE(\\d+)__");
+ 
+     @Test
+     @DisplayName("V78 부터는 되돌리는 파일이 짝으로 있다")
+@@ -89,7 +89,7 @@ class MigrationUndoTest {
+     }
+ 
+     private static List<Integer> undoVersions() throws IOException {
+-        Pattern undo = Pattern.compile("^U(\\d+)__");
++        Pattern undo = Pattern.compile("^NOPE(\\d+)__");
+         try (Stream<Path> files = Files.list(UNDO)) {
+             List<Integer> found = files.map(p -> p.getFileName().toString())
+                     .map(undo::matcher)

@@ -56,6 +56,7 @@ public class CopyrightReportController {
         boolean pending = switch (status) {
             case "PENDING" -> true;
             case "DECIDED" -> false;
+            // default-ok: string-switch — 요청 문자열을 가른다. 열거형이 아니라 값이 늘 때 컴파일이 알려 줄 것이 없다
             default -> throw new ShopException(ErrorCode.VALIDATION_FAILED, "모르는 상태다: " + status);
         };
         return query.find(user.id(), pending, paging);
