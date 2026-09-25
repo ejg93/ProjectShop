@@ -98,6 +98,11 @@ const eslintConfig = defineConfig([
               name: "next/headers",
               message: "세션 운반은 src/lib/api-session.ts 한 곳이다(frontend-rules.md 「그래서 운반을 한 군데에 가둔다」)",
             },
+            {
+              // 빌드가 구글을 부른다 — 못 받으면 빌드 전체가 죽었다(PR #77·#79). 오프라인 빌드(`docker.yml`)보다 싼 층에서 먼저 막는다(`Q214`, 마무리 52차 리뷰 봇)
+              name: "next/font/google",
+              message: "글꼴은 npm 패키지 안의 파일을 쓴다(geist/font/*) — next/font/google 은 빌드 때 구글을 부른다(stack.md 「글꼴은 npm 안에 있다」)",
+            },
           ],
         },
       ],

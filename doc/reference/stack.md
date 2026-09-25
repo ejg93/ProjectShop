@@ -1625,8 +1625,8 @@ PR #77 첫 판·#79 두 번, 같은 커밋의 다른 실행은 초록이었다. 
 
 **`geist` 패키지가 `next/font/local` 로 자기 `.woff2` 를 가리킨다**(`Q214`) — 파일이 `node_modules` 에 들어서
 빌드가 네트워크를 안 탄다. 한글은 받지 않고 시스템 글꼴 스택에 맡긴다(`globals.css` 「`--font-sans`」).
-**`docker.yml` 이 `--network none` 컨테이너에서 `next build` 를 한 번 더 돌린다**(`scripts/offline-build.sh`, 손으로도 같은 명령) — 누가 `next/font/google` 을
-다시 들이면 거기서 빨갛다.
+**`docker.yml` 이 `--network none` 컨테이너에서 `next build` 를 한 번 더 돌린다**(`scripts/offline-build.sh`, 손으로도 같은 명령) — 빌드 때 바깥을 부르는 것이
+다시 들어오면 거기서 빨갛다. `next/font/google` 은 그 전에 `npm run lint`(`no-restricted-imports`)가 막는다.
 
 ### 로컬 npm 10 은 lockfile 의 `libc` 칸을 지운다
 

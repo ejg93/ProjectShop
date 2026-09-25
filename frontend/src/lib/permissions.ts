@@ -12,10 +12,13 @@
 /**
  * <p>{@code scopes} 는 <b>대문자 스네이크다</b>(`D5` 「값의 형식」, `43a-20`) — `OWN`·`SELLER`·`ALL`.
  *
- * <p><b>합집합 타입으로 안 적는다.</b> 지금 범위 값을 비교하는 자리가 없어서, 여기 목록을
- * 적으면 <b>서버와 안 맞춰지는 사본</b>만 는다. 비교하는 자리가 생기면 그때 판다.
+ * <p><b>합집합 타입으로 적는다</b>(마무리 52차 리뷰 봇). 전에는 비교하는 자리가 없어 안 적었는데 머리가 셋을 비교한다 —
+ * 멤버(`Q208`)·주문 전체(`Q176`)·웹훅(`Q175`). 문자열이면 `"seller"` 오타를 시험만 잡고 타입은 못 잡는다.
+ * 원본은 백엔드 `auth/Scope.java` 다 — 값이 늘면 여기도 는다.
  */
-export type Permission = { resource: string; action: string; scopes: string[] };
+export type Scope = "OWN" | "SELLER" | "ALL";
+
+export type Permission = { resource: string; action: string; scopes: Scope[] };
 
 /**
  * {@code /api/me/permissions} 가 주는 것. 로그인 여부와 권한이 한 번에 온다.
