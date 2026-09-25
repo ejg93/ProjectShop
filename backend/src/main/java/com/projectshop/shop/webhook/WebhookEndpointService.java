@@ -31,11 +31,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
  *
  * <p><b>셀러당 {@value #MAX_ENDPOINTS_PER_SELLER} 개</b>다. 한 사건이 엔드포인트 수만큼 나가서, 상한이 없으면 한 셀러가
  * 발송 표와 바깥 요청을 무한히 늘린다. 세는 동안 그 셀러 행을 잠근다 — 동시에 두 번 걸어 여섯이 되는 틈을 막는다.
+ *
+ * <p><b>입구마다 권한 하나를 본다</b>(`Q211`, `V114`). 등록·재발송은 {@code webhook:manage}(시크릿을 만드는 자리 — 대표만),
+ * 조회는 {@code webhook:read}, 삭제는 {@code webhook:delete}. 관리자는 보고 내릴 수 있지만 남의 셀러에 주소를 걸지 못한다.
  */
 @Service
 public class WebhookEndpointService {
 
     static final int MAX_ENDPOINTS_PER_SELLER = 5;
+
+    private static final String MANAGE = "manage";
+    private static final String READ = "read";
+    private static final String DELETE = "delete";
 
     private static final String SECRET_PREFIX = "whsec_";
     private static final int SECRET_BYTES = 32;
@@ -78,7 +85,7 @@ public class WebhookEndpointService {
      * (`Q32` 「트랜잭션 안에서 바깥을 안 부른다」, 마무리 47차 독립 리뷰). 그 뒤의 세기·넣기만 트랜잭션이다.
      */
     public Created register(long userId, long sellerId, String url, Set<WebhookEventType> eventTypes) {
-        requireManage(userId, sellerId);
+        require(userId, sellerId, MANAGE);
         if (!cipher.available()) {
             throw new ShopException(ErrorCode.WEBHOOK_KEY_MISSING);
         }
@@ -129,7 +136,7 @@ public class WebhookEndpointService {
 
     /** 그 셀러의 엔드포인트. 권한이 없으면 403 이다 — 셀러는 공개된 자원이라 존재를 숨길 것이 없다(`D5`) */
     public Endpoints list(long userId, long sellerId) {
-        requireManage(userId, sellerId);
+        require(userId, sellerId, READ);
         return new Endpoints(jdbc.sql(SELECT + " where seller_id = :sellerId order by webhook_endpoint_id")
                 .param("sellerId", sellerId)
                 .query((rs, rowNum) -> endpointOf(rs))
@@ -138,12 +145,17 @@ public class WebhookEndpointService {
 
     /** 엔드포인트 하나. 못 보는 것은 없는 것과 같은 404 다 */
     public Endpoint find(long userId, long endpointId) {
+        return findFor(userId, endpointId, READ);
+    }
+
+    /** 그 권한으로 엔드포인트 하나를 집는다. 권한이 없으면 없는 것과 같은 404 다 */
+    private Endpoint findFor(long userId, long endpointId, String action) {
         Endpoint endpoint = jdbc.sql(SELECT + " where webhook_endpoint_id = :id")
                 .param("id", endpointId)
                 .query((rs, rowNum) -> endpointOf(rs))
                 .optional()
                 .orElseThrow(() -> notFound(endpointId));
-        if (!allowed(userId, endpoint.sellerId())) {
+        if (!allowed(userId, endpoint.sellerId(), action)) {
             throw notFound(endpointId);
         }
         return endpoint;
@@ -151,7 +163,7 @@ public class WebhookEndpointService {
 
     @Transactional
     public void delete(long userId, long endpointId) {
-        Endpoint endpoint = find(userId, endpointId);
+        Endpoint endpoint = findFor(userId, endpointId, DELETE);
         jdbc.sql("delete from webhook_endpoint where webhook_endpoint_id = :id")
                 .param("id", endpointId)
                 .update();
@@ -176,11 +188,15 @@ public class WebhookEndpointService {
                 .orElseThrow(() -> new ShopException(ErrorCode.WEBHOOK_DELIVERY_NOT_FOUND,
                         "그런 웹훅 발송이 없다: " + deliveryId));
         long endpointId = row.endpointId();
+        Endpoint endpoint;
         try {
-            find(userId, endpointId);
+            endpoint = find(userId, endpointId);
         } catch (ShopException e) {
             throw new ShopException(ErrorCode.WEBHOOK_DELIVERY_NOT_FOUND, "그런 웹훅 발송이 없다: " + deliveryId);
         }
+        // 볼 수 있는 사람(관리자·감사자)이 다시 보내지는 못한다 — 보는 것은 `read`, 보내는 것은 `manage` 다(`Q211`).
+        // 볼 수 있으니 존재를 숨길 이유가 없어 404 가 아니라 403 이다.
+        require(userId, endpoint.sellerId(), MANAGE);
         if (!row.status().resendable()) {
             throw new ShopException(ErrorCode.WEBHOOK_DELIVERY_NOT_RESENDABLE,
                     "실패로 닫힌 발송만 다시 보낸다: " + deliveryId);
@@ -214,14 +230,14 @@ public class WebhookEndpointService {
                 rs.getObject("created_at", OffsetDateTime.class));
     }
 
-    private void requireManage(long userId, long sellerId) {
-        if (!allowed(userId, sellerId)) {
+    private void require(long userId, long sellerId, String action) {
+        if (!allowed(userId, sellerId, action)) {
             throw new ShopException(ErrorCode.WEBHOOK_FORBIDDEN);
         }
     }
 
-    private boolean allowed(long userId, long sellerId) {
-        return evaluator.decide(userId, "webhook", "manage", Target.ofSeller(sellerId)).allowed();
+    private boolean allowed(long userId, long sellerId, String action) {
+        return evaluator.decide(userId, "webhook", action, Target.ofSeller(sellerId)).allowed();
     }
 
     private static ShopException notFound(long endpointId) {

@@ -1,0 +1,16 @@
+# gate: WebhookEndpointServiceTest 재발송 권한(Q211)
+# run: cd backend && ./gradlew integrationTest --tests '*WebhookEndpointServiceTest' -q
+# expect: FAILED com\.projectshop\.shop\.webhook\.WebhookEndpointServiceTest 관리자는 남의 셀러 발송을 다시 못 보낸다
+diff --git a/backend/src/main/java/com/projectshop/shop/webhook/WebhookEndpointService.java b/backend/src/main/java/com/projectshop/shop/webhook/WebhookEndpointService.java
+index aa68da8..8cb2e76 100644
+--- a/backend/src/main/java/com/projectshop/shop/webhook/WebhookEndpointService.java
++++ b/backend/src/main/java/com/projectshop/shop/webhook/WebhookEndpointService.java
+@@ -196,7 +196,7 @@ public class WebhookEndpointService {
+         }
+         // 볼 수 있는 사람(관리자·감사자)이 다시 보내지는 못한다 — 보는 것은 `read`, 보내는 것은 `manage` 다(`Q211`).
+         // 볼 수 있으니 존재를 숨길 이유가 없어 404 가 아니라 403 이다.
+-        require(userId, endpoint.sellerId(), MANAGE);
++        require(userId, endpoint.sellerId(), READ);
+         if (!row.status().resendable()) {
+             throw new ShopException(ErrorCode.WEBHOOK_DELIVERY_NOT_RESENDABLE,
+                     "실패로 닫힌 발송만 다시 보낸다: " + deliveryId);
