@@ -1,35 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Noto_Sans_KR } from "next/font/google";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-/**
- * 한글을 받는 글꼴. Geist 에는 한글 글리프가 없어서 이것이 없으면 시스템 기본으로 떨어진다.
+/*
+ * **글꼴 파일은 npm 패키지 안에 있다**(`Q214`). `next/font/google` 은 빌드 때 구글에서 받아서, 못 받으면
+ * 빌드 전체가 죽었다(PR #77·#79 — 같은 커밋의 다른 실행은 초록). 배포도 같은 빌드라 그날은 배포가 선다.
+ * `geist` 패키지는 `next/font/local` 로 자기 `.woff2` 를 가리켜 빌드가 바깥을 안 부른다.
  *
- * <p>굵기를 둘만 받는다. 화면이 쓰는 것이 본문과 제목뿐이라, 더 받으면 첫 화면이
- * 안 쓰는 글꼴 파일을 같이 내려받는다.
- *
- * <p>`subsets` 에 한국어가 없다. 한글 글리프가 너무 많아 구글이 부분집합을 안 내주기 때문이고,
- * 대신 브라우저가 쓰는 글자만 골라 받는다.
+ * **한글 글꼴은 안 받는다** — Geist 에 한글 글리프가 없어 `globals.css` 의 `--font-sans` 가 시스템 글꼴
+ * (`Apple SD Gothic Neo`·`Malgun Gothic`·`Noto Sans CJK KR`)로 넘긴다. 전에는 Noto Sans KR 을 구글에서 받았다.
  */
-const notoSansKr = Noto_Sans_KR({
-  variable: "--font-noto-kr",
-  weight: ["400", "600"],
-  subsets: [],
-});
 
 export const metadata: Metadata = {
   title: "ProjectShop",
@@ -42,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     // en 인 채로 두면 한글을 영어 엔진이 읽으려다 뭉갠다.
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} ${notoSansKr.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/*

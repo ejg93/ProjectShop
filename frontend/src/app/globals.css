@@ -55,9 +55,9 @@
   /* 모서리는 한 값이다. 버튼만 둥글고 입력칸은 각지면 깨진 디자인이다(디자인 스킬 4.4) */
   --radius-ui: 0.5rem;
 
-  /* 라틴은 Geist, 한글은 Noto Sans KR 이 받는다. Geist 에 한글 글리프가 없어서
-     한 벌로는 안 되고, 순서가 뒤집히면 영문까지 Noto 로 그려진다. */
-  --font-sans: var(--font-geist-sans), var(--font-noto-kr), sans-serif;
+  /* 라틴은 Geist, 한글은 시스템 글꼴이 받는다(`Q214` — 빌드가 구글을 안 부른다). Geist 에 한글 글리프가 없어서
+     한 벌로는 안 되고, 순서가 뒤집히면 영문까지 시스템 글꼴로 그려진다. 맥·윈도·리눅스 순이다. */
+  --font-sans: var(--font-geist-sans), "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", sans-serif;
   --font-mono: var(--font-geist-mono), monospace;
 }
 

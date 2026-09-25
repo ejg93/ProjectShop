@@ -46,3 +46,8 @@ jobs:
       # `verify-proxy-target.mjs` 가 루프백도 거부하므로 배포와 같은 모양의 사설 주소를 준다 —
       # 여기서 부를 백엔드는 없고, 재는 것은 **산출물에 굳은 목적지**라 호출이 필요 없다.
       - run: docker build --build-arg BACKEND_ORIGIN=http://backend.ci.internal:8080 -t projectshop-frontend:ci frontend
+
+      # **빌드가 네트워크를 안 탄다**(`Q214`, `D25`). 글꼴을 `next/font/google` 로 받던 때는 구글을 못 부르면
+      # 빌드 전체가 죽었다(PR #77·#79). 절차는 스크립트 한 곳이다 — 로컬 탐침(`gate-probe.sh offline-build`)이 같은 것을 부른다.
+      - name: next build 가 네트워크 없이 된다
+        run: bash scripts/offline-build.sh

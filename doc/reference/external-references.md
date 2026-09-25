@@ -440,6 +440,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | Testcontainers | MIT |
 | Next.js · React · Tailwind CSS | MIT |
 | react-markdown · remark-gfm (unified 계열) | MIT (2026-08-17 확인) |
+| geist (Vercel) — Geist·Geist Mono 글꼴 파일 | **SIL OFL 1.1** (2026-09-26 확인, 패키지의 `LICENSE.txt`) |
 
 `react-markdown` 은 **정책 문서를 그리려고 넣었다**(`13a-2`). 본문이 DB 에 마크다운으로 들어가서
 문법을 우리가 통제하지 않고, 처리방침이 목록과 표를 쓴다 — 표는 CommonMark 가 아니라 GFM 이라
@@ -447,6 +448,10 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 
 **판단한 적 없는 것과 판단해서 괜찮은 것은 다르다**(`D23`). 위 표가 그 판단을 기록한 것이다.
 새 의존성을 넣으면 이 표에 줄을 더한다.
+
+`geist` 는 **글꼴 파일을 빌드에 싣으려고 넣었다**(`Q214`) — `next/font/google` 이 빌드 때 구글을 불러 못 받으면 빌드가 죽었다.
+OFL 은 글꼴을 소프트웨어에 끼워 배포하는 것을 허락하고 글꼴만 따로 파는 것과 이름을 바꾼 파생본의 원래 이름 사용을 막는다 —
+우리는 패키지 그대로 번들에 실을 뿐이라 둘 다 해당이 없다. 고지는 패키지의 `LICENSE.txt` 가 든다.
 
 ## 이 문서를 고칠 때
 

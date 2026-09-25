@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { firstBadField, placeErrors } from "@/lib/field-errors";
 
 /**
@@ -78,7 +78,9 @@ export function ProductForm({ sellerId }: { sellerId: number }) {
       const placed = placeErrors(e, FORM_FIELDS);
       setFieldErrors(placed.byField);
       setUnplaced(placed.rest);
-      setFailure(e instanceof Error ? e.message : "등록하지 못했습니다.");
+      // `Error.message` 를 안 그린다(`Q228`) — 네트워크가 끊기면 `TypeError: Failed to fetch` 가 영어 그대로 화면에 섰다.
+      // 서버 `detail` 을 그대로 쓰는 것은 다른 화면 열하나와 같은 꼴이고 `Q233` 이 한 번에 가른다.
+      setFailure(e instanceof ApiError && e.detail ? e.detail : "등록하지 못했습니다.");
 
       // 첫 칸으로 보낸다. 안 보내면 어디가 빨간지 찾아 내려가야 한다(WCAG 3.3.1).
       const first = firstBadField(placed, FORM_FIELDS);

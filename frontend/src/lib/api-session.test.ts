@@ -83,6 +83,14 @@ describe("apiSession", () => {
     expect(forbidden).not.toHaveBeenCalled();
   });
 
+  it("세션 쿠키가 있는데 401 이면 만료로 보낸다", async () => {
+    // 쿠키가 있으면 로그인했던 사람이다 — 「로그인이 필요합니다」가 아니라 「세션이 끝났습니다」를 봐야 한다(`D24`·`D20`, `Q228`).
+    cookieJar.set("SHOPSESSION", "stale");
+    answer(401);
+
+    await expect(apiSession("/api/me")).rejects.toThrow("REDIRECT:/login?reason=session-expired");
+  });
+
   it("404 는 부르는 화면이 잡게 던진다", async () => {
     // 「없다」와 「내 것이 아니다」를 가르는 규칙이 화면마다 달라서 입구가 안 정한다.
     answer(404, { type: `${ERROR_TYPE}order-not-found`, detail: "없다" });

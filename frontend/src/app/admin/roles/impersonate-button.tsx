@@ -22,6 +22,8 @@ export function ImpersonateButton({ userId }: { userId: number }) {
     startTransition(async () => {
       try {
         await api("/api/admin/impersonation", { method: "POST", body: { userId } });
+        // 전체 새로고침이 의도다 — 세션 주체가 바뀌어 라우터 캐시에 남은 관리자의 화면 조각을 다 버린다(`Q228`).
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.assign("/");
       } catch (error) {
         setFailure(messageOf(error));
