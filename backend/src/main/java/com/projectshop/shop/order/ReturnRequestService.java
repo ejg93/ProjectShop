@@ -50,10 +50,43 @@ public class ReturnRequestService {
         /**
          * 인정하지 않는다. 물건이 소비자에게 돌아간다.
          *
-         * @param reason 거절 사유. <b>없으면 커밋에서 거부된다</b> —
+         * @param code   왜 인정하지 않았나 — 닫힌 목록(`Q212`). {@code DAMAGED} 는 검수 소견이 있어야 고른다
+         * @param reason 거절 사유 글. <b>없으면 커밋에서 거부된다</b> —
          *               `V63` 의 {@code return_requires_rejection_reason} 이 지연으로 본다
          */
-        record Reject(String reason) implements Decision {
+        record Reject(RejectionReason code, String reason) implements Decision {
+        }
+    }
+
+    /**
+     * 거절 사유(`Q212`, `V115`). <b>닫힌 목록이다</b> — 법이 거절을 인정하는 자리가 정해져 있고(`D23` 「법이 인정한 목록은 닫는다」),
+     * 자유 글이면 시스템이 훼손 때문인지 모른다. 저장값은 소문자다(`D5`).
+     */
+    public enum RejectionReason {
+
+        /**
+         * 소비자 책임으로 물건이 훼손됐다(전자상거래법 제17조제2항제1호). <b>검수 소견이 있어야 고른다</b> —
+         * 훼손 책임의 입증은 통신판매업자가 한다(제17조제5항, `D2` R37). {@code return_request_damaged_inspected_check} 가 막는다
+         */
+        DAMAGED("damaged"),
+
+        /** 청약철회 기간이 지났다(제17조제1항·제3항). 물건을 받기 전에도 정당하다 */
+        PERIOD_EXPIRED("period_expired"),
+
+        /** 훼손 밖의 청약철회 제한 사유(제17조제2항 각 호). 물건을 받기 전에도 정당하다 */
+        RESTRICTED("restricted"),
+
+        /** 그 밖. 사유 글이 무엇인지 말한다 */
+        OTHER("other");
+
+        private final String code;
+
+        RejectionReason(String code) {
+            this.code = code;
+        }
+
+        public String code() {
+            return code;
         }
     }
 
@@ -187,14 +220,17 @@ public class ReturnRequestService {
         String reasonCode = reasonCodeOf(returnRequestId);
 
         if (decision instanceof Decision.Reject reject) {
+            if (reject.code() == RejectionReason.DAMAGED) {
+                requireInspected(returnRequestId);
+            }
             writeDecisionReason(returnRequestId, reject.reason());
-            close(returnRequestId, actor, ReturnStatus.REJECTED, reasonCode, null);
+            close(returnRequestId, actor, ReturnStatus.REJECTED, reasonCode, null, reject.code());
             return false;
         }
 
         Decision.Approve approve = (Decision.Approve) decision;
         requireReceived(returnRequestId);
-        close(returnRequestId, actor, ReturnStatus.APPROVED, reasonCode, approve.restock());
+        close(returnRequestId, actor, ReturnStatus.APPROVED, reasonCode, approve.restock(), null);
         return approve.restock();
     }
 
@@ -202,9 +238,12 @@ public class ReturnRequestService {
      * 판정을 적는다. <b>부담 주체를 인자로 안 받는다</b>(`43a-18`) —
      * {@link ReturnShippingFeeBearer#of} 가 판정과 사유에서 내므로 <b>고를 자리가 없다.</b>
      * 법이 정하는 값이라 부르는 쪽이 넘기게 두면 그 자리가 선택지가 된다(`D2` R36).
+     *
+     * <p><b>거절 사유 코드를 상태와 한 문장에 쓴다</b> — `V115` 의 {@code return_request_rejection_code_presence_check} 가
+     * 「거절이면 코드가 있고 아니면 없다」를 즉시 본다. 나눠 쓰면 첫 문장에서 걸린다.
      */
     private void close(long returnRequestId, Actor actor, ReturnStatus status, String reasonCode,
-            Boolean restock) {
+            Boolean restock, RejectionReason rejection) {
 
         ReturnShippingFeeBearer bearer =
                 ReturnShippingFeeBearer.of(status, OrderStatusService.ReturnReason.of(reasonCode));
@@ -215,13 +254,15 @@ public class ReturnRequestService {
                                decided_at                 = now(),
                                decided_by_user_id         = :userId,
                                return_shipping_fee_bearer = :bearer,
-                               restock                    = :restock
+                               restock                    = :restock,
+                               rejection_reason_code      = :rejection
                          where return_request_id = :id
                         """)
                 .param("status", status.code())
                 .param("userId", actor.userId())
                 .param("bearer", bearer.code())
                 .param("restock", restock)
+                .param("rejection", rejection == null ? null : rejection.code())
                 .param("id", returnRequestId)
                 .update();
     }
@@ -244,6 +285,25 @@ public class ReturnRequestService {
                 .param("id", returnRequestId)
                 .param("reason", reason)
                 .update();
+    }
+
+    /**
+     * 훼손 거절은 검수를 거쳐야 한다(`Q212`). <b>막는 것은 `V115` 의 제약이다</b> — 이것은 말을 붙이는 자리다.
+     * 422 인 이유: 소견 없이 입고된 반품은 뒤에 검수할 길이 없어(입고는 {@code requested}·{@code picked_up} 에서만)
+     * 기다려도 풀리지 않는 조합이다. {@code RETURN_NOT_RECEIVED}(409)는 입고되면 풀리는 충돌이라 다르다.
+     */
+    private void requireInspected(long returnRequestId) {
+        boolean inspected = jdbc.sql("""
+                        select inspected_at is not null from return_request
+                         where return_request_id = :id
+                        """)
+                .param("id", returnRequestId)
+                .query(Boolean.class)
+                .single();
+
+        if (!inspected) {
+            throw new ShopException(ErrorCode.RETURN_DAMAGED_NEEDS_INSPECTION);
+        }
     }
 
     private void requireReceived(long returnRequestId) {

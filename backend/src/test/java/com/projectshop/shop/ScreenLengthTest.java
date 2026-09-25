@@ -244,6 +244,8 @@ class ScreenLengthTest {
 
             // 아래 넷은 글자를 받는 칸이 아니다. maxLength 속성 자체가 안 걸린다.
             Map.entry("app/me/inquiries/inquiry-form.tsx  kind", "select 다. 고를 수 있는 값이 목록으로 닫혀 있다"),
+            Map.entry("app/admin/orders/[orderNumber]/return-decision.tsx  reasonCode",
+                    "select 다. 네 사유뿐이고 서버 열거형과 return_request_rejection_reason_code_check 가 든다(`Q212`)"),
             Map.entry("app/products/[productId]/ask-form.tsx  isPublic", "checkbox 다. 값이 둘뿐이다"),
             Map.entry("app/seller/products/new/product-form.tsx  priceInclVat",
                     "type=number 다. maxLength 가 안 걸리고 범위는 min/max 가 든다"),

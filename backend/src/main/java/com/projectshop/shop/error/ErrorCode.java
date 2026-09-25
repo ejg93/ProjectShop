@@ -331,6 +331,13 @@ public enum ErrorCode {
     RETURN_DECISION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT,
             "return-decision-reason-required", "반품 거절에는 사유가 필요하다"),
 
+    // 훼손을 이유로 거절하려면 검수 소견이 먼저 있어야 한다(`Q212`, 전자상거래법 제17조제5항 — 입증책임이 우리에게 있다).
+    //
+    // 422 다. 소견 없이 입고된 반품은 뒤에 검수할 길이 없어 기다려도 같은 답이다 — 입고 전이면 입고 때 소견을 쓰면 된다.
+    // **막는 것은 `V115` 의 `return_request_damaged_inspected_check` 다.** 이 코드는 말을 붙이는 자리다.
+    RETURN_DAMAGED_NEEDS_INSPECTION(HttpStatus.UNPROCESSABLE_CONTENT,
+            "return-damaged-needs-inspection", "훼손 거절에는 검수 소견이 필요하다"),
+
     // 관리자가 옮길 때는 사유가 남아야 한다(`D7`). 정상 경로가 아니라서 왜 그랬는지가 없으면
     // 나중에 데이터가 왜 이 모양인지 아무도 모른다.
     TRANSITION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "transition-reason-required",
