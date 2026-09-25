@@ -28,7 +28,7 @@ import com.projectshop.shop.support.ListQuery.Paging;
  * <b>우리 몫</b> — 내려주는 주소마다 서명과 만료가 붙어 있고, 붙이면 열린다. <b>서명을 뗀 주소를 저장소가
  * 거절하나는 저장소 몫</b>이라 여기서 못 잰다({@code Q229}): S3Mock 은 자격 증명을 안 봐서 200 이고,
  * MinIO 였을 때 그 시험이 재던 것은 우리 코드가 아니라 MinIO 의 기본 정책이었다. 그 반쪽은
- * {@code scripts/deploy-check.sh} 가 운영 R2 에서 잰다 — 배포 뒤 서명 뗀 주소 하나를 불러 401·403 인지 본다.
+ * {@code scripts/deploy-check.sh} 가 운영 R2 에서 잰다 — 배포 뒤 서명 뗀 주소 하나를 불러 2xx 가 아닌지 본다(R2 는 400 InvalidArgument).
  *
  * <p>공개 갈래라도 <b>버킷은 비공개</b>다. 「공개」는 누가 보느냐의 말이지
  * 저장소가 열려 있다는 말이 아니다.
