@@ -240,6 +240,23 @@ class WebhookEndpointServiceTest extends PostgresTestBase {
                 "read:seller_owner:seller:allow");
     }
 
+    /**
+     * 부여 시험은 지금 DB 를 잴 뿐이라 뒤의 마이그레이션이 관리자에게 `manage` 를 다시 주면 그 판이 배포된 뒤에야 빨갛다.
+     * **표가 매번 막는다**(`V117`, PR #84 리뷰 봇 — 축 2 에서 시험보다 제약이 위다). 시크릿을 만드는 권한은 대표의 셀러 범위뿐이다.
+     */
+    @Test
+    @DisplayName("관리자에게 웹훅 manage 를 주려 하면 표가 막는다")
+    void tableRejectsManageGrantOutsideOwner() {
+        assertThatThrownBy(() -> jdbc.sql("""
+                        insert into role_permission (role_id, permission_id, scope, effect)
+                        select r.role_id, p.permission_id, 'all', 'allow'
+                          from role r join permission p on p.resource = 'webhook' and p.action = 'manage'
+                         where r.code = 'admin'
+                        """).update())
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("대표에게 셀러 범위로만");
+    }
+
     private long admin() {
         long admin = fixture.insertUser("hook-admin@test.local", "관리자");
         fixture.grantGlobal(admin, "admin");
