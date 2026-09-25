@@ -17,8 +17,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MinIOContainer;
-import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.containers.GenericContainer;
 
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.product.ProductService;
@@ -46,14 +45,8 @@ class SellerProductImageApiTest extends HttpTestBase {
 
     private static final String PASSWORD = "hunter2-and-then-some";
 
-    private static final MinIOContainer MINIO = new MinIOContainer(DockerImageName
-            .parse("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
-            .asCompatibleSubstituteFor("minio/minio"))
-            .withReuse(true);
-
-    static {
-        MINIO.start();
-    }
+    /** 저장소 컨테이너는 {@link StorageTestBase} 의 것을 같이 쓴다 — 이미지 좌표가 한 자리여야 컴포즈와 같이 갈린다 */
+    private static final GenericContainer<?> S3MOCK = StorageTestBase.S3MOCK;
 
     /** fork 마다 하나. 재사용 컨테이너가 지난 실행의 버킷을 보여 주는 것을 막는다 */
     private static final String PUBLIC_BUCKET = "api-public-" + ProcessHandle.current().pid();
@@ -69,9 +62,9 @@ class SellerProductImageApiTest extends HttpTestBase {
 
     @DynamicPropertySource
     static void storage(DynamicPropertyRegistry registry) {
-        registry.add("shop.storage.endpoint", MINIO::getS3URL);
-        registry.add("shop.storage.access-key", MINIO::getUserName);
-        registry.add("shop.storage.secret-key", MINIO::getPassword);
+        registry.add("shop.storage.endpoint", StorageTestBase::s3Url);
+        registry.add("shop.storage.access-key", () -> "s3mock");
+        registry.add("shop.storage.secret-key", () -> "s3mock");
         registry.add("shop.storage.public-bucket", () -> PUBLIC_BUCKET);
         registry.add("shop.storage.private-bucket", () -> "api-private-" + ProcessHandle.current().pid());
     }

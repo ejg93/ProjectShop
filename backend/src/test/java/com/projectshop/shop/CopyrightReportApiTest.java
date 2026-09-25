@@ -51,7 +51,7 @@ class CopyrightReportApiTest extends HttpTestBase {
         productId = productService.create(owner, tshirt(sellerId)).productId();
 
         // **사진 행을 직접 넣는다.** 이 시험이 재는 것은 <b>보안 경계</b>지 저장소가 아니다 —
-        // 업로드를 부르면 MinIO 컨테이너가 필요해지고, 그러면 이 바탕이 그것까지 띄워야 한다.
+        // 업로드를 부르면 저장소 컨테이너(S3Mock)가 필요해지고, 그러면 이 바탕이 그것까지 띄워야 한다.
         imageId = jdbc.sql("""
                         insert into product_image
                             (product_id, object_key, thumbnail_key, original_name,

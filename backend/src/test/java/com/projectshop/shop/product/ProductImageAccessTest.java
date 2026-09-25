@@ -24,8 +24,11 @@ import com.projectshop.shop.support.ListQuery.Paging;
  *
  * <h2>무엇이 통과 기준인가</h2>
  *
- * <p><b>저장소 주소를 알아도 안 열린다.</b> 여는 방법이 앱이 내준 서명 하나뿐인 것을
- * 여기서 잰다 — 서명을 떼면 거절이고, 붙이면 열린다.
+ * <p><b>저장소 주소를 알아도 안 열린다.</b> 여는 방법이 앱이 내준 서명 하나뿐이다. 여기서 재는 것은
+ * <b>우리 몫</b> — 내려주는 주소마다 서명과 만료가 붙어 있고, 붙이면 열린다. <b>서명을 뗀 주소를 저장소가
+ * 거절하나는 저장소 몫</b>이라 여기서 못 잰다({@code Q229}): S3Mock 은 자격 증명을 안 봐서 200 이고,
+ * MinIO 였을 때 그 시험이 재던 것은 우리 코드가 아니라 MinIO 의 기본 정책이었다. 그 반쪽은
+ * {@code scripts/deploy-check.sh} 가 운영 R2 에서 잰다 — 배포 뒤 서명 뗀 주소 하나를 불러 401·403 인지 본다.
  *
  * <p>공개 갈래라도 <b>버킷은 비공개</b>다. 「공개」는 누가 보느냐의 말이지
  * 저장소가 열려 있다는 말이 아니다.
@@ -86,16 +89,19 @@ class ProductImageAccessTest extends StorageTestBase {
     }
 
     /**
-     * <b>이것이 이 청크의 통과 기준이다.</b> 저장소 주소를 알아도 서명이 없으면 안 열린다 —
-     * URL 을 추측해서 남의 파일을 여는 길이 하나도 없다는 뜻이다.
+     * <b>이것이 이 청크의 통과 기준이다.</b> 내려주는 주소는 전부 서명과 만료를 달고 있다 —
+     * 서명이 없는 주소를 앱이 내주는 순간 저장소가 비공개여도 열리는 길이 생긴다. 저장소가 서명 없는 요청을
+     * 실제로 거절하나는 운영에서 {@code deploy-check.sh} 가 본다(클래스 주석).
      */
     @Test
-    @DisplayName("서명을 떼면 같은 주소가 안 열린다")
-    void 서명을_떼면_안_열린다() throws IOException, InterruptedException {
-        String signed = productQuery.findPublicDetail(productId).imageUrls().getFirst();
-        String bare = signed.substring(0, signed.indexOf('?'));
+    @DisplayName("내려주는 주소마다 서명과 만료가 붙어 있다")
+    void 내려주는_주소마다_서명과_만료가_붙어_있다() {
+        List<String> urls = productQuery.findPublicDetail(productId).imageUrls();
 
-        assertThat(status(bare)).isIn(401, 403);
+        assertThat(urls).isNotEmpty();
+        assertThat(urls).allSatisfy(url -> assertThat(url)
+                .as("서명 없는 주소가 나갔다 — 저장소 주소를 아는 사람이 그대로 연다")
+                .contains("X-Amz-Signature=").contains("X-Amz-Expires="));
     }
 
     private static int status(String url) throws IOException, InterruptedException {

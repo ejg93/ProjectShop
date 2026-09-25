@@ -68,4 +68,15 @@ if [ "$applied" != "$expected" ]; then
   exit 1
 fi
 
-echo "초록 — 두 서비스가 $want 이고 마이그레이션 $applied 개가 파일 수와 같다"
+# 사진 주소에서 서명을 떼면 저장소(R2)가 거절하나(`28`, `Q229`). 로컬 S3Mock 은 자격 증명을 안 봐서
+# 이 반쪽을 못 재고, 우리 코드는 서명을 붙이는 것까지가 몫이다 — 저장소가 실제로 막는지는 여기서만 본다.
+first_id=$(curl -fsS -m 15 "$base/api/products?size=1" 2>/dev/null | sed -n 's/.*"product_id":\([0-9]*\).*/\1/p' | head -1)
+signed=$(curl -fsS -m 15 "$base/api/products/${first_id:-0}" 2>/dev/null | sed -n 's/.*"image_urls":\["\([^"]*\)".*/\1/p' | head -1)
+if [ -z "$signed" ]; then
+  echo "주의 — 사진을 든 상품이 없어 서명 뗀 주소를 못 쟀다"
+else
+  bare=$(echo "$signed" | sed 's/\\u0026/\&/g; s/?.*$//')
+  code=$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$bare")
+  case "$code" in 401|403) ;; *) echo "빨강 — 서명을 뗀 사진 주소가 $code 로 열린다(401·403 이어야 한다): $bare"; exit 1 ;; esac
+fi
+echo "초록 — 두 서비스가 $want 이고 마이그레이션 $applied 개가 파일 수와 같다, 서명 뗀 사진 주소는 ${code:-안 잼} 이다"

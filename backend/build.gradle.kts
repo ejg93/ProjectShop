@@ -140,7 +140,6 @@ dependencies {
 	testImplementation("org.testcontainers:testcontainers-postgresql")
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 	// 파일 저장소를 띄워서 버킷 정책을 실제로 잰다(`26`). 2.x 좌표 규칙대로 접두어가 붙는다.
-	testImplementation("org.testcontainers:testcontainers-minio")
 	// 2.x 좌표 규칙대로 `testcontainers-` 접두어가 붙는다(`stack.md`). 쓰는 것은 `33b` 다.
 	testImplementation("org.testcontainers:testcontainers-kafka")
 	// 계층 규칙을 문서에서 테스트로 내린다(`2n`). JUnit 6 아티팩트다 — 이 저장소가 6.0.3 이다.

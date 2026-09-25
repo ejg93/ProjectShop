@@ -205,7 +205,7 @@ shop:
     # 가른다(2i-2). 남긴 것은 관리형 Redis 를 남과 나눠 쓰는 날을 위해서다.
     key-prefix: ${RATE_LIMIT_KEY_PREFIX:rate:}
 
-  # 올라온 파일을 어디에 두나(`26`, `media-rules.md`). 로컬은 MinIO 컨테이너,
+  # 올라온 파일을 어디에 두나(`26`, `media-rules.md`). 로컬은 S3Mock 컨테이너(전에는 MinIO — `Q229`),
   # 배포는 Cloudflare R2 다(사용자 결정 2026-09-18) — 둘 다 S3 호환이라 값만 갈린다.
   storage:
     # 엔드포인트를 명시한다. 비우면 SDK 가 진짜 AWS 를 부른다 —
@@ -213,7 +213,7 @@ shop:
     endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
     access-key: ${STORAGE_ACCESS_KEY:shop}
     secret-key: ${STORAGE_SECRET_KEY:shopshop}
-    # MinIO 는 지역을 안 보지만 SDK 가 서명할 때 값을 요구한다. R2 도 `auto` 를 받는다.
+    # S3Mock 은 지역을 안 보지만 SDK 가 서명할 때 값을 요구한다. R2 도 `auto` 를 받는다.
     region: ${STORAGE_REGION:auto}
     # **경로 방식으로 부른다.** 기본은 `버킷.호스트` 인데 `localhost` 앞에 버킷 이름을 붙이면
     # DNS 가 못 찾는다. R2 도 경로 방식을 받는다.
@@ -223,7 +223,7 @@ shop:
     public-bucket: ${STORAGE_PUBLIC_BUCKET:shop-public}
     private-bucket: ${STORAGE_PRIVATE_BUCKET:shop-private}
     # 버킷을 만들 것인가. **기본이 꺼짐이다** — `shop.events.sink` 가 `none` 인 것과 같은 자리다(`33b`).
-    # 켜는 것은 저장소를 띄운 로컬(`docker compose up minio`)과 그것을 띄우는 테스트뿐이고,
+    # 켜는 것은 저장소를 띄운 로컬(`docker compose up s3mock`)과 그것을 띄우는 테스트뿐이고,
     # 안 켜면 기동이 저장소를 안 찾는다. 클라이언트 빈은 이 값과 무관하게 늘 선다 —
     # S3 클라이언트는 첫 호출에서 붙으므로 빈이 서는 것만으로는 연결이 안 열린다.
     bootstrap: ${STORAGE_BOOTSTRAP:false}
