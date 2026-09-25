@@ -244,12 +244,12 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 | ⑤ | 지표 이름은 `shop.<표>.<무엇>`, 태그는 닫힌 목록 · 액추에이터 노출 목록은 문서와 같다 | `D16`·`D14` | 이름 10·태그 키 6(`action`·`allowed`·`code`·`name`·`resource`·`status`) 전부 규칙대로. 막는 것 없음 — `OutboxEventSchemaTest` 는 사건 이름만 잰다. 노출 목록은 `health,prometheus` 인데 `D14` 가 「`health` 하나」로 낡아 있었다(고쳤다) | `Q226` ⑤ — 등록된 미터의 둘째 토막이 실재 표(단수) 또는 `error` 인지, 태그 키가 목록 안인지, `exposure.include` 가 `D14` 표의 셀과 같은지 |
 | ⑥ | `PATCH` 는 `application/merge-patch+json` 을 밝힌다 — 필드가 하나뿐일 때도 | `D5` | **3 중 1**(`MeController`). `ReviewController.java:101`·`SellerMemberController.java:120` 는 안 밝힌다 | `Q227` ① — ArchUnit: `@PatchMapping` 의 `consumes` 는 merge-patch |
 | ⑦ | 상태 변경은 하위 경로 `POST`, `PATCH` 로 `status` 를 안 바꾼다 | `D5` | 위반 0. 막는 것 없음 | `Q227` ② — `PATCH`·`PUT` 요청 record 에 `status` 성분 없음 |
-| ⑧ | 201 에는 `Location` 을 싣는다 — 예외는 결제뿐 | `D5` | `@ResponseStatus(CREATED)` **4**(`CopyrightReportController` 둘 · 사진 올리기 둘)가 `Location` 없이 201. 문서의 예외는 결제 하나다 | `Q227` ③ — 가리킬 GET 이 있으면 `ResponseEntity.created`, 없으면 `D5` 예외 표에. 그 뒤 ArchUnit 이 `@ResponseStatus(CREATED)` 를 예외 목록 밖에서 막는다 |
+| ⑧ | 201 에는 `Location` 을 싣는다 — 예외는 결제뿐 | `D5` | `@ResponseStatus(CREATED)` **4**(`CopyrightReportController` 둘 · 사진 올리기 둘)가 `Location` 없이 201. 문서의 예외는 결제 하나다 | `Q227` ③ — 그 자원을 드는 GET 이 있으면 `ResponseEntity.created`(후기 사진은 상품 상세가 아니라 그 상품의 후기 목록), 없으면 `D5` 예외 표에. 그 뒤 ArchUnit 이 `@ResponseStatus(CREATED)` 를 예외 목록 밖에서 막는다 |
 | ⑨ | 목록 껍데기는 `items`·`page`·`size`·`total` 넷이고 상한 목록은 맨 배열 | `D5` | `OpenApiSpecTest` 는 목록 경로가 `page`·`size` 를 **요청**에 싣나만 본다 | `Q227` ④ — 스펙에서 `items` 를 든 응답은 셋을 같이 든다 |
 | ⑩ | 화면은 서버 문구(`detail`·`message`)를 그대로 안 적는다 | `D20`·`D24` | `seller/products/new/product-form.tsx:81` 이 `e.message` 를 그린다. `admin/audit` 의 `row.detail` 은 감사 JSON 이라 다른 것 | `Q228` ① — eslint `no-restricted-syntax`, `src/app/**` |
 | ⑪ | `page.tsx`·`layout.tsx` 에 `"use client"` 를 안 붙인다 — 경계는 잎사귀 | `D24` | 위반 0(page 44). 막는 것 없음 | `Q228` ② — eslint 파일 범위 규칙 |
 | ⑫ | 인증 라우트에 `force-static`·`fetchCache` 를 안 건다 | `D24` | 위반 0. 막는 것 없음 — `no-store` 는 입구 둘이 명시한다 | `Q228` ③ — eslint: `app/**` 에서 그 두 export 금지 |
-| ⑬ | 401 은 `?reason=session-expired` 를 붙여 로그인으로 보낸다 | `D24`·`D20` | `api-session.ts` 가 하고 시험 0 | `Q228` ④ — `api-session` vitest 한 경우 |
+| ⑬ | 401 은 `?reason=session-expired` 를 붙여 로그인으로 보낸다 | `D24`·`D20` | `api-session.ts` 가 한다. 있는 시험은 쿠키 없는 401(`login-required`)만 잰다 | `Q228` ④ — `api-session` vitest 한 경우 |
 | ⑭ | 조작 버튼은 `allowedActions` 로 그린다 — 상태만 보고 안 그린다 | `D20` | **3곳**이 상태로 그린다: `me/inquiries/page.tsx:158`(`RECEIVED`→거두기) · `admin/review-reports/page.tsx:118`(`PENDING`→처리) · `:122`(`ACCEPTED`→복구). 문서 스스로 「lint 로 못 잰다」 | `Q228` ⑤ — 응답에 `allowedActions` 가 있는 것은 그것으로. 없으면 서버가 싣는 것이 먼저라 새 행 |
 | ⑮ | 4xx 는 `ERROR` 로그가 아니다 | `D16` | `log.error` 9 — 처리 못 한 예외 1·배치·스위퍼 8. 위반 0 | **못 내린다** — 4xx 인지는 실행 때 정해진다. 마무리 대조 |
 | ⑯ | 객체·요청 본문을 통째로 안 찍는다 | `D16` | `LogArgumentTest` 는 이름이 뻔한 접근자만 | **못 내린다** — 글자로 `toString` 이 안 보인다(문서가 이미 적음). 독립 리뷰 |
