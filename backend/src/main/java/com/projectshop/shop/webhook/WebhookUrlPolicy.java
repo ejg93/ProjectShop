@@ -6,7 +6,9 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,8 +21,10 @@ import com.projectshop.shop.error.ShopException;
  * <p><b>등록 때와 발송 때 둘 다 부른다.</b> 등록 때 거르는 것은 셀러에게 바로 알려 주는 것이고, 발송 때 다시 거르는 것이
  * 진짜 방어다 — 등록 뒤에 그 이름이 가리키는 주소가 바뀔 수 있다. <b>이름이 가리키는 주소를 전부</b> 본다. 하나라도 안이면 막는다.
  *
- * <p><b>못 막는 것</b>: 검사와 연결 사이에 DNS 가 바뀌는 리바인딩. 연결을 푼 주소에 못박으려면 HTTP 클라이언트를 갈아야 해서
- * 여기서 안 한다 — `security-baseline.md` 「웹훅 — SSRF」에 적었다.
+ * <p><b>검사한 주소가 결과에 실린다</b>({@link Target}, `Q210`). 발송기는 그 주소에만 연결한다 — 이름을 다시 풀지 않아서
+ * 검사와 연결 사이에 DNS 가 바뀌는 리바인딩이 안 먹는다. 보내는 입구가 {@code Target} 만 받아서 주소 글자로는 못 보낸다 —
+ * 다만 {@code Target} 은 같은 패키지에서 손으로도 만들어진다(시험이 루프백 대상을 그렇게 만든다). 타입이 막는 것은 「주소 글자를
+ * 그대로 넘기는 실수」까지다(마무리 53차 독립 리뷰).
  *
  * <p><b>루프백 허용은 한 칸이다</b>({@code shop.webhook.allow-loopback}). 기본은 거짓이고 시험 기반 클래스만 켠다 — 시험은
  * 로컬 HTTP 서버로 받는다. 켜도 풀리는 것은 루프백뿐이고 사설·링크로컬·메타데이터 대역은 그대로 막는다. {@code https} 강제도
@@ -29,14 +33,37 @@ import com.projectshop.shop.error.ShopException;
 @Component
 class WebhookUrlPolicy {
 
-    private final boolean allowLoopback;
+    /**
+     * 검사를 지난 주소. {@code addresses} 가 그때 이름이 가리킨 주소 전부이고, 발송기는 이것에만 연결한다.
+     */
+    record Target(URI uri, List<InetAddress> addresses) {
 
-    WebhookUrlPolicy(@Value("${shop.webhook.allow-loopback:false}") boolean allowLoopback) {
-        this.allowLoopback = allowLoopback;
+        Target {
+            addresses = List.copyOf(addresses);
+        }
     }
 
-    /** 받을 수 있는 주소면 그대로 돌려준다. 아니면 {@code WEBHOOK_URL_NOT_ALLOWED}(422) 다 */
-    URI require(String url) {
+    /** 이름을 주소로 푼다. 시험이 「검사 뒤에 이름이 바뀐다」를 만들려고 바꿔 끼운다 */
+    @FunctionalInterface
+    interface NameResolver {
+        InetAddress[] resolve(String host) throws UnknownHostException;
+    }
+
+    private final boolean allowLoopback;
+    private final NameResolver names;
+
+    @Autowired
+    WebhookUrlPolicy(@Value("${shop.webhook.allow-loopback:false}") boolean allowLoopback) {
+        this(allowLoopback, InetAddress::getAllByName);
+    }
+
+    WebhookUrlPolicy(boolean allowLoopback, NameResolver names) {
+        this.allowLoopback = allowLoopback;
+        this.names = names;
+    }
+
+    /** 받을 수 있는 주소면 검사한 주소와 함께 돌려준다. 아니면 {@code WEBHOOK_URL_NOT_ALLOWED}(422) 다 */
+    Target require(String url) {
         URI uri = parse(url);
         String host = uri.getHost();
         if (host == null || uri.getUserInfo() != null) {
@@ -49,7 +76,7 @@ class WebhookUrlPolicy {
 
         InetAddress[] addresses;
         try {
-            addresses = InetAddress.getAllByName(host);
+            addresses = names.resolve(host);
         } catch (UnknownHostException e) {
             throw notAllowed(url, "이름이 안 풀린다");
         }
@@ -58,7 +85,7 @@ class WebhookUrlPolicy {
                 throw notAllowed(url, "안쪽 주소를 가리킨다: " + address.getHostAddress());
             }
         }
-        return uri;
+        return new Target(uri, List.of(addresses));
     }
 
     /** 사설·루프백·링크로컬(클라우드 메타데이터 169.254.169.254 포함)·공유 주소(100.64/10)·고유 로컬(fc00::/7) */

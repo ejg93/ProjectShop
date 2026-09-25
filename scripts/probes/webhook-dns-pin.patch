@@ -1,0 +1,16 @@
+# gate: WebhookUrlPolicyTest 연결 주소 고정(Q210)
+# run: cd backend && ./gradlew test --tests '*WebhookUrlPolicyTest' -q
+# expect: FAILED com\.projectshop\.shop\.webhook\.WebhookUrlPolicyTest 검사 뒤에 이름이 바뀌어도 연결은 검사한 주소로 간다
+diff --git a/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java b/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java
+index dc7dd73..52f5273 100644
+--- a/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java
++++ b/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java
+@@ -121,7 +121,7 @@ class WebhookSender {
+ 
+     /** 시험이 느린 서버를 짧게 기다리려고 쓴다 */
+     WebhookSender(Duration connectTimeout, Duration requestTimeout) {
+-        this(connectTimeout, requestTimeout, PINNED_RESOLVER);
++        this(connectTimeout, requestTimeout, org.apache.hc.client5.http.SystemDefaultDnsResolver.INSTANCE);
+     }
+ 
+     WebhookSender(Duration connectTimeout, Duration requestTimeout, DnsResolver resolver) {

@@ -1,0 +1,16 @@
+# gate: ReturnDecisionTest 훼손 거절 소견 트리거(Q212)
+# run: cd backend && ./gradlew integrationTest --tests '*ReturnDecisionTest' -q
+# expect: FAILED com\.projectshop\.shop\.order\.ReturnDecisionTest\$Reject 소견 글 없는 훼손 거절은 커밋에서 막힌다
+diff --git a/backend/src/test/java/com/projectshop/shop/order/ReturnDecisionTest.java b/backend/src/test/java/com/projectshop/shop/order/ReturnDecisionTest.java
+index 621c7ed..109ce36 100644
+--- a/backend/src/test/java/com/projectshop/shop/order/ReturnDecisionTest.java
++++ b/backend/src/test/java/com/projectshop/shop/order/ReturnDecisionTest.java
+@@ -299,6 +299,8 @@ class ReturnDecisionTest extends PostgresTestBase {
+                             """)
+                     .param("number", number).update();
+ 
++            // 부순다: 트리거 함수를 `V63` 판(훼손 분기 없음)으로 되돌린다
++            jdbc.sql("create or replace function assert_return_rejection_reason() returns trigger as $f$ begin if new.status = 'rejected' and not exists (select 1 from return_note n where n.return_request_id = new.return_request_id and n.decision_reason is not null) then raise exception 'x' using errcode = 'check_violation'; end if; return null; end; $f$ language plpgsql").update();
+             assertThatThrownBy(ReturnDecisionTest.this::flush)
+                     .hasMessageContaining("훼손 거절에는 검수 소견이 필요하다");
+         }

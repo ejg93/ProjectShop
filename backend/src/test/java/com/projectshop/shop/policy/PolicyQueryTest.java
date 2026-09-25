@@ -176,6 +176,32 @@ class PolicyQueryTest extends PostgresTestBase {
                     .contains("보호책임자");
         }
 
+        /**
+         * 대리인의 열람등요구 창구와 보호책임자 연락처(`Q209`, `D2` R28·R11 — 개인정보법 제38조제1항·시행령 제45조,
+         * 제30조제1항제6호). <b>시행 전인 가장 새 판을 직접 읽는다</b> — {@code readCurrent} 는 시행된 판만 줘서 이 시험 DB 에서는
+         * 첫 판이 온다(위 {@code ignoresBackdatedRevision}). 새 판이 창구를 빠뜨리면 공개되기 7일 전에 여기서 빨갛다.
+         */
+        @Test
+        @DisplayName("처리방침의 새 판이 대리인 창구와 보호책임자 연락처를 적는다")
+        void privacyPolicyNamesAgentChannel() {
+            String newest = jdbc.sql("""
+                            select body from policy_document
+                             where code = 'privacy_policy'
+                             order by version desc
+                             limit 1
+                            """)
+                    .query(String.class)
+                    .single();
+
+            assertThat(newest)
+                    .as("대리인은 계정이 없어서 방침이 적은 창구가 아니면 요구할 길이 없다")
+                    .contains("대리인")
+                    .contains("위임장")
+                    .contains("10일")
+                    .contains("개인정보 보호책임자 연락처: ejg933@gmail.com")
+                    .doesNotContain("고객센터");
+        }
+
         @Test
         @DisplayName("처리방침이 쿠키의 거부 방법과 그 결과를 적는다")
         void privacyPolicyTellsHowToRefuseCookies() {

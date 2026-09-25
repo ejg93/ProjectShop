@@ -17,8 +17,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 한 엔드포인트의 발송 기록(`31`·`Q175`). 최근 것부터다 — 셀러가 여는 이유가 「방금 것이 갔나」다.
  *
- * <p><b>재발송을 권하는 것은 서버다</b>({@code allowedActions}) — 실패로 닫힌 줄({@code FAILED}·{@code EXHAUSTED})에만
- * {@code RESEND} 가 실린다. 화면이 상태를 보고 판단하면 규칙이 두 벌이 된다(`Q79`).
+ * <p><b>재발송을 권하는 것은 서버다</b>({@code allowedActions}) — 실패로 닫힌 줄({@code FAILED}·{@code EXHAUSTED})에만,
+ * <b>그리고 다시 보낼 권한({@code webhook:manage})이 있는 사람에게만</b> {@code RESEND} 가 실린다. 보기만 하는 관리자·감사자에게
+ * 실으면 누르는 순간 403 이다(`Q211`, 마무리 53차 독립 리뷰). 화면이 상태를 보고 판단하면 규칙이 두 벌이 된다(`Q79`).
  */
 @Service
 public class WebhookDeliveryQuery {
@@ -49,7 +50,7 @@ public class WebhookDeliveryQuery {
      * @param status {@code PENDING}·{@code SENT}·{@code FAILED}·{@code EXHAUSTED} 중 하나. null 이면 전부
      */
     public Page find(long userId, long endpointId, String status, Paging paging) {
-        endpoints.find(userId, endpointId);
+        boolean canResend = endpoints.canResend(userId, endpoints.find(userId, endpointId).sellerId());
         String stored = storedStatus(status);
 
         List<Delivery> items = jdbc.sql("""
@@ -78,7 +79,7 @@ public class WebhookDeliveryQuery {
                             rs.getString("last_error"),
                             rs.getObject("created_at", OffsetDateTime.class),
                             rs.getObject("delivered_at", OffsetDateTime.class),
-                            deliveryStatus.resendable() ? List.of("RESEND") : List.of());
+                            canResend && deliveryStatus.resendable() ? List.of("RESEND") : List.of());
                 })
                 .list();
 

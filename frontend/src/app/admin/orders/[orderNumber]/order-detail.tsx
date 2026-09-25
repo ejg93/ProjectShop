@@ -179,7 +179,11 @@ function Bundle({ bundle, compensations }: { bundle: SellerOrder; compensations?
       </ul>
 
       {bundle.returnRequest ? <ReturnProgressView progress={bundle.returnRequest} /> : null}
-      <ReturnDecision sellerOrderNumber={bundle.sellerOrderNumber} allowedActions={bundle.allowedActions} />
+      <ReturnDecision
+        sellerOrderNumber={bundle.sellerOrderNumber}
+        allowedActions={bundle.allowedActions}
+        inspected={bundle.returnRequest?.inspectedAt != null}
+      />
       <ForceStatusForm sellerOrderNumber={bundle.sellerOrderNumber} forcibleStatuses={bundle.forcibleStatuses} />
       {compensations ? <Compensations sellerOrderNumber={bundle.sellerOrderNumber} listing={compensations} /> : null}
     </section>

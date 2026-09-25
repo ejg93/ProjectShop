@@ -141,10 +141,13 @@ describe("셸의 머리", () => {
     expect(screen.queryByRole("link", { name: "웹훅" })).not.toBeInTheDocument();
     unmount();
 
-    // 관리자는 `ALL` 로 갖지만 이 화면에는 고를 셀러가 없다 — 누르면 빈 화면이다(`Q175`).
+    // 관리자는 보고 지우기만 `ALL` 로 갖는다(`V114`) — 걸기(`manage`)가 없고 이 화면에는 고를 셀러도 없다(`Q175`·`Q211`).
     apiSessionOptional.mockResolvedValue({
       userId: 1,
-      permissions: [{ resource: "webhook", action: "manage", scopes: ["ALL"] }],
+      permissions: [
+        { resource: "webhook", action: "read", scopes: ["ALL"] },
+        { resource: "webhook", action: "delete", scopes: ["ALL"] },
+      ],
     });
     render(await SiteHeader());
     expect(screen.queryByRole("link", { name: "웹훅" })).not.toBeInTheDocument();

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
@@ -21,6 +22,7 @@ import com.projectshop.shop.order.OrderActionService.Action;
 import com.projectshop.shop.order.OrderStatusService.Actor;
 import com.projectshop.shop.order.OrderStatusService.ReturnReason;
 import com.projectshop.shop.order.OrderTransitions.Payment;
+import com.projectshop.shop.order.ReturnRequestService.RejectionReason;
 
 /**
  * 반품 입고와 판정(청크 `43a-2`).
@@ -256,6 +258,85 @@ class ReturnDecisionTest extends PostgresTestBase {
                     .as("되돌릴 때마다 다시 박으면 기산점이 오늘로 밀린다")
                     .isEqualTo(frozen);
         }
+
+        /**
+         * 훼손 거절은 검수 소견이 있어야 한다(`Q212`, `D2` R37 — 전자상거래법 제17조제5항은 훼손 책임을 통신판매업자가 입증하라고 한다).
+         * <b>서비스를 안 거치고 표에 바로 써도 막힌다</b> — 막는 층은 `V115` 의 {@code return_request_damaged_inspected_check} 고
+         * 서비스의 422 는 그 위다.
+         */
+        @Test
+        @DisplayName("검수 없는 훼손 거절은 표가 막는다")
+        void damagedRejectionNeedsInspection() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+
+            assertThatThrownBy(() -> jdbc.sql("""
+                            update return_request
+                               set status = 'rejected', decided_at = now(), decided_by_user_id = :admin,
+                                   return_shipping_fee_bearer = 'consumer', rejection_reason_code = 'damaged'
+                             where seller_order_id = (select seller_order_id from seller_order
+                                                       where seller_order_number = :number)
+                            """)
+                    .param("admin", admin).param("number", number).update())
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessageContaining("return_request_damaged_inspected_check");
+        }
+
+        /**
+         * 두 표에 걸친 절반 — 검수 시각은 있는데 소견 글이 없으면 지연 트리거가 커밋에서 막는다(`V115`). 서비스로 훼손 거절을 한 뒤
+         * 같은 트랜잭션에서 소견을 지워 그 모양을 만든다 — 트리거는 커밋 때의 행을 본다.
+         */
+        @Test
+        @DisplayName("소견 글 없는 훼손 거절은 커밋에서 막힌다")
+        void damagedRejectionNeedsInspectionNote() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+            actions.receiveReturn(sellerOwner, number, null, "본품 표면에 긁힘");
+            reject(admin, number, RejectionReason.DAMAGED, "사용으로 훼손됐다");
+            jdbc.sql("""
+                            update return_note set inspection_note = null
+                             where return_request_id = (select rr.return_request_id from return_request rr
+                                                          join seller_order so on so.seller_order_id = rr.seller_order_id
+                                                         where so.seller_order_number = :number)
+                            """)
+                    .param("number", number).update();
+
+            assertThatThrownBy(ReturnDecisionTest.this::flush)
+                    .hasMessageContaining("훼손 거절에는 검수 소견이 필요하다");
+        }
+
+        @Test
+        @DisplayName("검수 전의 훼손 거절은 422 다")
+        void damagedRejectionBeforeInspectionIs422() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+
+            assertThatThrownBy(() -> reject(admin, number, RejectionReason.DAMAGED, "포장이 뜯겨 있다"))
+                    .isInstanceOfSatisfying(ShopException.class, e -> assertThat(e.code())
+                            .isEqualTo(ErrorCode.RETURN_DAMAGED_NEEDS_INSPECTION));
+        }
+
+        @Test
+        @DisplayName("검수 소견이 있으면 훼손으로 거절한다")
+        void damagedRejectionAfterInspection() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+            actions.receiveReturn(sellerOwner, number, null, "본품 표면에 긁힘. 사용 흔적이 있다");
+
+            reject(admin, number, RejectionReason.DAMAGED, "사용으로 훼손됐다");
+
+            assertThat(returnStatusOf(number)).isEqualTo("rejected");
+            assertThat(rejectionCodeOf(number)).isEqualTo("damaged");
+            assertThatCode(ReturnDecisionTest.this::flush).doesNotThrowAnyException();
+        }
+
+        /** 기간 경과·제한 사유는 물건을 받기 전에도 정당하다(`V63` 「거절에는 안 건다」) — 훼손만 검수를 요구한다 */
+        @Test
+        @DisplayName("기간 경과 거절은 물건을 받기 전에도 된다")
+        void expiredRejectionSkipsReceipt() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+
+            reject(admin, number, RejectionReason.PERIOD_EXPIRED, "청약철회 기간이 지났다");
+
+            assertThat(rejectionCodeOf(number)).isEqualTo("period_expired");
+            assertThatCode(ReturnDecisionTest.this::flush).doesNotThrowAnyException();
+        }
     }
 
     @Nested
@@ -426,9 +507,25 @@ class ReturnDecisionTest extends PostgresTestBase {
                 new ReturnRequestService.Decision.Approve(restock));
     }
 
+    /** 사유 코드를 안 가리는 거절은 「그 밖」이다 — 사유 글이 무엇인지 말한다 */
     private void reject(long userId, String number, String reason) {
+        reject(userId, number, RejectionReason.OTHER, reason);
+    }
+
+    private void reject(long userId, String number, RejectionReason code, String reason) {
         actions.run(userId, number, Action.REJECT_RETURN, "테스트 판정", null,
-                new ReturnRequestService.Decision.Reject(reason));
+                new ReturnRequestService.Decision.Reject(code, reason));
+    }
+
+    private String rejectionCodeOf(String number) {
+        return jdbc.sql("""
+                        select rr.rejection_reason_code from return_request rr
+                          join seller_order so on so.seller_order_id = rr.seller_order_id
+                         where so.seller_order_number = :number
+                        """)
+                .param("number", number)
+                .query(String.class)
+                .single();
     }
 
     /**

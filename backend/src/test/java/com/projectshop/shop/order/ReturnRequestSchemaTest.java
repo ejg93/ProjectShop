@@ -173,7 +173,8 @@ class ReturnRequestSchemaTest extends PostgresTestBase {
                             update return_request
                                set status = 'rejected', decided_at = now(),
                                    decided_by_user_id = :staff,
-                                   return_shipping_fee_bearer = 'consumer'
+                                   return_shipping_fee_bearer = 'consumer',
+                                   rejection_reason_code = 'other'
                              where return_request_id = :id
                             """)
                     .param("staff", staffId)
@@ -366,7 +367,8 @@ class ReturnRequestSchemaTest extends PostgresTestBase {
                         update return_request
                            set status = 'rejected', decided_at = now(),
                                decided_by_user_id = :staff,
-                               return_shipping_fee_bearer = :bearer
+                               return_shipping_fee_bearer = :bearer,
+                               rejection_reason_code = 'other'
                          where return_request_id = :id
                         """)
                 .param("staff", staffId)

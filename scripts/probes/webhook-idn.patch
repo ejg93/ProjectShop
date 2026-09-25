@@ -1,0 +1,16 @@
+# gate: WebhookSenderTest IDN 고정(Q210)
+# run: cd backend && ./gradlew test --tests '*WebhookSenderTest' -q
+# expect: FAILED com\.projectshop\.shop\.webhook\.WebhookSenderTest IDN 주소도 검사한 주소로 보낸다
+diff --git a/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java b/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java
+index 45e3282..cf5dfdb 100644
+--- a/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java
++++ b/backend/src/main/java/com/projectshop/shop/webhook/WebhookSender.java
+@@ -103,7 +103,7 @@ class WebhookSender {
+         @Override
+         public InetAddress[] resolve(String host) throws UnknownHostException {
+             WebhookUrlPolicy.Target target = PINNED.get();
+-            if (target == null || !ascii(host).equalsIgnoreCase(ascii(target.uri().getHost()))) {
++            if (target == null || !host.equalsIgnoreCase(target.uri().getHost())) {
+                 throw new UnknownHostException("검사 안 된 이름이다: " + host);
+             }
+             return target.addresses().toArray(InetAddress[]::new);

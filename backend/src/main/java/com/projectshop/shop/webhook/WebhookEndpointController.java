@@ -25,7 +25,7 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
- * 셀러 웹훅 엔드포인트의 입구(`29`). 대표만 자기 셀러에 건다({@code webhook:manage}, `V110`).
+ * 셀러 웹훅 엔드포인트의 입구(`29`). 등록·재발송은 대표만 자기 셀러에 한다({@code webhook:manage}), 조회는 {@code webhook:read}, 삭제는 {@code webhook:delete} — 관리자는 보고 내리기만(`Q211`, `V114`).
  */
 @RestController
 @RequestMapping("/api/seller/webhooks")

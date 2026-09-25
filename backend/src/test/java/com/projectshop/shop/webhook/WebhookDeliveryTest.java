@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.LocalDate;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -212,7 +213,7 @@ class WebhookDeliveryTest extends PostgresTestBase {
         try {
             WebhookSender quick = new WebhookSender(Duration.ofMillis(200), Duration.ofMillis(200));
             WebhookSender.Result result = quick.send(
-                    URI.create("http://127.0.0.1:" + slow.getAddress().getPort() + "/hook"),
+                    loopback("http://127.0.0.1:" + slow.getAddress().getPort() + "/hook"),
                     new byte[] {1, 2, 3}, "1", 0, "{}");
 
             assertThat(result.succeeded()).isFalse();
@@ -247,7 +248,7 @@ class WebhookDeliveryTest extends PostgresTestBase {
             long started = System.nanoTime();
 
             WebhookSender.Result result = quick.send(
-                    URI.create("http://127.0.0.1:" + trickle.getAddress().getPort() + "/hook"),
+                    loopback("http://127.0.0.1:" + trickle.getAddress().getPort() + "/hook"),
                     new byte[] {1, 2, 3}, "1", 0, "{}");
 
             assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
@@ -466,5 +467,10 @@ class WebhookDeliveryTest extends PostgresTestBase {
                          where w.seller_id = :id order by d.webhook_delivery_id
                         """)
                 .param("id", sellerId).query(String.class).list();
+    }
+
+    /** 로컬 서버로 보내는 검사 결과. 발송기는 검사한 주소에만 연결한다(`Q210`) */
+    private static WebhookUrlPolicy.Target loopback(String url) {
+        return new WebhookUrlPolicy.Target(URI.create(url), List.of(InetAddress.getLoopbackAddress()));
     }
 }

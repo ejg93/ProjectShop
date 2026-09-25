@@ -98,6 +98,9 @@ describe("관리자 주문 상세", () => {
     expect(screen.getByRole("button", { name: "반품 거절" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "반품 승인" })).not.toBeInTheDocument();
     expect(screen.getByText("표시·광고와 다름")).toBeInTheDocument();
+    // 훼손 거절은 검수 소견이 있어야 한다(`Q212`) — 검수 전이면 그 선택지가 잠긴다.
+    expect(screen.getByRole("option", { name: "상품 훼손" })).toBeDisabled();
+    expect(screen.getByRole("option", { name: "청약철회 기간 경과" })).toBeEnabled();
     await expectNoAxeViolations(container);
   });
 
@@ -116,6 +119,7 @@ describe("관리자 주문 상세", () => {
     expect(screen.getByRole("button", { name: "반품 승인" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "다시 판매합니다" })).toBeChecked();
     expect(screen.getByText("검수 마침")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "상품 훼손" })).toBeEnabled();
     await expectNoAxeViolations(container);
   });
 });

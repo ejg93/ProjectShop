@@ -119,8 +119,8 @@ function canReadSalesStats(me: Me | null): boolean {
 }
 
 /**
- * 웹훅을 건다(`Q175`). <b>{@code can} 으로 못 가른다</b> — 관리자도 {@code webhook:manage} 를 {@code ALL} 로 갖는데(`V110`),
- * 이 화면은 내가 속한 셀러의 것을 다뤄서 관리자가 누르면 「속한 셀러가 없다」만 본다. {@code SELLER} 인 사람에게만 연다
+ * 웹훅을 건다(`Q175`). 걸기는 대표만의 {@code webhook:manage} 다 — 관리자는 {@code read}·{@code delete} 를 {@code ALL} 로 갖고
+ * {@code manage} 는 없다(`V114`, `Q211`). 범위도 본다 — 이 화면은 내가 속한 셀러의 것을 다뤄서 {@code SELLER} 인 사람에게만 연다
  */
 function canManageWebhooks(me: Me | null): boolean {
   return me !== null

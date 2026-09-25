@@ -105,10 +105,14 @@ public class ShipmentController {
      * 막는 것은 {@link ReturnRequestService} 고 그쪽이 {@code RETURN_DECISION_REASON_REQUIRED} 를 던진다 —
      * <b>새 입구가 생겨도 같은 자리를 지난다.</b>
      *
+     * <p><b>{@code reasonCode} 는 {@code @NotNull} 이다</b>(`Q212`) — 빠지면 형식이 틀린 것이라 400 이다({@code restock} 과 같은 꼴).
+     *
+     * @param reasonCode     거절 사유 — {@code DAMAGED}·{@code PERIOD_EXPIRED}·{@code RESTRICTED}·{@code OTHER}. 열거값이라 대문자다(`D5`)
      * @param decisionReason 왜 인정하지 않았나. {@code return_note} 에 남는다(6개월, `D13`)
      * @param reason         관리자 전이의 근거(`D7`)
      */
     public record RejectReturnRequest(
+            @NotNull ReturnRequestService.RejectionReason reasonCode,
             @Size(max = 500) String decisionReason,
             @Size(max = 500) String reason) {
     }
@@ -171,7 +175,7 @@ public class ShipmentController {
             @Valid @RequestBody RejectReturnRequest request) {
 
         actions.run(user.id(), sellerOrderNumber, Action.REJECT_RETURN, request.reason(), null,
-                new ReturnRequestService.Decision.Reject(request.decisionReason()));
+                new ReturnRequestService.Decision.Reject(request.reasonCode(), request.decisionReason()));
 
         return ResponseEntity.noContent().build();
     }

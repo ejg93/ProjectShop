@@ -28,6 +28,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | ArchUnit | 1.5.0 | `build.gradle.kts`. **`archunit-junit6`** 다 — 이 저장소가 JUnit 6 이다 |
 | Caffeine | 3.2.4 | 안 적는다. **Boot BOM 이 관리한다** |
 | Jackson | 3.1.4 | 안 적는다. `starter-webmvc` 가 딸려 온다 |
+| Apache HttpClient 5 | 5.6.4 | 안 적는다. **Boot BOM 이 관리한다** — 웹훅 발송기만 쓴다(`Q210`) |
 | Spring Security | 7.1.0 | 아직 의존성에 없다. 청크 5 에서 들어온다 |
 
 **버전을 물으면 이 표가 아니라 위 파일들을 본다.** 표가 낡을 수 있다.
@@ -1627,6 +1628,20 @@ PR #77 첫 판·#79 두 번, 같은 커밋의 다른 실행은 초록이었다. 
 빌드가 네트워크를 안 탄다. 한글은 받지 않고 시스템 글꼴 스택에 맡긴다(`globals.css` 「`--font-sans`」).
 **`docker.yml` 이 `--network none` 컨테이너에서 `next build` 를 한 번 더 돌린다**(`scripts/offline-build.sh`, 손으로도 같은 명령) — 빌드 때 바깥을 부르는 것이
 다시 들어오면 거기서 빨갛다. `next/font/google` 은 그 전에 `npm run lint`(`no-restricted-imports`)가 막는다.
+
+### JDK `HttpClient` 에는 이름 풀이 훅이 없다 — Apache 5 는 연결 관리자 빌더에 있다
+
+**연결이 검사한 주소에만 가게 하려면 이름 풀이를 바꿔 끼워야 한다**(`Q210`). JDK `java.net.http.HttpClient` 는 그 자리가 없고,
+JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이까지 지나가서 접었다. Apache HttpClient 5 는
+**`HttpClients.custom()` 이 아니라 `PoolingHttpClientConnectionManagerBuilder.setDnsResolver(...)`** 다(5.6.4 `javap` 로 확인 —
+설계 행이 앞의 것을 적었다가 재대조에서 고쳤다).
+
+**타임아웃의 뜻이 다르다.** JDK 의 요청 타임아웃은 응답 머리까지의 상한이고, Apache 의 응답 타임아웃은 읽기 사이의 무활동이라
+머리를 한 바이트씩 흘리는 서버를 그것만으로 못 끊는다 — 발송기는 한 건의 상한을 따로 두고 넘으면 요청을 끊는다(`abort`).
+**응답을 `try-with-resources` 로 닫지 않는다** — 끊은 뒤 닫기가 던지는 예외가 받은 상태 코드를 덮는다.
+**감시가 끊은 읽기는 `SocketException` 을 던진다**(`InterruptedIOException` 이 아니다) — 끊은 것이 감시였는지를 따로 들고
+「타임아웃」으로 적는다. **`xn--` 이름은 유니코드로 넘어온다** — httpcore5 `Host` 가 퓨니코드를 풀어 리졸버에 준다. 검사한 이름과
+견줄 때 둘 다 `IDN.toASCII` 로 바꾼다(마무리 53차 독립 리뷰).
 
 ### 로컬 npm 10 은 lockfile 의 `libc` 칸을 지운다
 

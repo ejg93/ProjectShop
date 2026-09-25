@@ -128,7 +128,8 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 
 ## 지금 데이터 — 역할 × 권한 매트릭스
 
-마이그레이션 V3·V5·V6·V20 이 넣은 값이다. 청크 4c 의 회귀 테스트가 이 표를 고정한다.
+마이그레이션 V3·V5·V6·V20 이 넣은 값이다. **이 표 전체를 고정하는 시험은 없다** — 청크 4c 의 스냅숏(`PermissionMatrixTest`)은
+판정기의 범위·효과 조합만 들고 역할×권한 행을 안 든다(`Q211` 재대조). **웹훅 줄 셋은 `WebhookEndpointServiceTest` 가 고정한다.**
 
 `A/범위` 는 allow, `D/범위` 는 deny 다. 빈 칸은 규칙 없음이다.
 
@@ -152,7 +153,9 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `payment:refund` | | | A/all | D/all |
 | `compensation:read` | | | A/all | A/all |
 | `compensation:decide` | | | A/all | D/all |
-| `webhook:manage` | | A/seller(대표만) | A/all | D/all |
+| `webhook:manage` | | A/seller(대표만) | | D/all |
+| `webhook:read` | | A/seller(대표만) | A/all | A/all |
+| `webhook:delete` | | A/seller(대표만) | A/all | D/all |
 | `user:read` | A/own | A/own | A/all | A/all |
 | `user:update` | A/own | A/own | A/all | D/all |
 | `role:read` | | | A/all | A/all |
@@ -184,6 +187,13 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | seller | true | **true** | 셀러를 지정해야 부여된다 |
 | admin | true | false | 전역 부여 |
 | auditor | true | false | 전역 부여. 다른 역할 위에 덧씌워서 쓴다 |
+
+### 관리자가 전부 `all` 인 관례의 예외(`Q211`)
+
+**시크릿을 만드는 권한은 자원 주인에게만 둔다.** `V3` 뒤로 관리자는 새 권한을 `all` 로 받아 왔는데 그것은 관례다(`D23` 축 1 의 4순위).
+`webhook:manage` 는 주소를 걸고 새 시크릿을 받아 그 셀러의 사건을 바깥으로 흘리는 자리고, 로그인 화면의 관리자 연습 계정이 공개라
+관리자가 가지면 누구나 가진다. 그래서 `V114` 가 갈랐다 — `manage`(등록·재발송)는 대표 `seller` 만, 관리자는 `read`·`delete` 를 `all` 로
+(폭주·악용 엔드포인트를 내리는 운영 손), 감사자는 `read` 를 `all` 로. 그 마이그레이션의 `do` 블록이 관리자에게 `manage` 가 남으면 죽고, **뒤로는 `V117` 의 트리거\n(`role_permission_webhook_manage_owner_only`)가 대표의 셀러 범위 밖으로 `manage` 허용을 넣는 것을 매번 막는다**(PR #84 리뷰 봇).
 
 ### 살아 있는 셀러에는 살아 있는 대표가 있다(`Q169`)
 
