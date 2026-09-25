@@ -92,7 +92,7 @@ dup_table_rows() {
     | awk '{L[NR]=$0} END{for(i=1;i<=NR;i++){nx=(i<NR?L[i+1]:""); if (nx ~ /^[[:space:]]*\|[-:| ]+$/) continue; print L[i]}}' \
     | grep -E '^[[:space:]]*\|' \
     | grep -vE '^[[:space:]]*\|[-:| ]+$' \
-    | awk 'length($0) >= 40' \
+    | LC_ALL=C awk 'length($0) >= 40' \
     | sort | uniq -d
 }
 
@@ -144,9 +144,11 @@ honorific_hits() {
 
 # **표 셀 중복**(`Q218`, ProjectTicket `B0-3`). 이 저장소는 내용의 대부분이 표라, 표 행을 빼는 「중복 문장」 검사가
 # 거의 눈을 감는다. 30자 이상 셀의 완전 중복을 본다. 코드펜스 안과 「」 안(화면 문구·법조문 인용)은 걷는다.
+# **길이는 바이트다**(`LC_ALL=C`) — 이 파일의 문턱 셋(40·30·20)이 다 그렇다. 로케일이 UTF-8 이면 awk `length` 가 글자를 세서
+# 로컬(Git Bash, 바이트)과 CI(리눅스, 글자)가 다른 답을 냈다 — 마무리 50차 PR 의 `docs` 잡에서 이 자기 시험이 빨갰다.
 cell_dups() {
   awk '/^```/{c=!c; next} !c' "$1" | perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' \
-    | awk -F'|' '/^\|/{for(i=2;i<NF;i++){s=$i; gsub(/^ +| +$/,"",s); if(length(s)>=30) print s}}' | sort | uniq -d
+    | LC_ALL=C awk -F'|' '/^\|/{for(i=2;i<NF;i++){s=$i; gsub(/^ +| +$/,"",s); if(length(s)>=30) print s}}' | sort | uniq -d
 }
 # **세울 때 있던 것은 목록으로 둔다**(파일 탭 셀). 14건 다 표의 값(법 이름·상태 전이·시험 이름·머리 칸)이
 # 여러 행에 서는 모양이라 「같은 말을 두 번」이 아니었다. **수로 세지 않는다** — 수를 세는 래칫은 어느 셀인지를
@@ -379,7 +381,7 @@ for f in "${dup_check_files[@]}"; do
   dups=$(awk '/^```/{c=!c; next} !c' "$f" \
     | grep -vE '^[[:space:]]*(\||#+[[:space:]])' \
     | sed '/^[[:space:]]*$/d' \
-    | awk 'length($0) >= 20' \
+    | LC_ALL=C awk 'length($0) >= 20' \
     | sort | uniq -d)
   if [ -n "$dups" ]; then
     echo "[중복 문장] $f:"
