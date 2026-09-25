@@ -6,6 +6,9 @@
 # 표 헤더·짧은 라벨은 여러 표에서 정당하게 반복되므로 제외한다. 잡는 것은 "문장 하나가
 # 통째로 두 번"인 사고(frontend-rules.md 사례)와 "제목 앞에 표 행이 눌어붙는" 사고
 # (batch-catalog.md·state-machines.md·PLAN.md 사례) 둘이다.
+#
+# **범위 모드**(`Q217`, ProjectTicket `B0-2`): 인자로 파일을 주면 그 파일만 본다 — 편집 훅이 쓴다.
+# 인자가 없으면 전체(CI·마무리·셸 편집 훅). PLAN·PROGRESS 의 구조 검사와 게이트 표 대조는 그 입력이 범위에 들 때만 돈다.
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
@@ -126,6 +129,16 @@ gate_rows_missing_screen() { # 화면 뿌리, 게이트 표
 # 원문을 정규식으로 읽는 게이트는 자기 시험을 같이 세운다(`quality-gates.md`). **빠진 것은
 # 게이트가 스스로 못 알려 준다** — 실물이 초록인 것은 「구멍이 없다」와 「정규식이 아무것도 안 잡는다」가
 # 구별이 안 된다.
+# 범위: 인자를 저장소 상대 경로로 맞춰 두고, 목록마다 그 안에 든 것만 남긴다. 목록 밖 파일은 조용히 통과(`Q217`).
+# 훅은 `C:\…` 꼴을 준다 — Git Bash 의 `pwd` 는 `/c/…` 고 `pwd -W` 는 `C:/…` 다. 둘 다 벗긴다.
+scope=()
+root_posix=$(pwd); root_win=$(pwd -W 2>/dev/null || pwd)
+norm_path() { local a=${1//\\//}; a=${a#"$root_posix/"}; a=${a#"$root_win/"}; a=${a#./}; printf '%s' "$a"; }
+in_scope() { [ "${#scope[@]}" -eq 0 ] && return 0; local x; for x in "${scope[@]}"; do [ "$x" = "$1" ] && return 0; done; return 1; }
+in_scope_glob() { [ "${#scope[@]}" -eq 0 ] && return 0; local x; for x in "${scope[@]}"; do case "$x" in $1) return 0 ;; esac; done; return 1; }
+narrow() { local f; for f in "$@"; do in_scope "$f" && printf '%s\n' "$f"; done; }
+
+
 if [ "${1:-}" = "--selftest" ]; then
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
@@ -202,9 +215,28 @@ if [ "${1:-}" = "--selftest" ]; then
   st_screen "원문을 안 읽는 화면 시험 — 표에 없어도 안 걸려야 한다" \
     'render(<Form />); expect(screen.getByRole("button")).toBeTruthy();' '| 다른 게이트 | 4 테스트 |' 0
 
+  echo "범위 모드 다섯 모양을 잰다:"
+  st_scope() { # 이름, 기대(0=참/1=거짓), 명령...
+    local name=$1 want=$2 got; shift 2
+    if "$@" >/dev/null; then got=0; else got=1; fi
+    if [ "$got" = "$want" ]; then echo "  [통과] $name"; else echo "  [실패] $name — 기대=$want 실제=$got"; st_fail=1; fi
+  }
+  scope=(CLAUDE.md); st_scope "범위가 CLAUDE.md 면 PLAN 검사가 안 돈다" 1 in_scope PLAN.md
+  scope=(); st_scope "범위가 비면 전체다" 0 in_scope PLAN.md
+  scope=("$(norm_path "${root_win//\//\\}\\PLAN.md")"); st_scope "훅이 주는 윈도 절대 경로를 저장소 상대로 맞춘다" 0 in_scope PLAN.md
+  scope=(doc/nope.md); st_scope "목록 밖 파일은 어느 목록에도 안 든다" 0 test -z "$(narrow CLAUDE.md PLAN.md)"
+  scope=()
+  st_scope "범위 밖 파일 하나로 돌리면 아무것도 안 걸린다" 0 bash "$0" doc/nope.md
+
   [ "$st_fail" -eq 0 ] && echo "자기 시험 통과"
   exit "$st_fail"
 fi
+
+for a in "$@"; do scope+=("$(norm_path "$a")"); done
+mapfile -t title_check_files < <(narrow "${title_check_files[@]}")
+mapfile -t dup_check_files < <(narrow "${dup_check_files[@]}")
+mapfile -t honorific_check_files < <(narrow "${honorific_check_files[@]}")
+mapfile -t dated_title_files < <(narrow "${dated_title_files[@]}")
 
 fail=0
 
@@ -222,6 +254,11 @@ for f in "${title_check_files[@]}"; do
       fail=1
       ;;
   esac
+  # 깨진 UTF-8(`Q217`, ProjectTicket `B0-3`). 셸로 넣은 줄의 이스케이프가 바이트를 깨면 아래 perl 검사가 죽으면서 「이상 없음」이 난다.
+  if ! iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1; then
+    echo "[UTF-8 깨짐] $f — 유효하지 않은 바이트가 있다. 셸로 넣은 줄이면 awk -v·echo -e 의 이스케이프를 의심한다"
+    fail=1
+  fi
 done
 
 for f in "${dup_check_files[@]}"; do
@@ -275,9 +312,11 @@ for f in "${honorific_check_files[@]}"; do
   #
   # `perl -CSD` 를 쓰는 이유: `sed 's/「[^」]*」//g'` 가 **조용히 안 먹는다.**
   # 멀티바이트 문자를 문자 클래스에 넣으면 바이트 단위로 갈라져서, 걸러진 척하고 통과한다.
-  hits=$(awk '/^```/{c=!c; print ""; next} c{print ""; next} {print}' "$f" \
-    | perl -CSD -pe 's/`[^`]*`//g; s/\x{300C}.*?\x{300D}//g; s/"[^"]*"//g' \
-    | grep -nE '(습니다|합니다|하세요|입니다)')
+  # **파이프가 죽으면 「이상 없음」이 난다**(`Q217`) — 걸러 낸 본문을 먼저 받고 실패를 따로 본다.
+  stripped=$(awk '/^```/{c=!c; print ""; next} c{print ""; next} {print}' "$f" \
+    | perl -CSD -pe 's/`[^`]*`//g; s/\x{300C}.*?\x{300D}//g; s/"[^"]*"//g') \
+    || { echo "[검사 실패] $f — 존댓말 검사 파이프가 죽었다(perl). 위에 [UTF-8 깨짐] 이 있으면 그것이 원인이다"; fail=1; continue; }
+  hits=$(printf '%s\n' "$stripped" | grep -nE '(습니다|합니다|하세요|입니다)')
   if [ -n "$hits" ]; then
     echo "[존댓말] $f — 개발자가 읽는 글은 평서형이다(CLAUDE.md 「글 작성 규칙」 4번):"
     echo "$hits" | sed 's/^/    /'
@@ -297,6 +336,8 @@ plan_open_rows() {
   }' PLAN.md
 }
 
+# **PLAN 검사 셋은 PLAN.md 가 범위에 들 때만 돈다**(`Q217`).
+if in_scope PLAN.md; then
 # 안 닫힌 행에 축·강제 지점·닫힘이 다 있나(`2t`). 셋 중 하나라도 빠진 행 수가
 # 기준선을 넘으면 빨갛다 — **기준선은 내리기만 한다.** 지난 행 74개에 「닫힘」이 없어서
 # 0 으로 시작할 수 없었고, 새 행이 그 수를 늘리는 것만 막는다. 수가 줄면 여기 숫자를 같이 내린다.
@@ -365,6 +406,8 @@ if [ -n "${near_incomplete//[$'\n' ]/}" ]; then
   fail=1
 fi
 
+fi
+
 # 차례를 주장하는 문장이 구간 표 밖에 있나. **차례의 주인은 `PLAN.md` 「구간」 표 하나다** —
 # `PROGRESS.md` 「현재 상태」가 순서를 그 표에 넘겼고, 그러면 다른 자리의 같은 말은
 # **사본**이라 원본이 바뀌어도 안 따라온다.
@@ -381,14 +424,17 @@ fi
 order_word='(맨 마지막|마지막 청크|맨 뒤)'
 chunk_ref='(`(Q|D)?[0-9]+[a-z0-9-]*`|Q[0-9]+)'
 order_claims=""
+# 범위 모드면 범위에 든 파일만 훑는다(`Q217`) — 문서 서른을 다 읽으면 한 파일 편집에 3초가 붙는다.
 for f in README.md backend/README.md CLAUDE.md doc/reference/*.md; do
   [ -f "$f" ] || continue
+  in_scope "$f" || continue
   h=$(perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' "$f" | grep -nE "$order_word" | grep -E "$chunk_ref")
   [ -n "$h" ] && order_claims="${order_claims}$(echo "$h" | sed "s|^|  $f:|")"$'\n'
 done
 # `PLAN.md` 는 구간 절(`## 구간` ~ 다음 `## `)을 뺀 나머지, `PROGRESS.md` 는 이력을 뺀 나머지.
 for pair in "PLAN.md:^## 구간" "PROGRESS.md:^## 이력"; do
   f=${pair%%:*}; skip=${pair#*:}
+  in_scope "$f" || continue
   h=$(awk -v skip="$skip" '$0 ~ skip {off=1; next} off && /^## /{off=0} {print (off ? "" : $0)}' "$f" \
     | perl -CSD -pe 's/\x{300C}.*?\x{300D}//g' | grep -nE "$order_word" | grep -E "$chunk_ref")
   [ -n "$h" ] && order_claims="${order_claims}$(echo "$h" | sed "s|^|  $f:|")"$'\n'
@@ -399,6 +445,8 @@ if [ -n "${order_claims//[$'\n' ]/}" ]; then
   fail=1
 fi
 
+# **PROGRESS 검사 둘은 PROGRESS.md 가 범위에 들 때만 돈다**(`Q217`).
+if in_scope PROGRESS.md; then
 # 이력이 날짜순인가(`W3`). 앞줄보다 이른 날짜가 오면 센다 — 그 수가 기준선을 넘으면 빨갛다.
 # **기준선은 내리기만 한다.** 2026-09-11 에 이미 일곱이었고(299~393줄이 통째로 역순이다)
 # 그것을 되돌리면 diff 가 95줄 이동이라 아무도 못 읽는다. **새 줄이 그 수를 늘리는 것만 막는다.**
@@ -428,6 +476,10 @@ if [ "$state_lines" -gt 25 ]; then
   fail=1
 fi
 
+fi
+
+# **게이트 표 대조 셋은 그 표가 범위에 들 때만 돈다**(`Q217`) — 시험 소스는 편집 훅이 넘기는 파일이 아니다.
+if in_scope doc/reference/quality-gates.md; then
 # 게이트를 세웠으면 게이트 표에 행이 있나(`Q147`). 위 `gate_rows_missing` 이 잣대를 든다.
 gate_missing_baseline=0
 gate_missing=$(gate_rows_missing backend/src/test doc/reference/quality-gates.md)
@@ -459,6 +511,8 @@ if [ -n "${script_missing//[$'\n' ]/}" ]; then
   echo "[게이트 표 누락] CI 가 돌리는데 quality-gates.md 에 이름이 없는 스크립트:"
   printf '%s\n' "$script_missing" | sed 's/^/    /'
   fail=1
+fi
+
 fi
 
 if [ "$fail" -eq 0 ]; then
