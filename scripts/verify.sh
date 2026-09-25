@@ -67,11 +67,13 @@ need_docker() {
 # `origin/main` 이 아니라 **배포 기준점**이라 축이 다르다.
 bash scripts/migration-immutable.sh || exit 1
 
-ran=0; ok=1; lv_backend=; lv_frontend=; lv_compare=; lv_tools=
+ran=0; ok=1; lv_backend=; lv_frontend=; lv_compare=; lv_tools=; tools_ran=0
 
 # 대조 레인이 이미 찍혀 있나를 먼저 본다 — backend 레인이 대조를 포함하므로 backend 를 건너뛸지도 이것에 달렸다.
 compare_stamped=0
-if changed compare && lv_compare=$(stamped compare); then compare_stamped=1; fi
+# **대조 결과는 backend 시험 코드에도 달려 있다** — 도장의 backend 줄이 지금 backend 지문과 같을 때만 대조 도장을 믿는다
+# (마무리 50차 독립 리뷰: backend 를 origin/main 으로 되돌리면 다른 backend 로 얻은 대조 도장을 믿고 건너뛰었다).
+if changed compare && lv_compare=$(stamped compare) && grep -q "^backend $(fp_of backend) " "$st" 2>/dev/null; then compare_stamped=1; fi
 
 # **`doc/erd` 는 어느 레인이 돌든 빠른 단계에서 느린 시험 하나를 문다**(`Q110` 선택지 ①). 그 폴더는 `SchemaErdTest` 가
 # 스스로 만드는 생성물이라 **손으로 고친 것이 곧 잡을 사건**이고, 값(컨테이너 30초)은 그 폴더를 건드린 청크에만 붙는다.
@@ -164,12 +166,25 @@ if changed tools; then
   if lv_tools=$(stamped tools); then
     echo "== tools: 같은 지문을 $lv_tools 로 찍어 뒀다 → 건너뜀"
   else
+    tools_ran=1
     ran=1; lv_tools=$level
     echo "== tools 지문이 origin/main 과 다르다 → bash -n scripts · settings.json 파싱 · doc-lint 전체"
     { for f in scripts/*.sh scripts/hooks/*.sh; do bash -n "$f" || { echo "문법: $f"; false; }; done; } || ok=0
     node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json","utf8"))' \
       || { echo "settings.json 이 JSON 이 아니다"; ok=0; }
     bash scripts/doc-lint.sh >/dev/null || { bash scripts/doc-lint.sh | head -20; ok=0; }
+  fi
+fi
+
+# **대조 레인이 돌면 바뀐 문서를 doc-lint 범위로 본다**(마무리 50차). 이력 해시·설계 행 검사가 Java 대조에서
+# `doc-lint.sh` 로 옮겨 가서(`Q218`) 편집 훅만 남으면 `perl -i` 처럼 훅 정규식에 안 걸리는 편집이 CI 에서야 잡혔다.
+# 도구 레인이 돌았으면 거기서 전체를 이미 봤다.
+if changed compare && [ "$compare_stamped" -eq 0 ] && [ "$tools_ran" -eq 0 ]; then
+  mapfile -t changed_md < <(git diff --name-only origin/main "$tree" -- '*.md')
+  if [ "${#changed_md[@]}" -gt 0 ]; then
+    ran=1
+    echo "== 대조 문서 ${#changed_md[@]}개 → doc-lint 범위"
+    bash scripts/doc-lint.sh "${changed_md[@]}" || ok=0
   fi
 fi
 

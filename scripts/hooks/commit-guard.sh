@@ -3,6 +3,8 @@
 # ProjectTicket `B0-1`). Stop 훅은 세션 끝에서만 봐서 그 사이 청크 여럿이 빨간 트리 위에 쌓인다.
 # WIP 는 `wip/<청크>` 가지로 — 빨간 트리가 번들 가지에 오르면 뒤 청크 verify 가 다 빨개진다.
 # **PreToolUse 라 명령이 돌기 전에 잰다** — `verify.sh && git commit` 을 한 체인으로 내면 막힌다. 따로 낸다.
+# **작업 트리로 재는 틈**: 경로를 골라 일부만 커밋하면 검증 안 된 트리가 오른다. 인덱스로 재면 `git add … && git commit`
+# 한 줄이 늘 막혀서(add 가 돌기 전에 잰다) 작업 트리를 고른 것이고, 그 틈은 HEAD 를 보는 Stop·push hook 이 잡는다.
 . "$(dirname "$0")/_tool-input.sh"
 c=$(tool_field command)
 
