@@ -1586,6 +1586,17 @@ fork 분배가 바뀌자 기본 상한 100 을 넘어 `FATAL: sorry, too many cl
 
 **Gradle 플러그인(`info.solidsoft.pitest`)을 안 쓴 이유**: Gradle 9 와 맞는 판을 확인하지 못했다. 명령줄은
 빌드 도구 판에 안 묶인다.
+### Git Bash 는 `rev:경로` 인자를 경로 목록으로 바꿔 넘긴다
+
+MSYS 는 인자가 `:` 로 이어진 경로들처럼 보이면 **경로 목록으로 보고** 슬래시를 역슬래시로, 콜론을 세미콜론으로 바꾼다.
+`git rev-parse origin/main:.claude/settings.json` 이 `origin\main;.claude\settings.json` 으로 넘어가 **빈 값**이 난다 —
+`.` 으로 시작하는 경로가 방아쇠라 `origin/main:backend/src` 는 멀쩡하고 `.claude/…` 만 틀렸다(`Q231`).
+그래서 `Q216` 이 세운 도구 레인이 윈도에서 **언제나 「바뀌었다」**였다. 리눅스 CI 는 무관하다.
+
+**`rev:경로` 는 이름을 트리 해시로 먼저 풀고 쓴다** — `git rev-parse "$rev^{tree}"` 뒤 `"$tree:$p"`. 콜론 앞이 16진수면 안 건드린다.
+**셸 한 줄 perl 도 같은 변환을 먹는다** — `;` 와 `/` 가 든 치환식이 바뀌어 넘어가 「바꿨다(n=1)」인데 파일이 그대로였다.
+그런 치환은 스크립트 파일로 쓰거나 편집 도구로 한다. 한 번만 끄려면 `MSYS_NO_PATHCONV=1`.
+
 ### awk 의 `length` 는 로케일을 탄다 — 로컬은 바이트, CI 는 글자
 
 Git Bash 는 로케일이 비어 있어 `awk 'length($0)'` 가 **바이트**를 세고, 리눅스 러너는 `C.UTF-8` 이라 **글자**를 센다.

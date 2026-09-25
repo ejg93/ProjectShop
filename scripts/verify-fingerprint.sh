@@ -5,7 +5,10 @@
 # 그래서 빌드·테스트 결과를 바꾸는 경로만 고른다. 경로를 더할 때 여기 한 곳만 고친다.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-tree=${1:-HEAD}
+# **받은 이름을 트리 해시로 먼저 푼다**(`Q231`). Git Bash(MSYS)는 `origin/main:.claude/settings.json` 을 경로 목록으로 보고
+# 슬래시를 역슬래시로, 콜론을 세미콜론으로 바꿔 넘긴다 — `.` 으로 시작하는 경로가 방아쇠라 도구 레인만 틀렸고, 그래서 윈도에서는
+# `origin/main` 의 도구 지문이 늘 달라 도구 레인이 언제나 「바뀌었다」였다. 콜론 앞이 16진수면 안 건드린다. 리눅스 CI 는 무관하다.
+tree=$(git rev-parse -q --verify "${1:-HEAD}^{tree}") || { echo "트리를 못 풀었다: ${1:-HEAD}" >&2; exit 1; }
 lane() {
   local name=$1; shift
   for p in "$@"; do printf '%s %s\n' "$p" "$(git rev-parse -q --verify "$tree:$p" 2>/dev/null || echo -)"; done \

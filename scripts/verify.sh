@@ -37,7 +37,9 @@ tree=$(GIT_INDEX_FILE="$tmp" git write-tree)
 fp_work=$(bash scripts/verify-fingerprint.sh "$tree"); fp_main=$(bash scripts/verify-fingerprint.sh origin/main)
 changed() { [ "$(echo "$fp_work" | grep "^$1 ")" != "$(echo "$fp_main" | grep "^$1 ")" ]; }
 fp_of() { echo "$fp_work" | grep "^$1 " | cut -d' ' -f2; }
-path_differs() { [ "$(git rev-parse -q --verify "$tree:$1" 2>/dev/null)" != "$(git rev-parse -q --verify "origin/main:$1" 2>/dev/null)" ]; }
+# `origin/main:<경로>` 를 그대로 쓰면 Git Bash 가 경로 목록으로 바꿔 넘긴다(`Q231`) — 트리 해시로 먼저 푼다.
+main_tree=$(git rev-parse origin/main^{tree})
+path_differs() { [ "$(git rev-parse -q --verify "$tree:$1" 2>/dev/null)" != "$(git rev-parse -q --verify "$main_tree:$1" 2>/dev/null)" ]; }
 
 st="$(git rev-parse --git-dir)/verify-stamp"
 # 도장이 이 레인의 지금 지문을 요청한 단계 이상으로 찍어 뒀나. 찍어 뒀으면 그 단계를 낸다.
