@@ -20,6 +20,7 @@ description: 청크를 닫기 전의 검증. `/verify`. `bash scripts/verify.sh`
 
 **full 은 Docker 를 먼저 본다**(`2z-3`). 안 떠 있으면 한 줄로 끝낸다 — 그전에는 느린 레인이 전부 FAILED 로 뜨고
 진짜 원인은 XML 리포트를 파야 나왔다.
+**Windows 에서는 꺼져 있으면 먼저 켠다**(`Q232`, `scripts/docker-up.sh`) — `docker desktop start` 뒤 최대 3분 기다리고, 그래도 안 뜨면 그때 위처럼 선다. 손으로 켜려면 `bash scripts/docker-up.sh`.
 **빠른 도장은 새 `V*` 에서 Docker 가 없어도 안 선다**(`Q216`) — `gradlew test` 만 돌고 도장이 `fast-nodb` 다. Stop·commit hook 은 받고 push hook 은 안 받는다. 번들이 서는 값이 누수보다 커서다.
 
 **같은 지문은 두 번 안 돈다**(`Q216`). 레인의 지금 지문이 도장에 요청 단계 이상으로 있으면 「같은 지문을 <단계> 로 찍어 뒀다 → 건너뜀」이다 — `full` 도장은 빠른 요청도 덮고, `fast-nodb` 는 아무것도 안 덮는다. 문서만 고친 청크에서 frontend 레인(lint + vitest 7분)이 두 번 돌던 값이다.

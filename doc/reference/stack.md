@@ -1586,6 +1586,14 @@ fork 분배가 바뀌자 기본 상한 100 을 넘어 `FATAL: sorry, too many cl
 
 **Gradle 플러그인(`info.solidsoft.pitest`)을 안 쓴 이유**: Gradle 9 와 맞는 판을 확인하지 못했다. 명령줄은
 빌드 도구 판에 안 묶인다.
+### Docker Desktop 은 CLI 로 켠다 — `docker desktop start`
+
+**Docker Desktop 에 CLI 플러그인이 있다**(v0.4.3, 2026-09-26 실측) — `docker desktop start`·`stop`·`status`.
+PowerShell `Start-Process` 로 exe(`C:\Program Files\Docker\Docker\Docker Desktop.exe`)를 띄우는 것보다 경로를 안 탄다.
+켜고 데몬이 뜨기까지 10초였다(2026-09-25). `scripts/docker-up.sh` 가 둘을 차례로 쓰고 3분까지 기다린다(`Q232`).
+
+**`docker info` 가 실패해도 Docker Desktop 창은 떠 있을 수 있다** — 엔진이 올라오는 중이다. 그래서 켜자마자 판정하지 않고 기다린다.
+
 ### Git Bash 는 `rev:경로` 인자를 경로 목록으로 바꿔 넘긴다
 
 MSYS 는 인자가 `:` 로 이어진 경로들처럼 보이면 **경로 목록으로 보고** 슬래시를 역슬래시로, 콜론을 세미콜론으로 바꾼다.

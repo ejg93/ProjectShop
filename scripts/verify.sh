@@ -50,7 +50,12 @@ stamped() {
   if [ "$lvl" = full ] || { [ "$level" = fast ] && [ "$lvl" = fast ]; }; then echo "$lvl"; return 0; fi
   return 1
 }
-docker_up() { docker info >/dev/null 2>&1; }
+# Docker 가 안 떠 있으면 **Windows 에서는 한 번 켜 본다**(`Q232`, `scripts/docker-up.sh` — 3분 안에 안 뜨면 그때 거짓).
+# 밤에 무인으로 돌 때 Docker 가 내려가 있어 선 자리다. 리눅스 러너는 데몬이 늘 떠 있어 그 분기를 안 탄다.
+docker_up() {
+  docker info >/dev/null 2>&1 && return 0
+  case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) bash scripts/docker-up.sh >&2 && docker info >/dev/null 2>&1 ;; *) return 1 ;; esac
+}
 
 # Docker 를 먼저 본다(`2z-3`). 안 떠 있으면 느린 레인 930개가 **전부 FAILED** 로 뜨고,
 # 진짜 원인(`Could not find a valid Docker environment`)은 XML 리포트를 파야 나온다 —
