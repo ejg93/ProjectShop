@@ -1614,6 +1614,23 @@ CI 에서는 안 걸려 **자기 시험이 CI 에서만 빨갰다**(마무리 50
 **문턱이 있는 awk 는 `LC_ALL=C` 로 못박는다.** 로컬에서 재어 정한 값이면 바이트가 맞다.
 로컬에서 CI 를 흉내 내려면 `LC_ALL=C.UTF-8 LANG=C.UTF-8 bash scripts/doc-lint.sh --selftest` 다.
 
+### 글꼴은 npm 안에 있다 — 빌드가 바깥을 안 부른다
+
+**`next/font/google` 은 `next build` 때 구글에서 글꼴을 받는다**(런타임이 아니다). 못 받으면
+`Can't resolve '@vercel/turbopack-next/internal/font/google/font'` 로 빌드 전체가 죽는다 —
+PR #77 첫 판·#79 두 번, 같은 커밋의 다른 실행은 초록이었다. 배포도 같은 빌드라 그날은 배포가 선다.
+
+**`geist` 패키지가 `next/font/local` 로 자기 `.woff2` 를 가리킨다**(`Q214`) — 파일이 `node_modules` 에 들어서
+빌드가 네트워크를 안 탄다. 한글은 받지 않고 시스템 글꼴 스택에 맡긴다(`globals.css` 「`--font-sans`」).
+**`docker.yml` 이 `--network none` 컨테이너에서 `next build` 를 한 번 더 돌린다** — 누가 `next/font/google` 을
+다시 들이면 거기서 빨갛다.
+
+### 로컬 npm 10 은 lockfile 의 `libc` 칸을 지운다
+
+**Dependabot 은 npm 11 로 lockfile 을 쓴다** — 선택 의존성(`@next/swc-*`·`lightningcss-*`)마다 `"libc": ["glibc"]`·`["musl"]` 이
+붙는다. 로컬 npm 10.9 로 `npm i` 하면 그 칸을 지워서 의존성 하나를 더한 diff 에 무관한 줄이 섞인다(2026-09-26 `Q214` 실측).
+**의존성을 더할 때는 `npx -y npm@11 install <패키지>` 로 한다** — 칸이 그대로 남는다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
