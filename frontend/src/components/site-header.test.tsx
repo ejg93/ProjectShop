@@ -150,6 +150,25 @@ describe("셸의 머리", () => {
     expect(screen.queryByRole("link", { name: "웹훅" })).not.toBeInTheDocument();
   });
 
+  it("멤버 링크는 셀러 범위로 받은 사람에게만 보인다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "seller_member", action: "read", scopes: ["SELLER"] }],
+    });
+    render(await SiteHeader());
+    expect(screen.getByRole("link", { name: "멤버" })).toBeInTheDocument();
+  });
+
+  it("멤버 링크는 관리자 범위뿐이면 없다", async () => {
+    // 관리자·감사자는 `ALL` 로 갖지만 이 화면은 속한 셀러의 첫째를 보여서 누르면 빈 화면이다(`Q208`).
+    apiSessionOptional.mockResolvedValue({
+      userId: 1,
+      permissions: [{ resource: "seller_member", action: "read", scopes: ["ALL"] }],
+    });
+    render(await SiteHeader());
+    expect(screen.queryByRole("link", { name: "멤버" })).not.toBeInTheDocument();
+  });
+
   it("사는 사람에게는 정산서 링크가 없다", async () => {
     apiSessionOptional.mockResolvedValue({
       userId: 7,

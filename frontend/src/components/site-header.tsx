@@ -64,9 +64,16 @@ function canManageCoupons(me: Me | null): boolean {
   return can(me, "coupon", "read");
 }
 
-/** 멤버 화면(`16a`). 속한 사람이면 본다 — 부르고 거두는 것은 그 안에서 갈린다 */
+/**
+ * 멤버 화면(`16a`). 속한 사람이면 본다 — 부르고 거두는 것은 그 안에서 갈린다.
+ * <b>{@code can} 으로 못 가른다</b>(`Q208`) — 관리자·감사자도 {@code seller_member:read} 를 {@code ALL} 로 갖는데(`V82`),
+ * 이 화면은 내가 속한 셀러의 첫째를 보여서 둘이 누르면 「속한 셀러가 없다」만 본다. {@code SELLER} 인 사람(대표·직원)에게만 연다
+ */
 function canSeeMembers(me: Me | null): boolean {
-  return can(me, "seller_member", "read");
+  return me !== null
+    && me.permissions.some(
+      (granted) => granted.resource === "seller_member" && granted.action === "read" && granted.scopes.includes("SELLER"),
+    );
 }
 
 /** 받은 후기에 답한다(`Q171`). 셀러 사람만 받는다 — 관리자에게는 안 준다(`V85`) */
@@ -208,8 +215,8 @@ export async function SiteHeader() {
  * 판매 줄의 링크(`Q213`). 판매 화면으로 가는 링크를 그 권한이 있는 사람에게만 그린다 — 사는 사람에게 그리면 **누르는 순간
  * 튕기는 링크**가 되고, 그건 갈 곳이 있는 것처럼 보이게 하는 것이다(`D20` 「권한 없는 것은 숨긴다」).
  *
- * <p>관리자·감사자도 받은 주문·정산서·매출을 `all` 로 봐서 이 줄이 선다. <b>「멤버」는 아직 예외다</b> — 둘도 `seller_member:read` 를
- * `all` 로 받는데(`V82`) 그 화면은 속한 셀러의 첫째만 보여서 빈 화면으로 간다. `Q208` 이 범위로 가른다.
+ * <p>관리자·감사자도 받은 주문·정산서·매출을 `all` 로 봐서 이 줄이 선다. 「멤버」·「웹훅」은 속한 셀러의 것만 다뤄서
+ * `SELLER` 범위로 가른다(`Q175`·`Q208`) — 둘에게 그리면 빈 화면으로 간다.
  */
 function sellingLinks(me: Me | null): React.ReactElement[] {
   return [
