@@ -28,7 +28,7 @@
 | `PlanProgressConsistencyTest` | 4 테스트 | 〃 | 이력이 완료인데 분할표가 안 닫힌 청크 | `2m-1` 2026-09-06 |
 | `PlanProgressConsistencyTest` 예약 번호 | 4 테스트 | 〃 | **미착수 청크가 예약한 마이그레이션 번호**(`Q69`) — 서로 겹치나 · 이미 지나간 번호인가. **이미 파일이 있는 번호는 안 센다**(인용이지 예약이 아니다. 시드의 900번대가 그 예다). 예약은 `V74__permission_kind.sql` 꼴로 적은 것만 본다 | `Q69` 2026-09-17 — **둘을 따로 부쉈다.** `Q62` 의 예약을 `Q59` 와 같은 `V74` 로 되돌리니 첫째가 `V74 ← Q59, Q62` 로 빨갛고, `V72` 로 되돌리니 둘째가 「마지막 번호는 V73 다」로 빨갛다. **실물이 그 상태였다** — 점검 O 가 찾기 전까지 둘 다 `V72` 였다 |
 | `doc-lint.sh` 이력 해시 | 4 테스트 | 로컬·CI·편집 훅 | **완료 이력 행의 커밋 칸이 비는 것**(`Q142`, `Q218` 이 `PlanProgressConsistencyTest` 에서 옮겼다). 마지막 완료 행 하나는 면제(자기 해시를 모른다). **날짜로 가른다** — 옮긴 날(2026-09-25) 전의 빈 칸 224 는 래칫, 그날부터는 0 기준. Java 판은 수만 세서 **옛 행을 채우고 새 행을 비우면 초록**이었고 마무리 49차가 실제로 그 모양을 밟았다(끼우기 스크립트가 해시를 옛 행에 넣었다) — 날짜로 가르면 새 행의 빈 칸이 따로 잡힌다. 옛 빈 칸이 줄면 「그 해시가 그 행의 커밋인지 먼저 본다」를 낸다. **못 막는 것**: 옛 행끼리 해시가 옮겨 다니는 것 | `Q142` 2026-09-21(Java 판). `Q218` 2026-09-25 — Q215 행의 해시를 비우니 빨강 · 옛 행 하나를 채우고 Q215 를 비워 **수를 그대로 두어도** 빨강 |
-| `hooks-test.sh` | 4 테스트 | 로컬(`verify.sh` 도구 레인) | **훅·도구가 조용히 안 막게 되는 것**(`Q221`). 훅 아홉을 stdin JSON 으로, 도장·가지를 보는 훅은 임시 git 저장소에서, `pr-guard` 는 가짜 `gh` 로, 편집 훅은 가짜 `doc-lint` 로 배선을 잰다. `doc-lint` 위반 다섯(존댓말 어미·셀 중복·UTF-8·설계 행·새 이력 해시)은 임시 사본에서 범위 모드로, 지문은 같은 커밋을 `HEAD`·`origin/main` 으로 불러 같은지(`Q231`). 43경우·68초. **CI 는 안 돈다** — 훅은 로컬 세션의 것이라 | `Q221` 2026-09-26 — `commit-guard.sh` 의 `exit 2` 를 `exit 0` 으로 바꾸니 빨강(부순 증거는 이력) · 패치 `hooks-test` |
+| `hooks-test.sh` | 4 테스트 | 로컬(`verify.sh` 도구 레인) | **훅·도구가 조용히 안 막게 되는 것**(`Q221`). 훅 아홉을 stdin JSON 으로, 도장·가지를 보는 훅은 임시 git 저장소에서, `pr-guard` 는 가짜 `gh` 로, 편집 훅은 가짜 `doc-lint` 로 배선을 잰다. `doc-lint` 위반 다섯(존댓말 어미·셀 중복·UTF-8·설계 행·새 이력 해시)은 임시 사본에서 범위 모드로, 지문은 `.claude/settings.json` 을 목록에서 뺀 사본으로 16진수 커밋과 `origin/main` 이 같은지(`Q231`) — 경로 변환은 목록 밖 경로의 인자 풀이에서만 탄다. 원본을 부르던 첫 판은 `Q231` 줄을 되돌려도 초록이었다(마무리 51차 독립 리뷰). 43경우·68초. **CI 는 안 돈다** — 훅은 로컬 세션의 것이라 | `Q221` 2026-09-26 — `commit-guard.sh` 의 `exit 2` 를 `exit 0` 으로 바꾸니 빨강(부순 증거는 이력) · 패치 `hooks-test` |
 | `HealthControllerTest` 마이그레이션 수 | 4 테스트 | 로컬·CI(느린 레인) | **마이그레이션이 일부만 올라갔는데 초록인 것**(`Q223`). 적용 수(`/api/health` 의 `applied_migrations`)를 시험이 붓는 폴더(`spring.flyway.locations`)의 `V*` 파일 수와 견준다 — 전에는 「0 보다 크다」였다. `deploy-check.sh` 가 운영에서 하는 셈의 시험판이다 | `Q223` 2026-09-26 — `HealthController` 의 셈에 `installed_rank > 1` 을 붙이니 `expected:<104> but was:<103>`. **`flyway.target` 으로는 못 부순다** — 재사용 컨테이너의 fork DB 가 이미 다 올라가 있어 적용 수가 안 준다 · 패치 `health-count` |
 | `SourceTextTest` | 4 테스트 | 로컬·CI | **사유 없는 `default` 가지와 `X-` 헤더**(`Q226`, 원장 ①④). `default` 마다 바로 위 `// default-ok: majority\|string-switch`, 아래가 `default` 가 아닌 마커도 빨강. main 의 `"X-` 글자(주석 줄 빼고) | `Q226` 2026-09-26 — 마커를 지우니 빨강 · `"X-Trace"` 를 넣으니 빨강 |
 | `MetricNameTest` | 4 테스트 | 로컬·CI | **표 이름이 아닌 지표 이름·목록 밖 태그 키·문서와 갈린 노출 목록**(`Q226`, 원장 ⑤). 소스의 미터 `builder` 이름·`.tag` 키를 글자로 — 레지스트리로 재면 호출 자리에서 등록되는 미터 셋이 빠진다. 노출은 `application.yml` 과 `security-baseline.md` 「노출면」 칸의 백틱 값 | `Q226` 2026-09-26 — `shop.foo.bar` 미터 · `include` 에 `env` 로 각각 빨강 |
@@ -200,7 +200,7 @@
 **여덟 다 목록으로는 초록이었다.** 빨간 게이트는 누군가 본다. 초록인 채로 아무것도 안 막는
 게이트는 아무도 안 보고, 그 사이 지나간 것이 전부 검증받은 것처럼 보인다.
 
-**부수는 절차는 패치로 남긴다**(`Q225`) — `scripts/probes/<이름>.patch`(머리에 `# gate:`·`# run:`) + `bash scripts/gate-probe.sh <이름>`. 게이트를 고친 뒤 **같은 부수기를 다시 돌린다** — 이력 문장만 있으면 다시 부수려고 손으로 다시 만든다. **새로 세우거나 고치는 게이트부터** 남기고 기존 행은 고칠 때 그 자리에서 더한다. **worktree 를 안 판다** — 깨끗한 트리에서만 돌고 제자리에서 `git apply` → 명령 → `git apply -R` → 작업 트리 해시가 같은지 본다(ProjectTicket 이 worktree 를 지우다 진짜 `node_modules` 를 날렸다). 부순 채로 초록이면 「게이트가 안 막혔다」, 패치가 안 붙으면 「낡음」, 되돌린 트리가 다르면 「복원 실패」로 빨갛다.
+**부수는 절차는 패치로 남긴다**(`Q225`) — `scripts/probes/<이름>.patch`(머리에 `# gate:`·`# run:`·`# expect:`) + `bash scripts/gate-probe.sh <이름>`. **`# expect:` 가 부순 그 게이트의 실패를 본다** — gradle 결과 XML 에서 `FAILED <FQCN> <시험 이름>`(`@DisplayName` 이 있으면 그것)을 뽑아 견준다. 종료 코드만 보던 첫 판은 컴파일이 깨지거나 Docker 가 없어도 통과였다(마무리 51차 독립 리뷰). 컨테이너 레인 탐침은 `docker-up.sh` 를 먼저 부르고, `git apply` 뒤로는 `trap` 이 끊겨도 되돌린다. 게이트를 고친 뒤 **같은 부수기를 다시 돌린다** — 이력 문장만 있으면 다시 부수려고 손으로 다시 만든다. **새로 세우거나 고치는 게이트부터** 남기고 기존 행은 고칠 때 그 자리에서 더한다. **worktree 를 안 판다** — 깨끗한 트리에서만 돌고 제자리에서 `git apply` → 명령 → `git apply -R` → 작업 트리 해시가 같은지 본다(ProjectTicket 이 worktree 를 지우다 진짜 `node_modules` 를 날렸다). 부순 채로 초록이면 「게이트가 안 막혔다」, 패치가 안 붙으면 「낡음」, 되돌린 트리가 다르면 「복원 실패」로 빨갛다.
 
 **부수는 방법은 게이트마다 다르지만 모양은 하나다.** 틀린 값을 넣는다. 빨개지는지 본다.
 되돌린다. 되돌린 뒤 `git status` 가 깨끗한지 확인한다.
@@ -235,6 +235,7 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 **규약 문서 일곱(`D5`·`D14`·`D16`·`D20`·`D22`·`D23`·`D24`)의 굵은 규칙을 위 게이트 표에 대조해, 기계가 안 보는 것만 여기 적는다**(`Q222`, 2026-09-25 Fable).
 규칙이 문서에만 있으면 「지켜졌다」는 사람 기억이고, 그 기억은 하루를 못 간다(`/warmup`).
 줄이 하나 없어질 때마다 그 규칙은 위 표로 올라간다 — **이 절이 비는 것이 목표다.**
+**올라간 줄은 번호를 그대로 둔다** — ①~⑤ 는 `Q226`, ⑥~⑨ 는 `Q227` 이 위 표로 올렸고, 코드 주석과 위 표가 부르는 「원장 ①」 같은 번호는 그 두 청크의 `PLAN.md` 행이 든다.
 
 **방향이 위 표와 반대다.** 표는 게이트에서 출발해 「무엇을 막나」를 적고, 원장은 규칙에서 출발해 「무엇이 재나」를 묻는다.
 `RequirementEnforcementTest` 가 법 요건(`D2`)에 같은 물음을 던지고 여기는 규약에 던진다.
@@ -255,7 +256,7 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 | ⑲ | Java 필드는 컬럼 이름의 camelCase, 축약 없음 | `D22` | `SchemaNamingTest` 는 SQL 쪽만. API 로 새는 쪽은 `OpenApiSpecTest` 표기가 잰다 | **못 내린다** 싸게 — record 성분과 컬럼을 잇는 표가 없다. 독립 리뷰 |
 | ⑳ | 의존성을 더할 때 라이선스를 본다 — GPL 계열이면 멈춘다 | `D23` | 막는 것 없음. 플러그인 없음 | **안 세움** — 도구 도입은 결정이다. 마무리 대조가 `build.gradle.kts` diff 를 본다 |
 
-**대조에서 뺀 것**: 이미 표에 있는 것(`ArchitectureTest` 열다섯·`SqlTextTest`·`SchemaNamingTest`·`LogArgumentTest`·`OpenApiSpecTest`·`TestConventionTest`·`ScreenLengthTest`·`HttpFlowTest`·`SessionStoreTest`·eslint 입구·운반·`react/no-danger`·`form-pending`·`forbidden`·`screen-text`), 표 밖이지만 시험이 있는 것(`LoginAttemptTest` 5회/15분 · `AuthLoginTest` 같은 문구 · `ProblemResponseTest` 프레임워크 오류 `type`·검증 필드 snake_case·`trace_id` · `WebhookUrlPolicyTest` · `WWW-Authenticate` · `Idempotency-Key`), 절차 규칙(「문서를 먼저 고친다」·「값 옆에 출처」의 절차 쪽), 판단 규칙(「마스킹은 갈릴 때만」·「모르는 칸을 지목하지 않는다」·「확인 문구는 무엇이 사라지는지」·「빈 상태 둘을 가른다」). 절차·판단은 `/wrapup` 대조와 독립 리뷰가 본다.
+**대조에서 뺀 것**: 이미 표에 있는 것(`ArchitectureTest` 열아홉·`SqlTextTest`·`SchemaNamingTest`·`LogArgumentTest`·`OpenApiSpecTest`·`TestConventionTest`·`ScreenLengthTest`·`HttpFlowTest`·`SessionStoreTest`·eslint 입구·운반·`react/no-danger`·`form-pending`·`forbidden`·`screen-text`), 표 밖이지만 시험이 있는 것(`LoginAttemptTest` 5회/15분 · `AuthLoginTest` 같은 문구 · `ProblemResponseTest` 프레임워크 오류 `type`·검증 필드 snake_case·`trace_id` · `WebhookUrlPolicyTest` · `WWW-Authenticate` · `Idempotency-Key`), 절차 규칙(「문서를 먼저 고친다」·「값 옆에 출처」의 절차 쪽), 판단 규칙(「마스킹은 갈릴 때만」·「모르는 칸을 지목하지 않는다」·「확인 문구는 무엇이 사라지는지」·「빈 상태 둘을 가른다」). 절차·판단은 `/wrapup` 대조와 독립 리뷰가 본다.
 
 ## 문턱
 

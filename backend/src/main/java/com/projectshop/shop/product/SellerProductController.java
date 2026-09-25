@@ -94,8 +94,9 @@ public class SellerProductController {
             @PathVariable long productId,
             @RequestPart("file") MultipartFile file) {
 
-        // `Location` 은 그 사진을 드는 GET 이다 — 사진만 여는 경로가 없고 상품 상세가 사진 목록을 싣는다(`Q227`, `D5` 「상태 코드」).
-        return ResponseEntity.created(URI.create("/api/products/" + productId))
+        // `Location` 은 그 사진을 드는 GET 이다 — 위 `images`(`Q139`). 공개 상세는 파는 중인 상품만 열어서
+        // 초안에 올린 사진을 가리키면 404 다(`Q227`, 마무리 51차 독립 리뷰, `D5` 「상태 코드」).
+        return ResponseEntity.created(URI.create("/api/seller/products/" + productId + "/images"))
                 .body(productImageService.upload(user.id(), productId, incoming(file)));
     }
 

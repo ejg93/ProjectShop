@@ -152,10 +152,21 @@ case_ "stamp — 도장 비움" stop-stamp.sh 2 '{"stop_hook_active":false}' "�
 
 echo "지문(Q231):"
 n=$((n + 1))
-(cd "$T/repo" && git update-ref refs/remotes/origin/main HEAD)
-a=$(cd "$T/repo" && bash scripts/verify-fingerprint.sh HEAD); b=$(cd "$T/repo" && bash scripts/verify-fingerprint.sh origin/main)
-if [ "$a" = "$b" ]; then echo "  [통과] $n verify-fingerprint.sh — 같은 커밋을 HEAD·origin/main 으로 불러도 같다(.claude 경로 포함)"
-else echo "  [실패] $n verify-fingerprint.sh — HEAD 와 origin/main 이 다르다(윈도 경로 변환?)"; diff <(echo "$a") <(echo "$b") | head -4; fail=1; fi
+# 목록(`listed`)에 든 경로는 표준 입력으로 풀려 경로 변환을 안 탄다(`Q221`). **탈 수 있는 자리는 목록 밖 경로의
+# `rev-parse "트리:경로"` 인자뿐이다** — 그래서 `.claude/settings.json` 을 목록에서 뺀 사본으로 그 길을 태운다.
+# 전에는 원본을 불러 `Q231` 줄을 되돌려도 초록이었다(마무리 51차 독립 리뷰). 16진수 커밋과 `origin/main` 을 견준다 —
+# 16진수는 변환을 안 타서 `Q231` 이 빠지면 둘이 갈린다.
+(cd "$T/repo" && git update-ref refs/remotes/origin/main HEAD \
+  && sed '/^  scripts \.claude/s| \.claude/settings\.json||' scripts/verify-fingerprint.sh > "$T/fp-fallback.sh")
+if grep -q '^  scripts \.claude/settings\.json' "$T/fp-fallback.sh" || ! grep -q '^lane tools .*\.claude/settings\.json' "$T/fp-fallback.sh"; then
+  echo "  [실패] $n verify-fingerprint.sh — 목록 밖 사본을 못 만들었다(목록 줄 꼴이 바뀌었다)"; fail=1
+else
+  h=$(cd "$T/repo" && git rev-parse HEAD)
+  a=$(cd "$T/repo" && cp "$T/fp-fallback.sh" scripts/fp-fallback.sh && bash scripts/fp-fallback.sh "$h")
+  b=$(cd "$T/repo" && bash scripts/fp-fallback.sh origin/main; rm -f scripts/fp-fallback.sh)
+  if [ "$a" = "$b" ]; then echo "  [통과] $n verify-fingerprint.sh — 목록 밖 .claude 경로도 16진수 커밋·origin/main 이 같다"
+  else echo "  [실패] $n verify-fingerprint.sh — 16진수 커밋과 origin/main 이 다르다(윈도 경로 변환, Q231)"; diff <(echo "$a") <(echo "$b") | head -4; fail=1; fi
+fi
 
 echo "doc-lint 위반 다섯(임시 사본, 범위 모드):"
 L=$T/lint; mkdir -p "$L/scripts" "$L/doc/reference"; cp "$R/scripts/doc-lint.sh" "$L/scripts/"

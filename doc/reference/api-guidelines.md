@@ -167,7 +167,7 @@ RFC 5789 는 `PATCH` 의 본문이 「바꿀 것의 목록」이고 **그 형식
 결제 결과를 다시 보는 경로가 주문 상세뿐이라 거기를 가리킨다. 결제만 여는 경로를 따로 내면
 그 응답이 주문 상세의 `payment` 필드 그룹과 같은 것을 그리게 된다(청크 12-2).
 
-**저작권 신고 둘은 `Location` 없이 201 이다**(`Q227`) — `POST /api/copyright-reports/images/{id}`·`…/review-images/{id}`. 신고자가 그 신고를 다시 보는 경로가 없어(관리자 대기열뿐) 가리킬 GET 이 없다. 본문의 번호만 준다. **사진 올리기 둘은 그 사진을 드는 GET 을 가리킨다** — 상품 사진은 상품 상세, 후기 사진은 그 상품의 후기 목록. `ArchitectureTest` 가 이 둘 밖의 `@ResponseStatus(CREATED)` 를 막는다 — 그 꼴은 헤더를 못 싣는다.
+**저작권 신고 둘은 `Location` 없이 201 이다**(`Q227`) — `POST /api/copyright-reports/images/{id}`·`…/review-images/{id}`. 신고자가 그 신고를 다시 보는 경로가 없어(관리자 대기열뿐) 가리킬 GET 이 없다. 본문의 번호만 준다. **사진 올리기 둘은 그 사진을 드는 GET 을 가리킨다** — 상품 사진은 셀러의 사진 목록(`GET /api/seller/products/{id}/images` — 공개 상세는 파는 중인 것만 열어 초안이면 404 다), 후기 사진은 그 상품의 후기 목록. `ArchitectureTest` 가 이 둘 밖의 `@ResponseStatus(CREATED)` 를 막는다 — 그 꼴은 헤더를 못 싣는다.
 
 **바깥이 거절한 것은 4xx 가 아니다.** 카드 거절은 요청 처리가 성공한 결과라 201 로 내려가고
 본문의 `status` 가 그것을 말한다. 4xx 로 던지면 그 결과를 적은 기록이 같이 롤백된다(`D11`).

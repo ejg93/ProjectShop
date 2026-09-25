@@ -1,5 +1,6 @@
 # gate: hooks-test.sh
 # run: bash scripts/hooks-test.sh
+# expect: \[실패\] .*commit-guard
 diff --git a/scripts/hooks/commit-guard.sh b/scripts/hooks/commit-guard.sh
 index 7b6a92d..3e58f06 100644
 --- a/scripts/hooks/commit-guard.sh

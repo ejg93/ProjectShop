@@ -19,7 +19,8 @@ case "$(uname -s)" in
   *) echo "Docker 데몬이 없다 — 이 스크립트는 Windows(Docker Desktop)만 켠다" >&2; exit 1 ;;
 esac
 
-if docker desktop start >/dev/null 2>&1; then
+# `--detach` — 기본은 켜질 때까지 시간 제한 없이 기다려서 아래 3분 상한이 안 걸린다(마무리 51차 독립 리뷰).
+if docker desktop start --detach >/dev/null 2>&1; then
   echo "docker desktop start 로 켰다 — 데몬을 기다린다"
 else
   exe=${DOCKER_DESKTOP_EXE:-C:/Program Files/Docker/Docker/Docker Desktop.exe}

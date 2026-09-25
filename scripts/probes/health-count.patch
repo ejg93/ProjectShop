@@ -1,5 +1,6 @@
 # gate: HealthControllerTest 마이그레이션 수
 # run: cd backend && ./gradlew integrationTest --tests '*HealthControllerTest' -q
+# expect: FAILED com\.projectshop\.shop\.health\.HealthControllerTest 적용한 마이그레이션 수가 이 시험이 붓는 폴더의 V 파일 수와 같다
 diff --git a/backend/src/main/java/com/projectshop/shop/health/HealthController.java b/backend/src/main/java/com/projectshop/shop/health/HealthController.java
 index cbe9464..496e563 100644
 --- a/backend/src/main/java/com/projectshop/shop/health/HealthController.java

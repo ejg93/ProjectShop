@@ -1,0 +1,16 @@
+# gate: OpenApiSpecTest 목록 껍데기(Q227)
+# run: cd backend && ./gradlew integrationTest --tests '*OpenApiSpecTest' -q
+# expect: FAILED com\.projectshop\.shop\.OpenApiSpecTest 목록 응답 껍데기가 items·page·size·total 넷을 다 싣는다
+diff --git a/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java b/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java
+index f36881a..b625ec2 100644
+--- a/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java
+@@ -34,7 +34,7 @@ public class WebhookDeliveryQuery {
+     }
+ 
+     @Schema(name = "WebhookDeliveryPage")
+-    public record Page(List<Delivery> items, int page, int size, long total) {
++    public record Page(List<Delivery> items, int page, int size, long totalCount) {
+     }
+ 
+     private final JdbcClient jdbc;
