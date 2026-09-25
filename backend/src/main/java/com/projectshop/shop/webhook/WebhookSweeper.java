@@ -1,6 +1,5 @@
 package com.projectshop.shop.webhook;
 
-import java.net.URI;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -193,9 +192,9 @@ public class WebhookSweeper {
     }
 
     private WebhookSender.Result send(Due delivery) {
-        URI url;
+        WebhookUrlPolicy.Target target;
         try {
-            url = urls.require(delivery.url());
+            target = urls.require(delivery.url());
         } catch (ShopException e) {
             // 등록 뒤에 안쪽을 가리키게 된 주소다(`D14`). 다시 보내도 안 된다.
             return new WebhookSender.Result(null, "안쪽 주소로 바뀌었다", true);
@@ -211,7 +210,7 @@ public class WebhookSweeper {
         }
         String body = EventEnvelope.of(objectMapper, delivery.eventId(), delivery.type(), delivery.source(),
                 delivery.subject(), delivery.occurredAt(), delivery.data(), true);
-        return sender.send(url, secret, String.valueOf(delivery.eventId()),
+        return sender.send(target, secret, String.valueOf(delivery.eventId()),
                 OffsetDateTime.now().toEpochSecond(), body);
     }
 

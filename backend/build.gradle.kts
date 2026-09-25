@@ -130,6 +130,9 @@ dependencies {
 	implementation(platform("software.amazon.awssdk:bom:2.55.0"))
 	implementation("software.amazon.awssdk:s3")
 	implementation("software.amazon.awssdk:apache-client")
+	// 웹훅 발송기(`Q210`). **연결이 검사한 주소에만 가게** 이름 풀이를 연결 관리자에 준다 — JDK `HttpClient` 에는 그 훅이 없다.
+	// 버전은 Boot BOM 이 든다(5.6.x). AWS SDK 를 타고 런타임엔 이미 있지만 컴파일 경로엔 없어서 적는다.
+	implementation("org.apache.httpcomponents.client5:httpclient5")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")

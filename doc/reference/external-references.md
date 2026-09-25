@@ -436,6 +436,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | Caffeine | Apache-2.0 |
 | Flyway (Community) | Apache-2.0 (2026-08-14 확인) |
 | Jackson | Apache-2.0 |
+| Apache HttpClient 5 (`httpclient5`) | Apache-2.0 (2026-09-26 확인) — 웹훅 발송기(`Q210`) |
 | PostgreSQL JDBC Driver | BSD-2-Clause |
 | Testcontainers | MIT |
 | Next.js · React · Tailwind CSS | MIT |
