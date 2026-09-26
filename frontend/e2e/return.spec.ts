@@ -21,7 +21,8 @@ async function 반품을_입고까지(page: Page): Promise<string> {
   await 로그인(page, 구매자);
   await page.goto(`/orders/${주문번호}`);
   await page.getByRole("button", { name: "반품 신청" }).click();
-  await expect(page.getByText(/반품 신청 처리가 끝났습니다/)).toBeVisible();
+  // 문구가 아니라 버튼이 사라지는 것으로 — 접수 뒤엔 손님 조작이 없어 알림째 사라진다(`helpers.ts`)
+  await expect(page.getByRole("button", { name: "반품 신청" })).toHaveCount(0);
 
   await 로그인(page, 판매자);
   await page.goto(`/seller/orders/${묶음번호}`);

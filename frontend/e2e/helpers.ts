@@ -69,7 +69,12 @@ export async function 주문하고_결제한다(page: Page): Promise<{ 주문번
   return { 주문번호, 묶음번호: labelledBy!.replace(/^bundle-/, "") };
 }
 
-/** 판매자가 보내고 배송완료로 옮긴다 */
+/**
+ * 판매자가 보내고 배송완료로 옮긴다.
+ *
+ * <p><b>끝을 알림 문구로 안 잰다</b> — 조작 목록이 비면 `OrderActions` 가 통째로 사라져 문구도 같이 사라진다.
+ * CI 는 새로 그리는 것이 빨라서 문구를 보기 전에 지워졌다(마무리 54차 실측). 버튼이 사라지는 것이 서버가 받아들인 신호다.
+ */
 export async function 보내고_배송완료한다(page: Page, 묶음번호: string) {
   await 로그인(page, 판매자);
   await page.goto(`/seller/orders/${묶음번호}`);
@@ -78,5 +83,5 @@ export async function 보내고_배송완료한다(page: Page, 묶음번호: str
   await page.getByRole("button", { name: "발송 처리" }).click();
   await expect(page.getByRole("button", { name: "배송완료 처리" })).toBeVisible();
   await page.getByRole("button", { name: "배송완료 처리" }).click();
-  await expect(page.getByText(/배송완료 처리 처리가 끝났습니다/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "배송완료 처리" })).toHaveCount(0);
 }
