@@ -2,15 +2,15 @@
 # run: cd backend && ./gradlew integrationTest --tests '*ReturnDecisionTest' -q
 # expect: FAILED com\.projectshop\.shop\.order\.ReturnDecisionTest\$Reject 검수 전의 훼손 거절은 422 다
 diff --git a/backend/src/main/java/com/projectshop/shop/order/ReturnRequestService.java b/backend/src/main/java/com/projectshop/shop/order/ReturnRequestService.java
-index dcfada3..3bccc45 100644
+index ae7c32a..3ec2860 100644
 --- a/backend/src/main/java/com/projectshop/shop/order/ReturnRequestService.java
 +++ b/backend/src/main/java/com/projectshop/shop/order/ReturnRequestService.java
-@@ -220,7 +220,7 @@ public class ReturnRequestService {
+@@ -231,7 +231,7 @@ public class ReturnRequestService {
          String reasonCode = reasonCodeOf(returnRequestId);
  
          if (decision instanceof Decision.Reject reject) {
--            if (reject.code() == RejectionReason.DAMAGED) {
-+            if (false && reject.code() == RejectionReason.DAMAGED) {
-                 requireInspected(returnRequestId);
-             }
+-            requireSelectable(returnRequestId, reject.code());
++            if (false) requireSelectable(returnRequestId, reject.code());
              writeDecisionReason(returnRequestId, reject.reason());
+             close(returnRequestId, actor, ReturnStatus.REJECTED, reasonCode, null, reject.code());
+             return false;
