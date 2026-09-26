@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { Pager, pageNumberOf } from "@/components/pager";
-import { apiPublic } from "@/lib/api";
+import { apiPublic } from "@/lib/api-session";
 import { priceText } from "@/lib/format";
 
 export const metadata: Metadata = { title: "상품 · ProjectShop" };

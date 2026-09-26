@@ -1,0 +1,15 @@
+# gate: 문의 거두기 권한(Q239) — 거두기가 read 를 빌리면 감사자가 거둔다
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.inquiry.InquiryVisibilityTest
+# expect: FAILED com.projectshop.shop.inquiry.InquiryVisibilityTest\$Withdrawing 감사자는 볼 수 있어도 못 거둔다
+diff --git a/backend/src/main/java/com/projectshop/shop/inquiry/InquiryService.java b/backend/src/main/java/com/projectshop/shop/inquiry/InquiryService.java
+--- a/backend/src/main/java/com/projectshop/shop/inquiry/InquiryService.java
++++ b/backend/src/main/java/com/projectshop/shop/inquiry/InquiryService.java
+@@ -184,7 +184,7 @@
+         //
+         // **권한이 따로다**(`Q239`). 전에는 `read` 를 빌려 써서 감사자가 `read all` 로 남의 문의를
+         // 거뒀다 — 볼 수 있는 범위와 거둘 수 있는 범위는 읽기 전용 역할에서 갈린다. 관리자는 `all` 이라 대신 거둔다.
+-        if (!evaluator.decide(userId, RESOURCE, WITHDRAW, Target.ownedBy(row.ownerUserId()))
++        if (!evaluator.decide(userId, RESOURCE, "read", Target.ownedBy(row.ownerUserId()))
+                 .allowed()) {
+             throw new ShopException(ErrorCode.INQUIRY_NOT_FOUND,
+                     "그런 문의가 없다: " + inquiryNumber);

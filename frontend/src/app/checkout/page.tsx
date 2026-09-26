@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BrokerageNotice, type SellerIdentity } from "@/components/seller-identity";
-import { apiPublic } from "@/lib/api";
-import { apiSession } from "@/lib/api-session";
+import { apiPublic, apiSession } from "@/lib/api-session";
 
 import { CheckoutForm } from "./checkout-form";
 import type { OrderLine } from "./checkout-form";

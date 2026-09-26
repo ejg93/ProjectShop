@@ -190,6 +190,50 @@ public class BatchRuns {
         return record(batchName, baselineDate, body);
     }
 
+    /**
+     * 회차 이력 한 줄(`Q241`). 손으로 돌린 입구가 결과로 낸다.
+     *
+     * @param batchRunId 이 줄의 기본키. 돌리기 전에 {@link #lastRunId} 로 적어 둔 값과 견줘 「이번에 남긴 줄」을 가른다
+     * @param targetCount 고른 수. 건너뛴 회차는 비어 있다
+     */
+    public record Run(long batchRunId, String batchName, LocalDate baselineDate, String status,
+            Integer targetCount, Integer processedCount) {}
+
+    /** 그 배치·기준일의 마지막 이력 줄의 기본키. 줄이 없으면 0 */
+    public long lastRunId(String batchName, LocalDate baselineDate) {
+        return jdbc.sql("""
+                        select coalesce(max(batch_run_id), 0) from batch_run
+                         where batch_name = :name and baseline_date = :baselineDate
+                        """)
+                .param("name", batchName)
+                .param("baselineDate", baselineDate)
+                .query(Long.class)
+                .single();
+    }
+
+    /**
+     * {@code afterId} 뒤에 남은 그 배치·기준일의 마지막 줄.
+     *
+     * <p><b>비면 이번 호출이 줄을 안 남긴 것이다</b> — {@link #record} 는 이미 성공한 회차를 줄 없이 건너뛴다
+     * (다른 인스턴스와 겹친 건너뜀은 줄을 남긴다). 부르는 쪽이 그것을 「건너뜀」으로 읽는다.
+     */
+    public Optional<Run> lastRunAfter(String batchName, LocalDate baselineDate, long afterId) {
+        return jdbc.sql("""
+                        select batch_run_id, batch_name, baseline_date, status, target_count, processed_count
+                          from batch_run
+                         where batch_name = :name and baseline_date = :baselineDate and batch_run_id > :afterId
+                         order by batch_run_id desc
+                         limit 1
+                        """)
+                .param("name", batchName)
+                .param("baselineDate", baselineDate)
+                .param("afterId", afterId)
+                .query((rs, n) -> new Run(rs.getLong("batch_run_id"), rs.getString("batch_name"),
+                        rs.getObject("baseline_date", LocalDate.class), rs.getString("status"),
+                        (Integer) rs.getObject("target_count"), (Integer) rs.getObject("processed_count")))
+                .optional();
+    }
+
     /** 그 배치가 그 기준일에 성공한 회차를 남겼나 */
     public boolean succeeded(String batchName, LocalDate baselineDate) {
         return alreadySucceeded(batchName, baselineDate);

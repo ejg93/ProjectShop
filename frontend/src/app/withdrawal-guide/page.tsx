@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { PolicyDocument } from "@/components/policy-document";
-import { apiPublic } from "@/lib/api";
+import { apiPublic } from "@/lib/api-session";
 
 export const metadata: Metadata = { title: "청약철회 안내 · ProjectShop" };
 

@@ -53,6 +53,8 @@ class ProblemResponseTest extends PostgresTestBase {
                     // 본문 없이 상태만 나가면 클라이언트가 이 하나만 다르게 처리해야 한다.
                     .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:unauthenticated"))
                     .andExpect(jsonPath("$.trace_id").isNotEmpty())
+                    // 사용자 문구(`Q233`). 필터가 끊는 자리도 같은 공장을 지나서 실린다.
+                    .andExpect(jsonPath("$.message").value(ErrorCode.UNAUTHENTICATED.userText()))
                     // RFC 9110 제15.5.2절이 401 에 챌린지를 **MUST** 로 둔다(`Q12`).
                     // 등록된 스킴을 넣으면 브라우저 기본 인증 대화상자가 로그인 화면을 가린다.
                     .andExpect(header().string("WWW-Authenticate", "Session"));
@@ -69,7 +71,9 @@ class ProblemResponseTest extends PostgresTestBase {
                     .andExpect(jsonPath("$.title").isNotEmpty())
                     .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.instance").value("/api/auth/login"))
-                    .andExpect(jsonPath("$.trace_id").isNotEmpty());
+                    .andExpect(jsonPath("$.trace_id").isNotEmpty())
+                    // 문구가 없는 4xx 는 확인을 권하는 공통 문구다 — 칸 자체는 늘 있다.
+                    .andExpect(jsonPath("$.message").value(ErrorCode.FALLBACK_CLIENT_USER_TEXT));
         }
 
         @Test

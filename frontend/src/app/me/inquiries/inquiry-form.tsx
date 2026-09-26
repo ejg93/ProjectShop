@@ -68,7 +68,7 @@ export function InquiryForm() {
       setNotice("접수했습니다. 아래 목록에서 진행 상황을 보실 수 있습니다.");
       startRefresh(() => router.refresh());
     } catch (error) {
-      setFailure(error instanceof ApiError ? error.detail : "보내지 못했습니다.");
+      setFailure(error instanceof ApiError ? error.userText : "보내지 못했습니다.");
     } finally {
       setSending(false);
     }

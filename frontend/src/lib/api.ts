@@ -9,14 +9,14 @@
  * <pre>
  * api()        클라이언트 컴포넌트 · 상대경로 · 쿠키를 브라우저가 붙인다 · CSRF 를 싣는다 · JSON
  * apiUpload()  클라이언트 컴포넌트 · 상대경로 · 〃                        · 〃              · 파일 하나
- * apiPublic()  서버 컴포넌트       · 절대주소 · 쿠키 없음               · 읽기 전용
- * apiSession() 서버 컴포넌트       · 절대주소 · 쿠키를 손으로 싣는다     · 읽기 전용
+ * apiPublic()  서버 컴포넌트       · 절대주소 · 쿠키 없음 · 손님 주소를 싣는다 · 읽기 전용
+ * apiSession() 서버 컴포넌트       · 절대주소 · 쿠키를 손으로 싣는다 · 〃    · 읽기 전용
  * </pre>
  *
  * <p>{@link api} 는 쿠키를 `document.cookie` 로 읽어서 <b>브라우저에서만 돈다.</b>
  * 서버 컴포넌트에서 부르면 그 자리에서 터진다.
  *
- * <p><b>{@link apiSession} 만 파일이 다르다</b>(`api-session.ts`). `next/headers` 를 쓰는데,
+ * <p><b>서버 입구 둘은 파일이 다르다</b>(`api-session.ts`). `next/headers` 로 쿠키와 손님 주소(`Q240`)를 읽는데,
  * 그것을 여기 들이면 이 파일을 가져다 쓰는 <b>클라이언트 컴포넌트가 전부 빌드에서 깨진다.</b>
  * 입구들이 같은 변환·같은 오류 처리를 쓰도록 아래 것들을 내보낸다.
  */
@@ -42,6 +42,13 @@ const ERROR_TYPE_PREFIX = "tag:projectshop.example,2026:error:";
  */
 export type FieldError = { field: string; message: string };
 
+/**
+ * 서버가 {@code message} 를 안 실었을 때 그리는 문구. 서버의 `ErrorCode.FALLBACK_USER_TEXT` 와 같은 값이다(`Q233`).
+ *
+ * <p>우리 서버는 늘 싣는다. 비는 것은 프록시나 다른 서버가 낸 오류 본문뿐이다.
+ */
+export const FALLBACK_USER_TEXT = "요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
+
 export class ApiError extends Error {
   /**
    * 접두어를 뗀 오류 이름. <b>화면은 이것으로 분기한다</b>(`D5`·`D20`).
@@ -63,6 +70,13 @@ export class ApiError extends Error {
      * 한 화면이 그것을 빠뜨리는 날 그 화면만 터진다.
      */
     readonly errors: FieldError[] = [],
+    /**
+     * 사용자가 읽는 문구 — 응답의 {@code message}(`Q233`). <b>화면은 {@code detail} 대신 이것을 그린다</b>(`D20`).
+     *
+     * <p>{@code detail} 은 개발자용 평서형이라 내부 값(소문자 상태·Spring 영어)이 섞인다.
+     * 분기는 여전히 {@link slug} 로 한다 — 이것도 문구라 다듬으면 바뀐다.
+     */
+    readonly userText: string = FALLBACK_USER_TEXT,
   ) {
     super(detail);
     this.name = "ApiError";
@@ -204,30 +218,6 @@ export async function apiUpload<T>(path: string, file: File, field = "file"): Pr
 export const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? "http://localhost:8080";
 
 /**
- * 로그인 없이 볼 수 있는 것을 서버 컴포넌트에서 읽는다.
- *
- * <p><b>쿠키를 안 싣는다.</b> 공개 데이터는 누구에게나 같으므로 실을 이유가 없고,
- * 안 실으면 <b>사람마다 다른 응답이 섞일 수 없다</b> — 캐시를 켜는 날 그 위험이 안 생긴다(`D24`).
- * 로그인해야 보는 것은 세션을 손으로 실어야 해서 입구를 또 하나 낸다.
- *
- * <p><b>CSRF 도 없다.</b> 읽기만 하는 입구라 서버가 토큰을 안 본다.
- *
- * @param path `/api` 로 시작하는 경로
- * @throws ApiError 서버가 2xx 가 아닌 것을 줬을 때
- */
-export async function apiPublic<T>(path: string): Promise<T> {
-  // 명시한다. Next 문서 안에서도 기본값 서술이 갈리는 자리라 기대지 않는다(`D24` 「캐시」).
-  // 켜려면 여기가 아니라 부르는 라우트에서 정한다 — 상품이 언제 바뀌는지는 화면이 안다.
-  const response = await fetch(`${BACKEND_ORIGIN}${path}`, { cache: "no-store" });
-
-  if (!response.ok) {
-    throw await toApiError(response);
-  }
-
-  return toCamel(await response.json()) as T;
-}
-
-/**
  * 쿠키에 든 CSRF 토큰. 없으면 한 번 두드려서 받아 온다.
  *
  * <p>서버는 <b>토큰을 읽을 때</b> 쿠키를 심는다. 화면만 띄우고 바로 로그인을 누르면
@@ -271,6 +261,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
     const body = (await response.json()) as {
       type?: string;
       detail?: string;
+      message?: unknown;
       trace_id?: string;
       errors?: { field?: unknown; message?: unknown }[];
     };
@@ -281,6 +272,8 @@ export async function toApiError(response: Response): Promise<ApiError> {
       body.detail ?? "요청을 처리하지 못했습니다.",
       body.trace_id,
       fieldErrorsOf(body.errors),
+      // 문자열일 때만 믿는다 — 서버가 보낸 JSON 이라 타입 선언이 보장하지 않는다.
+      typeof body.message === "string" && body.message ? body.message : FALLBACK_USER_TEXT,
     );
   } catch {
     return new ApiError(

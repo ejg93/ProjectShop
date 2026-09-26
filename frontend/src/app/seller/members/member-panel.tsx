@@ -50,8 +50,8 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
         router.refresh();
       } catch (caught) {
         setError(
-          caught instanceof ApiError && caught.detail
-            ? caught.detail
+          caught instanceof ApiError
+            ? caught.userText
             : "처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
         );
       }
@@ -73,8 +73,8 @@ export function MemberPanel({ sellerId, data }: { sellerId: number; data: Seller
         router.refresh();
       } catch (caught) {
         setError(
-          caught instanceof ApiError && caught.detail
-            ? caught.detail
+          caught instanceof ApiError
+            ? caught.userText
             : "초대하지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
         );
       }

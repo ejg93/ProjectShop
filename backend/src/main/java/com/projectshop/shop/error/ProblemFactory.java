@@ -63,6 +63,10 @@ public class ProblemFactory {
         // 되짚어 볼 일이 있는 것은 실패한 요청이다.
         problem.setProperty("trace_id", traceIdOf());
 
+        // 사용자가 읽는 문구(`Q233`). RFC 9457 §3.2 확장 멤버다 — `detail` 은 개발자용 그대로 둔다.
+        // 늘 싣는다. 코드마다 있고 없고가 갈리면 화면이 칸의 유무로 또 분기한다.
+        problem.setProperty("message", code.userText());
+
         count(code);
 
         return problem;

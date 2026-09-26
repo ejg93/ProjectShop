@@ -11,6 +11,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * 우리가 고정하려는 것은 그 신호의 구현이 아니라 <b>403 에서 그것을 부르기로 한 판단</b>이다.
  */
 const cookieJar = new Map<string, string>();
+/** 들어온 요청의 헤더(`Q240`). 비우면 손님 주소가 없는 요청이다 */
+const requestHeaders = new Map<string, string>();
 
 const forbidden = vi.fn(() => {
   throw new Error("FORBIDDEN_CALLED");
@@ -26,6 +28,7 @@ vi.mock("next/headers", () => ({
       return value === undefined ? undefined : { name, value };
     },
   }),
+  headers: async () => ({ get: (name: string) => requestHeaders.get(name) ?? null }),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -33,7 +36,7 @@ vi.mock("next/navigation", () => ({
   redirect: (to: string) => redirect(to),
 }));
 
-const { apiSession } = await import("./api-session");
+const { apiPublic, apiSession } = await import("./api-session");
 const { ApiError } = await import("./api");
 
 /**
@@ -57,6 +60,64 @@ afterEach(() => {
   forbidden.mockClear();
   redirect.mockClear();
   cookieJar.clear();
+  requestHeaders.clear();
+});
+
+/**
+ * 손님 주소를 싣나(`Q240`). 안 실으면 서버 렌더 요청이 전부 Next 주소 하나로 요청 제한을 나눈다.
+ *
+ * <p>두 서버 입구를 같은 표로 돈다 — 한쪽만 싣는 날이 이 시험이 막는 자리다.
+ */
+describe("손님 주소", () => {
+  const entries: [string, () => Promise<unknown>][] = [
+    ["apiPublic()", () => apiPublic("/api/products")],
+    ["apiSession()", () => apiSession("/api/me")],
+  ];
+
+  const sentHeaders = () => {
+    const init = vi.mocked(globalThis.fetch).mock.calls[0][1] as RequestInit;
+    return new Headers(init.headers);
+  };
+
+  it.each(entries)("%s 는 앞단이 채운 x-real-ip 를 x-forwarded-for 로 싣는다", async (_name, call) => {
+    requestHeaders.set("x-real-ip", "198.51.100.7");
+    answer(200, {});
+
+    await call();
+
+    expect(sentHeaders().get("x-forwarded-for")).toBe("198.51.100.7");
+  });
+
+  /**
+   * <b>손님이 쓸 수 있는 헤더는 안 옮긴다</b>(마무리 55차 독립 리뷰). Next 는 `x-forwarded-for` 가 있으면 안 건드려서
+   * 손님이 적은 값이 그대로 남고, 옮기면 백엔드가 그것을 손님 주소로 받아 요청마다 새 버킷이 열린다.
+   */
+  it.each(entries)("%s 는 들어온 x-forwarded-for 만 있으면 안 싣는다", async (_name, call) => {
+    requestHeaders.set("x-forwarded-for", "203.0.113.99");
+    answer(200, {});
+
+    await call();
+
+    expect(sentHeaders().has("x-forwarded-for")).toBe(false);
+  });
+
+  it.each(entries)("%s 는 둘 다 없으면 안 싣는다 — 빈 값을 지어내지 않는다", async (_name, call) => {
+    answer(200, {});
+
+    await call();
+
+    expect(sentHeaders().has("x-forwarded-for")).toBe(false);
+  });
+
+  it("공개 입구는 손님 주소를 실어도 쿠키는 안 싣는다", async () => {
+    cookieJar.set("SHOPSESSION", "s-1");
+    requestHeaders.set("x-real-ip", "198.51.100.7");
+    answer(200, {});
+
+    await apiPublic("/api/products");
+
+    expect(sentHeaders().has("cookie")).toBe(false);
+  });
 });
 
 describe("apiSession", () => {

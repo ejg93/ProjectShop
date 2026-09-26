@@ -28,20 +28,25 @@ public enum ErrorCode {
 
     // 인증
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "login-failed", "아이디 또는 비밀번호가 맞지 않는다"),
-    UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "unauthenticated", "로그인이 필요하다"),
+    UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "unauthenticated", "로그인이 필요하다",
+            "로그인이 필요합니다. 다시 로그인해 주세요."),
     ALREADY_WITHDRAWN(HttpStatus.UNAUTHORIZED, "already-withdrawn", "이미 탈퇴한 계정이다"),
     // 필터가 끊는 자리 셋(Q84). 셋 다 그전에는 본문 없이 상태 코드만 나갔다 —
     // 받는 쪽이 trace_id 도 type 도 못 받았고, 오류율 지표(62)에도 안 잡혔다.
     //
     // 셋을 가른 이유는 받는 쪽이 갈라 대응해서다. 죽은 계정은 다시 로그인해도 소용없고,
     // 밀려난 세션은 다시 로그인하면 되며, 인가 거부는 로그인 상태가 맞는데 권한이 없다.
-    ACCOUNT_INACTIVE(HttpStatus.UNAUTHORIZED, "account-inactive", "쓸 수 없는 계정이다"),
+    ACCOUNT_INACTIVE(HttpStatus.UNAUTHORIZED, "account-inactive", "쓸 수 없는 계정이다",
+            "사용할 수 없는 계정입니다."),
     SESSION_SUPERSEDED(HttpStatus.UNAUTHORIZED, "session-superseded",
-            "다른 기기에서 로그인해 이 세션이 끊겼다"),
-    ACCESS_DENIED(HttpStatus.FORBIDDEN, "access-denied", "이 요청을 할 권한이 없다"),
+            "다른 기기에서 로그인해 이 세션이 끊겼다",
+            "다른 기기에서 로그인해 이 세션이 끊겼습니다. 다시 로그인해 주세요."),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "access-denied", "이 요청을 할 권한이 없다",
+            "이 작업을 할 권한이 없습니다."),
     // 요청이 너무 잦다(71). RFC 6585 가 429 를 정하고 Retry-After 가 같이 나간다.
     TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "too-many-requests",
-            "요청이 너무 잦다"),
+            "요청이 너무 잦다",
+            "요청이 너무 잦습니다. 잠시 뒤 다시 시도해 주세요."),
     PASSWORD_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "password-mismatch", "비밀번호가 맞지 않는다"),
 
     /**
@@ -59,13 +64,15 @@ public enum ErrorCode {
     IMPERSONATION_FORBIDDEN(HttpStatus.FORBIDDEN, "impersonation-forbidden", "그 계정을 대행할 수 없다"),
 
     /** 대행 중에는 쓰기가 막힌다(`16b`). 보기만 한다 — 끝내기와 로그아웃만 열려 있다 */
-    IMPERSONATION_READ_ONLY(HttpStatus.FORBIDDEN, "impersonation-read-only", "대행 중에는 보기만 한다"),
+    IMPERSONATION_READ_ONLY(HttpStatus.FORBIDDEN, "impersonation-read-only", "대행 중에는 보기만 한다",
+            "대행 중에는 조회만 할 수 있습니다."),
 
     /** 이미 대행 중인데 또 시작하거나, 대행 중이 아닌데 끝낸다 */
     IMPERSONATION_CONFLICT(HttpStatus.CONFLICT, "impersonation-conflict", "대행 상태가 맞지 않는다"),
     // 대행을 연 관리자가 탈퇴했거나 대행 권한을 잃었다(`Q195`). 대행 세션을 끝내고 다시 로그인하게 한다 —
     // 계정 비활성(`ACCOUNT_INACTIVE`)과 가르는 것은 로그에서 「누가 죽었나」가 달라서다.
-    IMPERSONATION_REVOKED(HttpStatus.UNAUTHORIZED, "impersonation-revoked", "대행을 연 관리자가 더는 대행할 수 없다"),
+    IMPERSONATION_REVOKED(HttpStatus.UNAUTHORIZED, "impersonation-revoked", "대행을 연 관리자가 더는 대행할 수 없다",
+            "대행 권한이 끝났습니다. 다시 로그인해 주세요."),
 
     /**
      * 재설정 토큰이 없거나, 만료됐거나, 이미 썼다(`5c-1`).
@@ -107,7 +114,8 @@ public enum ErrorCode {
     AUDIT_FORBIDDEN(HttpStatus.FORBIDDEN, "audit-forbidden", "감사 로그를 볼 권한이 없다"),
 
     // 역할 편집(`16`)
-    ROLE_FORBIDDEN(HttpStatus.FORBIDDEN, "role-forbidden", "역할을 다룰 권한이 없다"),
+    ROLE_FORBIDDEN(HttpStatus.FORBIDDEN, "role-forbidden", "역할을 다룰 권한이 없다",
+            "역할을 바꿀 권한이 없습니다."),
 
     /**
      * 그 사람이 없다.
@@ -116,7 +124,8 @@ public enum ErrorCode {
      * 계정의 존재는 이미 보이는 것이다 — 감추면 <b>없는 번호와 못 보는 번호</b>가 같아져서
      * 관리자가 오타를 못 알아챈다.
      */
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "user-not-found", "그런 사용자가 없다"),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "user-not-found", "그런 사용자가 없다",
+            "사용자를 찾을 수 없습니다. 목록을 새로고침해 주세요."),
 
     /**
      * 이 입구로 줄 수 있는 역할이 아니다.
@@ -126,17 +135,22 @@ public enum ErrorCode {
      * 오류로 먼저 답한다.
      */
     ROLE_NOT_ASSIGNABLE(HttpStatus.UNPROCESSABLE_CONTENT, "role-not-assignable",
-            "이 입구로 줄 수 있는 역할이 아니다"),
+            "이 입구로 줄 수 있는 역할이 아니다",
+            "이 화면에서 줄 수 있는 역할이 아닙니다."),
 
     // 상품
     //
     // 403 이다. 상품은 공개 목록에 있어서 존재를 숨길 이유가 없다(`D5` 의 자원별 표).
-    PRODUCT_FORBIDDEN(HttpStatus.FORBIDDEN, "product-forbidden", "상품을 다룰 권한이 없다"),
-    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "product-not-found", "그런 상품이 없다"),
+    PRODUCT_FORBIDDEN(HttpStatus.FORBIDDEN, "product-forbidden", "상품을 다룰 권한이 없다",
+            "이 상품을 다룰 권한이 없습니다."),
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "product-not-found", "그런 상품이 없다",
+            "상품을 찾을 수 없습니다. 판매가 끝났을 수 있습니다."),
     PRODUCT_WITHOUT_SKU(HttpStatus.UNPROCESSABLE_CONTENT, "product-without-sku",
-            "팔 조합이 하나도 없다"),
+            "팔 조합이 하나도 없다",
+            "판매할 조합을 하나 이상 넣어 주세요."),
     SKU_OPTION_MISMATCH(HttpStatus.UNPROCESSABLE_CONTENT, "sku-option-mismatch",
-            "조합이 선언한 옵션과 맞지 않는다"),
+            "조합이 선언한 옵션과 맞지 않는다",
+            "조합이 옵션과 맞지 않습니다. 옵션 값을 확인해 주세요."),
     PRODUCT_TRANSITION_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_CONTENT, "product-transition-not-allowed",
             "지금 상태에서 할 수 없는 것이다"),
     // 트리거도 같은 것을 막는다. 여기서 먼저 걸러야 이유가 500 이 아니라 422 로 나간다.
@@ -157,7 +171,8 @@ public enum ErrorCode {
      * ({@link #PASSWORD_RESET_TOKEN_INVALID} 와 같은 판단, `D14`).
      */
     SELLER_INVITATION_INVALID(HttpStatus.UNPROCESSABLE_CONTENT, "seller-invitation-invalid",
-            "쓸 수 없는 초대 토큰이다"),
+            "쓸 수 없는 초대 토큰이다",
+            "쓸 수 없는 초대입니다. 만료되었거나 이미 처리되었을 수 있습니다."),
 
     /**
      * 그 셀러의 멤버를 다룰 권한이 없다(`16a`).
@@ -166,10 +181,13 @@ public enum ErrorCode {
      * 있는지 셀 수 있고, 조직 경계는 그 수를 안 흘리는 것까지가 경계다(`D14`).
      */
     SELLER_MEMBER_FORBIDDEN(HttpStatus.FORBIDDEN, "seller-member-forbidden",
-            "셀러의 멤버를 다룰 권한이 없다"),
+            "셀러의 멤버를 다룰 권한이 없다",
+            "멤버를 다룰 권한이 없습니다."),
 
     SELLER_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-member-not-found",
-            "그 셀러에 속한 사람이 아니다"),
+            "그 셀러에 속한 사람이 아니다",
+
+            "이 셀러의 멤버가 아닙니다. 목록을 새로고침해 주세요."),
 
     /**
      * 마지막 대표는 못 내린다(`Q165`).
@@ -178,7 +196,8 @@ public enum ErrorCode {
      * 푸는 길이 관리자의 직접 개입뿐이라 그 자리를 안 만든다.
      */
     SELLER_LAST_OWNER(HttpStatus.UNPROCESSABLE_CONTENT, "seller-last-owner",
-            "마지막 대표는 내보내거나 역할을 바꿀 수 없다"),
+            "마지막 대표는 내보내거나 역할을 바꿀 수 없다",
+            "마지막 대표는 내보내거나 역할을 바꿀 수 없습니다. 다른 대표를 먼저 지정해 주세요."),
 
     /**
      * 어느 살아 있는 셀러의 마지막 대표라 탈퇴할 수 없다(`Q169`).
@@ -205,11 +224,13 @@ public enum ErrorCode {
      * 같은 응답이다 — 가르면 주문 줄 번호를 두드려 <b>남이 무엇을 샀는지</b> 셀 수 있다(`D14`).
      */
     REVIEW_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_CONTENT, "review-not-allowed",
-            "이 주문에 후기를 쓸 수 없다"),
+            "이 주문에 후기를 쓸 수 없다",
+            "이 주문에는 후기를 쓸 수 없습니다."),
 
     /** 한 주문 줄에 살아 있는 후기는 하나다(`47`). 고치거나 지우고 다시 쓴다 */
     REVIEW_ALREADY_WRITTEN(HttpStatus.CONFLICT, "review-already-written",
-            "이미 후기를 쓴 주문이다"),
+            "이미 후기를 쓴 주문이다",
+            "이미 후기를 쓴 주문입니다."),
 
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "review-not-found", "그런 후기가 없다"),
 
@@ -243,7 +264,8 @@ public enum ErrorCode {
      * 여기서는 아무것도 안 흘린다: 그 쿠폰은 이미 자기 것이다.
      */
     COUPON_NOT_APPLICABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-not-applicable",
-            "이 주문에 쓸 수 없는 쿠폰이다"),
+            "이 주문에 쓸 수 없는 쿠폰이다",
+            "쿠폰 조건이 맞지 않아 쓸 수 없습니다. 조건을 확인해 주세요."),
 
     /**
      * 그 코드로 받을 쿠폰이 없다(`Q163`).
@@ -253,13 +275,16 @@ public enum ErrorCode {
      * 코드는 밖에서 듣고 와서 치는 값이라 맞히기가 목록을 뿌린 것과 같아진다.
      */
     COUPON_CODE_NOT_ISSUABLE(HttpStatus.UNPROCESSABLE_CONTENT, "coupon-code-not-issuable",
-            "지금 받을 수 없는 쿠폰 코드다"),
+            "지금 받을 수 없는 쿠폰 코드다",
+            "지금 받을 수 없는 쿠폰 코드입니다. 코드를 다시 확인해 주세요."),
 
     /** 한 사람이 같은 쿠폰을 한 번만 받는다(`coupon_issue_once`, `49`) */
-    COUPON_ALREADY_ISSUED(HttpStatus.CONFLICT, "coupon-already-issued", "이미 받은 쿠폰이다"),
+    COUPON_ALREADY_ISSUED(HttpStatus.CONFLICT, "coupon-already-issued", "이미 받은 쿠폰이다",
+            "이미 받은 쿠폰입니다. 내 쿠폰에서 확인해 주세요."),
 
     /** 같은 코드의 쿠폰이 이미 있다(`coupon.code` 유니크) */
-    COUPON_CODE_TAKEN(HttpStatus.CONFLICT, "coupon-code-taken", "이미 쓰는 쿠폰 코드다"),
+    COUPON_CODE_TAKEN(HttpStatus.CONFLICT, "coupon-code-taken", "이미 쓰는 쿠폰 코드다",
+            "이미 쓰고 있는 쿠폰 코드입니다. 다른 코드를 입력해 주세요."),
 
     // 장바구니
     //
@@ -285,7 +310,8 @@ public enum ErrorCode {
     OUT_OF_STOCK(HttpStatus.CONFLICT, "out-of-stock", "재고가 모자란다"),
 
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "order-not-found", "그런 주문이 없다"),
-    SELLER_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-order-not-found", "그런 셀러 주문이 없다"),
+    SELLER_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "seller-order-not-found", "그런 셀러 주문이 없다",
+            "주문을 찾을 수 없습니다. 주문 번호를 확인해 주세요."),
 
     // 주문 하나를 못 볼 때는 404 다(`D5`). 이건 목록에 쓴다 —
     // 목록에는 가리키는 자원이 없어서 403 이 존재를 흘리지 않고,
@@ -354,6 +380,9 @@ public enum ErrorCode {
     WEBHOOK_ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "webhook-endpoint-not-found", "그런 웹훅 엔드포인트가 없다"),
     WEBHOOK_FORBIDDEN(HttpStatus.FORBIDDEN, "webhook-forbidden", "그 셀러의 웹훅을 다룰 권한이 없다"),
     WEBHOOK_DELIVERY_NOT_FOUND(HttpStatus.NOT_FOUND, "webhook-delivery-not-found", "그런 웹훅 발송이 없다"),
+    // 손으로 돌리는 배치(`Q241`). 기준일 배치(`RetryableBatch`)만 받는다 — 5분 주기 스위퍼는 회차가 없어 안 연다.
+    BATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "batch-not-found", "손으로 돌릴 수 있는 배치가 아니다"),
+    BATCH_FORBIDDEN(HttpStatus.FORBIDDEN, "batch-forbidden", "배치를 돌릴 권한이 없다"),
     // 실패로 닫힌 발송만 다시 보낸다(`31`). 가는 중이거나 간 것을 다시 보내면 받는 쪽에 두 번 간다.
     WEBHOOK_DELIVERY_NOT_RESENDABLE(HttpStatus.CONFLICT, "webhook-delivery-not-resendable",
             "실패로 닫힌 웹훅 발송만 다시 보낼 수 있다"),
@@ -419,25 +448,30 @@ public enum ErrorCode {
             "같은 키로 다른 요청을 보냈다"),
 
     // 입력
-    VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "validation-failed", "요청 형식이 맞지 않는다"),
+    VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "validation-failed", "요청 형식이 맞지 않는다",
+            "입력한 값을 확인해 주세요."),
     SORT_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "sort-not-allowed", "정렬할 수 없는 필드다"),
 
     // 그 밖
     //
     // 판정이 실패하거나 예상 못 한 것이 터졌을 때다. detail 에 원인을 안 담는다 —
     // 스택이나 SQL 문구가 응답으로 나가면 그 자체가 정보 유출이다(`D14`).
-    INTERNAL(HttpStatus.INTERNAL_SERVER_ERROR, "internal", "요청을 처리하지 못했다"),
+    INTERNAL(HttpStatus.INTERNAL_SERVER_ERROR, "internal", "요청을 처리하지 못했다",
+            "요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요."),
 
     // 프레임워크가 MVC 에 닿기 전에 끊는 것.
     //
     // 이 넷이 없으면 전부 validation-failed 하나로 뭉친다 — 405 와 415 와 깨진 JSON 이
     // 같은 type 으로 나가고, 그러면 「상태 코드가 아니라 type 으로 분기한다」(`D5`)는 근거가
     // 이 경로에서만 뒤집힌다. 상태 코드보다 type 이 더 뭉치는 자리가 된다.
-    MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "malformed-request", "요청을 읽지 못했다"),
+    MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "malformed-request", "요청을 읽지 못했다",
+            "요청을 처리하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "method-not-allowed",
-            "그 경로에 쓸 수 없는 메서드다"),
+            "그 경로에 쓸 수 없는 메서드다",
+            "요청을 처리하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요."),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported-media-type",
-            "다룰 수 없는 미디어 타입이다"),
+            "다룰 수 없는 미디어 타입이다",
+            "지원하지 않는 형식의 요청입니다. 화면을 새로고침한 뒤 다시 시도해 주세요."),
     // 상품 사진(27, media-rules.md)
     //
     // 크기와 형식은 HTTP 가 이미 뜻을 정해 둔 자리라 그 코드를 쓴다(D5).
@@ -453,16 +487,19 @@ public enum ErrorCode {
     // 못 보는 것도 404 다. 403 을 주면 문의번호를 훑어서 실재하는 비공개 문의의 지도를
     // 그릴 수 있고, 그것이 곧 「어느 상품에 비공개 문의가 몇 건 있나」다
     // (`RefundQuery` 와 같은 판단, `D5` 의 자원별 표).
-    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "inquiry-not-found", "그런 문의가 없다"),
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "inquiry-not-found", "그런 문의가 없다",
+            "문의를 찾을 수 없습니다. 목록을 새로고침해 주세요."),
 
     // 403 이다. 답할 권한이 없는 것이라 <b>이 사람이라서</b> 안 되는 것이고,
     // 다른 사람이 부르면 같은 요청이 통과한다(REFUND_SELF_APPROVAL 과 같은 기준).
-    INQUIRY_FORBIDDEN(HttpStatus.FORBIDDEN, "inquiry-forbidden", "문의를 다룰 권한이 없다"),
+    INQUIRY_FORBIDDEN(HttpStatus.FORBIDDEN, "inquiry-forbidden", "문의를 다룰 권한이 없다",
+            "이 문의를 다룰 권한이 없습니다."),
 
     // 409 다. 이미 답한 문의에 또 답하려는 것이라 대상 자원의 현재 상태와 부딪힌다.
     // 내려간 게시물에 답하려는 것도 여기로 온다 — 답이 안 보이는 자리에 답을 쓰는 것이다.
     INQUIRY_ALREADY_CLOSED(HttpStatus.CONFLICT, "inquiry-already-closed",
-            "이미 처리된 문의다"),
+            "이미 처리된 문의다",
+            "이미 답변했거나 거둔 문의입니다. 목록을 새로고침해 주세요."),
 
     // 정산(20)
     //
@@ -506,14 +543,32 @@ public enum ErrorCode {
      */
     private static final String TAG_PREFIX = "tag:projectshop.example,2026:error:";
 
+    /**
+     * 사용자 문구가 없는 5xx 코드가 내는 문구. 다음에 무엇을 할지를 적는다(`D20` 「지키는 것」) — 서버 쪽 사정이라
+     * 다시 시도가 답이다. 화면의 `api.ts` 가 같은 값을 든다(`api.test.ts` 가 대조한다).
+     */
+    static final String FALLBACK_USER_TEXT = "요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
+
+    /**
+     * 사용자 문구가 없는 4xx 코드가 내는 문구. 요청이 틀린 것이라 다시 보내도 같다 — 확인을 권한다
+     * (마무리 55차 독립 리뷰: 틀린 비밀번호에 「잠시 뒤 다시 시도」가 실렸다).
+     */
+    static final String FALLBACK_CLIENT_USER_TEXT = "요청을 처리하지 못했습니다. 입력한 내용을 확인해 주세요.";
+
     private final HttpStatus status;
     private final String slug;
     private final String title;
+    private final String userText;
 
     ErrorCode(HttpStatus status, String slug, String title) {
+        this(status, slug, title, null);
+    }
+
+    ErrorCode(HttpStatus status, String slug, String title, String userText) {
         this.status = status;
         this.slug = slug;
         this.title = title;
+        this.userText = userText;
     }
 
     public HttpStatus status() {
@@ -527,5 +582,21 @@ public enum ErrorCode {
 
     public String title() {
         return title;
+    }
+
+    /**
+     * 응답의 {@code message} — 사용자가 읽는 존댓말 문구(`Q233`, `D20` 「화면 문구는 존댓말이다」).
+     *
+     * <p><b>{@code title}·{@code detail} 과 독자가 다르다.</b> 둘은 개발자가 읽는 평서형이고 진단 정보를 든다.
+     * 화면이 그것을 그대로 그리면 문체가 갈리고 내부 값(소문자 상태·Spring 영어)이 샌다.
+     *
+     * <p><b>문구가 없는 코드는 공통 문구를 준다</b>(4xx 와 5xx 가 다르다). 화면이 닿는 코드는 {@code ErrorCodeUserTextTest} 의
+     * 목록이 들고, 새로 닿는 코드가 생기면 문구를 여기 한 곳에 더한다 — 화면마다 문구를 고르지 않는다.
+     */
+    public String userText() {
+        if (userText != null) {
+            return userText;
+        }
+        return status.is5xxServerError() ? FALLBACK_USER_TEXT : FALLBACK_CLIENT_USER_TEXT;
     }
 }

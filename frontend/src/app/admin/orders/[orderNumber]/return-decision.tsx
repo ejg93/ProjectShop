@@ -184,7 +184,7 @@ function useDecision(sellerOrderNumber: string, action: string) {
   return { pending, failure, send };
 }
 
-/** 서버 문구를 그대로 안 쓰고 오류 이름으로 자기 문구를 고른다(`D20` 「서버 문구를 그대로 안 쓴다」) */
+/** 오류 이름으로 자기 문구를 고른다 — 이름마다 안내가 달라서다(`D20` 「서버 문구는 `message` 만 그린다」 — 할 일이 다르면 슬러그로 가른다) */
 function failureText(error: unknown): string {
   if (error instanceof ApiError && error.slug === "return-not-received") {
     return "아직 입고되지 않아 승인할 수 없습니다.";

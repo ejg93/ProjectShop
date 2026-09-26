@@ -49,7 +49,8 @@ public class InquiryService {
     private static final String CREATE = "create";
     private static final String ANSWER = "answer";
     private static final String BLOCK = "block";
-    private static final String READ = "read";
+    /** 거두기. 쓰기 권한이라 `V75` 트리거가 감사자 거부를 단다(`Q239`, `V118`) */
+    private static final String WITHDRAW = "withdraw";
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
@@ -181,9 +182,9 @@ public class InquiryService {
         // `seller` 스코프가 걸리고, 그 순간 **셀러가 남의 문의를 거둔다** —
         // 자기 상품에 달린 불리한 질문을 지우는 자리가 된다.
         //
-        // 동작은 `read` 를 쓴다. 새 권한을 파지 않는 이유는 **거두기가 자기 것을 다루는
-        // 일이라 볼 수 있는 범위와 정확히 같아서**다 — 관리자는 `all` 이라 대신 거둘 수 있다.
-        if (!evaluator.decide(userId, RESOURCE, READ, Target.ownedBy(row.ownerUserId()))
+        // **권한이 따로다**(`Q239`). 전에는 `read` 를 빌려 써서 감사자가 `read all` 로 남의 문의를
+        // 거뒀다 — 볼 수 있는 범위와 거둘 수 있는 범위는 읽기 전용 역할에서 갈린다. 관리자는 `all` 이라 대신 거둔다.
+        if (!evaluator.decide(userId, RESOURCE, WITHDRAW, Target.ownedBy(row.ownerUserId()))
                 .allowed()) {
             throw new ShopException(ErrorCode.INQUIRY_NOT_FOUND,
                     "그런 문의가 없다: " + inquiryNumber);

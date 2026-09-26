@@ -129,7 +129,7 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 ## 지금 데이터 — 역할 × 권한 매트릭스
 
 마이그레이션 V3·V5·V6·V20 이 넣은 값이다. **이 표 전체를 고정하는 시험은 없다** — 청크 4c 의 스냅숏(`PermissionMatrixTest`)은
-판정기의 범위·효과 조합만 들고 역할×권한 행을 안 든다(`Q211` 재대조). **웹훅 줄 셋은 `WebhookEndpointServiceTest` 가 고정한다.**
+판정기의 범위·효과 조합만 들고 역할×권한 행을 안 든다(`Q211` 재대조). **웹훅 줄 셋은 `WebhookEndpointServiceTest` 가, 문의 거두기 줄은 `InquiryVisibilityTest` 가 고정한다**(`Q239` — 감사자가 `read all` 로 거두던 구멍을 제 권한으로 막았다).
 
 `A/범위` 는 allow, `D/범위` 는 deny 다. 빈 칸은 규칙 없음이다.
 
@@ -153,6 +153,8 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `payment:refund` | | | A/all | D/all |
 | `compensation:read` | | | A/all | A/all |
 | `compensation:decide` | | | A/all | D/all |
+| `inquiry:withdraw` | A/own | | A/all | D/all |
+| `batch:run` | | | A/all | D/all |
 | `webhook:manage` | | A/seller(대표만) | | D/all |
 | `webhook:read` | | A/seller(대표만) | A/all | A/all |
 | `webhook:delete` | | A/seller(대표만) | A/all | D/all |

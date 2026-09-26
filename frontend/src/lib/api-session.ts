@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { forbidden, redirect } from "next/navigation";
 
 import { BACKEND_ORIGIN, toApiError, toCamel } from "./api";
@@ -17,6 +17,7 @@ import { BACKEND_ORIGIN, toApiError, toCamel } from "./api";
  *
  * <pre>
  * 브라우저 ──(쿠키 자동)──> Next 서버 ──(안 붙음)──> 백엔드 → 401
+ * 손님 주소  ──(XFF)──────> Next 서버 ──(안 붙음)──> 백엔드는 Next 주소 하나로 센다(`Q240`)
  * </pre>
  *
  * <p><b>운반이 이 파일 하나에 갇혀 있어야 한다</b>(`D24`). 만지는 자리가 여럿이면
@@ -48,6 +49,54 @@ const SESSION_COOKIE = "SHOPSESSION";
  */
 const SESSION_EXPIRED = "/login?reason=session-expired";
 const LOGIN_REQUIRED = "/login?reason=login-required";
+
+/**
+ * 손님 주소 헤더(`Q240`). 서버에서 도는 두 입구({@link apiPublic}·{@link carry})가 같이 싣는다.
+ *
+ * <p><b>안 실으면 요청 제한이 방문자 전원을 Next 주소 하나로 센다</b>(`RateLimitFilter` 는 1분 120).
+ * 서버 렌더는 Next 가 새로 내는 요청이라 들어온 헤더가 안 따라간다.
+ *
+ * <p><b>앞단이 채운 `X-Real-IP` 만 옮긴다</b>(마무리 55차 독립 리뷰). Railway 앞단이 손님 주소로 적는 헤더다(`stack.md`).
+ * 들어온 `x-forwarded-for` 는 **손님이 쓸 수 있다** — Next 는 없을 때만 채우고 덧붙이지 않아서(16.3 `base-server` 의 `??=`)
+ * 손님이 적은 값이 그대로 남고, 백엔드는 Next 를 믿으므로 그 값을 손님 주소로 받는다. 옮기면 요청마다 새 버킷이 열린다.
+ *
+ * <p><b>`X-Real-IP` 가 없으면 안 싣는다</b> — 로컬처럼 앞단이 없는 곳이다. 그때는 Next 주소 하나로 세고, 그것이 옮기기 전 모양이다.
+ */
+async function clientAddress(): Promise<string | null> {
+  return (await headers()).get("x-real-ip");
+}
+
+/**
+ * 로그인 없이 볼 수 있는 것을 서버 컴포넌트에서 읽는다.
+ *
+ * <p><b>쿠키를 안 싣는다.</b> 공개 데이터는 누구에게나 같으므로 실을 이유가 없고,
+ * 안 실으면 <b>사람마다 다른 응답이 섞일 수 없다</b> — 캐시를 켜는 날 그 위험이 안 생긴다(`D24`).
+ * 손님 주소는 싣는다 — 응답을 안 바꾸고 요청 제한만 가른다.
+ *
+ * <p><b>이 파일로 옮겼다</b>(`Q240`). 손님 주소를 읽는 {@code next/headers} 를 `api.ts` 에 들이면
+ * 그 파일을 쓰는 클라이언트 컴포넌트가 빌드에서 깨진다.
+ *
+ * <p><b>CSRF 도 없다.</b> 읽기만 하는 입구라 서버가 토큰을 안 본다.
+ *
+ * @param path `/api` 로 시작하는 경로
+ * @throws ApiError 서버가 2xx 가 아닌 것을 줬을 때
+ */
+export async function apiPublic<T>(path: string): Promise<T> {
+  const forwardedFor = await clientAddress();
+
+  // 명시한다. Next 문서 안에서도 기본값 서술이 갈리는 자리라 기대지 않는다(`D24` 「캐시」).
+  // 켜려면 여기가 아니라 부르는 라우트에서 정한다 — 상품이 언제 바뀌는지는 화면이 안다.
+  const response = await fetch(`${BACKEND_ORIGIN}${path}`, {
+    headers: forwardedFor ? { "X-Forwarded-For": forwardedFor } : {},
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+
+  return toCamel(await response.json()) as T;
+}
 
 /**
  * 세션을 실어서 부른다.
@@ -127,6 +176,7 @@ export async function apiSessionOptional<T>(path: string): Promise<T | null> {
  */
 async function carry(path: string): Promise<Response> {
   const jar = await cookies();
+  const forwardedFor = await clientAddress();
 
   const carried = FORWARDED_COOKIES.map((name) => jar.get(name))
     .filter((cookie) => cookie !== undefined)
@@ -135,7 +185,10 @@ async function carry(path: string): Promise<Response> {
 
   return fetch(`${BACKEND_ORIGIN}${path}`, {
     // 쿠키가 하나도 없을 수 있다. 비로그인이 장바구니를 처음 여는 경우다.
-    headers: carried ? { Cookie: carried } : {},
+    headers: {
+      ...(carried ? { Cookie: carried } : {}),
+      ...(forwardedFor ? { "X-Forwarded-For": forwardedFor } : {}),
+    },
 
     // 사람마다 다른 응답이다. 캐시되면 남의 주문이 보인다(`D24` 「캐시」).
     // 기본값이 이미 캐시 안 함이지만 Next 문서 안에서 서술이 갈리는 자리라 명시한다.

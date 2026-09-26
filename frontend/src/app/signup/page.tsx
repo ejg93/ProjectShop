@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { PolicyBody } from "@/components/policy-document";
-import { apiPublic } from "@/lib/api";
+import { apiPublic } from "@/lib/api-session";
 
 import { SignupForm } from "./signup-form";
 import type { ConsentItem } from "./signup-form";

@@ -1,0 +1,16 @@
+# gate: ErrorCodeUserTextTest 존댓말 어미(Q233)
+# run: cd backend && ./gradlew test --tests com.projectshop.shop.error.ErrorCodeUserTextTest
+# expect: 모든 코드의 문구가 존댓말로 끝난다 FAILED
+# expect: FAILED com.projectshop.shop.error.ErrorCodeUserTextTest
+diff --git a/backend/src/main/java/com/projectshop/shop/error/ErrorCode.java b/backend/src/main/java/com/projectshop/shop/error/ErrorCode.java
+--- a/backend/src/main/java/com/projectshop/shop/error/ErrorCode.java
++++ b/backend/src/main/java/com/projectshop/shop/error/ErrorCode.java
+@@ -37,7 +37,7 @@
+     // 셋을 가른 이유는 받는 쪽이 갈라 대응해서다. 죽은 계정은 다시 로그인해도 소용없고,
+     // 밀려난 세션은 다시 로그인하면 되며, 인가 거부는 로그인 상태가 맞는데 권한이 없다.
+     ACCOUNT_INACTIVE(HttpStatus.UNAUTHORIZED, "account-inactive", "쓸 수 없는 계정이다",
+-            "사용할 수 없는 계정입니다."),
++            "사용할 수 없는 계정이다"),
+     SESSION_SUPERSEDED(HttpStatus.UNAUTHORIZED, "session-superseded",
+             "다른 기기에서 로그인해 이 세션이 끊겼다",
+             "다른 기기에서 로그인해 이 세션이 끊겼습니다. 다시 로그인해 주세요."),

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { ApiError, apiPublic } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { apiPublic } from "@/lib/api-session";
 
 import { CopyrightReportForm } from "./report-form";
 

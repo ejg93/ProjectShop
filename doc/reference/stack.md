@@ -1665,6 +1665,28 @@ JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이�
 붙는다. 로컬 npm 10.9 로 `npm i` 하면 그 칸을 지워서 의존성 하나를 더한 diff 에 무관한 줄이 섞인다(2026-09-26 `Q214` 실측).
 **의존성을 더할 때는 `npx -y npm@11 install <패키지>` 로 한다** — 칸이 그대로 남는다.
 
+### Next 는 들어온 요청에 `x-forwarded-for` 를 없을 때만 채운다 — 덧붙이지 않는다
+
+**16.3 `base-server.js` 가 `req.headers['x-forwarded-for'] ??= socket.remoteAddress` 를 한다**(`Q240` 에서 소스로 확인).
+**있으면 안 건드린다** — 손님이 적어 보낸 값이 그대로 남는다(마무리 55차 독립 리뷰). 그래서 이 헤더를 백엔드로 옮기면
+백엔드(Next 를 믿는다)가 손님이 쓴 값을 손님 주소로 받는다. 서버 입구는 앞단이 채운 `X-Real-IP` 만 옮긴다(`D24` 「손님 주소도 같은 자리에서 나른다」).
+
+**rewrite 도 안 더한다.** `router-server.js` 가 바깥 rewrite 를 `base-server` 앞에서 넘기고, `proxy-request.js` 가 `httpxy` 를
+`xfwd` 없이 만든다 — 앞단이 실은 헤더만 지나간다.
+
+### Railway 앞단은 손님 주소를 `X-Real-IP` 로 적는다 — `X-Forwarded-For` 는 문서에 없다
+
+Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)·`X-Forwarded-Proto`·`X-Forwarded-Host`·`X-Railway-Edge` 를 적고
+**`X-Forwarded-For` 를 안 적는다**(2026-09-26 확인). 앞단이 그것을 덧붙이는지 덮는지 그대로 넘기는지는 문서로 모른다 —
+백엔드의 `RemoteIpValve` 는 지금 `X-Forwarded-For` 를 보므로 브라우저 길이 맞게 받는지는 운영에서 잰다(`Q242`).
+
+### 시험 `RestClient` 는 429 를 `Retry-After` 만큼 기다렸다 다시 보낸다
+
+`RestClient.create()` 는 클래스패스의 Apache HttpClient 5 를 고르고, 그 기본 재시도(`DefaultHttpRequestRetryStrategy`)가
+**429·503 을 `Retry-After` 만큼 기다려 한 번 더 보낸다.** 요청 제한의 `Retry-After` 는 60초라 창이 닫힌 뒤 새 버킷의 첫 요청이 되어
+**429 를 기대한 시험이 1분 뒤 401 을 받는다**(`Q240` 실측 — 카운터가 20 에서 1 로 돌아갔다). 실제 HTTP 로 429 를 재지 말고
+버킷 열쇠를 읽거나 MockMvc 로 잰다(`RateLimitFilterTest`).
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
