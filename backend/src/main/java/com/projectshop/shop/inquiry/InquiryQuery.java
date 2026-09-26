@@ -47,6 +47,8 @@ public class InquiryQuery {
     private static final String READ = "read";
     /** 답변 권한. `V54` 가 셀러에게만 허용하고 감사자에게 거부한다 */
     private static final String ANSWER = "answer";
+    /** 거두기. 주인의 목록이 이것으로 `WITHDRAWAL` 을 싣는다(`Q239`) */
+    private static final String WITHDRAW = "withdraw";
 
     // 정렬을 안 받는다(`D5` 는 목록에 정렬을 열라고 하지 않는다).
     //
@@ -154,8 +156,10 @@ public class InquiryQuery {
         Visibility visibility = visibilityFor(viewerId, Target.ownedBy(viewerId),
                 "자기 문의를 볼 권한이 없다");
 
-        // 자기 것을 볼 수 있으면 거둘 수 있다 — 거두기가 같은 판정(`read`, `ownedBy`)을 쓴다(`InquiryService.withdraw`)
-        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility, false, true);
+        // 거두기는 제 권한이다(`Q239`) — 서비스(`InquiryService.withdraw`)와 같은 판정(`withdraw`, `ownedBy`)을 쓴다.
+        // 볼 수 있어도 못 거두는 역할(감사자)이 있어서 `read` 판정을 빌리면 안 된다.
+        boolean canWithdraw = evaluator.decide(viewerId, RESOURCE, WITHDRAW, Target.ownedBy(viewerId)).allowed();
+        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility, false, canWithdraw);
     }
 
     /**

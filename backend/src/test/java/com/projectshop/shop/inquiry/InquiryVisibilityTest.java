@@ -17,6 +17,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.auth.PermissionEvaluator;
+import com.projectshop.shop.auth.PermissionRuleLoader;
+import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderFixture;
 import com.projectshop.shop.support.ListQuery.Paging;
@@ -52,6 +54,9 @@ class InquiryVisibilityTest extends PostgresTestBase {
 
     @Autowired
     private PermissionEvaluator evaluator;
+
+    @Autowired
+    private PermissionRuleLoader ruleLoader;
 
     private AuthFixture fixture;
     private long askerId;
@@ -225,7 +230,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
 
         /**
          * 거두기는 서버가 권한다(`Q234`) — 화면이 {@code status === "RECEIVED"} 만 보고 거두기 버튼을 그렸다.
-         * 판정은 거두기 입구와 같다(`read`, `ownedBy`). 답이 나가면 거둘 것이 없다.
+         * 판정은 거두기 입구와 같다(`withdraw`, `ownedBy` — `Q239`). 답이 나가면 거둘 것이 없다.
          */
         @Test
         @DisplayName("내 문의가 접수 상태면 WITHDRAWAL 을 싣고 답이 나가면 안 싣는다")
@@ -721,6 +726,57 @@ class InquiryVisibilityTest extends PostgresTestBase {
 
             assertThatThrownBy(() -> inquiries.withdraw(strangerId, number))
                     .isInstanceOf(ShopException.class);
+        }
+
+        /**
+         * <b>읽기 전용 역할은 볼 수 있어도 못 거둔다</b>(`Q239`). 감사자는 {@code inquiry:read} 를 {@code all} 로
+         * 가져서, 거두기가 {@code read} 판정을 빌리던 때는 남의 문의를 거뒀다. 이제 {@code inquiry:withdraw} 는
+         * 쓰기 권한이라 `V75` 트리거가 감사자 거부를 단다.
+         */
+        @Test
+        @DisplayName("감사자는 볼 수 있어도 못 거둔다")
+        void refusesTheAuditor() {
+            String number = ask(askerId, true);
+
+            assertThatThrownBy(() -> inquiries.withdraw(auditorId, number))
+                    .isInstanceOf(ShopException.class)
+                    .extracting(e -> ((ShopException) e).code())
+                    .isEqualTo(ErrorCode.INQUIRY_NOT_FOUND);
+            assertThat(query.findPublic(productId, new Paging(0, 20)).items())
+                    .as("거절되면 문의가 그대로 남는다")
+                    .hasSize(1);
+        }
+
+        @Test
+        @DisplayName("관리자는 대신 거둔다")
+        void letsTheAdminWithdraw() {
+            String number = ask(askerId, true);
+
+            assertThatCode(() -> inquiries.withdraw(adminId, number)).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("내 목록의 WITHDRAWAL 은 거두기 권한을 따른다 — 권한을 거두면 안 싣는다")
+        void carriesWithdrawalByPermission() {
+            ask(askerId, true);
+            // 고객 역할에서 거두기 부여만 뺀다. 읽기는 그대로라 목록은 보이고 조작만 빠져야 한다.
+            jdbc.sql("""
+                            delete from role_permission
+                             where role_id = (select role_id from role where code = 'customer')
+                               and permission_id = (select permission_id from permission
+                                                     where resource = 'inquiry' and action = 'withdraw')
+                            """)
+                    .update();
+            // 규칙은 캐시에 있다. 앞에서 비우고, 트랜잭션이 되돌린 뒤에도 뺀 규칙이 남지 않게 뒤에서도 비운다.
+            ruleLoader.evict(askerId);
+            try {
+                assertThat(query.findMine(askerId, new Paging(0, 20)).items())
+                        .singleElement()
+                        .extracting(InquiryQuery.Entry::allowedActions)
+                        .isEqualTo(List.of());
+            } finally {
+                ruleLoader.evict(askerId);
+            }
         }
 
         @Test
