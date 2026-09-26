@@ -74,7 +74,7 @@ const eslintConfig = defineConfig([
   // `react` 플러그인은 `eslint-config-next` 가 이미 등록해 뒀으므로 규칙만 켠다.
   { rules: { "react/no-danger": "error" } },
 
-  // 서버를 부르는 입구를 파일 둘에 가둔다(`Q29`, `D24` 「서버를 부르는 입구가 셋이다」).
+  // 서버를 부르는 입구를 파일 둘에 가둔다(`Q29`, `D24` 「서버를 부르는 입구가 넷이다」).
   //
   // **문서에만 있던 규칙이다.** `fetch` 를 화면에서 직접 쓰면 표기 변환·CSRF·오류 변환을
   // 안 거친 응답이 화면에 닿고, `next/headers` 를 다른 파일이 들면 세션 운반이 두 군데가 된다
@@ -92,7 +92,7 @@ const eslintConfig = defineConfig([
         "error",
         {
           name: "fetch",
-          message: "서버는 api()·apiPublic()·apiSession() 으로만 부른다(frontend-rules.md 「서버를 부르는 입구가 셋이다」)",
+          message: "서버는 api()·apiUpload()·apiPublic()·apiSession() 으로만 부른다(frontend-rules.md 「서버를 부르는 입구가 넷이다」)",
         },
       ],
       "no-restricted-imports": [
