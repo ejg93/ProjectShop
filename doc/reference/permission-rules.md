@@ -154,6 +154,7 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `compensation:read` | | | A/all | A/all |
 | `compensation:decide` | | | A/all | D/all |
 | `inquiry:withdraw` | A/own | | A/all | D/all |
+| `batch:run` | | | A/all | D/all |
 | `webhook:manage` | | A/seller(대표만) | | D/all |
 | `webhook:read` | | A/seller(대표만) | A/all | A/all |
 | `webhook:delete` | | A/seller(대표만) | A/all | D/all |

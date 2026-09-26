@@ -263,6 +263,27 @@ JVM 이 죽은 회차가 영영 `running` 으로 남고 그 행을 치우는 배
 - **대상이 0 이면 `DEBUG` 로 내린다.** 5분 배치가 `INFO` 로 남기면 하루 288줄이 쌓여 진짜 처리가 묻힌다
 - 식별자만 넣는다. 이름·이메일·주소는 안 넣는다
 
+## 손으로 돌리는 법
+
+**`POST /api/admin/batches/{이름}/runs`**(`Q241`). 관리자 세션으로 부르고 본문은 비우거나 기준일 하나다.
+
+```
+curl -X POST http://localhost:8080/api/admin/batches/daily_sales/runs \
+     -H 'Content-Type: application/json' -H "X-XSRF-TOKEN: $XSRF" -b cookies.txt \
+     -d '{"baseline_date": "2026-09-25"}'
+```
+
+| 무엇 | 어떻게 |
+|---|---|
+| 받는 이름 | 기준일 배치(`RetryableBatch`) 여섯 — `account_purge`·`auto_confirm`·`stale_bundle_close`·`transaction_purge`·`settlement_close`·`daily_sales`. 밖은 404 `batch-not-found` |
+| 기준일 | 본문 `baseline_date`. 없으면 오늘(KST) |
+| 응답 | 200 — 그 회차의 `batch_run` 줄(`status`·`target_count`·`processed_count`) |
+| 이미 성공한 회차 | 줄을 안 남기고 건너뛴다(「재실행 안전성」) — 응답 `status` 가 `skipped` 다. 같은 날을 다시 재려면 다른 기준일을 준다 |
+| 권한 | `batch:run` — 관리자 `all`, 감사자는 `V75` 트리거가 거부(`V119`) |
+
+**동기다.** 배치가 초 단위라 결과를 그 자리에서 낸다. 5분 주기 배치는 안 연다 — 회차가 없고 다음 주기가 곧 재실행이다.
+**cron 과 같은 잠금을 지난다**(`BatchRuns.record`) — 손으로 부른 것과 04:00 회차가 겹치면 뒤에 온 쪽이 건너뛴다.
+
 ## 새 배치를 더할 때
 
 1. 카탈로그에 행을 더한다

@@ -380,6 +380,9 @@ public enum ErrorCode {
     WEBHOOK_ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "webhook-endpoint-not-found", "그런 웹훅 엔드포인트가 없다"),
     WEBHOOK_FORBIDDEN(HttpStatus.FORBIDDEN, "webhook-forbidden", "그 셀러의 웹훅을 다룰 권한이 없다"),
     WEBHOOK_DELIVERY_NOT_FOUND(HttpStatus.NOT_FOUND, "webhook-delivery-not-found", "그런 웹훅 발송이 없다"),
+    // 손으로 돌리는 배치(`Q241`). 기준일 배치(`RetryableBatch`)만 받는다 — 5분 주기 스위퍼는 회차가 없어 안 연다.
+    BATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "batch-not-found", "손으로 돌릴 수 있는 배치가 아니다"),
+    BATCH_FORBIDDEN(HttpStatus.FORBIDDEN, "batch-forbidden", "배치를 돌릴 권한이 없다"),
     // 실패로 닫힌 발송만 다시 보낸다(`31`). 가는 중이거나 간 것을 다시 보내면 받는 쪽에 두 번 간다.
     WEBHOOK_DELIVERY_NOT_RESENDABLE(HttpStatus.CONFLICT, "webhook-delivery-not-resendable",
             "실패로 닫힌 웹훅 발송만 다시 보낼 수 있다"),
