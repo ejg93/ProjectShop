@@ -51,8 +51,8 @@ export function RoleEditor({ user }: { user: UserDetail }) {
         router.refresh();
       } catch (caught) {
         setError(
-          caught instanceof ApiError && caught.detail
-            ? caught.detail
+          caught instanceof ApiError
+            ? caught.userText
             : "역할을 바꾸지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
         );
       }

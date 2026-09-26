@@ -42,6 +42,13 @@ const ERROR_TYPE_PREFIX = "tag:projectshop.example,2026:error:";
  */
 export type FieldError = { field: string; message: string };
 
+/**
+ * 서버가 {@code message} 를 안 실었을 때 그리는 문구. 서버의 `ErrorCode.FALLBACK_USER_TEXT` 와 같은 값이다(`Q233`).
+ *
+ * <p>우리 서버는 늘 싣는다. 비는 것은 프록시나 다른 서버가 낸 오류 본문뿐이다.
+ */
+export const FALLBACK_USER_TEXT = "요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
+
 export class ApiError extends Error {
   /**
    * 접두어를 뗀 오류 이름. <b>화면은 이것으로 분기한다</b>(`D5`·`D20`).
@@ -63,6 +70,13 @@ export class ApiError extends Error {
      * 한 화면이 그것을 빠뜨리는 날 그 화면만 터진다.
      */
     readonly errors: FieldError[] = [],
+    /**
+     * 사용자가 읽는 문구 — 응답의 {@code message}(`Q233`). <b>화면은 {@code detail} 대신 이것을 그린다</b>(`D20`).
+     *
+     * <p>{@code detail} 은 개발자용 평서형이라 내부 값(소문자 상태·Spring 영어)이 섞인다.
+     * 분기는 여전히 {@link slug} 로 한다 — 이것도 문구라 다듬으면 바뀐다.
+     */
+    readonly userText: string = FALLBACK_USER_TEXT,
   ) {
     super(detail);
     this.name = "ApiError";
@@ -271,6 +285,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
     const body = (await response.json()) as {
       type?: string;
       detail?: string;
+      message?: unknown;
       trace_id?: string;
       errors?: { field?: unknown; message?: unknown }[];
     };
@@ -281,6 +296,8 @@ export async function toApiError(response: Response): Promise<ApiError> {
       body.detail ?? "요청을 처리하지 못했습니다.",
       body.trace_id,
       fieldErrorsOf(body.errors),
+      // 문자열일 때만 믿는다 — 서버가 보낸 JSON 이라 타입 선언이 보장하지 않는다.
+      typeof body.message === "string" && body.message ? body.message : FALLBACK_USER_TEXT,
     );
   } catch {
     return new ApiError(

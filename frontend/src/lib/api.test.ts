@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { ApiError, api, apiUpload, toCamel } from "./api";
+import { ApiError, FALLBACK_USER_TEXT, api, apiUpload, toCamel } from "./api";
 
 /**
  * 오류 이름의 접두어가 <b>서버와 같나</b>(`Q1`, 축 6 재점검).
@@ -31,6 +31,16 @@ describe("오류 이름", () => {
     const error = new ApiError(422, `${serverPrefix}validation-failed`, "");
 
     expect(error.slug).toBe("validation-failed");
+  });
+
+  it("공통 사용자 문구가 서버의 ErrorCode 와 같다", () => {
+    // 같은 문구가 두 곳에 있다(`Q233`). 갈리면 message 없는 본문만 문구가 달라진다.
+    const java = readFileSync(
+      resolve(process.cwd(), "../backend/src/main/java/com/projectshop/shop/error/ErrorCode.java"),
+      "utf8",
+    );
+
+    expect(/FALLBACK_USER_TEXT = "([^"]+)"/.exec(java)?.[1]).toBe(FALLBACK_USER_TEXT);
   });
 
   it("우리 것이 아닌 type 은 슬러그가 비어 있다", () => {
@@ -165,6 +175,39 @@ describe("입구 둘이 같은 방어를 든다", () => {
       );
 
       await expect(call("/api/things")).resolves.toEqual({ auditLogId: 7 });
+    });
+
+    it.each(entries)("%s 는 응답의 message 를 userText 로 싣는다", async (_name, call) => {
+      respondWith(
+        new Response(
+          JSON.stringify({
+            type: "tag:projectshop.example,2026:error:inquiry-already-closed",
+            detail: "이미 answered 인 문의다",
+            message: "이미 답변했거나 거둔 문의입니다. 목록을 새로고침해 주세요.",
+          }),
+          { status: 409, headers: { "Content-Type": "application/problem+json" } },
+        ),
+      );
+
+      const error = (await call("/api/inquiries/1/withdrawal").catch((e: unknown) => e)) as ApiError;
+
+      expect(error.userText).toBe("이미 답변했거나 거둔 문의입니다. 목록을 새로고침해 주세요.");
+      // 개발자용은 그대로 남는다 — 화면이 안 그릴 뿐이다.
+      expect(error.detail).toBe("이미 answered 인 문의다");
+    });
+
+    it.each(entries)("%s 는 message 가 없으면 공통 문구다", async (_name, call) => {
+      // 프록시나 다른 서버가 낸 본문. 문자열이 아닌 message 도 안 믿는다.
+      respondWith(
+        new Response(JSON.stringify({ type: "about:blank", detail: "Bad Gateway", message: 7 }), {
+          status: 502,
+          headers: { "Content-Type": "application/problem+json" },
+        }),
+      );
+
+      const error = (await call("/api/things").catch((e: unknown) => e)) as ApiError;
+
+      expect(error.userText).toBe(FALLBACK_USER_TEXT);
     });
 
     it.each(entries)("%s 는 오류를 ApiError 로 던진다", async (_name, call) => {

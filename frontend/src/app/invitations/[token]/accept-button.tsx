@@ -28,8 +28,8 @@ export function AcceptButton({ token }: { token: string }) {
         router.replace("/seller/members");
       } catch (caught) {
         setError(
-          caught instanceof ApiError && caught.detail
-            ? caught.detail
+          caught instanceof ApiError
+            ? caught.userText
             : "수락하지 못했습니다. 링크를 보낸 분께 다시 요청해 주세요.",
         );
       }

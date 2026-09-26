@@ -30,7 +30,7 @@ export function WithdrawButton({ inquiryNumber }: { inquiryNumber: string }) {
       await api(`/api/inquiries/${inquiryNumber}/withdrawal`, { method: "POST" });
       startRefresh(() => router.refresh());
     } catch (error) {
-      setFailure(error instanceof ApiError ? error.detail : "거두지 못했습니다.");
+      setFailure(error instanceof ApiError ? error.userText : "거두지 못했습니다.");
     } finally {
       setSending(false);
     }
