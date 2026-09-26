@@ -1191,6 +1191,12 @@ PR #37 의 커밋 하나에 `ci.yml` 2건·`codeql.yml` 2건이 실측됐다. `c
 **필수 검사 넷이 전부 `ci.yml` 에 있다**(`backend`·`frontend`·`secrets`·`docs`) — 그 파일의
 트리거를 건드릴 때는 이 문단을 같이 본다.
 
+**CodeQL 은 ruleset 이 막는다**(`Q112`, 2026-09-26) — `code-scanning-main`(id `24032412`)이 `main` 에 `code_scanning`
+규칙을 건다: 툴 `CodeQL`, 보안 경보 `high_or_higher`, 일반 경보 `errors`. 고전 가지 보호와 **겹쳐** 적용된다.
+**ruleset 은 코드 밖이다** — 지우거나 끄면 게이트가 사라지고 아무것도 안 알린다. `gh api repos/…/rulesets` 와
+`gh api repos/…/rules/branches/main` 으로 본다. `codeql.yml` 은 `push` 에만 걸려 있어(`2c-3`) PR 이 결과를
+기다리며 서면 `pull_request: branches: [main]` 을 더한다(`Q112` 실패 사다리).
+
 ### hook `matcher` 는 터미널이 아니라 도구 이름이다
 
 `"matcher": "Bash"` 는 **Claude Code 의 `Bash` 도구**에만 걸린다. 같은 셸 명령을
