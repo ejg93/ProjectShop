@@ -476,6 +476,23 @@ class ReturnDecisionTest extends PostgresTestBase {
                     .containsExactlyInAnyOrder("APPROVE_RETURN", "REJECT_RETURN");
         }
 
+        /** 거절 사유는 서버가 고른다 — 검수 전에는 훼손이 없고, 검수 뒤에 생기고, 판정이 끝나면 비는다(`Q234`) */
+        @Test
+        @DisplayName("거절 사유 목록은 검수 뒤에만 훼손을 싣는다")
+        void rejectionReasonsFollowInspection() {
+            String number = requestedReturn(ReturnReason.CHANGE_OF_MIND);
+
+            assertThat(bundleOf(admin, number).rejectionReasons())
+                    .containsExactly("PERIOD_EXPIRED", "RESTRICTED", "OTHER");
+
+            actions.receiveReturn(sellerOwner, number, null, "본품 표면에 긁힘");
+            assertThat(bundleOf(admin, number).rejectionReasons())
+                    .containsExactly("DAMAGED", "PERIOD_EXPIRED", "RESTRICTED", "OTHER");
+
+            approve(admin, number, true);
+            assertThat(bundleOf(admin, number).rejectionReasons()).as("판정이 끝나면 거절을 안 권한다").isEmpty();
+        }
+
         private OrderQuery.SellerOrder bundleOf(long viewer, String number) {
             String orderNumber = jdbc.sql("""
                             select o.order_number from shop_order o

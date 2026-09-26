@@ -88,6 +88,17 @@ public class ReturnRequestService {
         public String code() {
             return code;
         }
+
+        /**
+         * 지금 고를 수 있는 사유의 이름(`Q234`). {@code DAMAGED} 는 검수 소견이 있어야 고른다(제17조제5항,
+         * {@code return_request_damaged_inspected_check}) — 화면이 검수 시각을 보고 다시 판단하면 규칙이 세 벌이 된다.
+         */
+        public static java.util.List<String> selectable(boolean inspected) {
+            return java.util.Arrays.stream(values())
+                    .filter(reason -> reason != DAMAGED || inspected)
+                    .map(Enum::name)
+                    .toList();
+        }
     }
 
     private final JdbcClient jdbc;

@@ -224,6 +224,28 @@ class InquiryVisibilityTest extends PostgresTestBase {
         }
 
         /**
+         * 거두기는 서버가 권한다(`Q234`) — 화면이 {@code status === "RECEIVED"} 만 보고 거두기 버튼을 그렸다.
+         * 판정은 거두기 입구와 같다(`read`, `ownedBy`). 답이 나가면 거둘 것이 없다.
+         */
+        @Test
+        @DisplayName("내 문의가 접수 상태면 WITHDRAWAL 을 싣고 답이 나가면 안 싣는다")
+        void carriesWithdrawalOnMineWhileReceived() {
+            ask(askerId, true);
+
+            assertThat(query.findMine(askerId, new Paging(0, 20)).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::allowedActions)
+                    .isEqualTo(List.of("WITHDRAWAL"));
+
+            jdbc.sql("update inquiry set status = 'answered', answer = '곧 갑니다', answered_at = now() where user_id = :id")
+                    .param("id", askerId).update();
+            assertThat(query.findMine(askerId, new Paging(0, 20)).items())
+                    .singleElement()
+                    .extracting(InquiryQuery.Entry::allowedActions)
+                    .isEqualTo(List.of());
+        }
+
+        /**
          * <b>전체 목록은 조작을 안 싣는다.</b> 관리자·감사자가 훑는 자리라 답변 입구가 아니다 —
          * 답은 셀러 목록에서 나간다. 여기서 폼을 그릴 일이 없다는 것을 계약으로 고정한다.
          */

@@ -154,7 +154,8 @@ public class InquiryQuery {
         Visibility visibility = visibilityFor(viewerId, Target.ownedBy(viewerId),
                 "자기 문의를 볼 권한이 없다");
 
-        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility);
+        // 자기 것을 볼 수 있으면 거둘 수 있다 — 거두기가 같은 판정(`read`, `ownedBy`)을 쓴다(`InquiryService.withdraw`)
+        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility, false, true);
     }
 
     /**
@@ -179,8 +180,9 @@ public class InquiryQuery {
                 .decide(viewerId, RESOURCE, ANSWER, Target.ofSeller(sellers.iterator().next()))
                 .allowed();
 
+        // 셀러는 거두지 못한다 — 자기 상품에 달린 불리한 질문을 지우는 자리가 된다(`InquiryService.withdraw`)
         return find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
-                Map.of("sellers", sellers.toArray(Long[]::new)), paging, visibility, canAnswer);
+                Map.of("sellers", sellers.toArray(Long[]::new)), paging, visibility, canAnswer, false);
     }
 
     /**
@@ -203,7 +205,9 @@ public class InquiryQuery {
                 "전체 문의를 볼 권한이 없다");
 
         // 조건이 없다. 조건 자리를 비우는 대신 언제나 참인 것을 둬서 `find` 의 모양을 안 바꾼다.
-        return find("true", Map.of(), paging, visibility);
+        // 조작은 안 싣는다 — 관리자·감사자가 훑는 자리다(시험 `neverCarriesActionsOnTheAdminListing` 이 계약으로 고정한다).
+        // 거두기는 주인의 목록({@link #findMine})이 권한다(`Q234`).
+        return find("true", Map.of(), paging, visibility, false, false);
     }
 
     /**
@@ -212,18 +216,15 @@ public class InquiryQuery {
      * <p>조건 문자열은 <b>이 파일 안의 리터럴</b>이라 바깥에서 오는 값이 없다(`D23` 「SQL」).
      * 값은 전부 이름 붙은 파라미터로 간다.
      */
-    private Page<Entry> find(String condition, Map<String, Object> params, Paging paging,
-            Visibility visibility) {
-        return find(condition, params, paging, visibility, false);
-    }
 
     /**
      * @param canAnswer 이 사람이 이 목록의 문의에 답할 권한이 있나. <b>행마다 안 묻는다</b> —
      *                  스코프가 셀러라 한 셀러로 물으면 결과가 같다({@link #findForSeller} 의 주석과 같은 이유).
      *                  행마다 갈리는 것은 <b>상태</b>뿐이라 아래에서 그것만 본다.
+     * @param canWithdraw 이 사람이 이 목록의 문의를 거둘 수 있나(`Q234`). 판정은 입구가 이미 한 조회와 같다
      */
     private Page<Entry> find(String condition, Map<String, Object> params, Paging paging,
-            Visibility visibility, boolean canAnswer) {
+            Visibility visibility, boolean canAnswer, boolean canWithdraw) {
         boolean body = visibility.body();
 
         var listing = jdbc.sql("""
@@ -270,7 +271,7 @@ public class InquiryQuery {
                         rs.getObject("answered_at", OffsetDateTime.class),
                         rs.getObject("due_at", OffsetDateTime.class),
                         rs.getBoolean("overdue"),
-                        answerActions(canAnswer, rs.getString("status")),
+                        actionsOf(canAnswer, canWithdraw, rs.getString("status")),
                         visibility.groups()))
                 .list();
 
@@ -284,16 +285,26 @@ public class InquiryQuery {
      * ({@code RefundQuery} 와 같은 판단).
      */
     /**
-     * 답할 수 있으면 {@code ANSWER} 하나, 아니면 빈 목록.
+     * 접수된 문의에 할 수 있는 것 — 답할 수 있으면 {@code ANSWER}, 거둘 수 있으면 {@code WITHDRAWAL}(`Q234`,
+     * 경로 {@code /api/inquiries/{번호}/withdrawal}). 접수가 아니면 빈 목록.
      *
      * <p><b>권한과 상태를 여기서 같이 본다.</b> 화면이 상태만 보고 그리던 것이 `Q79` 가 찾은 자리다 —
      * 그때 안 샌 이유는 부여표가 {@code inquiry:answer} 를 셀러에게만 준 것뿐이라,
      * <b>부여가 바뀌면 조용히 샜다.</b> 답이 이미 나간 것을 막는 것은 서버의 조건부 {@code UPDATE} 고
      * 이 목록은 <b>그리기 전에</b> 같은 답을 준다.
      */
-    private static List<String> answerActions(boolean canAnswer, String status) {
-        boolean answerable = canAnswer && InquiryStatus.RECEIVED == InquiryStatus.of(status);
-        return answerable ? List.of("ANSWER") : List.of();
+    private static List<String> actionsOf(boolean canAnswer, boolean canWithdraw, String status) {
+        if (InquiryStatus.RECEIVED != InquiryStatus.of(status)) {
+            return List.of();
+        }
+        List<String> actions = new java.util.ArrayList<>(2);
+        if (canAnswer) {
+            actions.add("ANSWER");
+        }
+        if (canWithdraw) {
+            actions.add("WITHDRAWAL");
+        }
+        return List.copyOf(actions);
     }
 
     /**
