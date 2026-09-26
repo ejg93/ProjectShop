@@ -136,6 +136,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Playwright 가 남기는 것. 실패한 판은 trace 뷰어의 번들 JS 를 여기 복사해서 린트가 수백 오류로 빨개진다(`Q207` 실측)
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

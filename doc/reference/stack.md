@@ -971,6 +971,11 @@ docker exec shop-db psql -U shop -d postgres -c "drop database shop_check;"
 **e2e 도 이 DB 로 띄운다**(2026-09-26 마무리 52차) — 쓰던 `shop` 이 옛 체크섬(`V78`·`V79`, `Migration checksum mismatch`)을 들고 있어
 `bootRun` 이 기동 전에 섰다. 파일은 기준점 뒤로 안 바뀌었다(`verify.sh` 「마이그레이션 불변」) — 그 DB 가 그 전에 올린 판이다.
 
+**e2e 백엔드는 `RATE_LIMIT_ENABLED=false` 로 띄운다**(`Q207`, 2026-09-26). 켜 두면 역할 셋을 오가는 시험이 1분 120 을 넘겨
+429 가 로그인·주문 화면을 깨뜨린다 — 실패 메시지는 「`/login` 에 머문다」·「라벨을 못 찾는다」라 제한인 줄 모른다.
+백엔드 로그의 `RequestLogFilter` 줄에서 `429` 를 센다. **`[WebServer] ⨯ Error: The destination stream closed early.`** 는
+화면이 흘려 보내는 중에 `page.goto` 가 떠난 것이라 실패가 아니다 — 초록인 판에도 찍힌다.
+
 **지우는 줄이 뒤늦게 붙었다**(2026-09-12). 그전에는 만드는 줄만 있어서 **하루에 두 번 빠뜨렸고**
 `shop_spec`·`shop_spec2` 가 남았다 — 확인용 DB 는 **쓰고 나면 티가 안 나서** 다음에 `\l` 을
 칠 때까지 아무도 모른다. **이름을 매번 새로 짓는 것이 그 원인이었다**(`shop_q22`·`shop_spec`…) —

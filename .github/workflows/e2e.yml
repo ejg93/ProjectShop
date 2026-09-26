@@ -40,9 +40,15 @@ jobs:
 
       # **백엔드를 배경으로 띄운다.** Playwright 의 `webServer` 는 Next 만 띄운다 —
       # Gradle 기동이 느려서 그쪽 타임아웃에 맡기면 실행마다 흔들린다.
-      # `local` 프로필이라야 시드가 들어가고, 두 스펙이 그 계정으로 로그인한다.
+      # `local` 프로필이라야 시드가 들어가고, 스펙이 그 계정으로 로그인한다.
+      #
+      # **요청 횟수 제한을 끈다**(`Q207`). 화면이 서버에서 부르는 요청은 전부 Next 한 주소에서 오고
+      # 역할 셋을 오가는 시험 하나가 1분에 120 을 넘긴다 — 429 가 로그인·주문 화면을 깨뜨렸다(실측).
+      # 제한은 `RateLimitFilterTest` 가 켜고 잰다. 주소 하나로 묶이는 것 자체는 `Q240` 이 본다.
       - name: 백엔드 기동
         working-directory: backend
+        env:
+          RATE_LIMIT_ENABLED: "false"
         run: nohup ./gradlew bootRun --args='--spring.profiles.active=local' > /tmp/backend.log 2>&1 &
 
       - name: 백엔드가 답할 때까지 기다린다

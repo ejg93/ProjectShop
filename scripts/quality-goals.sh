@@ -35,7 +35,7 @@ axe_files=$(( $(grep -rl 'expectNoAxeViolations' frontend/src --include='*.test.
 report "접근성 검사가 걸린 화면 조각" "$axe_files" 15 floor
 
 e2e=$(( $(cat frontend/e2e/*.spec.ts | grep -cE '^[[:space:]]*test\(') ))
-report "E2E 시나리오" "$e2e" 3 floor
+report "E2E 시나리오" "$e2e" 6 floor
 
 # req-coverage.sh 는 구멍이 있을 때만 그 수를 **stderr 로** 찍는다. 없으면 0 이다.
 # stderr 를 버리면 그 줄을 못 읽어서 천장이 영영 안 빨개진다(마무리 48차 독립 리뷰).
