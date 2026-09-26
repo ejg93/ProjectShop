@@ -27,6 +27,8 @@ export type MyInquiry = {
   answeredAt?: string | null;
   dueAt?: string | null;
   overdue: boolean;
+  /** 지금 할 수 있는 것. 거둘 수 있으면 `WITHDRAWAL` 이 온다 — 서버가 판정과 상태를 같이 본다(`Q234`) */
+  allowedActions: string[];
 };
 
 type Page = { items: MyInquiry[]; page: number; size: number; total: number };
@@ -154,8 +156,8 @@ function InquiryCard({ item }: { item: MyInquiry }) {
         </p>
       ) : null}
 
-      {/* 거둘 수 있는 것은 아직 답이 안 나간 것뿐이다(`59-1`) */}
-      {item.status === "RECEIVED" ? <WithdrawButton inquiryNumber={item.inquiryNumber} /> : null}
+      {/* 거둘 수 있는지는 서버가 고른다(`Q235`) — 아직 답이 안 나간 것만이고(`59-1`) 그 판정도 서버가 든다 */}
+      {item.allowedActions.includes("WITHDRAWAL") ? <WithdrawButton inquiryNumber={item.inquiryNumber} /> : null}
     </li>
   );
 }

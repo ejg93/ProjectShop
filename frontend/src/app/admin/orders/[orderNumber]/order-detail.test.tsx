@@ -26,6 +26,7 @@ const ORDER: AdminOrderDetail = {
       items: [{ orderItemId: 1, productName: "머그컵", optionLabel: null, quantity: 1, lineAmount: 10000 }],
       forcibleStatuses: ["DELIVERED", "CANCELLED"],
       allowedActions: [],
+      rejectionReasons: [],
       returnRequest: null,
     },
   ],
@@ -87,6 +88,7 @@ describe("관리자 주문 상세", () => {
       ...ORDER.sellerOrders[0],
       status: "RETURN_REQUESTED",
       allowedActions: ["REJECT_RETURN"],
+      rejectionReasons: ["PERIOD_EXPIRED", "RESTRICTED", "OTHER"],
       returnRequest: {
         status: "REQUESTED", reasonCode: "DEFECT", requestedAt: "2026-09-23T02:00:00Z",
         receivedAt: null, inspectedAt: null, decidedAt: null, allowedActions: [],
@@ -98,9 +100,10 @@ describe("관리자 주문 상세", () => {
     expect(screen.getByRole("button", { name: "반품 거절" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "반품 승인" })).not.toBeInTheDocument();
     expect(screen.getByText("표시·광고와 다름")).toBeInTheDocument();
-    // 훼손 거절은 검수 소견이 있어야 한다(`Q212`) — 검수 전이면 그 선택지가 잠긴다.
-    expect(screen.getByRole("option", { name: "상품 훼손" })).toBeDisabled();
-    expect(screen.getByRole("option", { name: "청약철회 기간 경과" })).toBeEnabled();
+    // 고를 수 있는 사유는 서버가 싣는다(`Q235`) — 목록에 없으면 옵션이 없다. 검수 전이라 훼손이 안 왔다.
+    expect(screen.queryByRole("option", { name: "상품 훼손" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "청약철회 기간 경과" })).toBeInTheDocument();
+    expect(screen.getByText("상품 훼손은 검수 소견이 있어야 고를 수 있습니다.")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -109,6 +112,7 @@ describe("관리자 주문 상세", () => {
       ...ORDER.sellerOrders[0],
       status: "RETURN_REQUESTED",
       allowedActions: ["APPROVE_RETURN", "REJECT_RETURN"],
+      rejectionReasons: ["DAMAGED", "PERIOD_EXPIRED", "RESTRICTED", "OTHER"],
       returnRequest: {
         status: "INSPECTED", reasonCode: "CHANGE_OF_MIND", requestedAt: "2026-09-23T02:00:00Z",
         receivedAt: "2026-09-24T02:00:00Z", inspectedAt: "2026-09-24T02:00:00Z", decidedAt: null, allowedActions: [],
@@ -119,7 +123,7 @@ describe("관리자 주문 상세", () => {
     expect(screen.getByRole("button", { name: "반품 승인" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "다시 판매합니다" })).toBeChecked();
     expect(screen.getByText("검수 마침")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "상품 훼손" })).toBeEnabled();
+    expect(screen.getByRole("option", { name: "상품 훼손" })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 });

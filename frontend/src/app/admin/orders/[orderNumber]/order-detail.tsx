@@ -33,6 +33,8 @@ type SellerOrder = {
   forcibleStatuses: string[];
   /** 관리자 몫만 온다(`Q202`) — 반품 승인·거절. 승인은 입고 뒤에만 실린다(`43a-5`) */
   allowedActions: string[];
+  /** 거절할 때 고를 수 있는 사유(`Q234`). 거절을 권할 때만 차 있다 */
+  rejectionReasons: string[];
   /** 가장 최근 반품의 진행(`43a-5`). 반품이 없으면 null */
   returnRequest: ReturnProgress | null;
 };
@@ -182,7 +184,7 @@ function Bundle({ bundle, compensations }: { bundle: SellerOrder; compensations?
       <ReturnDecision
         sellerOrderNumber={bundle.sellerOrderNumber}
         allowedActions={bundle.allowedActions}
-        inspected={bundle.returnRequest?.inspectedAt != null}
+        rejectionReasons={bundle.rejectionReasons}
       />
       <ForceStatusForm sellerOrderNumber={bundle.sellerOrderNumber} forcibleStatuses={bundle.forcibleStatuses} />
       {compensations ? <Compensations sellerOrderNumber={bundle.sellerOrderNumber} listing={compensations} /> : null}
