@@ -1649,6 +1649,11 @@ JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이�
 「타임아웃」으로 적는다. **`xn--` 이름은 유니코드로 넘어온다** — httpcore5 `Host` 가 퓨니코드를 풀어 리졸버에 준다. 검사한 이름과
 견줄 때 둘 다 `IDN.toASCII` 로 바꾼다(마무리 53차 독립 리뷰).
 
+### `dependabot/fetch-metadata` 는 npm 을 `npm_and_yarn` 으로 준다
+
+**`package-ecosystem` 출력이 `npm` 이 아니라 `npm_and_yarn` 이다**(PR #67 로그, 2026-09-26 `Q230`) — `dependabot.yml` 에 적는 이름(`npm`)과 다르다.
+조건을 `npm` 으로 쓰면 영영 안 맞아 조용히 다른 길을 탄다. Gradle 은 `gradle`, Actions 는 `github_actions` 다.
+
 ### 로컬 npm 10 은 lockfile 의 `libc` 칸을 지운다
 
 **Dependabot 은 npm 11 로 lockfile 을 쓴다** — 선택 의존성(`@next/swc-*`·`lightningcss-*`)마다 `"libc": ["glibc"]`·`["musl"]` 이

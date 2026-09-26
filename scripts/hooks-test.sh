@@ -70,6 +70,7 @@ cat > "$T/bin/gh" <<'GH'
 case "$1 $2" in
   "pr list") echo "${FAKE_OPEN_PRS:-0}" ;;
   "pr checks") exit "${FAKE_CHECKS_RC:-0}" ;;
+  api\ *) echo "${FAKE_CHECK_RUN:-null null}" ;;
 esac
 GH
 chmod +x "$T/bin/gh"
@@ -149,6 +150,19 @@ stamp_head fast
 case_ "stamp — HEAD 지문 도장 있음" stop-stamp.sh 0 '{"stop_hook_active":false}'
 : > "$T/repo/.git/verify-stamp"
 case_ "stamp — 도장 비움" stop-stamp.sh 2 '{"stop_hook_active":false}' "검증 도장이 없다"
+
+echo "wait-check(가짜 gh, Q230):"
+# Dependabot 자동 머지가 npm 갱신에서 `audit` 결론을 기다린다 — 성공만 0 이고, 다른 결론·시간 초과는 머지를 안 건다
+wc_case() { # 이름, 가짜 검사 상태, 기대 끝 코드
+  n=$((n + 1))
+  local got
+  got=$(FAKE_CHECK_RUN="$2" GH_REPO=o/r bash "$R/scripts/wait-check.sh" abc123 audit 1 0 >/dev/null 2>&1; echo $?)
+  if [ "$got" = "$3" ]; then echo "  [통과] $n wait-check.sh — $1"
+  else echo "  [실패] $n wait-check.sh — $1: 기대 $3, 실제 $got"; fail=1; fi
+}
+wc_case "success 면 0" "completed success" 0
+wc_case "failure 면 1" "completed failure" 1
+wc_case "안 끝나면 시간 초과 2" "in_progress null" 2
 
 echo "지문(Q231):"
 n=$((n + 1))
