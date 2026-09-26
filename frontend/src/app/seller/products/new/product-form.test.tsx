@@ -30,6 +30,7 @@ function validationFailed(errors: { field: string; message: string }[]): ApiErro
     "입력값을 다시 확인해 주세요.",
     "trace",
     errors,
+    "입력한 값을 확인해 주세요.",
   );
 }
 

@@ -35,7 +35,7 @@ export function AnswerForm({ inquiryNumber }: { inquiryNumber: string }) {
       form.current?.reset();
       startRefresh(() => router.refresh());
     } catch (error) {
-      setFailure(error instanceof ApiError ? error.detail : "답변을 보내지 못했습니다.");
+      setFailure(error instanceof ApiError ? error.userText : "답변을 보내지 못했습니다.");
     } finally {
       setSending(false);
     }

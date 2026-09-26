@@ -485,8 +485,8 @@ skus[0].price_incl_vat  →  skus.0.priceInclVat   ← 줄까지 그리는 폼
 내부 값(소문자 상태·Spring 영어)이 샌다.
 
 **오류의 `message` 는 eslint 가 막는다**(`Q228`) — 멤버 읽기·구조 분해·`String(e)`·`${e}` 넷이고 뒤 둘은 흔한 오류 변수 이름(`e`·`err`·`error`·`caught`)만 본다. `ApiError` 는 `super(detail)` 이라 `message` 가 곧 서버 문구고,
-다른 오류는 `TypeError: Failed to fetch` 같은 영어 기술어다. **`detail` 을 그대로 그리는 화면이 열둘 남았다** —
-`Q236`·`Q237` 이 `message` 로 옮기고 `detail` 읽기를 린트로 막는다.
+다른 오류는 `TypeError: Failed to fetch` 같은 영어 기술어다. **오류 변수의 `detail` 도 eslint 가 막는다**(`Q237`) —
+`detail` 을 그리던 화면 열둘은 `Q236`·`Q237` 이 `userText` 로 옮겼다. 감사 기록의 `row.detail` 은 오류가 아니라 안 걸린다.
 
 이것이 `D5` 의 "프론트는 상태 코드가 아니라 `type` 으로 분기한다" 를 지켜야 하는 이유 하나 더다.
 
