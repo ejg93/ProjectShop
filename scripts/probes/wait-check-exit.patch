@@ -1,0 +1,16 @@
+# gate: hooks-test.sh wait-check(Q230)
+# run: bash scripts/hooks-test.sh
+# expect: \[실패\] [0-9]+ wait-check\.sh — failure 면 1
+diff --git a/scripts/wait-check.sh b/scripts/wait-check.sh
+index 2d9796b..b6a8809 100644
+--- a/scripts/wait-check.sh
++++ b/scripts/wait-check.sh
+@@ -24,7 +24,7 @@ while :; do
+     --jq '.check_runs[0] | "\(.status) \(.conclusion)"' 2>/dev/null)
+   case "$state" in
+     "completed success") echo "$name: success"; exit 0 ;;
+-    completed\ *) echo "$name: ${state#completed } — 성공이 아니다" >&2; exit 1 ;;
++    completed\ *) echo "$name: ${state#completed } — 성공이 아니다" >&2; exit 0 ;;
+   esac
+   if [ "$(date +%s)" -ge "$deadline" ]; then
+     echo "$name: ${timeout}초 안에 안 끝났다(마지막 상태: ${state:-없음})" >&2

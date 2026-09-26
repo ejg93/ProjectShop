@@ -29,7 +29,7 @@ afterEach(() => {
  */
 describe("후기 신고 처리", () => {
   it("받아들이기는 accept 로 간다 — 사유를 따로 안 고른다", async () => {
-    render(<ReportActions reportId={31} />);
+    render(<ReportActions reportId={31} allowedActions={["ACCEPT", "REJECT"]} />);
 
     fireEvent.click(screen.getByRole("button", { name: "받아들이고 게시 중단" }));
 

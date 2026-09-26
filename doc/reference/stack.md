@@ -971,6 +971,11 @@ docker exec shop-db psql -U shop -d postgres -c "drop database shop_check;"
 **e2e 도 이 DB 로 띄운다**(2026-09-26 마무리 52차) — 쓰던 `shop` 이 옛 체크섬(`V78`·`V79`, `Migration checksum mismatch`)을 들고 있어
 `bootRun` 이 기동 전에 섰다. 파일은 기준점 뒤로 안 바뀌었다(`verify.sh` 「마이그레이션 불변」) — 그 DB 가 그 전에 올린 판이다.
 
+**e2e 백엔드는 `RATE_LIMIT_ENABLED=false` 로 띄운다**(`Q207`, 2026-09-26). 켜 두면 역할 셋을 오가는 시험이 1분 120 을 넘겨
+429 가 로그인·주문 화면을 깨뜨린다 — 실패 메시지는 「`/login` 에 머문다」·「라벨을 못 찾는다」라 제한인 줄 모른다.
+백엔드 로그의 `RequestLogFilter` 줄에서 `429` 를 센다. **`[WebServer] ⨯ Error: The destination stream closed early.`** 는
+화면이 흘려 보내는 중에 `page.goto` 가 떠난 것이라 실패가 아니다 — 초록인 판에도 찍힌다.
+
 **지우는 줄이 뒤늦게 붙었다**(2026-09-12). 그전에는 만드는 줄만 있어서 **하루에 두 번 빠뜨렸고**
 `shop_spec`·`shop_spec2` 가 남았다 — 확인용 DB 는 **쓰고 나면 티가 안 나서** 다음에 `\l` 을
 칠 때까지 아무도 모른다. **이름을 매번 새로 짓는 것이 그 원인이었다**(`shop_q22`·`shop_spec`…) —
@@ -1190,6 +1195,12 @@ PR #37 의 커밋 하나에 `ci.yml` 2건·`codeql.yml` 2건이 실측됐다. `c
 
 **필수 검사 넷이 전부 `ci.yml` 에 있다**(`backend`·`frontend`·`secrets`·`docs`) — 그 파일의
 트리거를 건드릴 때는 이 문단을 같이 본다.
+
+**CodeQL 은 ruleset 이 막는다**(`Q112`, 2026-09-26) — `code-scanning-main`(id `24032412`)이 `main` 에 `code_scanning`
+규칙을 건다: 툴 `CodeQL`, 보안 경보 `high_or_higher`, 일반 경보 `errors`. 고전 가지 보호와 **겹쳐** 적용된다.
+**ruleset 은 코드 밖이다** — 지우거나 끄면 게이트가 사라지고 아무것도 안 알린다. `gh api repos/…/rulesets` 와
+`gh api repos/…/rules/branches/main` 으로 본다. `codeql.yml` 은 `push` 에만 걸려 있어(`2c-3`) PR 이 결과를
+기다리며 서면 `pull_request: branches: [main]` 을 더한다(`Q112` 실패 사다리).
 
 ### hook `matcher` 는 터미널이 아니라 도구 이름이다
 
@@ -1642,6 +1653,11 @@ JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이�
 **감시가 끊은 읽기는 `SocketException` 을 던진다**(`InterruptedIOException` 이 아니다) — 끊은 것이 감시였는지를 따로 들고
 「타임아웃」으로 적는다. **`xn--` 이름은 유니코드로 넘어온다** — httpcore5 `Host` 가 퓨니코드를 풀어 리졸버에 준다. 검사한 이름과
 견줄 때 둘 다 `IDN.toASCII` 로 바꾼다(마무리 53차 독립 리뷰).
+
+### `dependabot/fetch-metadata` 는 npm 을 `npm_and_yarn` 으로 준다
+
+**`package-ecosystem` 출력이 `npm` 이 아니라 `npm_and_yarn` 이다**(PR #67 로그, 2026-09-26 `Q230`) — `dependabot.yml` 에 적는 이름(`npm`)과 다르다.
+조건을 `npm` 으로 쓰면 영영 안 맞아 조용히 다른 길을 탄다. Gradle 은 `gradle`, Actions 는 `github_actions` 다.
 
 ### 로컬 npm 10 은 lockfile 의 `libc` 칸을 지운다
 

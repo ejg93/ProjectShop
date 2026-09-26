@@ -10,8 +10,10 @@ import { ApiError, api } from "@/lib/api";
  *
  * <p><b>한 번 누르면 되돌리지 못한다</b> — 처리한 신고는 다시 못 연다(`D7`). 잘못 받아들였으면
  * 받아들인 쪽 목록에서 후기를 되살린다.
+ *
+ * <p><b>버튼마다 서버가 실은 조작을 본다</b>(`Q235`) — 받아들이기가 있다고 물리기를 추론하지 않는다.
  */
-export function ReportActions({ reportId }: { reportId: number }) {
+export function ReportActions({ reportId, allowedActions }: { reportId: number; allowedActions: string[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [failure, setFailure] = useState<string | null>(null);
@@ -34,22 +36,26 @@ export function ReportActions({ reportId }: { reportId: number }) {
         {failure}
       </p>
       <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => resolve("accept")}
-          className="rounded-ui border border-danger-text px-3 py-1 text-xs font-medium text-danger-text disabled:opacity-50"
-        >
-          받아들이고 게시 중단
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => resolve("reject")}
-          className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
-        >
-          물리기
-        </button>
+        {allowedActions.includes("ACCEPT") ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => resolve("accept")}
+            className="rounded-ui border border-danger-text px-3 py-1 text-xs font-medium text-danger-text disabled:opacity-50"
+          >
+            받아들이고 게시 중단
+          </button>
+        ) : null}
+        {allowedActions.includes("REJECT") ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => resolve("reject")}
+            className="rounded-ui border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
+          >
+            물리기
+          </button>
+        ) : null}
       </div>
     </div>
   );

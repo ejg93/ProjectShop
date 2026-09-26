@@ -1,0 +1,16 @@
+# gate: ReturnDecisionTest 거절 사유 목록(Q234)
+# run: cd backend && ./gradlew integrationTest --tests '*ReturnDecisionTest' -q
+# expect: FAILED com\.projectshop\.shop\.order\.ReturnDecisionTest\$ReceiveAndInspect 거절 사유 목록은 검수 뒤에만 훼손을 싣는다
+diff --git a/backend/src/main/java/com/projectshop/shop/order/ReturnRequestService.java b/backend/src/main/java/com/projectshop/shop/order/ReturnRequestService.java
+index d86aabe..f8b2638 100644
+--- a/backend/src/main/java/com/projectshop/shop/order/ReturnRequestService.java
++++ b/backend/src/main/java/com/projectshop/shop/order/ReturnRequestService.java
+@@ -95,7 +95,7 @@ public class ReturnRequestService {
+          */
+         public static java.util.List<String> selectable(boolean inspected) {
+             return java.util.Arrays.stream(values())
+-                    .filter(reason -> reason != DAMAGED || inspected)
++                    .filter(reason -> true)
+                     .map(Enum::name)
+                     .toList();
+         }

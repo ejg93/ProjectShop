@@ -1,0 +1,17 @@
+# gate: vitest 내 문의 거두기(Q235)
+# run: cd frontend && npx vitest run src/app/me/inquiries/page.test.tsx
+# expect: 접수 상태라도 목록에 없으면 거두기 버튼이 없다
+# expect: Tests +1 failed
+diff --git a/frontend/src/app/me/inquiries/page.tsx b/frontend/src/app/me/inquiries/page.tsx
+index d8fbd04..b2226f5 100644
+--- a/frontend/src/app/me/inquiries/page.tsx
++++ b/frontend/src/app/me/inquiries/page.tsx
+@@ -157,7 +157,7 @@ function InquiryCard({ item }: { item: MyInquiry }) {
+       ) : null}
+ 
+       {/* 거둘 수 있는지는 서버가 고른다(`Q235`) — 아직 답이 안 나간 것만이고(`59-1`) 그 판정도 서버가 든다 */}
+-      {item.allowedActions.includes("WITHDRAWAL") ? <WithdrawButton inquiryNumber={item.inquiryNumber} /> : null}
++      {item.status === "RECEIVED" ? <WithdrawButton inquiryNumber={item.inquiryNumber} /> : null}
+     </li>
+   );
+ }

@@ -288,14 +288,18 @@ public class ReviewQuery {
      * <p><b>신고한 사람을 안 싣는다.</b> 판단할 것은 글이지 누가 신고했나가 아니다 — 실으면 관리자 화면이
      * 신고자 명부가 된다.
      *
-     * @param reviewBlockedReason 그 후기가 지금 내려가 있으면 그 사유(대문자), 아니면 {@code null}.
-     *        되살리기 버튼이 이것을 본다
-     * @param reviewDeleted       쓴 사람이 지웠나. 지운 후기는 되살릴 수 없다
+     * @param reviewBlockedReason 그 후기가 지금 내려가 있으면 그 사유(대문자), 아니면 {@code null}
+     * @param reviewDeleted       쓴 사람이 지웠나. 지운 후기도 되살릴 수 있다 — 차단만 풀린다(`Q203`)
+     * @param allowedActions      이 신고에 할 수 있는 것(`Q234`) — 접수면 {@code ACCEPT}·{@code REJECT}.
+     *                            경로 {@code /api/review-reports/{id}/accept|reject}
+     * @param reviewActions       그 <b>후기</b>에 할 수 있는 것 — 받아들인 신고로 내려가 있으면 {@code RESTORE}.
+     *                            다른 자원({@code /api/reviews/{reviewId}/restore})의 조작이라 칸을 가른다({@code RECEIVE} 가 반품 칸에 실리는 것과 같다)
      */
     @Schema(name = "ReviewReport")
     public record ReportItem(long reviewReportId, long reviewId, long productId, String productName,
             int rating, String body, String reason, String status, OffsetDateTime createdAt,
-            OffsetDateTime resolvedAt, String reviewBlockedReason, boolean reviewDeleted) {}
+            OffsetDateTime resolvedAt, String reviewBlockedReason, boolean reviewDeleted,
+            List<String> allowedActions, List<String> reviewActions) {}
 
     @Schema(name = "ReviewReportPage")
     public record ReportResult(List<ReportItem> items, int page, int size, long total) {}
@@ -304,6 +308,19 @@ public class ReviewQuery {
      * 그 상태의 신고. <b>접수된 것은 오래된 것부터</b> 나온다 — 먼저 들어온 것이 먼저 처리된다.
      * 처리된 것은 최근 것부터다.
      */
+    /**
+     * 신고 한 줄과 그 조작(`Q234`). <b>권한은 행마다 안 묻는다</b> — 이 목록 자체가 {@code review:moderate}(all)를 요구하고
+     * 받아들이기·물리기·되살리기가 같은 권한이라, 행마다 갈리는 것은 상태뿐이다.
+     */
+    private static ReportItem reportItemOf(long reviewReportId, long reviewId, long productId, String productName,
+            int rating, String body, String reason, String status, OffsetDateTime createdAt,
+            OffsetDateTime resolvedAt, String reviewBlockedReason, boolean reviewDeleted) {
+        List<String> allowed = "PENDING".equals(status) ? List.of("ACCEPT", "REJECT") : List.of();
+        List<String> review = "ACCEPTED".equals(status) && reviewBlockedReason != null ? List.of("RESTORE") : List.of();
+        return new ReportItem(reviewReportId, reviewId, productId, productName, rating, body, reason, status,
+                createdAt, resolvedAt, reviewBlockedReason, reviewDeleted, allowed, review);
+    }
+
     public ReportResult findReports(long viewerId, ReviewReportStatus status, Paging paging) {
         // 남의 후기 하나. all 스코프에서만 덮인다 — 관리자만 연다(`V85`).
         if (!evaluator.decide(viewerId, "review", "moderate", Target.ownedBy(-1L)).allowed()) {
@@ -331,7 +348,7 @@ public class ReviewQuery {
                         .param("status", status.code())
                         .param("size", paging.size())
                         .param("offset", paging.page() * paging.size())
-                        .query((rs, rowNum) -> new ReportItem(
+                        .query((rs, rowNum) -> reportItemOf(
                                 rs.getLong("review_report_id"),
                                 rs.getLong("review_id"),
                                 rs.getLong("product_id"),

@@ -16,17 +16,18 @@ import { actionPath } from "@/lib/order-text";
  * ({@code reason}, `D7`)가 판정에서는 같은 말이라 칸을 둘로 안 가른다.
  *
  * <p><b>거절 사유의 종류는 닫힌 목록이다</b>(`Q212`). 「상품 훼손」은 검수 소견이 있어야 고를 수 있다 — 입증책임이 우리에게
- * 있어서다(제17조제5항). 검수 전이면 그 선택지를 잠근다. 막는 것은 서버의 제약이고 이것은 안 누르게 하는 자리다.
+ * 있어서다(제17조제5항). **고를 수 있는 사유는 서버가 싣는다**({@code rejectionReasons}, `Q234`·`Q235`) — 화면이
+ * 검수 시각을 보고 다시 판단하면 규칙이 세 벌(제약·서비스·화면)이 된다. 라벨만 화면이 든다.
  */
 export function ReturnDecision({
   sellerOrderNumber,
   allowedActions,
-  inspected,
+  rejectionReasons,
 }: {
   sellerOrderNumber: string;
   allowedActions: string[];
-  /** 검수 소견이 남았나({@code inspectedAt}). 훼손 거절을 여는 조건이다 */
-  inspected: boolean;
+  /** 거절할 때 고를 수 있는 사유(대문자). 검수 전이면 `DAMAGED` 가 없다 */
+  rejectionReasons: string[];
 }) {
   const canApprove = allowedActions.includes("APPROVE_RETURN");
   const canReject = allowedActions.includes("REJECT_RETURN");
@@ -38,7 +39,7 @@ export function ReturnDecision({
     <div className="grid gap-3 rounded-ui border border-border p-4 text-sm">
       <p className="font-semibold">반품 판정</p>
       {canApprove ? <ApproveForm sellerOrderNumber={sellerOrderNumber} /> : null}
-      {canReject ? <RejectForm sellerOrderNumber={sellerOrderNumber} inspected={inspected} /> : null}
+      {canReject ? <RejectForm sellerOrderNumber={sellerOrderNumber} reasons={rejectionReasons} /> : null}
     </div>
   );
 }
@@ -91,15 +92,16 @@ function ApproveForm({ sellerOrderNumber }: { sellerOrderNumber: string }) {
   );
 }
 
-/** 거절 사유의 종류(`Q212`). 값은 서버 열거값 그대로다(`D5`) */
-const REJECTION_REASONS = [
-  { value: "DAMAGED", label: "상품 훼손" },
-  { value: "PERIOD_EXPIRED", label: "청약철회 기간 경과" },
-  { value: "RESTRICTED", label: "청약철회 제한 사유" },
-  { value: "OTHER", label: "그 밖의 사유" },
-] as const;
+/** 거절 사유의 라벨(`Q212`). 값은 서버 열거값 그대로고 **무엇을 그릴지는 서버 목록이 정한다**(`Q235`). 모르는 값은 건너뛴다(`D5`) */
+const REJECTION_REASON_TEXT: Record<string, string> = {
+  DAMAGED: "상품 훼손",
+  PERIOD_EXPIRED: "청약철회 기간 경과",
+  RESTRICTED: "청약철회 제한 사유",
+  OTHER: "그 밖의 사유",
+};
 
-function RejectForm({ sellerOrderNumber, inspected }: { sellerOrderNumber: string; inspected: boolean }) {
+function RejectForm({ sellerOrderNumber, reasons }: { sellerOrderNumber: string; reasons: string[] }) {
+  const damagedOpen = reasons.includes("DAMAGED");
   const { pending, failure, send } = useDecision(sellerOrderNumber, "REJECT_RETURN");
 
   return (
@@ -118,19 +120,21 @@ function RejectForm({ sellerOrderNumber, inspected }: { sellerOrderNumber: strin
         name="reasonCode"
         required
         defaultValue=""
-        aria-describedby={inspected ? undefined : `reject-code-hint-${sellerOrderNumber}`}
+        aria-describedby={damagedOpen ? undefined : `reject-code-hint-${sellerOrderNumber}`}
         className="rounded-ui border border-border px-2 py-1"
       >
         <option value="" disabled>
           골라 주세요
         </option>
-        {REJECTION_REASONS.map((reason) => (
-          <option key={reason.value} value={reason.value} disabled={reason.value === "DAMAGED" && !inspected}>
-            {reason.label}
-          </option>
-        ))}
+        {reasons
+          .filter((reason) => reason in REJECTION_REASON_TEXT)
+          .map((reason) => (
+            <option key={reason} value={reason}>
+              {REJECTION_REASON_TEXT[reason]}
+            </option>
+          ))}
       </select>
-      {inspected ? null : (
+      {damagedOpen ? null : (
         <p id={`reject-code-hint-${sellerOrderNumber}`} className="text-text-muted">
           상품 훼손은 검수 소견이 있어야 고를 수 있습니다.
         </p>

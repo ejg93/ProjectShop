@@ -132,6 +132,9 @@ class ReviewModerationServiceTest extends PostgresTestBase {
                         assertThat(item.reviewId()).isEqualTo(reviewId);
                         assertThat(item.reason()).isEqualTo("ABUSE");
                         assertThat(item.status()).isEqualTo("PENDING");
+                        // 처리할 수 있는 것은 서버가 싣는다(`Q234`) — 화면이 상태를 보고 고르지 않는다
+                        assertThat(item.allowedActions()).containsExactly("ACCEPT", "REJECT");
+                        assertThat(item.reviewActions()).isEmpty();
                     });
         }
 
@@ -186,6 +189,13 @@ class ReviewModerationServiceTest extends PostgresTestBase {
         @DisplayName("받아들이면 그 사유로 내려가고 쓴 사람은 사유를 본다")
         void 받아들이면_그_사유로_내려가고_쓴_사람은_사유를_본다() {
             moderation.acceptReport(adminId, reportId);
+
+            assertThat(query.findReports(adminId, ReviewReportStatus.ACCEPTED, FIRST).items())
+                    .singleElement()
+                    .satisfies(item -> {
+                        assertThat(item.allowedActions()).as("처리한 신고는 다시 처리 못 한다").isEmpty();
+                        assertThat(item.reviewActions()).as("내려간 후기는 되살릴 수 있다(`Q234`)").containsExactly("RESTORE");
+                    });
 
             assertThat(query.findByProduct(null, productId, FIRST).items()).isEmpty();
             assertThat(query.findMine(buyerId, FIRST).items())

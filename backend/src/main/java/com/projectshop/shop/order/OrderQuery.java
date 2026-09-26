@@ -120,6 +120,7 @@ public class OrderQuery {
      * @param carrierCode        택배사(`57`). 보내기 전이거나 송장 없이 옮겨진 묶음이면 비어 있다
      * @param trackingNo     송장 번호. 사는 사람이 택배사 화면에서 따라가는 열쇠다 — 위치는 우리가 안 다룬다
      * @param allowedActions     지금 이 묶음에 할 수 있는 것. 소문자·하이픈이 곧 경로다
+     * @param rejectionReasons   반품을 거절할 때 고를 수 있는 사유(`Q234`). 거절을 권할 때만 차 있다 — 검수 전이면 {@code DAMAGED} 가 없다
      * @param forcibleStatuses   관리자가 강제로 옮길 수 있는 곳(`16c`). 권한이 없으면 비어 있다 — 강제 전이는 전이표 밖이라
      *                           {@code allowedActions}(관리자에게는 반품 판정만, `Q202`)와 따로 고른다
      * @param returnRequest      가장 최근 반품의 진행(`43a-5`). 반품이 없으면 null 이다
@@ -128,8 +129,8 @@ public class OrderQuery {
             long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
             OffsetDateTime autoConfirmAt, OffsetDateTime shipDueAt, OffsetDateTime shippedAt,
             boolean shipOverdue, String carrierCode, String trackingNo,
-            List<Item> items, List<String> allowedActions, List<String> forcibleStatuses,
-            ReturnRequestQuery.Progress returnRequest) {
+            List<Item> items, List<String> allowedActions, List<String> rejectionReasons,
+            List<String> forcibleStatuses, ReturnRequestQuery.Progress returnRequest) {
     }
 
     /**
@@ -459,6 +460,8 @@ public class OrderQuery {
                     long sellerId = rs.getLong("seller_id");
                     String status = rs.getString("status");
                     ReturnRequestQuery.Progress returnRequest = returnsBySellerOrder.get(rs.getLong("seller_order_id"));
+                    List<String> allowed = actions.allowedActions(viewerId, memberOf, buyerUserId, sellerId, status,
+                            returnRequest);
                     return new SellerOrder(
                             rs.getString("seller_order_number"),
                             rs.getString("seller_name"),
@@ -474,7 +477,12 @@ public class OrderQuery {
                             rs.getString("tracking_no"),
                             List.copyOf(itemsBySellerOrder.getOrDefault(
                                     rs.getLong("seller_order_id"), List.of())),
-                            actions.allowedActions(viewerId, memberOf, buyerUserId, sellerId, status, returnRequest),
+                            allowed,
+                            // 거절을 권할 때만 사유를 싣는다 — 「거절할 수 없다」는 allowedActions 가 든다(`Q234`)
+                            allowed.contains(OrderActionService.Action.REJECT_RETURN.name())
+                                    ? ReturnRequestService.RejectionReason.selectable(
+                                            returnRequest != null && returnRequest.inspectedAt() != null)
+                                    : List.of(),
                             // 결제 안 된 묶음은 강제 전이 입구가 못 찾는다(`seller_order_visible`) — 목록도 비운다(마무리 46차).
                             paid ? actions.forcibleStatuses(viewerId, buyerUserId, sellerId, status) : List.of(),
                             returnRequest == null ? null : returnRequest.withAllowedActions(

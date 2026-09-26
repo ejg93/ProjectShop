@@ -25,6 +25,10 @@ type ReviewReport = {
   resolvedAt: string | null;
   reviewBlockedReason: ReviewReason | null;
   reviewDeleted: boolean;
+  /** 이 신고에 할 수 있는 것 — 접수면 `ACCEPT`·`REJECT`(`Q234`) */
+  allowedActions: string[];
+  /** 그 후기에 할 수 있는 것 — 받아들여 내려가 있으면 `RESTORE`. 다른 자원의 조작이라 칸이 따로다 */
+  reviewActions: string[];
 };
 
 type Page = { items: ReviewReport[]; page: number; size: number; total: number };
@@ -115,11 +119,11 @@ export default async function ReviewReportsPage({
                 </p>
               )}
 
-              {item.status === "PENDING" ? (
-                <ReportActions reportId={item.reviewReportId} />
+              {item.allowedActions.length > 0 ? (
+                <ReportActions reportId={item.reviewReportId} allowedActions={item.allowedActions} />
               ) : null}
 
-              {item.status === "ACCEPTED" && item.reviewBlockedReason !== null ? (
+              {item.reviewActions.includes("RESTORE") ? (
                 <RestoreForm reviewId={item.reviewId} deleted={item.reviewDeleted} />
               ) : null}
             </li>
