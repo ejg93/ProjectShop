@@ -3,8 +3,8 @@
 # **첫 회차가 근거다**(2026-09-05). PR 열 개 중 초록 일곱을 전부 머지했고 메이저 셋은 닫았다.
 # 사람이 한 것은 **초록을 보고 누른 것뿐**이라 그 손을 뺀다.
 #
-# **막는 것은 그대로 CI 다.** 이 워크플로는 판정을 안 한다 — 가지 보호의 필수 검사 넷이
-# 초록이 되기를 기다렸다가 머지할 뿐이고, 빨가면 자동 머지가 그냥 안 일어난다.
+# **막는 것은 그대로 CI 다.** 이 워크플로는 CI 의 결론을 기다릴 뿐이다 — 필수 검사 넷은 가지 보호가,
+# `audit` 는 아래 스크립트가 기다린다. 빨가면 자동 머지가 그냥 안 일어난다.
 #
 # **npm 갱신은 `audit` 잡을 기다린다**(`Q230`, 2026-09-26 사용자 결정 (가)). `npm audit` 은 필수가 아닌 별도 잡이라(`Q220`)
 # 가지 보호가 안 기다린다 — 그래서 새 취약점을 들이는 npm 갱신도 필수 넷이 초록이면 머지됐다. `scripts/wait-check.sh` 가
@@ -41,17 +41,22 @@ jobs:
       #
       # `--merge` 다. squash 를 쓰면 갱신 하나를 되돌릴 때 묶음이 통째로 딸려 온다(`2g-4`).
       #
-      # **`fetch-metadata` 는 npm 을 `npm_and_yarn` 으로 준다** — `npm` 이 아니다(PR #67 로그). 글자를 틀리면 조건이 영영 안 맞아
-      # npm 갱신이 기다리지 않고 머지된다.
+      # **`fetch-metadata` 는 npm 을 `npm_and_yarn` 으로 준다** — `npm` 이 아니다(PR #67 로그). **아는 글자만 머지한다** —
+      # 모르는 값이면 머지를 안 건다. 글자를 틀리면 기다리지 않고 머지되는 쪽이 아니라 사람이 보는 쪽으로 샌다(마무리 54차).
       - uses: actions/checkout@v7
       - if: steps.meta.outputs.update-type != 'version-update:semver-major'
         run: |
-          if [ "$ECOSYSTEM" = "npm_and_yarn" ]; then
-            if ! bash scripts/wait-check.sh "$HEAD_SHA" audit; then
-              echo "::warning::npm audit 가 초록이 아니라 자동 머지를 안 건다 — 사람이 본다"
-              exit 0
-            fi
-          fi
+          case "$ECOSYSTEM" in
+            npm_and_yarn)
+              if ! bash scripts/wait-check.sh "$HEAD_SHA" audit; then
+                echo "::warning::npm audit 가 초록이 아니라 자동 머지를 안 건다 — 사람이 본다"
+                exit 0
+              fi ;;
+            gradle|github_actions) ;;
+            *)
+              echo "::warning::모르는 생태계($ECOSYSTEM)라 자동 머지를 안 건다 — 사람이 본다"
+              exit 0 ;;
+          esac
           gh pr merge --auto --merge "$PR_URL"
         env:
           ECOSYSTEM: ${{ steps.meta.outputs.package-ecosystem }}

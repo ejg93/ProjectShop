@@ -231,9 +231,7 @@ public class ReturnRequestService {
         String reasonCode = reasonCodeOf(returnRequestId);
 
         if (decision instanceof Decision.Reject reject) {
-            if (reject.code() == RejectionReason.DAMAGED) {
-                requireInspected(returnRequestId);
-            }
+            requireSelectable(returnRequestId, reject.code());
             writeDecisionReason(returnRequestId, reject.reason());
             close(returnRequestId, actor, ReturnStatus.REJECTED, reasonCode, null, reject.code());
             return false;
@@ -302,8 +300,10 @@ public class ReturnRequestService {
      * 훼손 거절은 검수를 거쳐야 한다(`Q212`). <b>막는 것은 `V115` 의 제약이다</b> — 이것은 말을 붙이는 자리다.
      * 422 인 이유: 소견 없이 입고된 반품은 뒤에 검수할 길이 없어(입고는 {@code requested}·{@code picked_up} 에서만)
      * 기다려도 풀리지 않는 조합이다. {@code RETURN_NOT_RECEIVED}(409)는 입고되면 풀리는 충돌이라 다르다.
+     *
+     * <p><b>화면에 싣는 목록과 같은 판정을 부른다</b>({@link RejectionReason#selectable}) — 두 벌이면 한쪽만 바뀌어도 시험이 못 잡는다.
      */
-    private void requireInspected(long returnRequestId) {
+    private void requireSelectable(long returnRequestId, RejectionReason code) {
         boolean inspected = jdbc.sql("""
                         select inspected_at is not null from return_request
                          where return_request_id = :id
@@ -312,7 +312,7 @@ public class ReturnRequestService {
                 .query(Boolean.class)
                 .single();
 
-        if (!inspected) {
+        if (!RejectionReason.selectable(inspected).contains(code.name())) {
             throw new ShopException(ErrorCode.RETURN_DAMAGED_NEEDS_INSPECTION);
         }
     }

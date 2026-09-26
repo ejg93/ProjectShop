@@ -119,8 +119,8 @@ export default async function ReviewReportsPage({
                 </p>
               )}
 
-              {item.allowedActions.includes("ACCEPT") ? (
-                <ReportActions reportId={item.reviewReportId} />
+              {item.allowedActions.length > 0 ? (
+                <ReportActions reportId={item.reviewReportId} allowedActions={item.allowedActions} />
               ) : null}
 
               {item.reviewActions.includes("RESTORE") ? (

@@ -48,6 +48,13 @@ describe("후기 신고", () => {
     expect(screen.getByRole("button", { name: "물리기" })).toBeInTheDocument();
   });
 
+  it("목록에 있는 것만 그린다 — ACCEPT 하나면 물리기가 없다", async () => {
+    await renderWith("PENDING", report("PENDING", ["ACCEPT"], []));
+
+    expect(screen.getByRole("button", { name: "받아들이고 게시 중단" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "물리기" })).not.toBeInTheDocument();
+  });
+
   it("접수 상태라도 목록에 없으면 처리 버튼이 없다", async () => {
     await renderWith("PENDING", report("PENDING", [], []));
 
