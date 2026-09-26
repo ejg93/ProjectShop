@@ -1665,6 +1665,19 @@ JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이�
 붙는다. 로컬 npm 10.9 로 `npm i` 하면 그 칸을 지워서 의존성 하나를 더한 diff 에 무관한 줄이 섞인다(2026-09-26 `Q214` 실측).
 **의존성을 더할 때는 `npx -y npm@11 install <패키지>` 로 한다** — 칸이 그대로 남는다.
 
+### Next 는 들어온 요청에 `x-forwarded-for` 를 채운다 — 서버 렌더 요청은 안 채운다
+
+**16.3 `base-server.js` 가 `req.headers['x-forwarded-for'] ??= socket.remoteAddress` 를 한다**(`Q240` 에서 소스로 확인). 그래서
+서버 컴포넌트의 `headers()` 에는 늘 손님 주소가 있다. **그러나 서버 컴포넌트가 내는 `fetch` 는 새 요청이라 그 헤더가 안 따라간다** —
+`api-session.ts` 가 손으로 싣는다(`D24` 「손님 주소도 같은 자리에서 나른다」). 안 실으면 백엔드는 Next 주소 하나로 센다.
+
+### 시험 `RestClient` 는 429 를 `Retry-After` 만큼 기다렸다 다시 보낸다
+
+`RestClient.create()` 는 클래스패스의 Apache HttpClient 5 를 고르고, 그 기본 재시도(`DefaultHttpRequestRetryStrategy`)가
+**429·503 을 `Retry-After` 만큼 기다려 한 번 더 보낸다.** 요청 제한의 `Retry-After` 는 60초라 창이 닫힌 뒤 새 버킷의 첫 요청이 되어
+**429 를 기대한 시험이 1분 뒤 401 을 받는다**(`Q240` 실측 — 카운터가 20 에서 1 로 돌아갔다). 실제 HTTP 로 429 를 재지 말고
+버킷 열쇠를 읽거나 MockMvc 로 잰다(`RateLimitFilterTest`).
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고

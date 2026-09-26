@@ -1,7 +1,6 @@
 import Link from "next/link";
 
-import { apiPublic } from "@/lib/api";
-import { apiSessionOptional } from "@/lib/api-session";
+import { apiPublic, apiSessionOptional } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
 import { can, type Me } from "@/lib/permissions";
 

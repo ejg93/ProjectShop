@@ -293,6 +293,11 @@ abstract class HttpTestBase {
             return exchange(json == null ? spec : spec.body(json));
         }
 
+        /** 앞단 프록시가 손님 주소를 실은 GET(`Q240`). 요청 제한의 버킷이 그 주소로 갈리는지를 잰다 */
+        public Response getForwardedFrom(String path, String clientIp) {
+            return exchange(client.get().uri(path).header("X-Forwarded-For", clientIp));
+        }
+
         public Response postWithoutToken(String path, String json) {
             RestClient.RequestBodySpec spec = client.post().uri(path)
                     .contentType(MediaType.APPLICATION_JSON);

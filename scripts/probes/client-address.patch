@@ -1,0 +1,16 @@
+# gate: 서버 입구 둘이 손님 주소를 싣는다(Q240)
+# run: cd frontend && npx vitest run src/lib/api-session.test.ts
+# expect: 들어온 x-forwarded-for 를 그대로 넘긴다
+# expect: Tests +2 failed
+diff --git a/frontend/src/lib/api-session.ts b/frontend/src/lib/api-session.ts
+--- a/frontend/src/lib/api-session.ts
++++ b/frontend/src/lib/api-session.ts
+@@ -61,7 +61,7 @@
+  * 걷어내므로 손님이 앞에 적어 넣은 값은 안 믿긴다.
+  */
+ async function clientAddress(): Promise<string | null> {
+-  return (await headers()).get("x-forwarded-for");
++  return (await headers()) ? null : null;
+ }
+ 
+ /**

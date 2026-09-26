@@ -3,7 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { ApiError, apiPublic } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { apiPublic } from "@/lib/api-session";
 
 import { ProductInquiries } from "./product-inquiries";
 import { ProductReviews } from "./product-reviews";
