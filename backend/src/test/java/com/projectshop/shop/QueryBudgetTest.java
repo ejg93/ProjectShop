@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.inquiry.InquiryQuery;
 import com.projectshop.shop.order.OrderFixture;
 import com.projectshop.shop.order.OrderQuery;
 import com.projectshop.shop.order.SellerOrderQuery;
@@ -24,6 +25,7 @@ import com.projectshop.shop.payment.RefundQuery;
 import com.projectshop.shop.product.ProductQuery;
 import com.projectshop.shop.review.ReviewQuery;
 import com.projectshop.shop.settlement.SettlementQuery;
+import com.projectshop.shop.stats.SalesStatsQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.QueryCounter;
 
@@ -34,7 +36,8 @@ import com.projectshop.shop.support.QueryCounter;
  * <p><b>입구가 아니라 조회기를 잰다.</b> 목록의 SQL 은 전부 조회기 안에 있고, 입구의 필터(세션·생존 확인)가 내는 문장은 쪽 크기와
  * 무관하다. 권한 규칙은 캐시라서 먼저 한 번 불러 데운다.
  *
- * <p><b>아직 안 잰 입구 둘</b>(문의·매출)은 `Q204b` 가 더한다 — 시험 데이터를 세울 도구가 없다.
+ * <p><b>문의 목록 둘·매출·정산서 상세</b>는 `Q204b` 가 더했다 — 매출은 쪽이 아니라 날짜 범위라 1일과 30일을, 정산서 상세는
+ * 줄 하나와 셋을 견준다. 상세의 규칙은 목록과 같다 — <b>같아야 한다</b>(늘면 줄마다 질의가 나간다).
  */
 @DisplayName("쿼리 예산")
 class QueryBudgetTest extends PostgresTestBase {
@@ -48,7 +51,8 @@ class QueryBudgetTest extends PostgresTestBase {
 
     /** 잰 목록의 이름. 아래 {@link #OVER_BUDGET} 의 죽은 줄을 이것으로 가린다 */
     private static final List<String> LISTS = List.of(
-            "내 주문 목록", "관리자 주문 목록", "셀러 주문 목록", "상품 공개 목록", "상품 후기 목록", "환불 대기열", "정산서 목록");
+            "내 주문 목록", "관리자 주문 목록", "셀러 주문 목록", "상품 공개 목록", "상품 후기 목록", "환불 대기열", "정산서 목록",
+            "문의 전체 목록", "셀러 문의 목록");
 
     /**
      * {@link #BUDGET} 을 넘는 목록과 그 근거. <b>근거 없이 이름만 넣지 않는다</b> — 근거 칸이 없으면 이 목록이 예산을 넘겼을 때
@@ -85,6 +89,12 @@ class QueryBudgetTest extends PostgresTestBase {
 
     @Autowired
     private SettlementQuery settlements;
+
+    @Autowired
+    private InquiryQuery inquiries;
+
+    @Autowired
+    private SalesStatsQuery salesStats;
 
     private AuthFixture fixture;
     private long[] sellers;
@@ -184,6 +194,53 @@ class QueryBudgetTest extends PostgresTestBase {
             insertSettlement(sellers[0], month);
         }
         listStaysFlat("정산서 목록", size -> settlements.find(owner, new Paging(0, size)).items());
+    }
+
+    @Test
+    @DisplayName("문의 전체 목록")
+    void allInquiries() {
+        insertInquiries(3);
+        listStaysFlat("문의 전체 목록", size -> inquiries.findAll(admin, new Paging(0, size)).items());
+    }
+
+    @Test
+    @DisplayName("셀러 문의 목록")
+    void sellerInquiries() {
+        insertInquiries(3);
+        listStaysFlat("셀러 문의 목록", size -> inquiries.findForSeller(owner, new Paging(0, size)).items());
+    }
+
+    /** 매출은 쪽이 아니라 날짜 범위다 — 배치가 모은 날이 하루든 서른 날이든 문장 수가 같아야 한다 */
+    @Test
+    @DisplayName("매출 — 하루와 서른 날에서 문장 수가 같다")
+    void salesStatsIsFlatInDays() {
+        java.time.LocalDate from = java.time.LocalDate.of(2019, 2, 1);
+        insertDailySales(sellers[0], from, 30);
+
+        salesStats.find(owner, from, from.plusDays(1));
+        int one = QueryCounter.count(() -> salesStats.find(owner, from, from.plusDays(1)));
+        SalesStatsQuery.Report month = salesStats.find(owner, from, from.plusDays(30));
+        int thirty = QueryCounter.count(() -> salesStats.find(owner, from, from.plusDays(30)));
+
+        assertThat(month.total().orderCount()).as("잴 날이 없으면 평평함이 공짜로 참이다").isEqualTo(30);
+        assertThat(thirty).as("하루에서 %d, 서른 날에서 %d", one, thirty).isEqualTo(one);
+    }
+
+    /** 정산서 하나가 줄마다 질의하면 그것이 곧 N+1 이다 — 줄 수에 비례해도 된다는 면제를 안 준다(`Q204b` 설계) */
+    @Test
+    @DisplayName("정산서 상세 — 줄 하나와 셋에서 문장 수가 같다")
+    void settlementDetailIsFlatInLines() {
+        String single = insertSettlement(sellers[0], 1);
+        String triple = insertSettlement(sellers[0], 2);
+        insertSaleLines(single, 1);
+        insertSaleLines(triple, 3);
+
+        settlements.findOne(owner, single);
+        int one = QueryCounter.count(() -> settlements.findOne(owner, single));
+        int three = QueryCounter.count(() -> settlements.findOne(owner, triple));
+
+        assertThat(settlements.findOne(owner, triple).lines()).hasSize(3);
+        assertThat(three).as("줄 1 에서 %d, 3 에서 %d", one, three).isEqualTo(one);
     }
 
     /** 묶음마다 판정을 부르는 자리(`allowedActions`·`forcibleStatuses`·반품 진행)가 묶음 수만큼 질의를 내면 안 된다 */
@@ -344,7 +401,53 @@ class QueryBudgetTest extends PostgresTestBase {
                 .update();
     }
 
-    private void insertSettlement(long sellerId, int month) {
+    /** 손님이 {@code sellers[0]} 의 상품에 낸 문의 {@code count} 개 */
+    private void insertInquiries(int count) {
+        for (int i = 0; i < count; i++) {
+            jdbc.sql("""
+                            insert into inquiry (inquiry_number, kind, product_id, user_id, question)
+                            values (:number, 'product', :productId, :userId, '이 상품 언제 오나요')
+                            """)
+                    .param("number", "Q-" + OrderFixture.sellerOrderNumber().substring(2))
+                    .param("productId", productOf[0]).param("userId", buyer)
+                    .update();
+        }
+    }
+
+    /** 셀러 한 곳의 일별 매출 {@code days} 날과 그날마다 성공한 집계 회차. 표에 모인 날로 읽힌다 */
+    private void insertDailySales(long sellerId, java.time.LocalDate from, int days) {
+        for (int i = 0; i < days; i++) {
+            java.time.LocalDate day = from.plusDays(i);
+            jdbc.sql("""
+                            insert into seller_daily_sales (seller_id, sales_date, order_count, sold_quantity,
+                                                            paid_amount, refund_count, refunded_amount)
+                            values (:sellerId, :day, 1, 1, 10000, 0, 0)
+                            """)
+                    .param("sellerId", sellerId).param("day", day).update();
+            jdbc.sql("""
+                            insert into batch_run (batch_name, baseline_date, started_at, finished_at,
+                                                   target_count, processed_count, status)
+                            values ('daily_sales', :day, now(), now(), 1, 1, 'succeeded')
+                            """)
+                    .param("day", day).update();
+        }
+    }
+
+    /** 정산서에 판매 줄 {@code count} 개 — 줄마다 새 주문 품목이다 */
+    private void insertSaleLines(String settlementNumber, int count) {
+        long settlementId = jdbc.sql("select settlement_id from settlement where settlement_number = :number")
+                .param("number", settlementNumber).query(Long.class).single();
+        for (int i = 0; i < count; i++) {
+            jdbc.sql("""
+                            insert into settlement_item (settlement_id, kind, amount, order_item_id)
+                            values (:settlementId, 'sale', 10000, :orderItemId)
+                            """)
+                    .param("settlementId", settlementId).param("orderItemId", order(1).orderItemIds()[0])
+                    .update();
+        }
+    }
+
+    private String insertSettlement(long sellerId, int month) {
         java.time.LocalDate start = java.time.LocalDate.of(2019, month, 1);
         long cycleId = jdbc.sql("""
                         insert into settlement_cycle (period_start, period_end, payout_date)
@@ -354,11 +457,13 @@ class QueryBudgetTest extends PostgresTestBase {
                 .param("start", start).param("end", start.plusMonths(1).minusDays(1))
                 .param("payout", start.plusMonths(1).withDayOfMonth(10))
                 .query(Long.class).single();
+        String number = "T-" + OrderFixture.sellerOrderNumber().substring(2);
         jdbc.sql("""
                         insert into settlement (settlement_number, settlement_cycle_id, seller_id, payout_amount)
                         values (:number, :cycleId, :sellerId, 10000)
                         """)
-                .param("number", "T-" + OrderFixture.sellerOrderNumber().substring(2))
+                .param("number", number)
                 .param("cycleId", cycleId).param("sellerId", sellerId).update();
+        return number;
     }
 }

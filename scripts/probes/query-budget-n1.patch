@@ -1,0 +1,17 @@
+# gate: QueryBudgetTest 문의 목록(Q204b)
+# run: cd backend && ./gradlew integrationTest --tests '*QueryBudgetTest' -q
+# expect: FAILED com\.projectshop\.shop\.QueryBudgetTest 문의 전체 목록
+# expect: FAILED com\.projectshop\.shop\.QueryBudgetTest 셀러 문의 목록
+diff --git a/backend/src/main/java/com/projectshop/shop/inquiry/InquiryQuery.java b/backend/src/main/java/com/projectshop/shop/inquiry/InquiryQuery.java
+index 7e6ff98..3ab435b 100644
+--- a/backend/src/main/java/com/projectshop/shop/inquiry/InquiryQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/inquiry/InquiryQuery.java
+@@ -257,7 +257,7 @@ public class InquiryQuery {
+ 
+         List<Entry> items = listing
+                 .query((rs, rowNum) -> new Entry(
+-                        rs.getString("inquiry_number"),
++                        jdbc.sql("select cast(:n as text)").param("n", rs.getString("inquiry_number")).query(String.class).single(),
+                         EnumValue.of(rs.getString("kind"), InquiryKind::of),
+                         (Long) rs.getObject("product_id"),
+                         rs.getString("product_name"),
