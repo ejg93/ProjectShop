@@ -8,20 +8,24 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 // 같은 규칙을 두 블록이 켜면 뒤 블록이 앞 블록을 **덮어서**(합치지 않는다) `page.tsx` 에는 둘을 다 싣는다.
 // `ApiError` 는 `super(detail)` 이라 `message` 가 서버 문구고, 다른 오류는 영어 기술어(`TypeError: Failed to fetch`)다.
 // **길이 넷이다**(마무리 52차 독립 리뷰가 둘을 더 찾았다) — 멤버 읽기 · 구조 분해 · `String(e)` · `${e}`.
-// 뒤 둘은 흔한 오류 변수 이름(`e`·`err`·`error`·`caught`)만 본다 — 이름을 바꾸면 빠지지만 이 저장소의 `catch` 는 그 넷이다.
+// 뒤 둘은 흔한 오류 변수 이름(`e`·`err`·`error`·`caught`·`thrown`)만 본다 — 이름을 바꾸면 빠지지만 이 저장소의 `catch` 는
+// 그 다섯이다(`thrown` 은 마무리 55차 독립 리뷰가 찾았다 — 일곱 자리가 넷 밖이었다).
 const ERROR_TEXT_MESSAGE =
-  "화면은 오류의 message 를 안 그린다 — 영어 기술어이거나 서버 문구다. ApiError 는 userText 를 그리고 할 일이 다르면 slug 로 가른다(screen-rules.md 「서버 문구를 그대로 안 쓴다」)";
+  "화면은 오류의 message 를 안 그린다 — 영어 기술어이거나 서버 문구다. ApiError 는 userText 를 그리고 할 일이 다르면 slug 로 가른다(screen-rules.md 「서버 문구는 message 만 그린다」)";
 // `detail` 은 개발자용 평서형이다(`Q233`·`Q237`). 사용자 문구는 `userText`(응답 `message`)가 든다.
 // **오류 변수에서만 막는다** — 감사 기록의 `row.detail`(JSON)처럼 이름이 같은 다른 칸이 있어서다.
 const ERROR_DETAIL_MESSAGE =
-  "화면은 오류의 detail 을 안 그린다 — 개발자용 평서형이다. ApiError 의 userText 를 그린다(screen-rules.md 「서버 문구를 그대로 안 쓴다」)";
-const ERROR_NAME = "/^(e|err|error|caught)$/";
+  "화면은 오류의 detail 을 안 그린다 — 개발자용 평서형이다. ApiError 의 userText 를 그린다(screen-rules.md 「서버 문구는 message 만 그린다」)";
+const ERROR_NAME = "/^(e|err|error|caught|thrown)$/";
 const NO_ERROR_MESSAGE = [
   { selector: "MemberExpression[property.name='message']", message: ERROR_TEXT_MESSAGE },
   { selector: ":matches(VariableDeclarator, CatchClause) > ObjectPattern > Property[key.name='message']", message: ERROR_TEXT_MESSAGE },
   { selector: `CallExpression[callee.name='String'] > Identifier[name=${ERROR_NAME}]`, message: ERROR_TEXT_MESSAGE },
   { selector: `TemplateLiteral > Identifier[name=${ERROR_NAME}]`, message: ERROR_TEXT_MESSAGE },
+  // `detail` 길은 셋이다 — 멤버 읽기 · 형 단언을 거친 읽기(`(caught as ApiError).detail`) · 구조 분해(`{ detail } = caught`).
   { selector: `MemberExpression[object.name=${ERROR_NAME}][property.name='detail']`, message: ERROR_DETAIL_MESSAGE },
+  { selector: `MemberExpression[object.type='TSAsExpression'][object.expression.name=${ERROR_NAME}][property.name='detail']`, message: ERROR_DETAIL_MESSAGE },
+  { selector: `VariableDeclarator[init.name=${ERROR_NAME}] > ObjectPattern > Property[key.name='detail']`, message: ERROR_DETAIL_MESSAGE },
 ];
 const NO_STATIC_SEGMENT = [
   {

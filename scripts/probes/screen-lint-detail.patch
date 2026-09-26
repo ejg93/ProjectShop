@@ -1,15 +1,21 @@
-# gate: eslint 화면 규칙 — 오류 변수의 detail(Q237)
+# gate: eslint 화면 규칙 — 오류 변수의 detail(Q237, 마무리 55차가 길 셋을 더했다)
 # run: cd frontend && npx eslint --no-cache src/components/site-footer.tsx
 # expect: 화면은 오류의 detail 을 안 그린다
-# expect: ✖ 1 problem \(1 error
+# expect: ✖ 4 problems \(4 errors
 diff --git a/frontend/src/components/site-footer.tsx b/frontend/src/components/site-footer.tsx
 --- a/frontend/src/components/site-footer.tsx
 +++ b/frontend/src/components/site-footer.tsx
-@@ -45,3 +45,7 @@
+@@ -45,3 +45,13 @@
      </Link>
    );
  }
 +
-+// 오류 변수의 detail 은 막고, 이름이 같은 다른 칸(감사 기록의 row.detail)은 안 막는다
++// 오류 변수의 detail 길 넷은 막고, 이름이 같은 다른 칸(감사 기록의 row.detail)은 안 막는다
 +export const probeDetail = ((error: { detail: string }) => error.detail)({ detail: "x" });
++export const probeCast = ((caught: unknown) => (caught as { detail: string }).detail)({ detail: "x" });
++export const probeThrown = ((thrown: { detail: string }) => thrown.detail)({ detail: "x" });
++export const probeDestructured = ((thrown: { detail: string }) => {
++  const { detail } = thrown;
++  return detail;
++})({ detail: "x" });
 +export const probeRowDetail = ((row: { detail: string }) => row.detail)({ detail: "x" });

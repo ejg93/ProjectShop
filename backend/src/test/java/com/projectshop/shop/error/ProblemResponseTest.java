@@ -72,8 +72,8 @@ class ProblemResponseTest extends PostgresTestBase {
                     .andExpect(jsonPath("$.status").value(401))
                     .andExpect(jsonPath("$.instance").value("/api/auth/login"))
                     .andExpect(jsonPath("$.trace_id").isNotEmpty())
-                    // 문구가 없는 코드는 공통 문구다 — 칸 자체는 늘 있다.
-                    .andExpect(jsonPath("$.message").value(ErrorCode.FALLBACK_USER_TEXT));
+                    // 문구가 없는 4xx 는 확인을 권하는 공통 문구다 — 칸 자체는 늘 있다.
+                    .andExpect(jsonPath("$.message").value(ErrorCode.FALLBACK_CLIENT_USER_TEXT));
         }
 
         @Test

@@ -60,7 +60,8 @@ class ErrorCodeUserTextTest {
         // INTERNAL 은 제 문구가 공통 문구와 같다 — 뜻이 같아서다. 그 하나만 빼고 본다.
         assertThat(REQUIRED_USER_TEXT.stream()
                 .filter(code -> code != ErrorCode.INTERNAL)
-                .filter(code -> code.userText().equals(ErrorCode.FALLBACK_USER_TEXT))
+                .filter(code -> code.userText().equals(ErrorCode.FALLBACK_USER_TEXT)
+                        || code.userText().equals(ErrorCode.FALLBACK_CLIENT_USER_TEXT))
                 .toList())
                 .as("문구를 안 넣어 공통 문구로 떨어진 코드")
                 .isEmpty();

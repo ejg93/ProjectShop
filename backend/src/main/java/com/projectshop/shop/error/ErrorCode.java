@@ -543,8 +543,17 @@ public enum ErrorCode {
      */
     private static final String TAG_PREFIX = "tag:projectshop.example,2026:error:";
 
-    /** 사용자 문구가 없는 코드가 내는 문구. 다음에 무엇을 할지를 적는다(`D20` 「지키는 것」) */
+    /**
+     * 사용자 문구가 없는 5xx 코드가 내는 문구. 다음에 무엇을 할지를 적는다(`D20` 「지키는 것」) — 서버 쪽 사정이라
+     * 다시 시도가 답이다. 화면의 `api.ts` 가 같은 값을 든다(`api.test.ts` 가 대조한다).
+     */
     static final String FALLBACK_USER_TEXT = "요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
+
+    /**
+     * 사용자 문구가 없는 4xx 코드가 내는 문구. 요청이 틀린 것이라 다시 보내도 같다 — 확인을 권한다
+     * (마무리 55차 독립 리뷰: 틀린 비밀번호에 「잠시 뒤 다시 시도」가 실렸다).
+     */
+    static final String FALLBACK_CLIENT_USER_TEXT = "요청을 처리하지 못했습니다. 입력한 내용을 확인해 주세요.";
 
     private final HttpStatus status;
     private final String slug;
@@ -581,10 +590,13 @@ public enum ErrorCode {
      * <p><b>{@code title}·{@code detail} 과 독자가 다르다.</b> 둘은 개발자가 읽는 평서형이고 진단 정보를 든다.
      * 화면이 그것을 그대로 그리면 문체가 갈리고 내부 값(소문자 상태·Spring 영어)이 샌다.
      *
-     * <p><b>문구가 없는 코드는 공통 문구를 준다.</b> 화면이 닿는 코드는 {@code ErrorCodeUserTextTest} 의
+     * <p><b>문구가 없는 코드는 공통 문구를 준다</b>(4xx 와 5xx 가 다르다). 화면이 닿는 코드는 {@code ErrorCodeUserTextTest} 의
      * 목록이 들고, 새로 닿는 코드가 생기면 문구를 여기 한 곳에 더한다 — 화면마다 문구를 고르지 않는다.
      */
     public String userText() {
-        return userText == null ? FALLBACK_USER_TEXT : userText;
+        if (userText != null) {
+            return userText;
+        }
+        return status.is5xxServerError() ? FALLBACK_USER_TEXT : FALLBACK_CLIENT_USER_TEXT;
     }
 }

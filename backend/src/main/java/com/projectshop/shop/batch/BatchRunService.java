@@ -38,6 +38,9 @@ public class BatchRunService {
     /** {@link BatchRuns#record} 가 줄 없이 건너뛴 회차의 상태. {@code batch_run.status} 의 값과 같다 */
     private static final String SKIPPED = "skipped";
 
+    /** 주인이 없는 대상. `all` 만 덮는다 */
+    private static final Target NO_OWNER = Target.of(-1L, -1L);
+
     private final Map<String, RetryableBatch> batches;
     private final BatchRuns runs;
     private final PermissionEvaluator evaluator;
@@ -58,13 +61,14 @@ public class BatchRunService {
             Integer targetCount, Integer processedCount) {}
 
     /**
-     * @param baselineDate 돌릴 기준일. 없으면 오늘(KST)
-     * @throws ShopException 권한이 없으면 {@code BATCH_FORBIDDEN}, 이름이 목록에 없으면 {@code BATCH_NOT_FOUND}
+     * @param baselineDate 돌릴 기준일. 오늘(KST) 앞이어야 하고 없으면 어제
+     * @throws ShopException 권한이 없으면 {@code BATCH_FORBIDDEN}, 이름이 목록에 없으면 {@code BATCH_NOT_FOUND},
+     *     기준일이 오늘이거나 미래면 {@code VALIDATION_FAILED}
      */
     public BatchRun run(long userId, String batchName, LocalDate baselineDate) {
-        // 대상 자원이 없는 동작이라 자기 자신을 대상으로 잰다 — 관리자는 `all` 이라 통과하고
-        // 고객·셀러는 부여가 없고 감사자는 `V75` 트리거가 단 거부에 걸린다(`V119`).
-        if (!evaluator.decide(userId, "batch", "run", Target.ownedBy(userId)).allowed()) {
+        // **주인이 없는 동작이다** — 아무에게도 안 속한 대상으로 잰다(`InquiryQuery.findAll` 과 같은 수).
+        // 자기 자신을 대상으로 재면 `own` 부여 하나가 이 문을 연다(마무리 55차 독립 리뷰). 이제 `all` 만 덮는다.
+        if (!evaluator.decide(userId, "batch", "run", NO_OWNER).allowed()) {
             throw new ShopException(ErrorCode.BATCH_FORBIDDEN);
         }
         RetryableBatch batch = batches.get(batchName);
@@ -72,7 +76,14 @@ public class BatchRunService {
             throw new ShopException(ErrorCode.BATCH_NOT_FOUND, "손으로 돌릴 수 있는 배치가 아니다: " + batchName);
         }
 
-        LocalDate date = baselineDate == null ? LocalDate.now(KST) : baselineDate;
+        LocalDate today = LocalDate.now(KST);
+        LocalDate date = baselineDate == null ? today.minusDays(1) : baselineDate;
+        if (!date.isBefore(today)) {
+            // **오늘과 미래는 안 받는다**(마무리 55차 독립 리뷰). 미래 기준일은 보존 기한(`D2` R6)의 끝을 앞당겨
+            // 아직 지킬 기록을 지우고, 자동 확정·정산을 앞당긴다. 오늘은 `daily_sales` 가 반쪽 집계를 성공으로 남겨
+            // 00:15 의 진짜 회차(어제를 돈다)가 건너뛴다. 지난날은 cron 보다 덜 하므로 안전하다.
+            throw new ShopException(ErrorCode.VALIDATION_FAILED, "기준일은 오늘(KST) 앞이어야 한다: " + date);
+        }
         long before = runs.lastRunId(batchName, date);
 
         batch.runFor(date);

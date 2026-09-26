@@ -779,6 +779,20 @@ class InquiryVisibilityTest extends PostgresTestBase {
             }
         }
 
+        /**
+         * <b>버튼을 그릴지 묻는 것은 거부를 안 남긴다</b>(마무리 55차 독립 리뷰). 감사자는 {@code inquiry:withdraw} 가
+         * {@code D/all} 이라, 내 목록이 이것을 {@code decide} 로 물으면 목록을 열 때마다 거부 감사가 한 줄씩 쌓였다.
+         */
+        @Test
+        @DisplayName("감사자가 내 목록을 열어도 거부 감사가 안 쌓인다")
+        void listingDoesNotAuditDenials() {
+            long before = deniedAudits();
+
+            query.findMine(auditorId, new Paging(0, 20));
+
+            assertThat(deniedAudits()).isEqualTo(before);
+        }
+
         @Test
         @DisplayName("답이 나간 것은 못 거둔다")
         void refusesAnAnsweredInquiry() {
@@ -927,6 +941,12 @@ class InquiryVisibilityTest extends PostgresTestBase {
                     .as("조건부 UPDATE 라 둘이 동시에 와도 하나만 통과한다")
                     .isInstanceOf(ShopException.class);
         }
+    }
+
+    private long deniedAudits() {
+        return jdbc.sql("select count(*) from audit_log where event_type = 'permission.denied'")
+                .query(Long.class)
+                .single();
     }
 
     private String ask(long userId, boolean isPublic) {

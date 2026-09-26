@@ -54,14 +54,16 @@ const LOGIN_REQUIRED = "/login?reason=login-required";
  * 손님 주소 헤더(`Q240`). 서버에서 도는 두 입구({@link apiPublic}·{@link carry})가 같이 싣는다.
  *
  * <p><b>안 실으면 요청 제한이 방문자 전원을 Next 주소 하나로 센다</b>(`RateLimitFilter` 는 1분 120).
- * 브라우저가 부르는 길은 rewrite 가 싣는데 서버 렌더는 Next 가 새로 내는 요청이라 비어 나갔다.
+ * 서버 렌더는 Next 가 새로 내는 요청이라 들어온 헤더가 안 따라간다.
  *
- * <p><b>그대로 넘긴다.</b> Next 는 들어온 요청에 이 헤더가 없으면 소켓 주소로 채운다(16.3 `base-server` —
- * 플랫폼 사실, `stack.md`). 백엔드의 `RemoteIpValve` 가 믿는 프록시(`TRUSTED_PROXIES`)를 오른쪽부터
- * 걷어내므로 손님이 앞에 적어 넣은 값은 안 믿긴다.
+ * <p><b>앞단이 채운 `X-Real-IP` 만 옮긴다</b>(마무리 55차 독립 리뷰). Railway 앞단이 손님 주소로 적는 헤더다(`stack.md`).
+ * 들어온 `x-forwarded-for` 는 **손님이 쓸 수 있다** — Next 는 없을 때만 채우고 덧붙이지 않아서(16.3 `base-server` 의 `??=`)
+ * 손님이 적은 값이 그대로 남고, 백엔드는 Next 를 믿으므로 그 값을 손님 주소로 받는다. 옮기면 요청마다 새 버킷이 열린다.
+ *
+ * <p><b>`X-Real-IP` 가 없으면 안 싣는다</b> — 로컬처럼 앞단이 없는 곳이다. 그때는 Next 주소 하나로 세고, 그것이 옮기기 전 모양이다.
  */
 async function clientAddress(): Promise<string | null> {
-  return (await headers()).get("x-forwarded-for");
+  return (await headers()).get("x-real-ip");
 }
 
 /**

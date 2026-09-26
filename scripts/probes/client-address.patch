@@ -1,16 +1,16 @@
-# gate: 서버 입구 둘이 손님 주소를 싣는다(Q240)
+# gate: 서버 입구 둘이 앞단의 손님 주소만 싣는다(Q240, 마무리 55차) — 손님이 쓴 x-forwarded-for 를 옮기면 빨갛다
 # run: cd frontend && npx vitest run src/lib/api-session.test.ts
-# expect: 들어온 x-forwarded-for 를 그대로 넘긴다
-# expect: Tests +2 failed
+# expect: 들어온 x-forwarded-for 만 있으면 안 싣는다
+# expect: Tests +4 failed
 diff --git a/frontend/src/lib/api-session.ts b/frontend/src/lib/api-session.ts
 --- a/frontend/src/lib/api-session.ts
 +++ b/frontend/src/lib/api-session.ts
-@@ -61,7 +61,7 @@
-  * 걷어내므로 손님이 앞에 적어 넣은 값은 안 믿긴다.
+@@ -63,7 +63,7 @@
+  * <p><b>`X-Real-IP` 가 없으면 안 싣는다</b> — 로컬처럼 앞단이 없는 곳이다. 그때는 Next 주소 하나로 세고, 그것이 옮기기 전 모양이다.
   */
  async function clientAddress(): Promise<string | null> {
--  return (await headers()).get("x-forwarded-for");
-+  return (await headers()) ? null : null;
+-  return (await headers()).get("x-real-ip");
++  return (await headers()).get("x-forwarded-for");
  }
  
  /**

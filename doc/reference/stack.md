@@ -1665,11 +1665,20 @@ JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이�
 붙는다. 로컬 npm 10.9 로 `npm i` 하면 그 칸을 지워서 의존성 하나를 더한 diff 에 무관한 줄이 섞인다(2026-09-26 `Q214` 실측).
 **의존성을 더할 때는 `npx -y npm@11 install <패키지>` 로 한다** — 칸이 그대로 남는다.
 
-### Next 는 들어온 요청에 `x-forwarded-for` 를 채운다 — 서버 렌더 요청은 안 채운다
+### Next 는 들어온 요청에 `x-forwarded-for` 를 없을 때만 채운다 — 덧붙이지 않는다
 
-**16.3 `base-server.js` 가 `req.headers['x-forwarded-for'] ??= socket.remoteAddress` 를 한다**(`Q240` 에서 소스로 확인). 그래서
-서버 컴포넌트의 `headers()` 에는 늘 손님 주소가 있다. **그러나 서버 컴포넌트가 내는 `fetch` 는 새 요청이라 그 헤더가 안 따라간다** —
-`api-session.ts` 가 손으로 싣는다(`D24` 「손님 주소도 같은 자리에서 나른다」). 안 실으면 백엔드는 Next 주소 하나로 센다.
+**16.3 `base-server.js` 가 `req.headers['x-forwarded-for'] ??= socket.remoteAddress` 를 한다**(`Q240` 에서 소스로 확인).
+**있으면 안 건드린다** — 손님이 적어 보낸 값이 그대로 남는다(마무리 55차 독립 리뷰). 그래서 이 헤더를 백엔드로 옮기면
+백엔드(Next 를 믿는다)가 손님이 쓴 값을 손님 주소로 받는다. 서버 입구는 앞단이 채운 `X-Real-IP` 만 옮긴다(`D24` 「손님 주소도 같은 자리에서 나른다」).
+
+**rewrite 도 안 더한다.** `router-server.js` 가 바깥 rewrite 를 `base-server` 앞에서 넘기고, `proxy-request.js` 가 `httpxy` 를
+`xfwd` 없이 만든다 — 앞단이 실은 헤더만 지나간다.
+
+### Railway 앞단은 손님 주소를 `X-Real-IP` 로 적는다 — `X-Forwarded-For` 는 문서에 없다
+
+Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)·`X-Forwarded-Proto`·`X-Forwarded-Host`·`X-Railway-Edge` 를 적고
+**`X-Forwarded-For` 를 안 적는다**(2026-09-26 확인). 앞단이 그것을 덧붙이는지 덮는지 그대로 넘기는지는 문서로 모른다 —
+백엔드의 `RemoteIpValve` 는 지금 `X-Forwarded-For` 를 보므로 브라우저 길이 맞게 받는지는 운영에서 잰다(`Q242`).
 
 ### 시험 `RestClient` 는 429 를 `Retry-After` 만큼 기다렸다 다시 보낸다
 

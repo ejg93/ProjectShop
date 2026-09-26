@@ -79,16 +79,29 @@ describe("손님 주소", () => {
     return new Headers(init.headers);
   };
 
-  it.each(entries)("%s 는 들어온 x-forwarded-for 를 그대로 넘긴다", async (_name, call) => {
-    requestHeaders.set("x-forwarded-for", "198.51.100.7, 10.0.0.2");
+  it.each(entries)("%s 는 앞단이 채운 x-real-ip 를 x-forwarded-for 로 싣는다", async (_name, call) => {
+    requestHeaders.set("x-real-ip", "198.51.100.7");
     answer(200, {});
 
     await call();
 
-    expect(sentHeaders().get("x-forwarded-for")).toBe("198.51.100.7, 10.0.0.2");
+    expect(sentHeaders().get("x-forwarded-for")).toBe("198.51.100.7");
   });
 
-  it.each(entries)("%s 는 없으면 안 싣는다 — 빈 값을 지어내지 않는다", async (_name, call) => {
+  /**
+   * <b>손님이 쓸 수 있는 헤더는 안 옮긴다</b>(마무리 55차 독립 리뷰). Next 는 `x-forwarded-for` 가 있으면 안 건드려서
+   * 손님이 적은 값이 그대로 남고, 옮기면 백엔드가 그것을 손님 주소로 받아 요청마다 새 버킷이 열린다.
+   */
+  it.each(entries)("%s 는 들어온 x-forwarded-for 만 있으면 안 싣는다", async (_name, call) => {
+    requestHeaders.set("x-forwarded-for", "203.0.113.99");
+    answer(200, {});
+
+    await call();
+
+    expect(sentHeaders().has("x-forwarded-for")).toBe(false);
+  });
+
+  it.each(entries)("%s 는 둘 다 없으면 안 싣는다 — 빈 값을 지어내지 않는다", async (_name, call) => {
     answer(200, {});
 
     await call();
@@ -98,7 +111,7 @@ describe("손님 주소", () => {
 
   it("공개 입구는 손님 주소를 실어도 쿠키는 안 싣는다", async () => {
     cookieJar.set("SHOPSESSION", "s-1");
-    requestHeaders.set("x-forwarded-for", "198.51.100.7");
+    requestHeaders.set("x-real-ip", "198.51.100.7");
     answer(200, {});
 
     await apiPublic("/api/products");

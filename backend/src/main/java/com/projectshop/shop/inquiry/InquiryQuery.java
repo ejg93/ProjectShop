@@ -158,7 +158,10 @@ public class InquiryQuery {
 
         // 거두기는 제 권한이다(`Q239`) — 서비스(`InquiryService.withdraw`)와 같은 판정(`withdraw`, `ownedBy`)을 쓴다.
         // 볼 수 있어도 못 거두는 역할(감사자)이 있어서 `read` 판정을 빌리면 안 된다.
-        boolean canWithdraw = evaluator.decide(viewerId, RESOURCE, WITHDRAW, Target.ownedBy(viewerId)).allowed();
+        // 버튼 모양의 물음이라 `allowedActions` 다 — `decide` 로 물으면 거부가 감사에 쌓인다(감사자는 목록을 열 때마다,
+        // 마무리 55차 독립 리뷰. `Q204` 가 같은 모양을 고쳤다). 실제 허용은 거두기 입구의 `decide` 가 정한다.
+        boolean canWithdraw = evaluator.allowedActions(viewerId, RESOURCE, Set.of(WITHDRAW), Target.ownedBy(viewerId))
+                .contains(WITHDRAW);
         return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility, false, canWithdraw);
     }
 
@@ -225,7 +228,7 @@ public class InquiryQuery {
      * @param canAnswer 이 사람이 이 목록의 문의에 답할 권한이 있나. <b>행마다 안 묻는다</b> —
      *                  스코프가 셀러라 한 셀러로 물으면 결과가 같다({@link #findForSeller} 의 주석과 같은 이유).
      *                  행마다 갈리는 것은 <b>상태</b>뿐이라 아래에서 그것만 본다.
-     * @param canWithdraw 이 사람이 이 목록의 문의를 거둘 수 있나(`Q234`). 판정은 입구가 이미 한 조회와 같다
+     * @param canWithdraw 이 사람이 이 목록의 문의를 거둘 수 있나(`Q234`). 주인의 목록은 거두기 권한을 버튼 모양으로 묻는다(`Q239`)
      */
     private Page<Entry> find(String condition, Map<String, Object> params, Paging paging,
             Visibility visibility, boolean canAnswer, boolean canWithdraw) {

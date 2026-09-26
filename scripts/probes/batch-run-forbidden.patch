@@ -5,12 +5,12 @@
 diff --git a/backend/src/main/java/com/projectshop/shop/batch/BatchRunService.java b/backend/src/main/java/com/projectshop/shop/batch/BatchRunService.java
 --- a/backend/src/main/java/com/projectshop/shop/batch/BatchRunService.java
 +++ b/backend/src/main/java/com/projectshop/shop/batch/BatchRunService.java
-@@ -64,7 +64,7 @@
+@@ -68,7 +68,7 @@
      public BatchRun run(long userId, String batchName, LocalDate baselineDate) {
-         // 대상 자원이 없는 동작이라 자기 자신을 대상으로 잰다 — 관리자는 `all` 이라 통과하고
-         // 고객·셀러는 부여가 없고 감사자는 `V75` 트리거가 단 거부에 걸린다(`V119`).
--        if (!evaluator.decide(userId, "batch", "run", Target.ownedBy(userId)).allowed()) {
-+        if (!evaluator.decide(userId, "batch", "run", Target.ownedBy(userId)).allowed() && false) {
+         // **주인이 없는 동작이다** — 아무에게도 안 속한 대상으로 잰다(`InquiryQuery.findAll` 과 같은 수).
+         // 자기 자신을 대상으로 재면 `own` 부여 하나가 이 문을 연다(마무리 55차 독립 리뷰). 이제 `all` 만 덮는다.
+-        if (!evaluator.decide(userId, "batch", "run", NO_OWNER).allowed()) {
++        if (!evaluator.decide(userId, "batch", "run", NO_OWNER).allowed() && false) {
              throw new ShopException(ErrorCode.BATCH_FORBIDDEN);
          }
          RetryableBatch batch = batches.get(batchName);
