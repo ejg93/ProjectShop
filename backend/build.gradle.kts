@@ -127,7 +127,7 @@ dependencies {
 	// 기동은 초록이고 업로드만 터져서 원인이 멀어 보인다.
 	//
 	// **BOM 으로 버전을 묶는다.** `s3` 와 전송 계층이 판이 갈리면 서명 방식에서 어긋난다.
-	implementation(platform("software.amazon.awssdk:bom:2.55.0"))
+	implementation(platform("software.amazon.awssdk:bom:2.55.5"))
 	implementation("software.amazon.awssdk:s3")
 	implementation("software.amazon.awssdk:apache-client")
 	// 웹훅 발송기(`Q210`). **연결이 검사한 주소에만 가게** 이름 풀이를 연결 관리자에 준다 — JDK `HttpClient` 에는 그 훅이 없다.
