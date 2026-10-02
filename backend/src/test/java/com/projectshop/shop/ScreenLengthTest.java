@@ -72,7 +72,9 @@ class ScreenLengthTest {
             "app/admin/orders/[orderNumber]/compensations.tsx  inquiryNumber",
                     "상한이 @Pattern 안에 있다 — `Q-` 와 날짜 8자리·하이픈·6자리라 17자다(`43a-4c`)",
             "app/seller/orders/[sellerOrderNumber]/ship-form.tsx  trackingNo",
-                    "상한이 @Pattern 안에 있다 — 숫자 14자리 사이마다 하이픈이 하나씩 끼면 27자다(`57`)"));
+                    "상한이 @Pattern 안에 있다 — 숫자 14자리 사이마다 하이픈이 하나씩 끼면 27자다(`57`)",
+            "components/product-search-form.tsx  q",
+                    "요청 record 칸이 아니라 질의 파라미터다(`GET /api/products?q=`) — 상한 100 은 ProductApiTest 가 든다(`61`)"));
 
     /**
      * <b>같은 이름의 요청 칸이 서로 다른 상한을 가진 자리.</b> 화면이 어느 쪽으로 보내는지를
