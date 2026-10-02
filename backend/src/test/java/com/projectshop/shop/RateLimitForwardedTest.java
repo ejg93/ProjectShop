@@ -2,6 +2,8 @@ package com.projectshop.shop;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,11 +13,14 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * 한 프록시를 지나는 손님 둘이 <b>버킷이 둘인가</b>(`Q240`).
+ * 한 프록시를 지나는 손님 둘이 <b>버킷이 둘인가</b>(`Q240`), 손님이 써 보낸 헤더에 <b>안 속는가</b>(`Q242`).
  *
  * <p>서버 렌더 요청은 Next 서버가 새로 내서 백엔드가 보기에 주소가 Next 하나다. 화면이 손님 주소를
- * {@code X-Forwarded-For} 로 실으면 Tomcat 의 {@code RemoteIpValve} 가 믿는 프록시(시험은 루프백)의 헤더를
+ * {@code X-Real-IP} 로 실으면 Tomcat 의 {@code RemoteIpValve} 가 믿는 프록시(시험은 루프백)의 헤더를
  * 풀어 {@code getRemoteAddr()} 를 손님 주소로 바꾸고, {@code RateLimitFilter} 가 그 주소로 센다.
+ *
+ * <p><b>{@code X-Forwarded-For} 는 안 본다</b>(`Q242`). 손님이 써 보낼 수 있고 Next rewrite 가 그대로 넘긴다 —
+ * 그 헤더로 세면 요청마다 주소를 바꿔 로그인 요청 제한을 비켜 가고 {@code acted_ip} 에 지어낸 주소가 남는다.
  *
  * <p><b>실제 HTTP 여야 한다.</b> 밸브는 Tomcat 이 하는 일이라 MockMvc 에서는 이 헤더가 아무 일도 안 한다.
  *
@@ -58,6 +63,30 @@ class RateLimitForwardedTest extends HttpTestBase {
         assertThat(redis.keys(keyPrefix + "*"))
                 .as("프록시(루프백) 주소로 센 버킷이 없다 — 헤더를 안 실으면 이것 하나만 생긴다")
                 .noneMatch(key -> key.endsWith(":127.0.0.1") || key.contains(":0:0:0:0:0:0:0:1"));
+    }
+
+    @Test
+    @DisplayName("손님이 쓴 X-Forwarded-For 는 앞단이 적은 X-Real-IP 를 못 이긴다")
+    void forwardedForDoesNotOverrideRealIp() {
+        newSession().getWithHeaders("/api/auth/session", Map.of(
+                "X-Real-IP", "198.51.100.1",
+                "X-Forwarded-For", "203.0.113.9"));
+
+        assertThat(countOf("198.51.100.1")).isEqualTo("1");
+        assertThat(countOf("203.0.113.9"))
+                .as("손님이 쓴 주소로 버킷이 서면 요청마다 그 값을 바꿔 요청 제한을 비켜 간다")
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("X-Forwarded-For 만 오면 손님 주소로 안 읽고 프록시 주소로 센다")
+    void forwardedForAloneIsIgnored() {
+        newSession().getWithHeaders("/api/auth/session", Map.of("X-Forwarded-For", "203.0.113.9"));
+
+        assertThat(countOf("203.0.113.9")).as("백엔드는 X-Real-IP 만 본다(`Q242`)").isNull();
+        assertThat(redis.keys(keyPrefix + "*"))
+                .as("손님 주소 헤더가 없으면 바로 앞 상대(루프백)로 센다")
+                .anyMatch(key -> key.endsWith(":127.0.0.1") || key.contains(":0:0:0:0:0:0:0:1"));
     }
 
     private String countOf(String clientIp) {

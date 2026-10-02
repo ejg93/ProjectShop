@@ -138,13 +138,17 @@ server:
   forward-headers-strategy: native
   tomcat:
     remoteip:
+      # 손님 주소를 읽는 헤더. **X-Forwarded-For 가 아니라 X-Real-IP 다**(`Q242`).
+      # 앞단(Railway)이 손님 주소로 적는 것이 X-Real-IP 이고(`stack.md`), X-Forwarded-For 는 손님이 써 보낼 수 있는데
+      # Next rewrite 가 그것을 그대로 넘긴다 — 그 헤더를 보면 브라우저 길의 요청 제한과 acted_ip 가 손님이 쓴 값에 속는다.
+      # 헤더를 싣는 자리는 둘이다 — rewrite(브라우저 요청)는 앞단이 실은 X-Real-IP 를 그대로 넘기고,
+      # 서버 렌더의 두 입구는 들어온 X-Real-IP 를 같은 이름으로 옮긴다(`api-session.ts`, `Q240`).
+      remote-ip-header: x-real-ip
       # 헤더를 믿어 줄 상대. 루프백만이다(청크 13-1).
       #
       # 기본값은 사설 대역 전체(10./172.16-31./192.168./169.254./127./::1)라,
-      # 같은 망에 있는 무엇이든 X-Forwarded-For 한 줄로 IP 를 속일 수 있었다.
-      # 우리 프록시는 같은 기계에서 도는 Next.js 하나라 루프백이면 충분하다 — 헤더를 싣는 자리는
-      # 둘이다 — rewrite(브라우저 요청)는 앞단이 실은 것을 그대로 넘기고(더하지 않는다),
-      # 서버 렌더의 두 입구는 앞단의 X-Real-IP 를 이 헤더로 옮긴다(`api-session.ts`, `Q240`).
+      # 같은 망에 있는 무엇이든 헤더 한 줄로 IP 를 속일 수 있었다.
+      # 우리 프록시는 같은 기계에서 도는 Next.js 하나라 루프백이면 충분하다.
       #
       # 정규식이다. 배포로 프록시가 밖에 서면 `TRUSTED_PROXIES` 로 그 대역을 넣는다 —
       # 안 넣으면 헤더를 안 봐서 acted_ip 가 프록시 IP 로 쌓인다. 넓게(`.*`) 넣으면 기본값의

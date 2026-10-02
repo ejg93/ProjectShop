@@ -79,13 +79,15 @@ describe("손님 주소", () => {
     return new Headers(init.headers);
   };
 
-  it.each(entries)("%s 는 앞단이 채운 x-real-ip 를 x-forwarded-for 로 싣는다", async (_name, call) => {
+  /** 백엔드는 `x-real-ip` 만 본다(`Q242`) — 다른 이름으로 실으면 손님 전원이 Next 주소 하나로 세진다 */
+  it.each(entries)("%s 는 앞단이 채운 x-real-ip 를 같은 이름으로 싣는다", async (_name, call) => {
     requestHeaders.set("x-real-ip", "198.51.100.7");
     answer(200, {});
 
     await call();
 
-    expect(sentHeaders().get("x-forwarded-for")).toBe("198.51.100.7");
+    expect(sentHeaders().get("x-real-ip")).toBe("198.51.100.7");
+    expect(sentHeaders().has("x-forwarded-for")).toBe(false);
   });
 
   /**
@@ -99,6 +101,7 @@ describe("손님 주소", () => {
     await call();
 
     expect(sentHeaders().has("x-forwarded-for")).toBe(false);
+    expect(sentHeaders().has("x-real-ip")).toBe(false);
   });
 
   it.each(entries)("%s 는 둘 다 없으면 안 싣는다 — 빈 값을 지어내지 않는다", async (_name, call) => {
@@ -107,6 +110,7 @@ describe("손님 주소", () => {
     await call();
 
     expect(sentHeaders().has("x-forwarded-for")).toBe(false);
+    expect(sentHeaders().has("x-real-ip")).toBe(false);
   });
 
   it("공개 입구는 손님 주소를 실어도 쿠키는 안 싣는다", async () => {

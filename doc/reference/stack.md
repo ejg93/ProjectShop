@@ -1677,8 +1677,10 @@ JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이�
 ### Railway 앞단은 손님 주소를 `X-Real-IP` 로 적는다 — `X-Forwarded-For` 는 문서에 없다
 
 Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)·`X-Forwarded-Proto`·`X-Forwarded-Host`·`X-Railway-Edge` 를 적고
-**`X-Forwarded-For` 를 안 적는다**(2026-09-26 확인). 앞단이 그것을 덧붙이는지 덮는지 그대로 넘기는지는 문서로 모른다 —
-백엔드의 `RemoteIpValve` 는 지금 `X-Forwarded-For` 를 보므로 브라우저 길이 맞게 받는지는 운영에서 잰다(`Q242`).
+**`X-Forwarded-For` 를 안 적는다**(2026-09-26 확인). 그래서 **백엔드는 `X-Real-IP` 만 본다**(`Q242` — `remote-ip-header: x-real-ip`).
+
+**2026-10-02 운영 측정**: 손님이 `X-Forwarded-For` 를 25번 바꿔 보내도 21번째부터 429 였다 — 앞단이 그 헤더를 손님이 쓴 대로
+넘기지 않는다(헤더를 바꾸기 전에 쟀다). 손님이 써 보낸 `X-Real-IP` 를 앞단이 덮는지는 `Q242` 를 배포한 뒤 같은 방법으로 잰다.
 
 ### 시험 `RestClient` 는 429 를 `Retry-After` 만큼 기다렸다 다시 보낸다
 
