@@ -104,6 +104,90 @@ class SettlementSchemaTest extends PostgresTestBase {
             assertThatThrownBy(SettlementSchemaTest.this::flush)
                     .isInstanceOf(DataAccessException.class);
         }
+
+        /*
+         * 아래 넷은 검사를 정산마다 한 번만 세는 장치(`V126`)의 구멍을 본다. 검사를 지나면 그 정산에 표시가 남고,
+         * 두 표를 바꾸는 문장이 시작될 때 표시가 지워져야 한다. 앞의 {@code flush} 가 정산 행의 검사를 이미
+         * 돌렸으므로 뒤의 {@code flush} 는 바뀐 쪽 표의 트리거만 돈다 — 그 쪽 경로를 따로 잰다.
+         */
+
+        @Test
+        @DisplayName("검사를 지난 뒤 같은 트랜잭션에서 줄만 더하면 다시 막힌다")
+        void isBlockedWhenALineIsAddedAfterTheCheck() {
+            long settlementId = aBalancedSettlement();
+            checkThenDeferAgain();
+
+            insertItem(settlementId, "sale", PRICE, "order_item_id", anOrderItem());
+
+            assertThatThrownBy(SettlementSchemaTest.this::flush)
+                    .as("센 표시가 안 지워지면 줄 쪽 검사가 건너뛰어 틀린 합이 커밋된다")
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("검사를 지난 뒤 같은 트랜잭션에서 줄만 지우면 다시 막힌다")
+        void isBlockedWhenALineIsDeletedAfterTheCheck() {
+            long settlementId = aBalancedSettlement();
+            checkThenDeferAgain();
+
+            jdbc.sql("delete from settlement_item where settlement_id = :id and kind = 'commission'")
+                    .param("id", settlementId)
+                    .update();
+
+            assertThatThrownBy(SettlementSchemaTest.this::flush)
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("검사를 지난 뒤 같은 트랜잭션에서 지급액만 고치면 다시 막힌다")
+        void isBlockedWhenThePayoutChangesAfterTheCheck() {
+            long settlementId = aBalancedSettlement();
+            checkThenDeferAgain();
+
+            jdbc.sql("update settlement set payout_amount = :amount where settlement_id = :id")
+                    .param("amount", PRICE)
+                    .param("id", settlementId)
+                    .update();
+
+            assertThatThrownBy(SettlementSchemaTest.this::flush)
+                    .isInstanceOf(DataAccessException.class);
+        }
+
+        @Test
+        @DisplayName("줄과 지급액을 같이 맞게 고치면 다시 세어 지나간다")
+        void passesWhenLinesAndPayoutMoveTogether() {
+            long settlementId = aBalancedSettlement();
+            checkThenDeferAgain();
+
+            insertItem(settlementId, "sale", PRICE, "order_item_id", anOrderItem());
+            jdbc.sql("update settlement set payout_amount = payout_amount + :amount where settlement_id = :id")
+                    .param("amount", PRICE)
+                    .param("id", settlementId)
+                    .update();
+
+            assertThatCode(SettlementSchemaTest.this::flush).doesNotThrowAnyException();
+            assertThatCode(SettlementSchemaTest.this::flush)
+                    .as("안 바꾸고 두 번 세면 지나간다")
+                    .doesNotThrowAnyException();
+        }
+
+        /**
+         * 밀린 검사를 지금 돌리고 다시 미룬다. {@code set constraints all immediate} 는 트랜잭션 끝까지 즉시 모드로
+         * 남아서, 그대로 두면 다음 문장이 제 자리에서 막힌다 — 커밋까지 미뤄지는 실제 경로와 달라진다.
+         */
+        private void checkThenDeferAgain() {
+            flush();
+            jdbc.sql("set constraints all deferred").update();
+        }
+
+        /** 판매 한 줄과 수수료 한 줄. 지급액이 둘의 합이다 */
+        private long aBalancedSettlement() {
+            long settlementId = insertSettlement(PRICE - COMMISSION, 0);
+            long orderItemId = anOrderItem();
+            insertItem(settlementId, "sale", PRICE, "order_item_id", orderItemId);
+            insertItem(settlementId, "commission", -COMMISSION, "order_item_id", orderItemId);
+            return settlementId;
+        }
     }
 
     @Nested
