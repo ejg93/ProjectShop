@@ -161,29 +161,7 @@ class SellerOrderQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("셀러 하나의 목록은 정렬 없이 셀러 인덱스로 읽는다")
         void oneSellerReadsIndexInOrder() {
-            jdbc.sql("""
-                            with o as (
-                                insert into shop_order (order_number, user_id, status, created_at)
-                                select '20260101-' || translate(lpad(n::text, 6, '0'), '0123456789', 'ABCDEFGHJK'),
-                                       :buyer, 'paid', now() - make_interval(hours => n % 10)
-                                  from generate_series(1, 5000) as n
-                                returning order_id, order_number, created_at
-                            )
-                            insert into seller_order (seller_order_number, order_id, seller_id, status, created_at)
-                            select 'S-' || order_number, order_id, :seller, 'preparing', created_at from o
-                            """)
-                    .param("buyer", buyer).param("seller", alpha)
-                    .update();
-            jdbc.sql("analyze shop_order, seller_order").update();
-
-            String plan = String.join("\n", jdbc.sql("explain " + SellerOrderQuery.listSql(
-                            SellerOrderQuery.Branch.ONE, SellerOrderQuery.defaultOrder()))
-                    .param("sellerId", alpha)
-                    .param("sellers", new Long[0])
-                    .param("size", 20)
-                    .param("offset", 0L)
-                    .query(String.class)
-                    .list());
+            String plan = planOf(SellerOrderQuery.Branch.ONE);
 
             assertThat(plan)
                     .as("실행 계획:%n%s", plan)
@@ -191,6 +169,50 @@ class SellerOrderQueryTest extends PostgresTestBase {
                     .doesNotContain("Seq Scan on seller_order")
                     .doesNotContain("Sort");
         }
+
+        /** 셀러 조건이 없는 갈래(관리자)는 시각 인덱스(`V124`)를 탄다. 없으면 묶음 전부를 순차로 읽어 정렬한다 */
+        @Test
+        @DisplayName("전부 보는 목록은 시각 인덱스로 읽는다")
+        void everythingReadsCreatedAtIndex() {
+            String plan = planOf(SellerOrderQuery.Branch.ALL);
+
+            assertThat(plan)
+                    .as("실행 계획:%n%s", plan)
+                    .contains("seller_order_created_at_idx")
+                    .doesNotContain("Seq Scan on seller_order");
+        }
+
+        /** 묶음 5,000 을 열 가지 시각에 몰아 한 번 깔고 그 갈래의 목록 계획을 낸다 */
+        private String planOf(SellerOrderQuery.Branch branch) {
+            if (!filled) {
+                jdbc.sql("""
+                                with o as (
+                                    insert into shop_order (order_number, user_id, status, created_at)
+                                    select '20260101-' || translate(lpad(n::text, 6, '0'), '0123456789', 'ABCDEFGHJK'),
+                                           :buyer, 'paid', now() - make_interval(hours => n % 10)
+                                      from generate_series(1, 5000) as n
+                                    returning order_id, order_number, created_at
+                                )
+                                insert into seller_order (seller_order_number, order_id, seller_id, status, created_at)
+                                select 'S-' || order_number, order_id, :seller, 'preparing', created_at from o
+                                """)
+                        .param("buyer", buyer).param("seller", alpha)
+                        .update();
+                jdbc.sql("analyze shop_order, seller_order").update();
+                filled = true;
+            }
+
+            return String.join("\n", jdbc.sql("explain " + SellerOrderQuery.listSql(
+                            branch, SellerOrderQuery.defaultOrder()))
+                    .param("sellerId", alpha)
+                    .param("sellers", new Long[0])
+                    .param("size", 20)
+                    .param("offset", 0L)
+                    .query(String.class)
+                    .list());
+        }
+
+        private boolean filled;
 
         @Test
         @DisplayName("주문 권한이 없으면 거부다")

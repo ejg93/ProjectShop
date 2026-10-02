@@ -179,26 +179,50 @@ class ProductQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("기본 정렬은 부분 인덱스로 앞 20개만 읽는다")
         void defaultOrderReadsPartialIndex() {
-            jdbc.sql("""
-                            insert into product (seller_id, created_by_user_id, name, status)
-                            select :seller, :owner, '채움 상품 ' || n, 'on_sale'
-                              from generate_series(1, 5000) as n
-                            """)
-                    .param("seller", sellerA).param("owner", ownerA)
-                    .update();
-            jdbc.sql("analyze product").update();
-
-            String plan = String.join("\n", jdbc.sql("explain " + ProductQuery.listSql(null, ProductQuery.defaultOrder()))
-                    .param("size", 20)
-                    .param("offset", 0L)
-                    .query(String.class)
-                    .list());
+            String plan = planOf(null);
 
             assertThat(plan)
                     .as("실행 계획:%n%s", plan)
                     .contains("product_on_sale_created_at_idx")
                     .doesNotContain("Seq Scan on product p");
         }
+
+        /** 이름순도 부분 인덱스를 탄다(`V125`). 오름·내림 둘 다 — 내림은 같은 인덱스를 거꾸로 읽는다 */
+        @Test
+        @DisplayName("이름순은 이름 부분 인덱스로 읽는다")
+        void nameOrderReadsPartialIndex() {
+            for (String sort : List.of("name,asc", "name,desc")) {
+                String plan = planOf(sort);
+
+                assertThat(plan)
+                        .as("%s 실행 계획:%n%s", sort, plan)
+                        .contains("product_on_sale_name_idx")
+                        .doesNotContain("Seq Scan on product p");
+            }
+        }
+
+        /** 상품 5,000 을 한 번 깔고 그 정렬의 공개 목록 계획을 낸다 */
+        private String planOf(String sort) {
+            if (!filled) {
+                jdbc.sql("""
+                                insert into product (seller_id, created_by_user_id, name, status)
+                                select :seller, :owner, '채움 상품 ' || n, 'on_sale'
+                                  from generate_series(1, 5000) as n
+                                """)
+                        .param("seller", sellerA).param("owner", ownerA)
+                        .update();
+                jdbc.sql("analyze product").update();
+                filled = true;
+            }
+
+            return String.join("\n", jdbc.sql("explain " + ProductQuery.listSql(null, ProductQuery.orderBy(sort)))
+                    .param("size", 20)
+                    .param("offset", 0L)
+                    .query(String.class)
+                    .list());
+        }
+
+        private boolean filled;
     }
 
     @Nested

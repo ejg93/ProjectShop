@@ -30,7 +30,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.LocaleResolver;
+import org.springframework.web.servlet.i18n.FixedLocaleResolver;
 
 import com.projectshop.shop.PostgresTestBase;
 
@@ -67,12 +70,29 @@ class ValidationMessageTest extends PostgresTestBase {
     private static final Pattern LITERAL_MESSAGE =
             Pattern.compile("(?:[(,]\\s*message\\s*=|message\\(\\)\\s+default)\\s*\"([^\"]*)\"");
     private static final Pattern POLITE = Pattern.compile("(?s).*(니다|세요)$");
+    private static final Pattern KEY_REFERENCE = Pattern.compile("^\\{[^{}]+\\}$");
 
     @Autowired
     private MockMvc mvc;
 
     @Autowired
     private Validator validator;
+
+    @Autowired
+    private LocaleResolver localeResolver;
+
+    /**
+     * 언어를 한국어로 굳힌 설정(`application.yml` 의 {@code spring.web.locale-resolver: fixed}).
+     *
+     * <p><b>문구 파일만으로는 이 설정을 못 잰다</b> — 파일이 기본 파일 하나라 영어 요청도 그 파일로 떨어져서,
+     * 설정을 지워도 위 시험은 초록이다(마무리 57차 독립 리뷰). 그래서 설정이 세운 것을 직접 본다.
+     */
+    @Test
+    @DisplayName("요청 언어를 한국어로 굳힌다")
+    void fixesTheLocaleToKorean() {
+        assertThat(localeResolver).isInstanceOf(FixedLocaleResolver.class);
+        assertThat(localeResolver.resolveLocale(new MockHttpServletRequest())).isEqualTo(Locale.KOREAN);
+    }
 
     @ParameterizedTest(name = "Accept-Language: {0}")
     @ValueSource(strings = {"en-US", "ko"})
@@ -138,8 +158,9 @@ class ValidationMessageTest extends PostgresTestBase {
         for (Path file : javaFiles()) {
             Matcher matcher = LITERAL_MESSAGE.matcher(Files.readString(file, StandardCharsets.UTF_8));
             while (matcher.find()) {
-                // 「{열쇠}」 꼴은 문구 파일을 가리킨다 — 그쪽은 위 시험이 본다.
-                if (!matcher.group(1).startsWith("{")) {
+                // 문구 전체가 「{열쇠}」 하나면 문구 파일을 가리킨다 — 그쪽은 위 시험이 본다.
+                // 「{max}개까지 …」처럼 자리표시자가 섞인 손 문구는 여기서 본다(마무리 57차 독립 리뷰).
+                if (!KEY_REFERENCE.matcher(matcher.group(1)).matches()) {
                     literals.add(file.getFileName() + ": " + matcher.group(1));
                 }
             }

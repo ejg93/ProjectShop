@@ -70,9 +70,10 @@ spring:
     # 오류 본문을 RFC 9457 Problem Details 로 내린다(D5). 규약의 세부는 청크 7b 가 정한다.
     problemdetails:
       enabled: true
-  # **요청 언어를 한국어로 굳힌다**(Q238). 검증 칸 문구는 화면이 그대로 그리는 화면 문구라 한 벌이다 —
-  # Accept-Language 를 따르면 영어 브라우저에 Hibernate Validator 의 영어 문구가 나간다.
-  # Boot 가 이 둘로 FixedLocaleResolver 를 세운다(빈을 손으로 안 만든다). ValidationMessageTest 가 잰다.
+  # **요청 언어를 한국어로 굳힌다**(Q238). 검증 칸 문구는 화면이 그대로 그리는 화면 문구라 한 벌이다.
+  # 문구 파일(ValidationMessages.properties)이 기본 파일 하나라 영어 요청도 그 파일로 떨어지고, 이 설정은
+  # 그 파일에 없는 문구(Hibernate Validator 기본·Spring 의 요청 언어별 처리)가 Accept-Language 를 따르지 않게 하는 둘째 겹이다.
+  # Boot 가 이 둘로 FixedLocaleResolver 를 세운다(빈을 손으로 안 만든다). ValidationMessageTest 가 그 빈을 잰다.
   web:
     locale: ko
     locale-resolver: fixed

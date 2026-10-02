@@ -167,9 +167,9 @@ public class ProductQuery {
                 + " limit :size offset :offset";
     }
 
-    /** 기본 정렬. 시험이 계획을 볼 때 쓴다 */
-    static OrderBy defaultOrder() {
-        return ListQuery.orderBy(null, DEFAULT_SORT, SORTABLE);
+    /** 정렬 표. 시험이 정렬마다의 계획을 볼 때 같은 표를 쓴다. {@code null} 이면 기본 정렬이다 */
+    static OrderBy orderBy(String sort) {
+        return ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
     }
 
     /*
