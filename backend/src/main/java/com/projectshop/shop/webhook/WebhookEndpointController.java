@@ -48,7 +48,7 @@ public class WebhookEndpointController {
     public record RegisterRequest(
             @NotNull Long sellerId,
             @NotBlank @Size(max = 2000) String url,
-            @NotEmpty @Size(max = 4) Set<WebhookEventType> eventTypes) {
+            @NotEmpty @Size(max = 4, message = "{max}개까지 넣을 수 있습니다") Set<WebhookEventType> eventTypes) {
     }
 
     @GetMapping

@@ -254,9 +254,14 @@ spring:
 {
   "type": "tag:projectshop.example,2026:error:validation-failed",
   "status": 400,
-  "errors": [{"field": "display_name", "message": "공백일 수 없습니다"}]
+  "errors": [{"field": "display_name", "message": "필수 입력입니다"}]
 }
 ```
+
+**칸 문구는 요청 언어와 무관하게 한국어 존댓말 한 벌이다**(`Q238`). 화면이 이 문구를 칸 옆에 그대로 그리므로
+화면 문구다(`screen-rules.md` 「화면 문구는 존댓말이다」). 제약 종류마다 `ValidationMessages.properties` 가 문구를 들고,
+언어는 `spring.web.locale-resolver: fixed` 로 굳힌다 — 굳히지 않으면 Hibernate Validator 의 기본 문구가
+`Accept-Language` 를 따라 영어 브라우저에 「must not be blank」를 낸다. `ValidationMessageTest` 가 잰다.
 
 **필드 이름은 요청에 쓴 그대로**(snake_case)다. Bean Validation 은 Java 이름을 주므로 바꿔서 내보낸다 —
 요청에 쓴 이름과 오류에 나온 이름이 다르면 화면이 그 필드를 못 찾는다.
