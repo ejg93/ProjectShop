@@ -1689,6 +1689,17 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 **429 를 기대한 시험이 1분 뒤 401 을 받는다**(`Q240` 실측 — 카운터가 20 에서 1 로 돌아갔다). 실제 HTTP 로 429 를 재지 말고
 버킷 열쇠를 읽거나 MockMvc 로 잰다(`RateLimitFilterTest`).
 
+### 부하 데이터는 `shop_load` 에 붓는다 — 지연 트리거는 커밋 전 `analyze` 가 있어야 끝난다
+
+`bash scripts/load-data.sh` 가 `shop` 을 틀로 복사한 `shop_load` 에 `load/data/load-100k.sql` 을 한 트랜잭션으로 붓는다(`70-0`, 약 140초).
+**지우기는 `--clean`(`drop database`) 하나다** — 주문은 지울 길이 없다(거래기록 5년). 걸리는 것 셋:
+
+| 무엇 | 어떻게 |
+|---|---|
+| 틀 복사는 `shop` 에 연결이 있으면 실패한다 | `bootRun` 을 내린 뒤 붓는다. 스크립트가 연결 수를 먼저 센다 |
+| 재고 행이 아웃박스 사건을 낳는다(`sku_stock_records_initial`) | 트리거를 끄지 않고 붓고 나서 `outbox_event` 를 비운다 — 끄는 `session_replication_role` 은 제약도 끈다 |
+| **금액 합·계약서면·재고 행 검사는 커밋 순간에 한꺼번에 돈다**(지연 제약 트리거) | 그때 질의는 **그 순간의 통계**로 계획을 세운다. 틀의 통계(행 몇 개)대로면 금액 합이 순차 스캔이라 한 번 18ms, 55만 번에 몇 시간이다(2026-10-02 실측 — 20분에 6만 번). **같은 트랜잭션 안의 `analyze`** 가 아직 커밋 안 된 자기 행을 세서 인덱스 계획이 된다. 임시 표도 autovacuum 이 안 세서 손으로 `analyze` 한다 |
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
