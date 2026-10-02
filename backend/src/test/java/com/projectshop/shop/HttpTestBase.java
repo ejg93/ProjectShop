@@ -276,7 +276,7 @@ abstract class HttpTestBase {
         }
 
         /**
-         * 프록시를 거쳐 온 것처럼 보낸다.
+         * 프록시를 거쳐 온 것처럼 보낸다. 손님 주소는 앞단이 적는 {@code X-Real-IP} 에 싣는다(`Q242`).
          *
          * <p>{@code server.forward-headers-strategy} 를 검증하는 유일한 층이다.
          * Tomcat 밸브가 하는 일이라 MockMvc 에서는 이 헤더가 아무 일도 안 한다.
@@ -284,7 +284,7 @@ abstract class HttpTestBase {
         public Response postForwardedFrom(String path, String json, String clientIp) {
             RestClient.RequestBodySpec spec = client.post().uri(path)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("X-Forwarded-For", clientIp);
+                    .header("X-Real-IP", clientIp);
 
             String token = cookies.get(CSRF_COOKIE);
             if (token != null) {
@@ -295,7 +295,12 @@ abstract class HttpTestBase {
 
         /** 앞단 프록시가 손님 주소를 실은 GET(`Q240`). 요청 제한의 버킷이 그 주소로 갈리는지를 잰다 */
         public Response getForwardedFrom(String path, String clientIp) {
-            return exchange(client.get().uri(path).header("X-Forwarded-For", clientIp));
+            return getWithHeaders(path, Map.of("X-Real-IP", clientIp));
+        }
+
+        /** 헤더를 골라 싣는 GET. 손님이 써 보낸 헤더가 손님 주소로 안 읽히는지를 잰다(`Q242`) */
+        public Response getWithHeaders(String path, Map<String, String> headers) {
+            return exchange(client.get().uri(path).headers(h -> headers.forEach(h::set)));
         }
 
         public Response postWithoutToken(String path, String json) {

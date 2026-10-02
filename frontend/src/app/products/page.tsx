@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { Pager, pageNumberOf } from "@/components/pager";
+import { ProductSearchForm, SEARCH_TERM_MAX_LENGTH } from "@/components/product-search-form";
 import { apiPublic } from "@/lib/api-session";
 import { priceText } from "@/lib/format";
 
@@ -42,20 +43,25 @@ type ProductItem = {
  * <p><b>서버 컴포넌트로 그린다</b>(`D24`). 공개 데이터라 세션이 필요 없고,
  * 클라이언트에서 부르면 들어올 때마다 빈 뼈대를 먼저 본다.
  *
- * <p><b>쪽 번호는 주소에 있다</b>(`D24` 「상태는 주소에 둔다」). 컴포넌트 상태로 들면
+ * <p><b>쪽 번호와 검색어는 주소에 있다</b>(`D24` 「상태는 주소에 둔다」). 컴포넌트 상태로 들면
  * 뒤로 가기·새로고침·링크 공유가 다 깨진다.
+ *
+ * <p><b>검색도 같은 목록이다</b>(`61`). 서버가 같은 입구·같은 껍데기로 주므로 화면을 두 벌 두지 않는다.
  */
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; q?: string | string[] }>;
 }) {
   const requested = await searchParams;
   const page = pageNumberOf(requested.page);
+  const q = searchTermOf(requested.q);
 
-  const result = await apiPublic<ProductPage>(
-    `/api/products?page=${page}&size=${PAGE_SIZE}`,
-  );
+  const query = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+  if (q) {
+    query.set("q", q);
+  }
+  const result = await apiPublic<ProductPage>(`/api/products?${query}`);
 
   const lastPage = Math.max(0, Math.ceil(result.total / result.size) - 1);
 
@@ -67,6 +73,8 @@ export default async function ProductsPage({
           여러 판매자가 등록한 상품입니다. 주문하시면 판매자별로 나뉘어 배송됩니다.
         </p>
       </div>
+
+      <ProductSearchForm q={q} />
 
       {result.items.length > 0 ? (
         <>
@@ -85,13 +93,26 @@ export default async function ProductsPage({
             basePath="/products"
             label="상품 목록"
             unit="개"
+            params={{ q }}
           />
         </>
       ) : (
-        <Empty hasAnyProduct={result.total > 0} />
+        <Empty hasAnyProduct={result.total > 0} q={q} />
       )}
     </div>
   );
+}
+
+/**
+ * 주소에서 온 검색어. <b>믿지 않는다</b> — 앞뒤 공백을 떼고, 비면 없는 것으로 보고, 100자에서 자른다.
+ *
+ * <p>서버는 101자를 400 으로 막는다(`61`). 사람이 주소를 직접 고쳐 길게 넣어도 목록이 오류 화면이 되지 않게
+ * 검색창과 같은 상한에서 자른다. 같은 이름이 둘이면 앞의 것을 쓴다.
+ */
+function searchTermOf(raw: string | string[] | undefined): string | undefined {
+  const first = Array.isArray(raw) ? raw[0] : raw;
+  const trimmed = first?.trim().slice(0, SEARCH_TERM_MAX_LENGTH);
+  return trimmed ? trimmed : undefined;
 }
 
 /**
@@ -172,14 +193,32 @@ function TotalPrice({ price, shippingFee }: { price: number; shippingFee: number
 /**
  * 아무것도 못 그릴 때.
  *
- * <p><b>없는 것과 이 쪽에 없는 것을 가른다</b>(`D20` 「빈 상태」).
- * 뒤쪽은 주소를 직접 고쳐 들어온 경우라 <b>돌아갈 길을 준다.</b>
+ * <p><b>없는 것·검색에 안 맞는 것·이 쪽에 없는 것을 가른다</b>(`D20` 「빈 상태」).
+ * 검색에 안 맞으면 조건을 지우는 길을, 이 쪽에 없으면(주소를 직접 고쳐 들어온 경우) 돌아갈 길을 준다.
  */
-function Empty({ hasAnyProduct }: { hasAnyProduct: boolean }) {
+function Empty({ hasAnyProduct, q }: { hasAnyProduct: boolean; q?: string }) {
   if (hasAnyProduct) {
     return (
       <div className="grid justify-items-start gap-3 py-12">
         <p className="text-sm text-text-muted">이 쪽에는 상품이 없습니다.</p>
+        <Link
+          href={q ? `/products?${new URLSearchParams({ q })}` : "/products"}
+          className="
+            text-sm font-semibold text-accent-text underline underline-offset-4
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
+          "
+        >
+          첫 쪽으로 가기
+        </Link>
+      </div>
+    );
+  }
+
+  if (q) {
+    return (
+      <div className="grid justify-items-start gap-3 py-12">
+        <p className="text-sm text-text-muted">조건에 맞는 상품이 없습니다.</p>
+        <p className="text-sm text-text-muted">조건을 지우고 다시 찾아보세요.</p>
         <Link
           href="/products"
           className="
@@ -187,7 +226,7 @@ function Empty({ hasAnyProduct }: { hasAnyProduct: boolean }) {
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
           "
         >
-          첫 쪽으로 가기
+          조건 지우기
         </Link>
       </div>
     );

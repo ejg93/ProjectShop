@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
  *
  * <h2>자체 헤더에 {@code X-} 를 안 붙인다</h2>
  *
- * <p>{@code api-guidelines.md} 「헤더」 — RFC 6648 이 그 관행을 폐기했다. 받는 헤더(`X-Forwarded-For`)는 톰캣이 읽어서
+ * <p>{@code api-guidelines.md} 「헤더」 — RFC 6648 이 그 관행을 폐기했다. 받는 헤더(`X-Real-IP`, `Q242`)는 톰캣이 설정으로 읽어서
  * main 에 글자로 안 나온다. 주석 줄은 안 본다.
  */
 @DisplayName("main 소스 글자 규약")

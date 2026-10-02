@@ -234,7 +234,10 @@ val comparedInFastLane = listOf(
 	// 예약이 아니라 인용이라 걷어내야 한다. 시드가 하나 늘면 그 판정이 바뀌므로 입력이다.
 	"src/main/resources/db/seed",
 	// 배포에만 붓는 시드(`Q143`). 같은 이유로 입력이고, `SeedOutboxTest` 도 이쪽을 읽는다.
-	"src/main/resources/db/seed-demo")
+	"src/main/resources/db/seed-demo",
+	// 성능 기준선의 원본(`70`). `PerformanceBaselineConsistencyTest` 가 `performance-goals.md` 표와 견준다 —
+	// 기준선만 다시 쓴 청크에서 그 시험이 `UP-TO-DATE` 로 건너뛰면 낡은 표가 그대로 남는다.
+	"../load/baseline.json")
 val comparedScreenRoot = "../frontend/src"
 val declaredComparedInputs = comparedInSlowLane + comparedInFastLane + comparedScreenRoot
 

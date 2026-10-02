@@ -47,7 +47,7 @@ curl localhost:8080/actuator/health
 | `REDIS_PASSWORD` | 빈 값(인증 없음). 관리형 Redis 는 넣어야 붙는다 |
 | `SESSION_COOKIE_SECURE` | `false`. **https 로 올리면 `true` 가 필수다** — 안 켜면 세션 쿠키가 평문으로 흐른다. **프록시가 루프백 밖인데 꺼져 있으면 서버가 안 뜬다**(`Q44`) |
 | `SPRING_PROFILES_ACTIVE` | 없음. **보여 주려고 올린 배포에는 `demo` 를 준다**(`Q134`) — 기본 프로필은 `db/migration` 만 봐서 `V900+` 시드가 통째로 안 돌고, 그러면 연습용 계정 아홉(`Q130`)과 데모 재고(`Q128`)가 그 DB 에 안 생긴다. 로컬에서 손으로 볼 때는 `local` 이다 |
-| `TRUSTED_PROXIES` | 루프백. `X-Forwarded-For` 를 믿어 줄 상대의 정규식. **아무 주소나 물게 넓히면 서버가 안 뜬다**(`Q44`, `SecuritySettingsCheck`) |
+| `TRUSTED_PROXIES` | 루프백. 손님 주소 헤더(`X-Real-IP`, `Q242`)를 믿어 줄 상대의 정규식. **아무 주소나 물게 넓히면 서버가 안 뜬다**(`Q44`, `SecuritySettingsCheck`) |
 | `KAFKA_BOOTSTRAP` | `localhost:9092`. 브로커 주소. **켜져 있어도 발행기가 잠겨 있으면 안 쓰인다** |
 | `STORAGE_ENDPOINT` | `http://localhost:9000`. 파일 저장소 주소. **배포는 Cloudflare R2 다**(사용자 결정 2026-09-18) — S3 호환이라 코드는 같고 이 값과 키 셋만 갈린다 |
 | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | `shop` / `shopshop`. **배포는 R2 가 내주는 것을 넣는다** |
@@ -75,7 +75,7 @@ curl localhost:8080/actuator/health
 
 | 화면(Next)이 어디 있나 | 값 | 왜 |
 |---|---|---|
-| 백엔드와 같은 사설망(Railway 안) | 그 망의 대역 | 그 대역 밖에서 온 `X-Forwarded-For` 는 안 믿는다 |
+| 백엔드와 같은 사설망(Railway 안) | 그 망의 대역 | 그 대역 밖에서 온 `X-Real-IP` 는 안 믿는다 |
 | 바깥(Vercel) | 못 좁힌다 — Vercel 의 나가는 IP 가 고정이 아니다 | 넓게 열면 백엔드 공개 주소를 직접 때리는 누구나 IP 를 속인다. `acted_ip` 가 동의 입증용이라(`application.yml` 주석) 이 구멍이 열린 채로 실사용자를 받지 않는다 |
 
 **첫 줄로 간다**(`Q38`). `frontend/Dockerfile` 이 생겨서 화면도 같은 사설망에 올릴 수 있다 —

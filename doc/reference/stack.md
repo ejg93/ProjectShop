@@ -21,6 +21,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
 | Kafka | 4.3.1 | `docker-compose.yml`. **로컬 전용** — 배포에 브로커가 없다(`event-catalog.md` 「전송」) |
+| k6 | 2.3.0 | `docker-compose.yml` 의 `load` 프로필. **부하 시험 전용**(`70`) — 앱이 안 쓴다 |
 | spring-kafka | 4.1.1 | 안 적는다. **Boot BOM 이 관리한다** — `spring-boot-starter-kafka` 로 들인다 |
 | Tomcat | 11.0.25 | `backend/build.gradle.kts` 의 `tomcat.version`. **BOM 값을 덮었다** — 아래 「Boot BOM 의 Tomcat 이 보안 패치보다 낮을 수 있다」 |
 | Testcontainers | 2.0.5 | `build.gradle.kts` 의 BOM |
@@ -1677,8 +1678,10 @@ JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이�
 ### Railway 앞단은 손님 주소를 `X-Real-IP` 로 적는다 — `X-Forwarded-For` 는 문서에 없다
 
 Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)·`X-Forwarded-Proto`·`X-Forwarded-Host`·`X-Railway-Edge` 를 적고
-**`X-Forwarded-For` 를 안 적는다**(2026-09-26 확인). 앞단이 그것을 덧붙이는지 덮는지 그대로 넘기는지는 문서로 모른다 —
-백엔드의 `RemoteIpValve` 는 지금 `X-Forwarded-For` 를 보므로 브라우저 길이 맞게 받는지는 운영에서 잰다(`Q242`).
+**`X-Forwarded-For` 를 안 적는다**(2026-09-26 확인). 그래서 **백엔드는 `X-Real-IP` 만 본다**(`Q242` — `remote-ip-header: x-real-ip`).
+
+**2026-10-02 운영 측정**: 손님이 `X-Forwarded-For` 를 25번 바꿔 보내도 21번째부터 429 였다 — 앞단이 그 헤더를 손님이 쓴 대로
+넘기지 않는다(헤더를 바꾸기 전에 쟀다). 손님이 써 보낸 `X-Real-IP` 를 앞단이 덮는지는 `Q242` 를 배포한 뒤 같은 방법으로 잰다.
 
 ### 시험 `RestClient` 는 429 를 `Retry-After` 만큼 기다렸다 다시 보낸다
 
@@ -1686,6 +1689,27 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 **429·503 을 `Retry-After` 만큼 기다려 한 번 더 보낸다.** 요청 제한의 `Retry-After` 는 60초라 창이 닫힌 뒤 새 버킷의 첫 요청이 되어
 **429 를 기대한 시험이 1분 뒤 401 을 받는다**(`Q240` 실측 — 카운터가 20 에서 1 로 돌아갔다). 실제 HTTP 로 429 를 재지 말고
 버킷 열쇠를 읽거나 MockMvc 로 잰다(`RateLimitFilterTest`).
+
+### 부하 데이터는 `shop_load` 에 붓는다 — 지연 트리거는 커밋 전 `analyze` 가 있어야 끝난다
+
+`bash scripts/load-data.sh` 가 `shop` 을 틀로 복사한 `shop_load` 에 `load/data/load-100k.sql` 을 한 트랜잭션으로 붓는다(`70-0`, 약 140초).
+**지우기는 `--clean`(`drop database`) 하나다** — 주문은 지울 길이 없다(거래기록 5년). 걸리는 것 넷:
+
+| 무엇 | 어떻게 |
+|---|---|
+| 틀 복사는 `shop` 에 연결이 있으면 실패한다 | `bootRun` 을 내린 뒤 붓는다. 스크립트가 연결 수를 먼저 센다 |
+| 재고 행이 아웃박스 사건을 낳는다(`sku_stock_records_initial`) | 트리거를 끄지 않고 붓고 나서 `outbox_event` 를 비운다 — 끄는 `session_replication_role` 은 제약도 끈다 |
+| **앱의 주기 작업이 데이터를 고쳐 쓴다** | 실제로는 있을 수 없는 행을 넣으면 앱이 띄워진 뒤 메운다 — 30분 넘은 결제 대기는 5분마다 만료(`OrderStatusBatch`), 환불 없는 닫힌 취소·반품 묶음은 5분마다 환불을 만든다(`RefundSweeper`). 부하를 재는 도중에 수천 건을 써서 회차마다 데이터가 갈렸다(2026-10-02 `70`). 생성기가 대기를 최근 10분에 두고 취소·반품 묶음마다 환불을 둔다 |
+| **금액 합·계약서면·재고 행 검사는 커밋 순간에 한꺼번에 돈다**(지연 제약 트리거) | 그때 질의는 **그 순간의 통계**로 계획을 세운다. 틀의 통계(행 몇 개)대로면 금액 합이 순차 스캔이라 한 번 18ms, 55만 번에 몇 시간이다(2026-10-02 실측 — 20분에 6만 번). **같은 트랜잭션 안의 `analyze`** 가 아직 커밋 안 된 자기 행을 세서 인덱스 계획이 된다. 임시 표도 autovacuum 이 안 세서 손으로 `analyze` 한다 |
+
+### `pg_trgm` 은 3자 미만이면 인덱스를 안 탄다 — 한글 조각은 DB 의 `ctype` 이 정한다
+
+상품 검색(`60`)은 `ilike '%검색어%'` 를 3-gram GIN(`V123`)으로 받는다. **검색어가 3자 미만이면 조각이 안 나와 순차 스캔이 된다** —
+답은 맞고 느릴 뿐이다(`ProductSearchQueryTest` 가 2자 검색의 답을 잰다).
+
+**한글이 조각이 되는지는 DB 의 `ctype` 이 정한다.** `pg_trgm` 은 낱말 글자만 조각으로 쓰고, 그 판정이 로케일의 `isalnum` 이다.
+컴포즈·Testcontainers 의 `postgres:17-alpine` 은 `en_US.utf8` 이라 「운동화를 위한 깔창」이 조각 열하나를 낸다(2026-10-02 `show_trgm`).
+`C` 로케일 DB 면 한글이 조각에서 빠져 인덱스가 아무것도 못 거른다 — 운영 DB 의 `ctype` 은 아직 안 쟀다(`Q246`).
 
 ## 데이터 접근은 `JdbcClient` 다
 

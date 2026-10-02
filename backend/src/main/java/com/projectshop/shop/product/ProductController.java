@@ -43,13 +43,15 @@ public class ProductController {
 
     private final ProductService productService;
     private final ProductQuery productQuery;
+    private final ProductSearchQuery productSearchQuery;
     private final ProductReviewService reviewService;
 
     ProductController(ProductService productService, ProductQuery productQuery,
-            ProductReviewService reviewService) {
+            ProductSearchQuery productSearchQuery, ProductReviewService reviewService) {
 
         this.productService = productService;
         this.productQuery = productQuery;
+        this.productSearchQuery = productSearchQuery;
         this.reviewService = reviewService;
     }
 
@@ -58,13 +60,23 @@ public class ProductController {
      *
      * <p>파는 중인 상품만 나온다. 셀러가 자기 {@code draft} 를 보는 것은
      * {@code /api/seller/products} 다 — 조건의 성격이 달라서 경로를 갈랐다.
+     *
+     * <p><b>검색도 이 입구다</b>(`61`). {@code q} 가 있으면 이름·설명으로 거르고 기본 정렬이 {@code relevance} 다.
+     * 검색만 다른 경로·다른 껍데기면 화면이 목록을 두 벌 그린다. {@code relevance} 는 검색어가 있을 때만
+     * 정렬 표에 있어서, {@code q} 없이 보내면 다른 모르는 정렬 키와 같은 400 이다.
+     *
+     * @param q 검색어. 1~100자 — 화면 검색창의 {@code maxLength} 와 같다. 공백뿐이면 검색하지 않는다
      */
     @GetMapping
     public ProductQuery.PublicPage list(
             @RequestParam(name = "seller_id", required = false) Long sellerId,
             @RequestParam(required = false) String sort,
+            @RequestParam(required = false) @Size(min = 1, max = 100) String q,
             @ParameterObject Paging paging) {
 
+        if (q != null && !q.isBlank()) {
+            return productSearchQuery.find(q, sellerId, sort, paging);
+        }
         return productQuery.findPublic(sellerId, sort, paging);
     }
 

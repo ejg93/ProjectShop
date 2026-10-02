@@ -1,7 +1,7 @@
 # 화면 컨테이너 이미지. 빌드 문맥은 `frontend/` 다(Railway 는 Root Directory 를 `frontend` 로).
 #
 # **왜 화면도 컨테이너인가**(`Q38`). 화면이 바깥 호스팅에 서면 백엔드는 공개 주소를 열어야 하고,
-# 그러면 `TRUSTED_PROXIES` 를 좁힐 수가 없다 — 그 목록이 넓으면 아무나 `X-Forwarded-For` 로
+# 그러면 `TRUSTED_PROXIES` 를 좁힐 수가 없다 — 그 목록이 넓으면 아무나 손님 주소 헤더(`X-Real-IP`, `Q242`)로
 # IP 를 속여서 `user_consent.acted_ip`(동의 입증)가 틀린 값으로 쌓인다(`D14`, `backend/README.md`).
 # 둘을 같은 사설망에 두면 그 대역으로 좁힐 수 있고 **백엔드는 공개 도메인이 없어진다.**
 #

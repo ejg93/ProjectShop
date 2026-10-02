@@ -56,9 +56,10 @@ const LOGIN_REQUIRED = "/login?reason=login-required";
  * <p><b>안 실으면 요청 제한이 방문자 전원을 Next 주소 하나로 센다</b>(`RateLimitFilter` 는 1분 120).
  * 서버 렌더는 Next 가 새로 내는 요청이라 들어온 헤더가 안 따라간다.
  *
- * <p><b>앞단이 채운 `X-Real-IP` 만 옮긴다</b>(마무리 55차 독립 리뷰). Railway 앞단이 손님 주소로 적는 헤더다(`stack.md`).
+ * <p><b>앞단이 채운 `X-Real-IP` 를 같은 이름으로 옮긴다</b>(마무리 55차 독립 리뷰, `Q242`). Railway 앞단이 손님 주소로 적는 헤더이고
+ * 백엔드도 이 헤더만 본다(`application.yml` 의 `remote-ip-header`) — 브라우저 길(rewrite)과 서버 입구가 같은 헤더로 모인다.
  * 들어온 `x-forwarded-for` 는 **손님이 쓸 수 있다** — Next 는 없을 때만 채우고 덧붙이지 않아서(16.3 `base-server` 의 `??=`)
- * 손님이 적은 값이 그대로 남고, 백엔드는 Next 를 믿으므로 그 값을 손님 주소로 받는다. 옮기면 요청마다 새 버킷이 열린다.
+ * 손님이 적은 값이 그대로 남는다. 옮기면 요청마다 새 버킷이 열린다.
  *
  * <p><b>`X-Real-IP` 가 없으면 안 싣는다</b> — 로컬처럼 앞단이 없는 곳이다. 그때는 Next 주소 하나로 세고, 그것이 옮기기 전 모양이다.
  */
@@ -82,12 +83,12 @@ async function clientAddress(): Promise<string | null> {
  * @throws ApiError 서버가 2xx 가 아닌 것을 줬을 때
  */
 export async function apiPublic<T>(path: string): Promise<T> {
-  const forwardedFor = await clientAddress();
+  const address = await clientAddress();
 
   // 명시한다. Next 문서 안에서도 기본값 서술이 갈리는 자리라 기대지 않는다(`D24` 「캐시」).
   // 켜려면 여기가 아니라 부르는 라우트에서 정한다 — 상품이 언제 바뀌는지는 화면이 안다.
   const response = await fetch(`${BACKEND_ORIGIN}${path}`, {
-    headers: forwardedFor ? { "X-Forwarded-For": forwardedFor } : {},
+    headers: address ? { "X-Real-IP": address } : {},
     cache: "no-store",
   });
 
@@ -176,7 +177,7 @@ export async function apiSessionOptional<T>(path: string): Promise<T | null> {
  */
 async function carry(path: string): Promise<Response> {
   const jar = await cookies();
-  const forwardedFor = await clientAddress();
+  const address = await clientAddress();
 
   const carried = FORWARDED_COOKIES.map((name) => jar.get(name))
     .filter((cookie) => cookie !== undefined)
@@ -187,7 +188,7 @@ async function carry(path: string): Promise<Response> {
     // 쿠키가 하나도 없을 수 있다. 비로그인이 장바구니를 처음 여는 경우다.
     headers: {
       ...(carried ? { Cookie: carried } : {}),
-      ...(forwardedFor ? { "X-Forwarded-For": forwardedFor } : {}),
+      ...(address ? { "X-Real-IP": address } : {}),
     },
 
     // 사람마다 다른 응답이다. 캐시되면 남의 주문이 보인다(`D24` 「캐시」).

@@ -127,6 +127,57 @@ class ProductApiTest extends PostgresTestBase {
                 .andExpect(status().isUnauthorized());
     }
 
+    /**
+     * 검색은 공개 목록 입구의 {@code q} 다(`61`). 껍데기가 같아야 화면이 목록 하나로 그린다.
+     */
+    @Test
+    @DisplayName("검색어 q 로 걸러도 껍데기는 공개 목록과 같다")
+    void searchKeepsListEnvelope() throws Exception {
+        createOnSaleProduct();
+
+        mvc.perform(get("/api/products").param("q", "티셔츠"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].name").value("공개 티셔츠"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").isNumber())
+                .andExpect(jsonPath("$.total").value(1));
+
+        mvc.perform(get("/api/products").param("q", "없는낱말"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(0))
+                .andExpect(jsonPath("$.total").value(0));
+    }
+
+    /** 상한은 화면 검색창의 {@code maxLength} 와 같은 100 이다 — 화면 대조({@code ScreenLengthTest})는 요청 파라미터를 못 보아서 여기서 든다 */
+    @Test
+    @DisplayName("검색어가 101자거나 비면 400 validation-failed 다")
+    void rejectsSearchOutOfBounds() throws Exception {
+        mvc.perform(get("/api/products").param("q", "가".repeat(100)))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/products").param("q", "가".repeat(101)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:validation-failed"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'q')]").exists());
+
+        mvc.perform(get("/api/products").param("q", ""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:validation-failed"));
+    }
+
+    /** 관련도는 검색어가 있을 때만 뜻이 있다. 없이 오면 다른 모르는 정렬 키와 같은 자리에서 막힌다 */
+    @Test
+    @DisplayName("relevance 정렬을 q 없이 보내면 400 sort-not-allowed 다")
+    void relevanceNeedsQuery() throws Exception {
+        mvc.perform(get("/api/products").param("sort", "relevance,desc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:sort-not-allowed"));
+
+        mvc.perform(get("/api/products").param("q", "티셔츠").param("sort", "relevance,desc"))
+                .andExpect(status().isOk());
+    }
+
     /** 공개 조회 대상이 되려면 파는 중이어야 한다. 검수(7c)가 아직 없어서 상태를 직접 올린다 */
     private long createOnSaleProduct() throws Exception {
         String body = mvc.perform(post("/api/products").with(user(owner)).with(csrf())

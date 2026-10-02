@@ -134,6 +134,47 @@ services:
       timeout: 3s
       retries: 10
 
+  # 부하 시험의 대상(`70`). **`load` 프로필에서만 뜬다** — 그냥 `docker compose up` 하면 안 뜬다.
+  #
+  # **`bootRun` 이 아니라 이미지다.** 로컬 JVM 은 IDE·JIT 워밍이 수치를 흔들어서 같은 기계의 앞 값과 견주는
+  # 기준선이 서지 않는다(`performance-goals.md`). 배포와 같은 `backend/Dockerfile` 로 빌드한다.
+  #
+  # **`shop_load` 를 본다**(`70-0`) — 개발 DB 와 안 섞인다. **요청 제한을 끈다** — 주소당 1분 120 이라
+  # 켜 두면 부하가 429 를 잰다. 호스트 포트는 8081 이다 — `bootRun` 의 8080 과 같이 떠 있어도 안 부딪친다.
+  backend:
+    profiles: ["load"]
+    build: ./backend
+    container_name: shop-backend-load
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: shop_load
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP: kafka:9092
+      STORAGE_ENDPOINT: http://s3mock:9090
+      RATE_LIMIT_ENABLED: "false"
+      TZ: Asia/Seoul
+    ports:
+      - "8081:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      s3mock:
+        condition: service_healthy
+
+  # 부하를 거는 쪽(`70`). `scripts/load-test.sh` 가 `docker compose --profile load run --rm k6 …` 로 한 번씩 부른다.
+  # 같은 컴포즈 망이라 `backend` 이름으로 닿는다. 시나리오와 결과는 `load/` 를 붙여 주고받는다.
+  k6:
+    profiles: ["load"]
+    image: grafana/k6:2.3.0
+    environment:
+      BASE_URL: http://backend:8080
+    volumes:
+      - ./load:/load
+
 volumes:
   db-data:
   redis-data:

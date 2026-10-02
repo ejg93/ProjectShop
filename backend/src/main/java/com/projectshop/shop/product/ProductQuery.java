@@ -1,5 +1,7 @@
 package com.projectshop.shop.product;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -47,8 +49,10 @@ public class ProductQuery {
      *
      * <p>{@code price} 를 안 연다. 가격은 {@code sku} 에 있어서 상품당 여럿이고,
      * "최저가 기준인가"·"품절 조합도 세나" 를 먼저 정해야 한다 — 재고 축(52)이 오기 전에 정하면 감이다.
+     *
+     * <p>검색({@link ProductSearchQuery})이 이 표에 {@code relevance} 하나를 더해 쓴다.
      */
-    private static final Map<String, String> SORTABLE = Map.of(
+    static final Map<String, String> SORTABLE = Map.of(
             "created_at", "p.created_at",
             "name", "p.name");
 
@@ -139,23 +143,7 @@ public class ProductQuery {
     public PublicPage findPublic(Long sellerId, String sort, Paging paging) {
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
-        List<PublicItem> items = jdbc.sql("""
-                        select p.product_id, p.seller_id, s.name as seller_name, p.name,
-                               coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat,
-                               s.default_shipping_fee, p.created_at,
-                               (select i.thumbnail_key from product_image i
-                                 where i.product_id = p.product_id
-                                 order by i.sort_no, i.product_image_id limit 1) as thumbnail_key
-                          from product p
-                          join seller s on s.seller_id = p.seller_id
-                          left join sku sk on sk.product_id = p.product_id
-                                          and sk.deleted_at is null
-                                          and sk.status = 'on_sale'
-                         where p.status = 'on_sale' and p.deleted_at is null
-                           and (cast(:sellerId as bigint) is null
-                                or p.seller_id = cast(:sellerId as bigint))
-                         group by p.product_id, s.name, s.default_shipping_fee
-                        """
+        List<PublicItem> items = jdbc.sql(PUBLIC_SELECT + PUBLIC_WHERE + PUBLIC_GROUP_BY
                 // 텍스트 블록은 줄 끝 공백을 지운다. 블록 안에서 이으면 "order by" 와
                 // 컬럼이 붙어 버려서, 공백을 이 문자열에 직접 넣는다.
                 + " order by " + orderBy.clause() + ", p.product_id desc"
@@ -163,28 +151,57 @@ public class ProductQuery {
                 .param("sellerId", sellerId)
                 .param("size", paging.size())
                 .param("offset", paging.offset())
-                .query((rs, rowNum) -> new PublicItem(
-                        rs.getLong("product_id"),
-                        rs.getLong("seller_id"),
-                        rs.getString("seller_name"),
-                        rs.getString("name"),
-                        rs.getLong("min_price_incl_vat"),
-                        rs.getLong("default_shipping_fee"),
-                        presigned(rs.getString("thumbnail_key")),
-                        rs.getObject("created_at", OffsetDateTime.class)))
+                .query((rs, rowNum) -> publicItem(rs))
                 .list();
 
-        Long total = jdbc.sql("""
-                        select count(*) from product p
-                         where p.status = 'on_sale' and p.deleted_at is null
-                           and (cast(:sellerId as bigint) is null
-                                or p.seller_id = cast(:sellerId as bigint))
-                        """)
+        Long total = jdbc.sql("select count(*) from product p" + PUBLIC_WHERE)
                 .param("sellerId", sellerId)
                 .query(Long.class)
                 .single();
 
         return new PublicPage(items, paging.page(), paging.size(), total);
+    }
+
+    /*
+     * 공개 목록의 조각. 검색({@link ProductSearchQuery})이 같은 조각에 조건 하나와 정렬 키 하나를 더한다(`60`) —
+     * 사본을 두면 「파는 중이고 살아 있는 것」이 한쪽에서만 바뀌는 날 검색으로 draft 가 샌다.
+     */
+
+    /** 무엇을 내나. 최저가는 살 수 있는 SKU 에서만 센다 */
+    static final String PUBLIC_SELECT = """
+            select p.product_id, p.seller_id, s.name as seller_name, p.name,
+                   coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat,
+                   s.default_shipping_fee, p.created_at,
+                   (select i.thumbnail_key from product_image i
+                     where i.product_id = p.product_id
+                     order by i.sort_no, i.product_image_id limit 1) as thumbnail_key
+              from product p
+              join seller s on s.seller_id = p.seller_id
+              left join sku sk on sk.product_id = p.product_id
+                              and sk.deleted_at is null
+                              and sk.status = 'on_sale'
+            """;
+
+    /** 누구에게나 같은 조건 둘 — 파는 중이고({@code on_sale}) 살아 있다. 셀러로 좁힐 수 있다({@code :sellerId}) */
+    static final String PUBLIC_WHERE = """
+             where p.status = 'on_sale' and p.deleted_at is null
+               and (cast(:sellerId as bigint) is null
+                    or p.seller_id = cast(:sellerId as bigint))
+            """;
+
+    static final String PUBLIC_GROUP_BY = " group by p.product_id, s.name, s.default_shipping_fee";
+
+    /** {@link #PUBLIC_SELECT} 의 한 행 */
+    PublicItem publicItem(ResultSet rs) throws SQLException {
+        return new PublicItem(
+                rs.getLong("product_id"),
+                rs.getLong("seller_id"),
+                rs.getString("seller_name"),
+                rs.getString("name"),
+                rs.getLong("min_price_incl_vat"),
+                rs.getLong("default_shipping_fee"),
+                presigned(rs.getString("thumbnail_key")),
+                rs.getObject("created_at", OffsetDateTime.class));
     }
 
     /**

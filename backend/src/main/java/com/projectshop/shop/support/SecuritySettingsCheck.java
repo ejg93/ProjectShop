@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
  *   <caption>막는 둘</caption>
  *   <tr><th>무엇</th><th>왜 어느 환경에서도 안 되나</th></tr>
  *   <tr><td>신뢰 프록시가 <b>아무 주소나</b> 문다</td>
- *       <td>그러면 백엔드를 직접 때리는 누구나 {@code X-Forwarded-For} 한 줄로 IP 를 속인다.
+ *       <td>그러면 백엔드를 직접 때리는 누구나 손님 주소 헤더({@code X-Real-IP}, `Q242`) 한 줄로 IP 를 속인다.
  *           프록시를 신뢰한다는 것은 <b>그 주소만</b> 신뢰한다는 뜻이라, 전부 신뢰하면 뜻이 사라진다</td></tr>
  *   <tr><td>프록시가 <b>루프백 밖</b>에 있는데 세션 쿠키가 평문</td>
  *       <td>프록시가 다른 기계에 있다는 것은 요청이 망을 지난다는 뜻이다.
@@ -102,7 +102,7 @@ final class SecuritySettingsCheck {
         if (PUBLIC_SAMPLES.stream().anyMatch(ip -> proxies.matcher(ip).matches())) {
             throw new IllegalStateException(
                     "TRUSTED_PROXIES 가 공인 IP 까지 신뢰한다: " + internalProxies
-                            + ". 그러면 백엔드를 직접 부르는 누구나 X-Forwarded-For 로 IP 를 속인다"
+                            + ". 그러면 백엔드를 직접 부르는 누구나 손님 주소 헤더(X-Real-IP)로 IP 를 속인다"
                             + " — 프록시를 신뢰한다는 말의 뜻이 사라진다 (D14, Q44)."
                             + " 앞단 프록시의 대역만 적는다");
         }
