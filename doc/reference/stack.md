@@ -1700,6 +1700,15 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 | 재고 행이 아웃박스 사건을 낳는다(`sku_stock_records_initial`) | 트리거를 끄지 않고 붓고 나서 `outbox_event` 를 비운다 — 끄는 `session_replication_role` 은 제약도 끈다 |
 | **금액 합·계약서면·재고 행 검사는 커밋 순간에 한꺼번에 돈다**(지연 제약 트리거) | 그때 질의는 **그 순간의 통계**로 계획을 세운다. 틀의 통계(행 몇 개)대로면 금액 합이 순차 스캔이라 한 번 18ms, 55만 번에 몇 시간이다(2026-10-02 실측 — 20분에 6만 번). **같은 트랜잭션 안의 `analyze`** 가 아직 커밋 안 된 자기 행을 세서 인덱스 계획이 된다. 임시 표도 autovacuum 이 안 세서 손으로 `analyze` 한다 |
 
+### `pg_trgm` 은 3자 미만이면 인덱스를 안 탄다 — 한글 조각은 DB 의 `ctype` 이 정한다
+
+상품 검색(`60`)은 `ilike '%검색어%'` 를 3-gram GIN(`V123`)으로 받는다. **검색어가 3자 미만이면 조각이 안 나와 순차 스캔이 된다** —
+답은 맞고 느릴 뿐이다(`ProductSearchQueryTest` 가 2자 검색의 답을 잰다).
+
+**한글이 조각이 되는지는 DB 의 `ctype` 이 정한다.** `pg_trgm` 은 낱말 글자만 조각으로 쓰고, 그 판정이 로케일의 `isalnum` 이다.
+컴포즈·Testcontainers 의 `postgres:17-alpine` 은 `en_US.utf8` 이라 「운동화를 위한 깔창」이 조각 열하나를 낸다(2026-10-02 `show_trgm`).
+`C` 로케일 DB 면 한글이 조각에서 빠져 인덱스가 아무것도 못 거른다 — 운영 DB 의 `ctype` 은 아직 안 쟀다.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고

@@ -23,6 +23,7 @@ import com.projectshop.shop.order.OrderQuery;
 import com.projectshop.shop.order.SellerOrderQuery;
 import com.projectshop.shop.payment.RefundQuery;
 import com.projectshop.shop.product.ProductQuery;
+import com.projectshop.shop.product.ProductSearchQuery;
 import com.projectshop.shop.review.ReviewQuery;
 import com.projectshop.shop.settlement.SettlementQuery;
 import com.projectshop.shop.stats.SalesStatsQuery;
@@ -51,8 +52,8 @@ class QueryBudgetTest extends PostgresTestBase {
 
     /** 잰 목록의 이름. 아래 {@link #OVER_BUDGET} 의 죽은 줄을 이것으로 가린다 */
     private static final List<String> LISTS = List.of(
-            "내 주문 목록", "관리자 주문 목록", "셀러 주문 목록", "상품 공개 목록", "상품 후기 목록", "환불 대기열", "정산서 목록",
-            "문의 전체 목록", "셀러 문의 목록");
+            "내 주문 목록", "관리자 주문 목록", "셀러 주문 목록", "상품 공개 목록", "상품 검색 목록", "상품 후기 목록", "환불 대기열",
+            "정산서 목록", "문의 전체 목록", "셀러 문의 목록");
 
     /**
      * {@link #BUDGET} 을 넘는 목록과 그 근거. <b>근거 없이 이름만 넣지 않는다</b> — 근거 칸이 없으면 이 목록이 예산을 넘겼을 때
@@ -80,6 +81,9 @@ class QueryBudgetTest extends PostgresTestBase {
 
     @Autowired
     private ProductQuery products;
+
+    @Autowired
+    private ProductSearchQuery productSearch;
 
     @Autowired
     private ReviewQuery reviews;
@@ -161,6 +165,12 @@ class QueryBudgetTest extends PostgresTestBase {
     @DisplayName("상품 공개 목록")
     void publicProducts() {
         listStaysFlat("상품 공개 목록", size -> products.findPublic(null, null, new Paging(0, size)).items());
+    }
+
+    @Test
+    @DisplayName("상품 검색 목록")
+    void productSearch() {
+        listStaysFlat("상품 검색 목록", size -> productSearch.find("예산", null, null, new Paging(0, size)).items());
     }
 
     @Test
