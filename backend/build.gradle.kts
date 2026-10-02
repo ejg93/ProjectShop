@@ -3,7 +3,7 @@ plugins {
 	jacoco
 	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — ErrorProne 은 javac
 	// 플러그인이라 JDK 를 올릴 때마다 같이 막힌다(`stack.md`).
-	id("com.github.spotbugs") version "6.5.11"
+	id("com.github.spotbugs") version "6.5.12"
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -59,7 +59,7 @@ dependencies {
 	// 「막고 있다」고 읽힌다」와 같은 자리다. 압축을 켜는 날 이 경보를 다시 만나는 것보다
 	// 지금 한 줄이 싸고, **버전이 올라가면 이 제약이 저절로 무의미해진다**(아래가 더 낮으면 진다).
 	constraints {
-		implementation("at.yawk.lz4:lz4-java:1.11.3")
+		implementation("at.yawk.lz4:lz4-java:1.12.0")
 	}
 
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
@@ -127,7 +127,7 @@ dependencies {
 	// 기동은 초록이고 업로드만 터져서 원인이 멀어 보인다.
 	//
 	// **BOM 으로 버전을 묶는다.** `s3` 와 전송 계층이 판이 갈리면 서명 방식에서 어긋난다.
-	implementation(platform("software.amazon.awssdk:bom:2.55.0"))
+	implementation(platform("software.amazon.awssdk:bom:2.55.7"))
 	implementation("software.amazon.awssdk:s3")
 	implementation("software.amazon.awssdk:apache-client")
 	// 웹훅 발송기(`Q210`). **연결이 검사한 주소에만 가게** 이름 풀이를 연결 관리자에 준다 — JDK `HttpClient` 에는 그 훅이 없다.
@@ -146,7 +146,7 @@ dependencies {
 	// 2.x 좌표 규칙대로 `testcontainers-` 접두어가 붙는다(`stack.md`). 쓰는 것은 `33b` 다.
 	testImplementation("org.testcontainers:testcontainers-kafka")
 	// 계층 규칙을 문서에서 테스트로 내린다(`2n`). JUnit 6 아티팩트다 — 이 저장소가 6.0.3 이다.
-	testImplementation("com.tngtech.archunit:archunit-junit6:1.5.0")
+	testImplementation("com.tngtech.archunit:archunit-junit6:1.5.1")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
 	// **SpotBugs 기본 검출기가 보안을 거의 안 본다**(`2e-1`). CodeQL Java 76규칙이
