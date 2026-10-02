@@ -32,10 +32,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * <p>권한이 하나도 없으면 빈 목록이 아니라 거부다. <b>0건과 못 봄이 갈려야 개수로 정보가
  * 안 샌다</b> — 정산 건수는 곧 그 셀러가 거래한 달 수다.
  *
- * <h2>줄을 상세에서만 내린다</h2>
+ * <h2>줄을 정산서 하나 아래에서만 내린다</h2>
  *
  * <p>목록은 정산서당 한 줄이다. 항목은 주문 항목 건별이라(청크 17) 목록에 실으면
  * 한 셀러의 한 달치가 수백 줄이 되고, 그것을 세 페이지 긁으면 <b>거래 내역 전체</b>가 된다.
+ *
+ * <p><b>상세도 줄을 안 품는다</b>(`Q244`). 한 장의 줄이 3.5만일 수 있어서(`42`) 상세는 종류별 합계만 내고,
+ * 줄은 {@link #findLines} 가 쪽으로 낸다(`D5` 「상세 안의 목록이 데이터에 따라 늘면」).
  */
 @Component
 public class SettlementQuery {
@@ -67,15 +70,33 @@ public class SettlementQuery {
             Long commissionBaseAmount, String sellerOrderNumber, String productName) {}
 
     /**
+     * 종류 하나의 줄 수와 금액 합.
+     *
+     * @param kind 응답 열거값(대문자)이다 — {@link Line#kind()} 와 같은 값
+     */
+    @Schema(name = "SettlementKindTotal")
+    public record KindTotal(String kind, long lineCount, long amount) {}
+
+    /**
+     * @param totals         종류별 합계. <b>줄은 여기 없다</b> — {@link #findLines} 가 쪽으로 낸다(`Q244`)
      * @param allowedActions 지금 이 정산서에 할 수 있는 것(`Q81`). <b>화면이 권한을 따로 안 묻는다</b>
      *                       (`D20` 「어디서 권한을 묻나」). 이름은 대문자고 <b>소문자·하이픈으로 바꾸면
      *                       경로</b>다 — {@code PAYOUT_REQUEST} 가 {@code /api/settlements/{번호}/payout-request} 다
      */
     @Schema(name = "SettlementDetail")
-    public record Detail(Summary summary, List<Line> lines, List<String> allowedActions) {}
+    public record Detail(Summary summary, List<KindTotal> totals, List<String> allowedActions) {}
 
     @Schema(name = "SettlementPage")
     public record Page(List<Summary> items, int page, int size, long total) {}
+
+    @Schema(name = "SettlementLinePage")
+    public record LinePage(List<Line> items, int page, int size, long total) {}
+
+    /**
+     * 정산서 머리. 응답에 안 나가는 넷을 같이 든다 — 줄을 거를 번호, 권한 대상인 셀러,
+     * 자기 승인 금지를 볼 요청자, 줄 목록의 {@code total} 이 될 줄 수.
+     */
+    private record Head(Summary summary, long settlementId, long sellerId, Long requestedBy, long lineCount) {}
 
     /**
      * 볼 수 있는 정산서 목록.
@@ -150,68 +171,61 @@ public class SettlementQuery {
     }
 
     /**
-     * 정산서 하나와 그 줄 전부.
+     * 정산서 하나와 종류별 합계.
      *
      * <p><b>못 보는 것도 404 다.</b> 403 을 주면 번호를 훑어서 실재하는 정산서를 셀 수 있고,
      * 그것이 곧 셀러 수 × 개월이다(`D5` 의 자원별 표, {@code RefundQuery} 와 같은 판단).
      */
     public Detail findOne(long viewerId, String settlementNumber) {
-        Visible visible = visibleFor(viewerId);
+        Head head = headOf(viewerId, settlementNumber);
 
-        // 지급 목록을 만들려면 <b>셀러</b>(권한 대상)와 <b>요청자</b>(자기 승인 금지)가 더 필요하다.
-        // 응답에는 안 나간다 — 판단에만 쓰고, 나가는 것은 아래 allowedActions 한 칸이다.
-        record Payout(Summary summary, long sellerId, Long requestedBy) {}
-
-        Payout payout = jdbc.sql("""
-                        select s.settlement_number, sel.code as seller_code,
-                               c.period_start, c.period_end, c.payout_date,
-                               s.payout_amount, s.carried_over, s.payout_status, s.created_at,
-                               s.seller_id, s.payout_requested_by_user_id
-                          from settlement s
-                          join settlement_cycle c on c.settlement_cycle_id = s.settlement_cycle_id
-                          join seller sel on sel.seller_id = s.seller_id
-                         where s.settlement_number = :number
-                           and (:seesEverything or s.seller_id = any(:sellers))
+        List<KindTotal> totals = jdbc.sql("""
+                        select kind, count(*) as line_count, sum(amount) as amount
+                          from settlement_item
+                         where settlement_id = :settlementId
+                         group by kind
+                         order by kind
                         """)
-                .param("number", settlementNumber)
-                .param("seesEverything", visible.everything())
-                .param("sellers", visible.sellers())
-                .query((rs, rowNum) -> new Payout(summaryOf(rs),
-                        rs.getLong("seller_id"),
-                        (Long) rs.getObject("payout_requested_by_user_id")))
-                .optional()
-                .orElseThrow(() -> new ShopException(ErrorCode.SETTLEMENT_NOT_FOUND,
-                        "그런 정산서가 없다: " + settlementNumber));
+                .param("settlementId", head.settlementId())
+                .query((rs, rowNum) -> new KindTotal(
+                        EnumValue.of(rs.getString("kind"), SettlementItemKind::of),
+                        rs.getLong("line_count"),
+                        rs.getLong("amount")))
+                .list();
 
-        return new Detail(payout.summary(), linesOf(settlementNumber),
-                payoutActions(viewerId, payout.sellerId(), payout.requestedBy(), payout.summary()));
+        return new Detail(head.summary(), totals,
+                payoutActions(viewerId, head.sellerId(), head.requestedBy(), head.summary()));
     }
 
     /**
-     * 줄을 종류·번호 순으로 내린다.
+     * 정산서의 줄을 종류·번호 순으로 쪽을 나눠 내린다(`Q244`). 못 보는 정산서는 상세와 같은 404 다.
      *
      * <p>배송비 줄은 상품이 없고, 이월 줄은 주문도 상품도 없다 — 그 칸이 비는 것이
      * 종류에서 이미 정해져 있다(`V52` 의 {@code settlement_item_source_check}).
      */
-    private List<Line> linesOf(String settlementNumber) {
-        return jdbc.sql("""
+    public LinePage findLines(long viewerId, String settlementNumber, Paging paging) {
+        Head head = headOf(viewerId, settlementNumber);
+
+        List<Line> items = jdbc.sql("""
                         select i.kind, i.supplier, i.amount,
                                i.commission_bp, i.commission_base_amount,
                                coalesce(so.seller_order_number, rso.seller_order_number,
                                         sso.seller_order_number) as seller_order_number,
                                coalesce(oi.product_name, roi.product_name) as product_name
                           from settlement_item i
-                          join settlement s on s.settlement_id = i.settlement_id
                           left join order_item oi on oi.order_item_id = i.order_item_id
                           left join seller_order so on so.seller_order_id = oi.seller_order_id
                           left join refund_item ri on ri.refund_item_id = i.refund_item_id
                           left join order_item roi on roi.order_item_id = ri.order_item_id
                           left join seller_order rso on rso.seller_order_id = roi.seller_order_id
                           left join seller_order sso on sso.seller_order_id = i.seller_order_id
-                         where s.settlement_number = :number
+                         where i.settlement_id = :settlementId
                          order by i.kind, i.settlement_item_id
+                         limit :size offset :offset
                         """)
-                .param("number", settlementNumber)
+                .param("settlementId", head.settlementId())
+                .param("size", paging.size())
+                .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Line(
                         EnumValue.of(rs.getString("kind"), SettlementItemKind::of),
                         EnumValue.of(rs.getString("supplier"), SettlementSupplier::of),
@@ -221,6 +235,43 @@ public class SettlementQuery {
                         rs.getString("seller_order_number"),
                         rs.getString("product_name")))
                 .list();
+
+        return new LinePage(items, paging.page(), paging.size(), head.lineCount());
+    }
+
+    /**
+     * 범위로 거른 머리. 상세와 줄 목록이 같이 쓴다 — 둘의 404 가 갈리면 번호로 실재를 셀 수 있다.
+     *
+     * <p><b>줄 수를 여기서 같이 센다.</b> 줄 목록이 건수를 따로 물으면 범위·머리·줄·건수로 문장 넷이 되어
+     * 목록 예산 셋(`QueryBudgetTest`)을 넘는다. 인덱스의 첫 칸만 읽는 수라 상세에도 싸다.
+     */
+    private Head headOf(long viewerId, String settlementNumber) {
+        Visible visible = visibleFor(viewerId);
+
+        return jdbc.sql("""
+                        select s.settlement_number, sel.code as seller_code,
+                               c.period_start, c.period_end, c.payout_date,
+                               s.payout_amount, s.carried_over, s.payout_status, s.created_at,
+                               s.settlement_id, s.seller_id, s.payout_requested_by_user_id,
+                               (select count(*) from settlement_item i
+                                 where i.settlement_id = s.settlement_id) as line_count
+                          from settlement s
+                          join settlement_cycle c on c.settlement_cycle_id = s.settlement_cycle_id
+                          join seller sel on sel.seller_id = s.seller_id
+                         where s.settlement_number = :number
+                           and (:seesEverything or s.seller_id = any(:sellers))
+                        """)
+                .param("number", settlementNumber)
+                .param("seesEverything", visible.everything())
+                .param("sellers", visible.sellers())
+                .query((rs, rowNum) -> new Head(summaryOf(rs),
+                        rs.getLong("settlement_id"),
+                        rs.getLong("seller_id"),
+                        (Long) rs.getObject("payout_requested_by_user_id"),
+                        rs.getLong("line_count")))
+                .optional()
+                .orElseThrow(() -> new ShopException(ErrorCode.SETTLEMENT_NOT_FOUND,
+                        "그런 정산서가 없다: " + settlementNumber));
     }
 
     /** 판정 결과에서 범위를 읽어 조건으로 옮긴다. <b>판정 로직을 다시 쓰지 않는다.</b> */

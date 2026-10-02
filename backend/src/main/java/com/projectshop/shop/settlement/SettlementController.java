@@ -44,7 +44,7 @@ public class SettlementController {
     }
 
     /**
-     * 정산서 하나와 그 줄 전부.
+     * 정산서 하나와 종류별 합계. 줄은 {@link #lines} 가 쪽으로 낸다 — 한 장의 줄이 3.5만일 수 있다(`Q244`).
      *
      * <p>줄이 목록에 안 실리는 이유는 <b>주문 항목 건별</b>이어서다(청크 17) —
      * 목록에 실으면 한 셀러의 한 달치가 수백 줄이 되고 그것을 긁으면 거래 내역 전체가 된다.
@@ -53,6 +53,13 @@ public class SettlementController {
     public SettlementQuery.Detail one(@AuthenticationPrincipal ShopUser user,
             @PathVariable String settlementNumber) {
         return query.findOne(user.id(), settlementNumber);
+    }
+
+    /** 정산서의 줄. 종류·번호 순이고 쪽으로 넘긴다(`D5` 목록 규약). 못 보는 정산서는 상세와 같은 404 다 */
+    @GetMapping("/{settlementNumber}/lines")
+    public SettlementQuery.LinePage lines(@AuthenticationPrincipal ShopUser user,
+            @PathVariable String settlementNumber, @ParameterObject Paging paging) {
+        return query.findLines(user.id(), settlementNumber, paging);
     }
 
     /**

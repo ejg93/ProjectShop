@@ -349,6 +349,12 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 우리가 정한 목록이다 — 늘어나도 쪽을 넘길 일이 없다. 반대로 주문·상품은 손님이 늘리는 것이라
 언제나 껍데기를 쓴다. **상한이 풀리는 날 껍데기로 바꾼다. 그것이 계약 변경이다.**
 
+**상세 안의 목록이 데이터에 따라 늘면 하위 자원 입구로 뗀다. 상세에는 합계만 남긴다**(`Q244`).
+상세가 쪽 없는 목록을 품으면 그 목록이 아무리 길어도 한 응답에 다 실린다 — 정산서 한 장의 줄이 3.5만이었다(`42`).
+떼어 낸 입구는 위 껍데기 넷을 쓴다. 선례가 넷이다 — 상품의 후기(`/api/products/{productId}/reviews`)·
+문의(`/api/products/{productId}/inquiries`)·웹훅 발송 이력(`/api/seller/webhooks/{webhookEndpointId}/deliveries`)·
+정산서의 줄(`/api/settlements/{settlementNumber}/lines`).
+
 ## 값의 형식
 
 | 종류 | 형식 | 예 |

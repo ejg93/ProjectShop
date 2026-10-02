@@ -48,7 +48,7 @@ class OpenApiSpecTest extends HttpTestBase {
     /** 페이지를 내주는 경로. 하나라도 빠뜨리면 그 경로만 문서가 조용히 틀린다 */
     private static final List<String> PAGED_ROUTES = List.of(
             "/api/products", "/api/seller/products", "/api/orders", "/api/seller/orders",
-            "/api/audit-logs", "/api/settlements", "/api/refunds",
+            "/api/audit-logs", "/api/settlements", "/api/settlements/{settlementNumber}/lines", "/api/refunds",
             "/api/me/inquiries", "/api/seller/inquiries");
 
     /** 소문자·숫자·하이픈, 그리고 {@code {자리표시자}} 만(`D5`) */
