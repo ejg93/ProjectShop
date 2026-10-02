@@ -153,6 +153,20 @@ class OpenApiSpecTest extends HttpTestBase {
     }
 
     /**
+     * 상품 검색은 공개 목록과 같은 입구의 {@code q} 다(`61`). 스펙에 없으면 부르는 쪽이 검색이 있는지 모르고
+     * 다른 입구를 찾거나 만든다 — 검색만 다른 모양이면 화면이 목록을 두 벌 그린다.
+     */
+    @Test
+    @DisplayName("상품 공개 목록이 검색어 q 를 스펙에 싣는다")
+    void productListDocumentsSearch() {
+        Set<String> names = new java.util.TreeSet<>();
+        spec().path("paths").path("/api/products").path("get").path("parameters")
+                .forEach(parameter -> names.add(parameter.path("name").asString()));
+
+        assertThat(names).as("실린 것: %s", names).contains("q", "page", "size", "sort");
+    }
+
+    /**
      * 목록 껍데기는 {@code items}·{@code page}·{@code size}·{@code total} 넷이다(`Q227`, {@code quality-gates.md} 「규칙 원장」 ⑨).
      *
      * <p>위 시험은 목록 경로가 page·size 를 <b>요청</b>에 싣는지만 봤다. 응답 껍데기 이름이 섞이면({@code content}·{@code count})
