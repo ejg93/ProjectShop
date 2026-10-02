@@ -127,29 +127,17 @@ public class SellerOrderQuery {
      */
     public Page find(long viewerId, Long sellerId, String sort, Paging paging) {
         Allowed<Long> visible = visibleSellersFor(viewerId);
-
-        boolean seesEverything = !visible.restricted();
-        Long[] sellers = visible.values().toArray(Long[]::new);
-
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
-        List<Summary> items = jdbc.sql("""
-                        select so.seller_order_number, o.order_number, so.status,
-                               so.shipping_fee, so.ship_due_at, so.is_ship_overdue, so.created_at,
-                               (select count(*) from order_item oi
-                                 where oi.seller_order_id = so.seller_order_id) as item_count
-                          from seller_order_visible so
-                          join shop_order o on o.order_id = so.order_id
-                         where (:seesEverything or so.seller_id = any(:sellers))
-                           and (cast(:sellerId as bigint) is null
-                                or so.seller_id = cast(:sellerId as bigint))
-                        """
-                // 텍스트 블록이 줄 끝 공백을 지워서 "order by" 와 컬럼이 붙는다. 공백을 직접 넣는다.
-                + " order by " + orderBy.clause() + ", so.seller_order_id desc"
-                + " limit :size offset :offset")
-                .param("seesEverything", seesEverything)
-                .param("sellers", sellers)
-                .param("sellerId", sellerId)
+        Scope scope = Scope.of(visible, sellerId);
+        if (scope.branch() == Branch.NONE) {
+            // 범위 밖 셀러를 골랐다. 질의를 안 내고 빈 쪽이다 — 전에도 조건 둘이 겹쳐 0건이었다.
+            return new Page(List.of(), paging.page(), paging.size(), 0);
+        }
+
+        List<Summary> items = jdbc.sql(listSql(scope.branch(), orderBy))
+                .param("sellerId", scope.sellerId())
+                .param("sellers", scope.sellers())
                 .param("size", paging.size())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Summary(
@@ -163,19 +151,84 @@ public class SellerOrderQuery {
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .list();
 
-        Long total = jdbc.sql("""
-                        select count(*) from seller_order_visible so
-                         where (:seesEverything or so.seller_id = any(:sellers))
-                           and (cast(:sellerId as bigint) is null
-                                or so.seller_id = cast(:sellerId as bigint))
-                        """)
-                .param("seesEverything", seesEverything)
-                .param("sellers", sellers)
-                .param("sellerId", sellerId)
+        Long total = jdbc.sql("select count(*) from seller_order_visible so" + scope.branch().where)
+                .param("sellerId", scope.sellerId())
+                .param("sellers", scope.sellers())
                 .query(Long.class)
                 .single();
 
         return new Page(items, paging.page(), paging.size(), total);
+    }
+
+    /**
+     * 목록 SQL 전체. 시험이 같은 문장의 실행 계획을 본다({@code SellerOrderQueryTest}).
+     * 바인딩은 {@code :sellerId}·{@code :sellers}·{@code :size}·{@code :offset} 이다(갈래가 안 쓰는 것은 무시된다).
+     */
+    static String listSql(Branch branch, OrderBy orderBy) {
+        return """
+                select so.seller_order_number, o.order_number, so.status,
+                       so.shipping_fee, so.ship_due_at, so.is_ship_overdue, so.created_at,
+                       (select count(*) from order_item oi
+                         where oi.seller_order_id = so.seller_order_id) as item_count
+                  from seller_order_visible so
+                  join shop_order o on o.order_id = so.order_id
+                """
+                + branch.where
+                // 텍스트 블록이 줄 끝 공백을 지워서 "order by" 와 컬럼이 붙는다. 공백을 직접 넣는다.
+                + " order by " + orderBy.clause() + ", so.seller_order_id desc"
+                + " limit :size offset :offset";
+    }
+
+    /** 기본 정렬. 시험이 계획을 볼 때 쓴다 */
+    static OrderBy defaultOrder() {
+        return ListQuery.orderBy(null, DEFAULT_SORT, SORTABLE);
+    }
+
+    /**
+     * 범위를 SQL 에 어떻게 싣나(`Q243a`). <b>조건을 늘 넣고 매개변수로 끄지 않는다.</b>
+     *
+     * <p>전에는 {@code (:seesEverything or so.seller_id = any(:sellers))} 를 늘 걸었다. {@code = any(배열)} 은
+     * 원소가 하나여도 플래너가 정렬 인덱스로 읽지 못해서, 셀러 한 곳의 묶음 6만을 다 읽고 정렬했다
+     * (로컬 10만 건 115ms → 3ms, `doc/notes/perf-local-100k.md`). 걸릴 때만 그 꼴의 조건을 넣는다.
+     *
+     * <p><b>조건이 곧 판정이다</b>(「알려진 구멍 3」) — 갈래를 고르는 것은 {@link Scope#of} 하나고,
+     * 범위 밖 셀러는 {@link #NONE} 으로 질의 자체를 안 낸다.
+     */
+    enum Branch {
+        /** 전부 보는 사람이 셀러를 안 골랐다 */
+        ALL(""),
+        /** 셀러 하나 — 고른 것이거나 볼 수 있는 셀러가 하나뿐이다 */
+        ONE(" where so.seller_id = :sellerId"),
+        /** 여러 셀러에 속했고 하나를 안 골랐다. 드물어서 배열 조건을 남긴다 */
+        MANY(" where so.seller_id = any(:sellers)"),
+        /** 범위 밖 셀러를 골랐다 */
+        NONE(null);
+
+        private final String where;
+
+        Branch(String where) {
+            this.where = where;
+        }
+    }
+
+    /** 고른 갈래와 그 갈래가 쓰는 값 */
+    record Scope(Branch branch, Long sellerId, Long[] sellers) {
+
+        static Scope of(Allowed<Long> visible, Long sellerId) {
+            if (!visible.restricted()) {
+                return sellerId == null ? new Scope(Branch.ALL, null, new Long[0])
+                        : new Scope(Branch.ONE, sellerId, new Long[0]);
+            }
+            Set<Long> values = visible.values();
+            if (sellerId != null) {
+                return values.contains(sellerId) ? new Scope(Branch.ONE, sellerId, new Long[0])
+                        : new Scope(Branch.NONE, null, new Long[0]);
+            }
+            if (values.size() == 1) {
+                return new Scope(Branch.ONE, values.iterator().next(), new Long[0]);
+            }
+            return new Scope(Branch.MANY, null, values.toArray(Long[]::new));
+        }
     }
 
     /**
