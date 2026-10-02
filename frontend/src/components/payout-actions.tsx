@@ -84,13 +84,19 @@ export function payoutActionsFor(allowed: readonly string[]): PayoutAction[] {
 /** 서버가 주는 이름과 짝이 되는 표. 이름이 곧 경로라 여기서 다시 안 만든다. */
 const ALL: PayoutAction[] = [REQUEST, APPROVE, REJECT];
 
+/**
+ * @param allowed 서버가 준 동작 이름 목록. <b>이름을 받아 여기서 동작으로 바꾼다</b> — 이 파일은 클라이언트 모듈이라
+ *                서버 컴포넌트가 {@link payoutActionsFor} 를 직접 부르면 Next 가 「클라이언트 함수를 서버에서 불렀다」로
+ *                화면을 깬다(2026-10-03 `Q244b` 가 찾았다 — 정산서 상세가 `a252b9d` 부터 열리지 않았다)
+ */
 export function PayoutActions({
   settlementNumber,
-  actions,
+  allowed,
 }: {
   settlementNumber: string;
-  actions: PayoutAction[];
+  allowed: readonly string[];
 }) {
+  const actions = payoutActionsFor(allowed);
   const router = useRouter();
   const [failure, setFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

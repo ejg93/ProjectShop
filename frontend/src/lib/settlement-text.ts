@@ -34,6 +34,8 @@ const ITEM_KIND: Record<string, string> = {
   COMMISSION_REVERSAL: "수수료 환입",
   COMPENSATION: "손해배상",
   CARRYOVER: "이월 조정",
+  COUPON_DISCOUNT: "쿠폰 할인",
+  COUPON_DISCOUNT_REVERSAL: "쿠폰 할인 환입",
 };
 
 /**
