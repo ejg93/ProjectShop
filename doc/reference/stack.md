@@ -1709,7 +1709,7 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 
 **한글이 조각이 되는지는 DB 의 `ctype` 이 정한다.** `pg_trgm` 은 낱말 글자만 조각으로 쓰고, 그 판정이 로케일의 `isalnum` 이다.
 컴포즈·Testcontainers 의 `postgres:17-alpine` 은 `en_US.utf8` 이라 「운동화를 위한 깔창」이 조각 열하나를 낸다(2026-10-02 `show_trgm`).
-`C` 로케일 DB 면 한글이 조각에서 빠져 인덱스가 아무것도 못 거른다 — 운영 DB 의 `ctype` 은 아직 안 쟀다.
+`C` 로케일 DB 면 한글이 조각에서 빠져 인덱스가 아무것도 못 거른다 — 운영 DB 의 `ctype` 은 아직 안 쟀다(`Q246`).
 
 ## 데이터 접근은 `JdbcClient` 다
 

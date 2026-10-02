@@ -57,7 +57,7 @@
 | 입구 | 키 | 경로 | 주 질의 평균(ms) | p95(ms) |
 |---|---|---|---|---|
 | 상품 공개 목록 | `products` | `GET /api/products` | 34.4 | 77.2 |
-| 상품 검색 | `search` | `GET /api/products?q=` | 미측정 — `42` 뒤에 섰다 | 26.3 |
+| 상품 검색 | `search` | `GET /api/products?q=` | 미측정 — `42` 뒤에 섰다. `Q243` 이 다시 잴 때 채운다 | 26.3 |
 | 내 주문 목록 | `my_orders` | `GET /api/orders` | 0.3 | 16.4 |
 | 셀러 주문 목록 | `seller_orders` | `GET /api/seller/orders` | 34.7 | 169 |
 | 관리자 주문 목록 | `admin_orders` | `GET /api/admin/orders` | 0.4 | 25.1 |
