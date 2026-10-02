@@ -143,18 +143,14 @@ public class ProductQuery {
     public PublicPage findPublic(Long sellerId, String sort, Paging paging) {
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
-        List<PublicItem> items = jdbc.sql(PUBLIC_SELECT + PUBLIC_WHERE + PUBLIC_GROUP_BY
-                // 텍스트 블록은 줄 끝 공백을 지운다. 블록 안에서 이으면 "order by" 와
-                // 컬럼이 붙어 버려서, 공백을 이 문자열에 직접 넣는다.
-                + " order by " + orderBy.clause() + ", p.product_id desc"
-                + " limit :size offset :offset")
+        List<PublicItem> items = jdbc.sql(listSql(sellerId, orderBy))
                 .param("sellerId", sellerId)
                 .param("size", paging.size())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> publicItem(rs))
                 .list();
 
-        Long total = jdbc.sql("select count(*) from product p" + PUBLIC_WHERE)
+        Long total = jdbc.sql("select count(*) from product p" + PUBLIC_WHERE + bySeller(sellerId))
                 .param("sellerId", sellerId)
                 .query(Long.class)
                 .single();
@@ -162,34 +158,59 @@ public class ProductQuery {
         return new PublicPage(items, paging.page(), paging.size(), total);
     }
 
+    /** 공개 목록 SQL 전체. 시험이 같은 문장의 실행 계획을 본다({@code ProductQueryTest}) */
+    static String listSql(Long sellerId, OrderBy orderBy) {
+        return PUBLIC_SELECT + PUBLIC_WHERE + bySeller(sellerId)
+                // 텍스트 블록은 줄 끝 공백을 지운다. 블록 안에서 이으면 "order by" 와
+                // 컬럼이 붙어 버려서, 공백을 이 문자열에 직접 넣는다.
+                + " order by " + orderBy.clause() + ", p.product_id desc"
+                + " limit :size offset :offset";
+    }
+
+    /** 기본 정렬. 시험이 계획을 볼 때 쓴다 */
+    static OrderBy defaultOrder() {
+        return ListQuery.orderBy(null, DEFAULT_SORT, SORTABLE);
+    }
+
     /*
      * 공개 목록의 조각. 검색({@link ProductSearchQuery})이 같은 조각에 조건 하나와 정렬 키 하나를 더한다(`60`) —
      * 사본을 두면 「파는 중이고 살아 있는 것」이 한쪽에서만 바뀌는 날 검색으로 draft 가 샌다.
      */
 
-    /** 무엇을 내나. 최저가는 살 수 있는 SKU 에서만 센다 */
+    /**
+     * 무엇을 내나. 최저가는 살 수 있는 SKU 에서만 센다.
+     *
+     * <p><b>최저가를 조인과 집계가 아니라 줄마다의 부분질의로 붙인다</b>(`Q243b`). 조인해서 {@code min} 으로 묶으면
+     * 집계가 정렬보다 앞이라 상품 전부를 잇고 묶은 뒤에야 20개를 고르고, 정렬 인덱스를 쓸 수 없다
+     * (로컬 10만 건 34ms). 부분질의면 정렬과 {@code limit} 이 먼저 서고 남은 20 줄에만 돈다(0.3ms).
+     */
     static final String PUBLIC_SELECT = """
             select p.product_id, p.seller_id, s.name as seller_name, p.name,
-                   coalesce(min(sk.price_incl_vat), 0) as min_price_incl_vat,
+                   coalesce((select min(sk.price_incl_vat) from sku sk
+                              where sk.product_id = p.product_id
+                                and sk.deleted_at is null
+                                and sk.status = 'on_sale'), 0) as min_price_incl_vat,
                    s.default_shipping_fee, p.created_at,
                    (select i.thumbnail_key from product_image i
                      where i.product_id = p.product_id
                      order by i.sort_no, i.product_image_id limit 1) as thumbnail_key
               from product p
               join seller s on s.seller_id = p.seller_id
-              left join sku sk on sk.product_id = p.product_id
-                              and sk.deleted_at is null
-                              and sk.status = 'on_sale'
             """;
 
-    /** 누구에게나 같은 조건 둘 — 파는 중이고({@code on_sale}) 살아 있다. 셀러로 좁힐 수 있다({@code :sellerId}) */
-    static final String PUBLIC_WHERE = """
-             where p.status = 'on_sale' and p.deleted_at is null
-               and (cast(:sellerId as bigint) is null
-                    or p.seller_id = cast(:sellerId as bigint))
-            """;
+    /**
+     * 누구에게나 같은 조건 둘 — 파는 중이고({@code on_sale}) 살아 있다.
+     * <b>부분 인덱스({@code V125})의 조건과 글자까지 같다</b> — 다르면 그 인덱스를 못 탄다.
+     */
+    static final String PUBLIC_WHERE = " where p.status = 'on_sale' and p.deleted_at is null";
 
-    static final String PUBLIC_GROUP_BY = " group by p.product_id, s.name, s.default_shipping_fee";
+    /**
+     * 셀러로 좁히는 조건. <b>있을 때만 SQL 에 넣는다</b> — 「null 이거나」로 늘 넣으면 일반 계획에서 플래너가
+     * 그 갈래를 못 지운다(`Q243a` 와 같은 판단).
+     */
+    static String bySeller(Long sellerId) {
+        return sellerId == null ? "" : " and p.seller_id = :sellerId";
+    }
 
     /** {@link #PUBLIC_SELECT} 의 한 행 */
     PublicItem publicItem(ResultSet rs) throws SQLException {

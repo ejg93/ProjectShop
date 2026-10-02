@@ -108,7 +108,7 @@ class ProductSearchQueryTest extends PostgresTestBase {
                 .update();
         jdbc.sql("analyze product").update();
 
-        List<String> plan = jdbc.sql("explain " + ProductSearchQuery.listSql(ProductSearchQuery.orderBy(null)))
+        List<String> plan = jdbc.sql("explain " + ProductSearchQuery.listSql(null, ProductSearchQuery.orderBy(null)))
                 .param("sellerId", null)
                 .param("pattern", "운동화")
                 .param("raw", "운동화")
