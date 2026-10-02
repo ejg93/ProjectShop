@@ -8,7 +8,10 @@
 --
 -- **`random()` 을 안 쓴다.** 건수와 분포가 번호의 나머지로 정해져서 다시 부어도 같다.
 --
--- 수: 구매자 1,000(합성) · 상품 1만 · SKU 3만 · 주문 10만 · 묶음 12만 · 항목 20만 · 환불 1,000.
+-- 수: 구매자 1,000(합성) · 상품 1만 · SKU 3만 · 주문 10만 · 묶음 12만 · 항목 20만 · 환불 약 1만(취소·반품 묶음마다).
+--
+-- **앱의 주기 작업이 고쳐 쓸 것을 안 남긴다**(`70`). 실제로는 있을 수 없는 행(30분 넘은 결제 대기, 환불 없는 닫힌
+-- 취소 묶음)을 넣으면 부하를 재는 도중에 앱이 그것을 메우느라 쓰기가 돌고, 회차마다 데이터가 달라진다.
 -- 구매자는 합성 계정이 주문의 99% 를, `customer@example.com` 이 1% 를 가진다 — 한 사람에게 몰면 「내 주문」의
 -- 실행 계획이 순차 스캔을 정답으로 골라 인덱스 누락과 구분이 안 된다(2026-10-02 사용자 결정).
 
@@ -99,7 +102,10 @@ select i,
             when i % 100 < 94 then 'payment_pending'
             when i % 100 < 97 then 'payment_expired'
             else 'payment_failed' end as status,
-       now() - make_interval(days => (i % 90)::int, mins => (i % 1440)::int) as created_at
+       -- **결제 대기는 최근 10분 안이다.** 앱이 5분마다 30분 넘은 대기를 만료시켜서(`OrderStatusBatch`) 오래된 대기는
+       -- 실제로 있을 수 없고, 넣어 두면 부하를 재는 도중에 앱이 4천 건을 고쳐 쓴다(2026-10-02 `70` 실측).
+       case when i % 100 between 90 and 93 then now() - make_interval(mins => (i % 10)::int)
+            else now() - make_interval(days => (i % 90)::int, mins => (i % 1440)::int) end as created_at
   from generate_series(1, 100000) as i;
 alter table t_order add column order_number text;
 update t_order set order_number = to_char(created_at at time zone 'Asia/Seoul', 'YYYYMMDD') || '-' || pg_temp.b32(i);
@@ -249,31 +255,39 @@ select p.payment_id, '부하카드', lpad((p.payment_id % 10000)::text, 4, '0')
   join t_order o on o.order_id = p.order_id
  where p.method = 'card';
 
--- ⑧ 환불 1,000 — 반품 완료 묶음의 첫 항목을 손님이 청약철회로 요청한 채로 둔다(대기열이 읽는 모양).
+-- ⑧ 환불 — 결제된 주문의 취소·반품 묶음마다 하나, 그 묶음의 항목 전부를 손님이 요청한 채로 둔다(대기열이 읽는 모양).
+--
+-- **하나라도 빠뜨리면 앱이 메운다.** 환불 스위퍼(`RefundSweeper`)가 5분마다 「결제됐는데 환불이 없는 닫힌 취소·반품
+-- 묶음」을 찾아 환불을 만들고, 상태 이력이 없는 묶음에서는 실패한다 — 반품 천 건에만 환불을 두었더니 부하를 재는
+-- 도중에 3천 건을 쓰고 4천 건에서 실패했다(2026-10-02 `70` 실측).
 create temp table t_refund as
-select so.j, so.seller_order_id, o.order_number, o.created_at, bu.user_id,
-       (select oi.order_item_id from order_item oi
-         where oi.seller_order_id = so.seller_order_id order by oi.order_item_id limit 1) as order_item_id
+select so.j, so.seller_order_id, so.status, o.created_at, bu.user_id
   from t_so so
   join t_order o on o.i = so.i
   join t_buyer bu on bu.b = o.b
- where so.status = 'returned'
- order by so.j
- limit 1000;
+ where o.status = 'paid' and so.status in ('cancelled', 'returned');
+analyze t_refund;
 
 insert into refund (refund_number, seller_order_id, reason_code, amount, requested_by_type, requested_by_user_id,
                     due_at, created_at, updated_at)
 select 'R-' || to_char(r.created_at at time zone 'Asia/Seoul', 'YYYYMMDD') || '-' || pg_temp.b32(r.j),
-       r.seller_order_id, 'withdrawal', oi.line_amount, 'customer', r.user_id,
-       r.created_at + interval '15 days', r.created_at + interval '12 days', r.created_at + interval '12 days'
+       r.seller_order_id,
+       case r.status when 'cancelled' then 'cancelled' else 'withdrawal' end,
+       a.amount, 'customer', r.user_id,
+       r.created_at + case r.status when 'cancelled' then interval '4 days' else interval '15 days' end,
+       r.created_at + case r.status when 'cancelled' then interval '1 hour' else interval '12 days' end,
+       r.created_at + case r.status when 'cancelled' then interval '1 hour' else interval '12 days' end
   from t_refund r
-  join order_item oi on oi.order_item_id = r.order_item_id;
+  join (select oi.seller_order_id, sum(oi.line_amount) as amount
+          from order_item oi
+          join t_refund x on x.seller_order_id = oi.seller_order_id
+         group by oi.seller_order_id) as a on a.seller_order_id = r.seller_order_id;
 
 insert into refund_item (refund_id, order_item_id, quantity, amount, commission_refund, discount_refund)
-select rf.refund_id, r.order_item_id, oi.quantity, oi.line_amount, oi.commission_amount, 0
+select rf.refund_id, oi.order_item_id, oi.quantity, oi.line_amount, oi.commission_amount, 0
   from t_refund r
   join refund rf on rf.seller_order_id = r.seller_order_id
-  join order_item oi on oi.order_item_id = r.order_item_id;
+  join order_item oi on oi.seller_order_id = r.seller_order_id;
 
 -- **커밋 전에 실제 표의 통계를 모은다.** 금액 합·계약서면·재고 행 검사는 지연 트리거라 커밋 순간에 한꺼번에 돌고,
 -- 그 안의 질의는 그때의 통계로 계획을 세운다. 틀(`shop`)의 통계는 행이 몇 개뿐이라 순차 스캔을 골라

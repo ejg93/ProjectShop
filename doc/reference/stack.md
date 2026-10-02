@@ -21,6 +21,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
 | Kafka | 4.3.1 | `docker-compose.yml`. **로컬 전용** — 배포에 브로커가 없다(`event-catalog.md` 「전송」) |
+| k6 | 2.3.0 | `docker-compose.yml` 의 `load` 프로필. **부하 시험 전용**(`70`) — 앱이 안 쓴다 |
 | spring-kafka | 4.1.1 | 안 적는다. **Boot BOM 이 관리한다** — `spring-boot-starter-kafka` 로 들인다 |
 | Tomcat | 11.0.25 | `backend/build.gradle.kts` 의 `tomcat.version`. **BOM 값을 덮었다** — 아래 「Boot BOM 의 Tomcat 이 보안 패치보다 낮을 수 있다」 |
 | Testcontainers | 2.0.5 | `build.gradle.kts` 의 BOM |
@@ -1692,12 +1693,13 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 ### 부하 데이터는 `shop_load` 에 붓는다 — 지연 트리거는 커밋 전 `analyze` 가 있어야 끝난다
 
 `bash scripts/load-data.sh` 가 `shop` 을 틀로 복사한 `shop_load` 에 `load/data/load-100k.sql` 을 한 트랜잭션으로 붓는다(`70-0`, 약 140초).
-**지우기는 `--clean`(`drop database`) 하나다** — 주문은 지울 길이 없다(거래기록 5년). 걸리는 것 셋:
+**지우기는 `--clean`(`drop database`) 하나다** — 주문은 지울 길이 없다(거래기록 5년). 걸리는 것 넷:
 
 | 무엇 | 어떻게 |
 |---|---|
 | 틀 복사는 `shop` 에 연결이 있으면 실패한다 | `bootRun` 을 내린 뒤 붓는다. 스크립트가 연결 수를 먼저 센다 |
 | 재고 행이 아웃박스 사건을 낳는다(`sku_stock_records_initial`) | 트리거를 끄지 않고 붓고 나서 `outbox_event` 를 비운다 — 끄는 `session_replication_role` 은 제약도 끈다 |
+| **앱의 주기 작업이 데이터를 고쳐 쓴다** | 실제로는 있을 수 없는 행을 넣으면 앱이 띄워진 뒤 메운다 — 30분 넘은 결제 대기는 5분마다 만료(`OrderStatusBatch`), 환불 없는 닫힌 취소·반품 묶음은 5분마다 환불을 만든다(`RefundSweeper`). 부하를 재는 도중에 수천 건을 써서 회차마다 데이터가 갈렸다(2026-10-02 `70`). 생성기가 대기를 최근 10분에 두고 취소·반품 묶음마다 환불을 둔다 |
 | **금액 합·계약서면·재고 행 검사는 커밋 순간에 한꺼번에 돈다**(지연 제약 트리거) | 그때 질의는 **그 순간의 통계**로 계획을 세운다. 틀의 통계(행 몇 개)대로면 금액 합이 순차 스캔이라 한 번 18ms, 55만 번에 몇 시간이다(2026-10-02 실측 — 20분에 6만 번). **같은 트랜잭션 안의 `analyze`** 가 아직 커밋 안 된 자기 행을 세서 인덱스 계획이 된다. 임시 표도 autovacuum 이 안 세서 손으로 `analyze` 한다 |
 
 ### `pg_trgm` 은 3자 미만이면 인덱스를 안 탄다 — 한글 조각은 DB 의 `ctype` 이 정한다

@@ -9,7 +9,7 @@
 |---|---|
 | 기계 | Intel Core Ultra 7 155H · 32GB · Windows 11 · Docker Desktop(22 CPU, 15.4GB) |
 | DB | 컴포즈 `postgres:17-alpine`, `shop_load`(`70-0` — `bash scripts/load-data.sh`) |
-| 건수 | 주문 100,005 · 묶음 120,006 · 항목 200,007 · 상품 10,005 · SKU 30,008 · 결제 93,005 · 환불 1,000(배치 뒤 4,000) |
+| 건수 | 주문 100,005 · 묶음 120,006 · 항목 200,007 · 상품 10,005 · SKU 30,008 · 결제 93,005 · 환불 1,000 — 잴 때는 4,000 이었다. 앱의 환불 스위퍼가 「환불 없는 닫힌 반품 묶음」에 3,000 을 더 썼다. `70` 이 생성기를 고쳐 취소·반품 묶음마다 환불을 둔다 |
 | 앱 | `bootRun`(local) — `POSTGRES_DB=shop_load BATCH_MANUAL_RUN=true RATE_LIMIT_ENABLED=false` |
 | 배치 | `Q241` 입구로 `auto_confirm`·`settlement_close`(기준일 2026-09-30) → `daily_sales`(어제) |
 | 흐름 | 열여섯 요청을 세 번(`customer@`·`fashion-owner@`·`admin@example.com`) — 상품 목록 셋·상세, 내 주문 목록·상세, 셀러 주문 목록·상세, 관리자 주문 목록 셋, 정산 목록·상세, 환불 대기열·상세, 매출 통계(한 달). 48 요청 전부 200 |
