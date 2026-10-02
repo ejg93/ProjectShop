@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,6 +19,9 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import jakarta.validation.constraints.Size;
 
 
 /**
@@ -72,9 +77,7 @@ class ScreenLengthTest {
             "app/admin/orders/[orderNumber]/compensations.tsx  inquiryNumber",
                     "상한이 @Pattern 안에 있다 — `Q-` 와 날짜 8자리·하이픈·6자리라 17자다(`43a-4c`)",
             "app/seller/orders/[sellerOrderNumber]/ship-form.tsx  trackingNo",
-                    "상한이 @Pattern 안에 있다 — 숫자 14자리 사이마다 하이픈이 하나씩 끼면 27자다(`57`)",
-            "components/product-search-form.tsx  q",
-                    "요청 record 칸이 아니라 질의 파라미터다(`GET /api/products?q=`) — 상한 100 은 ProductApiTest 가 든다(`61`)"));
+                    "상한이 @Pattern 안에 있다 — 숫자 14자리 사이마다 하이픈이 하나씩 끼면 27자다(`57`)"));
 
     /**
      * <b>같은 이름의 요청 칸이 서로 다른 상한을 가진 자리.</b> 화면이 어느 쪽으로 보내는지를
@@ -162,8 +165,30 @@ class ScreenLengthTest {
                     limits.computeIfAbsent(component.getName(), key -> new ArrayList<>()).add(max);
                 }
             }
+            queryParameterLimits(controller, limits);
         }
         return limits;
+    }
+
+    /**
+     * 질의 파라미터의 상한. {@code @RequestParam @Size} 를 같은 이름 규칙으로 잇는다(마무리 56차 독립 리뷰).
+     *
+     * <p>record 칸만 보던 때는 검색창 {@code q}(`61b`)가 짝 없는 칸으로 빠져서, 화면 쪽 100 을 바꿔도 아무것도
+     * 안 빨갰다 — 「둘을 같이 고친다」는 주석만 남았다. 이름은 {@code @RequestParam} 의 {@code name} 이고 없으면 파라미터 이름이다.
+     */
+    private static void queryParameterLimits(Class<?> controller, Map<String, List<Integer>> limits) {
+        for (Method method : controller.getDeclaredMethods()) {
+            for (Parameter parameter : method.getParameters()) {
+                RequestParam param = parameter.getAnnotation(RequestParam.class);
+                Size size = parameter.getAnnotation(Size.class);
+                if (param == null || size == null) {
+                    continue;
+                }
+                String name = !param.name().isEmpty() ? param.name()
+                        : !param.value().isEmpty() ? param.value() : parameter.getName();
+                limits.computeIfAbsent(name, key -> new ArrayList<>()).add(size.max());
+            }
+        }
     }
 
     /** 컨트롤러는 {@code main} 에 산다 — 이 테스트가 놓인 자리를 훑으면 하나도 안 나온다 */

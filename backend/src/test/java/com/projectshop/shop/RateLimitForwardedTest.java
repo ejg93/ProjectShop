@@ -20,7 +20,8 @@ import org.springframework.test.context.TestPropertySource;
  * 풀어 {@code getRemoteAddr()} 를 손님 주소로 바꾸고, {@code RateLimitFilter} 가 그 주소로 센다.
  *
  * <p><b>{@code X-Forwarded-For} 는 안 본다</b>(`Q242`). 손님이 써 보낼 수 있고 Next rewrite 가 그대로 넘긴다 —
- * 그 헤더로 세면 요청마다 주소를 바꿔 로그인 요청 제한을 비켜 가고 {@code acted_ip} 에 지어낸 주소가 남는다.
+ * 그 헤더로 세면 앞단이 손님 값을 그대로 넘기는 날 요청마다 주소를 바꿔 로그인 요청 제한을 비켜 가고
+ * {@code acted_ip} 에 지어낸 주소가 남는다. 이 시험은 백엔드가 어느 헤더를 고르는지만 잰다 — 앞단이 그 헤더를 덮는지는 운영에서 잰다.
  *
  * <p><b>실제 HTTP 여야 한다.</b> 밸브는 Tomcat 이 하는 일이라 MockMvc 에서는 이 헤더가 아무 일도 안 한다.
  *

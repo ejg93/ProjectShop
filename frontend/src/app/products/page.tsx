@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { Pager, pageNumberOf } from "@/components/pager";
-import { ProductSearchForm } from "@/components/product-search-form";
+import { ProductSearchForm, SEARCH_TERM_MAX_LENGTH } from "@/components/product-search-form";
 import { apiPublic } from "@/lib/api-session";
 import { priceText } from "@/lib/format";
 
@@ -107,11 +107,11 @@ export default async function ProductsPage({
  * 주소에서 온 검색어. <b>믿지 않는다</b> — 앞뒤 공백을 떼고, 비면 없는 것으로 보고, 100자에서 자른다.
  *
  * <p>서버는 101자를 400 으로 막는다(`61`). 사람이 주소를 직접 고쳐 길게 넣어도 목록이 오류 화면이 되지 않게
- * 여기서 서버 상한에 맞춘다. 같은 이름이 둘이면 앞의 것을 쓴다.
+ * 검색창과 같은 상한에서 자른다. 같은 이름이 둘이면 앞의 것을 쓴다.
  */
 function searchTermOf(raw: string | string[] | undefined): string | undefined {
   const first = Array.isArray(raw) ? raw[0] : raw;
-  const trimmed = first?.trim().slice(0, 100);
+  const trimmed = first?.trim().slice(0, SEARCH_TERM_MAX_LENGTH);
   return trimmed ? trimmed : undefined;
 }
 

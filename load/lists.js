@@ -1,4 +1,4 @@
-// 목록 입구 여섯의 p95(`70`). `scripts/load-test.sh` 가 컴포즈의 k6 로 세 번 부르고 중앙값을 기준선과 견준다.
+// 목록 입구 여섯의 p95(`70`) — 상품·검색·내 주문·셀러 주문·관리자 주문·환불 대기열. `scripts/load-test.sh` 가 컴포즈의 k6 로 세 번 부르고 중앙값을 기준선과 견준다.
 //
 // 키 이름이 `load/baseline.json` 과 `performance-goals.md` 「기준선」 표의 키다 — 셋이 같은 이름을 쓴다.
 // **세션은 setup 에서 한 번 만든다.** k6 의 쿠키 통은 VU 하나에 하나라 세 역할을 같이 못 든다 —
@@ -17,7 +17,9 @@ const ENDPOINTS = [
   ["my_orders", "/api/orders?size=20", "customer"],
   ["seller_orders", "/api/seller/orders?size=20", "seller"],
   ["admin_orders", "/api/admin/orders?size=20", "admin"],
-  ["settlements", "/api/settlements?size=20", "admin"],
+  // 정산서 목록이 아니라 환불 대기열이다 — 부은 DB 에는 정산이 없어 정산서 목록은 빈 목록을 재고,
+  // 질의 모양이 나빠져도 문턱이 안 걸린다(마무리 56차 독립 리뷰). 환불은 8,000 건이다.
+  ["refunds", "/api/refunds?size=20", "admin"],
 ];
 
 const ACCOUNTS = {

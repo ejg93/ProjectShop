@@ -383,8 +383,9 @@ Spring 은 그러라고 `CredentialsContainer` 를 두고 `ProviderManager` 가 
 프록시가 없으면 아무나 헤더 한 줄로 자기 IP 를 속일 수 있다.
 `native` 는 바로 앞 상대가 신뢰 대역(사설·루프백)일 때만 헤더를 본다.
 
-**읽는 헤더는 `X-Real-IP` 다**(`Q242`). 앞단(Railway)이 손님 주소로 적는 것이 그 헤더고, `X-Forwarded-For` 는
-손님이 써 보낼 수 있는데 Next rewrite 가 그대로 넘긴다 — 그것을 보면 믿는 프록시를 거쳐도 손님이 쓴 주소가 남는다.
+**읽는 헤더는 `X-Real-IP` 다**(`Q242`). 앞단(Railway)이 손님 주소로 적는다고 문서에 적힌 것이 그 헤더다. `X-Forwarded-For` 는
+손님이 써 보낼 수 있는데 Next rewrite 가 그대로 넘긴다 — 그것을 믿으면 앞단이 그 헤더를 어떻게 다루느냐(문서에 없다)에 기댄다.
+2026-10-02 측정에서는 앞단이 손님 값대로 안 넘겨 안 속았다(`stack.md`). 바꾼 뒤 `X-Real-IP` 를 앞단이 덮는지도 운영에서 잰다.
 `RateLimitForwardedTest` 가 둘을 같이 보내 `X-Real-IP` 가 이기는지 잰다.
 
 안 켜면 `getRemoteAddr()` 이 프록시 IP 를 준다. `user_consent.acted_ip` 는 동의 입증용이라

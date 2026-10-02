@@ -140,7 +140,8 @@ server:
     remoteip:
       # 손님 주소를 읽는 헤더. **X-Forwarded-For 가 아니라 X-Real-IP 다**(`Q242`).
       # 앞단(Railway)이 손님 주소로 적는 것이 X-Real-IP 이고(`stack.md`), X-Forwarded-For 는 손님이 써 보낼 수 있는데
-      # Next rewrite 가 그것을 그대로 넘긴다 — 그 헤더를 보면 브라우저 길의 요청 제한과 acted_ip 가 손님이 쓴 값에 속는다.
+      # Next rewrite 가 그것을 그대로 넘긴다 — 그 헤더를 믿으면 요청 제한과 acted_ip 가 앞단이 그 헤더를 어떻게 다루느냐에
+      # 기댄다(문서에 없는 동작이다. 2026-10-02 측정에서는 앞단이 손님 값대로 안 넘겨 안 속았다).
       # 헤더를 싣는 자리는 둘이다 — rewrite(브라우저 요청)는 앞단이 실은 X-Real-IP 를 그대로 넘기고,
       # 서버 렌더의 두 입구는 들어온 X-Real-IP 를 같은 이름으로 옮긴다(`api-session.ts`, `Q240`).
       remote-ip-header: x-real-ip
