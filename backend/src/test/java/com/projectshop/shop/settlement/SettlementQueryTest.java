@@ -195,6 +195,52 @@ class SettlementQueryTest extends PostgresTestBase {
                     .hasMessageContaining("그런 정산서가 없다");
         }
 
+        /**
+         * 줄 목록이 정렬 인덱스({@code V127})로 앞 쪽만 읽는다. 묶음 5,000 의 배송비 줄을 깔고 통계를 모은다 —
+         * 금액 트리거는 지연이라 롤백되는 시험 트랜잭션에서는 안 돈다. 인덱스에서 정렬 키가 빠지면 그 정산의 줄을
+         * 다 읽어 정렬하므로 정렬 노드가 서서 빨갛다(마무리 57차 PR 리뷰 — `V124`·`V125` 와 같은 강제 지점).
+         */
+        @Test
+        @DisplayName("줄 목록은 정렬 없이 줄 인덱스로 앞 쪽만 읽는다")
+        void linesReadIndexInOrder() {
+            closeWith(sellerId);
+            long settlementId = jdbc.sql("select settlement_id from settlement where settlement_number = :number")
+                    .param("number", numberOf("s-mine"))
+                    .query(Long.class)
+                    .single();
+            jdbc.sql("""
+                            with o as (
+                                insert into shop_order (order_number, user_id, status)
+                                select '20260102-' || translate(lpad(n::text, 6, '0'), '0123456789', 'ABCDEFGHJK'),
+                                       :buyer, 'paid'
+                                  from generate_series(1, 5000) as n
+                                returning order_id, order_number
+                            ), so as (
+                                insert into seller_order (seller_order_number, order_id, seller_id, status)
+                                select 'S-' || order_number, order_id, :seller, 'delivered' from o
+                                returning seller_order_id
+                            )
+                            insert into settlement_item (settlement_id, kind, amount, seller_order_id)
+                            select :settlementId, 'shipping_fee', 3000, seller_order_id from so
+                            """)
+                    .param("buyer", buyerId).param("seller", sellerId).param("settlementId", settlementId)
+                    .update();
+            jdbc.sql("analyze settlement_item, seller_order, shop_order").update();
+
+            String plan = String.join("\n", jdbc.sql("explain " + SettlementQuery.LINES_SQL)
+                    .param("settlementId", settlementId)
+                    .param("size", 50)
+                    .param("offset", 0L)
+                    .query(String.class)
+                    .list());
+
+            assertThat(plan)
+                    .as("실행 계획:%n%s", plan)
+                    .contains("settlement_item_settlement_idx")
+                    .doesNotContain("Seq Scan on settlement_item")
+                    .doesNotContain("Sort");
+        }
+
         @Test
         @DisplayName("수수료 줄이 요율과 기준 금액을 들고 있다")
         void showsTheCommissionRateAndBase() {

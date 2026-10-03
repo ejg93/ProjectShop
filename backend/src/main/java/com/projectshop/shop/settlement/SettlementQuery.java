@@ -203,26 +203,32 @@ public class SettlementQuery {
      * <p>배송비 줄은 상품이 없고, 이월 줄은 주문도 상품도 없다 — 그 칸이 비는 것이
      * 종류에서 이미 정해져 있다(`V52` 의 {@code settlement_item_source_check}).
      */
+    /**
+     * 줄 한 쪽. 바인딩은 {@code :settlementId}·{@code :size}·{@code :offset} 이다.
+     * <b>정렬 인덱스({@code V127})로 앞 쪽만 읽는다</b> — 시험이 같은 문장의 실행 계획을 본다({@code SettlementQueryTest}).
+     */
+    static final String LINES_SQL = """
+            select i.kind, i.supplier, i.amount,
+                   i.commission_bp, i.commission_base_amount,
+                   coalesce(so.seller_order_number, rso.seller_order_number,
+                            sso.seller_order_number) as seller_order_number,
+                   coalesce(oi.product_name, roi.product_name) as product_name
+              from settlement_item i
+              left join order_item oi on oi.order_item_id = i.order_item_id
+              left join seller_order so on so.seller_order_id = oi.seller_order_id
+              left join refund_item ri on ri.refund_item_id = i.refund_item_id
+              left join order_item roi on roi.order_item_id = ri.order_item_id
+              left join seller_order rso on rso.seller_order_id = roi.seller_order_id
+              left join seller_order sso on sso.seller_order_id = i.seller_order_id
+             where i.settlement_id = :settlementId
+             order by i.kind, i.settlement_item_id
+             limit :size offset :offset
+            """;
+
     public LinePage findLines(long viewerId, String settlementNumber, Paging paging) {
         Head head = headOf(viewerId, settlementNumber);
 
-        List<Line> items = jdbc.sql("""
-                        select i.kind, i.supplier, i.amount,
-                               i.commission_bp, i.commission_base_amount,
-                               coalesce(so.seller_order_number, rso.seller_order_number,
-                                        sso.seller_order_number) as seller_order_number,
-                               coalesce(oi.product_name, roi.product_name) as product_name
-                          from settlement_item i
-                          left join order_item oi on oi.order_item_id = i.order_item_id
-                          left join seller_order so on so.seller_order_id = oi.seller_order_id
-                          left join refund_item ri on ri.refund_item_id = i.refund_item_id
-                          left join order_item roi on roi.order_item_id = ri.order_item_id
-                          left join seller_order rso on rso.seller_order_id = roi.seller_order_id
-                          left join seller_order sso on sso.seller_order_id = i.seller_order_id
-                         where i.settlement_id = :settlementId
-                         order by i.kind, i.settlement_item_id
-                         limit :size offset :offset
-                        """)
+        List<Line> items = jdbc.sql(LINES_SQL)
                 .param("settlementId", head.settlementId())
                 .param("size", paging.size())
                 .param("offset", paging.offset())
