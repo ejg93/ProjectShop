@@ -48,7 +48,7 @@ describe("지급 버튼", () => {
     vi.spyOn(window, "confirm").mockReturnValue(false);
 
     render(
-      <PayoutActions settlementNumber="ST-1" actions={payoutActionsFor(["PAYOUT", "PAYOUT_REJECTION"])} />,
+      <PayoutActions settlementNumber="ST-1" allowed={["PAYOUT", "PAYOUT_REJECTION"]} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "지급 승인" }));
 
@@ -61,7 +61,7 @@ describe("지급 버튼", () => {
   });
 
   it("결과를 알리는 자리가 소리로도 전해진다", () => {
-    render(<PayoutActions settlementNumber="ST-1" actions={payoutActionsFor(["PAYOUT_REQUEST"])} />);
+    render(<PayoutActions settlementNumber="ST-1" allowed={["PAYOUT_REQUEST"]} />);
 
     // 동적으로 바뀌는 것은 역할이 있어야 스크린 리더가 읽는다(`D20`).
     expect(screen.getByRole("status")).toBeInTheDocument();

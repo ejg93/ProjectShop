@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -143,16 +144,101 @@ class SettlementQueryTest extends PostgresTestBase {
     @DisplayName("상세는")
     class Details {
 
+        /**
+         * 상세는 줄을 안 품고 종류별 합계만 낸다(`Q244`). 종류는 응답 열거값(대문자)이다 —
+         * 응답 열거값 훑기({@code ResponseEnumCaseTest})는 정산 입구를 안 지나서 여기서 직접 본다.
+         */
         @Test
-        @DisplayName("줄마다 근거를 내린다")
-        void carriesTheBasisOnEveryLine() {
+        @DisplayName("종류별 합계를 대문자 종류로 낸다")
+        void carriesTotalsPerKind() {
             closeWith(sellerId);
 
             SettlementQuery.Detail detail = query.findOne(ownerId, numberOf("s-mine"));
 
-            assertThat(detail.lines()).hasSize(3);
-            assertThat(detail.summary().payoutAmount())
+            assertThat(detail.totals())
+                    .containsExactly(
+                            new SettlementQuery.KindTotal("COMMISSION", 1, -COMMISSION),
+                            new SettlementQuery.KindTotal("SALE", 1, PRICE),
+                            new SettlementQuery.KindTotal("SHIPPING_FEE", 1, SHIPPING_FEE));
+            assertThat(detail.totals().stream().mapToLong(SettlementQuery.KindTotal::amount).sum())
+                    .as("합계의 합이 지급액이다 — 줄 쪽을 다 안 넘겨도 대사가 된다")
+                    .isEqualTo(detail.summary().payoutAmount())
                     .isEqualTo(PRICE - COMMISSION + SHIPPING_FEE);
+        }
+
+        @Test
+        @DisplayName("줄은 쪽으로 넘긴다")
+        void pagesTheLines() {
+            closeWith(sellerId);
+            String number = numberOf("s-mine");
+
+            SettlementQuery.LinePage first = query.findLines(ownerId, number, new Paging(0, 2));
+            SettlementQuery.LinePage second = query.findLines(ownerId, number, new Paging(1, 2));
+
+            assertThat(first.items()).hasSize(2);
+            assertThat(first.total()).isEqualTo(3);
+            assertThat(second.items()).singleElement()
+                    .extracting(SettlementQuery.Line::kind)
+                    .as("종류·번호 순이라 마지막 쪽은 배송비 줄이다")
+                    .isEqualTo("SHIPPING_FEE");
+        }
+
+        @Test
+        @DisplayName("남의 정산서 줄도 없는 것으로 답한다")
+        void answersNotFoundForAnotherSellersLines() {
+            closeWith(sellerId, otherSellerId);
+            String others = numberOf("s-other");
+
+            assertThatThrownBy(() -> query.findLines(ownerId, others, new Paging(0, 20)))
+                    .as("상세와 줄 목록의 답이 갈리면 번호로 실재를 셀 수 있다")
+                    .isInstanceOf(ShopException.class)
+                    .hasMessageContaining("그런 정산서가 없다");
+        }
+
+        /**
+         * 줄 목록이 정렬 인덱스({@code V127})로 앞 쪽만 읽는다. 묶음 5,000 의 배송비 줄을 깔고 통계를 모은다 —
+         * 금액 트리거는 지연이라 롤백되는 시험 트랜잭션에서는 안 돈다. 인덱스에서 정렬 키가 빠지면 그 정산의 줄을
+         * 다 읽어 정렬하므로 정렬 노드가 서서 빨갛다(마무리 57차 PR 리뷰 — `V124`·`V125` 와 같은 강제 지점).
+         */
+        @Test
+        @DisplayName("줄 목록은 정렬 없이 줄 인덱스로 앞 쪽만 읽는다")
+        void linesReadIndexInOrder() {
+            closeWith(sellerId);
+            long settlementId = jdbc.sql("select settlement_id from settlement where settlement_number = :number")
+                    .param("number", numberOf("s-mine"))
+                    .query(Long.class)
+                    .single();
+            jdbc.sql("""
+                            with o as (
+                                insert into shop_order (order_number, user_id, status)
+                                select '20260102-' || translate(lpad(n::text, 6, '0'), '0123456789', 'ABCDEFGHJK'),
+                                       :buyer, 'paid'
+                                  from generate_series(1, 5000) as n
+                                returning order_id, order_number
+                            ), so as (
+                                insert into seller_order (seller_order_number, order_id, seller_id, status)
+                                select 'S-' || order_number, order_id, :seller, 'delivered' from o
+                                returning seller_order_id
+                            )
+                            insert into settlement_item (settlement_id, kind, amount, seller_order_id)
+                            select :settlementId, 'shipping_fee', 3000, seller_order_id from so
+                            """)
+                    .param("buyer", buyerId).param("seller", sellerId).param("settlementId", settlementId)
+                    .update();
+            jdbc.sql("analyze settlement_item, seller_order, shop_order").update();
+
+            String plan = String.join("\n", jdbc.sql("explain " + SettlementQuery.LINES_SQL)
+                    .param("settlementId", settlementId)
+                    .param("size", 50)
+                    .param("offset", 0L)
+                    .query(String.class)
+                    .list());
+
+            assertThat(plan)
+                    .as("실행 계획:%n%s", plan)
+                    .contains("settlement_item_settlement_idx")
+                    .doesNotContain("Seq Scan on settlement_item")
+                    .doesNotContain("Sort");
         }
 
         @Test
@@ -160,7 +246,7 @@ class SettlementQueryTest extends PostgresTestBase {
         void showsTheCommissionRateAndBase() {
             closeWith(sellerId);
 
-            SettlementQuery.Line commission = query.findOne(ownerId, numberOf("s-mine")).lines()
+            SettlementQuery.Line commission = linesOf("s-mine")
                     .stream()
                     .filter(line -> "COMMISSION".equals(line.kind()))
                     .findFirst()
@@ -179,13 +265,13 @@ class SettlementQueryTest extends PostgresTestBase {
         void splitsTheSupplierByKind() {
             closeWith(sellerId);
 
-            assertThat(query.findOne(ownerId, numberOf("s-mine")).lines())
+            assertThat(linesOf("s-mine"))
                     .filteredOn(line -> "SALE".equals(line.kind()))
                     .singleElement()
                     .extracting(SettlementQuery.Line::supplier)
                     .isEqualTo("SELLER");
 
-            assertThat(query.findOne(ownerId, numberOf("s-mine")).lines())
+            assertThat(linesOf("s-mine"))
                     .filteredOn(line -> "COMMISSION".equals(line.kind()))
                     .singleElement()
                     .extracting(SettlementQuery.Line::supplier)
@@ -197,7 +283,7 @@ class SettlementQueryTest extends PostgresTestBase {
         void leavesTheProductEmptyOnShipping() {
             closeWith(sellerId);
 
-            assertThat(query.findOne(ownerId, numberOf("s-mine")).lines())
+            assertThat(linesOf("s-mine"))
                     .filteredOn(line -> "SHIPPING_FEE".equals(line.kind()))
                     .singleElement()
                     .satisfies(line -> {
@@ -223,6 +309,11 @@ class SettlementQueryTest extends PostgresTestBase {
                 .update();
 
         batch.close(PERIOD_END);
+    }
+
+    /** 그 셀러 정산서의 줄 첫 쪽 */
+    private List<SettlementQuery.Line> linesOf(String sellerCode) {
+        return query.findLines(ownerId, numberOf(sellerCode), new Paging(0, 50)).items();
     }
 
     private String numberOf(String sellerCode) {

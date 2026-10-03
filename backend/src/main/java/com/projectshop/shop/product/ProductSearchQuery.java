@@ -56,7 +56,7 @@ public class ProductSearchQuery {
         String raw = q.strip();
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
-        List<PublicItem> items = jdbc.sql(listSql(orderBy))
+        List<PublicItem> items = jdbc.sql(listSql(sellerId, orderBy))
                 .param("sellerId", sellerId)
                 .param("pattern", escapeLike(raw))
                 .param("raw", raw)
@@ -65,7 +65,8 @@ public class ProductSearchQuery {
                 .query((rs, rowNum) -> products.publicItem(rs))
                 .list();
 
-        Long total = jdbc.sql("select count(*) from product p" + ProductQuery.PUBLIC_WHERE + MATCHES)
+        Long total = jdbc.sql("select count(*) from product p" + ProductQuery.PUBLIC_WHERE
+                        + ProductQuery.bySeller(sellerId) + MATCHES)
                 .param("sellerId", sellerId)
                 .param("pattern", escapeLike(raw))
                 .query(Long.class)
@@ -78,8 +79,8 @@ public class ProductSearchQuery {
      * 목록 SQL 전체. 바인딩은 {@code :sellerId}·{@code :pattern}·{@code :raw}·{@code :size}·{@code :offset} 이다.
      * 시험이 같은 문장의 실행 계획을 본다({@code ProductSearchQueryTest}).
      */
-    static String listSql(OrderBy orderBy) {
-        return ProductQuery.PUBLIC_SELECT + ProductQuery.PUBLIC_WHERE + MATCHES + ProductQuery.PUBLIC_GROUP_BY
+    static String listSql(Long sellerId, OrderBy orderBy) {
+        return ProductQuery.PUBLIC_SELECT + ProductQuery.PUBLIC_WHERE + ProductQuery.bySeller(sellerId) + MATCHES
                 + " order by " + orderBy.clause() + ", p.product_id desc"
                 + " limit :size offset :offset";
     }

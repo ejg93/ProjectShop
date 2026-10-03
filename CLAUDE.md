@@ -341,7 +341,7 @@
 | 층 | 언제 | 무엇 |
 |---|---|---|
 | 청크 | 커밋 앞 | `bash scripts/verify.sh` — 빠른 레인. 새 `V*` 면 `integrationTest` 까지, 같은 지문은 건너뛴다(`Q216`). Stop hook·commit hook 이 이 도장을 본다 |
-| 번들 끝 | `/wrapup` | `--full` · 새 `V*` 가 있었으면 빈 DB 기동(`/verify` 손 줄) · 화면이 있었으면 e2e · 독립 리뷰 · PR. push hook 이 full 도장을 본다 |
+| 번들 끝 | `/wrapup` | `--full` · 새 `V*` 가 있었으면 빈 DB 기동(`/verify` 손 줄) · 화면이 있었으면 e2e · 목록 질의·인덱스를 건드렸으면 부하 대조(`/verify` 손 줄, `Q247`) · 독립 리뷰 · PR. push hook 이 full 도장을 본다 |
 | push 뒤 | CI·머지 | CI 가 빨가면 다음 청크보다 먼저 친다. 머지 뒤 `bash scripts/deploy-check.sh`(`Q205`) |
 
 **푸시했으면 CI** — 그 스킬 「CI」. **빨가면 다음 청크보다 먼저 친다.**

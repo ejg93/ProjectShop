@@ -70,7 +70,7 @@ public class OrderController {
      *        가르면 번호를 두드려 남이 무슨 쿠폰을 받았는지 알아낼 수 있다(`D14`)
      */
     public record CreateRequest(
-            @NotEmpty @Size(max = 100) List<Long> cartItemIds,
+            @NotEmpty @Size(max = 100, message = "{max}개까지 넣을 수 있습니다") List<Long> cartItemIds,
             @NotNull @Valid ShippingRequest shipping,
             Boolean withdrawalRestrictionAgreed,
             Long couponIssueId) {

@@ -53,7 +53,7 @@ class QueryBudgetTest extends PostgresTestBase {
     /** 잰 목록의 이름. 아래 {@link #OVER_BUDGET} 의 죽은 줄을 이것으로 가린다 */
     private static final List<String> LISTS = List.of(
             "내 주문 목록", "관리자 주문 목록", "셀러 주문 목록", "상품 공개 목록", "상품 검색 목록", "상품 후기 목록", "환불 대기열",
-            "정산서 목록", "문의 전체 목록", "셀러 문의 목록");
+            "정산서 목록", "정산서 줄 목록", "문의 전체 목록", "셀러 문의 목록");
 
     /**
      * {@link #BUDGET} 을 넘는 목록과 그 근거. <b>근거 없이 이름만 넣지 않는다</b> — 근거 칸이 없으면 이 목록이 예산을 넘겼을 때
@@ -207,6 +207,14 @@ class QueryBudgetTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("정산서 줄 목록")
+    void settlementLines() {
+        String number = insertSettlement(sellers[0], 1);
+        insertSaleLines(number, 3);
+        listStaysFlat("정산서 줄 목록", size -> settlements.findLines(owner, number, new Paging(0, size)).items());
+    }
+
+    @Test
     @DisplayName("문의 전체 목록")
     void allInquiries() {
         insertInquiries(3);
@@ -236,7 +244,10 @@ class QueryBudgetTest extends PostgresTestBase {
         assertThat(thirty).as("하루에서 %d, 서른 날에서 %d", one, thirty).isEqualTo(one);
     }
 
-    /** 정산서 하나가 줄마다 질의하면 그것이 곧 N+1 이다 — 줄 수에 비례해도 된다는 면제를 안 준다(`Q204b` 설계) */
+    /**
+     * 정산서 하나가 줄마다 질의하면 그것이 곧 N+1 이다 — 줄 수에 비례해도 된다는 면제를 안 준다(`Q204b` 설계).
+     * 상세는 줄 대신 종류별 합계를 낸다(`Q244`) — 합계도 줄 수와 상관없이 한 문장이어야 한다.
+     */
     @Test
     @DisplayName("정산서 상세 — 줄 하나와 셋에서 문장 수가 같다")
     void settlementDetailIsFlatInLines() {
@@ -249,7 +260,10 @@ class QueryBudgetTest extends PostgresTestBase {
         int one = QueryCounter.count(() -> settlements.findOne(owner, single));
         int three = QueryCounter.count(() -> settlements.findOne(owner, triple));
 
-        assertThat(settlements.findOne(owner, triple).lines()).hasSize(3);
+        assertThat(settlements.findOne(owner, triple).totals())
+                .singleElement()
+                .extracting(SettlementQuery.KindTotal::lineCount)
+                .isEqualTo(3L);
         assertThat(three).as("줄 1 에서 %d, 3 에서 %d", one, three).isEqualTo(one);
     }
 

@@ -266,6 +266,33 @@ class OrderQueryTest extends PostgresTestBase {
             assertThat(history)
                     .isSortedAccordingTo(
                             java.util.Comparator.comparing(OrderQuery.HistoryEntry::occurredAt));
+            assertThat(history)
+                    .as("배송 층 줄에만 셀러 이름이 붙는다")
+                    .filteredOn(entry -> "SHIPPING".equals(entry.toStatus()))
+                    .extracting(OrderQuery.HistoryEntry::sellerName)
+                    .containsOnly("조회셀러");
+        }
+
+        /**
+         * 이력 질의가 갈래마다 인덱스를 탄다(`Q243c`). 조인 너머의 {@code or} 로 돌아가면 묶음 표를 통째로 읽어서 빨갛다.
+         *
+         * <p>순차 스캔을 끄고 본다 — 시험 표가 몇 줄뿐이라 그냥 두면 플래너가 순차 스캔을 고르고 그건 정답이다.
+         * 끄면 조건을 받는 인덱스가 있을 때만 그것을 쓴다.
+         */
+        @Test
+        @DisplayName("이력 질의는 두 갈래가 다 주문 번호로 인덱스를 탄다")
+        void historyUsesIndexOnBothBranches() {
+            jdbc.sql("set local enable_seqscan = off").update();
+
+            String plan = String.join("\n", jdbc.sql("explain " + OrderQuery.HISTORY_SQL)
+                    .param("orderId", orderId)
+                    .query(String.class)
+                    .list());
+
+            assertThat(plan)
+                    .as("결제 층은 이력 표의 order_id 로, 배송 층은 묶음 표의 order_id 로 걸러야 한다:%n%s", plan)
+                    .containsPattern("(?s)Index Cond: \\(order_id = .*Index Cond: \\(order_id = ")
+                    .doesNotContain("Seq Scan on seller_order");
         }
 
         @Test

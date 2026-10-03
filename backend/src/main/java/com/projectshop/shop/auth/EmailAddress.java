@@ -37,7 +37,7 @@ import jakarta.validation.constraints.Size;
 @Retention(RUNTIME)
 public @interface EmailAddress {
 
-    String message() default "이메일 주소 형식이 아니거나 너무 길다";
+    String message() default "이메일 주소 형식이 아니거나 너무 깁니다";
 
     Class<?>[] groups() default {};
 

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PayoutActions, payoutActionsFor } from "@/components/payout-actions";
+import { Pager, pageNumberOf } from "@/components/pager";
+import { PayoutActions } from "@/components/payout-actions";
 import { ApiError } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
 import { dateText, dateTimeText, priceText } from "@/lib/format";
@@ -43,39 +44,63 @@ type SettlementLine = {
   productName: string | null;
 };
 
+/** 종류 하나의 줄 수와 금액 합. {@code kind} 는 줄의 {@code kind} 와 같은 값이다 */
+type SettlementKindTotal = {
+  kind: string;
+  lineCount: number;
+  amount: number;
+};
+
 type SettlementDetail = {
   summary: SettlementSummary;
-  lines: SettlementLine[];
+  /** 종류별 합계. 줄은 여기 없다 — 줄 목록 입구가 쪽으로 준다(`Q244`) */
+  totals: SettlementKindTotal[];
   /** 서버가 권한·상태·요청자를 다 보고 준 이름 목록(`Q81`) */
   allowedActions: string[];
 };
 
+type SettlementLinePage = {
+  items: SettlementLine[];
+  page: number;
+  size: number;
+  total: number;
+};
+
+/** 줄 한 쪽의 크기. 한 장의 줄이 수만일 수 있다(`Q244`) */
+const LINE_PAGE_SIZE = 50;
+
 /**
  * 정산서 하나(`20-1`).
  *
- * <p><b>여기서 답하는 물음은 「이 금액이 어디서 나왔나」다.</b> 그래서 줄이 전부 있다 —
- * 목록에는 합계만 있고, 합계만 보고 이의를 제기할 수는 없다.
+ * <p><b>여기서 답하는 물음은 「이 금액이 어디서 나왔나」다.</b> 종류별 합계로 지급액을 맞춰 보고,
+ * 줄로 하나하나를 되짚는다 — 합계만 보고 이의를 제기할 수는 없다. <b>줄은 쪽으로 넘긴다</b>(`Q244`) —
+ * 한 장의 줄이 3.5만일 수 있어서 서버가 상세에 줄을 안 싣고 줄 목록 입구로 뗐다.
  *
  * <p><b>지급 버튼을 권한 목록으로 그린다</b>(`8a` 가 그 자리를 열었다). 판정이 내려준 목록에
  * 그 동작이 없으면 <b>버튼을 안 그린다</b> — 그려 놓고 감추는 방식은 안 쓴다(`59` 와 같은 판단).
  * 그래서 셀러가 이 화면을 열면 금액과 근거만 있고, 지급은 관리자만 올리고 승인한다(`V57`).
  *
- * <p><b>권한을 따로 묻는다.</b> 정산 응답에는 {@code allowed_actions} 칸이 없고
- * (청크 20·21 이 안 만들었다) 이 청크는 API 를 안 건드린다. 대신 머리가 이미 부르는
- * {@code /api/me/permissions} 를 같이 부른다 — 상세와 나란히 나가므로 왕복이 안 는다.
+ * <p><b>권한을 따로 안 묻는다.</b> 서버가 권한·상태·요청자를 다 보고 {@code allowed_actions} 로 준다(`Q81`, `D20`).
  */
 export default async function SettlementDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ settlementNumber: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { settlementNumber } = await params;
+  const page = pageNumberOf((await searchParams).page);
+  const path = `/api/settlements/${encodeURIComponent(settlementNumber)}`;
 
-  const detail = await findSettlement(settlementNumber);
+  // 둘이 나란히 나간다. 못 보는 정산서는 둘 다 같은 404 다.
+  const [detail, lines] = await Promise.all([
+    orNotFound(apiSession<SettlementDetail>(path)),
+    orNotFound(apiSession<SettlementLinePage>(`${path}/lines?page=${page}&size=${LINE_PAGE_SIZE}`)),
+  ]);
 
-  const { summary, lines, allowedActions } = detail;
-  // 권한을 따로 안 묻는다 — 서버가 권한·상태·요청자를 다 보고 이름으로 준다(`Q81`, `D20`).
-  const actions = payoutActionsFor(allowedActions);
+  const { summary, totals, allowedActions } = detail;
+  const lastPage = Math.max(0, Math.ceil(lines.total / lines.size) - 1);
 
   return (
     <>
@@ -110,12 +135,65 @@ export default async function SettlementDetailPage({
         />
       </Section>
 
-      <Section title="계산 근거">
-        {lines.length > 0 ? <LineTable lines={lines} /> : <p className="text-sm text-text-muted">계산에 들어간 항목이 없습니다.</p>}
+      <Section title="종류별 합계">
+        {totals.length > 0 ? <TotalTable totals={totals} /> : <p className="text-sm text-text-muted">계산에 들어간 항목이 없습니다.</p>}
       </Section>
 
-      <PayoutActions settlementNumber={summary.settlementNumber} actions={actions} />
+      <Section title="계산 근거">
+        {lines.items.length > 0 ? <LineTable lines={lines.items} /> : <p className="text-sm text-text-muted">이 쪽에는 항목이 없습니다.</p>}
+        {lines.total > 0 ? (
+          <Pager
+            page={lines.page}
+            lastPage={lastPage}
+            total={lines.total}
+            basePath={`/seller/settlements/${encodeURIComponent(summary.settlementNumber)}`}
+            label="정산 항목"
+            unit="줄"
+          />
+        ) : null}
+      </Section>
+
+      <PayoutActions settlementNumber={summary.settlementNumber} allowed={allowedActions} />
     </>
+  );
+}
+
+/**
+ * 종류별 줄 수와 금액. 합의 합이 지급액이라 줄을 다 넘기지 않아도 대사가 된다.
+ *
+ * <p><b>차감 종류를 색으로만 알리지 않는다</b>(`D20`·WCAG 1.4.1). 금액 앞의 부호가 그 사실을 말한다.
+ */
+function TotalTable({ totals }: { totals: SettlementKindTotal[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[24rem] border-collapse text-sm">
+        <caption className="sr-only">종류별 합계. 종류, 줄 수, 금액 순</caption>
+        <thead>
+          <tr className="border-b border-border text-left text-xs text-text-muted">
+            <th scope="col" className="py-2 pr-3 font-normal">
+              종류
+            </th>
+            <th scope="col" className="py-2 pr-3 text-right font-normal">
+              줄 수
+            </th>
+            <th scope="col" className="py-2 pr-3 text-right font-normal">
+              금액
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {totals.map((total) => (
+            <tr key={total.kind} className="border-b border-border">
+              <td className="py-2 pr-3">{settlementItemKindText(total.kind)}</td>
+              <td className="py-2 pr-3 text-right font-mono">{total.lineCount.toLocaleString("ko-KR")}</td>
+              <td className="py-2 pr-3 text-right">
+                <span className="font-mono">{priceText(total.amount)}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -234,17 +312,15 @@ function Facts({ rows }: { rows: [string, string][] }) {
 }
 
 /**
- * 그 정산서.
+ * 404 를 「없는 쪽」으로 바꾼다.
  *
  * <p><b>못 보는 것과 없는 것의 답이 같다</b>(`D5` 「권한 실패」). 서버가 남의 정산서와
  * 없는 정산서를 같은 404 로 주고, 화면도 그 답을 그대로 따른다 — 가르면 번호를 훑어서
  * 셀러 수 × 개월이 샌다.
  */
-async function findSettlement(settlementNumber: string): Promise<SettlementDetail> {
+async function orNotFound<T>(request: Promise<T>): Promise<T> {
   try {
-    return await apiSession<SettlementDetail>(
-      `/api/settlements/${encodeURIComponent(settlementNumber)}`,
-    );
+    return await request;
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       notFound();

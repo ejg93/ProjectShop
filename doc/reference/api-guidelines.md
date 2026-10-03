@@ -254,9 +254,15 @@ spring:
 {
   "type": "tag:projectshop.example,2026:error:validation-failed",
   "status": 400,
-  "errors": [{"field": "display_name", "message": "공백일 수 없습니다"}]
+  "errors": [{"field": "display_name", "message": "필수 입력입니다"}]
 }
 ```
+
+**칸 문구는 요청 언어와 무관하게 한국어 존댓말 한 벌이다**(`Q238`). 화면이 이 문구를 칸 옆에 그대로 그리므로
+화면 문구다(`screen-rules.md` 「화면 문구는 존댓말이다」). 제약 종류마다 `ValidationMessages.properties` 가 문구를 든다 —
+**열쇠가 빠진 종류는 Hibernate Validator 의 기본 문구가 `Accept-Language` 를 따라 영어 브라우저에 「must not be blank」를 낸다.**
+파일이 기본 파일 하나라 영어 요청도 그 파일로 떨어지고, 언어는 `spring.web.locale-resolver: fixed` 로 한 번 더 굳힌다.
+`ValidationMessageTest` 가 종류마다의 열쇠와 굳힌 언어를 잰다.
 
 **필드 이름은 요청에 쓴 그대로**(snake_case)다. Bean Validation 은 Java 이름을 주므로 바꿔서 내보낸다 —
 요청에 쓴 이름과 오류에 나온 이름이 다르면 화면이 그 필드를 못 찾는다.
@@ -348,6 +354,12 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 **가르는 기준은 상한이 데이터가 아니라 규칙에서 오나**다. 사진은 열 장이 제약이고 동의 항목은
 우리가 정한 목록이다 — 늘어나도 쪽을 넘길 일이 없다. 반대로 주문·상품은 손님이 늘리는 것이라
 언제나 껍데기를 쓴다. **상한이 풀리는 날 껍데기로 바꾼다. 그것이 계약 변경이다.**
+
+**상세 안의 목록이 데이터에 따라 늘면 하위 자원 입구로 뗀다. 상세에는 합계만 남긴다**(`Q244`).
+상세가 쪽 없는 목록을 품으면 그 목록이 아무리 길어도 한 응답에 다 실린다 — 정산서 한 장의 줄이 3.5만이었다(`42`).
+떼어 낸 입구는 위 껍데기 넷을 쓴다. 선례가 넷이다 — 상품의 후기(`/api/products/{productId}/reviews`)·
+문의(`/api/products/{productId}/inquiries`)·웹훅 발송 이력(`/api/seller/webhooks/{webhookEndpointId}/deliveries`)·
+정산서의 줄(`/api/settlements/{settlementNumber}/lines`).
 
 ## 값의 형식
 

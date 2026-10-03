@@ -116,6 +116,105 @@ class SellerOrderQueryTest extends PostgresTestBase {
          * 빈 목록이 아니라 거부다.
          */
         @Test
+        @DisplayName("범위 밖 셀러를 고르면 빈 쪽이다")
+        void otherSellerIsEmpty() {
+            payFor(placeOrder(List.of(alphaSku, betaSku)));
+
+            SellerOrderQuery.Page page = sellerOrders.find(alphaOwner, beta, null, new Paging(0, 20));
+
+            assertThat(page.items()).as("고른 셀러가 범위 밖이면 남의 묶음이 나오면 안 된다").isEmpty();
+            assertThat(page.total()).isZero();
+        }
+
+        @Test
+        @DisplayName("두 셀러에 속하면 셀러를 안 고를 때 둘 다, 고르면 그 하나만 나온다")
+        void memberOfBothSeesBoth() {
+            payFor(placeOrder(List.of(alphaSku, betaSku)));
+            long both = fixture.insertUser("so-both@test.local", "양쪽");
+            fixture.joinSeller(alpha, both);
+            fixture.grantOrg(both, "seller_owner", alpha);
+            fixture.joinSeller(beta, both);
+            fixture.grantOrg(both, "seller_owner", beta);
+
+            assertThat(sellerOrders.find(both, null, null, new Paging(0, 20)).total()).isEqualTo(2);
+            assertThat(sellerOrders.find(both, beta, null, new Paging(0, 20)).total()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("관리자는 셀러를 안 고르면 전부, 고르면 그 셀러만 본다")
+        void adminSeesAllOrOne() {
+            payFor(placeOrder(List.of(alphaSku, betaSku)));
+            long admin = fixture.insertUser("so-admin@test.local", "관리자");
+            fixture.grantGlobal(admin, "admin");
+
+            assertThat(sellerOrders.find(admin, null, null, new Paging(0, 20)).total()).isGreaterThanOrEqualTo(2);
+            assertThat(sellerOrders.find(admin, alpha, null, new Paging(0, 20)).items())
+                    .singleElement()
+                    .satisfies(summary -> assertThat(summary.itemCount()).isEqualTo(1));
+        }
+
+        /**
+         * 셀러 하나의 목록이 정렬 인덱스를 끝까지 탄다(`Q243a`). 묶음 5,000 을 열 가지 시각에 몰아 깐다 —
+         * 같은 시각이 많을 때 동점 키 없는 인덱스는 {@code Incremental Sort} 로 그 묶음들을 다 읽는다(로컬 10만 건의 모양).
+         * 조건을 {@code = any(배열)} 로 되돌리거나 인덱스에서 동점 키가 빠지면 정렬 노드가 서서 빨갛다.
+         */
+        @Test
+        @DisplayName("셀러 하나의 목록은 정렬 없이 셀러 인덱스로 읽는다")
+        void oneSellerReadsIndexInOrder() {
+            String plan = planOf(SellerOrderQuery.Branch.ONE);
+
+            assertThat(plan)
+                    .as("실행 계획:%n%s", plan)
+                    .contains("seller_order_seller_idx")
+                    .doesNotContain("Seq Scan on seller_order")
+                    .doesNotContain("Sort");
+        }
+
+        /** 셀러 조건이 없는 갈래(관리자)는 시각 인덱스(`V124`)를 탄다. 없으면 묶음 전부를 순차로 읽어 정렬한다 */
+        @Test
+        @DisplayName("전부 보는 목록은 시각 인덱스로 읽는다")
+        void everythingReadsCreatedAtIndex() {
+            String plan = planOf(SellerOrderQuery.Branch.ALL);
+
+            assertThat(plan)
+                    .as("실행 계획:%n%s", plan)
+                    .contains("seller_order_created_at_idx")
+                    .doesNotContain("Seq Scan on seller_order");
+        }
+
+        /** 묶음 5,000 을 열 가지 시각에 몰아 한 번 깔고 그 갈래의 목록 계획을 낸다 */
+        private String planOf(SellerOrderQuery.Branch branch) {
+            if (!filled) {
+                jdbc.sql("""
+                                with o as (
+                                    insert into shop_order (order_number, user_id, status, created_at)
+                                    select '20260101-' || translate(lpad(n::text, 6, '0'), '0123456789', 'ABCDEFGHJK'),
+                                           :buyer, 'paid', now() - make_interval(hours => n % 10)
+                                      from generate_series(1, 5000) as n
+                                    returning order_id, order_number, created_at
+                                )
+                                insert into seller_order (seller_order_number, order_id, seller_id, status, created_at)
+                                select 'S-' || order_number, order_id, :seller, 'preparing', created_at from o
+                                """)
+                        .param("buyer", buyer).param("seller", alpha)
+                        .update();
+                jdbc.sql("analyze shop_order, seller_order").update();
+                filled = true;
+            }
+
+            return String.join("\n", jdbc.sql("explain " + SellerOrderQuery.listSql(
+                            branch, SellerOrderQuery.defaultOrder()))
+                    .param("sellerId", alpha)
+                    .param("sellers", new Long[0])
+                    .param("size", 20)
+                    .param("offset", 0L)
+                    .query(String.class)
+                    .list());
+        }
+
+        private boolean filled;
+
+        @Test
         @DisplayName("주문 권한이 없으면 거부다")
         void noPermissionIsRefused() {
             long clerk = fixture.insertUser("so-clerk@test.local", "권한없음");

@@ -34,13 +34,13 @@ import jakarta.validation.constraints.Size;
  * 최소 길이를 올릴 때 고칠 자리가 여기 하나뿐인 것이 그 보람이다.
  */
 @Size(min = 15, max = 64)
-@Pattern(regexp = "^[\\x20-\\x7E]+$", message = "ASCII 출력 가능 문자만 쓸 수 있다")
+@Pattern(regexp = "^[\\x20-\\x7E]+$", message = "영문·숫자·기호만 쓸 수 있습니다")
 @Constraint(validatedBy = {})
 @Target({FIELD, PARAMETER, RECORD_COMPONENT})
 @Retention(RUNTIME)
 public @interface Password {
 
-    String message() default "비밀번호 규칙에 맞지 않는다";
+    String message() default "비밀번호 규칙에 맞지 않습니다";
 
     Class<?>[] groups() default {};
 
