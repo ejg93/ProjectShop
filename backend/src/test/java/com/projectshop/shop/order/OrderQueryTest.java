@@ -282,6 +282,22 @@ class OrderQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("이력 질의는 두 갈래가 다 주문 번호로 인덱스를 탄다")
         void historyUsesIndexOnBothBranches() {
+            // 다른 주문의 묶음 5,000 을 깐다. 묶음이 몇 줄뿐이면 순차 스캔을 꺼도 기본키 인덱스를 통째로 훑고 거르는 길이
+            // 주문 번호 인덱스와 비용이 같아서 플래너가 그쪽을 고르는 날이 있었다(2026-10-03 `--full` 에서 한 번).
+            jdbc.sql("""
+                            with o as (
+                                insert into shop_order (order_number, user_id, status)
+                                select '20260103-' || translate(lpad(n::text, 6, '0'), '0123456789', 'ABCDEFGHJK'),
+                                       :buyer, 'paid'
+                                  from generate_series(1, 5000) as n
+                                returning order_id, order_number
+                            )
+                            insert into seller_order (seller_order_number, order_id, seller_id, status)
+                            select 'S-' || order_number, order_id, :seller, 'preparing' from o
+                            """)
+                    .param("buyer", buyer).param("seller", sellerId)
+                    .update();
+            jdbc.sql("analyze seller_order").update();
             jdbc.sql("set local enable_seqscan = off").update();
 
             String plan = String.join("\n", jdbc.sql("explain " + OrderQuery.HISTORY_SQL)

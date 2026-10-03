@@ -151,6 +151,7 @@ public class SecurityConfig {
             ProblemWriter problems, StringRedisTemplate redis,
             @Value("${shop.rate-limit.enabled}") boolean rateLimitEnabled,
             @Value("${shop.rate-limit.key-prefix}") String rateLimitPrefix,
+            @Value("${server.tomcat.remoteip.remote-ip-header}") String clientIpHeader,
             ObjectProvider<PermissionEvaluator> evaluators) throws Exception {
         AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
@@ -249,7 +250,7 @@ public class SecurityConfig {
         // 요청 횟수 제한(71). 맨 앞에 둔다 — 뒤에 두면 막을 요청이 인증·세션 조회를
         // 이미 다 지난 뒤라, 막는 값이 그만큼 줄어든다.
         if (rateLimitEnabled) {
-            http.addFilterBefore(new RateLimitFilter(redis, problems, rateLimitPrefix), SecurityContextHolderFilter.class);
+            http.addFilterBefore(new RateLimitFilter(redis, problems, rateLimitPrefix, clientIpHeader), SecurityContextHolderFilter.class);
         }
 
         // 세션을 만든 지 12시간이 지나면 끊는다(D14, 청크 5c).
