@@ -225,6 +225,13 @@ public class OrderQuery {
     }
 
     /** 항목이 어느 셀러 묶음에 붙는지를 들고 오는 중간 값. {@code seller_order_id} 는 응답에 안 나간다(`D9`) */
+    /** 셀러별 묶음 한 줄을 판정 전에 담는다(`Q250`) */
+    private record SellerOrderRow(long sellerOrderId, String sellerOrderNumber, long sellerId, String sellerName,
+            String status, long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
+            OffsetDateTime autoConfirmAt, OffsetDateTime shipDueAt, OffsetDateTime shippedAt, boolean shipOverdue,
+            String carrierCode, String trackingNo) {
+    }
+
     private record ItemRow(long sellerOrderId, Item item) {
     }
 
@@ -456,27 +463,42 @@ public class OrderQuery {
                          order by so.seller_order_id
                         """)
                 .param("orderId", orderId)
-                .query((rs, rowNum) -> {
-                    long sellerId = rs.getLong("seller_id");
-                    String status = rs.getString("status");
-                    ReturnRequestQuery.Progress returnRequest = returnsBySellerOrder.get(rs.getLong("seller_order_id"));
-                    List<String> allowed = actions.allowedActions(viewerId, memberOf, buyerUserId, sellerId, status,
-                            returnRequest);
+                .query((rs, rowNum) -> new SellerOrderRow(
+                        rs.getLong("seller_order_id"),
+                        rs.getString("seller_order_number"),
+                        rs.getLong("seller_id"),
+                        rs.getString("seller_name"),
+                        rs.getString("status"),
+                        rs.getLong("shipping_fee"),
+                        rs.getObject("delivered_at", OffsetDateTime.class),
+                        rs.getObject("withdrawal_expire_at", OffsetDateTime.class),
+                        rs.getObject("auto_confirm_at", OffsetDateTime.class),
+                        rs.getObject("ship_due_at", OffsetDateTime.class),
+                        rs.getObject("shipped_at", OffsetDateTime.class),
+                        rs.getBoolean("ship_overdue"),
+                        rs.getString("carrier_code"),
+                        rs.getString("tracking_no")))
+                .list()
+                .stream()
+                // 연결을 놓은 뒤 판정한다 — 행 매퍼 안에서 부르면 줄마다 연결을 하나 더 문다(`Q250`).
+                .map(row -> {
+                    ReturnRequestQuery.Progress returnRequest = returnsBySellerOrder.get(row.sellerOrderId());
+                    List<String> allowed = actions.allowedActions(viewerId, memberOf, buyerUserId, row.sellerId(),
+                            row.status(), returnRequest);
                     return new SellerOrder(
-                            rs.getString("seller_order_number"),
-                            rs.getString("seller_name"),
-                            EnumValue.of(status, OrderTransitions.Shipment::of),
-                            rs.getLong("shipping_fee"),
-                            rs.getObject("delivered_at", OffsetDateTime.class),
-                            rs.getObject("withdrawal_expire_at", OffsetDateTime.class),
-                            rs.getObject("auto_confirm_at", OffsetDateTime.class),
-                            rs.getObject("ship_due_at", OffsetDateTime.class),
-                            rs.getObject("shipped_at", OffsetDateTime.class),
-                            rs.getBoolean("ship_overdue"),
-                            EnumValue.of(rs.getString("carrier_code"), Carrier::of),
-                            rs.getString("tracking_no"),
-                            List.copyOf(itemsBySellerOrder.getOrDefault(
-                                    rs.getLong("seller_order_id"), List.of())),
+                            row.sellerOrderNumber(),
+                            row.sellerName(),
+                            EnumValue.of(row.status(), OrderTransitions.Shipment::of),
+                            row.shippingFee(),
+                            row.deliveredAt(),
+                            row.withdrawalExpireAt(),
+                            row.autoConfirmAt(),
+                            row.shipDueAt(),
+                            row.shippedAt(),
+                            row.shipOverdue(),
+                            EnumValue.of(row.carrierCode(), Carrier::of),
+                            row.trackingNo(),
+                            List.copyOf(itemsBySellerOrder.getOrDefault(row.sellerOrderId(), List.of())),
                             allowed,
                             // 거절을 권할 때만 사유를 싣는다 — 「거절할 수 없다」는 allowedActions 가 든다(`Q234`)
                             allowed.contains(OrderActionService.Action.REJECT_RETURN.name())
@@ -484,12 +506,13 @@ public class OrderQuery {
                                             returnRequest != null && returnRequest.inspectedAt() != null)
                                     : List.of(),
                             // 결제 안 된 묶음은 강제 전이 입구가 못 찾는다(`seller_order_visible`) — 목록도 비운다(마무리 46차).
-                            paid ? actions.forcibleStatuses(viewerId, buyerUserId, sellerId, status) : List.of(),
+                            paid ? actions.forcibleStatuses(viewerId, buyerUserId, row.sellerId(), row.status())
+                                    : List.of(),
                             returnRequest == null ? null : returnRequest.withAllowedActions(
-                                    actions.returnActions(viewerId, memberOf, buyerUserId, sellerId, status,
-                                            returnRequest)));
+                                    actions.returnActions(viewerId, memberOf, buyerUserId, row.sellerId(),
+                                            row.status(), returnRequest)));
                 })
-                .list();
+                .toList();
     }
 
     /**
