@@ -137,6 +137,14 @@ public class PermissionEvaluator {
             return new Decision(false, "거부 — " + rule, Allowed.only(Set.of()));
         }
 
+        /**
+         * 이 동작에 걸린 규칙이 하나도 없다. {@link #decide} 가 {@link #evaluate} 앞에서 끊는 갈래고,
+         * 매트릭스의 두 구현이 이 문장을 그대로 부른다 — 시험이 사본을 들면 운영 문장이 바뀌어도 안 빨갛다(마무리 60차 PR 리뷰).
+         */
+        static Decision noRulesFor(String resource, String action) {
+            return denyBecause("%s:%s 에 걸린 규칙이 하나도 없다".formatted(resource, action));
+        }
+
         static Decision denyBecause(String reason) {
             return new Decision(false, "거부 — " + reason, Allowed.only(Set.of()));
         }
@@ -157,7 +165,7 @@ public class PermissionEvaluator {
         Timer.Sample sample = Timer.start(meters);
         List<Rule> rules = loader.loadRules(userId, resource, action);
         Decision decision = rules.isEmpty()
-                ? Decision.denyBecause("%s:%s 에 걸린 규칙이 하나도 없다".formatted(resource, action))
+                ? Decision.noRulesFor(resource, action)
                 : evaluate(rules, loader.loadSellerMemberships(userId), userId, target,
                         allowedStatuses(resource, action));
 

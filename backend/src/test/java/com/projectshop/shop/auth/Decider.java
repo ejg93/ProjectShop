@@ -28,6 +28,10 @@ import com.projectshop.shop.auth.managed.ManagedAuthorizationManager.Verdict;
  */
 interface Decider {
 
+    /** 매트릭스가 묻는 동작. 규칙을 직접 넣으므로 이름에 뜻이 없고 「규칙 없음」 문장에만 찍힌다 */
+    String RESOURCE = "matrix";
+    String ACTION = "check";
+
     Decision decide(List<Rule> rules, Set<Long> memberOf, long userId, Target target,
             Allowed<String> openStatuses);
 
@@ -37,9 +41,9 @@ interface Decider {
         @Override
         public Decision decide(List<Rule> rules, Set<Long> memberOf, long userId, Target target,
                 Allowed<String> openStatuses) {
-            // `decide` 는 규칙이 없으면 `evaluate` 앞에서 끊는다. 그 갈래를 여기서 같은 자리에 둔다.
+            // `decide` 는 규칙이 없으면 `evaluate` 앞에서 끊는다. 그 갈래를 같은 팩토리로 둔다.
             if (rules.isEmpty()) {
-                return noRule();
+                return Decision.noRulesFor(RESOURCE, ACTION);
             }
             return PermissionEvaluator.evaluate(rules, memberOf, userId, target, openStatuses);
         }
@@ -81,7 +85,7 @@ interface Decider {
                 }
             };
 
-            Verdict verdict = new ManagedAuthorizationManager(source, "matrix", "check", openStatuses)
+            Verdict verdict = new ManagedAuthorizationManager(source, RESOURCE, ACTION, openStatuses)
                     .authorize(() -> UsernamePasswordAuthenticationToken.authenticated(
                             new ShopUser(userId, "matrix@test.invalid", null, true), null, List.of()),
                             new RequestAuthorizationContext(new MockHttpServletRequest(), variables(target)));
@@ -90,7 +94,7 @@ interface Decider {
                 case Verdict.Granted(ScopedGrant winner, Allowed<String> groups) ->
                         Decision.allow(origin.get(winner), groups);
                 case Verdict.DeniedBy(ScopedGrant grant) -> Decision.denyBy(origin.get(grant));
-                case Verdict.NoGrant ignored -> noRule();
+                case Verdict.NoGrant ignored -> Decision.noRulesFor(RESOURCE, ACTION);
                 case Verdict.OutOfScope ignored -> Decision.denyBecause("허용 규칙은 있으나 대상이 그 범위 밖이다");
                 case Verdict.StatusMissing ignored ->
                         Decision.denyBecause("상태에 걸린 동작인데 대상의 상태가 안 실려 왔다");
@@ -122,7 +126,4 @@ interface Decider {
         }
     };
 
-    private static Decision noRule() {
-        return new Decision(false, "거부 — 걸린 규칙이 하나도 없다", Allowed.only(Set.of()));
-    }
 }
