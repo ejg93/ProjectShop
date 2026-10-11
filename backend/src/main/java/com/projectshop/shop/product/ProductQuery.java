@@ -92,6 +92,11 @@ public class ProductQuery {
             List<String> allowedActions) {
     }
 
+    /** 셀러 목록 한 줄을 판정 전에 담는다(`Q250`). {@code createdByUserId} 는 판정에만 쓰고 응답에 안 나간다 */
+    private record SellerItemRow(long productId, long sellerId, String name, String status, Integer commissionBp,
+            long minPriceInclVat, long totalStock, OffsetDateTime createdAt, long createdByUserId) {
+    }
+
     public record PublicPage(List<PublicItem> items, int page, int size, long total) {
     }
 
@@ -276,18 +281,31 @@ public class ProductQuery {
                 .param("status", statusCode)
                 .param("size", paging.size())
                 .param("offset", paging.offset())
-                .query((rs, rowNum) -> new SellerItem(
+                .query((rs, rowNum) -> new SellerItemRow(
                         rs.getLong("product_id"),
                         rs.getLong("seller_id"),
                         rs.getString("name"),
-                        EnumValue.of(rs.getString("status"), ProductStatus::of),
+                        rs.getString("status"),
                         rs.getObject("commission_bp", Integer.class),
                         rs.getLong("min_price_incl_vat"),
                         rs.getLong("total_stock"),
                         rs.getObject("created_at", OffsetDateTime.class),
-                        allowedActions(viewerId, memberOf, rs.getLong("seller_id"), rs.getLong("created_by_user_id"),
-                                ProductStatus.of(rs.getString("status")))))
-                .list();
+                        rs.getLong("created_by_user_id")))
+                .list()
+                .stream()
+                // 연결을 놓은 뒤 판정한다 — 행 매퍼 안에서 부르면 줄마다 연결을 하나 더 문다(`Q250`).
+                .map(row -> new SellerItem(
+                        row.productId(),
+                        row.sellerId(),
+                        row.name(),
+                        EnumValue.of(row.status(), ProductStatus::of),
+                        row.commissionBp(),
+                        row.minPriceInclVat(),
+                        row.totalStock(),
+                        row.createdAt(),
+                        allowedActions(viewerId, memberOf, row.sellerId(), row.createdByUserId(),
+                                ProductStatus.of(row.status()))))
+                .toList();
 
         Long total = jdbc.sql("""
                         select count(*) from product p

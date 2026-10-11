@@ -75,6 +75,12 @@ public class RefundQuery {
             OffsetDateTime createdAt, List<String> allowedActions) {
     }
 
+    /** 목록 한 줄을 판정 전에 담는다. 판정에 쓰는 셋({@code buyerUserId}·{@code sellerId}·{@code requestedByUserId})은 응답에 안 나간다 */
+    private record SummaryRow(String refundNumber, String sellerOrderNumber, String orderNumber,
+            String status, String reasonCode, long amount, OffsetDateTime dueAt, boolean overdue,
+            OffsetDateTime createdAt, long buyerUserId, long sellerId, Long requestedByUserId) {
+    }
+
     @Schema(name = "RefundPage")
     public record Page(List<Summary> items, int page, int size, long total) {
     }
@@ -136,19 +142,35 @@ public class RefundQuery {
                 .param("status", storedStatus)
                 .param("size", paging.size())
                 .param("offset", paging.offset())
-                .query((rs, rowNum) -> new Summary(
+                .query((rs, rowNum) -> new SummaryRow(
                         rs.getString("refund_number"),
                         rs.getString("seller_order_number"),
                         rs.getString("order_number"),
-                        EnumValue.of(rs.getString("status"), RefundStatus::of),
-                        EnumValue.of(rs.getString("reason_code"), RefundReason::of),
+                        rs.getString("status"),
+                        rs.getString("reason_code"),
                         rs.getLong("amount"),
                         rs.getObject("due_at", OffsetDateTime.class),
                         rs.getBoolean("overdue"),
                         rs.getObject("created_at", OffsetDateTime.class),
-                        allowedActions(viewerId, rs.getString("status"), rs.getLong("user_id"),
-                                rs.getLong("seller_id"), rs.getObject("requested_by_user_id", Long.class))))
-                .list();
+                        rs.getLong("user_id"),
+                        rs.getLong("seller_id"),
+                        rs.getObject("requested_by_user_id", Long.class)))
+                .list()
+                .stream()
+                // 연결을 놓은 뒤 판정한다 — 행 매퍼 안에서 부르면 줄마다 연결을 하나 더 문다(`Q250`).
+                .map(row -> new Summary(
+                        row.refundNumber(),
+                        row.sellerOrderNumber(),
+                        row.orderNumber(),
+                        EnumValue.of(row.status(), RefundStatus::of),
+                        EnumValue.of(row.reasonCode(), RefundReason::of),
+                        row.amount(),
+                        row.dueAt(),
+                        row.overdue(),
+                        row.createdAt(),
+                        allowedActions(viewerId, row.status(), row.buyerUserId(), row.sellerId(),
+                                row.requestedByUserId())))
+                .toList();
 
         Long total = jdbc.sql("""
                         select count(*)
