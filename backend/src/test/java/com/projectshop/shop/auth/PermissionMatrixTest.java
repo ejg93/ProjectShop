@@ -1,17 +1,18 @@
 package com.projectshop.shop.auth;
 
-import static com.projectshop.shop.auth.PermissionEvaluator.evaluate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.FieldSource;
 
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Rule;
@@ -26,8 +27,11 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
  * <p>스냅샷은 {@code -Dsnapshot.update=true} 로만 갱신한다(D15).
  * 자동으로 덮으면 판정이 망가진 것을 갱신으로 지나친다.
  *
- * <p>축은 넷이다 — 부여 방식(전역·조직), 스코프(own·seller·all), 효과(allow·deny), 대상의 생김새.
- * 상태 축(청크 11a)과 목록 조회(청크 8)는 코드가 아직 없어서 여기 없다.
+ * <p>축은 다섯이다 — 부여 방식(전역·조직), 스코프(own·seller·all), 효과(allow·deny), 대상의 생김새,
+ * 대상의 상태. 목록 조회(청크 8)는 행 하나의 판정이 아니라 여기 없다.
+ *
+ * <p><b>같은 스냅샷을 두 구현에 돌린다</b>(청크 `74`, {@link Decider}). 스냅샷은 운영 판정기만 쓴다 —
+ * 두 번째 구현이 다른 칸은 그 파라미터만 빨갛다.
  */
 class PermissionMatrixTest {
 
@@ -44,6 +48,11 @@ class PermissionMatrixTest {
 
     private static final Set<Long> MEMBER_OF = Set.of(ALPHA);
 
+    /** 상태 축 절에서 동작이 열리는 상태 */
+    private static final Allowed<String> OPEN_WHEN_PAID = Allowed.only(Set.of("PAID"));
+
+    static final List<Decider> DECIDERS = List.of(Decider.EVALUATOR, Decider.MANAGED);
+
     /** 대상의 생김새. 주인이 있나 없나, 셀러에 속하나 안 속하나의 조합이다 */
     private record Column(String label, Target target) {}
 
@@ -55,10 +64,11 @@ class PermissionMatrixTest {
             new Column("내 것+알파", Target.of(ME, ALPHA)),
             new Column("남 것+베타", Target.of(OTHER, BETA)));
 
-    @Test
-    @DisplayName("판정 매트릭스가 스냅샷과 같다")
-    void matrixMatchesSnapshot() throws IOException {
-        String rendered = render();
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("판정 매트릭스가 두 구현에서 스냅샷과 같다")
+    @FieldSource("DECIDERS")
+    void matrixMatchesSnapshot(Decider decider) throws IOException {
+        String rendered = render(decider);
 
         // **생성물에 CR 이 있으면 안 된다**(`Q115`). 파일은 `.gitattributes` 가 `eol=lf` 로 박는데
         // 생성이 플랫폼 개행(`%n`·`lineSeparator`)을 쓰면 **Windows 에서만** 갈려서,
@@ -68,7 +78,7 @@ class PermissionMatrixTest {
                 .as("스냅샷 생성이 플랫폼 개행을 썼다. `%%n` 을 `\\n` 으로 바꾼다(Q115)")
                 .doesNotContain("\r");
 
-        if (Boolean.getBoolean("snapshot.update")) {
+        if (Boolean.getBoolean("snapshot.update") && decider == Decider.EVALUATOR) {
             Files.createDirectories(SNAPSHOT.getParent());
             Files.writeString(SNAPSHOT, rendered, StandardCharsets.UTF_8);
             return;
@@ -78,11 +88,12 @@ class PermissionMatrixTest {
                 .as("스냅샷 파일이 없다. -Dsnapshot.update=true 로 만든다")
                 .exists();
         assertThat(Files.readString(SNAPSHOT, StandardCharsets.UTF_8))
-                .as("판정이 바뀌었다. diff 를 보고 의도한 변경이면 -Dsnapshot.update=true 로 갱신한다")
+                .as("%s 의 판정이 스냅샷과 다르다. 운영 판정기면 diff 를 보고 의도한 변경일 때 "
+                        + "-Dsnapshot.update=true 로 갱신하고, 두 번째 구현이면 그 칸을 명세(D6)와 견준다(75)", decider)
                 .isEqualTo(rendered);
     }
 
-    private String render() {
+    private String render(Decider decider) {
         StringBuilder out = new StringBuilder();
         out.append("""
                 # 권한 판정 매트릭스
@@ -94,14 +105,15 @@ class PermissionMatrixTest {
                 조직 부여는 전부 알파에서 받은 것으로 놓는다.
 
                 """);
-        appendSingleRuleMatrix(out);
-        appendCombinationMatrix(out);
-        appendReasons(out);
+        appendSingleRuleMatrix(out, decider);
+        appendCombinationMatrix(out, decider);
+        appendReasons(out, decider);
+        appendStatusAxis(out, decider);
         return out.toString();
     }
 
     /** 규칙 하나만 걸렸을 때. 스코프가 대상을 덮는지가 그대로 드러난다 */
-    private void appendSingleRuleMatrix(StringBuilder out) {
+    private void appendSingleRuleMatrix(StringBuilder out, Decider decider) {
         out.append("## 규칙 하나\n\n");
         appendHeader(out, List.of("부여", "스코프", "효과"));
 
@@ -109,7 +121,7 @@ class PermissionMatrixTest {
             for (Effect effect : Effect.values()) {
                 for (Scope scope : Scope.values()) {
                     Rule rule = rule(grant, scope, effect);
-                    appendRow(out, List.of(rule), List.of(grant, scope.code(), effect.code()));
+                    appendRow(out, decider, List.of(rule), List.of(grant, scope.code(), effect.code()));
                 }
             }
         }
@@ -121,18 +133,18 @@ class PermissionMatrixTest {
      *
      * <p>순서를 바꾼 짝을 같이 넣는다. 순서가 결과를 바꾸면 그 자리에서 드러나야 한다.
      */
-    private void appendCombinationMatrix(StringBuilder out) {
+    private void appendCombinationMatrix(StringBuilder out, Decider decider) {
         out.append("## 규칙 여럿\n\n");
         appendHeader(out, List.of("규칙 1", "규칙 2"));
 
         for (Combination c : combinations()) {
-            appendRow(out, c.rules(), List.of(c.first(), c.second()));
+            appendRow(out, decider, c.rules(), List.of(c.first(), c.second()));
         }
         out.append('\n');
     }
 
     /** 거부가 왜 났는지. 판정 근거 문자열이 바뀌면 디버깅 경로가 바뀐 것이다 */
-    private void appendReasons(StringBuilder out) {
+    private void appendReasons(StringBuilder out, Decider decider) {
         out.append("## 판정 근거\n\n");
         out.append("| 규칙 | 대상 | 근거 |\n|---|---|---|\n");
 
@@ -152,7 +164,36 @@ class PermissionMatrixTest {
                 out.append("| %s | %s | %s |\n".formatted(
                         rules.isEmpty() ? "(없음)" : join(rules),
                         column.label(),
-                        decide(rules, column.target()).reason()));
+                        decide(decider, rules, column.target()).reason()));
+            }
+        }
+    }
+
+    /**
+     * 상태 축. 동작이 {@code PAID} 에서만 열릴 때 대상의 상태마다 무엇이 나나.
+     *
+     * <p><b>상태를 규칙 뒤에 보는지</b>가 드러나게 거부 규칙과 범위 밖 규칙을 같이 넣는다 — 앞에 보면
+     * 권한이 없는 사람도 「상태 때문에 막혔다」를 받는다(`D6`).
+     */
+    private void appendStatusAxis(StringBuilder out, Decider decider) {
+        out.append("## 상태 축\n\n");
+        out.append("동작은 `PAID` 에서만 열린다. 대상은 `내 것`이다.\n\n");
+        out.append("| 규칙 | 상태 | 근거 |\n|---|---|---|\n");
+
+        List<List<Rule>> samples = List.of(
+                List.of(rule("전역", Scope.ALL, Effect.ALLOW)),
+                List.of(rule("전역", Scope.OWN, Effect.ALLOW)),
+                List.of(rule("전역", Scope.ALL, Effect.ALLOW), rule("전역", Scope.OWN, Effect.DENY)),
+                List.of(rule("전역", Scope.SELLER, Effect.ALLOW)));
+        List<String> statuses = Arrays.asList(null, "PAID", "SHIPPED");
+
+        for (List<Rule> rules : samples) {
+            for (String status : statuses) {
+                Target target = Target.ownedBy(ME).inStatus(status);
+                out.append("| %s | %s | %s |\n".formatted(
+                        join(rules),
+                        status == null ? "(없음)" : status,
+                        decider.decide(rules, MEMBER_OF, ME, target, OPEN_WHEN_PAID).reason()));
             }
         }
     }
@@ -193,11 +234,11 @@ class PermissionMatrixTest {
         out.append('\n');
     }
 
-    private void appendRow(StringBuilder out, List<Rule> rules, List<String> labels) {
+    private void appendRow(StringBuilder out, Decider decider, List<Rule> rules, List<String> labels) {
         out.append('|');
         labels.forEach(label -> out.append(" %s |".formatted(label)));
         for (Column column : COLUMNS) {
-            out.append(" %s |".formatted(decide(rules, column.target()).allowed() ? "허용" : "거부"));
+            out.append(" %s |".formatted(decide(decider, rules, column.target()).allowed() ? "허용" : "거부"));
         }
         out.append('\n');
     }
@@ -213,11 +254,9 @@ class PermissionMatrixTest {
         return new Rule("role", grantSellerId, scope, effect, Set.of());
     }
 
-    private Decision decide(List<Rule> rules, Target target) {
-        if (rules.isEmpty()) {
-            return new Decision(false, "거부 — 걸린 규칙이 하나도 없다", Allowed.only(Set.of()));
-        }
-        return evaluate(rules, MEMBER_OF, ME, target);
+    /** 상태 축을 안 거는 판정. 앞의 세 절은 상태와 무관한 축을 본다 */
+    private Decision decide(Decider decider, List<Rule> rules, Target target) {
+        return decider.decide(rules, MEMBER_OF, ME, target, Allowed.everything());
     }
 
     private String join(List<Rule> rules) {

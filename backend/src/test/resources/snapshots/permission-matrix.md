@@ -76,3 +76,21 @@
 | role(전역) allow/seller + role(전역) deny/own | 베타(안 속함) | 거부 — 허용 규칙은 있으나 대상이 그 범위 밖이다 |
 | role(전역) allow/seller + role(전역) deny/own | 내 것+알파 | 거부 — role(전역) deny/own |
 | role(전역) allow/seller + role(전역) deny/own | 남 것+베타 | 거부 — 허용 규칙은 있으나 대상이 그 범위 밖이다 |
+## 상태 축
+
+동작은 `PAID` 에서만 열린다. 대상은 `내 것`이다.
+
+| 규칙 | 상태 | 근거 |
+|---|---|---|
+| role(전역) allow/all | (없음) | 거부 — 상태에 걸린 동작인데 대상의 상태가 안 실려 왔다 |
+| role(전역) allow/all | PAID | 허용 — role(전역) allow/all |
+| role(전역) allow/all | SHIPPED | 거부 — 상태가 SHIPPED 라 이 동작이 닫혀 있다 |
+| role(전역) allow/own | (없음) | 거부 — 상태에 걸린 동작인데 대상의 상태가 안 실려 왔다 |
+| role(전역) allow/own | PAID | 허용 — role(전역) allow/own |
+| role(전역) allow/own | SHIPPED | 거부 — 상태가 SHIPPED 라 이 동작이 닫혀 있다 |
+| role(전역) allow/all + role(전역) deny/own | (없음) | 거부 — role(전역) deny/own |
+| role(전역) allow/all + role(전역) deny/own | PAID | 거부 — role(전역) deny/own |
+| role(전역) allow/all + role(전역) deny/own | SHIPPED | 거부 — role(전역) deny/own |
+| role(전역) allow/seller | (없음) | 거부 — 허용 규칙은 있으나 대상이 그 범위 밖이다 |
+| role(전역) allow/seller | PAID | 거부 — 허용 규칙은 있으나 대상이 그 범위 밖이다 |
+| role(전역) allow/seller | SHIPPED | 거부 — 허용 규칙은 있으나 대상이 그 범위 밖이다 |

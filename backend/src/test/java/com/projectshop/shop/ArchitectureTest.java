@@ -133,6 +133,24 @@ class ArchitectureTest {
                             + " (coding-rules.md 「예외」, 청크 7b)");
 
     /**
+     * 두 번째 판정 구현({@code auth.managed})은 운영 코드가 안 부른다(청크 `74`).
+     *
+     * <p>비교용이다 — {@code PermissionMatrixTest} 만 부른다. 컨트롤러·서비스가 부르면 판정이 두 벌이 되고,
+     * {@code SecurityConfig} 가 필터체인에 걸면 두 엔진이 같이 판정해서 감사 기록이 둘이 된다.
+     * 어느 쪽을 거나는 `75` 의 ADR 이 정한다. 걸기로 하면 이 규칙을 그 ADR 과 같이 고친다.
+     *
+     * <p><b>못 보는 것</b> — 문자열 상수({@code STATUS} 같은 키)만 빌려 쓰면 javac 가 값을 박아 넣어서
+     * 바이트코드에 의존이 안 남는다(부순 증거에서 실측). 키만 빌리는 것은 판정을 거는 것이 아니라 둔다.
+     */
+    @ArchTest
+    static final ArchRule 두번째_판정_구현은_운영_코드가_안_부른다 =
+            noClasses()
+                    .that().resideOutsideOfPackage("..auth.managed..")
+                    .should().dependOnClassesThat().resideInAPackage("..auth.managed..")
+                    .because("비교용 구현이다. 필터체인·서비스에 걸리면 판정과 감사가 두 벌이 된다"
+                            + " (청크 74, ADR 0012)");
+
+    /**
      * 「의존」 — 자원 패키지끼리 순환하지 않는다.
      *
      * <p><b>허용이 둘이다. 둘 다 「업무가 두 자원에 걸쳐 있다」는 같은 모양이고,

@@ -16,8 +16,12 @@ import java.util.Arrays;
  * <p>{@code role_permission_field.effect} 는 자기 {@code check} 가 없다. 그 열은
  * {@code role_permission} 을 가리키는 <b>복합 외래키의 일부</b>라 값 목록이 구조로 닫혀 있다
  * (`D23` 축 2 의 1위) — 같은 목록을 두 번 적을 이유가 없다.
+ *
+ * <p><b>{@code public} 인 이유는 두 번째 판정 구현이 같은 값을 읽어서다</b>(청크 `74`).
+ * {@code auth.managed} 가 같은 표를 읽는데, 효과를 문자열로 받으면 {@link #of} 의 「모르는 값이면 터진다」를
+ * 그쪽이 다시 써야 한다. 저장값 변환({@link #code}·{@link #of})은 그대로 패키지 안이다.
  */
-enum Effect {
+public enum Effect {
 
     /** 연다. 여럿이 걸리면 가장 넓은 범위가 이긴다 */
     ALLOW,
