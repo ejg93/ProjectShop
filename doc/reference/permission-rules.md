@@ -485,4 +485,8 @@ where p.action not in ('read')
 판정 규칙이나 초기 데이터가 바뀌면 여기를 같이 고친다.
 청크 4c 의 매트릭스 테스트가 이 표와 같은 모양이라, 한쪽만 바뀌면 테스트가 깨져서 알 수 있다.
 
+**판정 순서·스코프·상태 축을 바꾸면 구현 둘을 같이 고친다**(ADR 0012). 이 명세를 `PermissionEvaluator` 와
+`auth.managed.ManagedAuthorizationManager` 가 따로 읽고, 매트릭스 시험이 두 구현에 같은 스냅샷을 돌린다 —
+한쪽만 고치면 그 파라미터만 빨갛다. 필터체인에 걸리는 것은 `PermissionEvaluator` 뿐이다.
+
 바깥 모델과의 비교는 `permission-models.md`, 법 요건과의 연결은 `commerce-compliance.md` 에 있다.
