@@ -23,6 +23,9 @@ import { describe, expect, it } from "vitest";
  * <ul>
  *   <li><b>재수출</b> — 배럴(`index.ts`)이 클라이언트 모듈을 다시 내보내면 그 너머를 안 따라간다. 지금 `src` 에 배럴이 없다</li>
  *   <li><b>기본 가져오기</b> — `import x from` 의 이름은 가져오는 쪽이 짓는다. 컴포넌트가 아닌 기본 export 는 안 잡는다</li>
+ *   <li><b>대문자로 시작하는 상수·값</b> — 이름으로 컴포넌트와 못 가른다. `STATUS_LABELS` 나 PascalCase 값 객체를 클라이언트 모듈에서
+ *       내보내 서버가 가져오면 지나간다. 지금 클라이언트 모듈에 그런 export 는 0건이다</li>
+ *   <li><b>동적 `import()`</b> — 가져오기 선언만 걷는다</li>
  *   <li><b>클라이언트에서만 쓰이는 지시문 없는 파일</b> — 그 파일은 사실 클라이언트라 함수를 불러도 되는데 여기서는 걸린다.
  *       지금 0건이고 생기면 그 파일에 지시문을 단다</li>
  * </ul>
@@ -30,7 +33,8 @@ import { describe, expect, it } from "vitest";
 /** vitest 는 `frontend/` 에서 돈다 */
 const SRC = join(process.cwd(), "src");
 
-const EXTENSIONS = [".ts", ".tsx", "/index.ts", "/index.tsx"];
+/** 확장자를 적은 가져오기(`"./x.tsx"`)도 풀리게 빈 문자열을 먼저 본다 */
+const EXTENSIONS = ["", ".ts", ".tsx", "/index.ts", "/index.tsx"];
 
 function sourceFilesUnder(dir: string): string[] {
   const found: string[] = [];
@@ -80,7 +84,7 @@ function resolveImport(from: string, specifier: string): string | null {
     return null;
   }
   for (const extension of EXTENSIONS) {
-    if (existsSync(base + extension)) {
+    if (existsSync(base + extension) && statSync(base + extension).isFile()) {
       return base + extension;
     }
   }

@@ -228,7 +228,8 @@ class ListQueryConnectionTest extends PostgresTestBase {
     }
 
     /**
-     * 자식부터 지운다. 참조가 전부 {@code restrict} 라 순서가 곧 외래키 순서다({@code HttpTestBase} 와 같다).
+     * 자식부터 지운다. {@code restrict} 인 참조가 섞여 있어 순서가 곧 외래키 순서다({@code HttpTestBase} 와 같다) —
+     * {@code refund}·{@code payment}·{@code order_contract_document} 는 cascade 지만 명시적으로 지운다.
      * 한 트랜잭션으로 묶는다 — 나눠 지우면 금액 등식 지연 트리거가 중간에 터진다.
      */
     @AfterEach

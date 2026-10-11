@@ -224,7 +224,6 @@ public class OrderQuery {
             OffsetDateTime createdAt) {
     }
 
-    /** 항목이 어느 셀러 묶음에 붙는지를 들고 오는 중간 값. {@code seller_order_id} 는 응답에 안 나간다(`D9`) */
     /** 셀러별 묶음 한 줄을 판정 전에 담는다(`Q250`) */
     private record SellerOrderRow(long sellerOrderId, String sellerOrderNumber, long sellerId, String sellerName,
             String status, long shippingFee, OffsetDateTime deliveredAt, OffsetDateTime withdrawalExpireAt,
@@ -232,6 +231,7 @@ public class OrderQuery {
             String carrierCode, String trackingNo) {
     }
 
+    /** 항목이 어느 셀러 묶음에 붙는지를 들고 오는 중간 값. {@code seller_order_id} 는 응답에 안 나간다(`D9`) */
     private record ItemRow(long sellerOrderId, Item item) {
     }
 
