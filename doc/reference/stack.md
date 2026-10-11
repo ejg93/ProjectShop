@@ -1712,6 +1712,7 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 컴포즈·Testcontainers 의 `postgres:17-alpine` 은 `en_US.utf8` 이라 「운동화를 위한 깔창」이 조각 열하나를 낸다(2026-10-02 `show_trgm`).
 `C` 로케일 DB 면 한글이 조각에서 빠져 인덱스가 아무것도 못 거른다. **운영 값은 기동 로그가 든다**(`Q246`, `SearchLocaleCheck`) —
 Railway MCP `get-logs`(service backend)에서 「검색 로케일」 줄을 읽는다. 조각이 0 이면 같은 자리에 WARN 이 붙는다.
+**운영 값(2026-10-11, `2b3b614` 배포)**: `datctype=en_US.utf8 한글_조각=4` — 컴포즈·Testcontainers 와 같아서 운영에서도 인덱스가 한글 검색을 거른다.
 
 ## 데이터 접근은 `JdbcClient` 다
 
