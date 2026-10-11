@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -32,6 +33,7 @@ import org.springframework.security.authentication.InsufficientAuthenticationExc
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -145,6 +147,24 @@ public class SecurityConfig {
             // 인증이 실려서 `mine` 이 참이 될 수 있다 — permitAll 은 인증을 버리지 않는다.
             "/api/products/*/reviews");
 
+    /**
+     * 관리 포트(`management.server.port`)로 들어온 {@code /actuator/**} 요청(`63`).
+     *
+     * <p><b>관리 포트가 서버 포트와 다를 때만 문다.</b> 같으면 Boot 가 {@code local.management.port} 를 서버 포트로 채우는데,
+     * 그때 물면 8080 의 지표가 통째로 열린다 — `Q53` 이 막은 그것이다. 따로 안 정하면 같은 포트다(배포가 그렇다).
+     *
+     * <p><b>포트는 기동 뒤에 읽는다.</b> 시험은 둘 다 무작위 포트라 설정값이 아니라 실제로 묶인 값이 필요하다.
+     */
+    static RequestMatcher managementPortOnly(Environment environment) {
+        return request -> {
+            Integer management = environment.getProperty("local.management.port", Integer.class);
+            Integer server = environment.getProperty("local.server.port", Integer.class);
+            return management != null && !management.equals(server)
+                    && request.getLocalPort() == management
+                    && request.getRequestURI().startsWith("/actuator/");
+        };
+    }
+
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, PermissionRuleLoader ruleLoader,
             SessionRegistry sessionRegistry, ProblemEntryPoint entryPoint,
@@ -152,12 +172,15 @@ public class SecurityConfig {
             @Value("${shop.rate-limit.enabled}") boolean rateLimitEnabled,
             @Value("${shop.rate-limit.key-prefix}") String rateLimitPrefix,
             @Value("${server.tomcat.remoteip.remote-ip-header}") String clientIpHeader,
-            ObjectProvider<PermissionEvaluator> evaluators) throws Exception {
+            ObjectProvider<PermissionEvaluator> evaluators, Environment environment) throws Exception {
         AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS.toArray(String[]::new)).permitAll()
+                        // 관리 포트로 들어온 actuator 만 연다(`63`). 그 포트는 컴포즈 망 안에만 있고(호스트에 안 묶는다)
+                        // Prometheus 는 세션이 없다. 8080 의 지표는 아래 `Q53` 그대로다.
+                        .requestMatchers(managementPortOnly(environment)).permitAll()
                         // 지표는 관리자만 본다(`Q53`). `metric:read` 판정을 지나므로
                         // 역할이 바뀌면 답도 바뀐다 — 경로에 역할 이름을 박지 않는다.
                         .requestMatchers("/actuator/prometheus")

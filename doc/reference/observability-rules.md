@@ -237,6 +237,18 @@ log.info("주문 생성 order_id={}", order.id()); // 필요한 필드만 고른
 이미 세는 자리가 있으면 그 값을 적어 두고 Gauge 는 읽기만 한다 —
 `RefundSweeper.reportOverdue` 가 회차마다 세는 값을 `AtomicLong` 에 넣는 것이 그 꼴이다.
 
+### 로컬에서 보는 법
+
+`docker compose --profile observe up -d` 뒤 `bash scripts/load-test.sh` 로 트래픽을 넣고 Grafana(http://localhost:3001, 익명 보기)를 본다(`63`).
+대시보드 「ProjectShop」 은 `docker/grafana/dashboards/shop.json` 이고 패널이 셋이다 — 권한 판정 p95 · 오류율 · HTTP 응답 p95(경로별).
+**화면에서 고친 것은 안 남는다** — 고치려면 JSON 을 고친다. 클릭으로 만든 대시보드는 재현이 안 된다.
+
+| 무엇 | 어떻게 |
+|---|---|
+| 긁는 길 | Prometheus 가 관리 포트(`MANAGEMENT_SERVER_PORT=9091`)의 `/actuator/prometheus` 를 세션 없이 읽는다 — 그 포트만 `SecurityConfig.managementPortOnly` 가 연다. 8080 의 지표는 `Q53` 대로 관리자만 |
+| 대상 | 컴포즈 백엔드(`backend:9091`)와 `bootRun`(`host.docker.internal:9091`) 둘. `bootRun` 으로 보려면 `MANAGEMENT_SERVER_PORT=9091` 을 주고 띄운다 |
+| p95 | `application.yml` 의 SLO 버킷(`management.metrics.distribution.slo`)으로 `histogram_quantile` 을 계산한다. 경계 몇 개라 값은 버킷 경계에 붙는다 — 정확한 p95 는 `load-test.sh` 가 잰다 |
+
 ## 지금 안 하는 것
 
 | 항목 | 왜 |

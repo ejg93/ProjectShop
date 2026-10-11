@@ -111,6 +111,13 @@ management:
         # 그대로 드러나서 — 배치 처리 건수·환급 대기 건수 — 로그인만으로 열면 손님에게 보인다.
         # 막는 자리는 SecurityConfig 고 여기는 「무엇을 노출하나」만 정한다.
         include: health,prometheus
+  metrics:
+    distribution:
+      # **p95 를 그릴 버킷**(`63`). Grafana 가 `histogram_quantile` 로 계산한다. 기본 히스토그램(버킷 약 70)이 아니라
+      # 경계 몇 개만 연다 — 판정 지표는 자원×동작×허용여부로 줄이 갈려서 버킷 수가 그대로 곱해진다.
+      slo:
+        shop.permission.decide: 1ms,5ms,25ms,100ms,500ms
+        http.server.requests: 10ms,50ms,100ms,250ms,1s,5s
   prometheus:
     metrics:
       export:

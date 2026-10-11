@@ -1323,6 +1323,16 @@ management:
         enabled: true   # 레지스트리 하나만 켠다. management.defaults 로 켜면 나중 판까지 같이 켜진다
 ```
 
+### 관리 포트를 따로 두면 actuator 가 서버 포트에서 빠진다
+
+`management.server.port` 가 서버 포트와 다르면 Boot 가 관리 서버를 따로 띄우고 **`/actuator/**` 를 통째로 그쪽으로 옮긴다** —
+8080 의 `/actuator/prometheus` 는 404 다(2026-10-11 `63` 실측 — 시험 바탕에 관리 포트를 넣었더니 `Q53` 의 관리자 200 시험이 404 로 깨졌다).
+**부모의 보안 필터는 관리 포트에도 걸린다** — 포트 매처를 빼니 관리 포트도 401 이었다. 그래서 `SecurityConfig.managementPortOnly` 가 관리 포트일 때만 연다.
+
+**배포는 이 값을 안 준다.** 안 주면 같은 포트라 Boot 가 `local.management.port` 를 서버 포트로 채우고, 매처는 「다른 포트일 때만」이라 아무것도 안 문다.
+**`application.yml` 에 기본값을 적지 않는다** — `${MANAGEMENT_PORT:${SERVER_PORT:…}}` 꼴은 시험(`server.port=0`)에서 관리 포트가 8080 으로 풀려
+「다른 포트」가 된다. 표준 환경변수 `MANAGEMENT_SERVER_PORT` 를 컴포즈에서만 준다.
+
 ### SpotBugs 제외는 클래스 이름이라 파일을 옮기면 안 따라온다
 
 `config/spotbugs/exclude.xml` 의 `<Class name="…">` 는 **패키지까지 박힌 문자열**이다. `Q58` 이
