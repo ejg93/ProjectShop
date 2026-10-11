@@ -25,14 +25,14 @@
       "id": 2,
       "type": "timeseries",
       "title": "오류율",
-      "description": "shop.error.raised(ProblemFactory 가 낸 오류 응답) ÷ 전체 요청",
+      "description": "shop.error.raised(ProblemFactory 가 낸 오류 응답) ÷ 전체 요청(Prometheus 가 긁는 /actuator 는 뺀다 — 5초마다 와서 한가할 때 오류율을 묽힌다)",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percentunit" } },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (source) (rate(shop_error_raised_total[1m])) / sum by (source) (rate(http_server_requests_seconds_count[1m]))",
+          "expr": "sum by (source) (rate(shop_error_raised_total[1m])) / sum by (source) (rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[1m]))",
           "legendFormat": "{{source}}"
         }
       ]

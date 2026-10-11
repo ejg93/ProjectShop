@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
  * <ul>
  *   <li><b>메서드 참조 꼴</b> — {@code .query(X::mapRow)} 는 본문이 다른 자리에 있다. 지금 {@code *Query} 에 0건이다</li>
  *   <li><b>도우미를 거친 호출</b> — 행 매퍼가 부른 도우미가 안에서 질의하면 글자로는 안 보인다</li>
+ *   <li><b>목록에 없는 협력자</b> — 금지 목록은 지금 {@code *Query} 가 든 필드 이름이다. 새 협력자를 들이면 여기 더한다</li>
  *   <li><b>{@code *Query} 밖</b> — 서비스의 {@code .query(} 람다는 안 걷는다</li>
  * </ul>
  */
@@ -40,12 +41,31 @@ class RowMapperCallTest {
 
     private static final Path SOURCE_ROOT = Path.of("src", "main", "java");
 
-    /** 행 매퍼가 람다로 시작하는 자리. 메서드 참조는 머리글대로 안 본다 */
-    private static final Pattern ROW_MAPPER = Pattern.compile("\\.query\\(\\s*(\\(\\s*rs\\s*,\\s*rowNum\\s*\\)|rs)\\s*->");
+    /**
+     * 행 매퍼가 람다로 시작하는 자리 — 인자 이름·형을 안 가린다({@code (rs, rowNum)}·{@code (r, n)}·
+     * {@code (ResultSet rs, int rowNum)}·{@code rs}), 캐스트 꼴({@code (RowCallbackHandler) rs ->})도 문다.
+     * 메서드 참조는 머리글대로 안 본다
+     */
+    private static final Pattern ROW_MAPPER =
+            Pattern.compile("\\.query\\(\\s*(\\(\\s*[A-Z]\\w*\\s*\\)\\s*)?(\\([^()]*\\)|\\w+)\\s*->");
 
-    /** 행 매퍼 안에 있으면 안 되는 호출 — 판정과 질의 */
-    private static final List<String> FORBIDDEN = List.of(
-            "evaluator.", "actions.", "jdbc.sql(", "decide(", "allowedActions(", "returnRequests.", "loader.");
+    /**
+     * 행 매퍼가 이보다 적게 잡히면 패턴이 낡은 것이다(2026-10-11 에 47 — 람다 46 + 캐스트 꼴 1).
+     * 줄면 이 수를 같이 내리고 그 이유를 커밋에 적는다 — 「찾은 것이 0 이 아니다」만 보면 46 이 1 이 돼도 초록이다
+     */
+    private static final int MIN_MAPPERS = 47;
+
+    /**
+     * 행 매퍼 안에 있으면 안 되는 호출 — 판정과 질의. 낱말 경계를 건다({@code transactions.} 가 {@code actions.} 로 안 걸리게).
+     * 질의는 협력자 이름과 상관없이 {@code .sql(}·{@code .query(} 로 잡는다. {@code products.} 는 안 넣는다 —
+     * {@code ProductSearchQuery} 가 {@code products.publicItem(rs)} 로 행을 옮겨 담는 공용 도우미를 부른다(질의 없음)
+     */
+    private static final List<Pattern> FORBIDDEN = Stream.of(
+                    "\\bevaluator\\.", "\\bactions\\.", "\\bdecide\\(", "\\ballowedActions\\(", "\\breturnRequests\\.",
+                    "\\bloader\\.", "\\bsales\\.", "\\bruns\\.", "\\bendpoints\\.",
+                    "\\.sql\\(", "\\.query\\(")
+            .map(Pattern::compile)
+            .toList();
 
     @Test
     @DisplayName("*Query 의 행 매퍼는 판정·질의를 안 부른다")
@@ -59,18 +79,18 @@ class RowMapperCallTest {
                 mappers++;
                 int open = text.indexOf('(', matcher.start());
                 String body = text.substring(open, closingParen(text, open) + 1);
-                for (String call : FORBIDDEN) {
-                    if (body.contains(call)) {
+                for (Pattern call : FORBIDDEN) {
+                    if (call.matcher(body).find()) {
                         int line = text.substring(0, matcher.start()).split("\n", -1).length;
-                        violations.add(SOURCE_ROOT.relativize(path) + ":" + line + " — " + call);
+                        violations.add(SOURCE_ROOT.relativize(path) + ":" + line + " — " + call.pattern());
                     }
                 }
             }
         }
 
         assertThat(mappers)
-                .as("행 매퍼를 하나도 못 찾으면 이 시험이 아무것도 안 잰다 — 패턴이 낡았나 본다")
-                .isPositive();
+                .as("행 매퍼가 줄었다 — 패턴이 낡았거나 정말 줄었다. 줄었으면 MIN_MAPPERS 를 같이 내린다")
+                .isGreaterThanOrEqualTo(MIN_MAPPERS);
         assertThat(violations)
                 .as("결과를 다 읽어 연결을 놓은 뒤 판정한다 — 행 매퍼는 컬럼만 담는다 (Q250, coding-rules.md 「SQL」)")
                 .isEmpty();

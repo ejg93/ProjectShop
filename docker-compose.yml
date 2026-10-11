@@ -180,7 +180,7 @@ services:
       - ./load:/load
 
   # 로컬 관측(`63`). `docker compose --profile observe up -d` 뒤 `bash scripts/load-test.sh` 로 트래픽을 넣고
-  # Grafana(http://localhost:3001, 익명 보기)를 본다. 대시보드는 저장소의 JSON 이다 — 화면에서 고친 것은 안 남는다.
+  # Grafana(http://localhost:3001, 익명 보기 — 루프백에만 묶는다)를 본다. 대시보드는 저장소의 JSON 이다 — 화면에서 고친 것은 안 남는다.
   prometheus:
     profiles: ["observe"]
     image: prom/prometheus:v3.1.0
@@ -191,7 +191,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
 
   grafana:
     profiles: ["observe"]
@@ -204,8 +204,8 @@ services:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      # 3000 은 Next 가 쓴다.
-      - "3001:3000"
+      # 3000 은 Next 가 쓴다. 루프백에만 — 익명 보기라 같은 망의 누구나 지표를 본다.
+      - "127.0.0.1:3001:3000"
     depends_on:
       - prometheus
 

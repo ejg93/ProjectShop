@@ -246,8 +246,9 @@ log.info("주문 생성 order_id={}", order.id()); // 필요한 필드만 고른
 | 무엇 | 어떻게 |
 |---|---|
 | 긁는 길 | Prometheus 가 관리 포트(`MANAGEMENT_SERVER_PORT=9091`)의 `/actuator/prometheus` 를 세션 없이 읽는다 — 그 포트만 `SecurityConfig.managementPortOnly` 가 연다. 8080 의 지표는 `Q53` 대로 관리자만 |
-| 대상 | 컴포즈 백엔드(`backend:9091`)와 `bootRun`(`host.docker.internal:9091`) 둘. `bootRun` 으로 보려면 `MANAGEMENT_SERVER_PORT=9091` 을 주고 띄운다 |
-| p95 | `application.yml` 의 SLO 버킷(`management.metrics.distribution.slo`)으로 `histogram_quantile` 을 계산한다. 경계 몇 개라 값은 버킷 경계에 붙는다 — 정확한 p95 는 `load-test.sh` 가 잰다 |
+| 대상 | 컴포즈 백엔드(`backend:9091`)와 `bootRun`(`host.docker.internal:9091`) 둘. `bootRun` 으로 보려면 **로컬에서만** `MANAGEMENT_SERVER_PORT=9091` 을 주고 띄운다 |
+| p95 | `application.yml` 의 SLO 버킷(`management.metrics.distribution.slo`)으로 `histogram_quantile` 을 계산한다. 경계 몇 개라 값은 버킷 경계에 붙는다 — 정확한 p95 는 `load-test.sh` 가 잰다. **운영에도 걸린다** — 관리자가 보는 `/actuator/prometheus` 에 `_bucket` 줄이 판정 지표(자원×동작×허용여부)에 6개, HTTP(uri·method·status·outcome·exception)에 7개씩 붙는다. 부하 대조는 SLO 를 켠 판과 끈 판이 같은 폭이었다(2026-10-11) |
+| 배포 | **`MANAGEMENT_SERVER_PORT` 를 안 준다** — 위 「긁는 길」은 컴포즈 망 안 이야기다(`security-baseline.md` 「노출면」, `Q264`) |
 
 ## 지금 안 하는 것
 

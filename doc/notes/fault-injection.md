@@ -21,13 +21,15 @@
 |---|---|---|---|---|---|
 | A | `db` | 공개 목록 | 빨리 503 | **30초 뒤 500** — Hikari `connection-timeout` 기본 30초를 다 기다린다 | 4초 안에 풀이 스스로 회복, 200 |
 | A | `db` | 내 주문(세션) | 빨리 503 | 30초 뒤 500. 세션은 안 버려진다 | 200 — 그 세션 그대로 |
-| A | `db` | 새 로그인 | 503 | **30초 뒤 401** — DB 실패가 `InternalAuthenticationServiceException` 으로 와서 「비밀번호 틀림」과 같은 답이고 **`recordFailure` 가 센다** — 장애 동안 시도가 계정 잠금으로 쌓인다 | 200 |
+| A | `db` | 새 로그인 | 503 | **30초 뒤 401** — DB 실패가 `InternalAuthenticationServiceException` 으로 와서 「비밀번호 틀림」과 같은 답이고 **`recordFailure` 가 센다** — 장애 동안 재시도가 그 이메일+주소의 15분 차단으로 쌓인다(`LoginAttemptService.key`) | 200 |
 | A | `db` | `/api/health` | 빨리 503 | 30초 뒤 500 — Railway 헬스체크도 30초를 기다린다 | 200 |
 | B | `redis` | 공개 목록 | 산다 | 200, 13ms. 운영처럼 요청 제한이 켜져 있으면 `RateLimitFilter.count` 가 `DataAccessException` 을 0 으로 받아 통과시킨다(fail-open) — 요청마다 Redis 대기(약 2초)가 붙는다(코드로 읽음) | 200 |
 | B | `redis` | 내 주문(세션) | 401 또는 503 | **4초 뒤 500** — 세션 조회가 `timeout: 2s` 를 두 번 | 200 — 세션 그대로 |
-| B | `redis` | 새 로그인 | 503 | **6초 뒤 500** | 200 |
+| B | `redis` | 새 로그인 | 503 | **6초 뒤 500** — 실패 카운터는 Redis 가 죽으면 `DataAccessException` 을 받아 넘어간다(`LoginAttemptService`). 6초는 차단 확인 2초 + 카운터 초기화 2초 + 세션 저장 실패로 읽힌다(로그 대조는 안 했다 — 추정) | 200 |
 | B | `redis` | `/api/health` | 503 | **200** — Redis 를 안 본다. 로그인한 손님 요청이 다 실패하는데 건강하다고 답한다 | 200 |
 | C | 백엔드 | 홈·상품·로그인·내 주문 화면 | `error.tsx`(「화면을 여는 데 실패했습니다」) | **넷 다 본문 없는 500**(`next start`) — 루트 레이아웃의 `SiteHeader` 가 `apiSessionOptional("/api/me/permissions")` 에서 `fetch failed`(ECONNREFUSED)로 던지고, 레이아웃 오류는 `error.tsx` 가 못 잡는데 `global-error.tsx` 가 없다. **로그인 화면까지 죽는다** | — |
+
+**`/actuator/health` 는 이번에 못 쟀다** — 같은 컨테이너에 `63` 이 관리 포트(9091, 호스트에 안 묶임)를 줘서 actuator 가 8080 에서 빠졌다. 다시 돌릴 때는 `docker exec` 로 컨테이너 안에서 9091 을 부르거나 관리 포트를 빼고 띄운다.
 
 **개발 서버(`npm run dev`)로 보지 않는다** — 오류를 JS 오버레이로만 그려 손님이 보는 화면과 다르다. `next build` 뒤 `next start` 로 본다.
 
@@ -36,7 +38,7 @@
 | 무엇 | 어디로 |
 |---|---|
 | DB 장애 때 모든 요청이 30초 매달린다 | 신규 `Q260` |
-| DB 장애를 로그인 실패로 세어 계정이 잠긴다 | 신규 `Q261` |
+| DB 장애를 로그인 실패로 세어 그 이메일+주소가 15분 막힌다 | 신규 `Q261` |
 | `/api/health` 가 Redis 를 안 본다 | 신규 `Q262` |
 | 백엔드가 죽으면 프론트 전 화면이 본문 없는 500 | 신규 `Q263` |
 | Redis 가 죽으면 요청 제한이 열린 채 요청마다 대기가 붙는다 | 정보 — `stack.md` 「바깥 의존이 죽으면」 |
