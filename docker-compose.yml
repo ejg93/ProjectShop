@@ -141,8 +141,11 @@ services:
   #
   # **`shop_load` 를 본다**(`70-0`) — 개발 DB 와 안 섞인다. **요청 제한을 끈다** — 주소당 1분 120 이라
   # 켜 두면 부하가 429 를 잰다. 호스트 포트는 8081 이다 — `bootRun` 의 8080 과 같이 떠 있어도 안 부딪친다.
+  #
+  # **`observe` 프로필도 같은 정의를 쓴다**(`63`) — 관리 포트 9091 을 컴포즈 망 안에만 연다(호스트에 안 묶는다).
+  # 관리 포트를 따로 두면 actuator 가 8080 에서 빠진다 — 부하 스크립트는 actuator 를 안 부른다.
   backend:
-    profiles: ["load"]
+    profiles: ["load", "observe"]
     build: ./backend
     container_name: shop-backend-load
     environment:
@@ -154,6 +157,7 @@ services:
       KAFKA_BOOTSTRAP: kafka:9092
       STORAGE_ENDPOINT: http://s3mock:9090
       RATE_LIMIT_ENABLED: "false"
+      MANAGEMENT_SERVER_PORT: "9091"
       TZ: Asia/Seoul
     ports:
       - "8081:8080"
@@ -174,6 +178,36 @@ services:
       BASE_URL: http://backend:8080
     volumes:
       - ./load:/load
+
+  # 로컬 관측(`63`). `docker compose --profile observe up -d` 뒤 `bash scripts/load-test.sh` 로 트래픽을 넣고
+  # Grafana(http://localhost:3001, 익명 보기 — 루프백에만 묶는다)를 본다. 대시보드는 저장소의 JSON 이다 — 화면에서 고친 것은 안 남는다.
+  prometheus:
+    profiles: ["observe"]
+    image: prom/prometheus:v3.1.0
+    container_name: shop-prometheus
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    # `bootRun` 을 긁는 길. Docker Desktop 은 이 이름을 스스로 풀고, 리눅스는 이 줄이 있어야 푼다.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    profiles: ["observe"]
+    image: grafana/grafana:11.5.0
+    container_name: shop-grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      # 3000 은 Next 가 쓴다. 루프백에만 — 익명 보기라 같은 망의 누구나 지표를 본다.
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - prometheus
 
 volumes:
   db-data:

@@ -1323,6 +1323,28 @@ management:
         enabled: true   # 레지스트리 하나만 켠다. management.defaults 로 켜면 나중 판까지 같이 켜진다
 ```
 
+### 바깥 의존이 죽으면 — DB 는 30초 매달리고 Redis 는 헬스체크가 모른다
+
+2026-10-11 장애 주입(`68`, `doc/notes/fault-injection.md`)이 잰 것이다. **기억으로 「빨리 503」을 기대하면 틀린다.**
+
+| 죽은 것 | 무엇이 일어나나 |
+|---|---|
+| Postgres | DB 를 부르는 요청이 전부 **Hikari `connection-timeout` 기본 30초**를 다 기다린 뒤 500 — `/api/health` 도. 되살리면 4초 안에 풀이 스스로 회복하고 세션은 안 버려진다. 로그인은 30초 뒤 **401** 이고 실패 카운터가 센다 — 그 이메일+주소가 15분 막힐 수 있다(`Q261`) |
+| Redis | 세션을 든 요청은 4초(`timeout: 2s` 두 번), 로그인은 6초 뒤 500. **`/api/health` 는 200** 이다(`Q262`). 요청 제한은 `DataAccessException` 을 0 으로 받아 **열린 채** 통과시키고 요청마다 대기가 붙는다(코드) |
+| 백엔드 | 프론트 **모든 화면이 본문 없는 500** — 루트 레이아웃의 머리 줄이 세션을 묻다 던지고 `global-error.tsx` 가 없다(`Q263`) |
+
+**같은 계정으로 「이미 로그인한 세션」과 「새 로그인」을 같이 재지 않는다** — 동시 세션 제한이 앞 세션을 내보내 401 이 장애 탓처럼 보인다(그날 한 번 오진했다).
+
+### 관리 포트를 따로 두면 actuator 가 서버 포트에서 빠진다
+
+`management.server.port` 가 서버 포트와 다르면 Boot 가 관리 서버를 따로 띄우고 **`/actuator/**` 를 통째로 그쪽으로 옮긴다** —
+8080 의 `/actuator/prometheus` 는 404 다(2026-10-11 `63` 실측 — 시험 바탕에 관리 포트를 넣었더니 `Q53` 의 관리자 200 시험이 404 로 깨졌다).
+**부모의 보안 필터는 관리 포트에도 걸린다** — 포트 매처를 빼니 관리 포트도 401 이었다. 그래서 `SecurityConfig.managementPortOnly` 가 관리 포트일 때만 연다.
+
+**배포는 이 값을 안 준다.** 안 주면 같은 포트라 Boot 가 `local.management.port` 를 서버 포트로 채우고, 매처는 「다른 포트일 때만」이라 아무것도 안 문다.
+**`application.yml` 에 기본값을 적지 않는다** — `${MANAGEMENT_PORT:${SERVER_PORT:…}}` 꼴은 시험(`server.port=0`)에서 관리 포트가 8080 으로 풀려
+「다른 포트」가 된다. 표준 환경변수 `MANAGEMENT_SERVER_PORT` 를 컴포즈에서만 준다.
+
 ### SpotBugs 제외는 클래스 이름이라 파일을 옮기면 안 따라온다
 
 `config/spotbugs/exclude.xml` 의 `<Class name="…">` 는 **패키지까지 박힌 문자열**이다. `Q58` 이
@@ -1712,6 +1734,7 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 컴포즈·Testcontainers 의 `postgres:17-alpine` 은 `en_US.utf8` 이라 「운동화를 위한 깔창」이 조각 열하나를 낸다(2026-10-02 `show_trgm`).
 `C` 로케일 DB 면 한글이 조각에서 빠져 인덱스가 아무것도 못 거른다. **운영 값은 기동 로그가 든다**(`Q246`, `SearchLocaleCheck`) —
 Railway MCP `get-logs`(service backend)에서 「검색 로케일」 줄을 읽는다. 조각이 0 이면 같은 자리에 WARN 이 붙는다.
+**운영 값(2026-10-11, `2b3b614` 배포)**: `datctype=en_US.utf8 한글_조각=4` — 컴포즈·Testcontainers 와 같아서 운영에서도 인덱스가 한글 검색을 거른다.
 
 ## 데이터 접근은 `JdbcClient` 다
 

@@ -118,8 +118,8 @@ private static final Map<String, String> SORTABLE = Map.of(
 행 매퍼 안의 `decide` 가 규칙 캐시를 못 맞히거나 거부를 감사 기록(REQUIRES_NEW)에 남기면
 **줄마다 연결을 하나 더 문다.** 풀을 다 쥔 동시 요청이 서로의 둘째 연결을 기다리다 시간이 다 된다 —
 마무리 57차 부하 대조의 `GET /api/refunds` p95 30초가 그것이다.
-행 매퍼는 컬럼만 담고, `.list()` 뒤에 줄마다 판정을 채운다. **`ListQueryConnectionTest` 가 고친 세 자리**(환불 목록·주문 상세의 셀러별 묶음·셀러 상품 목록)**를 막는다** —
-새 목록이 행마다 판정하면 그 시험에 한 줄을 더한다. 모든 `*Query` 를 글자로 잡는 그물은 아직 없다(`Q255`).
+행 매퍼는 컬럼만 담고, `.list()` 뒤에 줄마다 판정을 채운다. **`RowMapperCallTest` 가 모든 `*Query` 를 글자로 잰다**(`Q255` — 행 매퍼 람다 안의 `evaluator.`·`actions.`·`jdbc.sql(`·`decide(` 등),
+`ListQueryConnectionTest` 는 고친 세 자리(환불 목록·주문 상세의 셀러별 묶음·셀러 상품 목록)를 **연결로** 잰다.
 
 ## 주석
 
