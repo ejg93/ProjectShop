@@ -47,7 +47,7 @@ curl localhost:8080/actuator/health
 | `REDIS_PASSWORD` | 빈 값(인증 없음). 관리형 Redis 는 넣어야 붙는다 |
 | `SESSION_COOKIE_SECURE` | `false`. **https 로 올리면 `true` 가 필수다** — 안 켜면 세션 쿠키가 평문으로 흐른다. **프록시가 루프백 밖인데 꺼져 있으면 서버가 안 뜬다**(`Q44`) |
 | `SPRING_PROFILES_ACTIVE` | 없음. **보여 주려고 올린 배포에는 `demo` 를 준다**(`Q134`) — 기본 프로필은 `db/migration` 만 봐서 `V900+` 시드가 통째로 안 돌고, 그러면 연습용 계정 아홉(`Q130`)과 데모 재고(`Q128`)가 그 DB 에 안 생긴다. 로컬에서 손으로 볼 때는 `local` 이다 |
-| `TRUSTED_PROXIES` | 루프백. 손님 주소 헤더(`X-Real-IP`, `Q242`)를 믿어 줄 상대의 정규식. **아무 주소나 물게 넓히면 서버가 안 뜬다**(`Q44`, `SecuritySettingsCheck`) |
+| `TRUSTED_PROXIES` | 루프백. 손님 주소 헤더(`X-Real-IP`, `Q242`)를 믿어 줄 상대의 정규식. **아무 주소나 물게 넓히면 서버가 안 뜬다**(`Q44`, `SecuritySettingsCheck`). 운영 값은 아래 「Railway」의 사설망 전체다(`Q251`) |
 | `KAFKA_BOOTSTRAP` | `localhost:9092`. 브로커 주소. **켜져 있어도 발행기가 잠겨 있으면 안 쓰인다** |
 | `STORAGE_ENDPOINT` | `http://localhost:9000`. 파일 저장소 주소. **배포는 Cloudflare R2 다**(사용자 결정 2026-09-18) — S3 호환이라 코드는 같고 이 값과 키 셋만 갈린다 |
 | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | `shop` / `shopshop`. **배포는 R2 가 내주는 것을 넣는다** |
@@ -136,7 +136,10 @@ docker run -e BACKEND_ORIGIN=http://backend:8080 -p 3000:3000 shop-frontend
 
 **DB·Redis 는 참조로 건다** — `DB_HOST=${{Postgres.PGHOST}}` 식으로 전부. 주소를 손으로 적은 자리가 없다.
 
-**`TRUSTED_PROXIES` 는 사설망 대역이다.** Railway 사설망이 IPv6 ULA 라 `fd[0-9a-f]{2}:[0-9a-f:]*` 를 썼고, **그런데 운영 백엔드는 프론트를 사설 IPv4 로 본다**(2026-10-03 진단 — 이 값으로는 손님 주소 헤더가 버려진다, `Q251`).
+**`TRUSTED_PROXIES` 는 사설망 전체다**(`Q251`) — RFC 1918 셋과 IPv6 ULA:
+`fd[0-9a-f]{2}:[0-9a-f:]*|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+`.
+ULA 만 두었을 때는 운영 백엔드가 프론트를 **사설 IPv4** 로 봐서 손님 주소 헤더가 버려졌다(2026-10-03 진단). Railway 는 사설망 대역을 안 적어서 사설 대역 전부를 넣었다.
+**사설망에 닿는 것은 이 환경의 네 서비스뿐이다** — 백엔드에 공개 도메인이 없다. **백엔드에 공개 도메인을 다는 날 다시 좁힌다** — 그때는 사설망에 우리 서비스 말고도 앞단이 선다.
 `SESSION_COOKIE_SECURE=true` 와 짝이다 — 안 켜면 `SecuritySettingsCheck` 가 기동을 세운다(`Q44`).
 
 **데모 데이터를 붓는 자리에 사람 손이 든다.** 덤프는 로컬에서 뜨고 복구는 이 기계에서 도는데,

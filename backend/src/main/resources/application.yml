@@ -161,6 +161,7 @@ server:
       # 정규식이다. 배포로 프록시가 밖에 서면 `TRUSTED_PROXIES` 로 그 대역을 넣는다 —
       # 안 넣으면 헤더를 안 봐서 acted_ip 가 프록시 IP 로 쌓인다. 넓게(`.*`) 넣으면 기본값의
       # 구멍이 다시 열린다 — 백엔드 공개 주소를 직접 때리는 누구나 IP 를 속인다(`backend/README.md`).
+      # 배포는 사설망 전체(`backend/README.md`, `Q251`).
       internal-proxies: ${TRUSTED_PROXIES:127\.0\.0\.1|0:0:0:0:0:0:0:1|::1}
   servlet:
     session:

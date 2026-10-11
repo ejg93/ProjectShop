@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
+import java.util.regex.Pattern;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -21,6 +24,11 @@ class SecuritySettingsCheckTest {
     private static final String PRIVATE_RANGE = "10\\.\\d+\\.\\d+\\.\\d+";
     /** 견본 목록에 없는 공인 주소. 로드밸런서 하나에 맞춘 배포가 이 꼴이다 */
     private static final String PUBLIC_PINNED = "52\\.1\\.2\\.3";
+    /** 운영 Railway 변수 값(`Q251`, `backend/README.md`). 프론트가 사설 IPv4 로 온다 */
+    private static final String RAILWAY_PRIVATE = "fd[0-9a-f]{2}:[0-9a-f:]*"
+            + "|10\\.\\d+\\.\\d+\\.\\d+"
+            + "|172\\.(1[6-9]|2\\d|3[01])\\.\\d+\\.\\d+"
+            + "|192\\.168\\.\\d+\\.\\d+";
 
     @Test
     @DisplayName("기본값인 루프백은 쿠키가 평문이어도 뜬다")
@@ -73,6 +81,27 @@ class SecuritySettingsCheckTest {
         assertThatThrownBy(() -> SecuritySettingsCheck.verify(PUBLIC_PINNED, false))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SESSION_COOKIE_SECURE");
+    }
+
+    /**
+     * <b>운영 값 견본</b>(`Q251`). 운영 값은 Railway 변수에만 있어서 저장소에 없다 — 그래서 시험이 든다.
+     * 사설망 전체(RFC 1918 + IPv6 ULA)라 공인 견본을 안 물고, 공유 주소(`100.64/10`)와
+     * RFC 1918 경계 밖(`172.32`)도 안 문다.
+     */
+    @Test
+    @DisplayName("운영 값인 사설망 전체는 쿠키가 secure 면 뜨고 공인 주소를 안 문다")
+    void railwayPrivateRangesStartAndStayPrivate() {
+        assertThatCode(() -> SecuritySettingsCheck.verify(RAILWAY_PRIVATE, true))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify(RAILWAY_PRIVATE, false))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SESSION_COOKIE_SECURE");
+
+        Pattern proxies = Pattern.compile(RAILWAY_PRIVATE);
+        assertThat(List.of("10.0.0.1", "172.16.0.1", "172.31.255.255", "192.168.0.1", "fd12::1"))
+                .allMatch(ip -> proxies.matcher(ip).matches());
+        assertThat(List.of("203.0.113.7", "100.64.0.1", "172.32.0.1"))
+                .noneMatch(ip -> proxies.matcher(ip).matches());
     }
 
     @Test
