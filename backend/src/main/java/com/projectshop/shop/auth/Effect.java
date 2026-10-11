@@ -17,9 +17,10 @@ import java.util.Arrays;
  * {@code role_permission} 을 가리키는 <b>복합 외래키의 일부</b>라 값 목록이 구조로 닫혀 있다
  * (`D23` 축 2 의 1위) — 같은 목록을 두 번 적을 이유가 없다.
  *
- * <p><b>{@code public} 인 이유는 두 번째 판정 구현이 같은 값을 읽어서다</b>(청크 `74`).
- * {@code auth.managed} 가 같은 표를 읽는데, 효과를 문자열로 받으면 {@link #of} 의 「모르는 값이면 터진다」를
- * 그쪽이 다시 써야 한다. 저장값 변환({@link #code}·{@link #of})은 그대로 패키지 안이다.
+ * <p><b>{@code public} 인 이유는 두 번째 판정 구현이 효과를 타입으로 받아서다</b>(청크 `74`).
+ * {@code auth.managed} 의 권한 줄({@code ScopedGrant})이 이 값을 성분으로 든다 — 문자열로 받으면 아무 값이나 들어간다.
+ * 저장값 변환({@link #code}·{@link #of})은 그대로 패키지 안이라 표를 읽어 이 값으로 바꾸는 일은 {@code auth} 가 한다 —
+ * 두 번째 구현을 필터체인에 걸기로 뒤집는 날 그 자리와 {@code ArchitectureTest} 규칙을 같이 정한다(ADR 0012).
  */
 public enum Effect {
 

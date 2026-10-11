@@ -109,6 +109,7 @@ class PermissionMatrixTest {
         appendCombinationMatrix(out, decider);
         appendReasons(out, decider);
         appendStatusAxis(out, decider);
+        appendTiesAndFieldGroups(out, decider);
         return out.toString();
     }
 
@@ -198,6 +199,52 @@ class PermissionMatrixTest {
         }
     }
 
+    /**
+     * 같은 넓이의 허용·거부 둘·필드 그룹. <b>허용·거부는 같아도 근거와 보이는 필드가 갈릴 수 있는 자리</b>다 —
+     * 앞의 절은 규칙에 필드 그룹을 안 달아서 그 갈림을 못 봤다(마무리 60차 독립 리뷰).
+     *
+     * <p>짝마다 순서를 바꾼 것을 같이 넣는다. 근거가 「먼저 읽힌 줄」이라는 명세(`D6` 「판정 순서」)가 그 자리에서 드러난다.
+     */
+    private void appendTiesAndFieldGroups(StringBuilder out, Decider decider) {
+        out.append("## 같은 넓이·거부 둘·필드 그룹\n\n");
+        out.append("| 규칙 | 대상 | 근거 | 필드 그룹 |\n|---|---|---|---|\n");
+
+        List<List<Rule>> samples = List.of(
+                List.of(rule("조직", Scope.SELLER, Effect.ALLOW, Set.of("contact")),
+                        rule("전역", Scope.SELLER, Effect.ALLOW, Set.of("settlement"))),
+                List.of(rule("전역", Scope.SELLER, Effect.ALLOW, Set.of("settlement")),
+                        rule("조직", Scope.SELLER, Effect.ALLOW, Set.of("contact"))),
+                List.of(rule("전역", Scope.ALL, Effect.DENY), rule("전역", Scope.OWN, Effect.DENY)),
+                List.of(rule("전역", Scope.OWN, Effect.DENY), rule("전역", Scope.ALL, Effect.DENY)),
+                List.of(rule("전역", Scope.OWN, Effect.ALLOW, Set.of("contact")),
+                        rule("전역", Scope.ALL, Effect.ALLOW)));
+
+        for (List<Rule> rules : samples) {
+            for (Column column : COLUMNS) {
+                Decision decision = decide(decider, rules, column.target());
+                out.append("| %s | %s | %s | %s |\n".formatted(
+                        rules.stream().map(rule -> rule + fieldGroupsOf(rule)).reduce((a, b) -> a + " + " + b)
+                                .orElse(""),
+                        column.label(),
+                        decision.reason(),
+                        render(decision.visibleFieldGroups())));
+            }
+        }
+    }
+
+    private static String fieldGroupsOf(Rule rule) {
+        return rule.fieldGroups().isEmpty() ? "" : rule.fieldGroups().stream().sorted().toList().toString();
+    }
+
+    /** 「전부」와 「빈 목록」을 글자로 가른다 — 둘을 같은 칸으로 찍으면 그 갈림이 스냅샷에서 사라진다 */
+    private static String render(Allowed<String> groups) {
+        return switch (groups) {
+            case Allowed.Everything<String> ignored -> "전부";
+            case Allowed.Only<String>(Set<String> values) ->
+                    values.isEmpty() ? "(없음)" : String.join(", ", values.stream().sorted().toList());
+        };
+    }
+
     private record Combination(String first, String second, List<Rule> rules) {}
 
     private List<Combination> combinations() {
@@ -250,8 +297,13 @@ class PermissionMatrixTest {
      * 안 채우면 "own 인데 조직 부여" 같은 조합이 표에서 빠져서, 뜻이 없다는 것 자체가 안 드러난다.
      */
     private Rule rule(String grant, Scope scope, Effect effect) {
+        return rule(grant, scope, effect, Set.of());
+    }
+
+    /** 필드 그룹을 단 규칙. 빈 집합은 제한이 없다는 뜻이다({@code role_permission_field} 에 행이 없다) */
+    private Rule rule(String grant, Scope scope, Effect effect, Set<String> fieldGroups) {
         Long grantSellerId = "조직".equals(grant) ? ALPHA : null;
-        return new Rule("role", grantSellerId, scope, effect, Set.of());
+        return new Rule("role", grantSellerId, scope, effect, fieldGroups);
     }
 
     /** 상태 축을 안 거는 판정. 앞의 세 절은 상태와 무관한 축을 본다 */

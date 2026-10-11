@@ -32,7 +32,8 @@ import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
  * 바꿔도 다시 로그인할 때까지 옛 권한이 돈다. 그래서 판정마다 {@link GrantSource} 로 표를 읽는다.
  *
  * <p><b>대상은 변수 맵({@code Map<String, String>})으로 받는다.</b> 7.1.1 의 {@code RequestAuthorizationContext}
- * 가 대상을 실을 자리는 그것뿐이고 값이 문자열이다. 키가 없으면 그 칸이 비어 있는 대상이다.
+ * 가 값을 싣는 전용 자리는 그것이고 값이 문자열이다 — 요청 속성({@code getRequest()})에도 닿지만 그것은 요청 전체에
+ * 퍼지는 자리다. 키가 없으면 그 칸이 비어 있는 대상이다.
  */
 public final class ManagedAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
 

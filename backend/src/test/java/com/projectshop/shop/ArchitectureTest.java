@@ -135,7 +135,8 @@ class ArchitectureTest {
     /**
      * 두 번째 판정 구현({@code auth.managed})은 운영 코드가 안 부른다(청크 `74`).
      *
-     * <p>비교용이다 — {@code PermissionMatrixTest} 만 부른다. 컨트롤러·서비스가 부르면 판정이 두 벌이 되고,
+     * <p>비교용이다 — 시험의 {@code Decider} 만 부른다(이 규칙은 {@code DoNotIncludeTests} 라 운영 코드만 잰다).
+     * 컨트롤러·서비스가 부르면 판정이 두 벌이 되고,
      * {@code SecurityConfig} 가 필터체인에 걸면 두 엔진이 같이 판정해서 감사 기록이 둘이 된다.
      * 어느 쪽을 거나는 `75` 의 ADR 이 정한다. 걸기로 하면 이 규칙을 그 ADR 과 같이 고친다.
      *
