@@ -38,7 +38,7 @@ import org.springframework.stereotype.Component;
  * </table>
  *
  * <p><b>로컬은 안 걸린다.</b> 기본값이 루프백만 신뢰해서 셋 다 해당하지 않는다 — 관리 포트를 주는
- * 컴포즈 {@code observe} 도 루프백 기본이다.
+ * 컴포즈 {@code backend}({@code load}·{@code observe} 프로필)도 루프백 기본이다.
  *
  * <h2>글자가 아니라 동작으로 잰다</h2>
  *

@@ -31,7 +31,7 @@ class SecuritySettingsCheckTest {
             + "|192\\.168\\.\\d+\\.\\d+";
     /** 관리 포트를 안 줬을 때 — {@code @Value} 의 빈 기본값과 같다. 배포가 이 모양이다 */
     private static final String NO_MANAGEMENT_PORT = "";
-    /** 컴포즈 {@code observe} 가 주는 관리 포트(`63`) */
+    /** 컴포즈 {@code backend}({@code load}·{@code observe} 프로필)가 주는 관리 포트(`63`) */
     private static final String COMPOSE_MANAGEMENT_PORT = "9091";
 
     @Test
