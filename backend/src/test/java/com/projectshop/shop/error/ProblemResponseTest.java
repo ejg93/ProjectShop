@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.BadSqlGrammarException;
@@ -260,7 +261,7 @@ class ProblemResponseTest extends PostgresTestBase {
         }
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"jdbc", "redis", "transaction"})
+        @ValueSource(strings = {"jdbc", "redis", "redis-timeout", "transaction"})
         @DisplayName("MVC 안에서 터지면 503 과 Retry-After")
         void handlerAnswers503(String kind) throws Exception {
             broken().perform(get("/broken/" + kind))
@@ -283,7 +284,7 @@ class ProblemResponseTest extends PostgresTestBase {
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             filter.doFilter(new MockHttpServletRequest("GET", "/api/orders"), response, (request, ignored) -> {
-                throw new ServletException(new RedisConnectionFailureException("세션 저장소에 못 닿았다"));
+                throw new ServletException(new QueryTimeoutException("세션 저장소가 답하지 않는다"));
             });
 
             assertThat(response.getStatus()).isEqualTo(503);
@@ -337,6 +338,12 @@ class ProblemResponseTest extends PostgresTestBase {
         @GetMapping("/broken/redis")
         void redis() {
             throw new RedisConnectionFailureException("Redis 에 못 닿았다");
+        }
+
+        /** 붙어 있던 Redis 가 죽으면 이것으로 온다(`Q262` 실험 B 실측) */
+        @GetMapping("/broken/redis-timeout")
+        void redisTimeout() {
+            throw new QueryTimeoutException("Redis command timed out");
         }
 
         @GetMapping("/broken/transaction")

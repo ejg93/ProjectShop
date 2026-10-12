@@ -29,7 +29,7 @@ curl localhost:8080/api/health
 curl localhost:8080/actuator/health
 ```
 
-`/api/health` 는 DB에 질의를 직접 던져서 접속한 DB 이름과 적용된 마이그레이션 수를 돌려준다.
+`/api/health` 는 DB에 질의를 직접 던져서 접속한 DB 이름과 적용된 마이그레이션 수를 돌려준다. Redis 에도 PING 을 던지고, 둘 중 하나라도 못 닿으면 503 이다(`Q262`).
 커넥션은 잡혔는데 질의가 안 나가는 상태를 걸러내려는 것이다.
 
 ## 접속 정보

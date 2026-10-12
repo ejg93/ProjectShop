@@ -1323,14 +1323,14 @@ management:
         enabled: true   # 레지스트리 하나만 켠다. management.defaults 로 켜면 나중 판까지 같이 켜진다
 ```
 
-### 바깥 의존이 죽으면 — DB 는 3초 뒤 503 이고 Redis 는 헬스체크가 모른다
+### 바깥 의존이 죽으면 — DB 는 3초, Redis 는 2초 뒤 503
 
 2026-10-11 장애 주입(`68`, `doc/notes/fault-injection.md`)이 잰 것이다. **기억으로 「빨리 503」을 기대하면 틀린다.**
 
 | 죽은 것 | 무엇이 일어나나 |
 |---|---|
 | Postgres | DB 를 부르는 요청이 전부 **3초 뒤 503**(`Retry-After: 5`) — `/api/health` 도. **`Q260` 전에는 Hikari 기본 30초를 다 기다린 뒤 500 이었다** — 상한은 `spring.datasource.hikari.connection-timeout` 이 든다. 필터 앞에서 터진 것(세션의 생존 확인)도 `DependencyFailureFilter` 가 같은 503 으로 옮긴다. 스케줄 작업은 장애 동안 ERROR 한 줄(스택)을 남긴다. 되살리면 4초 안에 풀이 스스로 회복하고 세션은 안 버려진다. 로그인은 30초 뒤 **401** 이고 실패 카운터가 센다 — 그 이메일+주소가 15분 막힐 수 있다(`Q261`) |
-| Redis | 세션을 든 요청은 4초(`timeout: 2s` 두 번), 로그인은 6초 뒤 500. **`/api/health` 는 200** 이다(`Q262`). 요청 제한은 `DataAccessException` 을 0 으로 받아 **열린 채** 통과시키고 요청마다 대기가 붙는다(코드) |
+| Redis | 세션을 든 요청은 **2초 뒤 503**, 로그인은 6초 뒤 503, **`/api/health` 도 2초 뒤 503**(`Q262`) — **붙어 있던 연결이 죽으면 `RedisConnectionFailureException` 이 아니라 `QueryTimeoutException`(명령 시간 초과)으로 온다**(Lettuce 가 다시 붙으려는 동안). 그 전에는 세션 요청 4초·로그인 6초 뒤 500 이었고 헬스는 200 이었다. `/actuator/health` 는 Boot 기본 지표가 Redis 를 봐서 처음부터 503 이었다. **Railway 헬스체크 경로는 첫 배포 기록(`backend/README.md` 「2026-09-20 에 실제로 한 순서」)이 `/actuator/health` 다** — 어느 경로를 걸어도 둘 다 본다. 요청 제한은 `DataAccessException` 을 0 으로 받아 **열린 채** 통과시키고 요청마다 대기가 붙는다(코드) |
 | 백엔드 | 프론트 **모든 화면이 본문 없는 500** — 루트 레이아웃의 머리 줄이 세션을 묻다 던지고 `global-error.tsx` 가 없다(`Q263`) |
 
 **같은 계정으로 「이미 로그인한 세션」과 「새 로그인」을 같이 재지 않는다** — 동시 세션 제한이 앞 세션을 내보내 401 이 장애 탓처럼 보인다(그날 한 번 오진했다).

@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.MethodParameter;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -229,7 +230,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      * <p><b>WARN 이고 스택이 없다</b>(`D16` 「ERROR 는 사람이 개입할 것에만」). 원인이 알려진 것이라
      * 코드를 볼 일이 아니고, 장애 동안 요청마다 한 줄씩 남는다 — 스택까지 남기면 그 사이 다른 줄이 묻힌다.
      */
-    @ExceptionHandler({DataAccessResourceFailureException.class, CannotCreateTransactionException.class})
+    @ExceptionHandler({DataAccessResourceFailureException.class, QueryTimeoutException.class,
+            CannotCreateTransactionException.class})
     ResponseEntity<ProblemDetail> handleDependencyFailure(RuntimeException e, HttpServletRequest request) {
         log.warn("바깥 의존에 닿지 못했다: {} {} — {}: {}", request.getMethod(), request.getRequestURI(),
                 e.getClass().getSimpleName(), e.getMessage());
