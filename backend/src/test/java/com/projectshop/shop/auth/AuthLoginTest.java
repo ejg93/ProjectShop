@@ -1,6 +1,7 @@
 package com.projectshop.shop.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -20,6 +21,7 @@ import java.util.Base64;
 
 
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.session.FindByIndexNameSessionRepository;
@@ -27,6 +29,7 @@ import org.springframework.session.Session;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import jakarta.servlet.http.Cookie;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -369,6 +372,46 @@ class AuthLoginTest extends PostgresTestBase {
                     .andExpect(result -> assertThat(result.getResponse().getStatus())
                             .as("새 세션은 살아 있어야 한다")
                             .isNotEqualTo(401));
+        }
+    }
+
+    /**
+     * 계정을 못 읽은 것은 실패로 안 센다(`Q261`).
+     *
+     * <p><b>사용자 조회를 목으로 바꾼다.</b> 진짜 DB 를 죽이는 것은 `doc/notes/fault-injection.md` 실험 A 가 한다 —
+     * 그날 장애 동안의 로그인이 401 「비밀번호 틀림」이었고 차단 횟수로 쌓였다. 목이 들어가 컨텍스트가 하나 더 뜬다.
+     */
+    @Nested
+    @DisplayName("계정을 못 읽으면")
+    class StoreDown {
+
+        @MockitoBean
+        ShopUserDetailsService users;
+
+        @Test
+        @DisplayName("503 이고 차단 횟수를 안 센다")
+        void doesNotCountAsFailure() throws Exception {
+            given(users.loadUserByUsername("login@test.local"))
+                    .willThrow(new CannotGetJdbcConnectionException("풀이 연결을 못 줬다"));
+
+            logIn(PASSWORD)
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:service-unavailable"));
+
+            assertThat(redis.keys("login:fail:*"))
+                    .as("장애가 차단을 만들면 안 된다 — 세는 것은 틀린 자격뿐이다(`D14`)")
+                    .isEmpty();
+        }
+
+        @Test
+        @DisplayName("의존 실패가 아닌 것은 500 이다 — 「비밀번호 틀림」으로 덮지 않는다")
+        void otherFailureIsInternal() throws Exception {
+            given(users.loadUserByUsername("login@test.local"))
+                    .willThrow(new IllegalStateException("조회가 틀렸다"));
+
+            logIn(PASSWORD).andExpect(status().isInternalServerError());
+
+            assertThat(redis.keys("login:fail:*")).isEmpty();
         }
     }
 

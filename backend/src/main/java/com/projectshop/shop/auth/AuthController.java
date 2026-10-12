@@ -10,6 +10,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -124,6 +125,12 @@ public class AuthController {
             authentication = authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(
                             request.email(), request.password()));
+        } catch (InternalAuthenticationServiceException e) {
+            // 자격이 틀린 것이 아니라 계정을 못 읽은 것이다(`Q261`). 사용자 조회가 던진 것을 스프링이 이것으로 싼다.
+            // **안 센다** — 세는 것은 틀린 자격뿐이다(`D14` 로그인 실패 잠금). 세면 장애가 차단을 만든다:
+            // DB 가 죽은 동안 다시 누른 손님이 그 이메일+주소로 15분 잠기고 답은 「비밀번호 틀림」이었다(`68` 실험 A).
+            // 원인을 그대로 올려 `ApiExceptionHandler` 가 가른다 — 의존 실패면 503, 그 밖은 500 과 ERROR 로그.
+            throw e.getCause() instanceof RuntimeException cause ? cause : e;
         } catch (AuthenticationException e) {
             loginAttemptService.recordFailure(request.email(), ip);
 
