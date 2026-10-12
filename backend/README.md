@@ -112,9 +112,8 @@ docker run -e BACKEND_ORIGIN=http://backend:8080 -p 3000:3000 shop-frontend
 여기 옮겨 적지 않는다(`Q89` — 사본은 원본이 바뀌어도 안 따라온다).
 
 **배포가 나갔는지 보는 법**: `curl https://frontend-production-b83c.up.railway.app/api/health` 의
-`applied_migrations` 가 **`db/migration` + `db/seed` + `db/seed-demo` 파일 수**와 같아야 한다.
-**`db/seed-demo` 는 `demo` 프로필에만 실린다**(`Q143`) — 로컬(`local`)은 그만큼 적다.
-`SPRING_PROFILES_ACTIVE=demo` 가 빠지면 시드 몫만큼 모자란다(`Q134`).
+`applied_migrations` 가 **`db/migration` 파일 수**와 같아야 한다. 시드는 `flyway_seed_history` 에 따로 들어 이 수에 안 든다(`Q200`).
+`SPRING_PROFILES_ACTIVE=demo` 가 빠지면 시드가 통째로 안 든다(`Q134`) — 이 수로는 안 보이고 연습용 계정이 없는 것으로 보인다.
 
 ### 2026-09-20 에 실제로 한 순서
 
@@ -148,7 +147,7 @@ ULA 만 두었을 때는 운영 백엔드가 프론트를 **사설 IPv4** 로 �
 MCP 로는 비밀번호를 못 읽으므로(`valuesRedacted`) 그 한 줄은 사람이 돌린다.
 
 ```
-# 1. 빈 DB 에 처음부터 올려 시드까지 채운다 — 쓰던 DB 는 V900+ 때문에 Flyway 가 막는다
+# 1. 빈 DB 에 처음부터 올려 시드까지 채운다
 docker compose exec -T db psql -U shop -d postgres -c 'create database shop_demo owner shop'
 POSTGRES_DB=shop_demo ./gradlew bootRun --args='--spring.profiles.active=local'   # 뜨면 끈다
 
@@ -159,7 +158,7 @@ bash scripts/db-dump.sh "postgres://shop:shop@localhost:5432/shop_demo" build/de
 bash scripts/db-restore.sh build/demo.dump "postgresql://postgres:<PGPASSWORD>@<프록시>/railway"
 ```
 
-**부은 DB 는 기본 프로필로 뜬다** — 시드가 `V900+` 로 적용돼 있어도 Flyway 가 막지 않는다(실측).
+**부은 DB 는 기본 프로필로 뜬다** — 기본 프로필은 시드 위치(`shop.seed.locations`)가 비어 시드를 안 붓고, 시드 이력은 스키마 Flyway 가 안 본다(`Q200`).
 
 
 ### 열쇠는 사람이 받는다 — 2026-09-20 에 한 것
@@ -198,8 +197,8 @@ bash scripts/db-restore.sh build/demo.dump "postgresql://postgres:<PGPASSWORD>@<
 
 ### 올리고 나면 빈 쇼핑몰이 뜬다 — 데모 데이터를 부어야 한다
 
-**기본 프로필은 시드를 안 읽는다.** `application.yml` 의 `locations` 가
-`classpath:db/migration` 하나고 `db/seed` 는 거기 없다. `DemoOrderSeeder` 도
+**기본 프로필은 시드를 안 읽는다.** `application.yml` 의 `shop.seed.locations` 가
+비어 있다 — `local`·`demo` 프로필만 시드 위치를 준다(`Q200`). `DemoOrderSeeder` 도
 `@Profile("local")` 이라 안 돈다 — **그냥 올리면 상품 0·셀러 0·주문 0 이다.**
 
 **프로필을 새로 안 가른다**(`Q37` 결정 — 프로필마다 설정이 갈리면 안 돌려본 조합이 생긴다).
