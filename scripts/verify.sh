@@ -29,7 +29,10 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) export JAVA_HOME="C:/Program Files/J
 git rev-parse -q --verify origin/main >/dev/null || { echo "origin/main 이 없다 — 기준이 없어서 못 잰다"; exit 1; }
 
 # 작업 트리(커밋 안 된 것 포함)의 트리 해시. 임시 인덱스라 진짜 인덱스를 안 건드린다.
-tmp=$(mktemp); build_log=$(mktemp); trap 'rm -f "$tmp" "$build_log"' EXIT
+tmp=$(mktemp); build_log=$(mktemp); test_log=$(mktemp); trap 'rm -f "$tmp" "$build_log" "$test_log"' EXIT
+# **시험 출력도 빨가면 통째로 보인다**(마무리 61차) — `| tail -4` 이던 때는 실패 요약이 잘려 성능 안내 넉 줄만 남았고,
+# 다시 돌리니 초록이라 무엇이 깨졌는지 끝내 못 찾았다.
+front_test() { npm test >"$test_log" 2>&1 || { cat "$test_log"; return 1; }; tail -4 "$test_log"; }
 GIT_INDEX_FILE="$tmp" git read-tree HEAD
 GIT_INDEX_FILE="$tmp" git add -A . 2>/dev/null
 tree=$(GIT_INDEX_FILE="$tmp" git write-tree)
@@ -127,10 +130,10 @@ if changed frontend; then
       # 빌드 출력은 초록이면 안 보이고 **빨가면 통째로 보인다.** `>/dev/null` 이던 때는 종료 코드만 남아
       # 무엇이 깨졌는지 다시 돌려야 알았다.
       (cd frontend && { npm run build >"$build_log" 2>&1 || { cat "$build_log"; exit 1; }; } \
-        && npm run lint && npm test 2>&1 | tail -4) || ok=0
+        && npm run lint && front_test) || ok=0
     else
       echo "== frontend 지문이 origin/main 과 다르다 → tsc --noEmit · lint · test"
-      (cd frontend && npx tsc --noEmit && npm run lint && npm test 2>&1 | tail -4) || ok=0
+      (cd frontend && npx tsc --noEmit && npm run lint && front_test) || ok=0
     fi
   fi
 fi

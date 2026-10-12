@@ -29,7 +29,7 @@ curl localhost:8080/api/health
 curl localhost:8080/actuator/health
 ```
 
-`/api/health` 는 DB에 질의를 직접 던져서 접속한 DB 이름과 적용된 마이그레이션 수를 돌려준다.
+`/api/health` 는 DB에 질의를 직접 던져서 접속한 DB 이름과 적용된 마이그레이션 수를 돌려준다. Redis 에도 PING 을 던지고, 둘 중 하나라도 못 닿으면 503 이다(`Q262`).
 커넥션은 잡혔는데 질의가 안 나가는 상태를 걸러내려는 것이다.
 
 ## 접속 정보
@@ -48,6 +48,7 @@ curl localhost:8080/actuator/health
 | `SESSION_COOKIE_SECURE` | `false`. **https 로 올리면 `true` 가 필수다** — 안 켜면 세션 쿠키가 평문으로 흐른다. **프록시가 루프백 밖인데 꺼져 있으면 서버가 안 뜬다**(`Q44`) |
 | `SPRING_PROFILES_ACTIVE` | 없음. **보여 주려고 올린 배포에는 `demo` 를 준다**(`Q134`) — 기본 프로필은 `db/migration` 만 봐서 `V900+` 시드가 통째로 안 돌고, 그러면 연습용 계정 아홉(`Q130`)과 데모 재고(`Q128`)가 그 DB 에 안 생긴다. 로컬에서 손으로 볼 때는 `local` 이다 |
 | `TRUSTED_PROXIES` | 루프백. 손님 주소 헤더(`X-Real-IP`, `Q242`)를 믿어 줄 상대의 정규식. **아무 주소나 물게 넓히면 서버가 안 뜬다**(`Q44`, `SecuritySettingsCheck`). 운영 값은 아래 「2026-09-20 에 실제로 한 순서」의 사설망 전체다(`Q251`) |
+| `MANAGEMENT_SERVER_PORT` | 없음. **배포에는 안 준다** — 주면 actuator 가 그 포트로 옮겨 가 공개 포트의 지표가 사라지고 그 포트가 세션 없이 열린다. **프록시가 루프백 밖인데 이 값이 있으면 서버가 안 뜬다**(`Q264`, `SecuritySettingsCheck`). 컴포즈 `backend`(`load`·`observe` 프로필)만 준다(`63`). `-1`(actuator 를 끈다)과 서버 포트와 같은 값은 따로 안 열어서 안 막는다 |
 | `KAFKA_BOOTSTRAP` | `localhost:9092`. 브로커 주소. **켜져 있어도 발행기가 잠겨 있으면 안 쓰인다** |
 | `STORAGE_ENDPOINT` | `http://localhost:9000`. 파일 저장소 주소. **배포는 Cloudflare R2 다**(사용자 결정 2026-09-18) — S3 호환이라 코드는 같고 이 값과 키 셋만 갈린다 |
 | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | `shop` / `shopshop`. **배포는 R2 가 내주는 것을 넣는다** |

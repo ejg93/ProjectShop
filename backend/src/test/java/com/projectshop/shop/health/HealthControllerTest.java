@@ -1,6 +1,9 @@
 package com.projectshop.shop.health;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,8 +16,13 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.projectshop.shop.PostgresTestBase;
@@ -47,6 +55,9 @@ class HealthControllerTest extends PostgresTestBase {
     @Autowired
     private Environment environment;
 
+    @Autowired
+    private JdbcClient jdbcClient;
+
     @Test
     @DisplayName("커밋을 모르는 판은 unknown 이라 말한다 — 배포 검사가 그것을 빨강으로 읽는다")
     void reportsUnknownCommit() throws Exception {
@@ -63,6 +74,25 @@ class HealthControllerTest extends PostgresTestBase {
         mvc.perform(get("/api/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.applied_migrations").value(Math.toIntExact(files)));
+    }
+
+    /**
+     * Redis 에 못 닿으면 건강하다고 안 답한다(`Q262`). 세션·로그인이 Redis 에 있어서 DB 만 보면
+     * 로그인한 손님의 요청이 다 실패하는데 200 이었다(`68` 실험 B).
+     *
+     * <p>헬스는 던지기만 한다 — 그것을 503 으로 옮기는 반쪽은 {@code ProblemResponseTest} 「바깥 의존이 죽으면」이
+     * 같은 예외로 잰다. <b>목을 손으로 넣는다</b> — 빈으로 바꾸면 공유 컨텍스트가 하나 더 뜬다.
+     */
+    @Test
+    @DisplayName("Redis 에 못 닿으면 건강하다고 안 답한다")
+    void redisDownIsNotHealthy() {
+        StringRedisTemplate redis = mock(StringRedisTemplate.class);
+        willThrow(new QueryTimeoutException("Redis command timed out"))
+                .given(redis).execute(ArgumentMatchers.<RedisCallback<String>>any());
+
+        HealthController controller = new HealthController(jdbcClient, redis, "unknown");
+
+        assertThatThrownBy(controller::health).isInstanceOf(QueryTimeoutException.class);
     }
 
     /** {@code spring.flyway.locations} 의 {@code classpath:} 폴더마다 {@code V*} 파일을 센다. 못 읽으면 실패한다 */

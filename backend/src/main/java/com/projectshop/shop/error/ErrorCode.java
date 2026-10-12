@@ -458,6 +458,12 @@ public enum ErrorCode {
     // 스택이나 SQL 문구가 응답으로 나가면 그 자체가 정보 유출이다(`D14`).
     INTERNAL(HttpStatus.INTERNAL_SERVER_ERROR, "internal", "요청을 처리하지 못했다",
             "요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요."),
+    // 바깥 의존(DB·Redis)에 못 닿았다(`Q260`). 요청도 우리 코드도 틀리지 않았고 잠시 뒤 같은 요청이 산다 —
+    // RFC 9110 제15.6.4절이 그 뜻을 503 에 둔다. `Retry-After` 가 같이 나간다(`DependencyFailure`).
+    // 제목에 무엇이 죽었는지(DB·Redis)를 안 적는다 — 공개 경로(`/api/health`)의 본문에 그대로 나가서 무엇이 붙어 있는지를 알린다.
+    SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "service-unavailable",
+            "일시적으로 처리할 수 없다",
+            "일시적으로 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요."),
 
     // 프레임워크가 MVC 에 닿기 전에 끊는 것.
     //

@@ -1,6 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { redirect } from "next/navigation";
 
+import { ApiError } from "@/lib/api";
 import { expectNoAxeViolations } from "@/test/axe";
 
 // `vi.mock` 은 파일 맨 위로 끌어올려진다. 그래서 공장 안에서 바깥 변수를 못 읽고,
@@ -270,5 +272,58 @@ describe("셸의 머리", () => {
     // `apiSessionOptional` 이 401 을 null 로 돌려주는 이유가 이것이다.
     expect(screen.getByRole("link", { name: "상품" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "장바구니" })).toBeInTheDocument();
+  });
+
+  /**
+   * 백엔드가 죽어도 셸이 선다(`Q263`). 머리는 루트 레이아웃에 있어서 여기서 던지면 모든 화면이
+   * 본문 없는 500 이었다 — 로그인 화면까지(`68` 실험 C).
+   */
+  it("백엔드에 못 닿으면 모르는 사람의 머리를 그린다", async () => {
+    // Node 의 `fetch` 가 연결 실패에 던지는 모양 그대로다 — 원인에 시스템 오류 코드가 붙는다(2026-10-12 실측).
+    apiSessionOptional.mockRejectedValue(
+      new TypeError("fetch failed", { cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }) }),
+    );
+
+    const { container } = render(await SiteHeader());
+
+    expect(screen.getByRole("link", { name: "로그인" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "로그아웃" })).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it("백엔드가 답한 오류는 덮지 않고 던진다", async () => {
+    // 답을 했다는 것은 머리가 덮을 일이 아니라는 뜻이다(`D24`) — 오류 경계가 받는다.
+    apiSessionOptional.mockRejectedValue(
+      new ApiError(503, "tag:projectshop.example,2026:error:service-unavailable", "바깥 의존에 닿지 못했다"),
+    );
+
+    await expect(SiteHeader()).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("연결 실패가 아닌 것도 덮지 않고 던진다", async () => {
+    // 시간 초과·응답을 못 읽은 것·코드 결함까지 비로그인으로 그리면 고장이 안 보인다(마무리 61차 독립 리뷰).
+    apiSessionOptional.mockRejectedValue(new SyntaxError("Unexpected token < in JSON"));
+
+    await expect(SiteHeader()).rejects.toBeInstanceOf(SyntaxError);
+  });
+
+  it("Next 가 흐름을 바꾸려 던진 것은 덮지 않는다", async () => {
+    // redirect·동적 렌더 신호를 머리가 삼키면 그 화면이 엉뚱하게 굳는다 — `unstable_rethrow` 를 지킨다(PR #99 리뷰).
+    let signal: unknown;
+    try {
+      redirect("/login");
+    } catch (thrown) {
+      signal = thrown;
+    }
+    apiSessionOptional.mockRejectedValue(signal);
+
+    await expect(SiteHeader()).rejects.toBe(signal);
+  });
+
+  it("원인 없는 TypeError 는 코드 결함이라 던진다", async () => {
+    // `undefined` 의 속성을 읽는 결함도 TypeError 다. 타입만 보면 비로그인 머리로 덮인다(PR #99 리뷰).
+    apiSessionOptional.mockRejectedValue(new TypeError("Cannot read properties of undefined"));
+
+    await expect(SiteHeader()).rejects.toBeInstanceOf(TypeError);
   });
 });

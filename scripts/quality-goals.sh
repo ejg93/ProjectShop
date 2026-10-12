@@ -32,7 +32,7 @@ report() {
 }
 
 axe_files=$(( $(grep -rl 'expectNoAxeViolations' frontend/src --include='*.test.tsx' | wc -l) ))
-report "접근성 검사가 걸린 화면 조각" "$axe_files" 15 floor
+report "접근성 검사가 걸린 화면 조각" "$axe_files" 16 floor
 
 e2e=$(( $(cat frontend/e2e/*.spec.ts | grep -cE '^[[:space:]]*test\(') ))
 report "E2E 시나리오" "$e2e" 6 floor
