@@ -206,6 +206,15 @@ history_no_hash() {
     }' "$1"
 }
 
+# 분할표 행에 적은 「시험 클래스 + 수」를 하나씩 뽑는다(`Q267`). 클래스 뒤에 시험 이름(「…」)이 끼어도 문다.
+# **수는 처분 뒤에 아무도 안 고친다** — PR #99 리뷰가 세 판 연달아 같은 칸(행 앞쪽의 수·이름)을 짚었다.
+# 같은 클래스를 메서드 수·파라미터 경우·중첩으로 다르게 셀 수 있어서 수 자체도 모호하다. 그래서 대조하지 않고 **새로 못 적게** 한다.
+plan_test_counts() {
+  # **「…」 안을 `[^」]` 로 안 쓴다** — `LC_ALL=C` 에서 멀티바이트 글자는 바이트로 갈려, 「가격」(가 = EA B0 80)처럼 그 바이트를 든
+  # 이름에서 끊긴다(마무리 62차 독립 리뷰 — 아래 「멀티바이트 문자를 문자 클래스에」와 같은 함정). 표 칸 경계(`|`)까지로 묶는다.
+  LC_ALL=C grep -oE '`[A-Za-z-]+(Test|\.test\.tsx?)` ?(「[^|]*」)? ?\+?[0-9]+' "$1" || true
+}
+
 # 범위: 인자를 저장소 상대 경로로 맞춰 두고, 목록마다 그 안에 든 것만 남긴다. 목록 밖 파일은 조용히 통과(`Q217`).
 # 훅은 `C:\…` 꼴을 준다 — Git Bash 의 `pwd` 는 `/c/…` 고 `pwd -W` 는 `C:/…` 다. 둘 다 벗긴다.
 scope=()
@@ -324,6 +333,11 @@ if [ "${1:-}" = "--selftest" ]; then
 | X4 | 무엇 | **결정**: 가. **번호 절차**: ① 하나 ② 시험. **닫힘**: ②. **실패 사다리**: 접는다 | — |' 1
   st_fn "닫힌 행 — 안 걸려야 한다" design_rows_incomplete '## 청크 분할표
 | X3 | ~~무엇~~ | **번호 절차**: ① 하나 | 완료 |' 0
+  echo "분할표 시험 수 넷을 잰다:"
+  st_fn "클래스 뒤 수 — 걸려야 한다" plan_test_counts '| X1 | 무엇 | 시험 `FooTest` 7 | — |' 1
+  st_fn "화면 시험 뒤 +수 — 걸려야 한다" plan_test_counts '| X2 | 무엇 | 시험 `foo.test.tsx` +2 | — |' 1
+  st_fn "클래스 뒤 시험 이름 + 수(바이트 80 을 든 이름) — 걸려야 한다" plan_test_counts '| X4 | 무엇 | 시험 `FooTest` 「가격」 3 | — |' 1
+  st_fn "시험 이름까지만 — 안 걸려야 한다" plan_test_counts '| X3 | 무엇 | 시험 `FooTest` 「걸러 낸다」 | — |' 0
   echo "이력 해시 빈 칸 셋을 잰다:"
   st_fn "옮긴 날 뒤의 빈 칸(마지막 아님) — 걸려야 한다" history_no_hash '## 이력
 | 2026-09-26 | `A1`. 가 | 완료 — 한 것 | |
@@ -489,6 +503,17 @@ elif [ "$plan_open_incomplete" -lt "$plan_open_incomplete_baseline" ]; then
 fi
 
 design_incomplete=$(design_rows_incomplete PLAN.md)
+# 분할표 행에 시험 수를 새로 못 적는다(`Q267`). **래칫이다** — 닫힌 행의 수는 그때의 사실이라 안 고친다.
+# 기준선은 내리기만 한다. 환경변수로 덮는 것은 `hooks-test.sh` 의 임시 사본(행 하나)을 재려는 것이다.
+plan_test_counts_baseline=${PLAN_TEST_COUNTS_BASELINE:-40}
+plan_test_count=$(plan_test_counts PLAN.md | grep -c . || true)
+if [ "$plan_test_count" -gt "$plan_test_counts_baseline" ]; then
+  echo "[분할표 시험 수] PLAN.md — 「시험 클래스 + 수」 꼴이 ${plan_test_count}곳 (기준선 ${plan_test_counts_baseline}). 행에는 시험 클래스·이름까지만 적는다 — 수는 이력이 든다(PROGRESS.md 「기록 규칙」, Q267)"
+  fail=1
+elif [ "$plan_test_count" -lt "$plan_test_counts_baseline" ]; then
+  echo "[기준선 내릴 것] PLAN.md — 「시험 클래스 + 수」 꼴이 ${plan_test_count}곳으로 줄었다. scripts/doc-lint.sh 의 plan_test_counts_baseline 을 그 수로 내린다"
+fi
+
 if [ -n "$design_incomplete" ]; then
   echo "[설계 행 누락] PLAN.md — 번호 절차가 있는 안 닫힌 행에 결정·불확실·실패 사다리·「닫힘: ①~⑨」 중 빠진 것이 있다(/design 「행 형식」):"
   echo "$design_incomplete" | sed 's/^/    /'

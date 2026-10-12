@@ -2,8 +2,8 @@
 # 머지 뒤 두 서비스가 그 커밋으로 떴는지 본다(`Q205`, quality-goals.md 「배포 건강」).
 #
 # **Railway 토큰 없이 잰다** — 두 서비스가 스스로 커밋을 말한다(백엔드 /api/health 의 commit, 프론트 /version).
-# 둘이 origin/main 과 같아질 때까지 기다리고, 그다음 백엔드가 적용한 마이그레이션 수가 파일 수(V + 배포 시드)와
-# 같은지 본다. 하나라도 다르면 빨강이다 — 헬스체크에 실패한 배포는 Railway 가 앞 판을 그대로 돌려서 조용하다(#70~#74).
+# 둘이 origin/main 과 같아질 때까지 기다리고, 그다음 백엔드가 적용한 마이그레이션 수가 스키마 파일 수(`db/migration` 의 V)와
+# 같은지 본다 — 시드는 따로 `flyway_seed_history` 에 든다(`Q200`). 하나라도 다르면 빨강이다 — 헬스체크에 실패한 배포는 Railway 가 앞 판을 그대로 돌려서 조용하다(#70~#74).
 # **시험판이 있다**: `HealthControllerTest` 가 시험이 붓는 폴더의 `V*` 수를 세어 같은 값을 견준다(`Q223`) — 여기는 운영, 그쪽은 CI.
 #
 # DEPLOY_BASE_URL     기본은 운영 프론트. /api/health 는 프론트가 백엔드로 넘긴다
@@ -17,10 +17,10 @@ wait_seconds=${DEPLOY_WAIT_SECONDS:-600}
 git fetch -q origin main || { echo "빨강 — origin/main 을 못 받았다"; exit 1; }
 want=$(git rev-parse origin/main)
 
-# 배포 프로필은 demo 다 — db/seed 와 db/seed-demo 를 둘 다 붓는다(`Q143`).
+# 시드는 세지 않는다 — `/api/health` 는 스키마 이력만 세고 시드는 따로 산다(`Q200`). 그전에는 db/seed·db/seed-demo 를 더했다(`Q143`).
 # **견주는 커밋에서 센다** — 작업 트리에서 세면 새 V 를 든 다음 가지에서 돌릴 때 거짓 빨강이 난다(마무리 48차 독립 리뷰).
 db=backend/src/main/resources/db
-expected=$(git ls-tree -r --name-only "$want" -- "$db/migration" "$db/seed" "$db/seed-demo" | grep -c '/V[0-9]*__')
+expected=$(git ls-tree -r --name-only "$want" -- "$db/migration" | grep -c '/V[0-9]*__')
 
 commit_of() { # JSON 한 줄에서 commit 값을 꺼낸다
   sed -n 's/.*"commit":"\([^"]*\)".*/\1/p'
@@ -65,13 +65,19 @@ done
 
 applied=$(echo "$health" | sed -n 's/.*"applied_migrations":\([0-9]*\).*/\1/p')
 if [ "$applied" != "$expected" ]; then
-  echo "빨강 — 적용한 마이그레이션 ${applied:-?} ≠ 파일 $expected (V + 배포 시드)"
+  echo "빨강 — 적용한 마이그레이션 ${applied:-?} ≠ 스키마 파일 $expected"
   exit 1
 fi
 
 # 사진 주소에서 서명을 떼면 저장소(R2)가 거절하나(`28`, `Q229`). 로컬 S3Mock 은 자격 증명을 안 봐서
 # 이 반쪽을 못 재고, 우리 코드는 서명을 붙이는 것까지가 몫이다 — 저장소가 실제로 막는지는 여기서만 본다.
 first_id=$(curl -fsS -m 15 "$base/api/products?size=1" 2>/dev/null | sed -n 's/.*"product_id":\([0-9]*\).*/\1/p' | head -1)
+# **상품이 0 이면 시드가 안 들었다**(`Q134`). 전에는 적용 수에 시드 몫이 들어 `SPRING_PROFILES_ACTIVE=demo` 가 빠지면 위 대조가
+# 빨갰는데, `Q200` 이 시드를 다른 이력 표로 떼서 그 수로는 안 보인다(마무리 62차 독립 리뷰) — 시드가 넣는 상품으로 대신 잰다.
+if [ -z "$first_id" ]; then
+  echo "빨강 — 공개 상품 목록이 비었다. 데모 시드가 안 들었다 — SPRING_PROFILES_ACTIVE=demo 를 본다(Q134)"
+  exit 1
+fi
 signed=$(curl -fsS -m 15 "$base/api/products/${first_id:-0}" 2>/dev/null | sed -n 's/.*"image_urls":\["\([^"]*\)".*/\1/p' | head -1)
 if [ -z "$signed" ]; then
   echo "주의 — 사진을 든 상품이 없어 서명 뗀 주소를 못 쟀다"

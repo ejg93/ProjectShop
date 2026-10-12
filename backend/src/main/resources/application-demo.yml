@@ -12,11 +12,8 @@
 #
 # 기본 프로필은 `db/migration` 만 본다. 그래서 이 변수를 안 주면 `V900+` 가 통째로 안 돈다 —
 # `Q130` 이 만든 계정 아홉과 `Q128` 의 재고가 배포된 DB 에 안 생긴다.
-spring:
-  flyway:
-    # 기본 location 을 다시 적어야 한다. 이 키는 합쳐지지 않고 덮어쓴다.
-    locations: classpath:db/migration,classpath:db/seed,classpath:db/seed-demo
-    # **시드보다 번호가 낮은 새 마이그레이션을 받는다**(`Q199`). 시드가 `V900` 대라, 시드를 이미 받은 DB 에
-    # 뒤에 온 `V82` 같은 것은 「순서가 어긋났다」가 되고 Flyway 가 기동을 막는다 — 배포가 #70~#74 동안
-    # 그렇게 못 올라갔다. 빈 DB 에서는 시드가 늘 맨 뒤라 이 설정이 아무것도 안 바꾼다. `SeededUpgradeTest` 가 잰다.
-    out-of-order: true
+shop:
+  seed:
+    # **시드는 스키마와 다른 이력 표로 붓는다**(`Q200`) — `SeedMigrationStrategy` 가 스키마 뒤에 이 위치를 `flyway_seed_history` 로 돌린다.
+    # 운영 DB 는 시드를 스키마 이력에 받아 둔 채라 첫 기동에 그 행들을 옮긴다. 그전에는 `out-of-order` 를 켜 두었다(`Q199`).
+    locations: classpath:db/seed,classpath:db/seed-demo

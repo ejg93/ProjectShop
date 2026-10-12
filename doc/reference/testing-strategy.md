@@ -28,7 +28,7 @@
 | `ErrorSlugScreenTest` | 화면의 `switch (error.slug)` 가짓수 ⊆ `ErrorCode` 의 슬러그 |
 | `BatchCatalogTest` | 배치 카탈로그의 행 = `@Scheduled` 메서드, 양방향 (`Q70`) |
 | `LogArgumentTest` | 로그 인자에 개인정보 접근자가 없다 (`Q71`, `D16`) |
-| `IdentifierReferenceTest` | 문서·주석이 부르는 컬럼·테스트 이름이 실재한다 (`Q83`) |
+| `IdentifierReferenceTest` | 문서·주석이 부르는 컬럼·테스트 이름이 실재한다 (`Q83`). 시험 클래스 뒤 멤버(`XTest.y`)까지 (`Q268`) |
 | `ArchitectureTest` 판정 예외 | 문서의 「판정을 안 지나는 입구」 표 = 코드의 목록 (`Q65`) |
 | `ArchitectureTest` 순수 계산 | 바깥을 안 부르는 `static` 이 서비스에 안 남는다 (`Q68`) |
 | `SchemaNamingTest` 접미사 | `_at`·`_date`·`_bp` 의 타입, `_number` 의 발급 주체 (`Q77`·`Q78`) |
@@ -583,8 +583,8 @@ PermissionEvaluatorTest > 거부 > 자기가 주문한 자기 셀러 주문은 �
 
 지금 통과하는 것이 정상이지만 고쳐야 할 동작은 **그대로 통과하는 테스트**로 남긴다.
 
-`PermissionEvaluatorTest.KnownHole` 이 그 예다. 감사자가 새 권한으로 뚫리는 것을
-`isTrue()` 로 고정해 뒀다. 나중에 고치면 이 테스트가 깨지고, 그때 기대값을 뒤집는다.
+옛 시험 `KnownHole` 이 그 예였다(지금은 뒤집혀 `PermissionEvaluatorTest.ReadOnlyRoles` 다). 감사자가 새 권한으로 뚫리는 것을
+`isTrue()` 로 고정해 뒀고, `Q59` 가 고친 날 그 시험이 깨져 기대값을 뒤집었다.
 
 주석으로만 남기면 잊는다. 테스트로 두면 못 잊는다.
 
@@ -615,7 +615,7 @@ PermissionEvaluatorTest > 거부 > 자기가 주문한 자기 셀러 주문은 �
 **테스트가 달력을 타면 특정 날에만 깨진다.** 그런 실패는 늦게 드러난다 —
 CI 가 없어서 아무도 안 돌리는 날이 있고, 돌려도 그날은 초록일 수 있다.
 
-`OrderStatusServiceTest.movesDeadlineOffHolidays` 가 그렇게 됐다.
+옛 시험 `movesDeadlineOffHolidays` 가 그렇게 됐다(지금은 왕복 검증 `OrderStatusServiceTest.keepsDeadlineDateAcrossRoundTrip` 이다).
 **기한의 말일이 금요일인 날에만** 깨지고 며칠을 잠복했다(청크 `11-4` 가 고쳤다).
 
 ### 시각은 테스트가 정한다

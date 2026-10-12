@@ -183,7 +183,7 @@ if changed tools; then
     node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json","utf8"))' \
       || { echo "settings.json 이 JSON 이 아니다"; ok=0; }
     bash scripts/doc-lint.sh >/dev/null || { bash scripts/doc-lint.sh | head -20; ok=0; }
-    # 훅 아홉과 doc-lint 위반 다섯을 임시 저장소로 잰다(`Q221`) — 훅이 조용히 `exit 0` 으로 바뀌어도 여기서 빨갛다.
+    # 훅 아홉과 doc-lint 위반 여섯을 임시 저장소로 잰다(`Q221`) — 훅이 조용히 `exit 0` 으로 바뀌어도 여기서 빨갛다.
     hooks_out=$(bash scripts/hooks-test.sh 2>&1) || { printf '%s\n' "$hooks_out" | grep -v '\[통과\]'; ok=0; }
   fi
 fi
