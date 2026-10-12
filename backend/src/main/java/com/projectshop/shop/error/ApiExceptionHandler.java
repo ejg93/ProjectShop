@@ -7,11 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.MethodParameter;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.validation.method.ParameterErrors;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -218,6 +220,24 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      * 그 ID 로 찾을 줄이 없었다. 스택까지 남긴다. 여기 온 예외는 우리가 모르는 것이라
      * 메시지 한 줄로는 어느 줄에서 났는지 못 찾는다(`D16`).
      */
+    /**
+     * 바깥 의존(DB·Redis)에 못 닿았다(`Q260`). 무엇을 고르나는 {@link DependencyFailure} 가 든다.
+     *
+     * <p><b>500 이 아니라 503 이다.</b> 요청도 우리 코드도 틀리지 않았고 의존이 살아나면 같은 요청이 산다.
+     * 아래 {@code Exception} 핸들러보다 구체적이라 먼저 걸린다.
+     *
+     * <p><b>WARN 이고 스택이 없다</b>(`D16` 「ERROR 는 사람이 개입할 것에만」). 원인이 알려진 것이라
+     * 코드를 볼 일이 아니고, 장애 동안 요청마다 한 줄씩 남는다 — 스택까지 남기면 그 사이 다른 줄이 묻힌다.
+     */
+    @ExceptionHandler({DataAccessResourceFailureException.class, CannotCreateTransactionException.class})
+    ResponseEntity<ProblemDetail> handleDependencyFailure(RuntimeException e, HttpServletRequest request) {
+        log.warn("바깥 의존에 닿지 못했다: {} {} — {}: {}", request.getMethod(), request.getRequestURI(),
+                e.getClass().getSimpleName(), e.getMessage());
+        return ResponseEntity.status(ErrorCode.SERVICE_UNAVAILABLE.status())
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(DependencyFailure.RETRY_AFTER.toSeconds()))
+                .body(problems.create(ErrorCode.SERVICE_UNAVAILABLE, null, request));
+    }
+
     @ExceptionHandler(Exception.class)
     ProblemDetail handle(Exception e, HttpServletRequest request) {
         log.error("처리하지 못한 예외: {} {}", request.getMethod(), request.getRequestURI(), e);

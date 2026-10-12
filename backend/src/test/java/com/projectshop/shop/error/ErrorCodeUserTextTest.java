@@ -28,7 +28,7 @@ class ErrorCodeUserTextTest {
 
     /**
      * 문구가 반드시 있어야 하는 코드. 화면 열둘(`Q228` 이 셌다)이 닿는 서비스 코드 21 과 어느 화면에나
-     * 닿는 공통 12 다(`Q233`). <b>새 화면이 새 코드에 닿으면 여기와 {@link ErrorCode} 에 같이 더한다.</b>
+     * 닿는 공통 13 이다(`Q233`, `Q260` 이 503 을 더했다). <b>새 화면이 새 코드에 닿으면 여기와 {@link ErrorCode} 에 같이 더한다.</b>
      */
     static final Set<ErrorCode> REQUIRED_USER_TEXT = EnumSet.copyOf(List.of(
             // 쿠폰 — 만들기·등록
@@ -51,12 +51,12 @@ class ErrorCodeUserTextTest {
             ErrorCode.TOO_MANY_REQUESTS, ErrorCode.MALFORMED_REQUEST, ErrorCode.UNSUPPORTED_MEDIA_TYPE,
             ErrorCode.METHOD_NOT_ALLOWED, ErrorCode.INTERNAL, ErrorCode.ACCOUNT_INACTIVE,
             ErrorCode.IMPERSONATION_READ_ONLY, ErrorCode.IMPERSONATION_REVOKED,
-            ErrorCode.SESSION_SUPERSEDED));
+            ErrorCode.SESSION_SUPERSEDED, ErrorCode.SERVICE_UNAVAILABLE));
 
     @Test
     @DisplayName("목록의 코드는 공통 문구가 아니라 제 문구를 든다")
     void requiredCodesHaveOwnText() {
-        assertThat(REQUIRED_USER_TEXT).hasSize(33);
+        assertThat(REQUIRED_USER_TEXT).hasSize(34);
         // INTERNAL 은 제 문구가 공통 문구와 같다 — 뜻이 같아서다. 그 하나만 빼고 본다.
         assertThat(REQUIRED_USER_TEXT.stream()
                 .filter(code -> code != ErrorCode.INTERNAL)

@@ -1,5 +1,7 @@
 package com.projectshop.shop.error;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -9,14 +11,34 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
+import java.sql.SQLException;
+import java.sql.SQLTransientConnectionException;
+
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.BadSqlGrammarException;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.zaxxer.hikari.HikariDataSource;
+
+import jakarta.servlet.ServletException;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
@@ -205,6 +227,126 @@ class ProblemResponseTest extends PostgresTestBase {
                             MediaType.APPLICATION_PROBLEM_JSON))
                     .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:access-denied"))
                     .andExpect(jsonPath("$.trace_id").isNotEmpty());
+        }
+    }
+
+    /**
+     * 바깥 의존(DB·Redis)에 못 닿으면 503 이다(`Q260`).
+     *
+     * <p><b>자리가 둘이라 둘 다 잰다.</b> MVC 안에서 터진 것은 {@link ApiExceptionHandler} 가,
+     * 그 앞 필터(세션 조회·계정 생존 검사)에서 터진 것은 {@link DependencyFailureFilter} 가 받는다.
+     * 진짜 DB 를 죽이는 것은 `doc/notes/fault-injection.md` 실험 A 가 한다 — 여기는 번역만 본다.
+     */
+    @Nested
+    @DisplayName("바깥 의존이 죽으면")
+    class DependencyDown {
+
+        private static final String TYPE = "tag:projectshop.example,2026:error:service-unavailable";
+
+        @Autowired
+        private ApiExceptionHandler handler;
+
+        @Autowired
+        private DependencyFailureFilter filter;
+
+        @Autowired
+        private DataSource dataSource;
+
+        /**
+         * 컨텍스트에 입구를 더하지 않으려고 따로 세운 MockMvc 다. 더하면 공유 컨텍스트 열쇠가 바뀌어 하나가 더 뜬다.
+         */
+        private MockMvc broken() {
+            return MockMvcBuilders.standaloneSetup(new BrokenDependencies()).setControllerAdvice(handler).build();
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"jdbc", "redis", "transaction"})
+        @DisplayName("MVC 안에서 터지면 503 과 Retry-After")
+        void handlerAnswers503(String kind) throws Exception {
+            broken().perform(get("/broken/" + kind))
+                    .andExpect(status().isServiceUnavailable())
+                    // RFC 9110 제10.2.3절. 없으면 받는 쪽이 언제 다시 걸지 몰라 바로 다시 친다.
+                    .andExpect(header().string("Retry-After", "5"))
+                    .andExpect(jsonPath("$.type").value(TYPE));
+        }
+
+        @Test
+        @DisplayName("질의가 틀린 것은 우리 탓이라 그대로 500 이다")
+        void badQueryStays500() throws Exception {
+            broken().perform(get("/broken/query"))
+                    .andExpect(status().isInternalServerError());
+        }
+
+        @Test
+        @DisplayName("필터에서 터져도 503 이다 — 싸여 와도 원인을 본다")
+        void filterAnswers503() throws Exception {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(new MockHttpServletRequest("GET", "/api/orders"), response, (request, ignored) -> {
+                throw new ServletException(new RedisConnectionFailureException("세션 저장소에 못 닿았다"));
+            });
+
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(response.getHeader("Retry-After")).isEqualTo("5");
+            assertThat(response.getContentType()).startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+            assertThat(response.getContentAsString()).contains(TYPE)
+                    .contains(ErrorCode.SERVICE_UNAVAILABLE.userText());
+        }
+
+        @Test
+        @DisplayName("필터는 의존 실패가 아닌 것을 그대로 던진다")
+        void filterRethrowsOthers() {
+            assertThatThrownBy(() -> filter.doFilter(new MockHttpServletRequest("GET", "/api/orders"),
+                    new MockHttpServletResponse(), (request, ignored) -> {
+                        throw new IllegalStateException("우리 코드가 틀렸다");
+                    }))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("응답이 이미 나갔으면 못 바꾸고 다시 던진다")
+        void filterLeavesCommittedResponse() {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            response.setCommitted(true);
+
+            assertThatThrownBy(() -> filter.doFilter(new MockHttpServletRequest("GET", "/api/orders"), response,
+                    (request, ignored) -> {
+                        throw new RedisConnectionFailureException("응답 뒤 세션 저장 실패");
+                    }))
+                    .isInstanceOf(RedisConnectionFailureException.class);
+        }
+
+        /** 기본 30초로 돌아가면 위 시험은 다 초록인데 장애 동안 요청이 30초 매달린다(`68` 실험 A). */
+        @Test
+        @DisplayName("연결 대기 상한이 3초다")
+        void connectionTimeoutIsThreeSeconds() throws Exception {
+            assertThat(dataSource.unwrap(HikariDataSource.class).getConnectionTimeout()).isEqualTo(3000);
+        }
+    }
+
+    /** 의존 실패를 던지는 입구. {@link DependencyDown} 의 따로 세운 MockMvc 만 쓴다 */
+    @RestController
+    static class BrokenDependencies {
+
+        @GetMapping("/broken/jdbc")
+        void jdbc() {
+            throw new CannotGetJdbcConnectionException("풀이 연결을 못 줬다",
+                    new SQLTransientConnectionException("Connection is not available, request timed out after 3000ms"));
+        }
+
+        @GetMapping("/broken/redis")
+        void redis() {
+            throw new RedisConnectionFailureException("Redis 에 못 닿았다");
+        }
+
+        @GetMapping("/broken/transaction")
+        void transaction() {
+            throw new CannotCreateTransactionException("트랜잭션을 못 열었다");
+        }
+
+        @GetMapping("/broken/query")
+        void query() {
+            throw new BadSqlGrammarException("목록", "select nope", new SQLException("syntax error"));
         }
     }
 }
