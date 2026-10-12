@@ -139,8 +139,8 @@ function canModerateReviews(me: Me | null): boolean {
  * 누구인지 묻는다. <b>백엔드에 못 닿으면 모르는 사람으로 그린다</b>(`Q263`).
  *
  * <p>머리는 루트 레이아웃에 있어서 여기서 던지면 <b>모든 화면이 본문 없는 500</b> 이었다 — 레이아웃의 오류는
- * {@code app/error.tsx} 가 못 받는다(`68` 실험 C). <b>연결이 안 되는 것({@code fetch} 의 {@code TypeError})만 삼킨다</b> —
- * 시간 초과·응답을 못 읽은 것·코드 결함은 던진다. 그것까지 비로그인으로 그리면 고장이 안 보인다(마무리 61차 독립 리뷰).
+ * {@code app/error.tsx} 가 못 받는다(`68` 실험 C). <b>연결이 안 되는 것만 삼킨다</b> — 그 밖(응답을 못 읽은 것·코드 결함)은
+ * 던진다. 그것까지 비로그인으로 그리면 고장이 안 보인다(마무리 61차 독립 리뷰).
  * 그러면 셸이 서고, 로그인 화면은 서버에서 백엔드를 안 부르므로 그대로 뜨고, 백엔드를 부르는 화면은
  * 셸 안의 {@code error.tsx} 가 받는다.
  *
@@ -155,11 +155,26 @@ async function whoAmI(): Promise<Me | null> {
   } catch (caught) {
     // Next 가 흐름을 바꾸려고 던지는 것(동적 렌더 신호·redirect)은 먼저 돌려보낸다 — 삼키면 그 화면이 엉뚱하게 굳는다.
     unstable_rethrow(caught);
-    if (caught instanceof TypeError) {
+    if (isConnectionFailure(caught)) {
       return null;
     }
     throw caught;
   }
+}
+
+/**
+ * 백엔드에 연결이 안 됐나. {@code fetch} 는 연결 실패를 {@code TypeError("fetch failed")} 로 던지고 <b>원인에 시스템 오류 코드</b>
+ * ({@code ECONNREFUSED}·{@code ENOTFOUND} 등)를 단다(2026-10-12 Node 실측).
+ *
+ * <p><b>{@code TypeError} 만으로 가르지 않는다</b>(PR #99 리뷰) — {@code undefined} 의 속성을 읽는 코드 결함도 {@code TypeError} 고
+ * 그쪽은 원인이 없다. 타입만 보면 입구 안의 결함이 비로그인 머리로 덮인다.
+ */
+function isConnectionFailure(caught: unknown): boolean {
+  if (!(caught instanceof TypeError)) {
+    return false;
+  }
+  const cause: unknown = caught.cause;
+  return typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string";
 }
 
 /**

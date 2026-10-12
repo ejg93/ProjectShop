@@ -278,7 +278,10 @@ describe("셸의 머리", () => {
    * 본문 없는 500 이었다 — 로그인 화면까지(`68` 실험 C).
    */
   it("백엔드에 못 닿으면 모르는 사람의 머리를 그린다", async () => {
-    apiSessionOptional.mockRejectedValue(new TypeError("fetch failed"));
+    // Node 의 `fetch` 가 연결 실패에 던지는 모양 그대로다 — 원인에 시스템 오류 코드가 붙는다(2026-10-12 실측).
+    apiSessionOptional.mockRejectedValue(
+      new TypeError("fetch failed", { cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }) }),
+    );
 
     const { container } = render(await SiteHeader());
 
@@ -301,5 +304,12 @@ describe("셸의 머리", () => {
     apiSessionOptional.mockRejectedValue(new SyntaxError("Unexpected token < in JSON"));
 
     await expect(SiteHeader()).rejects.toBeInstanceOf(SyntaxError);
+  });
+
+  it("원인 없는 TypeError 는 코드 결함이라 던진다", async () => {
+    // `undefined` 의 속성을 읽는 결함도 TypeError 다. 타입만 보면 비로그인 머리로 덮인다(PR #99 리뷰).
+    apiSessionOptional.mockRejectedValue(new TypeError("Cannot read properties of undefined"));
+
+    await expect(SiteHeader()).rejects.toBeInstanceOf(TypeError);
   });
 });
