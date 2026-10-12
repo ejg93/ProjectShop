@@ -5,6 +5,8 @@ import java.util.Arrays;
 import javax.sql.DataSource;
 
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationVersion;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,11 +68,39 @@ class SeedMigrationStrategy implements FlywayMigrationStrategy {
 
     @Override
     public void migrate(Flyway schema) {
+        requireSeparatedSchema(schema);
         DataSource dataSource = schema.getConfiguration().getDataSource();
         moveSeedHistory(dataSource);
         schema.migrate();
         if (locations.length > 0) {
             seed(dataSource).baselineOnMigrate(true).baselineVersion("0").load().migrate();
+        }
+    }
+
+    /**
+     * 이 전략이 기대는 두 전제를 <b>기동에서</b> 본다(PR #100 리뷰 — 시험만으로는 기억에 맡긴 것이다).
+     *
+     * <ul>
+     *   <li><b>순서 검사가 켜져 있다</b> — 끄면 진짜 순서 사고도 같이 통과한다. 시드를 뗀 것이 그것을 켜려고였다(`Q199`)</li>
+     *   <li><b>스키마 마이그레이션은 바닥 밑이다</b> — 스키마 위치에 {@value #SEED_FLOOR} 이상이 있으면 아래 이관이 그 행을
+     *       시드로 보고 지운다. 시드 폴더를 스키마 위치에 다시 넣은 것도 여기서 걸린다</li>
+     * </ul>
+     *
+     * <p><b>옮기기 전에 본다</b> — 옮긴 뒤면 이미 지운 뒤다. 스키마 이력에 남은 시드 행은 로컬에 파일이 없으니(적용만 됨)
+     * 「로컬에 있는 것」만 센다.
+     */
+    static void requireSeparatedSchema(Flyway schema) {
+        if (schema.getConfiguration().isOutOfOrder()) {
+            throw new IllegalStateException("spring.flyway.out-of-order 가 켜져 있다. 시드는 " + SEED_TABLE
+                    + " 로 따로 붓고 스키마는 순서 검사를 켠 채 올린다 (Q200). 프로필에서 그 줄을 지운다");
+        }
+        MigrationVersion floor = MigrationVersion.fromVersion(String.valueOf(SEED_FLOOR));
+        for (MigrationInfo info : schema.info().all()) {
+            if (info.getState().isResolved() && info.getVersion() != null && info.getVersion().compareTo(floor) >= 0) {
+                throw new IllegalStateException("스키마 위치에 V" + info.getVersion() + " 이 있다 — " + SEED_FLOOR
+                        + " 이상은 시드 번호다. 스키마 이력에서 시드로 보고 지운다 (Q200). 시드면 shop.seed.locations 로,"
+                        + " 스키마면 바닥 밑 번호로 옮긴다");
+            }
         }
     }
 

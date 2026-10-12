@@ -222,6 +222,32 @@ class SeededUpgradeTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * <b>전제가 깨진 설정이면 기동이 선다</b>(PR #100 리뷰). 아래 두 시험은 파일·프로필을 보고, 이것은 전략이 실제로 받은
+     * 스키마 Flyway 를 본다 — 프로필 밖(환경변수 {@code SPRING_FLYWAY_OUT_OF_ORDER} 같은 것)으로 들어와도 걸린다.
+     */
+    @Test
+    @DisplayName("순서 검사를 끄거나 시드를 스키마 위치에 넣으면 옮기기 전에 기동을 세운다")
+    void refusesBrokenPremisesBeforeMoving() throws Exception {
+        String url = recreate("premise");
+        try {
+            Flyway outOfOrder = Flyway.configure().dataSource(url, postgres.getUsername(), postgres.getPassword())
+                    .locations("classpath:db/migration").outOfOrder(true).load();
+            assertThatThrownBy(() -> strategy().migrate(outOfOrder))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("out-of-order");
+
+            Flyway seedsInSchema = Flyway.configure().dataSource(url, postgres.getUsername(), postgres.getPassword())
+                    .locations("classpath:db/migration", "classpath:db/seed").load();
+            assertThatThrownBy(() -> strategy().migrate(seedsInSchema))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("시드 번호");
+
+            assertThat(count(url, "select count(*) from pg_tables where schemaname = 'public'"))
+                    .as("거부는 아무것도 올리기 전이다").isZero();
+        } finally {
+            drop(url);
+        }
+    }
+
     /** 이 시험이 읽는 폴더 셋 — 하나라도 못 읽으면 위 셈이 0 이 되어 거짓 초록이 난다 */
     @Test
     @DisplayName("세는 폴더가 다 있다")
