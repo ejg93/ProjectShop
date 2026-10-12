@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ApiError } from "@/lib/api";
 import { apiSessionOptional } from "@/lib/api-session";
 import { can, type Me } from "@/lib/permissions";
 
@@ -135,6 +136,30 @@ function canModerateReviews(me: Me | null): boolean {
 }
 
 /**
+ * 누구인지 묻는다. <b>백엔드에 못 닿으면 모르는 사람으로 그린다</b>(`Q263`).
+ *
+ * <p>머리는 루트 레이아웃에 있어서 여기서 던지면 <b>모든 화면이 본문 없는 500</b> 이었다 — 레이아웃의 오류는
+ * {@code app/error.tsx} 가 못 받는다(`68` 실험 C). 연결이 안 되는 것({@code fetch} 의 {@code TypeError})만 삼킨다.
+ * 그러면 셸이 서고, 로그인 화면은 서버에서 백엔드를 안 부르므로 그대로 뜨고, 백엔드를 부르는 화면은
+ * 셸 안의 {@code error.tsx} 가 받는다.
+ *
+ * <p><b>{@code ApiError} 는 그대로 던진다</b>(`D24` 「오류를 어느 층이 잡나」). 백엔드가 답을 했다는 뜻이라
+ * 머리가 덮을 일이 아니다 — 403 은 배선 사고고, DB 장애의 503(`Q260`)도 여기서 던져 {@code global-error.tsx} 가 받는다.
+ * <b>입구({@code apiSessionOptional})에서 삼키지 않는다</b> — 그 입구를 쓰는 다른 화면이 장애를 비로그인으로 읽어
+ * 조용히 빈 화면이 된다(2026-10-12 사용자 결정).
+ */
+async function whoAmI(): Promise<Me | null> {
+  try {
+    return await apiSessionOptional<Me>("/api/me/permissions");
+  } catch (caught) {
+    if (caught instanceof ApiError) {
+      throw caught;
+    }
+    return null;
+  }
+}
+
+/**
  * 모든 화면이 쓰는 머리. 어디에 있든 상품·장바구니·계정으로 갈 수 있다.
  *
  * <p><b>이름은 안 쓴다</b> — 머리에 이름을 그리면 폭이 사람마다 달라진다.
@@ -156,7 +181,7 @@ function canModerateReviews(me: Me | null): boolean {
  * <b>모든 화면에서 요청이 두 번</b>이 된다.
  */
 export async function SiteHeader() {
-  const me = await apiSessionOptional<Me>("/api/me/permissions");
+  const me = await whoAmI();
 
   return (
     <header className="border-b border-border">

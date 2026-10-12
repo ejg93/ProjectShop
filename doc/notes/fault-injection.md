@@ -27,7 +27,7 @@
 | B | `redis` | 내 주문(세션) | 401 또는 503 | **4초 뒤 500** — 세션 조회가 `timeout: 2s` 를 두 번 → **2026-10-12 `Q262`: 2초 뒤 503**(`DependencyFailureFilter`). 그 사이 한 판은 톰캣 HTML 500 이었다 — 예외가 `QueryTimeoutException` 이라 `Q260` 의 판정에 없었다 | 200 — 세션 그대로 |
 | B | `redis` | 새 로그인 | 503 | **6초 뒤 500** — 실패 카운터는 Redis 가 죽으면 `DataAccessException` 을 받아 넘어간다(`LoginAttemptService`). 6초는 차단 확인 2초 + 카운터 초기화 2초 + 세션 저장 실패로 읽힌다(로그 대조는 안 했다 — 추정) → **`Q262`: 6초 뒤 503** | 200 |
 | B | `redis` | `/api/health` | 503 | **200** — Redis 를 안 본다. 로그인한 손님 요청이 다 실패하는데 건강하다고 답한다 → **`Q262`: 2초 뒤 503**(PING) | 200 — 되살린 뒤 1초 |
-| C | 백엔드 | 홈·상품·로그인·내 주문 화면 | `error.tsx`(「화면을 여는 데 실패했습니다」) | **넷 다 본문 없는 500**(`next start`) — 루트 레이아웃의 `SiteHeader` 가 `apiSessionOptional("/api/me/permissions")` 에서 `fetch failed`(ECONNREFUSED)로 던지고, 레이아웃 오류는 `error.tsx` 가 못 잡는데 `global-error.tsx` 가 없다. **로그인 화면까지 죽는다** | — |
+| C | 백엔드 | 홈·상품·로그인·내 주문 화면 | `error.tsx`(「화면을 여는 데 실패했습니다」) | **넷 다 본문 없는 500**(`next start`) — 루트 레이아웃의 `SiteHeader` 가 `apiSessionOptional("/api/me/permissions")` 에서 `fetch failed`(ECONNREFUSED)로 던지고, 레이아웃 오류는 `error.tsx` 가 못 잡는데 `global-error.tsx` 가 없다. **로그인 화면까지 죽는다** → **2026-10-12 `Q263`**: 넷 다 셸이 선다(머리는 비로그인) — 홈은 제 본문, 로그인은 폼, 상품·내 주문은 셸 안의 `error.tsx`(`loading.tsx` 가 셸을 먼저 흘려 200). 백엔드는 살고 DB 만 죽은 판(로그인한 손님)은 머리가 503 을 던져 `global-error.tsx` — 500, 우리 문구·`lang="ko"`·「다시 시도」 | — |
 
 **`/actuator/health` 는 2026-10-11 에 못 쟀다** — 같은 컨테이너에 `63` 이 관리 포트(9091, 호스트에 안 묶임)를 줘서 actuator 가 8080 에서 빠졌다. 다시 돌릴 때는 `docker exec` 로 컨테이너 안에서 9091 을 부르거나 관리 포트를 빼고 띄운다. **2026-10-12 에 쟀다**: `docker run --rm --network container:shop-backend-load redis:7-alpine wget -qO- -S http://localhost:9091/actuator/health` — 평시 200, `db` 정지 503, `redis` 정지 503. Boot 기본 지표가 DB·Redis 를 둘 다 본다.
 

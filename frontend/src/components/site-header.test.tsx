@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api";
 import { expectNoAxeViolations } from "@/test/axe";
 
 // `vi.mock` 은 파일 맨 위로 끌어올려진다. 그래서 공장 안에서 바깥 변수를 못 읽고,
@@ -270,5 +271,28 @@ describe("셸의 머리", () => {
     // `apiSessionOptional` 이 401 을 null 로 돌려주는 이유가 이것이다.
     expect(screen.getByRole("link", { name: "상품" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "장바구니" })).toBeInTheDocument();
+  });
+
+  /**
+   * 백엔드가 죽어도 셸이 선다(`Q263`). 머리는 루트 레이아웃에 있어서 여기서 던지면 모든 화면이
+   * 본문 없는 500 이었다 — 로그인 화면까지(`68` 실험 C).
+   */
+  it("백엔드에 못 닿으면 모르는 사람의 머리를 그린다", async () => {
+    apiSessionOptional.mockRejectedValue(new TypeError("fetch failed"));
+
+    const { container } = render(await SiteHeader());
+
+    expect(screen.getByRole("link", { name: "로그인" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "로그아웃" })).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it("백엔드가 답한 오류는 덮지 않고 던진다", async () => {
+    // 답을 했다는 것은 머리가 덮을 일이 아니라는 뜻이다(`D24`) — 오류 경계가 받는다.
+    apiSessionOptional.mockRejectedValue(
+      new ApiError(503, "tag:projectshop.example,2026:error:service-unavailable", "바깥 의존에 닿지 못했다"),
+    );
+
+    await expect(SiteHeader()).rejects.toBeInstanceOf(ApiError);
   });
 });
