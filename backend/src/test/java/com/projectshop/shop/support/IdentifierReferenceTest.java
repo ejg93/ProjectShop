@@ -52,6 +52,7 @@ class IdentifierReferenceTest extends PostgresTestBase {
     private static final Pattern COLUMN = Pattern.compile("^([a-z][a-z0-9_]*)\\.([a-z][a-z0-9_]*)$");
     /** 테스트 클래스 이름. 이 저장소의 테스트는 전부 {@code ...Test} 로 끝난다 */
     private static final Pattern TEST_CLASS = Pattern.compile("^([A-Z][A-Za-z0-9]*Test)$");
+    private static final Pattern TEST_MEMBER = Pattern.compile("^([A-Z][A-Za-z0-9]*Test)\\.([A-Za-z_][A-Za-z0-9_]*)$");
 
     /**
      * 표 이름으로 시작하지만 컬럼이 아닌 것과 그 근거.
@@ -107,6 +108,53 @@ class IdentifierReferenceTest extends PostgresTestBase {
         assertThat(missing)
                 .as("문서·주석이 없는 테스트를 가리킨다. 이름을 고치거나 그 테스트를 세운다")
                 .isEmpty();
+    }
+
+    /**
+     * 부르는 시험 멤버가 실재한다(`Q268`). {@code PermissionCacheTest.secondCallHitsCache} 처럼 클래스 뒤에 점을 찍어
+     * <b>메서드·중첩 클래스·상수</b>를 부르는 토큰이다. 위 시험은 {@code …Test} 로 <b>끝나는</b> 토큰만 봐서
+     * 멤버 이름이 바뀌어도 아무것도 안 잡았다 — PR #99 리뷰가 옛 메서드 이름을 든 문장을 세 판 연달아 짚은 그 모양이다.
+     *
+     * <p><b>소스 글자로 잰다</b> — 그 클래스 파일에 {@code 이름(}·{@code class 이름}·{@code 이름 =}·{@code 이름;} 중
+     * 하나가 있어야 한다. 리플렉션은 중첩 클래스의 메서드까지 따라가야 하고 쓰는 쪽의 표기가 그것을 안 가른다.
+     * <b>파일 이름({@code XTest.java})은 뺀다</b> — 멤버가 아니다. 클래스가 없는 토큰은 위 시험의 몫이라 건너뛴다.
+     */
+    @Test
+    @DisplayName("부르는 시험 멤버가 실재한다")
+    void referencedTestMembersExist() {
+        Map<String, Path> files = testClassFiles();
+        List<String> missing = references().stream()
+                .map(TEST_MEMBER::matcher)
+                .filter(Matcher::matches)
+                .filter(matcher -> !matcher.group(2).equals("java"))
+                .filter(matcher -> files.containsKey(matcher.group(1)))
+                .filter(matcher -> !declares(readString(files.get(matcher.group(1))), matcher.group(2)))
+                .map(matcher -> matcher.group(1) + "." + matcher.group(2))
+                .distinct()
+                .sorted()
+                .toList();
+        assertThat(missing)
+                .as("문서·주석이 시험 클래스에 없는 멤버를 부른다. 지금 이름으로 고치거나 그 문장을 지운다")
+                .isEmpty();
+    }
+
+    /** 그 소스가 이 이름을 메서드·중첩 클래스·필드로 선언하나. 주석에서만 나와도 통과한다 — 부르는 이름이 글자로 남아 있다는 뜻이라 */
+    private static boolean declares(String source, String member) {
+        String name = Pattern.quote(member);
+        return Pattern.compile("\\b" + name + "\\s*\\(|\\bclass\\s+" + name + "\\b|\\b" + name + "\\s*[=;]")
+                .matcher(source).find();
+    }
+
+    /** 시험 클래스 이름 → 파일. 백엔드 시험만이다 — 화면 시험은 {@code x.test.tsx} 라 {@code XTest.y} 꼴이 아니다 */
+    private static Map<String, Path> testClassFiles() {
+        Map<String, Path> files = new java.util.TreeMap<>();
+        for (Path file : filesUnder(Path.of("src", "test", "java"))) {
+            String name = file.getFileName().toString();
+            if (name.endsWith("Test.java")) {
+                files.put(name.substring(0, name.length() - ".java".length()), file);
+            }
+        }
+        return files;
     }
 
     /** 문서와 주석이 부르는 이름 전부. 중복은 아래에서 걷는다. */
