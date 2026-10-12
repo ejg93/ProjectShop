@@ -10,7 +10,7 @@
 #   `verify-fingerprint.sh` 를 복사해 둔다. `origin/main` 은 `git update-ref` 로 만든다.
 # - `pr-guard` 의 `gh` 는 `PATH` 앞의 가짜로 끊는다 — 열린 PR 수와 `gh pr checks` 종료 코드를 환경변수로 준다.
 # - 편집 훅 둘은 가짜 `doc-lint.sh`(받은 인자를 적고 `FAKE_LINT_RC` 로 끝난다)로 배선만 잰다.
-# - `doc-lint` 자체의 위반 다섯은 임시 사본에서 범위 모드로 잰다.
+# - `doc-lint` 자체의 위반 여섯은 임시 사본에서 범위 모드로 잰다.
 set -u
 R=$(cd "$(dirname "$0")/.." && pwd)
 H=$R/scripts/hooks
@@ -182,7 +182,7 @@ else
   else echo "  [실패] $n verify-fingerprint.sh — 16진수 커밋과 origin/main 이 다르다(윈도 경로 변환, Q231)"; diff <(echo "$a") <(echo "$b") | head -4; fail=1; fi
 fi
 
-echo "doc-lint 위반 다섯(임시 사본, 범위 모드):"
+echo "doc-lint 위반 여섯(임시 사본, 범위 모드):"
 L=$T/lint; mkdir -p "$L/scripts" "$L/doc/reference"; cp "$R/scripts/doc-lint.sh" "$L/scripts/"
 lint_case() { # 이름, 파일(사본 상대), 본문, 기대 라벨(빈 값이면 초록이어야)
   local name=$1 f=$2 body=$3 label=$4
@@ -200,6 +200,8 @@ lint_case "30자 넘는 같은 셀 둘" doc/reference/c.md '# 제목\n\n| 가 | 
 lint_case "깨진 UTF-8" doc/reference/u.md '# 제목\n\n\xff\xfe 깨짐\n' '[UTF-8 깨짐]'
 lint_case "설계 행에 실패 사다리 없음" PLAN.md '# 계획\n\n## 청크 분할표\n\n| # | 청크 | 무엇 | 선행 |\n|---|---|---|---|\n| X1 | 무엇 | **결정**: 가. **번호 절차**: ① 하나 ② 시험. **축**: 규약. **강제 지점**: 시험. **닫힘**: ② | — |\n\n## 이 계획을 고칠 때\n' '[설계 행 누락]'
 lint_case "새 이력 행의 커밋 칸 빔(마지막 아님)" PROGRESS.md '# 진행\n\n## 현재 상태\n\n| 가 | 나 |\n\n## 이력\n\n| 날짜 | 청크 | 결과 | 커밋 |\n|---|---|---|---|\n| 2099-01-01 | `A1`. 가 | 완료 — 한 것 | |\n| 2099-01-02 | `A2`. 나 | 완료 — 한 것 | |\n' '[이력 해시 빈 칸]'
+# 분할표 시험 수(`Q267`) — 사본은 행 하나라 기준선을 0 으로 덮는다. 실물 기준선 그대로면 하나로는 안 넘는다
+PLAN_TEST_COUNTS_BASELINE=0 lint_case "분할표에 시험 수" PLAN.md '# 계획\n\n## 청크 분할표\n\n| # | 청크 | 무엇 | 선행 |\n|---|---|---|---|\n| X1 | ~~무엇~~ | **완료**. 시험 `FooTest` 3 | 완료 |\n\n## 이 계획을 고칠 때\n' '[분할표 시험 수]'
 
 echo
 if [ "$fail" -eq 0 ]; then echo "훅·도구 회귀 시험 통과 — ${n}경우"; else echo "훅·도구 회귀 시험 실패"; fi
