@@ -1,4 +1,4 @@
-package com.projectshop.shop.demo;
+package com.projectshop.shop.support;
 
 import java.util.Arrays;
 
@@ -85,12 +85,13 @@ class SeedMigrationStrategy implements FlywayMigrationStrategy {
         if (!exists(jdbc, "flyway_schema_history")) {
             return;
         }
-        Integer top = jdbc.sql("select max(" + SEED_VERSION + ") from flyway_schema_history where "
+        // 시드 행이 없으면 max 가 NULL 이다 — 스키마만 받은 DB 와 이미 옮긴 DB 의 다음 기동이 다 그렇다. 0 으로 받아 그 자리에서 나간다.
+        int top = jdbc.sql("select coalesce(max(" + SEED_VERSION + "), 0) from flyway_schema_history where "
                         + SEED_VERSION + " >= :floor")
                 .param("floor", SEED_FLOOR)
                 .query(Integer.class)
                 .single();
-        if (top == null) {
+        if (top < SEED_FLOOR) {
             return;
         }
         if (!exists(jdbc, SEED_TABLE)) {

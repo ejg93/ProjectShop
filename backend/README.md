@@ -113,7 +113,7 @@ docker run -e BACKEND_ORIGIN=http://backend:8080 -p 3000:3000 shop-frontend
 
 **배포가 나갔는지 보는 법**: `curl https://frontend-production-b83c.up.railway.app/api/health` 의
 `applied_migrations` 가 **`db/migration` 파일 수**와 같아야 한다. 시드는 `flyway_seed_history` 에 따로 들어 이 수에 안 든다(`Q200`).
-`SPRING_PROFILES_ACTIVE=demo` 가 빠지면 시드가 통째로 안 든다(`Q134`) — 이 수로는 안 보이고 연습용 계정이 없는 것으로 보인다.
+`SPRING_PROFILES_ACTIVE=demo` 가 빠지면 시드가 통째로 안 든다(`Q134`) — 이 수로는 안 보여서 `deploy-check.sh` 가 공개 상품 목록이 비면 빨강을 찍는다.
 
 ### 2026-09-20 에 실제로 한 순서
 

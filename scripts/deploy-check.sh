@@ -72,6 +72,12 @@ fi
 # 사진 주소에서 서명을 떼면 저장소(R2)가 거절하나(`28`, `Q229`). 로컬 S3Mock 은 자격 증명을 안 봐서
 # 이 반쪽을 못 재고, 우리 코드는 서명을 붙이는 것까지가 몫이다 — 저장소가 실제로 막는지는 여기서만 본다.
 first_id=$(curl -fsS -m 15 "$base/api/products?size=1" 2>/dev/null | sed -n 's/.*"product_id":\([0-9]*\).*/\1/p' | head -1)
+# **상품이 0 이면 시드가 안 들었다**(`Q134`). 전에는 적용 수에 시드 몫이 들어 `SPRING_PROFILES_ACTIVE=demo` 가 빠지면 위 대조가
+# 빨갰는데, `Q200` 이 시드를 다른 이력 표로 떼서 그 수로는 안 보인다(마무리 62차 독립 리뷰) — 시드가 넣는 상품으로 대신 잰다.
+if [ -z "$first_id" ]; then
+  echo "빨강 — 공개 상품 목록이 비었다. 데모 시드가 안 들었다 — SPRING_PROFILES_ACTIVE=demo 를 본다(Q134)"
+  exit 1
+fi
 signed=$(curl -fsS -m 15 "$base/api/products/${first_id:-0}" 2>/dev/null | sed -n 's/.*"image_urls":\["\([^"]*\)".*/\1/p' | head -1)
 if [ -z "$signed" ]; then
   echo "주의 — 사진을 든 상품이 없어 서명 뗀 주소를 못 쟀다"

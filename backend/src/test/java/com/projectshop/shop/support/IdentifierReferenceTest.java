@@ -52,7 +52,12 @@ class IdentifierReferenceTest extends PostgresTestBase {
     private static final Pattern COLUMN = Pattern.compile("^([a-z][a-z0-9_]*)\\.([a-z][a-z0-9_]*)$");
     /** 테스트 클래스 이름. 이 저장소의 테스트는 전부 {@code ...Test} 로 끝난다 */
     private static final Pattern TEST_CLASS = Pattern.compile("^([A-Z][A-Za-z0-9]*Test)$");
-    private static final Pattern TEST_MEMBER = Pattern.compile("^([A-Z][A-Za-z0-9]*Test)\\.([A-Za-z_][A-Za-z0-9_]*)$");
+    /**
+     * {@code XTest.y} — 멤버는 한글도 받는다(ArchUnit 규칙 이름이 한글이다) · 끝의 {@code ()} 는 떼고 본다(마무리 62차 독립 리뷰).
+     * 줄임표로 잘린 이름처럼 이 꼴이 아닌 것은 안 문다.
+     */
+    private static final Pattern TEST_MEMBER =
+            Pattern.compile("^([A-Z][A-Za-z0-9]*Test)\\.([\\p{L}_][\\p{L}\\p{N}_]*)(?:\\(\\))?$");
 
     /**
      * 표 이름으로 시작하지만 컬럼이 아닌 것과 그 근거.
@@ -140,8 +145,10 @@ class IdentifierReferenceTest extends PostgresTestBase {
 
     /** 그 소스가 이 이름을 메서드·중첩 클래스·필드로 선언하나. 주석에서만 나와도 통과한다 — 부르는 이름이 글자로 남아 있다는 뜻이라 */
     private static boolean declares(String source, String member) {
-        String name = Pattern.quote(member);
-        return Pattern.compile("\\b" + name + "\\s*\\(|\\bclass\\s+" + name + "\\b|\\b" + name + "\\s*[=;]")
+        // `\b` 는 한글을 단어 글자로 안 봐서 한글 이름 앞에서 안 선다 — 글자·숫자·밑줄이 아닌 것으로 경계를 직접 건다.
+        String name = "(?<![\\p{L}\\p{N}_])" + Pattern.quote(member);
+        String end = "(?![\\p{L}\\p{N}_])";
+        return Pattern.compile(name + "\\s*\\(|\\bclass\\s+" + Pattern.quote(member) + end + "|" + name + "\\s*[=;]")
                 .matcher(source).find();
     }
 

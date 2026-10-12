@@ -1,4 +1,4 @@
-package com.projectshop.shop.demo;
+package com.projectshop.shop.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -106,10 +106,12 @@ class SeededUpgradeTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("빈 DB 에는 스키마가 먼저, 시드가 따로 들고 스키마 이력은 스키마 파일 수와 같다")
+    @DisplayName("빈 DB 에는 스키마가 먼저, 시드가 따로 들고 다시 기동해도 그대로다")
     void seedsAfterSchemaOnAnEmptyDatabase() throws Exception {
         String url = recreate("empty");
         try {
+            strategy().migrate(schema(url));
+            // 다시 기동한다 — 스키마 이력은 있고 시드 행은 없는 꼴이다. 시험 DB·옮긴 뒤의 운영이 매 기동 이 길을 지난다.
             strategy().migrate(schema(url));
 
             assertThat(count(url, "select count(*) from flyway_schema_history where success"))
@@ -122,6 +124,25 @@ class SeededUpgradeTest extends PostgresTestBase {
             assertThat(count(url, "select count(*) from app_user")).as("시드가 실제로 부어졌다").isPositive();
         } finally {
             drop(url);
+        }
+    }
+
+
+    /**
+     * <b>시드를 싣는 프로필이 스키마 Flyway 를 안 건드린다</b>(마무리 62차 독립 리뷰). 위 시험들은 스키마 Flyway 를 손으로 세워서
+     * 프로필이 {@code out-of-order} 를 되살리거나 시드를 스키마 위치에 다시 넣어도 초록이다 — 그 두 줄이 `Q200` 이 지운 것이다.
+     */
+    @Test
+    @DisplayName("시드를 싣는 프로필은 순서 검사를 안 끄고 시드를 스키마 위치에 안 넣는다")
+    void seedProfilesLeaveSchemaFlywayAlone() {
+        for (String file : List.of("application-demo.yml", "application-local.yml")) {
+            Properties profile = profile(file);
+            assertThat(profile.getProperty("spring.flyway.out-of-order"))
+                    .as("%s 가 순서 검사를 끈다 — 진짜 순서 사고도 같이 통과한다", file).isNull();
+            assertThat(profile.getProperty("spring.flyway.locations", ""))
+                    .as("%s 가 시드를 스키마 이력에 다시 섞는다", file).doesNotContain("seed");
+            assertThat(profile.getProperty("shop.seed.locations", ""))
+                    .as("%s 가 시드 위치를 안 준다", file).contains("db/seed");
         }
     }
 
@@ -157,10 +178,13 @@ class SeededUpgradeTest extends PostgresTestBase {
     }
 
     private static SeedMigrationStrategy strategy() {
+        return new SeedMigrationStrategy(profile("application-demo.yml").getProperty("shop.seed.locations", ""));
+    }
+
+    private static Properties profile(String file) {
         YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
-        yaml.setResources(new ClassPathResource("application-demo.yml"));
-        Properties demo = yaml.getObject();
-        return new SeedMigrationStrategy(demo.getProperty("shop.seed.locations", ""));
+        yaml.setResources(new ClassPathResource(file));
+        return yaml.getObject();
     }
 
     private long count(String url, String sql) {
