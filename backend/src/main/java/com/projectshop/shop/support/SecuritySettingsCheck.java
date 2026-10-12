@@ -72,10 +72,25 @@ final class SecuritySettingsCheck {
     SecuritySettingsCheck(
             @Value("${server.tomcat.remoteip.internal-proxies}") String internalProxies,
             @Value("${server.servlet.session.cookie.secure}") boolean cookieSecure,
-            @Value("${management.server.port:}") String managementPort) {
+            @Value("${management.server.port:}") String managementPort,
+            @Value("${server.port:8080}") String serverPort) {
         this.internalProxies = internalProxies;
         this.cookieSecure = cookieSecure;
-        this.managementPort = managementPort;
+        this.managementPort = separatePort(managementPort, serverPort);
+    }
+
+    /**
+     * 관리 포트가 <b>실제로 따로 열리는 값</b>이면 그대로, 아니면 빈 값(마무리 61차 독립 리뷰).
+     *
+     * <p>글자가 아니라 동작으로 잰다(위 「글자가 아니라 동작으로 잰다」와 같은 수). {@code -1} 은 actuator 를 HTTP 에서
+     * 끄고, 서버 포트와 같은 값은 따로 안 연다 — 둘 다 {@code SecurityConfig.managementPortOnly} 가 안 물어서 막을 이유가 없다.
+     */
+    static String separatePort(String managementPort, String serverPort) {
+        if (managementPort == null || managementPort.isBlank()) {
+            return "";
+        }
+        String port = managementPort.trim();
+        return port.equals("-1") || port.equals(serverPort == null ? "" : serverPort.trim()) ? "" : port;
     }
 
     /**

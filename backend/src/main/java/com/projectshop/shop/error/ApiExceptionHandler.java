@@ -7,14 +7,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.MethodParameter;
-import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.validation.method.ParameterErrors;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -220,30 +217,27 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      * <b>500 이 나가는데 원인이 어디에도 안 남았다</b> — 응답에는 추적 ID 가 있는데
      * 그 ID 로 찾을 줄이 없었다. 스택까지 남긴다. 여기 온 예외는 우리가 모르는 것이라
      * 메시지 한 줄로는 어느 줄에서 났는지 못 찾는다(`D16`).
-     */
-    /**
-     * 바깥 의존(DB·Redis)에 못 닿았다(`Q260`). 무엇을 고르나는 {@link DependencyFailure} 가 든다.
      *
-     * <p><b>500 이 아니라 503 이다.</b> 요청도 우리 코드도 틀리지 않았고 의존이 살아나면 같은 요청이 산다.
-     * 아래 {@code Exception} 핸들러보다 구체적이라 먼저 걸린다.
-     *
-     * <p><b>WARN 이고 스택이 없다</b>(`D16` 「ERROR 는 사람이 개입할 것에만」). 원인이 알려진 것이라
-     * 코드를 볼 일이 아니고, 장애 동안 요청마다 한 줄씩 남는다 — 스택까지 남기면 그 사이 다른 줄이 묻힌다.
+     * <p><b>바깥 의존(DB·Redis)에 못 닿은 것만 먼저 가른다</b>(`Q260`) — 500 이 아니라 503 이고 {@code Retry-After} 가
+     * 나간다. 요청도 우리 코드도 틀리지 않았고 의존이 살아나면 같은 요청이 산다. <b>고르는 것은
+     * {@link DependencyFailure#find} 하나다</b> — 예외 타입을 애너테이션에 따로 적으면 필터({@link DependencyFailureFilter})와
+     * 목록이 두 벌이 되고, 원인 줄에 싸여 온 실패를 이쪽만 못 알아본다(마무리 61차 독립 리뷰).
+     * 그 줄은 ERROR 지만 스택이 없다 — `D16` 이 「DB 연결 끊김」을 사람이 고칠 것으로 두었고,
+     * 원인이 알려진 것이라 한 줄로 충분하다. 장애 동안 요청마다 한 줄씩 남는다.
      */
-    @ExceptionHandler({DataAccessResourceFailureException.class, QueryTimeoutException.class,
-            CannotCreateTransactionException.class})
-    ResponseEntity<ProblemDetail> handleDependencyFailure(RuntimeException e, HttpServletRequest request) {
-        log.warn("바깥 의존에 닿지 못했다: {} {} — {}: {}", request.getMethod(), request.getRequestURI(),
-                e.getClass().getSimpleName(), e.getMessage());
-        return ResponseEntity.status(ErrorCode.SERVICE_UNAVAILABLE.status())
-                .header(HttpHeaders.RETRY_AFTER, String.valueOf(DependencyFailure.RETRY_AFTER.toSeconds()))
-                .body(problems.create(ErrorCode.SERVICE_UNAVAILABLE, null, request));
-    }
-
     @ExceptionHandler(Exception.class)
-    ProblemDetail handle(Exception e, HttpServletRequest request) {
+    ResponseEntity<ProblemDetail> handle(Exception e, HttpServletRequest request) {
+        Throwable failure = DependencyFailure.find(e);
+        if (failure != null) {
+            log.error("바깥 의존에 닿지 못했다: {} {} — {}: {}", request.getMethod(), request.getRequestURI(),
+                    failure.getClass().getSimpleName(), failure.getMessage());
+            return ResponseEntity.status(ErrorCode.SERVICE_UNAVAILABLE.status())
+                    .header(HttpHeaders.RETRY_AFTER, String.valueOf(DependencyFailure.RETRY_AFTER.toSeconds()))
+                    .body(problems.create(ErrorCode.SERVICE_UNAVAILABLE, null, request));
+        }
         log.error("처리하지 못한 예외: {} {}", request.getMethod(), request.getRequestURI(), e);
-        return problems.create(ErrorCode.INTERNAL, null, request);
+        return ResponseEntity.status(ErrorCode.INTERNAL.status())
+                .body(problems.create(ErrorCode.INTERNAL, null, request));
     }
 
     private static HttpServletRequest servletRequestOf(WebRequest request) {

@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.OrderUtils;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.MediaType;
@@ -31,6 +33,7 @@ import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.session.web.http.SessionRepositoryFilter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.CannotCreateTransactionException;
@@ -44,6 +47,7 @@ import jakarta.servlet.ServletException;
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.observability.RequestLogFilter;
 
 /**
  * 오류 응답의 모양(`D5`·`D16`).
@@ -261,7 +265,7 @@ class ProblemResponseTest extends PostgresTestBase {
         }
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"jdbc", "redis", "redis-timeout", "transaction"})
+        @ValueSource(strings = {"jdbc", "redis", "redis-timeout", "transaction", "wrapped"})
         @DisplayName("MVC 안에서 터지면 503 과 Retry-After")
         void handlerAnswers503(String kind) throws Exception {
             broken().perform(get("/broken/" + kind))
@@ -317,6 +321,22 @@ class ProblemResponseTest extends PostgresTestBase {
                     .isInstanceOf(RedisConnectionFailureException.class);
         }
 
+        /**
+         * 필터 자리를 못박는다. 위 필터 시험은 필터를 직접 불러서 자리를 모른다 — 세션 필터 안쪽으로 가면
+         * 세션 조회 실패가 이 필터를 안 지나 톰캣 HTML 500 으로 돌아간다(`Q262` 첫 판이 그 모양이었다).
+         */
+        @Test
+        @DisplayName("필터가 요청 로그 안쪽, 세션 필터 바깥에 선다")
+        void filterSitsOutsideTheSessionFilter() {
+            int order = OrderUtils.getOrder(DependencyFailureFilter.class, Ordered.LOWEST_PRECEDENCE);
+
+            assertThat(order)
+                    .as("요청 로그가 503 을 찍으려면 그보다 안쪽")
+                    .isGreaterThan(OrderUtils.getOrder(RequestLogFilter.class, Ordered.LOWEST_PRECEDENCE))
+                    .as("세션을 읽다 터진 것을 받으려면 세션 필터보다 바깥")
+                    .isLessThan(SessionRepositoryFilter.DEFAULT_ORDER);
+        }
+
         /** 기본 30초로 돌아가면 위 시험은 다 초록인데 장애 동안 요청이 30초 매달린다(`68` 실험 A). */
         @Test
         @DisplayName("연결 대기 상한이 3초다")
@@ -349,6 +369,12 @@ class ProblemResponseTest extends PostgresTestBase {
         @GetMapping("/broken/transaction")
         void transaction() {
             throw new CannotCreateTransactionException("트랜잭션을 못 열었다");
+        }
+
+        /** 원인 줄에 싸여 온 의존 실패. 핸들러가 맨 위 타입만 보면 500 이 된다(마무리 61차 독립 리뷰) */
+        @GetMapping("/broken/wrapped")
+        void wrapped() {
+            throw new IllegalStateException("감쌌다", new CannotGetJdbcConnectionException("풀이 연결을 못 줬다"));
         }
 
         @GetMapping("/broken/query")

@@ -120,6 +120,16 @@ class SecuritySettingsCheckTest {
                 .hasMessageContaining("MANAGEMENT_SERVER_PORT");
     }
 
+    /** 관리 포트가 따로 안 열리는 값은 막지 않는다 — {@code managementPortOnly} 가 안 문다(마무리 61차 독립 리뷰) */
+    @Test
+    @DisplayName("actuator 를 끄는 -1 과 서버 포트와 같은 값은 따로 연 포트가 아니다")
+    void onlySeparatePortCounts() {
+        assertThat(SecuritySettingsCheck.separatePort("-1", "8080")).isEmpty();
+        assertThat(SecuritySettingsCheck.separatePort("8080", "8080")).isEmpty();
+        assertThat(SecuritySettingsCheck.separatePort("", "8080")).isEmpty();
+        assertThat(SecuritySettingsCheck.separatePort(COMPOSE_MANAGEMENT_PORT, "8080")).isEqualTo(COMPOSE_MANAGEMENT_PORT);
+    }
+
     @Test
     @DisplayName("관리 포트를 주는 컴포즈 모양은 뜬다 — 루프백 기본이다")
     void loopbackWithManagementPortStarts() {

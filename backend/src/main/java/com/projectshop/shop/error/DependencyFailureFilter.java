@@ -51,7 +51,7 @@ public class DependencyFailureFilter extends OncePerRequestFilter {
             if (failure == null || response.isCommitted()) {
                 throw e;
             }
-            log.warn("바깥 의존에 닿지 못했다(필터): {} {} — {}: {}", request.getMethod(), request.getRequestURI(),
+            log.error("바깥 의존에 닿지 못했다(필터): {} {} — {}: {}", request.getMethod(), request.getRequestURI(),
                     failure.getClass().getSimpleName(), failure.getMessage());
             response.reset();
             response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(DependencyFailure.RETRY_AFTER.toSeconds()));

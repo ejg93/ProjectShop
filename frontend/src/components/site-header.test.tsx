@@ -295,4 +295,11 @@ describe("셸의 머리", () => {
 
     await expect(SiteHeader()).rejects.toBeInstanceOf(ApiError);
   });
+
+  it("연결 실패가 아닌 것도 덮지 않고 던진다", async () => {
+    // 시간 초과·응답을 못 읽은 것·코드 결함까지 비로그인으로 그리면 고장이 안 보인다(마무리 61차 독립 리뷰).
+    apiSessionOptional.mockRejectedValue(new SyntaxError("Unexpected token < in JSON"));
+
+    await expect(SiteHeader()).rejects.toBeInstanceOf(SyntaxError);
+  });
 });
