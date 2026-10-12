@@ -1344,6 +1344,7 @@ management:
 **배포는 이 값을 안 준다.** 안 주면 같은 포트라 Boot 가 `local.management.port` 를 서버 포트로 채우고, 매처는 「다른 포트일 때만」이라 아무것도 안 문다.
 **`application.yml` 에 기본값을 적지 않는다** — `${MANAGEMENT_PORT:${SERVER_PORT:…}}` 꼴은 시험(`server.port=0`)에서 관리 포트가 8080 으로 풀려
 「다른 포트」가 된다. 표준 환경변수 `MANAGEMENT_SERVER_PORT` 를 컴포즈에서만 준다.
+**배포에 들어가면 기동이 선다**(`Q264`) — `SecuritySettingsCheck` 가 「프록시가 루프백 밖 + 관리 포트」 조합을 막는다. 컴포즈는 루프백 기본이라 안 걸린다.
 
 ### SpotBugs 제외는 클래스 이름이라 파일을 옮기면 안 따라온다
 

@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * 조용히 위험해지는 설정 둘을 기동에서 막는다(`Q44`, `D14`).
+ * 조용히 위험해지는 설정 셋을 기동에서 막는다(`Q44`·`Q264`, `D14`).
  *
  * <p>{@code Q37} 이 호스팅 전제를 환경변수로 풀면서 <b>기본값을 안전하지 않은 쪽</b>에 뒀고
  * 안내는 {@code backend/README.md} 표에만 있었다. 값이 잘못되면 아무것도 안 깨지고
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
  * <b>어느 환경에서도 정당한 이유가 없는 값</b>만 막는다.
  *
  * <table>
- *   <caption>막는 둘</caption>
+ *   <caption>막는 셋</caption>
  *   <tr><th>무엇</th><th>왜 어느 환경에서도 안 되나</th></tr>
  *   <tr><td>신뢰 프록시가 <b>아무 주소나</b> 문다</td>
  *       <td>그러면 백엔드를 직접 때리는 누구나 손님 주소 헤더({@code X-Real-IP}, `Q242`) 한 줄로 IP 를 속인다.
@@ -31,9 +31,14 @@ import org.springframework.stereotype.Component;
  *   <tr><td>프록시가 <b>루프백 밖</b>에 있는데 세션 쿠키가 평문</td>
  *       <td>프록시가 다른 기계에 있다는 것은 요청이 망을 지난다는 뜻이다.
  *           그 구간에서 쿠키를 주우면 남의 세션으로 들어간다</td></tr>
+ *   <tr><td>프록시가 <b>루프백 밖</b>에 있는데 관리 포트({@code MANAGEMENT_SERVER_PORT})가 있다(`Q264`)</td>
+ *       <td>관리 포트를 따로 두면 actuator 가 그리로 옮겨 가 공개 포트에서 지표가 사라지고,
+ *           {@code SecurityConfig.managementPortOnly} 가 그 포트를 세션 없이 연다. 프록시 뒤라는 것은
+ *           같은 사설망의 다른 서비스가 그 포트에 닿는다는 뜻이다</td></tr>
  * </table>
  *
- * <p><b>로컬은 안 걸린다.</b> 기본값이 루프백만 신뢰해서 둘 다 해당하지 않는다.
+ * <p><b>로컬은 안 걸린다.</b> 기본값이 루프백만 신뢰해서 셋 다 해당하지 않는다 — 관리 포트를 주는
+ * 컴포즈 {@code observe} 도 루프백 기본이다.
  *
  * <h2>글자가 아니라 동작으로 잰다</h2>
  *
@@ -58,12 +63,19 @@ final class SecuritySettingsCheck {
 
     private final String internalProxies;
     private final boolean cookieSecure;
+    private final String managementPort;
 
+    /**
+     * @param managementPort 따로 둔 관리 포트. <b>기본값을 안 적는다</b> — 안 주면 빈 값이고 그것이 「없다」다
+     *                       ({@code stack.md} 「관리 포트를 따로 두면」 — 기본값을 적으면 시험에서 다른 포트로 풀린다)
+     */
     SecuritySettingsCheck(
             @Value("${server.tomcat.remoteip.internal-proxies}") String internalProxies,
-            @Value("${server.servlet.session.cookie.secure}") boolean cookieSecure) {
+            @Value("${server.servlet.session.cookie.secure}") boolean cookieSecure,
+            @Value("${management.server.port:}") String managementPort) {
         this.internalProxies = internalProxies;
         this.cookieSecure = cookieSecure;
+        this.managementPort = managementPort;
     }
 
     /**
@@ -73,7 +85,7 @@ final class SecuritySettingsCheck {
      */
     @PostConstruct
     void check() {
-        verify(internalProxies, cookieSecure);
+        verify(internalProxies, cookieSecure, managementPort);
     }
 
     /**
@@ -81,7 +93,7 @@ final class SecuritySettingsCheck {
      *
      * <p>정적 메서드인 것은 <b>기동 없이 재기 위해서</b>다 — 이 판정 자체는 스프링을 안 탄다.
      */
-    static void verify(String internalProxies, boolean cookieSecure) {
+    static void verify(String internalProxies, boolean cookieSecure, String managementPort) {
         if (internalProxies == null || internalProxies.isBlank()) {
             throw new IllegalStateException(
                     "TRUSTED_PROXIES 가 비었다. 빈 값이면 이 검사가 아무것도 안 물어서 통과하는데,"
@@ -117,6 +129,12 @@ final class SecuritySettingsCheck {
                             + " SESSION_COOKIE_SECURE 가 꺼져 있다. 요청이 망을 지나므로 그 구간에서"
                             + " 세션 쿠키를 주우면 남의 세션으로 들어간다 (D14, Q44)."
                             + " SESSION_COOKIE_SECURE=true 로 켠다");
+        }
+        if (proxyIsRemote && managementPort != null && !managementPort.isBlank()) {
+            throw new IllegalStateException(
+                    "프록시가 루프백 밖에 있는데(" + internalProxies + ") MANAGEMENT_SERVER_PORT 가 있다("
+                            + managementPort + "). 공개 포트에서 지표가 사라지고, 같은 사설망에서 actuator 가"
+                            + " 인증 없이 열린다 (D14, Q264). 배포에는 그 변수를 안 준다");
         }
     }
 }

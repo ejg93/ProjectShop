@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 /**
- * 조용히 위험해지는 설정 둘을 기동에서 막는지 본다(`Q44`).
+ * 조용히 위험해지는 설정 셋을 기동에서 막는지 본다(`Q44`·`Q264`).
  *
  * <p>판정이 정적 메서드라 <b>기동 없이 잰다</b> — 나쁜 값으로 컨텍스트를 띄워 보려면
  * 그 자체로 못 뜨는 테스트가 되고, 그러면 무엇이 막았는지가 안 남는다.
@@ -29,11 +29,15 @@ class SecuritySettingsCheckTest {
             + "|10\\.\\d+\\.\\d+\\.\\d+"
             + "|172\\.(1[6-9]|2\\d|3[01])\\.\\d+\\.\\d+"
             + "|192\\.168\\.\\d+\\.\\d+";
+    /** 관리 포트를 안 줬을 때 — {@code @Value} 의 빈 기본값과 같다. 배포가 이 모양이다 */
+    private static final String NO_MANAGEMENT_PORT = "";
+    /** 컴포즈 {@code observe} 가 주는 관리 포트(`63`) */
+    private static final String COMPOSE_MANAGEMENT_PORT = "9091";
 
     @Test
     @DisplayName("기본값인 루프백은 쿠키가 평문이어도 뜬다")
     void loopbackWithPlainCookieStarts() {
-        assertThatCode(() -> SecuritySettingsCheck.verify(LOOPBACK, false))
+        assertThatCode(() -> SecuritySettingsCheck.verify(LOOPBACK, false, NO_MANAGEMENT_PORT))
                 .as("로컬이 http 라 기본이 평문이다. 여기서 막으면 로컬이 안 뜬다")
                 .doesNotThrowAnyException();
     }
@@ -41,7 +45,7 @@ class SecuritySettingsCheckTest {
     @Test
     @DisplayName("아무 주소나 신뢰하면 안 뜬다")
     void trustingEveryAddressFails() {
-        assertThatThrownBy(() -> SecuritySettingsCheck.verify(".*", true))
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify(".*", true, NO_MANAGEMENT_PORT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("공인 IP");
     }
@@ -50,7 +54,7 @@ class SecuritySettingsCheckTest {
     @DisplayName("모양이 달라도 아무 주소나 물면 안 뜬다")
     void trustingEveryAddressInAnotherShapeFails() {
         // 글자로 `.*` 를 찾는 것이 아니라 실제 주소를 넣어 보므로, 같은 뜻의 다른 표기도 걸린다.
-        assertThatThrownBy(() -> SecuritySettingsCheck.verify("\\d+\\.\\d+\\.\\d+\\.\\d+", true))
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify("\\d+\\.\\d+\\.\\d+\\.\\d+", true, NO_MANAGEMENT_PORT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("공인 IP");
     }
@@ -58,7 +62,7 @@ class SecuritySettingsCheckTest {
     @Test
     @DisplayName("프록시가 루프백 밖인데 쿠키가 평문이면 안 뜬다")
     void remoteProxyWithPlainCookieFails() {
-        assertThatThrownBy(() -> SecuritySettingsCheck.verify(PRIVATE_RANGE, false))
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify(PRIVATE_RANGE, false, NO_MANAGEMENT_PORT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SESSION_COOKIE_SECURE");
     }
@@ -66,7 +70,7 @@ class SecuritySettingsCheckTest {
     @Test
     @DisplayName("프록시가 루프백 밖이어도 쿠키가 secure 면 뜬다")
     void remoteProxyWithSecureCookieStarts() {
-        assertThatCode(() -> SecuritySettingsCheck.verify(PRIVATE_RANGE, true))
+        assertThatCode(() -> SecuritySettingsCheck.verify(PRIVATE_RANGE, true, NO_MANAGEMENT_PORT))
                 .doesNotThrowAnyException();
     }
 
@@ -78,7 +82,7 @@ class SecuritySettingsCheckTest {
     @Test
     @DisplayName("공인 주소 하나에 맞춘 프록시도 쿠키가 평문이면 안 뜬다")
     void pinnedPublicProxyWithPlainCookieFails() {
-        assertThatThrownBy(() -> SecuritySettingsCheck.verify(PUBLIC_PINNED, false))
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify(PUBLIC_PINNED, false, NO_MANAGEMENT_PORT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SESSION_COOKIE_SECURE");
     }
@@ -91,9 +95,9 @@ class SecuritySettingsCheckTest {
     @Test
     @DisplayName("운영 값인 사설망 전체는 쿠키가 secure 면 뜨고 공인 주소를 안 문다")
     void railwayPrivateRangesStartAndStayPrivate() {
-        assertThatCode(() -> SecuritySettingsCheck.verify(RAILWAY_PRIVATE, true))
+        assertThatCode(() -> SecuritySettingsCheck.verify(RAILWAY_PRIVATE, true, NO_MANAGEMENT_PORT))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> SecuritySettingsCheck.verify(RAILWAY_PRIVATE, false))
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify(RAILWAY_PRIVATE, false, NO_MANAGEMENT_PORT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SESSION_COOKIE_SECURE");
 
@@ -104,10 +108,30 @@ class SecuritySettingsCheckTest {
                 .noneMatch(ip -> proxies.matcher(ip).matches());
     }
 
+    /**
+     * <b>운영에 관리 포트가 들어가면 안 뜬다</b>(`Q264`). 들어가면 공개 포트에서 지표가 사라지고 같은 사설망에서
+     * actuator 가 세션 없이 열린다 — 운영 값 견본({@link #RAILWAY_PRIVATE})에 쿠키까지 맞게 둔 채로 잰다.
+     */
+    @Test
+    @DisplayName("프록시가 루프백 밖인데 관리 포트가 있으면 안 뜬다")
+    void remoteProxyWithManagementPortFails() {
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify(RAILWAY_PRIVATE, true, COMPOSE_MANAGEMENT_PORT))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("MANAGEMENT_SERVER_PORT");
+    }
+
+    @Test
+    @DisplayName("관리 포트를 주는 컴포즈 모양은 뜬다 — 루프백 기본이다")
+    void loopbackWithManagementPortStarts() {
+        assertThatCode(() -> SecuritySettingsCheck.verify(LOOPBACK, false, COMPOSE_MANAGEMENT_PORT))
+                .as("컴포즈 observe 가 이 모양이다. 여기서 막으면 Prometheus 가 지표를 못 긁는다")
+                .doesNotThrowAnyException();
+    }
+
     @Test
     @DisplayName("빈 값이면 안 뜬다")
     void blankProxiesFails() {
-        assertThatThrownBy(() -> SecuritySettingsCheck.verify("   ", true))
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify("   ", true, NO_MANAGEMENT_PORT))
                 .as("빈 값이면 이 검사가 아무것도 안 물어서 통과하는데, 서버가 쓰는 값은 그것이 아니다")
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("비었다");
@@ -115,7 +139,7 @@ class SecuritySettingsCheckTest {
     @Test
     @DisplayName("정규식이 아니면 안 뜬다")
     void brokenPatternFails() {
-        assertThatThrownBy(() -> SecuritySettingsCheck.verify("10.0.0.[", true))
+        assertThatThrownBy(() -> SecuritySettingsCheck.verify("10.0.0.[", true, NO_MANAGEMENT_PORT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("정규식이 아니다");
     }
@@ -146,6 +170,26 @@ class SecuritySettingsCheckTest {
                         // 메시지는 원인 예외에 있다. 스프링이 「빈을 못 만들었다」로 한 겹 감싼다.
                         .rootCause()
                         .hasMessageContaining("공인 IP"));
+    }
+
+    /**
+     * 관리 포트 키가 기동에 걸려 있나(`Q264`). 키에 빈 기본값이 있어서 오타가 나도 아래 「기본값이면 뜬다」는 초록이다 —
+     * 그래서 막아야 할 값을 실제로 줘서 잰다.
+     */
+    @Test
+    @DisplayName("프록시 밖에 관리 포트를 주면 컨텍스트가 안 뜬다")
+    void contextFailsOnManagementPortBehindProxy() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(SecuritySettingsCheck.class)
+                .withPropertyValues(
+                        "server.tomcat.remoteip.internal-proxies=" + PRIVATE_RANGE,
+                        "server.servlet.session.cookie.secure=true",
+                        "management.server.port=" + COMPOSE_MANAGEMENT_PORT)
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .rootCause()
+                        .hasMessageContaining("MANAGEMENT_SERVER_PORT"));
     }
 
     @Test
