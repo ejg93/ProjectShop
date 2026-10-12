@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorScreen } from "@/components/error-screen";
 import { expectNoAxeViolations } from "@/test/axe";
 
+import RouteError from "./error";
 import GlobalError from "./global-error";
 
 /**
@@ -44,6 +45,20 @@ describe("오류 화면", () => {
     expect(retry).toHaveBeenCalledOnce();
 
     await expectNoAxeViolations(container);
+  });
+
+  it("셸 안의 오류 경계도 「다시 시도」에 retry 를 넘긴다", () => {
+    // `reset` 은 서버에서 다시 안 불러와서 백엔드가 살아난 뒤에도 같은 화면이 남는다(Next 16.3, `Q263`).
+    // 본문만 재면 경계가 무엇을 넘기는지 모른다(PR #99 리뷰).
+    const retry = vi.fn();
+    const reset = vi.fn();
+    const props = { error: new Error("서버"), retry, reset } as Parameters<typeof RouteError>[0];
+    render(<RouteError {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+
+    expect(retry).toHaveBeenCalledOnce();
+    expect(reset).not.toHaveBeenCalled();
   });
 
   it("원인 문구를 화면에 안 적는다", () => {
