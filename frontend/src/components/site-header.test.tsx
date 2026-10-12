@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { redirect } from "next/navigation";
 
 import { ApiError } from "@/lib/api";
 import { expectNoAxeViolations } from "@/test/axe";
@@ -304,6 +305,19 @@ describe("셸의 머리", () => {
     apiSessionOptional.mockRejectedValue(new SyntaxError("Unexpected token < in JSON"));
 
     await expect(SiteHeader()).rejects.toBeInstanceOf(SyntaxError);
+  });
+
+  it("Next 가 흐름을 바꾸려 던진 것은 덮지 않는다", async () => {
+    // redirect·동적 렌더 신호를 머리가 삼키면 그 화면이 엉뚱하게 굳는다 — `unstable_rethrow` 를 지킨다(PR #99 리뷰).
+    let signal: unknown;
+    try {
+      redirect("/login");
+    } catch (thrown) {
+      signal = thrown;
+    }
+    apiSessionOptional.mockRejectedValue(signal);
+
+    await expect(SiteHeader()).rejects.toBe(signal);
   });
 
   it("원인 없는 TypeError 는 코드 결함이라 던진다", async () => {
