@@ -229,4 +229,27 @@ class SeededUpgradeTest extends PostgresTestBase {
         assertThat(List.of("db/migration", "db/seed", "db/seed-demo"))
                 .allSatisfy(folder -> assertThat(versionedFiles(folder)).as(folder).isPositive());
     }
+
+    /**
+     * <b>스키마는 바닥 밑, 시드는 바닥 위다</b>(PR #100 리뷰). 전략은 스키마 이력에서 {@value SeedMigrationStrategy#SEED_FLOOR} 이상을
+     * 시드로 보고 옮겨 지운다 — 스키마 번호가 거기 닿으면 진짜 스키마 행을 지운다. 그 전제를 여기서 못박는다.
+     */
+    @Test
+    @DisplayName("스키마 번호는 시드 바닥 밑이고 시드 번호는 그 위다")
+    void schemaStaysBelowTheSeedFloor() throws IOException {
+        assertThat(versions("db/migration")).as("스키마 번호가 시드 바닥에 닿았다 — 이관이 그 행을 지운다")
+                .allMatch(version -> version < SeedMigrationStrategy.SEED_FLOOR);
+        assertThat(versions("db/seed")).as("시드 번호가 바닥 밑이다 — 시드 이력으로 안 옮겨진다")
+                .allMatch(version -> version >= SeedMigrationStrategy.SEED_FLOOR);
+        assertThat(versions("db/seed-demo")).allMatch(version -> version >= SeedMigrationStrategy.SEED_FLOOR);
+    }
+
+    private static List<Integer> versions(String folder) throws IOException {
+        try (Stream<Path> files = Files.list(Path.of("src", "main", "resources", folder))) {
+            return files.map(path -> path.getFileName().toString())
+                    .filter(name -> name.matches("V\\d+__.+\\.sql"))
+                    .map(name -> Integer.parseInt(name.substring(1, name.indexOf("__"))))
+                    .toList();
+        }
+    }
 }
