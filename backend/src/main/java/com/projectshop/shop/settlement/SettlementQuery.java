@@ -15,6 +15,7 @@ import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.support.VatSplit;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -64,10 +65,46 @@ public class SettlementQuery {
             LocalDate periodEnd, LocalDate payoutDate, long payoutAmount, long carriedOver,
             String payoutStatus, OffsetDateTime createdAt) {}
 
-    /** 정산서 한 줄의 근거. {@code supplier} 는 부가가치세법이 요구하는 값이다(`D2` R17) */
+    /**
+     * 정산서 한 줄의 근거. {@code supplier} 는 부가가치세법이 요구하는 값이다(`D2` R17).
+     *
+     * @param supplyAmount 플랫폼이 공급한 줄(수수료와 그 되돌림)의 공급가액. 셀러가 공급한 줄은 {@code null} 이다 —
+     *                     그 세금계산서는 셀러가 내고, 우리는 그 금액을 나눌 근거가 없다({@link VatSplit}, `Q274`)
+     * @param vatAmount    같은 줄의 세액. {@code supplyAmount} 와 합하면 {@code amount} 다
+     */
     @Schema(name = "SettlementLine")
     public record Line(String kind, String supplier, long amount, Integer commissionBp,
-            Long commissionBaseAmount, String sellerOrderNumber, String productName) {}
+            Long commissionBaseAmount, String sellerOrderNumber, String productName,
+            Long supplyAmount, Long vatAmount) {
+
+        /**
+         * <b>플랫폼 공급 줄이면 나뉘어 있고 아니면 비어 있다</b> — 그리고 나눈 값은 금액의 역산이다({@link VatSplit} 이 잰다).
+         * 생성자가 공개라 팩터리를 안 거친 줄도 이 대조를 지난다(마무리 63차 독립 리뷰).
+         */
+        public Line {
+            boolean platform = SettlementSupplier.PLATFORM.name().equals(supplier);
+            if (platform != (supplyAmount != null) || platform != (vatAmount != null)) {
+                throw new IllegalArgumentException("공급가액·세액은 플랫폼이 공급한 줄에만 있다 — supplier=" + supplier);
+            }
+            if (platform) {
+                new VatSplit(amount, supplyAmount, vatAmount);
+            }
+        }
+
+        /**
+         * 공급자가 플랫폼인 줄만 나눈다 — 수수료는 부가세 포함가다(`business-model.md` 「수수료는 부가세 포함가다」).
+         *
+         * @param supplierCode 저장값. <b>이월 줄은 비어 있다</b> — 공급이 아니다(`V52` 의 생성 식)
+         */
+        static Line of(String supplierCode, String kind, long amount, Integer commissionBp,
+                Long commissionBaseAmount, String sellerOrderNumber, String productName) {
+            String supplier = EnumValue.of(supplierCode, SettlementSupplier::of);
+            VatSplit split = SettlementSupplier.PLATFORM.name().equals(supplier) ? VatSplit.of(amount) : null;
+            return new Line(kind, supplier, amount, commissionBp,
+                    commissionBaseAmount, sellerOrderNumber, productName,
+                    split == null ? null : split.supply(), split == null ? null : split.vat());
+        }
+    }
 
     /**
      * 종류 하나의 줄 수와 금액 합.
@@ -232,9 +269,9 @@ public class SettlementQuery {
                 .param("settlementId", head.settlementId())
                 .param("size", paging.size())
                 .param("offset", paging.offset())
-                .query((rs, rowNum) -> new Line(
+                .query((rs, rowNum) -> Line.of(
+                        rs.getString("supplier"),
                         EnumValue.of(rs.getString("kind"), SettlementItemKind::of),
-                        EnumValue.of(rs.getString("supplier"), SettlementSupplier::of),
                         rs.getLong("amount"),
                         (Integer) rs.getObject("commission_bp"),
                         (Long) rs.getObject("commission_base_amount"),

@@ -169,6 +169,38 @@ class ReviewServiceTest extends PostgresTestBase {
                     .satisfies(item -> assertThat(item.mine()).isTrue());
         }
 
+        /** 처리방침 2절이 「이름의 일부만」을 적었다(`Q271`·`Q272`) — 전체가 나가면 목적보다 많이 보인다 */
+        @Test
+        @DisplayName("남에게 보이는 작성자 이름은 가린 모양이다")
+        void 작성자_이름을_가린다() {
+            jdbc.sql("update app_user set display_name = '홍길동' where user_id = :id")
+                    .param("id", buyerId)
+                    .update();
+            reviews.create(buyerId, new ReviewService.NewReview(orderItemId, 5, "이름이 가려지는 후기입니다"));
+
+            var result = query.findByProduct(null, productId, new Paging(0, 20));
+
+            assertThat(result.items()).singleElement()
+                    .satisfies(item -> assertThat(item.writerName()).isEqualTo("홍*동"));
+        }
+
+        /** 셀러 목록도 같은 규칙이다 — 매퍼가 둘이라 한쪽만 가리면 다른 쪽이 이름 전체를 낸다(마무리 63차 독립 리뷰) */
+        @Test
+        @DisplayName("셀러가 받는 후기 목록의 작성자 이름도 가린 모양이다")
+        void 셀러_목록도_작성자_이름을_가린다() {
+            new com.projectshop.shop.auth.AuthFixture(jdbc)
+                    .grantOrg(fixture.sellerMemberId(), "seller_owner", fixture.sellerId());
+            jdbc.sql("update app_user set display_name = '홍길동' where user_id = :id")
+                    .param("id", buyerId)
+                    .update();
+            reviews.create(buyerId, new ReviewService.NewReview(orderItemId, 4, "셀러가 받는 후기입니다"));
+
+            var result = query.findForSeller(fixture.sellerMemberId(), new Paging(0, 20));
+
+            assertThat(result.items()).singleElement()
+                    .satisfies(item -> assertThat(item.writerName()).isEqualTo("홍*동"));
+        }
+
         /** 0 으로 두면 「별 0점」과 「후기 없음」이 같은 값이 된다 */
         @Test
         @DisplayName("후기가 없으면 평균이 없다")

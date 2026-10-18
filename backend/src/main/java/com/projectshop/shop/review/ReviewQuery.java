@@ -19,6 +19,7 @@ import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ImagePipeline;
 
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.support.NameMask;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -57,6 +58,8 @@ public class ReviewQuery {
      *        {@code apiPublic} 으로 부르므로 쿠키가 안 실려 <b>언제나 거짓</b>이다 —
      *        고치기·지우기 자리는 세션을 싣는 {@link #findMine}(`Q167`)이 든다.
      *        <b>여기서 계약을 안 지운다</b>: 로그인한 채로 부르는 입구가 생기면 그대로 쓴다
+     * @param writerName 쓴 사람 이름의 <b>일부</b>({@link NameMask}, `Q272`). 처리방침 2절이 「이름의 일부만」을 목적으로 적었다
+     *        (`V128`) — 셀러 목록({@link SellerItem})도 같은 규칙이다. 규칙을 화면마다 두지 않는다
      */
     @Schema(name = "ProductReview")
     public record Item(long reviewId, String writerName, int rating, String body,
@@ -107,7 +110,7 @@ public class ReviewQuery {
                         .param("offset", paging.page() * paging.size())
                         .query((rs, rowNum) -> new Item(
                                 rs.getLong("review_id"),
-                                rs.getString("display_name"),
+                                NameMask.mask(rs.getString("display_name")),
                                 rs.getInt("rating"),
                                 rs.getString("body"),
                                 rs.getString("reply"),
@@ -262,7 +265,7 @@ public class ReviewQuery {
                                 rs.getLong("review_id"),
                                 rs.getLong("product_id"),
                                 rs.getString("product_name"),
-                                rs.getString("display_name"),
+                                NameMask.mask(rs.getString("display_name")),
                                 rs.getInt("rating"),
                                 rs.getString("body"),
                                 rs.getString("reply"),

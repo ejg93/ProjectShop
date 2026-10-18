@@ -189,6 +189,26 @@ class InquiryVisibilityTest extends PostgresTestBase {
             assertThat(query.findForSeller(sellerOwnerId, new Paging(0, 20)).items()).hasSize(1);
         }
 
+        /** 산 사람이 쓴 질문은 정보주체의 글이다 — 셀러가 그 쪽을 열면 접속기록이 쪽마다 한 줄(`Q276`) */
+        @Test
+        @DisplayName("셀러가 본문이 든 쪽을 열면 열람 기록이 한 줄 남는다")
+        void sellerListingIsRecorded() {
+            ask(askerId, false);
+            ask(askerId, true);
+
+            query.findForSeller(sellerOwnerId, new Paging(0, 20));
+
+            assertThat(jdbc.sql("""
+                            select jsonb_array_length(detail -> 'numbers') from audit_log
+                             where event_type = 'personal_data.viewed' and actor_user_id = :seller
+                               and detail ->> 'resource' = 'inquiry'
+                            """)
+                    .param("seller", sellerOwnerId)
+                    .query(Integer.class).list())
+                    .as("쪽 하나에 줄 하나, 그 안에 번호 둘")
+                    .containsExactly(2);
+        }
+
         /**
          * 처리정지·이의제기·분쟁은 <b>우리에게 온 것</b>이라 셀러가 볼 것이 아니다.
          * 조건이 상품의 셀러라 그 요구는 애초에 안 걸린다 — 규칙 하나로 성립한다.
@@ -264,6 +284,18 @@ class InquiryVisibilityTest extends PostgresTestBase {
                     .extracting(InquiryQuery.Entry::allowedActions)
                     .as("감사자는 읽기만 한다")
                     .isEqualTo(List.of());
+        }
+
+        /** 감사자는 본문이 가려진다(`V62`) — 번호·상태만 본 것은 개인정보 열람이 아니다(`Q276`) */
+        @Test
+        @DisplayName("본문을 못 보는 감사자의 목록은 열람 기록이 안 남는다")
+        void auditorListingWithoutBodyIsNotRecorded() {
+            ask(askerId, true);
+
+            query.findAll(auditorId, new Paging(0, 20));
+
+            assertThat(jdbc.sql("select count(*) from audit_log where event_type = 'personal_data.viewed'")
+                    .query(Long.class).single()).isZero();
         }
 
         /**

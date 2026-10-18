@@ -278,6 +278,32 @@ class SettlementQueryTest extends PostgresTestBase {
                     .isEqualTo("PLATFORM");
         }
 
+        /** 세금계산서 필수 기재가 공급가액과 세액이다(부가가치세법 제32조제1항제3호, `D2` R17, `Q274`) */
+        @Test
+        @DisplayName("수수료 줄만 공급가액과 세액으로 나뉜다")
+        void splitsVatOnCommissionLines() {
+            closeWith(sellerId);
+
+            SettlementQuery.Line commission = linesOf("s-mine").stream()
+                    .filter(line -> "COMMISSION".equals(line.kind()))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(commission.supplyAmount())
+                    .as("수수료는 부가세 포함가라 거꾸로 나눈다 — %d × 10/11 반올림", -COMMISSION)
+                    .isEqualTo(-909L);
+            assertThat(commission.vatAmount()).isEqualTo(-91L);
+            assertThat(commission.supplyAmount() + commission.vatAmount()).isEqualTo(commission.amount());
+
+            assertThat(linesOf("s-mine"))
+                    .as("셀러가 고객에게 공급한 줄의 세금계산서는 셀러가 낸다 — 우리가 나눌 근거가 없다")
+                    .filteredOn(line -> "SELLER".equals(line.supplier()))
+                    .isNotEmpty()
+                    .allSatisfy(line -> {
+                        assertThat(line.supplyAmount()).isNull();
+                        assertThat(line.vatAmount()).isNull();
+                    });
+        }
+
         @Test
         @DisplayName("배송비 줄에는 상품이 없다")
         void leavesTheProductEmptyOnShipping() {

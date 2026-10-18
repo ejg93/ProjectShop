@@ -1,8 +1,12 @@
 package com.projectshop.shop.audit;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
+
+import com.projectshop.shop.auth.ImpersonationToken;
 
 /**
  * 누가 무슨 권한으로 무엇을 했는지 남긴다.
@@ -69,6 +73,57 @@ public class AuditLog {
             case ATTEMPT -> writer.detached(eventType, actorUserId, target, detail);
             case OUTCOME -> writer.joined(eventType, actorUserId, target, detail);
         }
+    }
+
+    /**
+     * 남의 개인정보를 열람한 사건의 이름(`Q276`). 열람 기록은 이 이름 하나로 모은다 — 감사 화면이 이 이름으로 거른다
+     */
+    public static final String PERSONAL_DATA_VIEWED = "personal_data.viewed";
+
+    /**
+     * 취급자가 남의 개인정보 한 건을 열람했다(`Q276`, `D2` R44 — 개인정보의 안전성 확보조치 기준 제8조제1항).
+     *
+     * <p><b>본인 열람은 안 남긴다</b> — 접속기록은 취급자가 정보주체의 정보를 처리한 기록이고, 자기 것을 보는 사람은
+     * 취급자가 아니다. <b>대행 중이면 본인이어도 남긴다</b> — 요청의 주인은 그 사용자지만 실제로 본 사람은 시킨 관리자다
+     * ({@code impersonator_user_id} 가 같이 남는다, `V101`).
+     *
+     * <p><b>열린 개인정보 그룹이 없으면 안 남긴다</b> — 번호·상태만 본 것은 개인정보 열람이 아니다.
+     * 접속지는 {@link AuditLogWriter} 가 요청 문맥에서 채운다(`Q273`).
+     *
+     * @param subjectUserId 정보주체. 대상({@code target})이 된다
+     * @param resource      어느 자원인가({@code order}·{@code seller_order}·{@code user})
+     * @param number        그 자원의 노출 번호. 계정이면 비어 있다
+     * @param openedGroups  이번 응답에 실제로 실은 개인정보 그룹 코드
+     */
+    public void personalDataViewed(long viewerId, long subjectUserId, String resource, String number,
+            List<String> openedGroups) {
+        if (openedGroups.isEmpty()) {
+            return;
+        }
+        if (viewerId == subjectUserId && ImpersonationToken.currentImpersonatorId() == null) {
+            return;
+        }
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("resource", resource);
+        if (number != null) {
+            detail.put("number", number);
+        }
+        detail.put("groups", openedGroups);
+        record(Kind.OUTCOME, PERSONAL_DATA_VIEWED, viewerId, Target.of("user", subjectUserId), detail);
+    }
+
+    /**
+     * 취급자가 남의 개인정보가 섞인 목록 한 쪽을 열람했다(`Q276`). <b>쪽마다 한 줄</b>이다 — 행마다 남기면 한 쪽에
+     * 스무 줄이고, 정보주체가 여럿이라 대상은 비우고 번호 목록을 {@code detail} 에 둔다.
+     *
+     * <p>목록은 남의 것을 훑는 자리라(관리자 전체 목록·셀러가 받은 목록) 본인 판정을 안 한다.
+     */
+    public void personalDataListed(long viewerId, String resource, List<String> numbers, List<String> openedGroups) {
+        if (openedGroups.isEmpty() || numbers.isEmpty()) {
+            return;
+        }
+        record(Kind.OUTCOME, PERSONAL_DATA_VIEWED, viewerId, Target.none(),
+                Map.of("resource", resource, "numbers", numbers, "groups", openedGroups));
     }
 
     /** 무엇에 대한 사건인가. 자원이 없는 사건도 있어서 둘 다 null 인 경우를 허용한다 */

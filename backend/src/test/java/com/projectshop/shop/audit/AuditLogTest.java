@@ -11,9 +11,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
@@ -70,6 +73,42 @@ class AuditLogTest extends PostgresTestBase {
             assertThat(row).containsEntry("target_type", "user");
             assertThat(row).containsEntry("target_id", customer);
             assertThat(row.get("detail").toString()).contains("seller_owner");
+        }
+
+        /** 안전성 확보조치 기준이 정한 접속기록 항목의 접속지(`Q273`, `D2` R44 — 보관은 제8조제1항). 부르는 쪽이 안 넘긴다 — 요청 문맥에서 한 곳이 읽는다 */
+        @Test
+        @DisplayName("요청 안의 기록에는 접속지가 남는다")
+        void recordsClientIpInsideRequest() {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setRemoteAddr("203.0.113.7");
+            RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+            try {
+                auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
+                        AuditLog.Target.of("user", customer), Map.of());
+            } finally {
+                RequestContextHolder.resetRequestAttributes();
+            }
+
+            assertThat(latestClientIp()).isEqualTo("203.0.113.7");
+        }
+
+        /** 배치·스위퍼는 사람이 접속한 것이 아니다 — 지어낸 주소를 안 넣는다 */
+        @Test
+        @DisplayName("요청 밖의 기록은 접속지가 비어 있다")
+        void leavesClientIpEmptyOutsideRequest() {
+            RequestContextHolder.resetRequestAttributes();
+
+            auditLog.record(AuditLog.Kind.OUTCOME, "session.expired", null,
+                    AuditLog.Target.none(), Map.of());
+
+            assertThat(latestClientIp()).isNull();
+        }
+
+        private String latestClientIp() {
+            return jdbc.sql("select host(client_ip) from audit_log order by audit_log_id desc limit 1")
+                    .query(String.class)
+                    .optional()
+                    .orElse(null);
         }
 
         @Test

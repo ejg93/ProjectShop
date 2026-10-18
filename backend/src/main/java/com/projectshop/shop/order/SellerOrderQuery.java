@@ -24,6 +24,8 @@ import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.audit.PersonalDataGroups;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -47,13 +49,15 @@ public class SellerOrderQuery {
     private final PermissionEvaluator evaluator;
     private final OrderActionService actions;
     private final ReturnRequestQuery returnRequests;
+    private final AuditLog auditLog;
 
     SellerOrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator, OrderActionService actions,
-            ReturnRequestQuery returnRequests) {
+            ReturnRequestQuery returnRequests, AuditLog auditLog) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.actions = actions;
         this.returnRequests = returnRequests;
+        this.auditLog = auditLog;
     }
 
     /**
@@ -279,6 +283,10 @@ public class SellerOrderQuery {
         if (!decision.allowed()) {
             throw notFound(sellerOrderNumber);
         }
+
+        // 셀러가 산 사람의 배송지를 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조)
+        auditLog.personalDataViewed(viewerId, row.buyerUserId(), "seller_order", sellerOrderNumber,
+                PersonalDataGroups.opened(decision, OrderFields.SHIPPING));
 
         java.util.Set<Long> memberOf = actions.memberOf(viewerId);
         ReturnRequestQuery.Progress returnRequest = returnRequests.latestOf(row.sellerOrderId())
