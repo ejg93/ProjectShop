@@ -232,13 +232,14 @@ class PolicyQueryTest extends PostgresTestBase {
                     .contains("작성자 이름의 일부");
         }
 
-        /** `RateLimitFilter` 가 손님 주소를 1분 센다 — 동의 IP 말고도 처리하는 IP 가 있다(제30조제1항). */
+        /** `RateLimitFilter` 가 손님 주소를 1분 세고 감사 기록이 접속지를 3년 남긴다(`Q273`) — 동의 IP 말고도 처리하는 IP 가 있다(제30조제1항) */
         @Test
         @DisplayName("처리방침의 새 판이 요청 제한의 접속 IP 처리를 적는다")
         void privacyPolicyNamesRateLimitIp() {
             assertThat(newestPrivacyPolicy())
                     .as("동의를 받을 때의 IP 만 적으면 요청마다 세는 IP 는 근거 없이 처리하는 것이 된다")
-                    .contains("접속 IP 를 1분간 처리합니다");
+                    .contains("접속 IP 를 1분간 처리합니다")
+                    .contains("작업 기록에는 그 작업을 한 접속 IP");
         }
 
         private String newestPrivacyPolicy() {

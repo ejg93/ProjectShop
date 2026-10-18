@@ -8,7 +8,7 @@
 -- **국가는 사용자가 줬다**(2026-10-19 — Railway US West, R2 APAC). 연락처는 각 사의 공개 문서에서 읽었다 — Railway 는
 -- DPA 의 privacy@railway.com, Cloudflare 는 개인정보 고지의 privacyquestions@cloudflare.com. 지어내지 않는다(`R26` 선).
 --
--- 8절: `RateLimitFilter` 가 손님 주소를 Redis 키로 1분 센다(키가 1분 뒤 만료). 2절: 후기 목록이 작성자 이름을 가려
+-- 8절: `RateLimitFilter` 가 손님 주소를 Redis 키로 1분 센다(키가 1분 뒤 만료). 감사 기록도 접속지를 3년 남긴다(`V129`, `Q273`). 2절: 후기 목록이 작성자 이름을 가려
 -- 그린다(`Q272`) — 남에게 보이는 것이라 목적을 적는다.
 --
 -- **시행은 7일 뒤다** — 방침 10항의 약속(`V116` 과 같다, `D2` R11). 이미 나간 판은 안 고친다(`policy_document_immutable`).
@@ -41,7 +41,8 @@ select code,
            || E'- 거부 방법과 효과: 탈퇴하시면 이전이 멈춥니다. 서비스가 이 수탁자 위에서 돌아가므로 회원 자격을 둔 채 이전만 거부하실 수는 없습니다\n'),
            E'로그인 상태를 유지하기 위한 세션 쿠키도 함께 사용합니다.\n',
            E'로그인 상태를 유지하기 위한 세션 쿠키도 함께 사용합니다.\n\n'
-           || E'**짧은 시간에 요청이 몰리는 것을 막기 위해 접속 IP 를 1분간 처리합니다.** 1분이 지나면 남기지 않습니다.\n'),
+           || E'**짧은 시간에 요청이 몰리는 것을 막기 위해 접속 IP 를 1분간 처리합니다.** 1분이 지나면 남기지 않습니다.\n'
+           || E'**보안을 위해 남기는 작업 기록에는 그 작업을 한 접속 IP 를 같이 남깁니다.** 그 기록과 함께 3년간 보관합니다.\n'),
        now() + interval '7 days'
   from policy_document
  where code = 'privacy_policy'
@@ -60,6 +61,7 @@ begin
        or policy not like '%| Railway Corporation | 서버·데이터베이스%'
        or policy not like '%## 5-1. 개인정보의 국외 이전%'
        or policy not like '%접속 IP 를 1분간 처리합니다%'
+       or policy not like '%작업 기록에는 그 작업을 한 접속 IP%'
        or policy like '%위탁하고 있지 않습니다%' then
         raise exception '처리방침 새 판에 바꾼 문안이 없다 — 앞 판의 문장이 달라졌다';
     end if;

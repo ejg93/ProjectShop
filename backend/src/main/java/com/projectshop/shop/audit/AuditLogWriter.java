@@ -6,6 +6,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.projectshop.shop.auth.ImpersonationToken;
 
@@ -58,9 +60,9 @@ class AuditLogWriter {
 
         jdbcClient.sql("""
                         insert into audit_log (event_type, actor_user_id, impersonator_user_id,
-                                               target_type, target_id, detail)
+                                               target_type, target_id, detail, client_ip)
                         values (:eventType, :actorUserId, :impersonatorUserId,
-                                :targetType, :targetId, :detail::jsonb)
+                                :targetType, :targetId, :detail::jsonb, cast(:clientIp as inet))
                         """)
                 .param("eventType", eventType)
                 .param("actorUserId", actorUserId)
@@ -70,7 +72,21 @@ class AuditLogWriter {
                 .param("targetType", target.type())
                 .param("targetId", target.id())
                 .param("detail", toJson(detail))
+                // 접속지도 같은 자리에서 읽는다(`Q273`, 안전성 확보조치 기준 제8조) — 위 대행자와 같은 까닭이다.
+                .param("clientIp", currentClientIp())
                 .update();
+    }
+
+    /**
+     * 지금 요청을 보낸 손님 주소. <b>요청 밖이면 비어 있다</b> — 배치·스위퍼는 사람이 접속한 것이 아니다.
+     *
+     * <p>{@code getRemoteAddr()} 는 이미 손님 주소다 — Tomcat {@code remoteip} 가 믿는 프록시 뒤의 {@code x-real-ip} 로
+     * 바꿔 둔다({@code application.yml}, `Q242`). {@code RateLimitFilter} 가 세는 값과 같다.
+     */
+    private static String currentClientIp() {
+        return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes
+                ? attributes.getRequest().getRemoteAddr()
+                : null;
     }
 
     /**
