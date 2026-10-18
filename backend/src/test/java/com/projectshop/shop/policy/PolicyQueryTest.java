@@ -202,6 +202,56 @@ class PolicyQueryTest extends PostgresTestBase {
                     .doesNotContain("고객센터");
         }
 
+        /**
+         * 위탁과 국외 이전(`Q271`, `D2` R43 — 개인정보법 제26조제2항·제28조의8제2항). 운영이 Railway·Cloudflare R2 위라
+         * 처음부터 위탁이자 국외 이전이었다. <b>시행 전인 가장 새 판을 읽는다</b>({@link #privacyPolicyNamesAgentChannel} 과 같은 까닭).
+         */
+        @Test
+        @DisplayName("처리방침의 새 판이 수탁자 둘과 이전 국가·연락처·거부 방법을 적는다")
+        void privacyPolicyNamesProcessors() {
+            assertThat(newestPrivacyPolicy())
+                    .as("수탁자·국가·받는 자의 연락처·거부 방법 중 하나라도 빠지면 제28조의8제2항의 공개가 반쪽이다")
+                    .contains("| Railway Corporation |")
+                    .contains("| Cloudflare, Inc. |")
+                    .contains("개인정보의 국외 이전")
+                    .contains("미국")
+                    .contains("아시아·태평양 지역")
+                    .contains("privacy@railway.com")
+                    .contains("privacyquestions@cloudflare.com")
+                    .contains("거부 방법과 효과")
+                    .doesNotContain("위탁하고 있지 않습니다");
+        }
+
+        /** 후기 목록이 작성자 이름을 가려 다른 이용자에게 보인다(`Q272`) — 남에게 보이는 것이라 목적을 적는다(제18조). */
+        @Test
+        @DisplayName("처리방침의 새 판이 후기 게시를 처리 목적에 적는다")
+        void privacyPolicyTellsReviewNamePurpose() {
+            assertThat(newestPrivacyPolicy())
+                    .as("목적에 없는 표시는 목적 외 이용이다")
+                    .contains("상품 후기 게시")
+                    .contains("작성자 이름의 일부");
+        }
+
+        /** `RateLimitFilter` 가 손님 주소를 1분 센다 — 동의 IP 말고도 처리하는 IP 가 있다(제30조제1항). */
+        @Test
+        @DisplayName("처리방침의 새 판이 요청 제한의 접속 IP 처리를 적는다")
+        void privacyPolicyNamesRateLimitIp() {
+            assertThat(newestPrivacyPolicy())
+                    .as("동의를 받을 때의 IP 만 적으면 요청마다 세는 IP 는 근거 없이 처리하는 것이 된다")
+                    .contains("접속 IP 를 1분간 처리합니다");
+        }
+
+        private String newestPrivacyPolicy() {
+            return jdbc.sql("""
+                            select body from policy_document
+                             where code = 'privacy_policy'
+                             order by version desc
+                             limit 1
+                            """)
+                    .query(String.class)
+                    .single();
+        }
+
         @Test
         @DisplayName("처리방침이 쿠키의 거부 방법과 그 결과를 적는다")
         void privacyPolicyTellsHowToRefuseCookies() {
