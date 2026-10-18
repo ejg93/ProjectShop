@@ -42,6 +42,10 @@ type SettlementLine = {
   commissionBaseAmount: number | null;
   sellerOrderNumber: string | null;
   productName: string | null;
+  /** 플랫폼이 공급한 줄(수수료와 그 되돌림)의 공급가액. 셀러가 공급한 줄은 비어 있다(`Q274`, `D2` R17) */
+  supplyAmount: number | null;
+  /** 같은 줄의 세액. 공급가액과 합하면 금액이다 */
+  vatAmount: number | null;
 };
 
 /** 종류 하나의 줄 수와 금액 합. {@code kind} 는 줄의 {@code kind} 와 같은 값이다 */
@@ -272,7 +276,12 @@ function Subject({ line }: { line: SettlementLine }) {
   );
 }
 
-/** 수수료율과 그 기준 금액. 수수료 줄이 아니면 빈 자리가 아니라 「해당 없음」이다 */
+/**
+ * 수수료율과 그 기준 금액, 그리고 공급가액·부가세(`Q275`). 수수료 줄이 아니면 빈 자리가 아니라 「해당 없음」이다.
+ *
+ * <p><b>수수료는 부가세 포함가다</b> — 세금계산서는 둘을 따로 적어서(부가가치세법 제32조제1항제3호, `D2` R17)
+ * 셀러가 받은 계산서와 정산서를 맞춰 보려면 이 화면에도 둘이 서야 한다.
+ */
 function Commission({ line }: { line: SettlementLine }) {
   if (line.commissionBp === null) {
     return <span className="text-text-muted">해당 없음</span>;
@@ -283,6 +292,11 @@ function Commission({ line }: { line: SettlementLine }) {
       {commissionRateText(line.commissionBp)}
       {line.commissionBaseAmount === null ? null : (
         <span className="text-text-muted"> · {priceText(line.commissionBaseAmount)} 기준</span>
+      )}
+      {line.supplyAmount === null || line.vatAmount === null ? null : (
+        <span className="block text-text-muted">
+          공급가액 {priceText(line.supplyAmount)} · 부가세 {priceText(line.vatAmount)}
+        </span>
       )}
     </span>
   );
