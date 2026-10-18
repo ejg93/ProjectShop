@@ -9,7 +9,7 @@ import java.text.Normalizer;
  * (`V128`, `D2` R43 — 개인정보법 제18조, 목적 밖 이용 금지). 이름 전체를 내리면 적은 목적보다 많이 보인다.
  *
  * <p><b>모양은 관례다</b>(`D23` 축 1 의 4순위) — 첫 글자를 살리고, 세 글자 이상이면 마지막 글자도 살린다
- * (홍*동 · 김* · 남**수). 법이 정한 것은 「일부만」이고 어느 글자를 살릴지는 정하지 않았다.
+ * (홍*동 · 김* · 남**수). <b>한 글자 이름은 다 가린다</b>(*) — 살리면 전부다. 법이 정한 것은 「일부만」이고 어느 글자를 살릴지는 정하지 않았다.
  *
  * <p><b>글자는 코드 포인트로 센다.</b> {@code String.length()} 는 UTF-16 단위라 보충 평면 글자 하나를 둘로 세고,
  * 자모로 풀린 한글(NFD)은 한 음절이 셋이 된다 — 그래서 NFC 로 모은 뒤 센다.
@@ -26,7 +26,11 @@ public final class NameMask {
             return name;
         }
         int[] chars = Normalizer.normalize(name.strip(), Normalizer.Form.NFC).codePoints().toArray();
-        if (chars.length <= 2) {
+        if (chars.length == 1) {
+            // 한 글자를 살리면 이름 전체가 나간다 — 처리방침의 「일부만」이 안 선다(마무리 63차 독립 리뷰)
+            return MASK;
+        }
+        if (chars.length == 2) {
             return new String(chars, 0, 1) + MASK;
         }
         return new String(chars, 0, 1) + MASK.repeat(chars.length - 2) + new String(chars, chars.length - 1, 1);

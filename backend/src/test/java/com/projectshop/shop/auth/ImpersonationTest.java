@@ -46,6 +46,9 @@ class ImpersonationTest extends PostgresTestBase {
     @Autowired
     private PermissionRuleLoader ruleLoader;
 
+    @Autowired
+    private com.projectshop.shop.inquiry.InquiryService inquiries;
+
     private long adminId;
     private long customerId;
     private long otherAdminId;
@@ -128,6 +131,28 @@ class ImpersonationTest extends PostgresTestBase {
                 .containsEntry("target_type", "user")
                 .containsEntry("target_id", customerId);
         assertThat(row.get("detail").toString()).contains("contact");
+    }
+
+    /**
+     * 대행 중 「내 문의」 목록도 같다(마무리 63차 독립 리뷰) — 목록 기록은 본인 판정을 안 해서, 입구가 대행일 때만 부른다.
+     * 계정 열람과 규칙이 갈리면 대행자가 문의 본문은 흔적 없이 본다.
+     */
+    @Test
+    @DisplayName("대행 중에 내 문의 목록을 열면 열람 기록이 남는다")
+    void impersonatedInquiryListIsRecorded() throws Exception {
+        inquiries.create(customerId, new com.projectshop.shop.inquiry.InquiryService.NewInquiry("processing_stop", null, null, "제 정보 처리를 멈춰 주세요", true));
+        Cookie session = logIn("imp-admin@test.local");
+        mvc.perform(startRequest(customerId).cookie(session)).andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/me/inquiries").cookie(session)).andExpect(status().isOk());
+
+        assertThat(jdbc.sql("""
+                        select count(*) from audit_log
+                         where event_type = 'personal_data.viewed' and impersonator_user_id = :admin
+                           and detail ->> 'resource' = 'inquiry'
+                        """)
+                .param("admin", adminId).query(Long.class).single())
+                .isEqualTo(1);
     }
 
     /** 자기 계정을 보는 사람은 취급자가 아니다 — 접속기록이 아니다 */

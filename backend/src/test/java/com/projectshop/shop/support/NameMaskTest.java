@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
 class NameMaskTest {
 
     @Test
-    @DisplayName("한 글자는 그 글자 뒤에 별 하나")
+    @DisplayName("한 글자는 다 가린다 — 살리면 이름 전체다")
     void oneCharacter() {
-        assertThat(NameMask.mask("김")).isEqualTo("김*");
+        assertThat(NameMask.mask("김")).isEqualTo("*");
     }
 
     @Test

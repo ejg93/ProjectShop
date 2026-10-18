@@ -56,10 +56,22 @@ const lines = {
       supplyAmount: -909,
       vatAmount: -91,
     },
+    {
+      // 되돌림 줄은 요율이 없다(`V55`) — 그래도 플랫폼이 공급한 것이라 나뉜다
+      kind: "COMMISSION_REVERSAL",
+      supplier: "PLATFORM",
+      amount: 550,
+      commissionBp: null,
+      commissionBaseAmount: null,
+      sellerOrderNumber: "SO-1",
+      productName: "티셔츠",
+      supplyAmount: 500,
+      vatAmount: 50,
+    },
   ],
   page: 0,
   size: 50,
-  total: 2,
+  total: 3,
 };
 
 /**
@@ -108,10 +120,21 @@ describe("정산서 줄의 부가세", () => {
     expect(commissionRow).toHaveTextContent("공급가액 -909원 · 부가세 -91원");
   });
 
+  it("요율이 없는 되돌림 줄에도 그린다", async () => {
+    await renderSettlement();
+
+    const reversalRow = screen.getAllByRole("row").find((row) => row.textContent?.includes("550원"));
+    expect(reversalRow).toBeDefined();
+    expect(reversalRow).toHaveTextContent("공급가액 500원 · 부가세 50원");
+  });
+
   it("셀러가 공급한 줄에는 그리지 않는다", async () => {
     await renderSettlement();
 
-    // 세금계산서는 셀러가 낸다 — 우리가 나눌 근거가 없는 금액이다.
-    expect(screen.getAllByText(/공급가액/)).toHaveLength(1);
+    // 세금계산서는 셀러가 낸다 — 우리가 나눌 근거가 없는 금액이다. 플랫폼 줄 둘에만 선다.
+    expect(screen.getAllByText(/공급가액/)).toHaveLength(2);
+    const saleRow = screen.getAllByRole("row").find((row) => row.textContent?.includes("10,000원") && !row.textContent?.includes("%"));
+    expect(saleRow).toBeDefined();
+    expect(saleRow).not.toHaveTextContent("공급가액");
   });
 });

@@ -283,8 +283,16 @@ function Subject({ line }: { line: SettlementLine }) {
  * 셀러가 받은 계산서와 정산서를 맞춰 보려면 이 화면에도 둘이 서야 한다.
  */
 function Commission({ line }: { line: SettlementLine }) {
+  // 되돌림 줄은 요율이 없어도(`V55` — 요율은 수수료 줄에만) 플랫폼이 공급한 것이라 나뉜다(마무리 63차 독립 리뷰)
+  const split =
+    line.supplyAmount === null || line.vatAmount === null ? null : (
+      <span className="block text-text-muted">
+        공급가액 {priceText(line.supplyAmount)} · 부가세 {priceText(line.vatAmount)}
+      </span>
+    );
+
   if (line.commissionBp === null) {
-    return <span className="text-text-muted">해당 없음</span>;
+    return split ?? <span className="text-text-muted">해당 없음</span>;
   }
 
   return (
@@ -293,11 +301,7 @@ function Commission({ line }: { line: SettlementLine }) {
       {line.commissionBaseAmount === null ? null : (
         <span className="text-text-muted"> · {priceText(line.commissionBaseAmount)} 기준</span>
       )}
-      {line.supplyAmount === null || line.vatAmount === null ? null : (
-        <span className="block text-text-muted">
-          공급가액 {priceText(line.supplyAmount)} · 부가세 {priceText(line.vatAmount)}
-        </span>
-      )}
+      {split}
     </span>
   );
 }

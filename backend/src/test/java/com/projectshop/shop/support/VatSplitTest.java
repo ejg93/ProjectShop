@@ -57,9 +57,12 @@ class VatSplitTest {
     }
 
     @Test
-    @DisplayName("합이 안 맞는 값은 만들 수 없다")
+    @DisplayName("원금의 역산이 아닌 값은 만들 수 없다")
     void rejectsMismatchedSum() {
         assertThatThrownBy(() -> new VatSplit(11_000, 10_000, 999))
+                .isInstanceOf(IllegalArgumentException.class);
+        // 합은 맞아도 역산이 아니다
+        assertThatThrownBy(() -> new VatSplit(11_000, 0, 11_000))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

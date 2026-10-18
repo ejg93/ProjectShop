@@ -18,6 +18,7 @@ import com.projectshop.shop.error.ShopException;
 
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.auth.ImpersonationToken;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -165,7 +166,9 @@ public class InquiryQuery {
         // 마무리 55차 독립 리뷰. `Q204` 가 같은 모양을 고쳤다). 실제 허용은 거두기 입구의 `decide` 가 정한다.
         boolean canWithdraw = evaluator.allowedActions(viewerId, RESOURCE, Set.of(WITHDRAW), Target.ownedBy(viewerId))
                 .contains(WITHDRAW);
-        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility, false, canWithdraw);
+        Page<Entry> page = find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility, false, canWithdraw);
+        // 자기 글은 접속기록이 아니다. **대행 중이면 다르다** — 실제로 본 사람은 시킨 관리자다(`Q276`, `AuditLog.personalDataViewed` 와 같은 규칙)
+        return ImpersonationToken.currentImpersonatorId() == null ? page : viewed(viewerId, page, visibility);
     }
 
     /**
@@ -199,7 +202,7 @@ public class InquiryQuery {
      * 남의 문의 본문이 섞인 쪽을 열람했다(`Q276`, 안전성 확보조치 기준 제8조). 쪽마다 한 줄이다.
      *
      * <p><b>셀러 목록도 남긴다</b> — 산 사람이 쓴 질문은 정보주체의 글이고 셀러는 그것을 처리하는 취급자다.
-     * 본인 목록({@link #findMine})은 안 부른다 — 자기 글이다.
+     * 본인 목록({@link #findMine})은 대행 중일 때만 부른다 — 그 밖에는 자기 글이다.
      */
     private Page<Entry> viewed(long viewerId, Page<Entry> page, Visibility visibility) {
         auditLog.personalDataListed(viewerId, "inquiry",

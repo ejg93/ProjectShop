@@ -78,6 +78,20 @@ public class SettlementQuery {
             Long supplyAmount, Long vatAmount) {
 
         /**
+         * <b>플랫폼 공급 줄이면 나뉘어 있고 아니면 비어 있다</b> — 그리고 나눈 값은 금액의 역산이다({@link VatSplit} 이 잰다).
+         * 생성자가 공개라 팩터리를 안 거친 줄도 이 대조를 지난다(마무리 63차 독립 리뷰).
+         */
+        public Line {
+            boolean platform = SettlementSupplier.PLATFORM.name().equals(supplier);
+            if (platform != (supplyAmount != null) || platform != (vatAmount != null)) {
+                throw new IllegalArgumentException("공급가액·세액은 플랫폼이 공급한 줄에만 있다 — supplier=" + supplier);
+            }
+            if (platform) {
+                new VatSplit(amount, supplyAmount, vatAmount);
+            }
+        }
+
+        /**
          * 공급자가 플랫폼인 줄만 나눈다 — 수수료는 부가세 포함가다(`business-model.md` 「수수료는 부가세 포함가다」).
          *
          * @param supplierCode 저장값. <b>이월 줄은 비어 있다</b> — 공급이 아니다(`V52` 의 생성 식)

@@ -239,7 +239,8 @@ class PolicyQueryTest extends PostgresTestBase {
             assertThat(newestPrivacyPolicy())
                     .as("동의를 받을 때의 IP 만 적으면 요청마다 세는 IP 는 근거 없이 처리하는 것이 된다")
                     .contains("접속 IP 를 1분간 처리합니다")
-                    .contains("작업 기록에는 그 작업을 한 접속 IP");
+                    .contains("작업 기록에는 그 작업을 한 접속 IP")
+                    .contains("이메일과 접속 IP 를 15분간 처리합니다");
         }
 
         private String newestPrivacyPolicy() {

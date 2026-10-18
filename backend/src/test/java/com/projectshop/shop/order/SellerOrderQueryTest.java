@@ -247,10 +247,6 @@ class SellerOrderQueryTest extends PostgresTestBase {
             assertThat(detail.shipping().receiverName()).isEqualTo("홍길동");
         }
 
-        /**
-         * 판매자는 배송에 필요한 것까지만 본다(`V6`). 빠진 것이 권한 때문임은
-         * {@code _visible_field_groups} 가 알린다(`D5`).
-         */
         /** 셀러는 산 사람의 배송지를 처리하는 취급자다 — 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조) */
         @Test
         @DisplayName("셀러가 배송지를 열면 열람 기록이 한 줄 남는다")
@@ -286,6 +282,10 @@ class SellerOrderQueryTest extends PostgresTestBase {
                     .query(Long.class).single()).isZero();
         }
 
+        /**
+         * 판매자는 배송에 필요한 것까지만 본다(`V6`). 빠진 것이 권한 때문임은
+         * {@code _visible_field_groups} 가 알린다(`D5`).
+         */
         @Test
         @DisplayName("셀러에게는 payment 그룹이 안 열린다")
         void sellerSeesNoPaymentGroup() {
