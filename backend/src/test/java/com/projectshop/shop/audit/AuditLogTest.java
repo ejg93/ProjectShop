@@ -75,7 +75,7 @@ class AuditLogTest extends PostgresTestBase {
             assertThat(row.get("detail").toString()).contains("seller_owner");
         }
 
-        /** 안전성 확보조치 기준 제8조제1항의 접속지(`Q273`, `D2` R44). 부르는 쪽이 안 넘긴다 — 요청 문맥에서 한 곳이 읽는다 */
+        /** 안전성 확보조치 기준이 정한 접속기록 항목의 접속지(`Q273`, `D2` R44 — 보관은 제8조제1항). 부르는 쪽이 안 넘긴다 — 요청 문맥에서 한 곳이 읽는다 */
         @Test
         @DisplayName("요청 안의 기록에는 접속지가 남는다")
         void recordsClientIpInsideRequest() {
