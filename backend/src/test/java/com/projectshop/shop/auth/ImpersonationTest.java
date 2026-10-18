@@ -103,6 +103,45 @@ class ImpersonationTest extends PostgresTestBase {
                 .isEqualTo(2);
     }
 
+    /**
+     * 대행 중 계정 열람은 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조). 요청의 주인은 그 사용자라 본인 열람으로 보이지만
+     * 실제로 본 사람은 관리자다 — 시킨 사람과 정보주체가 둘 다 남아야 그 둘이 갈린다.
+     */
+    @Test
+    @DisplayName("대행 중에 계정을 열면 시킨 관리자와 정보주체가 열람 기록에 남는다")
+    void impersonatedAccountReadIsRecorded() throws Exception {
+        Cookie session = logIn("imp-admin@test.local");
+        mvc.perform(startRequest(customerId).cookie(session)).andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/me").cookie(session)).andExpect(status().isOk());
+
+        java.util.Map<String, Object> row = jdbc.sql("""
+                        select actor_user_id, impersonator_user_id, target_type, target_id, detail::text as detail
+                          from audit_log
+                         where event_type = 'personal_data.viewed'
+                         order by audit_log_id desc
+                         limit 1
+                        """)
+                .query()
+                .singleRow();
+        assertThat(row).containsEntry("impersonator_user_id", adminId)
+                .containsEntry("target_type", "user")
+                .containsEntry("target_id", customerId);
+        assertThat(row.get("detail").toString()).contains("contact");
+    }
+
+    /** 자기 계정을 보는 사람은 취급자가 아니다 — 접속기록이 아니다 */
+    @Test
+    @DisplayName("대행이 아니면 자기 계정 열람은 안 남는다")
+    void ownAccountReadIsNotRecorded() throws Exception {
+        Cookie session = logIn("imp-customer@test.local");
+
+        mvc.perform(get("/api/me").cookie(session)).andExpect(status().isOk());
+
+        assertThat(jdbc.sql("select count(*) from audit_log where event_type = 'personal_data.viewed'")
+                .query(Long.class).single()).isZero();
+    }
+
     @Test
     @DisplayName("관리자는 대행하지 않는다")
     void cannotImpersonateAnotherAdmin() throws Exception {

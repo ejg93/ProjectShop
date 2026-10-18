@@ -17,6 +17,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.audit.AuditLog;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -57,10 +58,12 @@ public class InquiryQuery {
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
+    private final AuditLog auditLog;
 
-    InquiryQuery(JdbcClient jdbc, PermissionEvaluator evaluator) {
+    InquiryQuery(JdbcClient jdbc, PermissionEvaluator evaluator, AuditLog auditLog) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
+        this.auditLog = auditLog;
     }
 
     /**
@@ -188,8 +191,21 @@ public class InquiryQuery {
                 .allowed();
 
         // 셀러는 거두지 못한다 — 자기 상품에 달린 불리한 질문을 지우는 자리가 된다(`InquiryService.withdraw`)
-        return find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
-                Map.of("sellers", sellers.toArray(Long[]::new)), paging, visibility, canAnswer, false);
+        return viewed(viewerId, find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
+                Map.of("sellers", sellers.toArray(Long[]::new)), paging, visibility, canAnswer, false), visibility);
+    }
+
+    /**
+     * 남의 문의 본문이 섞인 쪽을 열람했다(`Q276`, 안전성 확보조치 기준 제8조). 쪽마다 한 줄이다.
+     *
+     * <p><b>셀러 목록도 남긴다</b> — 산 사람이 쓴 질문은 정보주체의 글이고 셀러는 그것을 처리하는 취급자다.
+     * 본인 목록({@link #findMine})은 안 부른다 — 자기 글이다.
+     */
+    private Page<Entry> viewed(long viewerId, Page<Entry> page, Visibility visibility) {
+        auditLog.personalDataListed(viewerId, "inquiry",
+                page.items().stream().map(Entry::inquiryNumber).toList(),
+                visibility.body() ? List.of(InquiryFields.BODY.code()) : List.of());
+        return page;
     }
 
     /**
@@ -214,7 +230,7 @@ public class InquiryQuery {
         // 조건이 없다. 조건 자리를 비우는 대신 언제나 참인 것을 둬서 `find` 의 모양을 안 바꾼다.
         // 조작은 안 싣는다 — 관리자·감사자가 훑는 자리다(시험 `neverCarriesActionsOnTheAdminListing` 이 계약으로 고정한다).
         // 거두기는 주인의 목록({@link #findMine})이 권한다(`Q234`).
-        return find("true", Map.of(), paging, visibility, false, false);
+        return viewed(viewerId, find("true", Map.of(), paging, visibility, false, false), visibility);
     }
 
     /**

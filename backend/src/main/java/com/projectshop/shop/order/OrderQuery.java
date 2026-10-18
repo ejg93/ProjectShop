@@ -31,6 +31,8 @@ import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.ActorType;
+import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.audit.PersonalDataGroups;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -71,13 +73,15 @@ public class OrderQuery {
     private final PermissionEvaluator evaluator;
     private final OrderActionService actions;
     private final ReturnRequestQuery returnRequests;
+    private final AuditLog auditLog;
 
     OrderQuery(JdbcClient jdbc, PermissionEvaluator evaluator, OrderActionService actions,
-            ReturnRequestQuery returnRequests) {
+            ReturnRequestQuery returnRequests, AuditLog auditLog) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.actions = actions;
         this.returnRequests = returnRequests;
+        this.auditLog = auditLog;
     }
 
     /** 목록 한 줄. 무엇을 샀는지는 상세가 답한다 — 목록에 상품을 붙이면 화면마다 다른 요약이 필요해진다 */
@@ -396,6 +400,10 @@ public class OrderQuery {
         if (!decision.allowed()) {
             throw new ShopException(ErrorCode.ORDER_NOT_FOUND, "그런 주문이 없다: " + orderNumber);
         }
+
+        // 남의 배송지·결제를 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조). 본인은 helper 가 거른다.
+        auditLog.personalDataViewed(userId, order.userId(), "order", order.orderNumber(),
+                PersonalDataGroups.opened(decision, OrderFields.SHIPPING, OrderFields.PAYMENT));
 
         return new Detail(
                 order.orderNumber(),

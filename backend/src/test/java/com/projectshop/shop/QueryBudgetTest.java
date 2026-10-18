@@ -59,7 +59,9 @@ class QueryBudgetTest extends PostgresTestBase {
      * {@link #BUDGET} 을 넘는 목록과 그 근거. <b>근거 없이 이름만 넣지 않는다</b> — 근거 칸이 없으면 이 목록이 예산을 넘겼을 때
      * 도망칠 자리가 된다({@code ForeignKeyIndexTest.EXEMPT} 와 같은 모양, 마무리 48차 독립 리뷰).
      */
-    private static final Map<String, Budget> OVER_BUDGET = Map.of();
+    private static final Map<String, Budget> OVER_BUDGET = Map.of(
+            "셀러 문의 목록", new Budget(4, "열람 기록 한 줄(`Q276`, 안전성 확보조치 기준 제8조) — 쪽마다 한 번이라 줄 수에 안 늘어난다 "
+                    + "(쪽 크기 1 과 50 이 같다). 그전 셋은 그대로다"));
 
     @TestConfiguration
     static class Counting {

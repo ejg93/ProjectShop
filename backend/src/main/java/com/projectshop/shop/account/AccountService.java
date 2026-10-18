@@ -19,6 +19,7 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PasswordPolicy;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
+import com.projectshop.shop.audit.PersonalDataGroups;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -94,6 +95,10 @@ public class AccountService {
                         rs.getObject("created_at", OffsetDateTime.class),
                         rs.getObject("birth_date", LocalDate.class)))
                 .single();
+
+        // 자기 계정만 읽는 입구라 남이 보는 길은 대행뿐이다 — helper 가 대행 중일 때만 남긴다(`Q276`)
+        auditLog.personalDataViewed(userId, userId, "user", null,
+                PersonalDataGroups.opened(decision, UserFields.BIRTH, UserFields.CONTACT));
 
         return new Account(
                 userId,

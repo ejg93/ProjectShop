@@ -33,6 +33,9 @@ class SellerOrderQueryTest extends PostgresTestBase {
     private SellerOrderQuery sellerOrders;
 
     @Autowired
+    private OrderQuery orderQuery;
+
+    @Autowired
     private OrderService orderService;
 
     @Autowired
@@ -248,6 +251,41 @@ class SellerOrderQueryTest extends PostgresTestBase {
          * 판매자는 배송에 필요한 것까지만 본다(`V6`). 빠진 것이 권한 때문임은
          * {@code _visible_field_groups} 가 알린다(`D5`).
          */
+        /** 셀러는 산 사람의 배송지를 처리하는 취급자다 — 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조) */
+        @Test
+        @DisplayName("셀러가 배송지를 열면 열람 기록이 한 줄 남는다")
+        void sellerShippingReadIsRecorded() {
+            payFor(placeOrder(List.of(alphaSku)));
+            String number = numberOf(alpha);
+
+            sellerOrders.findByNumber(alphaOwner, number);
+
+            assertThat(jdbc.sql("""
+                            select count(*) from audit_log
+                             where event_type = 'personal_data.viewed'
+                               and actor_user_id = :seller and target_type = 'user' and target_id = :buyer
+                               and detail ->> 'number' = :number and detail -> 'groups' @> '["shipping"]'::jsonb
+                            """)
+                    .param("seller", alphaOwner).param("buyer", buyer).param("number", number)
+                    .query(Long.class).single())
+                    .isEqualTo(1);
+        }
+
+        /** 자기 주문을 보는 사람은 취급자가 아니다 */
+        @Test
+        @DisplayName("산 사람이 자기 주문을 열면 안 남는다")
+        void buyerOwnReadIsNotRecorded() {
+            long orderId = placeOrder(List.of(alphaSku));
+            payFor(orderId);
+            String orderNumber = jdbc.sql("select order_number from shop_order where order_id = :id")
+                    .param("id", orderId).query(String.class).single();
+
+            orderQuery.findByNumber(buyer, orderNumber);
+
+            assertThat(jdbc.sql("select count(*) from audit_log where event_type = 'personal_data.viewed'")
+                    .query(Long.class).single()).isZero();
+        }
+
         @Test
         @DisplayName("셀러에게는 payment 그룹이 안 열린다")
         void sellerSeesNoPaymentGroup() {
