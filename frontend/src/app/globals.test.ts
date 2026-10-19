@@ -25,7 +25,8 @@ describe("토큰", () => {
   it("globals.css 밖의 css 파일에 색 값이 없다", () => {
     const offenders = cssFiles(SRC)
       .filter((path) => path !== TOKENS)
-      .filter((path) => /#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|oklch)\(/.test(readFileSync(path, "utf8")))
+      // 선언 값(`:` 뒤)만 본다 — `#add` 같은 id 선택자는 색이 아니다
+      .filter((path) => /:[^;{}]*(#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|oklch)\()/.test(readFileSync(path, "utf8")))
       .map((path) => relative(SRC, path));
 
     expect(offenders).toEqual([]);

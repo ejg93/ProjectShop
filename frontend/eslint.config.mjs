@@ -51,11 +51,14 @@ const NO_USE_CLIENT_ROUTE = {
 const RAW_DESIGN_VALUE_MESSAGE =
   "색·글자 크기·모서리·간격은 토큰과 Tailwind 눈금으로 쓴다 — 임의 값과 팔레트 클래스는 다크 값이 없다(frontend-rules.md 「색·크기는 토큰으로」)";
 const RAW_DESIGN_VALUE_PATTERNS = [
-  // (ㄱ) 임의 색 — `bg-[#9f1239]`·`text-[rgb(…)]`
-  String.raw`\[(#|rgba?\(|hsla?\(|oklch\()`,
+  // (ㄱ) 임의 값 안의 색 — `bg-[#9f1239]`·`shadow-[0_0_0_1px_#9f1239]`·`border-[color:#9f1239]`·`text-[rgb(…)]`.
+  // hex 는 세 자리 이상이라 `주문 [#3]` 같은 문구는 안 걸린다
+  String.raw`\[[^\]]*(#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|oklch)\()`,
+  // (ㄹ) 문자열 통째로 색 — `style={{ color: "#9f1239" }}`·`fill="#9f1239"`
+  String.raw`^\s*(#[0-9a-fA-F]{3,8}|(rgba?|hsla?|oklch)\(.*\))\s*$`,
   // (ㄴ) 팔레트 클래스 — `bg-red-500`. 접두 목록 밖(`placeholder-`·`caret-`·`accent-`)은 못 막는다
   String.raw`\b(bg|text|border|ring|outline|fill|stroke|from|via|to|decoration|shadow)-(red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone)-\d{2,3}\b`,
-  // (ㄷ) 크기 임의 값 — `text-[13px]`·`rounded-[3px]`·`p-[7px]`·`gap-x-[…]`
+  // (ㄷ) 크기 임의 값 — `text-[13px]`·`rounded-[3px]`·`p-[7px]`·`gap-x-[…]`. `text-[var(--x)]` 도 막는다 — 토큰은 유틸리티 이름으로 건다
   String.raw`\b(text|rounded(-[a-z]+)?|p[xytrbl]?|m[xytrbl]?|gap(-[xy])?|space-[xy])-\[`,
 ];
 const NO_RAW_DESIGN_VALUE = RAW_DESIGN_VALUE_PATTERNS.flatMap((pattern) => [
