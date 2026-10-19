@@ -52,7 +52,7 @@ const RAW_DESIGN_VALUE_MESSAGE =
   "색·글자 크기·모서리·간격은 토큰과 Tailwind 눈금으로 쓴다 — 임의 값과 팔레트 클래스는 다크 값이 없다(frontend-rules.md 「색·크기는 토큰으로」)";
 const RAW_DESIGN_VALUE_PATTERNS = [
   // (ㄱ) 임의 값 안의 색 — `bg-[#9f1239]`·`shadow-[0_0_0_1px_#9f1239]`·`border-[color:#9f1239]`·`text-[rgb(…)]`.
-  // hex 는 세 자리 이상이라 `주문 [#3]` 같은 문구는 안 걸린다
+  // hex 는 세 자리 이상이라 `주문 [#3]` 처럼 짧은 번호는 안 걸린다 — `[#123]` 은 걸린다(화면 문구에 대괄호 번호를 안 쓴다)
   String.raw`\[[^\]]*(#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|oklch)\()`,
   // (ㄹ) 문자열 통째로 색 — `style={{ color: "#9f1239" }}`·`fill="#9f1239"`
   String.raw`^\s*(#[0-9a-fA-F]{3,8}|(rgba?|hsla?|oklch)\(.*\))\s*$`,
