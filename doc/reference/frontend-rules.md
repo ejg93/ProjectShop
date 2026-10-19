@@ -387,6 +387,21 @@
 `global-error.tsx` 는 `html`·`body` 를 직접 그리고 `lang="ko"` 를 단다. **두 오류 화면의 본문은 `components/error-screen.tsx` 하나다** —
 문구가 두 벌이면 같은 고장이 자리마다 다른 말을 한다. 「다시 시도」는 **`retry`**(다시 불러오기)다 — `reset` 은 안 불러와서 백엔드가 살아난 뒤에도 같은 화면이 남는다(Next 16.3).
 
+## 색·크기는 토큰으로
+
+**색은 `globals.css` 의 토큰 유틸리티만 쓴다**(`bg-surface`·`text-text-muted`·`text-accent-text` …). **글자 크기·모서리·간격은 Tailwind 눈금만 쓴다**(`text-sm`·`rounded-ui`·`p-4`).
+임의 값(`bg-[#9f1239]`·`text-[13px]`·`p-[7px]`)과 팔레트 클래스(`bg-red-500`)는 안 쓴다 — 토큰 밖 색은 다크 값이 없어서 다크모드에서 깨지고,
+`Q277` 의 대비 검사는 smoke 세 화면만 재서 나머지 화면의 그 색은 아무도 안 본다(`screen-rules.md` 「다크모드」).
+
+**새 색이 필요하면 토큰을 먼저 더한다** — `:root` 와 `prefers-color-scheme: dark` 양쪽에 값을 두고 `@theme inline` 에 유틸리티 이름을 건다.
+`text-[var(--x)]` 처럼 토큰 변수를 임의 값으로 부르지 않는다 — 유틸리티 이름이 없는 토큰이 생긴다. 린트는 크기 접두(`text-`·`rounded-`·간격)의 것만 막고 색 접두(`bg-`·`border-`·`shadow-`)의 것은 못 막는다(`quality-gates.md` 「못 막는 것」).
+
+**예외 — 내용이 정하는 값은 둔다.** 표 너비(`min-w-[Nrem]`)·그리드 열과 행(`grid-cols-[…]`)·비율(`aspect-[4/3]`)·전환 속성(`transition-[…]`)은
+화면마다 담는 것이 달라서 눈금으로 못 줄인다. 시각 계층(색·글자·모서리·간격)이 아니라 배치다.
+
+**린트가 막는다**(`Q278`) — `eslint.config.mjs` 의 `NO_RAW_DESIGN_VALUE`. 화면 소스의 문자열 리터럴 전부를 본다
+(`className` 밖의 상수·`cn()` 인자도). `.css` 파일은 `src/app/globals.test.ts` 가 본다 — `globals.css` 밖에 색 값이 있으면 빨갛다.
+
 ## 이 문서를 고칠 때
 
 화면을 만들다가 여기 없는 상황이 나오면 **그 상황을 여기 먼저 추가한다.**

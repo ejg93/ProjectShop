@@ -1698,6 +1698,13 @@ JVM 전역 SPI(`InetAddressResolverProvider`)는 DB·Redis·Kafka 이름 풀이�
 붙는다. 로컬 npm 10.9 로 `npm i` 하면 그 칸을 지워서 의존성 하나를 더한 diff 에 무관한 줄이 섞인다(2026-09-26 `Q214` 실측).
 **의존성을 더할 때는 `npx -y npm@11 install <패키지>` 로 한다** — 칸이 그대로 남는다.
 
+### 로컬 Node 는 22.19 이상이어야 프론트 시험이 뜬다
+
+**jsdom 30.1.3 이 끄는 undici 8.12 가 `zlib.createZstdDecompress` 를 쓴다** — Node 22.19 에 들어온 함수라
+22.13 에서는 vitest 워커가 `Cannot read properties of undefined (reading 'bind')`(`undici/lib/interceptor/decompress.js`)로
+하나도 안 뜬다(2026-10-19, Dependabot #103 을 합친 뒤 실측). CI 는 `node-version: '22'` 라 22.x 최신을 받아 초록이다 —
+**로컬만 빨갛다.** 이 기계는 `winget upgrade OpenJS.NodeJS.22` 로 올린다(패키지 이름이 `.LTS` 가 아니다).
+
 ### Next 는 들어온 요청에 `x-forwarded-for` 를 없을 때만 채운다 — 덧붙이지 않는다
 
 **16.3 `base-server.js` 가 `req.headers['x-forwarded-for'] ??= socket.remoteAddress` 를 한다**(`Q240` 에서 소스로 확인).

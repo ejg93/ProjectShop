@@ -1,0 +1,17 @@
+# gate: e2e axe 다크 대비(Q277) — 다크 글자 강조색을 라이트 값으로 되돌리면 대비 2.5 라 4.5 를 못 넘는다. 돌린 뒤 `npm run build` 를 다시 한다(`.next` 가 부순 색으로 남는다). `CI=1` 은 떠 있는 남의 서버를 재사용하지 않게 한다
+# run: cd frontend && npm run build && CI=1 npx playwright test e2e/smoke.spec.ts
+# expect: \[dark\] color-contrast
+# expect: 1 failed
+diff --git a/frontend/src/app/globals.css b/frontend/src/app/globals.css
+index 51e969c..227d66f 100644
+--- a/frontend/src/app/globals.css
++++ b/frontend/src/app/globals.css
+@@ -34,7 +34,7 @@
+ 
+     /* 배경 위에 얹히는 강조색은 그대로 두고, 글자로 쓰이는 쪽만 올린다.
+        어두운 바탕에서 #9f1239 글자는 대비가 2.5 라 본문 기준(4.5)을 못 넘는다. */
+-    --accent-text: #fda4af;
++    --accent-text: #9f1239;
+ 
+     --danger-text: #fda29b;
+   }

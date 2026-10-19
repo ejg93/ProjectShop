@@ -44,6 +44,28 @@ const NO_USE_CLIENT_ROUTE = {
   message: "page·layout 은 서버 컴포넌트로 둔다 — 클라이언트 경계는 잎사귀 컴포넌트에 둔다(frontend-rules.md 「서버 컴포넌트가 기본이다」)",
 };
 
+// 색·크기를 토큰 밖에서 적는 것을 막는다(`Q278`, frontend-rules.md 「색·크기는 토큰으로」). **`className` 만 안 본다** —
+// 클래스 문자열을 상수로 빼 둔 자리(`const field = "…"`)가 있어서 화면 소스의 문자열 리터럴·템플릿 조각 전부를 본다.
+// **켜기 전에 쟀다**(2026-10-18 설계, 2026-10-19 다시) — 셋 다 0건이라 기준선 없이 바로 건다.
+// 표 너비·그리드 열·비율·전환(`min-w-[…]`·`grid-cols-[…]`·`aspect-[…]`·`transition-[…]`)은 내용이 정하는 값이라 안 건다.
+const RAW_DESIGN_VALUE_MESSAGE =
+  "색·글자 크기·모서리·간격은 토큰과 Tailwind 눈금으로 쓴다 — 임의 값과 팔레트 클래스는 다크 값이 없다(frontend-rules.md 「색·크기는 토큰으로」)";
+const RAW_DESIGN_VALUE_PATTERNS = [
+  // (ㄱ) 임의 값 안의 색 — `bg-[#9f1239]`·`shadow-[0_0_0_1px_#9f1239]`·`border-[color:#9f1239]`·`text-[rgb(…)]`.
+  // hex 는 세 자리 이상이라 `주문 [#3]` 처럼 짧은 번호는 안 걸린다 — `[#123]` 은 걸린다(화면 문구에 대괄호 번호를 안 쓴다)
+  String.raw`\[[^\]]*(#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|oklch)\()`,
+  // (ㄹ) 문자열 통째로 색 — `style={{ color: "#9f1239" }}`·`fill="#9f1239"`
+  String.raw`^\s*(#[0-9a-fA-F]{3,8}|(rgba?|hsla?|oklch)\(.*\))\s*$`,
+  // (ㄴ) 팔레트 클래스 — `bg-red-500`. 접두 목록 밖(`placeholder-`·`caret-`·`accent-`)은 못 막는다
+  String.raw`\b(bg|text|border|ring|outline|fill|stroke|from|via|to|decoration|shadow)-(red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone)-\d{2,3}\b`,
+  // (ㄷ) 크기 임의 값 — `text-[13px]`·`rounded-[3px]`·`p-[7px]`·`gap-x-[…]`. `text-[var(--x)]` 도 막는다 — 토큰은 유틸리티 이름으로 건다
+  String.raw`\b(text|rounded(-[a-z]+)?|p[xytrbl]?|m[xytrbl]?|gap(-[xy])?|space-[xy])-\[`,
+];
+const NO_RAW_DESIGN_VALUE = RAW_DESIGN_VALUE_PATTERNS.flatMap((pattern) => [
+  { selector: `Literal[value=/${pattern}/]`, message: RAW_DESIGN_VALUE_MESSAGE },
+  { selector: `TemplateElement[value.raw=/${pattern}/]`, message: RAW_DESIGN_VALUE_MESSAGE },
+]);
+
 const eslintConfig = defineConfig([
   // **기본 묶음을 깐다**(`Q20-4`). `eslint-config-next` 는 이것을 안 포함해서
   // `no-empty`·`no-unused-private-class-members` 같은 것이 꺼져 있었다 —
@@ -122,11 +144,11 @@ const eslintConfig = defineConfig([
   {
     files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
     ignores: ["**/*.test.ts", "**/*.test.tsx"],
-    rules: { "no-restricted-syntax": ["error", ...NO_ERROR_MESSAGE, ...NO_STATIC_SEGMENT] },
+    rules: { "no-restricted-syntax": ["error", ...NO_ERROR_MESSAGE, ...NO_STATIC_SEGMENT, ...NO_RAW_DESIGN_VALUE] },
   },
   {
     files: ["src/app/**/page.tsx", "src/app/**/layout.tsx"],
-    rules: { "no-restricted-syntax": ["error", ...NO_ERROR_MESSAGE, ...NO_STATIC_SEGMENT, NO_USE_CLIENT_ROUTE] },
+    rules: { "no-restricted-syntax": ["error", ...NO_ERROR_MESSAGE, ...NO_STATIC_SEGMENT, ...NO_RAW_DESIGN_VALUE, NO_USE_CLIENT_ROUTE] },
   },
   {
     files: ["src/lib/api.ts", "src/lib/api-session.ts"],

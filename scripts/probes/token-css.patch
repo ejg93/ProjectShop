@@ -1,0 +1,11 @@
+# gate: css 색 값 대조(Q278) — globals.css 밖 css 파일에 색 값을 적으면 빨갛다
+# run: cd frontend && npx vitest run src/app/globals.test.ts
+# expect: x\.css
+# expect: 1 failed
+diff --git a/frontend/src/app/x.css b/frontend/src/app/x.css
+new file mode 100644
+index 0000000..26764ad
+--- /dev/null
++++ b/frontend/src/app/x.css
+@@ -0,0 +1 @@
++.x { color: #9f1239; }

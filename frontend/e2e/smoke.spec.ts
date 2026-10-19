@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { expectNoAxeViolations } from "./helpers";
+
 /**
  * 로그인 → 상품 → 장바구니 관통(청크 `Q18`).
  *
@@ -19,6 +21,7 @@ const 계정 = { 이메일: "customer@example.com", 비밀번호: "demo-password
 test("로그인하고 상품을 장바구니에 담는다", async ({ page }) => {
   // ── 로그인. 여기서 세션 쿠키와 CSRF 가 처음 오간다
   await page.goto("/login");
+  await expectNoAxeViolations(page);
   await page.getByLabel("이메일").fill(계정.이메일);
   await page.getByLabel("비밀번호").fill(계정.비밀번호);
   await page.getByRole("button", { name: "로그인" }).click();
@@ -29,6 +32,7 @@ test("로그인하고 상품을 장바구니에 담는다", async ({ page }) => 
   await page.goto("/products");
   const 첫상품 = page.locator('a[href^="/products/"]').first();
   await expect(첫상품).toBeVisible();
+  await expectNoAxeViolations(page);
   await 첫상품.click();
   await expect(page).toHaveURL(/\/products\/\d+/);
 
@@ -44,4 +48,5 @@ test("로그인하고 상품을 장바구니에 담는다", async ({ page }) => 
   await page.goto("/cart");
   await expect(page.getByRole("heading", { name: "장바구니", level: 1 })).toBeVisible();
   await expect(page.getByText("담아 두신 상품이 없습니다.")).toHaveCount(0);
+  await expectNoAxeViolations(page);
 });
