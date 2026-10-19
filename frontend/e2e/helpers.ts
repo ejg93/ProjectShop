@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 
 import { DEMO_GROUPS, DEMO_PASSWORD } from "../src/app/login/demo-accounts";
@@ -84,4 +85,35 @@ export async function 보내고_배송완료한다(page: Page, 묶음번호: str
   await expect(page.getByRole("button", { name: "배송완료 처리" })).toBeVisible();
   await page.getByRole("button", { name: "배송완료 처리" }).click();
   await expect(page.getByRole("button", { name: "배송완료 처리" })).toHaveCount(0);
+}
+
+/**
+ * 지금 화면에 접근성 위반이 없는지 라이트·다크 두 모드로 본다(`Q277`).
+ *
+ * <p><b>jsdom 이 못 보는 것을 본다</b> — 색 대비는 진짜 CSS 가 있어야 돌아서 `src/test/axe.ts` 에서는 0이다.
+ * 다크 토큰(`globals.css` 의 `prefers-color-scheme: dark`)은 `emulateMedia` 로 바꿔 한 번 더 잰다 — 프로젝트를 둘로
+ * 가르면 e2e 전체가 2배라 화면마다 두 번이 싸다.
+ *
+ * <p><b>`target-size`(WCAG 2.2 2.5.8, 24px)는 axe 기본이 꺼져 있어서 켠다.</b>
+ */
+export async function expectNoAxeViolations(page: Page) {
+  const reports: string[] = [];
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    // 색 전환(`transition-colors duration-200`)이 끝나기를 기다린다. 안 기다리면 axe 가 중간색을 재서
+    // 없는 대비 위반을 낸다(`Q277` 첫 판 — 다크 #a1a1aa 가 #76767f 로 잡혔다).
+    // `finished` 약속이 아니라 상태를 폴링한다 — `/login` 을 연 직후 그 약속이 30초 안 와서 시간 초과였다.
+    await page.waitForFunction(() =>
+      document.getAnimations().every((animation) => !(animation instanceof CSSTransition) || animation.playState !== "running"),
+    );
+    const result = await new AxeBuilder({ page }).options({ rules: { "target-size": { enabled: true } } }).analyze();
+    // 규칙 이름만 내면 어디를 고쳐야 하는지 모른다. 어긴 마디를 같이 적는다(`src/test/axe.ts` 와 같은 꼴).
+    for (const violation of result.violations) {
+      const where = violation.nodes.map((node) => `      ${node.html}`).join("\n");
+      reports.push(`  [${colorScheme}] ${violation.id} (${violation.impact}) — ${violation.help}\n${where}`);
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+  // soft 다 — 한 화면에서 멈추면 뒤 화면의 위반이 안 보인다.
+  expect.soft(reports, `접근성 위반 ${reports.length}건 — ${page.url()}\n${reports.join("\n")}`).toEqual([]);
 }
