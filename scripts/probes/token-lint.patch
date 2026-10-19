@@ -1,22 +1,24 @@
-# gate: 토큰 린트(Q278) — 화면 소스에 임의 색·팔레트 클래스·크기 임의 값을 적으면 두 블록(화면 조각·page) 다 빨갛다
+# gate: 토큰 린트(Q278) — 임의 값 안의 색·문자열 통째로 색·팔레트·크기 임의 값을 템플릿(화면 조각)과 리터럴(page) 양쪽에서 막는다
 # run: cd frontend && npx eslint src/components/logout-button.tsx src/app/cart/page.tsx
-# expect: 6 errors
+# expect: 9 errors
 # expect: 색·크기는 토큰으로
 diff --git a/frontend/src/app/cart/page.tsx b/frontend/src/app/cart/page.tsx
-index bd38927..f78282f 100644
+index bd38927..9f512a7 100644
 --- a/frontend/src/app/cart/page.tsx
 +++ b/frontend/src/app/cart/page.tsx
-@@ -22,6 +22,8 @@ type Cart = { items: CartItem[]; total: number };
+@@ -22,6 +22,10 @@ type Cart = { items: CartItem[]; total: number };
   * <p><b>셀러로 묶어서 그린다.</b> 주문이 셀러별로 나뉘어 배송되고 배송비도 그 단위로 붙어서
   * (`D3`), 담는 자리에서 묶임이 안 보이면 주문서에서 처음 알게 된다.
   */
 +const probe = "bg-[#9f1239] bg-red-500 text-[13px]";
++const probeColor = "#9f1239";
++const probeSvg = <svg fill="#9f1239" style={{ color: "#9f1239" }} />;
 +
  export default async function CartPage() {
    const cart = await apiSession<Cart>("/api/cart");
  
 diff --git a/frontend/src/components/logout-button.tsx b/frontend/src/components/logout-button.tsx
-index f8df607..4a18e2a 100644
+index f8df607..13cef71 100644
 --- a/frontend/src/components/logout-button.tsx
 +++ b/frontend/src/components/logout-button.tsx
 @@ -35,13 +35,14 @@ export function LogoutButton() {
@@ -31,7 +33,7 @@ index f8df607..4a18e2a 100644
          focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-text
          disabled:opacity-60
 -      "
-+        bg-[#9f1239] bg-red-500 text-[13px]
++        bg-[#9f1239] bg-red-500 text-[13px] shadow-[0_0_0_1px_#9f1239] border-[color:#9f1239]
 +      `}
      >
        {sending ? "나가는 중" : "로그아웃"}
