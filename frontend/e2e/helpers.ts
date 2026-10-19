@@ -88,7 +88,7 @@ export async function 보내고_배송완료한다(page: Page, 묶음번호: str
 }
 
 /**
- * 지금 화면에 접근성 위반이 없는지 라이트·다크 두 모드로 본다(`Q277`).
+ * 지금 화면에 접근성 위반이 없는지 라이트·다크 두 모드로 본다(`Q277`). 대비는 장애인차별금지법 제20·21조 → KWCAG 2.2 의 4.5:1 이다.
  *
  * <p><b>jsdom 이 못 보는 것을 본다</b> — 색 대비는 진짜 CSS 가 있어야 돌아서 `src/test/axe.ts` 에서는 0이다.
  * 다크 토큰(`globals.css` 의 `prefers-color-scheme: dark`)은 `emulateMedia` 로 바꿔 한 번 더 잰다 — 프로젝트를 둘로
