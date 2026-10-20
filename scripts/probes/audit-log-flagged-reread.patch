@@ -1,0 +1,15 @@
+# gate: 점검 지표 — 회차 뒤에도 마지막 회차를 다시 읽는다(Q284, PR #106 리뷰)
+# run: cd backend && ./gradlew test --tests com.projectshop.shop.audit.AuditLogReviewBatchStartupTest
+# expect: FAILED com.projectshop.shop.audit.AuditLogReviewBatchStartupTest 회차 뒤에도 기준일이 늦은 회차를 다시 읽는다
+diff --git a/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java b/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java
+index d462f9d..879f789 100644
+--- a/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java
++++ b/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java
+@@ -102,7 +102,6 @@ public class AuditLogReviewBatch implements RetryableBatch {
+             return BatchRuns.Counts.of(flagged.size());
+         });
+         // 회차 줄이 쓰인 뒤라 기동 때와 같은 자리에서 읽는다 — 지표가 「기준일이 늦은 회차」 하나만 뜻한다
+-        restoreFlagged();
+         return counts;
+     }
+ 
