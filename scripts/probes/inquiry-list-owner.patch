@@ -1,16 +1,16 @@
-# gate: 문의 목록 기록 — 자기 목록 거름(Q282b). 뒤집으면 셀러 쪽이 기록을 안 남긴다
+# gate: 문의 목록 기록 — 자기 목록 판정(Q282b, AuditLog.openList). 뒤집으면 셀러 쪽이 기록을 안 남긴다
 # run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.inquiry.InquiryVisibilityTest
 # expect: FAILED com.projectshop.shop.inquiry.InquiryVisibilityTest.SellerListing 셀러가 본문이 든 쪽을 열면 열람 기록이 한 줄 남는다
-diff --git a/backend/src/main/java/com/projectshop/shop/audit/ListAccess.java b/backend/src/main/java/com/projectshop/shop/audit/ListAccess.java
-index c111f14..7e74598 100644
---- a/backend/src/main/java/com/projectshop/shop/audit/ListAccess.java
-+++ b/backend/src/main/java/com/projectshop/shop/audit/ListAccess.java
-@@ -45,7 +45,7 @@ public final class ListAccess {
-      * 열린 그룹·번호가 비면 {@link AuditLog#personalDataListed} 가 거른다.
-      */
-     void record(List<String> numbers) {
--        if (ownOnly) {
-+        if (!ownOnly) {
-             return;
-         }
-         auditLog.personalDataListed(viewerId, resource, numbers, openedGroups);
+diff --git a/backend/src/main/java/com/projectshop/shop/audit/AuditLog.java b/backend/src/main/java/com/projectshop/shop/audit/AuditLog.java
+index c4c98ec..ec1af18 100644
+--- a/backend/src/main/java/com/projectshop/shop/audit/AuditLog.java
++++ b/backend/src/main/java/com/projectshop/shop/audit/AuditLog.java
+@@ -153,7 +153,7 @@ public class AuditLog {
+             PersonalFieldGroup... personal) {
+         boolean ownOnly = ownerUserId != null && ownerUserId == viewerId
+                 && ImpersonationToken.currentImpersonatorId() == null;
+-        return new ListAccess(decision, this, viewerId, resource, !ownOnly, Set.of(personal));
++        return new ListAccess(decision, this, viewerId, resource, ownOnly, Set.of(personal));
+     }
+ 
+     /**

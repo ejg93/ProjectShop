@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
@@ -129,13 +130,12 @@ public class AuditLog {
      */
     public PersonalDataAccess open(Decision decision, long viewerId, long subjectUserId, String resource,
             String number, PersonalFieldGroup... personal) {
-        PersonalDataAccess access = new PersonalDataAccess(decision);
         List<String> opened = Arrays.stream(personal)
-                .filter(access::opened)
+                .filter(group -> PersonalDataAccess.allows(decision, group))
                 .map(PersonalFieldGroup::code)
                 .toList();
         personalDataViewed(viewerId, subjectUserId, resource, number, opened);
-        return access;
+        return new PersonalDataAccess(decision, Set.of(personal));
     }
 
     /**
@@ -144,12 +144,16 @@ public class AuditLog {
      *
      * @param decision 응답이 칸을 싣는 그 판정
      * @param resource 어느 자원인가({@code inquiry})
-     * @param ownOnly  자기 것만 보는 목록이고 대행이 아니다. 그러면 안 남긴다 — 자기 글을 보는 사람은 취급자가 아니다
+     * @param ownerUserId 목록이 이 사람의 것만 담으면 그 사람. 남의 것이 섞이면 null.
+     *                    <b>안 남길지는 여기서 정한다</b> — 주인이 보는 사람 자신이고 대행이 아닐 때만 안 남긴다
+     *                    ({@link #personalDataViewed} 의 본인 규칙과 같다, 마무리 65차 독립 리뷰)
      * @param personal 이 목록이 실을 수 있는 개인정보 그룹
      */
-    public ListAccess openList(Decision decision, long viewerId, String resource, boolean ownOnly,
+    public ListAccess openList(Decision decision, long viewerId, String resource, Long ownerUserId,
             PersonalFieldGroup... personal) {
-        return new ListAccess(decision, this, viewerId, resource, ownOnly, personal);
+        boolean ownOnly = ownerUserId != null && ownerUserId == viewerId
+                && ImpersonationToken.currentImpersonatorId() == null;
+        return new ListAccess(decision, this, viewerId, resource, !ownOnly, Set.of(personal));
     }
 
     /**

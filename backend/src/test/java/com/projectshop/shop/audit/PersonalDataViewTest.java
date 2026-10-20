@@ -63,7 +63,7 @@ class PersonalDataViewTest {
     /**
      * 개인정보 그룹은 타입을 갈라서 {@code canSee} 로 못 묻는다(`Q282a`). 남은 우회 길은 판정의 그룹 목록을 코드 문자열로
      * 직접 묻는 것이다 — {@code Decision} 이 record 라 그 칸이 공개고 컴파일이 막지 못한다. 그래서 그렇게 묻는 main 클래스가
-     * 증서 둘뿐인지 잰다.
+     * {@code PersonalDataAccess.allows} 하나인지 잰다 — {@code ListAccess} 도 그것을 부른다.
      */
     @Test
     @DisplayName("판정의 그룹 목록을 직접 묻는 main 클래스는 증서뿐이다")
@@ -74,7 +74,7 @@ class PersonalDataViewTest {
 
         assertThat(askers)
                 .as("기록 없이 개인정보 그룹을 여는 길이다 — AuditLog.open·openList 가 돌려주는 증서로 묻는다")
-                .containsExactlyInAnyOrder("PersonalDataAccess", "ListAccess");
+                .containsExactly("PersonalDataAccess");
     }
 
     /**

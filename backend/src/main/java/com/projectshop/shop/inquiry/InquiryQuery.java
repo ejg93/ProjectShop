@@ -20,7 +20,6 @@ import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.audit.ListAccess;
 import com.projectshop.shop.audit.Unrecorded;
-import com.projectshop.shop.auth.ImpersonationToken;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -159,9 +158,9 @@ public class InquiryQuery {
      * 정보통신망법 제50조의7 은 <b>게시 중단</b>을 요구하지 작성자에게서 감추라고 하지 않는다.
      */
     public Page<Entry> findMine(long viewerId, Paging paging) {
-        // 자기 글은 접속기록이 아니다. **대행 중이면 다르다** — 실제로 본 사람은 시킨 관리자다(`Q276`, `AuditLog.open` 과 같은 규칙)
+        // 자기 글은 접속기록이 아니다. **대행 중이면 다르다** — 그 판정은 `AuditLog.openList` 가 한다(`Q276`)
         Visibility visibility = visibilityFor(viewerId, Target.ownedBy(viewerId),
-                "자기 문의를 볼 권한이 없다", ImpersonationToken.currentImpersonatorId() == null);
+                "자기 문의를 볼 권한이 없다", viewerId);
 
         // 거두기는 제 권한이다(`Q239`) — 서비스(`InquiryService.withdraw`)와 같은 판정(`withdraw`, `ownedBy`)을 쓴다.
         // 볼 수 있어도 못 거두는 역할(감사자)이 있어서 `read` 판정을 빌리면 안 된다.
@@ -189,7 +188,7 @@ public class InquiryQuery {
         // 셀러는 자기 셀러 하나로 물어도 결과가 같다 — 스코프가 seller 라 어느 셀러를 대든
         // 같은 규칙이 걸린다. 필드 목록도 그 규칙에서 나온다.
         Visibility visibility = visibilityFor(viewerId, Target.ofSeller(sellers.iterator().next()),
-                "셀러 문의를 볼 권한이 없다", false);
+                "셀러 문의를 볼 권한이 없다", null);
 
         boolean canAnswer = evaluator
                 .decide(viewerId, RESOURCE, ANSWER, Target.ofSeller(sellers.iterator().next()))
@@ -219,7 +218,7 @@ public class InquiryQuery {
      */
     public Page<Entry> findAll(long viewerId, Paging paging) {
         Visibility visibility = visibilityFor(viewerId, Target.of(-1L, -1L),
-                "전체 문의를 볼 권한이 없다", false);
+                "전체 문의를 볼 권한이 없다", null);
 
         // 조건이 없다. 조건 자리를 비우는 대신 언제나 참인 것을 둬서 `find` 의 모양을 안 바꾼다.
         // 조작은 안 싣는다 — 관리자·감사자가 훑는 자리다(시험 `neverCarriesActionsOnTheAdminListing` 이 계약으로 고정한다).
@@ -232,17 +231,14 @@ public class InquiryQuery {
      *
      * <p>조건 문자열은 <b>이 파일 안의 리터럴</b>이라 바깥에서 오는 값이 없다(`D23` 「SQL」).
      * 값은 전부 이름 붙은 파라미터로 간다.
-     */
-
-    /**
+     *
+     * <p><b>쪽을 기록 전으로 돌려준다</b>(`Q282b`) — 부르는 쪽은 {@code record(visibility.access())} 로만 꺼낸다.
+     * 문의 목록 SQL 을 도는 자리가 여기 하나라 기록을 빠뜨린 입구는 쪽을 못 얻는다.
+     *
      * @param canAnswer 이 사람이 이 목록의 문의에 답할 권한이 있나. <b>행마다 안 묻는다</b> —
      *                  스코프가 셀러라 한 셀러로 물으면 결과가 같다({@link #findForSeller} 의 주석과 같은 이유).
      *                  행마다 갈리는 것은 <b>상태</b>뿐이라 아래에서 그것만 본다.
      * @param canWithdraw 이 사람이 이 목록의 문의를 거둘 수 있나(`Q234`). 주인의 목록은 거두기 권한을 버튼 모양으로 묻는다(`Q239`)
-     */
-    /**
-     * <b>쪽을 기록 전으로 돌려준다</b>(`Q282b`) — 부르는 쪽은 {@code record(visibility.access())} 로만 꺼낸다.
-     * 문의 목록 SQL 을 도는 자리가 여기 하나라 기록을 빠뜨린 입구는 쪽을 못 얻는다.
      */
     private Unrecorded<Page<Entry>> find(String condition, Map<String, Object> params, Paging paging,
             Visibility visibility, boolean canAnswer, boolean canWithdraw) {
@@ -345,15 +341,15 @@ public class InquiryQuery {
         }
     }
 
-    /** @param ownOnly 자기 것만 보는 목록이고 대행이 아니다 — 쪽을 꺼내도 기록이 안 남는다 */
-    private Visibility visibilityFor(long viewerId, Target target, String message, boolean ownOnly) {
+    /** @param ownerUserId 목록이 이 사람의 것만 담으면 그 사람, 남의 것이 섞이면 null({@code AuditLog.openList}) */
+    private Visibility visibilityFor(long viewerId, Target target, String message, Long ownerUserId) {
         var decision = evaluator.decide(viewerId, RESOURCE, READ, target);
         if (!decision.allowed()) {
             throw new ShopException(ErrorCode.INQUIRY_FORBIDDEN, message);
         }
         // **판정이 필드 목록까지 답한다**(`4d`). 화면이 지우면 API 로는 보이고,
         // 여기서 물으면 **그 규칙이 한 곳**이다 — 감사자가 본문을 못 보는 근거가 `V62` 에 있다.
-        return new Visibility(auditLog.openList(decision, viewerId, RESOURCE, ownOnly, InquiryPersonalFields.BODY),
+        return new Visibility(auditLog.openList(decision, viewerId, RESOURCE, ownerUserId, InquiryPersonalFields.BODY),
                 VisibleFieldGroups.of(decision, InquiryFields.values(), InquiryPersonalFields.values()));
     }
 
