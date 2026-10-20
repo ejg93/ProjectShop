@@ -181,7 +181,7 @@ class ReviewServiceTest extends PostgresTestBase {
             var result = query.findByProduct(null, productId, new Paging(0, 20));
 
             assertThat(result.items()).singleElement()
-                    .satisfies(item -> assertThat(item.writerName()).isEqualTo("홍*동"));
+                    .satisfies(item -> assertThat(item.writerName().value()).isEqualTo("홍*동"));
         }
 
         /** 셀러 목록도 같은 규칙이다 — 매퍼가 둘이라 한쪽만 가리면 다른 쪽이 이름 전체를 낸다(마무리 63차 독립 리뷰) */
@@ -198,7 +198,7 @@ class ReviewServiceTest extends PostgresTestBase {
             var result = query.findForSeller(fixture.sellerMemberId(), new Paging(0, 20));
 
             assertThat(result.items()).singleElement()
-                    .satisfies(item -> assertThat(item.writerName()).isEqualTo("홍*동"));
+                    .satisfies(item -> assertThat(item.writerName().value()).isEqualTo("홍*동"));
         }
 
         /** 0 으로 두면 「별 0점」과 「후기 없음」이 같은 값이 된다 */

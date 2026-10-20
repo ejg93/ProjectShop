@@ -57,4 +57,12 @@ class NameMaskTest {
     void supplementaryCharacter() {
         assertThat(NameMask.mask("𠮷길동")).isEqualTo("𠮷*동");
     }
+
+    /** 가린 이름(`Q281`)은 응답에 객체가 아니라 문자열로 나간다 — 화면 계약 {@code writerName: string} 이 그대로다 */
+    @Test
+    @DisplayName("가린 이름은 JSON 문자열로 나간다")
+    void maskedNameSerializesAsString() {
+        assertThat(new tools.jackson.databind.ObjectMapper().writeValueAsString(MaskedName.of("홍길동")))
+                .isEqualTo("\"홍*동\"");
+    }
 }
