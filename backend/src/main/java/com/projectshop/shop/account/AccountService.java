@@ -19,7 +19,7 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PasswordPolicy;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
-import com.projectshop.shop.audit.PersonalDataGroups;
+import com.projectshop.shop.audit.PersonalDataAccess;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -97,18 +97,18 @@ public class AccountService {
                 .single();
 
         // 자기 계정만 읽는 입구라 남이 보는 길은 대행뿐이다 — helper 가 대행 중일 때만 남긴다(`Q276`)
-        auditLog.personalDataViewed(userId, userId, "user", null,
-                PersonalDataGroups.opened(decision, UserFields.BIRTH, UserFields.CONTACT));
+        PersonalDataAccess access = auditLog.open(decision, userId, userId, "user", null,
+                UserPersonalFields.BIRTH, UserPersonalFields.CONTACT);
 
         return new Account(
                 userId,
                 decision.canSee(UserFields.BASIC) ? row.displayName() : null,
                 decision.canSee(UserFields.BASIC) ? row.createdAt() : null,
-                decision.canSee(UserFields.BIRTH) ? row.birthDate() : null,
-                decision.canSee(UserFields.CONTACT) ? row.email() : null,
+                access.opened(UserPersonalFields.BIRTH) ? row.birthDate() : null,
+                access.opened(UserPersonalFields.CONTACT) ? row.email() : null,
                 // 제한이 없으면 빈 배열로 나간다. 그 값이 응답에서 "전부 본다" 를 뜻하는 것은
                 // 안쪽에서 타입으로 가른 것과 달리 여전히 모호하다 — 화면 청크(13b)가 그걸 정한다.
-                VisibleFieldGroups.of(decision, UserFields.values()));
+                VisibleFieldGroups.of(decision, UserFields.values(), UserPersonalFields.values()));
     }
 
     @Transactional

@@ -1,0 +1,16 @@
+# gate: 가린 이름 타입(Q281) — 가리지 않은 이름은 writerName 에 못 들어간다
+# run: cd backend && ./gradlew compileJava
+# expect: incompatible types: String cannot be converted to MaskedName
+diff --git a/backend/src/main/java/com/projectshop/shop/review/ReviewQuery.java b/backend/src/main/java/com/projectshop/shop/review/ReviewQuery.java
+index 1265551..d27d002 100644
+--- a/backend/src/main/java/com/projectshop/shop/review/ReviewQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/review/ReviewQuery.java
+@@ -111,7 +111,7 @@ public class ReviewQuery {
+                         .param("offset", paging.page() * paging.size())
+                         .query((rs, rowNum) -> new Item(
+                                 rs.getLong("review_id"),
+-                                MaskedName.of(rs.getString("display_name")),
++                                rs.getString("display_name"),
+                                 rs.getInt("rating"),
+                                 rs.getString("body"),
+                                 rs.getString("reply"),

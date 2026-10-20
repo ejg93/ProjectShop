@@ -9,19 +9,15 @@ import com.projectshop.shop.auth.FieldGroup;
  * {@code basic} 이 양쪽에 있지만 담는 것이 다르다 — 하나로 두면 주문 판정에 사용자 그룹을 물어도
  * 컴파일이 통과하고 조용히 거짓이 돌아온다.
  *
+ * <p><b>연락처·생년월일은 여기 없다</b> — 개인정보라 {@link UserPersonalFields} 로 갈랐다(`Q282a`).
+ *
  * <p><b>이 파일은 자원 패키지에 있어야 하는데 지금 관객 패키지에 있다.</b>
  * 다루는 자원이 {@code app_user} 라 `5l` 이 `me` 를 가를 때 같이 옮긴다.
  */
 public enum UserFields implements FieldGroup {
 
     /** 표시 이름, 가입일 */
-    BASIC,
-
-    /** 전자우편, 연락처 */
-    CONTACT,
-
-    /** 생년월일(`11b`). 연락처를 보는 역할만 본다 — 감사자는 못 본다 */
-    BIRTH;
+    BASIC;
 
     @Override
     public String code() {

@@ -1,12 +1,16 @@
 package com.projectshop.shop.audit;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.auth.ImpersonationToken;
+import com.projectshop.shop.auth.PermissionEvaluator.Decision;
+import com.projectshop.shop.auth.PersonalFieldGroup;
 
 /**
  * 누가 무슨 권한으로 무엇을 했는지 남긴다.
@@ -95,7 +99,7 @@ public class AuditLog {
      * @param number        그 자원의 노출 번호. 계정이면 비어 있다
      * @param openedGroups  이번 응답에 실제로 실은 개인정보 그룹 코드
      */
-    public void personalDataViewed(long viewerId, long subjectUserId, String resource, String number,
+    private void personalDataViewed(long viewerId, long subjectUserId, String resource, String number,
             List<String> openedGroups) {
         if (openedGroups.isEmpty()) {
             return;
@@ -113,12 +117,52 @@ public class AuditLog {
     }
 
     /**
+     * 건 하나의 개인정보 그룹을 열고 열람 증서를 돌려준다(`Q282a`). 증서는 여기서만 만든다 — 그래서 증서를 쥔 코드는
+     * 기록을 이미 남긴 코드다.
+     *
+     * <p>판정이 연 그룹을 세어 {@link #personalDataViewed} 를 부른다. 본인·빈 그룹은 그쪽이 거른다.
+     *
+     * @param decision      응답이 칸을 싣는 그 판정
+     * @param subjectUserId 정보주체
+     * @param resource      어느 자원인가({@code order}·{@code seller_order}·{@code user})
+     * @param number        그 자원의 노출 번호. 계정이면 비어 있다
+     * @param personal      이 응답이 실을 수 있는 개인정보 그룹
+     */
+    public PersonalDataAccess open(Decision decision, long viewerId, long subjectUserId, String resource,
+            String number, PersonalFieldGroup... personal) {
+        List<String> opened = Arrays.stream(personal)
+                .filter(group -> PersonalDataAccess.allows(decision, group))
+                .map(PersonalFieldGroup::code)
+                .toList();
+        personalDataViewed(viewerId, subjectUserId, resource, number, opened);
+        return new PersonalDataAccess(decision, Set.of(personal));
+    }
+
+    /**
+     * 목록 한 쪽의 개인정보 그룹을 여는 증서를 돌려준다(`Q282b`). 기록은 쪽을 꺼낼 때({@link Unrecorded#record}) 남는다 —
+     * 번호는 SQL 을 돈 뒤에야 안다.
+     *
+     * @param decision 응답이 칸을 싣는 그 판정
+     * @param resource 어느 자원인가({@code inquiry})
+     * @param ownerUserId 목록이 이 사람의 것만 담으면 그 사람. 남의 것이 섞이면 null.
+     *                    <b>안 남길지는 여기서 정한다</b> — 주인이 보는 사람 자신이고 대행이 아닐 때만 안 남긴다
+     *                    ({@link #personalDataViewed} 의 본인 규칙과 같다, 마무리 65차 독립 리뷰)
+     * @param personal 이 목록이 실을 수 있는 개인정보 그룹
+     */
+    public ListAccess openList(Decision decision, long viewerId, String resource, Long ownerUserId,
+            PersonalFieldGroup... personal) {
+        boolean ownOnly = ownerUserId != null && ownerUserId == viewerId
+                && ImpersonationToken.currentImpersonatorId() == null;
+        return new ListAccess(decision, this, viewerId, resource, !ownOnly, Set.of(personal));
+    }
+
+    /**
      * 취급자가 남의 개인정보가 섞인 목록 한 쪽을 열람했다(`Q276`). <b>쪽마다 한 줄</b>이다 — 행마다 남기면 한 쪽에
      * 스무 줄이고, 정보주체가 여럿이라 대상은 비우고 번호 목록을 {@code detail} 에 둔다.
      *
      * <p>목록은 남의 것을 훑는 자리라(관리자 전체 목록·셀러가 받은 목록) 본인 판정을 안 한다.
      */
-    public void personalDataListed(long viewerId, String resource, List<String> numbers, List<String> openedGroups) {
+    void personalDataListed(long viewerId, String resource, List<String> numbers, List<String> openedGroups) {
         if (openedGroups.isEmpty() || numbers.isEmpty()) {
             return;
         }

@@ -7,7 +7,8 @@ import com.projectshop.shop.auth.FieldGroup;
  *
  * <p>목록이 자원 패키지에 있는 이유는 {@link FieldGroup} 에 적었다.
  *
- * <p>이 셋이 갈려 있는 것은 <b>보는 사람에 따라 달라지기 때문</b>이다(`4d`).
+ * <p>그룹이 갈려 있는 것은 <b>보는 사람에 따라 달라지기 때문</b>이다(`4d`).
+ * <b>배송지·결제는 여기 없다</b> — 개인정보라 {@link OrderPersonalFields} 로 갈랐다(`Q282a`).
  * 누구에게도 안 나가는 값은 여기 오지 않고 애초에 응답 record 에 칸이 없다(`D23` 축 2).
  */
 public enum OrderFields implements FieldGroup {
@@ -16,24 +17,9 @@ public enum OrderFields implements FieldGroup {
     BASIC,
 
     /**
-     * 수령인, 연락처, 배송지 주소.
-     *
-     * <p>셀러에게 나가는 것이 <b>제3자 제공</b>이라 배송에 필요한 만큼만 묶었다(`D2` R8).
-     */
-    SHIPPING,
-
-    /**
-     * 결제 수단, 승인번호.
-     *
-     * <p><b>셀러의 {@code order:read} 에 안 붙어 있다</b>(`V6`). 셀러가 볼 이유가 없고,
-     * 그것이 `D2` R18 의 이미 구현된 절반이다.
-     */
-    PAYMENT,
-
-    /**
      * 환불 금액, 상태, 환급 기한.
      *
-     * <p><b>{@link #PAYMENT} 에 안 얹고 따로 있다</b>(`V24`, 사용자 선택). 보는 사람이 달라서다 —
+     * <p><b>{@link OrderPersonalFields#PAYMENT} 에 안 얹고 따로 있다</b>(`V24`, 사용자 선택). 보는 사람이 달라서다 —
      * 환불은 셀러 정산에서 차감되는 돈이라(`D3`) 셀러가 못 보면 명세가 왜 그 금액인지
      * 확인할 자리가 없고, 결제 수단·승인번호는 셀러가 볼 이유가 없다.
      *

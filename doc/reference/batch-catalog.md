@@ -21,6 +21,7 @@
 | 회차 재시도 스위퍼 | 일시적으로 실패한 회차를 다시 돌린다 | 10분 `fixedDelay` | `batch_run` 의 마지막 회차가 `transient` 실패이거나 `skipped` 이고 시도가 셋 미만 | `BatchRetrySweeper.sweep` |
 | 아웃박스 발행기 | 안 보낸 사건을 집어 Kafka 로 보내고 **답을 받은 것만** 보냄으로 표시한다 | 2초 `fixedDelay` | `outbox_event.published_at` 이 비었고 집힌 지 1분이 넘었거나 아직 안 집혔다 | `OutboxPublisher.publish` |
 | 정산 마감 | 전달 구매확정분을 셀러별 정산서로 묶어 지급액을 확정한다 | **매월 1일** 05:00 KST | 기준일이 **전달 말일**. 그 달의 구매확정·배송비·정산된 건의 환불·지난 음수 잔액 | `SettlementCloseBatch.close` |
+| 접속기록 점검 | 전달의 개인정보 열람 기록을 열람자별로 세어, 서로 다른 정보주체를 50명 이상 연 열람자를 표시하고 점검 행(`audit_log.reviewed`)을 남긴다(`Q280b`, 안전성 확보조치 기준 제8조②) | **매월 1일** 05:30 KST | 기준일이 **전달 말일**. 그 달 1일 00:00 KST 이상 다음 달 1일 00:00 KST 미만. 재실행은 성공 회차 부분 유니크가 막는다 — 실패 뒤 재시도는 점검 행을 하나 더 남길 뿐 결과가 같다 | `AuditLogReviewBatch.review` |
 | 일별 매출 집계 | 어제의 결제·환불을 셀러별로 세어 `seller_daily_sales` 에 넣는다(`40`) | 매일 00:15 KST | 기준일이 **어제**(끝난 날만 센다). 결제는 승인된 날, 환불은 승인된 날 | `DailySalesBatch.aggregate` |
 
 파기 둘은 청크 36 이 스케줄에 붙였다. **배치 클래스와 서비스를 갈랐다** —
@@ -175,6 +176,7 @@ JVM 이 죽은 회차가 영영 `running` 으로 남고 그 행을 치우는 배
 |---|---|
 | **매월 1일 04:00** | 개인정보 파기 · 자동 구매확정 · **거래기록 파기** 셋이 같은 시각 |
 | **매월 1일 05:00** | 정산 마감. **선행보다 뒤여야 한다** — 같은 시각이면 순서가 안 보장된다 |
+| **매월 1일 05:30** | 접속기록 점검. 선행은 없다 — 정산 마감과 같은 DB 를 동시에 훑지 않게 30분 뒤다 |
 | 그동안 | 결제 만료(5분) · 환불 스위퍼(5분) · 회차 재시도(10분)가 **전부 멈춘다** |
 
 **멈추는 쪽이 더 급한 것을 들고 있다.** 거래기록 파기는 하루 늦어도 아무 일이 안 나는데,
@@ -276,7 +278,7 @@ curl -X POST http://localhost:8080/api/admin/batches/daily_sales/runs \
 
 | 무엇 | 어떻게 |
 |---|---|
-| 받는 이름 | 기준일 배치(`RetryableBatch`) 여섯 — `account_purge`·`auto_confirm`·`stale_bundle_close`·`transaction_purge`·`settlement_close`·`daily_sales`. 밖은 404 `batch-not-found` |
+| 받는 이름 | 기준일 배치(`RetryableBatch`) 일곱 — `account_purge`·`auto_confirm`·`stale_bundle_close`·`transaction_purge`·`settlement_close`·`daily_sales`·`audit_log_review`. 밖은 404 `batch-not-found` |
 | 기준일 | 본문 `baseline_date`. **오늘(KST) 앞만 받는다**, 없으면 어제. 오늘·미래는 400 `validation-failed` — 미래는 보존 기한(`D2` R6)의 끝을 앞당겨 지킬 기록을 지우고, 오늘은 `daily_sales` 가 반쪽 집계를 성공으로 남겨 진짜 회차(어제를 돈다)를 막는다 |
 | 응답 | 200 — 그 회차의 `batch_run` 줄(`status`·`target_count`·`processed_count`) |
 | 이미 성공한 회차 | 줄을 안 남기고 건너뛴다(「재실행 안전성」) — 응답 `status` 가 `skipped` 다. 다시 재려면 지난 다른 날을 준다 |

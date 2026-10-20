@@ -198,6 +198,23 @@ class OpenApiSpecTest extends HttpTestBase {
     }
 
     /**
+     * 가린 이름({@code MaskedName}, `Q281`)이 스펙에 문자열로 나간다. 타입은 서버 안의 강제 지점이고
+     * 화면 계약({@code writerName: string})은 그대로여야 한다 — 객체 스키마로 풀리면 화면 타입 생성이 깨진다.
+     */
+    @Test
+    @DisplayName("가린 이름이 스키마에 문자열이다")
+    void maskedNameIsStringInSchema() {
+        JsonNode schemas = spec().path("components").path("schemas");
+
+        assertThat(names(schemas)).as("값 객체가 따로 스키마로 서면 응답 모양이 바뀐 것이다").doesNotContain("MaskedName");
+        for (String review : List.of("ProductReview", "SellerReview")) {
+            assertThat(schemas.path(review).path("properties").path("writer_name").path("type").asText())
+                    .as(review + ".writer_name")
+                    .isEqualTo("string");
+        }
+    }
+
+    /**
      * 경로가 소문자와 하이픈으로만 돼 있다(`Q31`, `D5`).
      *
      * <p><b>문서에만 있던 규칙이다.</b> 밑줄이나 낙타 표기가 섞인 경로가 하나 나가면

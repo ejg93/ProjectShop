@@ -1,6 +1,7 @@
 package com.projectshop.shop.audit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -231,6 +233,69 @@ class AuditLogTest extends PostgresTestBase {
         private long insertMembership() {
             fixture.joinSeller(alpha, customer);
             return alpha;
+        }
+    }
+
+    /**
+     * 접속기록을 고치거나 지울 수 없는지 본다(`V130`, 안전성 확보조치 기준 제8조③ — `D2` R44).
+     *
+     * <p>넷 다 시험 트랜잭션 안이다. 트리거가 거부하면 그 트랜잭션이 깨지지만 시험이 끝나면 어차피 롤백된다.
+     */
+    @Nested
+    @DisplayName("고치지 못하고 파기 배치만 지운다")
+    class Guard {
+
+        @Test
+        @DisplayName("통째로 비우면 거부된다")
+        void truncateIsRejected() {
+            recordOne();
+
+            assertThatThrownBy(() -> jdbc.sql("truncate audit_log").update())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("접속기록은 통째로 비우지 않는다");
+        }
+
+        @Test
+        @DisplayName("고치면 거부된다")
+        void updateIsRejected() {
+            long id = recordOne();
+
+            assertThatThrownBy(() -> jdbc.sql("update audit_log set detail = '{}'::jsonb where audit_log_id = :id")
+                    .param("id", id)
+                    .update())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("접속기록은 고치지 않는다");
+        }
+
+        @Test
+        @DisplayName("표시 없이 지우면 거부된다")
+        void deleteWithoutMarkIsRejected() {
+            long id = recordOne();
+
+            assertThatThrownBy(() -> jdbc.sql("delete from audit_log where audit_log_id = :id")
+                    .param("id", id)
+                    .update())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("접속기록은 파기 배치만 지운다");
+        }
+
+        @Test
+        @DisplayName("표시를 켜면 지워진다")
+        void deleteWithMarkPasses() {
+            long id = recordOne();
+
+            jdbc.sql("select set_config('shop.audit_purge', 'on', true)").query(String.class).single();
+            int deleted = jdbc.sql("delete from audit_log where audit_log_id = :id")
+                    .param("id", id)
+                    .update();
+
+            assertThat(deleted).isEqualTo(1);
+        }
+
+        private long recordOne() {
+            auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
+                    AuditLog.Target.of("user", customer), Map.of());
+            return ((Number) latest().get("audit_log_id")).longValue();
         }
     }
 

@@ -1,0 +1,15 @@
+# gate: 개인정보 그룹 타입(Q282a) — canSee 로 개인정보 그룹을 물으면 컴파일이 안 된다
+# run: cd backend && ./gradlew compileJava
+# expect: incompatible types: OrderPersonalFields cannot be converted to FieldGroup
+diff --git a/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java b/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java
+index ce631f6..5ca31e4 100644
+--- a/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java
+@@ -404,6 +404,7 @@ public class OrderQuery {
+         // 남의 배송지·결제를 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조). 본인은 helper 가 거른다.
+         PersonalDataAccess access = auditLog.open(decision, userId, order.userId(), "order", order.orderNumber(),
+                 OrderPersonalFields.SHIPPING, OrderPersonalFields.PAYMENT);
++        decision.canSee(OrderPersonalFields.SHIPPING);
+ 
+         return new Detail(
+                 order.orderNumber(),

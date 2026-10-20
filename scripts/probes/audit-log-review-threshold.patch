@@ -1,0 +1,16 @@
+# gate: 접속기록 점검 임계(Q280b)
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.audit.AuditLogReviewServiceTest
+# expect: FAILED com.projectshop.shop.audit.AuditLogReviewServiceTest 51명이면 그 열람자가 표시된다
+diff --git a/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewService.java b/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewService.java
+index 1916d4f..869a3fc 100644
+--- a/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewService.java
++++ b/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewService.java
+@@ -35,7 +35,7 @@ class AuditLogReviewService {
+     static final String REVIEWED = "audit_log.reviewed";
+ 
+     /** 한 기간에 서로 다른 정보주체를 이만큼 연 열람자를 표시한다. 내부 관리계획 값(`security-baseline.md` 「접속기록 점검」) — 법이 정한 수가 아니다 */
+-    static final int REVIEW_SUBJECT_THRESHOLD = 50;
++    static final int REVIEW_SUBJECT_THRESHOLD = 1000;
+ 
+     private final JdbcClient jdbc;
+     private final AuditLog auditLog;

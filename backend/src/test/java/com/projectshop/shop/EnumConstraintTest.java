@@ -73,17 +73,20 @@ class EnumConstraintTest extends PostgresTestBase {
             "settlement.SettlementSupplier", "settlement_item.supplier");
 
     /** 대조할 DB 목록이 없는 것. <b>이유를 같이 적는다</b> — 안 적으면 다음 사람이 빠뜨린 것과 못 가른다 */
-    private static final Map<String, String> EXEMPT = Map.of(
-            "error.ErrorCode", "응답 본문의 오류 코드다. DB 에 안 산다",
-            "support.ObjectStorage$Visibility", "파일을 어느 버킷에 두나를 가른다. 버킷 이름은 설정이 들고 DB 에 열이 없다",
-            "account.UserFields", "`permission_field_group` 의 행이지 `check` 가 아니다. `FieldGroupTest` 가 대조한다",
-            "inquiry.InquiryFields", "〃",
-            "order.OrderFields", "〃",
-            "audit.AuditLog$Kind", "커밋 방식을 가르는 구분이다. 저장 안 한다 — `audit_log` 에 그 열이 없다",
-            "notification.AdvertisingGate$Verdict", "발송 판정의 결과다. 안 보낸 이유는 저장 안 하고 로그로 간다",
-            "order.OrderActionService$Action", "닫힌 목록이 `permission` 표의 행이지 `check` 가 아니다. `ActionPermissionTest` 가 대조한다(`43a-21`)",
-            "order.OrderActionService$Party", "동작이 누구 몫인가를 가르는 코드 표다(`Q202`). 저장 안 한다 — 버튼을 고를 때만 쓴다",
-            "order.SellerOrderQuery$Branch", "목록 SQL 에 범위 조건을 어떤 꼴로 싣나의 갈래다(`Q243a`). 저장 안 한다 — 질의를 조립할 때만 쓴다");
+    private static final Map<String, String> EXEMPT = Map.ofEntries(
+            Map.entry("error.ErrorCode", "응답 본문의 오류 코드다. DB 에 안 산다"),
+            Map.entry("support.ObjectStorage$Visibility", "파일을 어느 버킷에 두나를 가른다. 버킷 이름은 설정이 들고 DB 에 열이 없다"),
+            Map.entry("account.UserFields", "`permission_field_group` 의 행이지 `check` 가 아니다. `FieldGroupTest` 가 대조한다"),
+            Map.entry("inquiry.InquiryFields", "`permission_field_group` 의 행이다. 패키지 안 열거형이라 `InquiryFieldGroupTest` 가 대조한다"),
+            Map.entry("order.OrderFields", "`permission_field_group` 의 행이지 `check` 가 아니다. `FieldGroupTest` 가 대조한다"),
+            Map.entry("account.UserPersonalFields", "〃 — 개인정보 그룹이라 타입만 갈랐다(`Q282a`)"),
+            Map.entry("order.OrderPersonalFields", "〃 — 개인정보 그룹이라 타입만 갈랐다(`Q282a`)"),
+            Map.entry("inquiry.InquiryPersonalFields", "`permission_field_group` 의 행이다. 개인정보 그룹이라 타입만 갈랐다(`Q282b`) — `InquiryFieldGroupTest` 가 대조한다"),
+            Map.entry("audit.AuditLog$Kind", "커밋 방식을 가르는 구분이다. 저장 안 한다 — `audit_log` 에 그 열이 없다"),
+            Map.entry("notification.AdvertisingGate$Verdict", "발송 판정의 결과다. 안 보낸 이유는 저장 안 하고 로그로 간다"),
+            Map.entry("order.OrderActionService$Action", "닫힌 목록이 `permission` 표의 행이지 `check` 가 아니다. `ActionPermissionTest` 가 대조한다(`43a-21`)"),
+            Map.entry("order.OrderActionService$Party", "동작이 누구 몫인가를 가르는 코드 표다(`Q202`). 저장 안 한다 — 버튼을 고를 때만 쓴다"),
+            Map.entry("order.SellerOrderQuery$Branch", "목록 SQL 에 범위 조건을 어떤 꼴로 싣나의 갈래다(`Q243a`). 저장 안 한다 — 질의를 조립할 때만 쓴다"));
 
     @Autowired
     private JdbcClient jdbc;

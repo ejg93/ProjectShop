@@ -32,7 +32,7 @@ import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.ActorType;
 import com.projectshop.shop.audit.AuditLog;
-import com.projectshop.shop.audit.PersonalDataGroups;
+import com.projectshop.shop.audit.PersonalDataAccess;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -402,8 +402,8 @@ public class OrderQuery {
         }
 
         // 남의 배송지·결제를 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조). 본인은 helper 가 거른다.
-        auditLog.personalDataViewed(userId, order.userId(), "order", order.orderNumber(),
-                PersonalDataGroups.opened(decision, OrderFields.SHIPPING, OrderFields.PAYMENT));
+        PersonalDataAccess access = auditLog.open(decision, userId, order.userId(), "order", order.orderNumber(),
+                OrderPersonalFields.SHIPPING, OrderPersonalFields.PAYMENT);
 
         return new Detail(
                 order.orderNumber(),
@@ -416,13 +416,13 @@ public class OrderQuery {
                 sellerOrdersOf(order.orderId(), userId, actions.memberOf(userId), order.userId(),
                         OrderTransitions.Payment.of(order.status()) == OrderTransitions.Payment.PAID),
                 historyOf(order.orderId()),
-                decision.canSee(OrderFields.SHIPPING) ? shippingOf(order.orderId()) : null,
-                decision.canSee(OrderFields.PAYMENT) ? paymentOf(order.orderId()) : null,
+                access.opened(OrderPersonalFields.SHIPPING) ? shippingOf(order.orderId()) : null,
+                access.opened(OrderPersonalFields.PAYMENT) ? paymentOf(order.orderId()) : null,
                 decision.canSee(OrderFields.REFUND) ? refundsOf(order.orderId()) : null,
                 // 필드 그룹에 안 건다. 계약 조건은 사는 사람에게도 파는 사람에게도
                 // 같은 것이 걸려 있고, 보는 사람에 따라 갈릴 것이 아니다(`D23` 「어느 쪽을 언제 쓰나」).
                 contractDocumentsOf(order.orderId()),
-                VisibleFieldGroups.of(decision, OrderFields.values()));
+                VisibleFieldGroups.of(decision, OrderFields.values(), OrderPersonalFields.values()));
     }
 
     /**
