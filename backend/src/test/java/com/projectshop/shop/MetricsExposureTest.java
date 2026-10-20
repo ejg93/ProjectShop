@@ -89,6 +89,7 @@ class MetricsExposureTest extends HttpTestBase {
                 .contains("shop_batch_run_finished_total")
                 .contains("shop_permission_decide_seconds")
                 .contains("shop_refund_overdue")
+                .contains("shop_audit_log_flagged")
                 // 오류율의 축(청크 62). **이름이 갈리면 대시보드가 조용히 빈다** —
                 // 패널이 빈 것과 오류가 0인 것이 화면에서 같아 보여서 그것을 여기서 막는다.
                 .contains("shop_error_raised_total");

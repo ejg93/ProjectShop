@@ -238,6 +238,10 @@ log.info("주문 생성 order_id={}", order.id()); // 필요한 필드만 고른
 이미 세는 자리가 있으면 그 값을 적어 두고 Gauge 는 읽기만 한다 —
 `RefundSweeper.reportOverdue` 가 회차마다 세는 값을 `AtomicLong` 에 넣는 것이 그 꼴이다.
 
+**드물게 채워지는 Gauge 는 기동 때 마지막 회차 값으로 채운다**(`Q284`). 월 1회 배치는 재기동 뒤 다음 달 1일까지 0 으로 읽혀서
+「없다」가 거짓으로 나간다 — `AuditLogReviewBatch.restoreFlagged` 가 `batch_run` 의 마지막 성공 회차(`BatchRuns.lastSucceeded`)로 채운다.
+5분 주기(`RefundSweeper`)는 2분 뒤 다시 차서 안 한다.
+
 ### 로컬에서 보는 법
 
 `docker compose --profile observe up -d` 뒤 `bash scripts/load-test.sh` 로 트래픽을 넣고 Grafana(http://localhost:3001, 익명 보기)를 본다(`63`).

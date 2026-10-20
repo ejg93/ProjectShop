@@ -234,6 +234,26 @@ public class BatchRuns {
                 .optional();
     }
 
+    /**
+     * 기준일 없이 그 배치의 마지막 성공 회차. 드물게 도는 배치의 Gauge 를 기동 때 채우는 자리가 쓴다(`Q284`).
+     *
+     * <p>기준일이 늦은 것이 마지막이다 — 재시도가 지난 기준일을 나중에 채워도 그 회차가 「지난 달」이 되지는 않는다.
+     */
+    public Optional<Run> lastSucceeded(String batchName) {
+        return jdbc.sql("""
+                        select batch_run_id, batch_name, baseline_date, status, target_count, processed_count
+                          from batch_run
+                         where batch_name = :name and status = 'succeeded'
+                         order by baseline_date desc, batch_run_id desc
+                         limit 1
+                        """)
+                .param("name", batchName)
+                .query((rs, n) -> new Run(rs.getLong("batch_run_id"), rs.getString("batch_name"),
+                        rs.getObject("baseline_date", LocalDate.class), rs.getString("status"),
+                        (Integer) rs.getObject("target_count"), (Integer) rs.getObject("processed_count")))
+                .optional();
+    }
+
     /** 그 배치가 그 기준일에 성공한 회차를 남겼나 */
     public boolean succeeded(String batchName, LocalDate baselineDate) {
         return alreadySucceeded(batchName, baselineDate);
