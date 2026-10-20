@@ -1,6 +1,7 @@
 package com.projectshop.shop.auth;
 
 import com.projectshop.shop.order.OrderFields;
+import com.projectshop.shop.order.OrderPersonalFields;
 import static com.projectshop.shop.auth.PermissionEvaluator.evaluate;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -189,7 +190,7 @@ class PermissionRuleEvaluationTest {
             Decision decision = evaluate(rules, Set.of(ALPHA), ME, Target.of(ME, ALPHA));
 
             assertThat(decision.fieldRestricted()).isFalse();
-            assertThat(decision.canSee(OrderFields.PAYMENT)).isTrue();
+            assertThat(decision.visibleFieldGroups().covers(OrderPersonalFields.PAYMENT.code())).isTrue();
         }
 
         @Test

@@ -28,10 +28,13 @@ class PersonalDataViewTest {
     private static final Path MAIN = Path.of("src/main/java");
 
     private static final Pattern OPENS_PERSONAL = Pattern.compile(
-            "canSee\\((OrderFields\\.(SHIPPING|PAYMENT)|UserFields\\.(BIRTH|CONTACT)|InquiryFields\\.BODY)\\)"
-                    + "|PersonalDataGroups\\.opened\\(");
+            "(canSee|opened)\\((OrderPersonalFields\\.(SHIPPING|PAYMENT)|UserPersonalFields\\.(BIRTH|CONTACT)"
+                    + "|InquiryFields\\.BODY)\\)");
 
-    private static final Pattern RECORDS_VIEW = Pattern.compile("auditLog\\.personalData(Viewed|Listed)\\(");
+    private static final Pattern RECORDS_VIEW = Pattern.compile("auditLog\\.(personalData(Viewed|Listed)|open)\\(");
+
+    /** 판정의 그룹 목록을 직접 묻는 자리. record 칸이 공개라 컴파일로 못 막는다(`Q282a`) */
+    private static final Pattern ASKS_GROUPS_DIRECTLY = Pattern.compile("visibleFieldGroups\\(\\)\\.covers\\(");
 
     @Test
     @DisplayName("개인정보 그룹을 여는 클래스는 열람 기록을 부른다")
@@ -54,6 +57,23 @@ class PersonalDataViewTest {
         assertThat(silent)
                 .as("남의 개인정보를 열고 열람 기록을 안 남기는 클래스 — AuditLog.personalDataViewed·personalDataListed 를 부른다")
                 .isEmpty();
+    }
+
+    /**
+     * 개인정보 그룹은 타입을 갈라서 {@code canSee} 로 못 묻는다(`Q282a`). 남은 우회 길은 판정의 그룹 목록을 코드 문자열로
+     * 직접 묻는 것이다 — {@code Decision} 이 record 라 그 칸이 공개고 컴파일이 막지 못한다. 그래서 그렇게 묻는 main 클래스가
+     * 증서 하나인지 잰다.
+     */
+    @Test
+    @DisplayName("판정의 그룹 목록을 직접 묻는 main 클래스는 증서뿐이다")
+    void onlyAccessAsksGroupsDirectly() {
+        List<String> askers = mainSources().filter(path -> ASKS_GROUPS_DIRECTLY.matcher(read(path)).find())
+                .map(PersonalDataViewTest::name)
+                .toList();
+
+        assertThat(askers)
+                .as("기록 없이 개인정보 그룹을 여는 길이다 — AuditLog.open 이 돌려주는 PersonalDataAccess 로 묻는다")
+                .containsExactly("PersonalDataAccess");
     }
 
     private static Stream<Path> mainSources() {

@@ -25,7 +25,7 @@ import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.audit.AuditLog;
-import com.projectshop.shop.audit.PersonalDataGroups;
+import com.projectshop.shop.audit.PersonalDataAccess;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -285,8 +285,8 @@ public class SellerOrderQuery {
         }
 
         // 셀러가 산 사람의 배송지를 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조)
-        auditLog.personalDataViewed(viewerId, row.buyerUserId(), "seller_order", sellerOrderNumber,
-                PersonalDataGroups.opened(decision, OrderFields.SHIPPING));
+        PersonalDataAccess access = auditLog.open(decision, viewerId, row.buyerUserId(), "seller_order",
+                sellerOrderNumber, OrderPersonalFields.SHIPPING);
 
         java.util.Set<Long> memberOf = actions.memberOf(viewerId);
         ReturnRequestQuery.Progress returnRequest = returnRequests.latestOf(row.sellerOrderId())
@@ -313,8 +313,8 @@ public class SellerOrderQuery {
                 itemsOf(row.sellerOrderId()),
                 actions.allowedActions(viewerId, memberOf, row.buyerUserId(), row.sellerId(), row.status(),
                         returnRequest),
-                decision.canSee(OrderFields.SHIPPING) ? shippingOf(row.orderId()) : null,
-                VisibleFieldGroups.of(decision, OrderFields.values()));
+                access.opened(OrderPersonalFields.SHIPPING) ? shippingOf(row.orderId()) : null,
+                VisibleFieldGroups.of(decision, OrderFields.values(), OrderPersonalFields.values()));
     }
 
     private static ShopException notFound(String sellerOrderNumber) {

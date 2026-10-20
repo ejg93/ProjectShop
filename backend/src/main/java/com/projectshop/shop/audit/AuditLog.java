@@ -1,5 +1,6 @@
 package com.projectshop.shop.audit;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -7,6 +8,8 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.auth.ImpersonationToken;
+import com.projectshop.shop.auth.PermissionEvaluator.Decision;
+import com.projectshop.shop.auth.PersonalFieldGroup;
 
 /**
  * 누가 무슨 권한으로 무엇을 했는지 남긴다.
@@ -95,7 +98,7 @@ public class AuditLog {
      * @param number        그 자원의 노출 번호. 계정이면 비어 있다
      * @param openedGroups  이번 응답에 실제로 실은 개인정보 그룹 코드
      */
-    public void personalDataViewed(long viewerId, long subjectUserId, String resource, String number,
+    private void personalDataViewed(long viewerId, long subjectUserId, String resource, String number,
             List<String> openedGroups) {
         if (openedGroups.isEmpty()) {
             return;
@@ -110,6 +113,29 @@ public class AuditLog {
         }
         detail.put("groups", openedGroups);
         record(Kind.OUTCOME, PERSONAL_DATA_VIEWED, viewerId, Target.of("user", subjectUserId), detail);
+    }
+
+    /**
+     * 건 하나의 개인정보 그룹을 열고 열람 증서를 돌려준다(`Q282a`). 증서는 여기서만 만든다 — 그래서 증서를 쥔 코드는
+     * 기록을 이미 남긴 코드다.
+     *
+     * <p>판정이 연 그룹을 세어 {@link #personalDataViewed} 를 부른다. 본인·빈 그룹은 그쪽이 거른다.
+     *
+     * @param decision      응답이 칸을 싣는 그 판정
+     * @param subjectUserId 정보주체
+     * @param resource      어느 자원인가({@code order}·{@code seller_order}·{@code user})
+     * @param number        그 자원의 노출 번호. 계정이면 비어 있다
+     * @param personal      이 응답이 실을 수 있는 개인정보 그룹
+     */
+    public PersonalDataAccess open(Decision decision, long viewerId, long subjectUserId, String resource,
+            String number, PersonalFieldGroup... personal) {
+        PersonalDataAccess access = new PersonalDataAccess(decision);
+        List<String> opened = Arrays.stream(personal)
+                .filter(access::opened)
+                .map(PersonalFieldGroup::code)
+                .toList();
+        personalDataViewed(viewerId, subjectUserId, resource, number, opened);
+        return access;
     }
 
     /**

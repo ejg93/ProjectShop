@@ -12,7 +12,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.account.UserFields;
+import com.projectshop.shop.account.UserPersonalFields;
 import com.projectshop.shop.order.OrderFields;
+import com.projectshop.shop.order.OrderPersonalFields;
 
 /**
  * 필드 그룹 목록이 표와 코드 두 군데에 있다. <b>어긋나는 것을 여기서 잡는다</b>(`D23`).
@@ -35,14 +37,16 @@ class FieldGroupTest extends PostgresTestBase {
     void orderFieldsMatchTable() {
         assertThat(codesIn("order"))
                 .as("코드에만 있으면 그 필드가 조용히 빠지고, 표에만 있으면 아무도 안 묻는다")
-                .containsExactlyInAnyOrderElementsOf(codesOf(OrderFields.values()));
+                .containsExactlyInAnyOrderElementsOf(concat(codesOf(OrderFields.values()),
+                        personalCodesOf(OrderPersonalFields.values())));
     }
 
     @Test
     @DisplayName("사용자 필드 그룹이 표와 같다")
     void userFieldsMatchTable() {
         assertThat(codesIn("user"))
-                .containsExactlyInAnyOrderElementsOf(codesOf(UserFields.values()));
+                .containsExactlyInAnyOrderElementsOf(concat(codesOf(UserFields.values()),
+                        personalCodesOf(UserPersonalFields.values())));
     }
 
     /**
@@ -64,6 +68,15 @@ class FieldGroupTest extends PostgresTestBase {
                 .param("resource", resource)
                 .query(String.class)
                 .list();
+    }
+
+    /** 개인정보 그룹은 {@link FieldGroup} 이 아니라 따로 센다(`Q282a`) — 표에서는 같은 자원의 행이다 */
+    private static List<String> personalCodesOf(PersonalFieldGroup[] values) {
+        return Arrays.stream(values).map(PersonalFieldGroup::code).toList();
+    }
+
+    private static List<String> concat(List<String> first, List<String> second) {
+        return java.util.stream.Stream.concat(first.stream(), second.stream()).toList();
     }
 
     private static List<String> codesOf(FieldGroup[] values) {

@@ -1,6 +1,7 @@
 package com.projectshop.shop.auth;
 
 import com.projectshop.shop.order.OrderFields;
+import com.projectshop.shop.order.OrderPersonalFields;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -58,8 +59,8 @@ class FieldVisibilityTest extends PostgresTestBase {
         Decision decision = evaluator.decide(seller, "order", "read", Target.of(buyer, alpha));
 
         assertThat(decision.allowed()).isTrue();
-        assertThat(decision.canSee(OrderFields.SHIPPING)).isTrue();
-        assertThat(decision.canSee(OrderFields.PAYMENT)).isFalse();
+        assertThat(decision.visibleFieldGroups().covers(OrderPersonalFields.SHIPPING.code())).isTrue();
+        assertThat(decision.visibleFieldGroups().covers(OrderPersonalFields.PAYMENT.code())).isFalse();
     }
 
     @Test
@@ -134,8 +135,8 @@ class FieldVisibilityTest extends PostgresTestBase {
         assertThat(decision.fieldRestricted())
                 .as("연결이 하나라도 붙으면 그것만 보게 된다(`V6`)")
                 .isFalse();
-        assertThat(decision.canSee(OrderFields.SHIPPING)).isTrue();
-        assertThat(decision.canSee(OrderFields.PAYMENT)).isTrue();
+        assertThat(decision.visibleFieldGroups().covers(OrderPersonalFields.SHIPPING.code())).isTrue();
+        assertThat(decision.visibleFieldGroups().covers(OrderPersonalFields.PAYMENT.code())).isTrue();
         assertThat(decision.canSee(OrderFields.REFUND)).isTrue();
     }
 
