@@ -1,0 +1,15 @@
+# gate: 접속기록 고치기 거부 트리거(Q280a, V130)
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.audit.AuditLogTest
+# expect: FAILED com.projectshop.shop.audit.AuditLogTest.Guard 고치면 거부된다
+diff --git a/backend/src/test/java/com/projectshop/shop/audit/AuditLogTest.java b/backend/src/test/java/com/projectshop/shop/audit/AuditLogTest.java
+index 2ab880f..4c72d26 100644
+--- a/backend/src/test/java/com/projectshop/shop/audit/AuditLogTest.java
++++ b/backend/src/test/java/com/projectshop/shop/audit/AuditLogTest.java
+@@ -259,6 +259,7 @@ class AuditLogTest extends PostgresTestBase {
+         @DisplayName("고치면 거부된다")
+         void updateIsRejected() {
+             long id = recordOne();
++            jdbc.sql("drop trigger audit_log_guard on audit_log").update();
+ 
+             assertThatThrownBy(() -> jdbc.sql("update audit_log set detail = '{}'::jsonb where audit_log_id = :id")
+                     .param("id", id)

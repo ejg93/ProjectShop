@@ -567,8 +567,12 @@ public class TransactionPurgeService {
      *
      * <p>매일 도는 개인정보 파기가 아니라 여기 있다. 감사 로그는 양이 많고 급하지 않아서
      * 거래기록과 같은 월 단위로 훑는 편이 낫다.
+     *
+     * <p><b>표시를 켜야 지워진다</b>(`V130`, 안전성 확보조치 기준 제8조③). 같은 트랜잭션에서만 산다 —
+     * {@code purge} 의 트랜잭션이 끝나면 꺼진다.
      */
     private int deleteExpiredAuditLogs(OffsetDateTime createdBefore) {
+        jdbc.sql("select set_config('shop.audit_purge', 'on', true)").query(String.class).single();
         return jdbc.sql("delete from audit_log where created_at < :createdBefore")
                 .param("createdBefore", createdBefore)
                 .update();

@@ -131,7 +131,11 @@ public abstract class PostgresTestBase {
         TransactionTemplate detached = new TransactionTemplate(auditTxManager);
         detached.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         detached.executeWithoutResult(
-                status -> auditCleanup.sql("delete from audit_log").update());
+                status -> {
+                    // 표시 없이는 트리거가 지우기를 막는다(`V130`). 이 트랜잭션에서만 산다.
+                    auditCleanup.sql("select set_config('shop.audit_purge', 'on', true)").query(String.class).single();
+                    auditCleanup.sql("delete from audit_log").update();
+                });
     }
 
     @Autowired

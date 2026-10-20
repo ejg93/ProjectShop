@@ -123,6 +123,8 @@ abstract class HttpTestBase {
             delete("delete from product where seller_id in (%s)".formatted(sellers));
             delete("delete from seller where code like :sellerPrefix");
 
+            // 표시 없이는 트리거가 지우기를 막는다(`V130`). 이 정리 트랜잭션에서만 산다.
+            jdbc.sql("select set_config('shop.audit_purge', 'on', true)").query(String.class).single();
             delete("delete from audit_log where actor_user_id in (%s)".formatted(users));
             delete("delete from app_user where email like :prefix");
         });
