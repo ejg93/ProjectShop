@@ -33,10 +33,11 @@ public final class VisibleFieldGroups {
      * @param decision 이 자원에 대한 판정
      * @param all      그 자원의 필드 그룹 전부. 보통 {@code SomeFields.values()} 다
      * @param personal 그 자원의 개인정보 그룹 전부. 보통 {@code SomePersonalFields.values()} 다(`Q282a`) —
-     *                 같은 표의 행이라 응답에는 한 목록으로 섞어 싣는다
+     *                 같은 표의 행이라 응답에는 한 목록으로 섞어 싣는다. <b>가변 인자가 아니다</b> — 빠뜨리면 컴파일이 안 된다(`Q285`).
+     *                 빠뜨리면 제한 없는 판정의 응답에서 개인정보 그룹이 조용히 빠진다
      * @return 정렬된 그룹 이름. <b>비어 있으면 아무것도 못 본다는 뜻이다</b>
      */
-    public static List<String> of(Decision decision, FieldGroup[] all, PersonalFieldGroup... personal) {
+    public static List<String> of(Decision decision, FieldGroup[] all, PersonalFieldGroup[] personal) {
         if (!decision.allowed()) {
             return List.of();
         }

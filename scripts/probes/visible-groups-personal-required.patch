@@ -1,0 +1,16 @@
+# gate: 응답 목록의 개인정보 배열이 필수다(Q285) — 빠뜨리면 컴파일이 안 된다
+# run: cd backend && ./gradlew compileJava
+# expect: method of in class VisibleFieldGroups cannot be applied to given types
+diff --git a/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java b/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java
+index ce631f6..5efb27d 100644
+--- a/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java
+@@ -422,7 +422,7 @@ public class OrderQuery {
+                 // 필드 그룹에 안 건다. 계약 조건은 사는 사람에게도 파는 사람에게도
+                 // 같은 것이 걸려 있고, 보는 사람에 따라 갈릴 것이 아니다(`D23` 「어느 쪽을 언제 쓰나」).
+                 contractDocumentsOf(order.orderId()),
+-                VisibleFieldGroups.of(decision, OrderFields.values(), OrderPersonalFields.values()));
++                VisibleFieldGroups.of(decision, OrderFields.values()));
+     }
+ 
+     /**
