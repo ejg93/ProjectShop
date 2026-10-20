@@ -1,7 +1,10 @@
 package com.projectshop.shop.audit;
 
 /**
- * 열람 기록이 가리키는 자원(`Q286`). 저장값은 {@code audit_log.detail.resource} 다.
+ * 열람 기록이 가리키는 자원(`Q286`). 저장값은 열람 기록({@code personal_data.viewed})의 {@code audit_log.detail.resource} 다.
+ *
+ * <p><b>그 열쇠를 혼자 쓰지 않는다</b> — 거부 기록({@code permission.denied}, {@code PermissionEvaluator.recordDenial})도
+ * 같은 열쇠에 권한 자원 이름을 넣는다. 사건 종류로 갈리므로 {@code detail.resource} 전체를 이 넷으로 대조하면 틀린다.
  *
  * <p><b>타입이 유일한 강제 지점이다.</b> 값이 {@code detail} jsonb 안이라 {@code check} 를 못 건다(`D23` 「열거값을 어디에 두나」).
  * 그전에는 글자 넷({@code order}·{@code seller_order}·{@code user}·{@code inquiry})이 네 파일에 흩어져 있어서,

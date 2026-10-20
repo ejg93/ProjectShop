@@ -119,7 +119,7 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | 하나라도 제한 없는 규칙이 있음 | 제한이 풀린다 |
 | 거부된 판정 | 어떤 필드도 못 본다 |
 
-**개인정보 그룹은 `PersonalFieldGroup` 이다**(`Q282a`·`Q282b`) — 배송지·결제·연락처·생년월일·문의 본문. `canSee` 가 안 받고, `AuditLog.open`(건 하나)·`openList`(목록)가 기록과 함께 여는 증서로만 묻는다. 표의 행은 그대로라 저장값은 안 바뀐다. 응답 목록(`VisibleFieldGroups.of`)은 두 목록을 다 받아야 컴파일된다(`Q285`).
+**개인정보 그룹은 `PersonalFieldGroup` 이다**(`Q282a`·`Q282b`) — 배송지·결제·연락처·생년월일·문의 본문. `canSee` 가 안 받고, `AuditLog.open`(건 하나)·`openList`(목록)가 기록과 함께 여는 증서로만 묻는다. 표의 행은 그대로라 저장값은 안 바뀐다. 응답 목록(`VisibleFieldGroups.of`)은 개인정보 배열 인자를 빠뜨리면 컴파일이 안 된다(`Q285`) — 빈 배열은 막지 못하고, 개인정보 그룹이 없는 자원은 그 패키지에 빈 배열 상수와 근거를 둔다.
 
 ### 정의된 그룹
 

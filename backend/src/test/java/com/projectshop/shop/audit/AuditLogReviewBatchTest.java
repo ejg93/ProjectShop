@@ -7,6 +7,8 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
@@ -55,6 +57,20 @@ class AuditLogReviewBatchTest extends PostgresTestBase {
         batch.restoreFlagged();
 
         assertThat(flagged()).as("앞 값을 남기지 않는다 — 회차가 없으면 지어낼 값이 없어 0 이다").isZero();
+    }
+
+    /**
+     * 복원이 기동 이벤트에 걸려 있는지 본다(마무리 66차 독립 리뷰). 위 둘은 메서드를 직접 불러서
+     * {@code @EventListener} 를 지워도 초록이다 — 그러면 재기동 뒤 0 이 그대로 돌아온다.
+     */
+    @Test
+    @DisplayName("복원은 기동 이벤트에 걸려 있다")
+    void restoreRunsOnApplicationReady() throws NoSuchMethodException {
+        EventListener listener = AuditLogReviewBatch.class.getDeclaredMethod("restoreFlagged")
+                .getAnnotation(EventListener.class);
+
+        assertThat(listener).as("@EventListener 가 없으면 기동 때 아무도 안 부른다").isNotNull();
+        assertThat(listener.value()).containsExactly(ApplicationReadyEvent.class);
     }
 
     private double flagged() {
