@@ -1,0 +1,17 @@
+# gate: 문의 목록 기록 타입(Q282b) — 쪽을 기록 없이 꺼내면 컴파일이 안 된다
+# run: cd backend && ./gradlew compileJava
+# expect: incompatible types: Unrecorded<Page<Entry>> cannot be converted to Page<Entry>
+diff --git a/backend/src/main/java/com/projectshop/shop/inquiry/InquiryQuery.java b/backend/src/main/java/com/projectshop/shop/inquiry/InquiryQuery.java
+index a133233..b418f72 100644
+--- a/backend/src/main/java/com/projectshop/shop/inquiry/InquiryQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/inquiry/InquiryQuery.java
+@@ -198,8 +198,7 @@ public class InquiryQuery {
+         // 셀러는 거두지 못한다 — 자기 상품에 달린 불리한 질문을 지우는 자리가 된다(`InquiryService.withdraw`)
+         // 산 사람이 쓴 질문은 정보주체의 글이고 셀러는 그것을 처리하는 취급자다 — 쪽마다 기록이 남는다(`Q276`)
+         return find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
+-                Map.of("sellers", sellers.toArray(Long[]::new)), paging, visibility, canAnswer, false)
+-                .record(visibility.access());
++                Map.of("sellers", sellers.toArray(Long[]::new)), paging, visibility, canAnswer, false);
+     }
+ 
+     /**

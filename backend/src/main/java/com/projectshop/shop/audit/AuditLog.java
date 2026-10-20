@@ -139,12 +139,26 @@ public class AuditLog {
     }
 
     /**
+     * 목록 한 쪽의 개인정보 그룹을 여는 증서를 돌려준다(`Q282b`). 기록은 쪽을 꺼낼 때({@link Unrecorded#record}) 남는다 —
+     * 번호는 SQL 을 돈 뒤에야 안다.
+     *
+     * @param decision 응답이 칸을 싣는 그 판정
+     * @param resource 어느 자원인가({@code inquiry})
+     * @param ownOnly  자기 것만 보는 목록이고 대행이 아니다. 그러면 안 남긴다 — 자기 글을 보는 사람은 취급자가 아니다
+     * @param personal 이 목록이 실을 수 있는 개인정보 그룹
+     */
+    public ListAccess openList(Decision decision, long viewerId, String resource, boolean ownOnly,
+            PersonalFieldGroup... personal) {
+        return new ListAccess(decision, this, viewerId, resource, ownOnly, personal);
+    }
+
+    /**
      * 취급자가 남의 개인정보가 섞인 목록 한 쪽을 열람했다(`Q276`). <b>쪽마다 한 줄</b>이다 — 행마다 남기면 한 쪽에
      * 스무 줄이고, 정보주체가 여럿이라 대상은 비우고 번호 목록을 {@code detail} 에 둔다.
      *
      * <p>목록은 남의 것을 훑는 자리라(관리자 전체 목록·셀러가 받은 목록) 본인 판정을 안 한다.
      */
-    public void personalDataListed(long viewerId, String resource, List<String> numbers, List<String> openedGroups) {
+    void personalDataListed(long viewerId, String resource, List<String> numbers, List<String> openedGroups) {
         if (openedGroups.isEmpty() || numbers.isEmpty()) {
             return;
         }

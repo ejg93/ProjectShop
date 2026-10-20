@@ -18,6 +18,8 @@ import com.projectshop.shop.error.ShopException;
 
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.audit.ListAccess;
+import com.projectshop.shop.audit.Unrecorded;
 import com.projectshop.shop.auth.ImpersonationToken;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -157,8 +159,9 @@ public class InquiryQuery {
      * 정보통신망법 제50조의7 은 <b>게시 중단</b>을 요구하지 작성자에게서 감추라고 하지 않는다.
      */
     public Page<Entry> findMine(long viewerId, Paging paging) {
+        // 자기 글은 접속기록이 아니다. **대행 중이면 다르다** — 실제로 본 사람은 시킨 관리자다(`Q276`, `AuditLog.open` 과 같은 규칙)
         Visibility visibility = visibilityFor(viewerId, Target.ownedBy(viewerId),
-                "자기 문의를 볼 권한이 없다");
+                "자기 문의를 볼 권한이 없다", ImpersonationToken.currentImpersonatorId() == null);
 
         // 거두기는 제 권한이다(`Q239`) — 서비스(`InquiryService.withdraw`)와 같은 판정(`withdraw`, `ownedBy`)을 쓴다.
         // 볼 수 있어도 못 거두는 역할(감사자)이 있어서 `read` 판정을 빌리면 안 된다.
@@ -166,9 +169,8 @@ public class InquiryQuery {
         // 마무리 55차 독립 리뷰. `Q204` 가 같은 모양을 고쳤다). 실제 허용은 거두기 입구의 `decide` 가 정한다.
         boolean canWithdraw = evaluator.allowedActions(viewerId, RESOURCE, Set.of(WITHDRAW), Target.ownedBy(viewerId))
                 .contains(WITHDRAW);
-        Page<Entry> page = find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility, false, canWithdraw);
-        // 자기 글은 접속기록이 아니다. **대행 중이면 다르다** — 실제로 본 사람은 시킨 관리자다(`Q276`, `AuditLog.personalDataViewed` 와 같은 규칙)
-        return ImpersonationToken.currentImpersonatorId() == null ? page : viewed(viewerId, page, visibility);
+        return find("i.user_id = :viewerId", Map.of("viewerId", viewerId), paging, visibility, false, canWithdraw)
+                .record(visibility.access());
     }
 
     /**
@@ -187,28 +189,17 @@ public class InquiryQuery {
         // 셀러는 자기 셀러 하나로 물어도 결과가 같다 — 스코프가 seller 라 어느 셀러를 대든
         // 같은 규칙이 걸린다. 필드 목록도 그 규칙에서 나온다.
         Visibility visibility = visibilityFor(viewerId, Target.ofSeller(sellers.iterator().next()),
-                "셀러 문의를 볼 권한이 없다");
+                "셀러 문의를 볼 권한이 없다", false);
 
         boolean canAnswer = evaluator
                 .decide(viewerId, RESOURCE, ANSWER, Target.ofSeller(sellers.iterator().next()))
                 .allowed();
 
         // 셀러는 거두지 못한다 — 자기 상품에 달린 불리한 질문을 지우는 자리가 된다(`InquiryService.withdraw`)
-        return viewed(viewerId, find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
-                Map.of("sellers", sellers.toArray(Long[]::new)), paging, visibility, canAnswer, false), visibility);
-    }
-
-    /**
-     * 남의 문의 본문이 섞인 쪽을 열람했다(`Q276`, 안전성 확보조치 기준 제8조). 쪽마다 한 줄이다.
-     *
-     * <p><b>셀러 목록도 남긴다</b> — 산 사람이 쓴 질문은 정보주체의 글이고 셀러는 그것을 처리하는 취급자다.
-     * 본인 목록({@link #findMine})은 대행 중일 때만 부른다 — 그 밖에는 자기 글이다.
-     */
-    private Page<Entry> viewed(long viewerId, Page<Entry> page, Visibility visibility) {
-        auditLog.personalDataListed(viewerId, "inquiry",
-                page.items().stream().map(Entry::inquiryNumber).toList(),
-                visibility.body() ? List.of(InquiryFields.BODY.code()) : List.of());
-        return page;
+        // 산 사람이 쓴 질문은 정보주체의 글이고 셀러는 그것을 처리하는 취급자다 — 쪽마다 기록이 남는다(`Q276`)
+        return find("coalesce(p.seller_id, so.seller_id) = any(:sellers)",
+                Map.of("sellers", sellers.toArray(Long[]::new)), paging, visibility, canAnswer, false)
+                .record(visibility.access());
     }
 
     /**
@@ -228,12 +219,12 @@ public class InquiryQuery {
      */
     public Page<Entry> findAll(long viewerId, Paging paging) {
         Visibility visibility = visibilityFor(viewerId, Target.of(-1L, -1L),
-                "전체 문의를 볼 권한이 없다");
+                "전체 문의를 볼 권한이 없다", false);
 
         // 조건이 없다. 조건 자리를 비우는 대신 언제나 참인 것을 둬서 `find` 의 모양을 안 바꾼다.
         // 조작은 안 싣는다 — 관리자·감사자가 훑는 자리다(시험 `neverCarriesActionsOnTheAdminListing` 이 계약으로 고정한다).
         // 거두기는 주인의 목록({@link #findMine})이 권한다(`Q234`).
-        return viewed(viewerId, find("true", Map.of(), paging, visibility, false, false), visibility);
+        return find("true", Map.of(), paging, visibility, false, false).record(visibility.access());
     }
 
     /**
@@ -249,7 +240,11 @@ public class InquiryQuery {
      *                  행마다 갈리는 것은 <b>상태</b>뿐이라 아래에서 그것만 본다.
      * @param canWithdraw 이 사람이 이 목록의 문의를 거둘 수 있나(`Q234`). 주인의 목록은 거두기 권한을 버튼 모양으로 묻는다(`Q239`)
      */
-    private Page<Entry> find(String condition, Map<String, Object> params, Paging paging,
+    /**
+     * <b>쪽을 기록 전으로 돌려준다</b>(`Q282b`) — 부르는 쪽은 {@code record(visibility.access())} 로만 꺼낸다.
+     * 문의 목록 SQL 을 도는 자리가 여기 하나라 기록을 빠뜨린 입구는 쪽을 못 얻는다.
+     */
+    private Unrecorded<Page<Entry>> find(String condition, Map<String, Object> params, Paging paging,
             Visibility visibility, boolean canAnswer, boolean canWithdraw) {
         boolean body = visibility.body();
 
@@ -301,7 +296,8 @@ public class InquiryQuery {
                         visibility.groups()))
                 .list();
 
-        return new Page<>(items, paging.page(), paging.size(), counting.query(Long.class).single());
+        return Unrecorded.of(new Page<>(items, paging.page(), paging.size(), counting.query(Long.class).single()),
+                items.stream().map(Entry::inquiryNumber).toList());
     }
 
     /**
@@ -341,17 +337,24 @@ public class InquiryQuery {
      * 답을 못 보는 사람의 응답이 똑같이 {@code "answer": null} 이다.
      * {@code OrderQuery.Detail} 이 이미 {@code NON_NULL} 과 그룹 목록을 짝으로 쓰고 있어 같은 꼴로 맞췄다.
      */
-    private record Visibility(boolean body, List<String> groups) {}
+    private record Visibility(ListAccess access, List<String> groups) {
 
-    private Visibility visibilityFor(long viewerId, Target target, String message) {
+        /** 질문·답변 글을 보나 */
+        boolean body() {
+            return access.opened(InquiryPersonalFields.BODY);
+        }
+    }
+
+    /** @param ownOnly 자기 것만 보는 목록이고 대행이 아니다 — 쪽을 꺼내도 기록이 안 남는다 */
+    private Visibility visibilityFor(long viewerId, Target target, String message, boolean ownOnly) {
         var decision = evaluator.decide(viewerId, RESOURCE, READ, target);
         if (!decision.allowed()) {
             throw new ShopException(ErrorCode.INQUIRY_FORBIDDEN, message);
         }
         // **판정이 필드 목록까지 답한다**(`4d`). 화면이 지우면 API 로는 보이고,
         // 여기서 물으면 **그 규칙이 한 곳**이다 — 감사자가 본문을 못 보는 근거가 `V62` 에 있다.
-        return new Visibility(decision.canSee(InquiryFields.BODY),
-                VisibleFieldGroups.of(decision, InquiryFields.values()));
+        return new Visibility(auditLog.openList(decision, viewerId, RESOURCE, ownOnly, InquiryPersonalFields.BODY),
+                VisibleFieldGroups.of(decision, InquiryFields.values(), InquiryPersonalFields.values()));
     }
 
     /** 소속이면서 조회가 열린 셀러. 소속만으로는 안 되고 판정이 열어 줘야 한다 */

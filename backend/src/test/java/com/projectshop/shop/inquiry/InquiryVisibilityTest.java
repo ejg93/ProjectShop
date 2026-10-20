@@ -559,7 +559,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
             assertThat(decision.allowed())
                     .as("감사자는 문의를 본다 — 가리는 것은 글뿐이다")
                     .isTrue();
-            assertThat(decision.canSee(InquiryFields.BODY))
+            assertThat(decision.visibleFieldGroups().covers(InquiryPersonalFields.BODY.code()))
                     .as("감사는 처리 이력이지 고객이 쓴 글이 아니다(제3조제1항 최소처리)")
                     .isFalse();
             assertThat(decision.canSee(InquiryFields.BASIC))
@@ -1108,10 +1108,10 @@ class InquiryVisibilityTest extends PostgresTestBase {
 
             boolean first = evaluator
                     .decide(sellerOwnerId, "inquiry", "read", PermissionEvaluator.Target.ofSeller(sellerId))
-                    .canSee(InquiryFields.BODY);
+                    .visibleFieldGroups().covers(InquiryPersonalFields.BODY.code());
             boolean other = evaluator
                     .decide(sellerOwnerId, "inquiry", "read", PermissionEvaluator.Target.ofSeller(second))
-                    .canSee(InquiryFields.BODY);
+                    .visibleFieldGroups().covers(InquiryPersonalFields.BODY.code());
 
             assertThat(other)
                     .as("findForSeller 가 셀러 하나만 대 보고 정한다."
