@@ -33,6 +33,7 @@ import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.ActorType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.audit.PersonalDataAccess;
+import com.projectshop.shop.audit.PersonalDataResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -402,7 +403,7 @@ public class OrderQuery {
         }
 
         // 남의 배송지·결제를 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조). 본인은 helper 가 거른다.
-        PersonalDataAccess access = auditLog.open(decision, userId, order.userId(), "order", order.orderNumber(),
+        PersonalDataAccess access = auditLog.open(decision, userId, order.userId(), PersonalDataResource.ORDER, order.orderNumber(),
                 OrderPersonalFields.SHIPPING, OrderPersonalFields.PAYMENT);
 
         return new Detail(

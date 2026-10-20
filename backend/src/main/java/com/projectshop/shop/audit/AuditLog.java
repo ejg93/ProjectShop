@@ -95,11 +95,11 @@ public class AuditLog {
      * 접속지는 {@link AuditLogWriter} 가 요청 문맥에서 채운다(`Q273`).
      *
      * @param subjectUserId 정보주체. 대상({@code target})이 된다
-     * @param resource      어느 자원인가({@code order}·{@code seller_order}·{@code user})
+     * @param resource      어느 자원인가({@link PersonalDataResource})
      * @param number        그 자원의 노출 번호. 계정이면 비어 있다
      * @param openedGroups  이번 응답에 실제로 실은 개인정보 그룹 코드
      */
-    private void personalDataViewed(long viewerId, long subjectUserId, String resource, String number,
+    private void personalDataViewed(long viewerId, long subjectUserId, PersonalDataResource resource, String number,
             List<String> openedGroups) {
         if (openedGroups.isEmpty()) {
             return;
@@ -108,7 +108,7 @@ public class AuditLog {
             return;
         }
         Map<String, Object> detail = new LinkedHashMap<>();
-        detail.put("resource", resource);
+        detail.put("resource", resource.code());
         if (number != null) {
             detail.put("number", number);
         }
@@ -124,11 +124,11 @@ public class AuditLog {
      *
      * @param decision      응답이 칸을 싣는 그 판정
      * @param subjectUserId 정보주체
-     * @param resource      어느 자원인가({@code order}·{@code seller_order}·{@code user})
+     * @param resource      어느 자원인가({@link PersonalDataResource})
      * @param number        그 자원의 노출 번호. 계정이면 비어 있다
      * @param personal      이 응답이 실을 수 있는 개인정보 그룹
      */
-    public PersonalDataAccess open(Decision decision, long viewerId, long subjectUserId, String resource,
+    public PersonalDataAccess open(Decision decision, long viewerId, long subjectUserId, PersonalDataResource resource,
             String number, PersonalFieldGroup... personal) {
         List<String> opened = Arrays.stream(personal)
                 .filter(group -> PersonalDataAccess.allows(decision, group))
@@ -143,13 +143,13 @@ public class AuditLog {
      * 번호는 SQL 을 돈 뒤에야 안다.
      *
      * @param decision 응답이 칸을 싣는 그 판정
-     * @param resource 어느 자원인가({@code inquiry})
+     * @param resource 어느 자원인가({@link PersonalDataResource})
      * @param ownerUserId 목록이 이 사람의 것만 담으면 그 사람. 남의 것이 섞이면 null.
      *                    <b>안 남길지는 여기서 정한다</b> — 주인이 보는 사람 자신이고 대행이 아닐 때만 안 남긴다
      *                    ({@link #personalDataViewed} 의 본인 규칙과 같다, 마무리 65차 독립 리뷰)
      * @param personal 이 목록이 실을 수 있는 개인정보 그룹
      */
-    public ListAccess openList(Decision decision, long viewerId, String resource, Long ownerUserId,
+    public ListAccess openList(Decision decision, long viewerId, PersonalDataResource resource, Long ownerUserId,
             PersonalFieldGroup... personal) {
         boolean ownOnly = ownerUserId != null && ownerUserId == viewerId
                 && ImpersonationToken.currentImpersonatorId() == null;
@@ -162,12 +162,12 @@ public class AuditLog {
      *
      * <p>목록은 남의 것을 훑는 자리라(관리자 전체 목록·셀러가 받은 목록) 본인 판정을 안 한다.
      */
-    void personalDataListed(long viewerId, String resource, List<String> numbers, List<String> openedGroups) {
+    void personalDataListed(long viewerId, PersonalDataResource resource, List<String> numbers, List<String> openedGroups) {
         if (openedGroups.isEmpty() || numbers.isEmpty()) {
             return;
         }
         record(Kind.OUTCOME, PERSONAL_DATA_VIEWED, viewerId, Target.none(),
-                Map.of("resource", resource, "numbers", numbers, "groups", openedGroups));
+                Map.of("resource", resource.code(), "numbers", numbers, "groups", openedGroups));
     }
 
     /** 무엇에 대한 사건인가. 자원이 없는 사건도 있어서 둘 다 null 인 경우를 허용한다 */

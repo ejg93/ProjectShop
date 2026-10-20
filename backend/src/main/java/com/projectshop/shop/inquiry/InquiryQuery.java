@@ -19,6 +19,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.audit.ListAccess;
+import com.projectshop.shop.audit.PersonalDataResource;
 import com.projectshop.shop.audit.Unrecorded;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -349,7 +350,7 @@ public class InquiryQuery {
         }
         // **판정이 필드 목록까지 답한다**(`4d`). 화면이 지우면 API 로는 보이고,
         // 여기서 물으면 **그 규칙이 한 곳**이다 — 감사자가 본문을 못 보는 근거가 `V62` 에 있다.
-        return new Visibility(auditLog.openList(decision, viewerId, RESOURCE, ownerUserId, InquiryPersonalFields.BODY),
+        return new Visibility(auditLog.openList(decision, viewerId, PersonalDataResource.INQUIRY, ownerUserId, InquiryPersonalFields.BODY),
                 VisibleFieldGroups.of(decision, InquiryFields.values(), InquiryPersonalFields.values()));
     }
 
