@@ -1,0 +1,16 @@
+# gate: 접속기록 점검 지표 복원(Q284) — 기동 때 채우지 않으면 재기동 뒤 0 으로 읽힌다
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.audit.AuditLogReviewBatchTest
+# expect: FAILED com.projectshop.shop.audit.AuditLogReviewBatchTest 기동 때 마지막 성공 회차의 표시 수로 채운다
+diff --git a/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java b/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java
+index d462f9d..0146670 100644
+--- a/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java
++++ b/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java
+@@ -70,7 +70,7 @@ public class AuditLogReviewBatch implements RetryableBatch {
+     @EventListener(ApplicationReadyEvent.class)
+     void restoreFlagged() {
+         try {
+-            flaggedCount.set(runs.lastSucceeded(BATCH_NAME).map(BatchRuns.Run::processedCount).orElse(0));
++            runs.lastSucceeded(BATCH_NAME);
+             log.info("접속기록 점검 지표 복원 표시={}명", flaggedCount.get());
+         } catch (DataAccessException e) {
+             log.warn("접속기록 점검 지표를 복원하지 못했다 — 다음 회차까지 앞 값이다", e);

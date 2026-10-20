@@ -33,10 +33,12 @@ public final class VisibleFieldGroups {
      * @param decision 이 자원에 대한 판정
      * @param all      그 자원의 필드 그룹 전부. 보통 {@code SomeFields.values()} 다
      * @param personal 그 자원의 개인정보 그룹 전부. 보통 {@code SomePersonalFields.values()} 다(`Q282a`) —
-     *                 같은 표의 행이라 응답에는 한 목록으로 섞어 싣는다
+     *                 같은 표의 행이라 응답에는 한 목록으로 섞어 싣는다. <b>가변 인자가 아니다</b> — 인자를 빠뜨리면 컴파일이 안 된다(`Q285`).
+     *                 빈 배열·일부만 담은 배열은 컴파일이 막지 못한다. 개인정보 그룹이 없는 자원은 호출 자리에서
+     *                 {@code new PersonalFieldGroup[0]} 를 쓰지 않고 그 자원 패키지에 빈 배열 상수와 근거 주석을 둔다
      * @return 정렬된 그룹 이름. <b>비어 있으면 아무것도 못 본다는 뜻이다</b>
      */
-    public static List<String> of(Decision decision, FieldGroup[] all, PersonalFieldGroup... personal) {
+    public static List<String> of(Decision decision, FieldGroup[] all, PersonalFieldGroup[] personal) {
         if (!decision.allowed()) {
             return List.of();
         }

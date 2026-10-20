@@ -1,0 +1,16 @@
+# gate: 열람 기록 자원 이름 타입(Q286) — 문자열을 넣으면 컴파일이 안 된다
+# run: cd backend && ./gradlew compileJava
+# expect: incompatible types: String cannot be converted to PersonalDataResource
+diff --git a/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java b/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java
+index 4f0e8ab..6d3eadc 100644
+--- a/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/order/OrderQuery.java
+@@ -403,7 +403,7 @@ public class OrderQuery {
+         }
+ 
+         // 남의 배송지·결제를 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조). 본인은 helper 가 거른다.
+-        PersonalDataAccess access = auditLog.open(decision, userId, order.userId(), PersonalDataResource.ORDER, order.orderNumber(),
++        PersonalDataAccess access = auditLog.open(decision, userId, order.userId(), "order", order.orderNumber(),
+                 OrderPersonalFields.SHIPPING, OrderPersonalFields.PAYMENT);
+ 
+         return new Detail(

@@ -21,12 +21,12 @@ public final class ListAccess {
     private final Decision decision;
     private final AuditLog auditLog;
     private final long viewerId;
-    private final String resource;
+    private final PersonalDataResource resource;
     private final boolean recordsView;
     private final Set<PersonalFieldGroup> recorded;
     private final List<String> openedGroups;
 
-    ListAccess(Decision decision, AuditLog auditLog, long viewerId, String resource, boolean recordsView,
+    ListAccess(Decision decision, AuditLog auditLog, long viewerId, PersonalDataResource resource, boolean recordsView,
             Set<PersonalFieldGroup> recorded) {
         this.decision = decision;
         this.auditLog = auditLog;

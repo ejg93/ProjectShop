@@ -26,6 +26,7 @@ import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.audit.PersonalDataAccess;
+import com.projectshop.shop.audit.PersonalDataResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -285,7 +286,7 @@ public class SellerOrderQuery {
         }
 
         // 셀러가 산 사람의 배송지를 열면 접속기록이다(`Q276`, 안전성 확보조치 기준 제8조)
-        PersonalDataAccess access = auditLog.open(decision, viewerId, row.buyerUserId(), "seller_order",
+        PersonalDataAccess access = auditLog.open(decision, viewerId, row.buyerUserId(), PersonalDataResource.SELLER_ORDER,
                 sellerOrderNumber, OrderPersonalFields.SHIPPING);
 
         java.util.Set<Long> memberOf = actions.memberOf(viewerId);

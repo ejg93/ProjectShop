@@ -82,6 +82,7 @@ class EnumConstraintTest extends PostgresTestBase {
             Map.entry("account.UserPersonalFields", "〃 — 개인정보 그룹이라 타입만 갈랐다(`Q282a`)"),
             Map.entry("order.OrderPersonalFields", "〃 — 개인정보 그룹이라 타입만 갈랐다(`Q282a`)"),
             Map.entry("inquiry.InquiryPersonalFields", "`permission_field_group` 의 행이다. 개인정보 그룹이라 타입만 갈랐다(`Q282b`) — `InquiryFieldGroupTest` 가 대조한다"),
+            Map.entry("audit.PersonalDataResource", "열람 기록 `detail.resource` 의 자원 이름이다. jsonb 안이라 `check` 가 없다 — 타입이 유일한 강제 지점(`Q286`)"),
             Map.entry("audit.AuditLog$Kind", "커밋 방식을 가르는 구분이다. 저장 안 한다 — `audit_log` 에 그 열이 없다"),
             Map.entry("notification.AdvertisingGate$Verdict", "발송 판정의 결과다. 안 보낸 이유는 저장 안 하고 로그로 간다"),
             Map.entry("order.OrderActionService$Action", "닫힌 목록이 `permission` 표의 행이지 `check` 가 아니다. `ActionPermissionTest` 가 대조한다(`43a-21`)"),

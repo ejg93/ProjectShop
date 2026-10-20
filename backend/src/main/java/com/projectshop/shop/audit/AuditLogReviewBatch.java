@@ -7,6 +7,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -36,7 +39,7 @@ public class AuditLogReviewBatch implements RetryableBatch {
 
     /**
      * 마지막 회차가 표시한 열람자 수. Gauge 는 이 값을 읽기만 한다 — 물을 때마다 세면 지표를 긁는 쪽이 부하가 된다
-     * ({@code RefundSweeper} 와 같다).
+     * ({@code RefundSweeper} 와 같다). 다만 기동 때 마지막 회차로 채운다({@link #restoreFlagged}).
      */
     private final AtomicLong flaggedCount = new AtomicLong();
 
@@ -49,6 +52,29 @@ public class AuditLogReviewBatch implements RetryableBatch {
         Gauge.builder("shop.audit_log.flagged", flaggedCount, AtomicLong::doubleValue)
                 .description("지난 접속기록 점검이 표시한 열람자 수. 한 달에 서로 다른 정보주체를 임계 이상 열었다")
                 .register(meters);
+    }
+
+    /**
+     * 기동 때 마지막 성공 회차의 표시 수로 지표를 채운다(`Q284`).
+     *
+     * <p><b>왜</b>: 월 1회라 재기동 뒤 다음 달 1일 05:30 까지 0 으로 읽힌다 — 배포마다 「표시 없음」이 거짓으로 나간다
+     * (`D16`, 마무리 65차 독립 리뷰). 표시 수는 그 회차의 {@code batch_run.processed_count} 다.
+     * {@code RefundSweeper} 는 5분 주기라 2분 뒤 다시 차서 안 한다.
+     *
+     * <p><b>회차가 끝난 뒤에도 같은 자리에서 다시 읽는다</b>({@link #review(LocalDate)}) — 지난 기준일을 손으로 다시 돌려도
+     * 지표는 기준일이 늦은 회차를 말한다. 재기동 앞뒤로 같은 뜻이다(마무리 66차 독립 리뷰).
+     *
+     * <p><b>기동은 안 막는다</b> — 지표 하나 때문에 쇼핑몰이 안 뜨면 안 된다. DB 를 못 읽으면 {@code WARN} 만 남기고
+     * 앞 값을 둔다({@code SearchLocaleCheck} 와 같은 판단).
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    void restoreFlagged() {
+        try {
+            flaggedCount.set(runs.lastSucceeded(BATCH_NAME).map(BatchRuns.Run::processedCount).orElse(0));
+            log.info("접속기록 점검 지표 복원 표시={}명", flaggedCount.get());
+        } catch (DataAccessException e) {
+            log.warn("접속기록 점검 지표를 복원하지 못했다 — 다음 회차까지 앞 값이다", e);
+        }
     }
 
     /**
@@ -68,14 +94,16 @@ public class AuditLogReviewBatch implements RetryableBatch {
      * @return 표시한 열람자 수. 이미 성공했거나 실패했으면 빈 값
      */
     public Optional<BatchRuns.Counts> review(LocalDate baselineDate) {
-        return runs.record(BATCH_NAME, baselineDate, () -> {
+        Optional<BatchRuns.Counts> counts = runs.record(BATCH_NAME, baselineDate, () -> {
             List<AuditLogReviewService.ViewerCount> flagged =
                     reviews.review(baselineDate.withDayOfMonth(1), baselineDate.plusDays(1));
-            flaggedCount.set(flagged.size());
 
             log.info("접속기록 점검 배치 끝 기준일={} 표시={}명", baselineDate, flagged.size());
             return BatchRuns.Counts.of(flagged.size());
         });
+        // 회차 줄이 쓰인 뒤라 기동 때와 같은 자리에서 읽는다 — 지표가 「기준일이 늦은 회차」 하나만 뜻한다
+        restoreFlagged();
+        return counts;
     }
 
     @Override

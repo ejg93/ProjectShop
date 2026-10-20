@@ -20,6 +20,7 @@ import com.projectshop.shop.auth.PasswordPolicy;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.audit.PersonalDataAccess;
+import com.projectshop.shop.audit.PersonalDataResource;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -97,7 +98,7 @@ public class AccountService {
                 .single();
 
         // 자기 계정만 읽는 입구라 남이 보는 길은 대행뿐이다 — helper 가 대행 중일 때만 남긴다(`Q276`)
-        PersonalDataAccess access = auditLog.open(decision, userId, userId, "user", null,
+        PersonalDataAccess access = auditLog.open(decision, userId, userId, PersonalDataResource.USER, null,
                 UserPersonalFields.BIRTH, UserPersonalFields.CONTACT);
 
         return new Account(

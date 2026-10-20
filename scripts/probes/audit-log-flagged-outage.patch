@@ -1,0 +1,15 @@
+# gate: 점검 지표 복원이 기동을 안 막는다(Q284, PR #106 리뷰)
+# run: cd backend && ./gradlew test --tests com.projectshop.shop.audit.AuditLogReviewBatchStartupTest
+# expect: FAILED com.projectshop.shop.audit.AuditLogReviewBatchStartupTest DB 를 못 읽어도 복원이 기동을 안 막는다
+diff --git a/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java b/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java
+index d462f9d..244fc0e 100644
+--- a/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java
++++ b/backend/src/main/java/com/projectshop/shop/audit/AuditLogReviewBatch.java
+@@ -74,6 +74,7 @@ public class AuditLogReviewBatch implements RetryableBatch {
+             log.info("접속기록 점검 지표 복원 표시={}명", flaggedCount.get());
+         } catch (DataAccessException e) {
+             log.warn("접속기록 점검 지표를 복원하지 못했다 — 다음 회차까지 앞 값이다", e);
++            throw e;
+         }
+     }
+ 
