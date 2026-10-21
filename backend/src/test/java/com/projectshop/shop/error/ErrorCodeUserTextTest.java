@@ -21,12 +21,6 @@ import org.junit.jupiter.api.Test;
 class ErrorCodeUserTextTest {
 
     /**
-     * 존댓말 어미로 끝난다. 문장 끝의 마침표까지 본다 — {@code 니다} 는 「입니다」「아닙니다」「습니다」를
-     * 다 받는다(`screen-text` 시험과 같은 기준).
-     */
-    private static final Pattern HONORIFIC_END = Pattern.compile("(니다|세요|십시오)\\.$");
-
-    /**
      * 문구가 반드시 있어야 하는 코드. 화면 열둘(`Q228` 이 셌다)이 닿는 서비스 코드 21 과 어느 화면에나
      * 닿는 공통 13 이다(`Q233`, `Q260` 이 503 을 더했다). <b>새 화면이 새 코드에 닿으면 여기와 {@link ErrorCode} 에 같이 더한다.</b>
      */
@@ -52,6 +46,12 @@ class ErrorCodeUserTextTest {
             ErrorCode.METHOD_NOT_ALLOWED, ErrorCode.INTERNAL, ErrorCode.ACCOUNT_INACTIVE,
             ErrorCode.IMPERSONATION_READ_ONLY, ErrorCode.IMPERSONATION_REVOKED,
             ErrorCode.SESSION_SUPERSEDED, ErrorCode.SERVICE_UNAVAILABLE));
+
+    /**
+     * 존댓말 어미로 끝난다. 문장 끝의 마침표까지 본다 — {@code 니다} 는 「입니다」「아닙니다」「습니다」를
+     * 다 받는다(`screen-text` 시험과 같은 기준).
+     */
+    private static final Pattern HONORIFIC_END = Pattern.compile("(니다|세요|십시오)\\.$");
 
     @Test
     @DisplayName("목록의 코드는 공통 문구가 아니라 제 문구를 든다")

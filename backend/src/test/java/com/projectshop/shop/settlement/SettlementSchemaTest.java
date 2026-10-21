@@ -36,6 +36,8 @@ class SettlementSchemaTest extends PostgresTestBase {
     private static final int COMMISSION_BP = 1000;
     private static final long COMMISSION = PRICE * COMMISSION_BP / 10_000;
 
+    private static int numbers = 1;
+
     @Autowired
     private JdbcClient jdbc;
 
@@ -508,8 +510,6 @@ class SettlementSchemaTest extends PostgresTestBase {
         }
         return "T-20260801-" + tail;
     }
-
-    private static int numbers = 1;
 
     /** 줄까지 갖춘 정산서. 다음 정산서가 이월의 출처로 쓴다 */
     private long aCompleteSettlement(long cycle, long payout) {

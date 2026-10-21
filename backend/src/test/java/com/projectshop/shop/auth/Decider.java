@@ -32,9 +32,6 @@ interface Decider {
     String RESOURCE = "matrix";
     String ACTION = "check";
 
-    Decision decide(List<Rule> rules, Set<Long> memberOf, long userId, Target target,
-            Allowed<String> openStatuses);
-
     /** 운영 판정기({@code PermissionEvaluator.evaluate}) */
     Decider EVALUATOR = new Decider() {
 
@@ -125,5 +122,8 @@ interface Decider {
             return "ManagedAuthorizationManager";
         }
     };
+
+    Decision decide(List<Rule> rules, Set<Long> memberOf, long userId, Target target,
+            Allowed<String> openStatuses);
 
 }

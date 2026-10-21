@@ -35,6 +35,8 @@ import com.projectshop.shop.order.TransactionPurgeService;
 @DisplayName("문의 스키마")
 class InquirySchemaTest extends PostgresTestBase {
 
+    private static int NUMBERS = 1;
+
     @Autowired
     private JdbcClient jdbc;
 
@@ -301,8 +303,6 @@ class InquirySchemaTest extends PostgresTestBase {
         }
         return "Q-20260823-" + tail;
     }
-
-    private static int NUMBERS = 1;
 
     private long insertProduct(long sellerId) {
         return jdbc.sql("""

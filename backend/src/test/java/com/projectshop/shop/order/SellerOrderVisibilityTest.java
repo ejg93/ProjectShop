@@ -140,6 +140,29 @@ class SellerOrderVisibilityTest extends PostgresTestBase {
     @DisplayName("뷰와 표의 컬럼")
     class ViewColumns {
 
+        /**
+         * 일부러 안 내보내는 뷰 컬럼. <b>왜 뺐는지가 여기 근거다.</b>
+         *
+         * <p>비우면 위 테스트가 "전부 실어라" 가 되고, 그러면 내부 식별자가 밖으로 나간다.
+         */
+        private static final List<String> NOT_IN_CONTRACT = List.of(
+                // 내부 식별자. 밖으로는 노출 번호만 나간다(`D9`).
+                "seller_order_id", "order_id",
+
+                // 보는 사람이 그 셀러라 자명하다. 여러 셀러에 속한 사람은 목록을 셀러로 거른다.
+                "seller_id",
+
+                // 기한을 계산할 때 쓴 입력이다. 결과인 ship_due_at 이 이미 나가고,
+                // 약정이 있었는지는 사는 사람 화면의 물음이다(`14c`).
+                "supply_lead_days", "agreed_lead_days",
+
+                // 거래가 끝난 시각. 셀러 화면이 묻는 것은 「지금 무엇을 하나」라 상태로 갈음된다.
+                // 정산 축(`D10`)이 이 값을 쓰기 시작하면 그때 계약에 올린다.
+                "closed_at",
+
+                // 행을 마지막으로 건드린 시각. 도메인 사건이 아니라 기록이다.
+                "updated_at");
+
         @Test
         @DisplayName("표에 있는 컬럼이 뷰에도 다 있다")
         void viewCarriesEveryColumn() {
@@ -189,29 +212,6 @@ class SellerOrderVisibilityTest extends PostgresTestBase {
         private String fieldNameOf(String column) {
             return column.startsWith("is_") ? column.substring("is_".length()) : column;
         }
-
-        /**
-         * 일부러 안 내보내는 뷰 컬럼. <b>왜 뺐는지가 여기 근거다.</b>
-         *
-         * <p>비우면 위 테스트가 "전부 실어라" 가 되고, 그러면 내부 식별자가 밖으로 나간다.
-         */
-        private static final List<String> NOT_IN_CONTRACT = List.of(
-                // 내부 식별자. 밖으로는 노출 번호만 나간다(`D9`).
-                "seller_order_id", "order_id",
-
-                // 보는 사람이 그 셀러라 자명하다. 여러 셀러에 속한 사람은 목록을 셀러로 거른다.
-                "seller_id",
-
-                // 기한을 계산할 때 쓴 입력이다. 결과인 ship_due_at 이 이미 나가고,
-                // 약정이 있었는지는 사는 사람 화면의 물음이다(`14c`).
-                "supply_lead_days", "agreed_lead_days",
-
-                // 거래가 끝난 시각. 셀러 화면이 묻는 것은 「지금 무엇을 하나」라 상태로 갈음된다.
-                // 정산 축(`D10`)이 이 값을 쓰기 시작하면 그때 계약에 올린다.
-                "closed_at",
-
-                // 행을 마지막으로 건드린 시각. 도메인 사건이 아니라 기록이다.
-                "updated_at");
 
         /** {@code shipDueAt} → {@code ship_due_at}. 이름이 바뀌는 자리는 여기 하나뿐이다(`D22`) */
         private String snakeCase(String camel) {

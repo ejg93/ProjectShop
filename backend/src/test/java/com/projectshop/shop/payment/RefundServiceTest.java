@@ -51,6 +51,8 @@ class RefundServiceTest extends PostgresTestBase {
 
     private static final String GOOD_CARD = "4242-4242-4242-4242";
 
+    private static final AtomicInteger FORCED_SEQUENCE = new AtomicInteger();
+
     @Autowired
     private RefundService refunds;
 
@@ -515,8 +517,6 @@ class RefundServiceTest extends PostgresTestBase {
         return "R-20260101-" + "%06d".formatted(FORCED_SEQUENCE.incrementAndGet())
                 .replace('0', 'A').replace('1', 'B');
     }
-
-    private static final AtomicInteger FORCED_SEQUENCE = new AtomicInteger();
 
     /** 밀려 있던 지연 검사를 이 자리에서 돌린다. 커밋을 안 하는 테스트가 트리거를 보는 유일한 방법이다 */
     private void flush() {

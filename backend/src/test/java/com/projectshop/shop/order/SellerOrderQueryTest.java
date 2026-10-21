@@ -76,6 +76,8 @@ class SellerOrderQueryTest extends PostgresTestBase {
     @DisplayName("목록")
     class ListMine {
 
+        private boolean filled;
+
         @Test
         @DisplayName("내 셀러로 넘어온 것만 나온다")
         void onlyMySeller() {
@@ -214,8 +216,6 @@ class SellerOrderQueryTest extends PostgresTestBase {
                     .query(String.class)
                     .list());
         }
-
-        private boolean filled;
 
         @Test
         @DisplayName("주문 권한이 없으면 거부다")
