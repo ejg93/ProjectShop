@@ -19,13 +19,13 @@ import tools.jackson.databind.node.ObjectNode;
  */
 public final class EventEnvelope {
 
+    /** {@code data} 에서 열거값인 칸. 트리거가 만드는 칸 목록에서 셌다({@code V76}) */
+    static final Set<String> ENUM_KEYS = Set.of("from_status", "to_status", "actor_type", "status", "reason_code");
+
     /** 봉투의 {@code time} 은 UTC `Z` 다({@code D10}, {@code event-catalog.md} 「봉투」) */
     private static final DateTimeFormatter TIME = DateTimeFormatter.ISO_INSTANT;
     private static final String SPEC_VERSION = "1.0";
     private static final String DATA_CONTENT_TYPE = "application/json";
-
-    /** {@code data} 에서 열거값인 칸. 트리거가 만드는 칸 목록에서 셌다({@code V76}) */
-    static final Set<String> ENUM_KEYS = Set.of("from_status", "to_status", "actor_type", "status", "reason_code");
 
     private EventEnvelope() {
     }

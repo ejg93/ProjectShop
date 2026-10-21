@@ -28,6 +28,8 @@ import com.projectshop.shop.product.ProductService;
 @DisplayName("장바구니")
 class CartServiceTest extends PostgresTestBase {
 
+    private static final String TOKEN = "guest-token-1";
+
     @Autowired
     private CartService cartService;
 
@@ -43,8 +45,6 @@ class CartServiceTest extends PostgresTestBase {
     private long buyer;
     private long skuA;
     private long skuB;
-
-    private static final String TOKEN = "guest-token-1";
 
     @BeforeEach
     void setUp() {

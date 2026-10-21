@@ -64,14 +64,6 @@ public class AccountPurgeService {
      */
     private static final int CONSENT_RETENTION_YEARS = 3;
 
-    private final JdbcClient jdbc;
-    private final AuditLog auditLog;
-
-    AccountPurgeService(JdbcClient jdbc, AuditLog auditLog) {
-        this.jdbc = jdbc;
-        this.auditLog = auditLog;
-    }
-
     /**
      * 방치된 비로그인 장바구니를 지우기까지(`D13`).
      *
@@ -91,6 +83,14 @@ public class AccountPurgeService {
      * 지나면 아무도 조회하지 않는 행이다.
      */
     private static final int IDEMPOTENCY_KEY_HOURS = 24;
+
+    private final JdbcClient jdbc;
+    private final AuditLog auditLog;
+
+    AccountPurgeService(JdbcClient jdbc, AuditLog auditLog) {
+        this.jdbc = jdbc;
+        this.auditLog = auditLog;
+    }
 
     /**
      * 파기한 것의 수. 배치가 무엇을 했는지 로그와 테스트가 같은 값으로 본다.

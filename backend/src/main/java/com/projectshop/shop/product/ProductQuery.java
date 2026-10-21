@@ -56,6 +56,33 @@ public class ProductQuery {
             "created_at", "p.created_at",
             "name", "p.name");
 
+    /**
+     * 무엇을 내나. 최저가는 살 수 있는 SKU 에서만 센다.
+     *
+     * <p><b>최저가를 조인과 집계가 아니라 줄마다의 부분질의로 붙인다</b>(`Q243b`). 조인해서 {@code min} 으로 묶으면
+     * 집계가 정렬보다 앞이라 상품 전부를 잇고 묶은 뒤에야 20개를 고르고, 정렬 인덱스를 쓸 수 없다
+     * (로컬 10만 건 34ms). 부분질의면 정렬과 {@code limit} 이 먼저 서고 남은 20 줄에만 돈다(0.3ms).
+     */
+    static final String PUBLIC_SELECT = """
+            select p.product_id, p.seller_id, s.name as seller_name, p.name,
+                   coalesce((select min(sk.price_incl_vat) from sku sk
+                              where sk.product_id = p.product_id
+                                and sk.deleted_at is null
+                                and sk.status = 'on_sale'), 0) as min_price_incl_vat,
+                   s.default_shipping_fee, p.created_at,
+                   (select i.thumbnail_key from product_image i
+                     where i.product_id = p.product_id
+                     order by i.sort_no, i.product_image_id limit 1) as thumbnail_key
+              from product p
+              join seller s on s.seller_id = p.seller_id
+            """;
+
+    /**
+     * 누구에게나 같은 조건 둘 — 파는 중이고({@code on_sale}) 살아 있다.
+     * <b>부분 인덱스({@code V125})의 조건과 글자까지 같다</b> — 다르면 그 인덱스를 못 탄다.
+     */
+    static final String PUBLIC_WHERE = " where p.status = 'on_sale' and p.deleted_at is null";
+
     private static final String DEFAULT_SORT = "created_at,desc";
 
     private final JdbcClient jdbc;
@@ -181,33 +208,6 @@ public class ProductQuery {
      * 공개 목록의 조각. 검색({@link ProductSearchQuery})이 같은 조각에 조건 하나와 정렬 키 하나를 더한다(`60`) —
      * 사본을 두면 「파는 중이고 살아 있는 것」이 한쪽에서만 바뀌는 날 검색으로 draft 가 샌다.
      */
-
-    /**
-     * 무엇을 내나. 최저가는 살 수 있는 SKU 에서만 센다.
-     *
-     * <p><b>최저가를 조인과 집계가 아니라 줄마다의 부분질의로 붙인다</b>(`Q243b`). 조인해서 {@code min} 으로 묶으면
-     * 집계가 정렬보다 앞이라 상품 전부를 잇고 묶은 뒤에야 20개를 고르고, 정렬 인덱스를 쓸 수 없다
-     * (로컬 10만 건 34ms). 부분질의면 정렬과 {@code limit} 이 먼저 서고 남은 20 줄에만 돈다(0.3ms).
-     */
-    static final String PUBLIC_SELECT = """
-            select p.product_id, p.seller_id, s.name as seller_name, p.name,
-                   coalesce((select min(sk.price_incl_vat) from sku sk
-                              where sk.product_id = p.product_id
-                                and sk.deleted_at is null
-                                and sk.status = 'on_sale'), 0) as min_price_incl_vat,
-                   s.default_shipping_fee, p.created_at,
-                   (select i.thumbnail_key from product_image i
-                     where i.product_id = p.product_id
-                     order by i.sort_no, i.product_image_id limit 1) as thumbnail_key
-              from product p
-              join seller s on s.seller_id = p.seller_id
-            """;
-
-    /**
-     * 누구에게나 같은 조건 둘 — 파는 중이고({@code on_sale}) 살아 있다.
-     * <b>부분 인덱스({@code V125})의 조건과 글자까지 같다</b> — 다르면 그 인덱스를 못 탄다.
-     */
-    static final String PUBLIC_WHERE = " where p.status = 'on_sale' and p.deleted_at is null";
 
     /**
      * 셀러로 좁히는 조건. <b>있을 때만 SQL 에 넣는다</b> — 「null 이거나」로 늘 넣으면 일반 계획에서 플래너가

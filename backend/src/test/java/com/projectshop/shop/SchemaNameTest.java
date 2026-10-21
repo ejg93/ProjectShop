@@ -59,17 +59,6 @@ import org.junit.jupiter.api.Test;
  */
 class SchemaNameTest {
 
-    private static final Path MAIN = Path.of("src", "main", "java");
-
-    /** {@code main} 의 자바 소스 전부. 자리로 좁히면 놓치고 그 놓침이 조용하다 */
-    private static final Pattern API_CLASS = Pattern.compile(".*\\.java$");
-
-    /** {@code @Schema(name = "…")} 바로 다음의 {@code public record X} */
-    private static final Pattern NAMED_RECORD = Pattern.compile(
-            "@Schema\\(name\\s*=\\s*\"([^\"]+)\"\\)\\s*+public record (\\w+)");
-
-    private static final Pattern RECORD = Pattern.compile("public record (\\w+)");
-
     /**
      * <b>스펙에 안 닿아서 겹쳐도 되는 이름</b>. 서비스 안에서만 도는 명령·결과다.
      *
@@ -85,6 +74,17 @@ class SchemaNameTest {
             "Target", "권한·감사·통지가 각자 「무엇에 대한 것인가」를 담는다. 응답에 실리는 것이 아니다",
             "Result", "모의 결제·모의 통지가 돌려주는 것. 스펙에 닿던 PaymentService 쪽은"
                     + " @Schema(name = \"PaymentResult\") 로 갈라 뒀다");
+
+    private static final Path MAIN = Path.of("src", "main", "java");
+
+    /** {@code main} 의 자바 소스 전부. 자리로 좁히면 놓치고 그 놓침이 조용하다 */
+    private static final Pattern API_CLASS = Pattern.compile(".*\\.java$");
+
+    /** {@code @Schema(name = "…")} 바로 다음의 {@code public record X} */
+    private static final Pattern NAMED_RECORD = Pattern.compile(
+            "@Schema\\(name\\s*=\\s*\"([^\"]+)\"\\)\\s*+public record (\\w+)");
+
+    private static final Pattern RECORD = Pattern.compile("public record (\\w+)");
 
     @Test
     @DisplayName("API 응답 타입의 스펙 이름이 겹치지 않는다")

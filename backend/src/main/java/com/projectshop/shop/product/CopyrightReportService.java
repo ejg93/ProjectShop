@@ -32,6 +32,23 @@ import com.projectshop.shop.support.ObjectStorage.Visibility;
 @Service
 public class CopyrightReportService {
 
+    /**
+     * <b>{@code product_image} 를 안 읽는다.</b> 사진이 이미 사라진 신고도 판정할 수 있어야
+     * 하는데 — 표가 {@code set null} 로 그 상태를 일부러 만들어 뒀다 — 그 표를 거쳐 읽으면
+     * <b>그 행은 영영 미판정으로 남는다</b>(마무리 26차 독립 리뷰가 찾았다).
+     *
+     * <p>셀러는 {@code r.product_id} 에서 바로 온다. 사진이 아니라 <b>상품</b>이 판정 대상의
+     * 주인이라, 사진이 사라져도 누가 판정할 수 있는지는 그대로 답해진다.
+     *
+     * <p>{@code product_image_id} 는 <b>지울 대상을 찾을 때만</b> 쓰고 그때는 {@code null} 일 수 있다.
+     */
+    private static final String FIND_PENDING = """
+            select r.product_image_id, r.review_image_id, p.seller_id
+              from copyright_report r
+              join product p on p.product_id = r.product_id
+             where r.copyright_report_id = :id and r.decided_at is null
+            """;
+
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
     private final ObjectStorage storage;
@@ -159,23 +176,6 @@ public class CopyrightReportService {
     /** @param productImageId·reviewImageId 신고한 쪽 하나만 차고, 사진이 이미 사라졌으면 둘 다 {@code null} 이다 */
     private record Pending(Long productImageId, Long reviewImageId, long sellerId) {
     }
-
-    /**
-     * <b>{@code product_image} 를 안 읽는다.</b> 사진이 이미 사라진 신고도 판정할 수 있어야
-     * 하는데 — 표가 {@code set null} 로 그 상태를 일부러 만들어 뒀다 — 그 표를 거쳐 읽으면
-     * <b>그 행은 영영 미판정으로 남는다</b>(마무리 26차 독립 리뷰가 찾았다).
-     *
-     * <p>셀러는 {@code r.product_id} 에서 바로 온다. 사진이 아니라 <b>상품</b>이 판정 대상의
-     * 주인이라, 사진이 사라져도 누가 판정할 수 있는지는 그대로 답해진다.
-     *
-     * <p>{@code product_image_id} 는 <b>지울 대상을 찾을 때만</b> 쓰고 그때는 {@code null} 일 수 있다.
-     */
-    private static final String FIND_PENDING = """
-            select r.product_image_id, r.review_image_id, p.seller_id
-              from copyright_report r
-              join product p on p.product_id = r.product_id
-             where r.copyright_report_id = :id and r.decided_at is null
-            """;
 
     /**
      * 원본과 썸네일을 둘 다 지운다. 하나만 지우면 다른 하나로 같은 그림이 계속 열린다.

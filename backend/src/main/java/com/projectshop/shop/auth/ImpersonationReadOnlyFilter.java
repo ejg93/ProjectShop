@@ -25,10 +25,10 @@ import jakarta.servlet.http.HttpServletResponse;
  */
 class ImpersonationReadOnlyFilter extends OncePerRequestFilter {
 
-    private static final Set<String> READS = Set.of("GET", "HEAD", "OPTIONS");
-
     /** 대행 중에도 여는 쓰기. 빠져나오는 길이다 */
     static final Set<String> EXITS = Set.of("/api/admin/impersonation/end", "/api/auth/logout");
+
+    private static final Set<String> READS = Set.of("GET", "HEAD", "OPTIONS");
 
     private final ProblemWriter problems;
 

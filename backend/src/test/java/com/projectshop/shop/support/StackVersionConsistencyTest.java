@@ -39,6 +39,10 @@ class StackVersionConsistencyTest {
     /** 세 번째 칸의 홑따옴표 안이 파일 이름이다. */
     private static final Pattern BACKTICKED = Pattern.compile("`([^`]+)`");
 
+    /** {@code new XContainer("이미지:태그")} 의 그 문자열. 태그가 있는 것만 본다 */
+    private static final Pattern CONTAINER_IMAGE =
+            Pattern.compile("Container(?:<\\?>)?\\(\"([a-z0-9./-]+:[a-z0-9.-]+)\"\\)");
+
     @Test
     @DisplayName("stack.md 의 버전 표가 실제 파일과 같다")
     void versionTableMatchesRealFiles() throws IOException {
@@ -136,10 +140,6 @@ class StackVersionConsistencyTest {
                         + "둘이 다르면 테스트는 초록인데 로컬에서 깨진다")
                 .isEmpty();
     }
-
-    /** {@code new XContainer("이미지:태그")} 의 그 문자열. 태그가 있는 것만 본다 */
-    private static final Pattern CONTAINER_IMAGE =
-            Pattern.compile("Container(?:<\\?>)?\\(\"([a-z0-9./-]+:[a-z0-9.-]+)\"\\)");
 
     /**
      * 칸에서 홑따옴표로 감싼 이름을 찾아 실재하는 경로로 바꾼다.

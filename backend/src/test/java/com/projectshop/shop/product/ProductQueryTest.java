@@ -120,6 +120,8 @@ class ProductQueryTest extends PostgresTestBase {
     @DisplayName("공개 목록")
     class PublicList {
 
+        private boolean filled;
+
         @Test
         @DisplayName("파는 중인 것만 나온다 — draft 는 안 샌다")
         void showsOnlyOnSale() {
@@ -221,8 +223,6 @@ class ProductQueryTest extends PostgresTestBase {
                     .query(String.class)
                     .list());
         }
-
-        private boolean filled;
     }
 
     @Nested

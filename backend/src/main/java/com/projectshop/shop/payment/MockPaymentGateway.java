@@ -64,6 +64,9 @@ public class MockPaymentGateway {
     /** 타임아웃 카드가 몇 번째 호출인지 */
     private final Map<String, Integer> attempts = new ConcurrentHashMap<>();
 
+    /** 이미 돌려준 환불 요청. 키는 우리 환불번호다 */
+    private final Map<String, RefundResult> refundsByKey = new ConcurrentHashMap<>();
+
     /**
      * 결제사에 보내는 것.
      *
@@ -122,9 +125,6 @@ public class MockPaymentGateway {
      * @param refundNumber 결제사가 채번한 환불 거래번호
      */
     public record RefundResult(String refundNumber) {}
-
-    /** 이미 돌려준 환불 요청. 키는 우리 환불번호다 */
-    private final Map<String, RefundResult> refundsByKey = new ConcurrentHashMap<>();
 
     /**
      * 승인된 결제의 일부 또는 전부를 돌려준다.

@@ -112,6 +112,20 @@ class SqlTextTest {
 
     private static final List<Source> SOURCES = readSources();
 
+    /** 시각을 거슬러 잡는 SQL. 미래 방향({@code now() + interval})은 안 뒤집혀서 안 본다. */
+    private static final Pattern PAST_RELATIVE =
+            Pattern.compile("(?i)(?:now\\(\\)|current_timestamp)\\s*-\\s*interval");
+
+    private static final Pattern STATEMENT_TARGET =
+            Pattern.compile("(?i)(?:insert\\s+into|update)\\s+([a-z_]+)");
+
+    private static final Pattern MIGRATION_INSERT =
+            Pattern.compile("(?i)insert\\s+into\\s+([a-z_]+)");
+
+    private static final Path TEST = Path.of("src", "test", "java");
+
+    private static final Path MIGRATIONS = Path.of("src", "main", "resources", "db", "migration");
+
     @Test
     @DisplayName("main 소스에 select * 가 없다")
     void selectStarIsAbsent() {
@@ -208,20 +222,6 @@ class SqlTextTest {
                         + " 그보다 이르다고 주장하려면 기준을 벽시계가 아니라 그 표에서 뽑는다 (Q146)")
                 .isEmpty();
     }
-
-    /** 시각을 거슬러 잡는 SQL. 미래 방향({@code now() + interval})은 안 뒤집혀서 안 본다. */
-    private static final Pattern PAST_RELATIVE =
-            Pattern.compile("(?i)(?:now\\(\\)|current_timestamp)\\s*-\\s*interval");
-
-    private static final Pattern STATEMENT_TARGET =
-            Pattern.compile("(?i)(?:insert\\s+into|update)\\s+([a-z_]+)");
-
-    private static final Pattern MIGRATION_INSERT =
-            Pattern.compile("(?i)insert\\s+into\\s+([a-z_]+)");
-
-    private static final Path TEST = Path.of("src", "test", "java");
-
-    private static final Path MIGRATIONS = Path.of("src", "main", "resources", "db", "migration");
 
     /**
      * 상대 시각이 어느 표로 가나. <b>가장 가까운 앞쪽</b>의 {@code insert into}·{@code update} 를 문다.

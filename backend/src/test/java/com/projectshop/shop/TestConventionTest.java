@@ -47,13 +47,6 @@ import org.junit.jupiter.params.ParameterizedTest;
         importOptions = ImportOption.OnlyIncludeTests.class)
 class TestConventionTest {
 
-    private static final Pattern HANGUL = Pattern.compile("\\p{IsHangul}");
-
-    /** 백틱·{@code 「」}·큰따옴표 안은 인용이라 걷어낸다({@code doc-lint.sh} 와 같다). */
-    private static final Pattern QUOTED = Pattern.compile("`[^`]*`|「[^」]*」|\"[^\"]*\"");
-
-    private static final Pattern HONORIFIC = Pattern.compile("습니다|합니다|하세요|입니다");
-
     /**
      * 「테스트」 — 테스트 메서드는 한글 평서형 {@code @DisplayName} 을 단다.
      *
@@ -81,6 +74,13 @@ class TestConventionTest {
                     .should().haveSimpleName("RateLimitFilterTest")
                     .allowEmptyShould(true)
                     .because("시험은 서로 독립이다 — 예외는 정리 검증 한 자리다 (coding-rules.md 「시험 순서에 기대지 않는다」)");
+
+    private static final Pattern HANGUL = Pattern.compile("\\p{IsHangul}");
+
+    /** 백틱·{@code 「」}·큰따옴표 안은 인용이라 걷어낸다({@code doc-lint.sh} 와 같다). */
+    private static final Pattern QUOTED = Pattern.compile("`[^`]*`|「[^」]*」|\"[^\"]*\"");
+
+    private static final Pattern HONORIFIC = Pattern.compile("습니다|합니다|하세요|입니다");
 
     private static ArchCondition<JavaMethod> 한글_평서형_DisplayName_을_단다() {
         return new ArchCondition<>("한글 평서형 @DisplayName 을 단다") {

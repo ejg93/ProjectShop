@@ -62,6 +62,142 @@ class LengthConstraintTest extends PostgresTestBase {
      */
     private static final Pattern LOWER_BOUND = Pattern.compile(">= ([0-9]+)");
 
+    /**
+     * <b>대조하지 않는 제약과 그 이유</b>(`Q28`).
+     *
+     * <p>{@code EnumConstraintTest.everyEnumIsAccountedFor} 와 같은 틀이다 —
+     * <b>대조하든 안 하든, 적히지 않으면 빌드를 세운다.</b> 새 {@code length} 제약이 들어오면
+     * 여기나 {@link #pairs()} 중 한 곳에 이름이 있어야 한다.
+     *
+     * <p>값이 「왜 앱 검증과 대조할 것이 없나」다. 답이 안 되면 {@code pairs()} 로 가야 한다.
+     */
+    private static final Map<String, String> NOT_COMPARED = new java.util.TreeMap<>(Map.ofEntries(
+            Map.entry("webhook_delivery_last_error_length_check",
+                    "요청으로 안 들어온다 — 발송기가 짧은 문장만 적는다(`30`). 받는 쪽의 응답 본문은 안 담는다"),
+            Map.entry("email_change_request_token_hash_length_check",
+                    "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5e-1`)"),
+            Map.entry("password_reset_token_hash_length_check",
+                    "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5c-1`)"),
+            Map.entry("seller_invitation_token_hash_length_check",
+                    "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5a`)"),
+            Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),
+            Map.entry("idempotency_key_length_check", "헤더로 받은 키를 그대로 저장한다. 요청 record 의 칸이 아니다"),
+            // 수거지 넷은 **요청 입구를 안 세운다**(2026-09-23 결정, `43a-5`) — 배송지를 수거지로 쓰고 다른 곳 수거는
+            // 문의로 받는다. 표는 `V63` 이 세운 채 남았다. 입구를 세우는 날 이 넷을 위 pairs() 로 옮긴다.
+            // 값은 짝인 order_shipping 과 맞춰 뒀으므로 그때 새로 정할 것이 없다.
+            // 상한이 **목록 원소**에 붙어 있다 — `List<@NotBlank @Size(max = 50) String> values`.
+            // 이 대조는 record 칸의 애노테이션을 읽으므로 원소 쪽은 안 보인다. 수는 옵션 이름과 같은 50 이고
+            // 갈리면 ProductOptionTest 가 잡는다. 원소까지 읽게 만드는 것은 이 대조가 아니라 청크가 할 일이다.
+            Map.entry("product_option_value_value_length_check",
+                    "상한이 ProductController.OptionRequest.values 의 원소 @Size 라 record 칸이 아니다"),
+            Map.entry("return_pickup_sender_name_length_check", "수거지 입구를 안 세운다(`43a-5` 결정). 값은 order_shipping 과 같다"),
+            Map.entry("return_pickup_address1_length_check", "〃"),
+            Map.entry("return_pickup_address2_length_check", "〃"),
+            Map.entry("return_pickup_pickup_memo_length_check", "〃"),
+            Map.entry("payment_approval_number_length_check", "결제 대행사가 준 값이다. 우리가 상한을 정하지 않는다"),
+            Map.entry("payment_card_issuer_length_check", "결제 대행사가 준 값이다"),
+            Map.entry("payment_decline_reason_length_check", "결제 대행사가 준 값이다"),
+            Map.entry("refund_gateway_refund_number_length_check", "결제 대행사가 준 값이다"),
+            Map.entry("return_note_request_reason_length_check",
+                    "쓰는 코드가 없다 — 반품 접수의 글은 order_status_history_note 로 간다(`43a`, ShipmentController.ReturnRequest.reason)"),
+            Map.entry("product_image_object_key_length_check",
+                    "저장소 열쇠는 앱이 만든다(`product/{UUID}/{이름}.{확장자}`) — 요청에 그런 칸이 없다"),
+            Map.entry("product_image_thumbnail_key_length_check", "〃"),
+            Map.entry("product_image_original_name_length_check",
+                    "올린 파일의 이름이라 요청 본문이 아니라 멀티파트 봉투에서 온다")));
+
+    /**
+     * <b>입구가 아니라 서비스가 빈 값을 막는 자리</b>({@code Q108}, 마무리 29차 독립 리뷰가 잡았다).
+     *
+     * <p>여기 있는 다섯은 요청 record 에 일부러 {@code @NotBlank} 를 <b>안 건다.</b>
+     * 걸면 빈 사유가 <b>400 으로 떨어지는데, 형식은 맞고 값이 규칙에 안 맞는 것이라 422 다</b>
+     * ({@code D5}, {@code ShipmentController.RejectReturnRequest} 의 javadoc 이 그 결정을 든다).
+     * {@code @Size(min = 1)} 도 같은 400 을 만들므로 같이 안 쓴다.
+     *
+     * <p><b>값은 「어느 서비스가 무슨 코드로 막나」다.</b> 답이 안 되면 그 자리는 정말로
+     * 빈 값이 새는 자리라 입구를 고쳐야 한다.
+     */
+    private static final Map<String, String> BLANK_GUARDED_BY_SERVICE = Map.of(
+            "order_status_history_note_reason_length_check",
+            "OrderActionService.actorOf 가 TRANSITION_REASON_REQUIRED(422) 로 막고,"
+                    + " OrderStatusService.writeNote 는 빈 값이면 행을 아예 안 쓴다",
+            "return_note_decision_reason_length_check",
+            "ReturnRequestService 가 RETURN_DECISION_REASON_REQUIRED(422) 로 막는다",
+            "refund_note_decision_reason_length_check",
+            "RefundService#reject 가 TRANSITION_REASON_REQUIRED(422) 로 막는다",
+            "refund_note_request_reason_length_check",
+            "RefundService 가 blankToNull 로 빈 값을 null 로 바꿔서 넣는다",
+            "return_note_inspection_note_length_check",
+            "ReturnRequestService#receive 가 빈 소견이면 행을 안 쓰고 입고만 적는다 — 소견은 고르는 칸이다(`43a-5`)");
+
+    /**
+     * {@code check} 제약이 하나도 안 걸린 {@code text} 컬럼. <b>상한이 없다는 뜻이다.</b>
+     *
+     * <p>열거값({@code in (...)})이나 형식 제약으로 닫힌 칸은 그 제약이 길이를 대신 묶으므로 뺀다 —
+     * 물어야 하는 것은 <b>아무것도 안 걸린 칸</b>이다.
+     */
+    private static final String UNBOUNDED_TEXT_COLUMNS = """
+            select c.relname || '.' || a.attname
+            from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
+            join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+            where c.relkind = 'r'
+              and a.atttypid = 'text'::regtype
+              and not exists (select 1 from pg_constraint k
+                              where k.conrelid = c.oid and k.contype = 'c'
+                                and a.attnum = any (k.conkey))
+            order by 1
+            """;
+
+    /**
+     * 상한이 없어도 되는 칸과 그 근거.
+     *
+     * <p><b>근거 없이 이름만 넣지 않는다</b> — {@code data-lifecycle.md} 「수명을 안 정하는 표」와 같은 규칙이다.
+     * 근거 칸이 없으면 이 목록이 <b>제약을 안 걸고 싶을 때 도망칠 자리</b>가 된다.
+     */
+    private static final Map<String, String> UNBOUNDED_ON_PURPOSE = new java.util.TreeMap<>(Map.ofEntries(
+            // ── 구성 값. 배포로 바뀌고 요청 입구가 없다 ──────────────────────────────
+            // 사람이 폼에 쓰는 값이 아니라 마이그레이션과 시드가 넣는다. 상한을 걸어도
+            // 막을 입구가 없고, 대신 값이 갈리는 것은 열거형 대조(EnumConstraintTest)가 본다.
+            Map.entry("permission.resource", "권한 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
+            Map.entry("permission.action", "〃"),
+            Map.entry("permission.description", "〃"),
+            Map.entry("permission_field_group.code", "〃"),
+            Map.entry("permission_field_group.resource", "〃"),
+            Map.entry("permission_field_group.description", "〃"),
+            Map.entry("role_permission_field.effect", "〃"),
+            Map.entry("role.code", "역할 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
+            Map.entry("role.name", "〃"),
+            Map.entry("role.description", "〃"),
+            Map.entry("consent_item.code", "동의 항목의 판이다. 개정할 때 마이그레이션으로 넣는다"),
+            Map.entry("consent_item.title", "〃"),
+            Map.entry("holiday.name", "공휴일 이름이다. 임시공휴일도 마이그레이션으로 넣는다"),
+            Map.entry("policy_document.code", "약관의 판이다. 개정할 때 마이그레이션으로 넣는다"),
+            Map.entry("policy_document.title", "〃"),
+            Map.entry("notification_template.code", "알림 문구의 판이다. 마이그레이션으로 넣는다"),
+            Map.entry("notification_template.subject", "〃"),
+            Map.entry("notification_template.body", "〃"),
+
+
+            // ── 앱·트리거가 적는 값. 사람이 안 친다 ──────────────────────────────────
+            Map.entry("audit_log.event_type", "앱이 적는 상수다. 요청에서 안 온다"),
+            Map.entry("audit_log.target_type", "〃"),
+            Map.entry("user_consent.source", "앱이 적는 상수다(어느 경로로 동의했나)"),
+            Map.entry("outbox_event.source", "트리거가 적는다. 기본값이 상수 하나다(`D12`)"),
+            Map.entry("outbox_event.subject", "트리거가 노출 번호를 넣는다. 그 번호들이 각자 제약을 든다"),
+            Map.entry("settlement_item.supplier", "정산이 계산해 적는다. 요청 입구가 없다"),
+            Map.entry("seller.code", "우리가 발급하는 값이다. 요청에서 안 온다"),
+
+            // ── 박제. 원본이 따로 있고 앱이 복사한다 ────────────────────────────────
+            Map.entry("order_item.product_name", "주문 시점 박제다. 앱이 복사해 적고 요청 입구가 없다"),
+            Map.entry("order_item.option_label", "〃 — 옵션 여럿을 이어 붙이므로 원본 상한과 길이가 다르다"),
+            Map.entry("notification_body.subject", "템플릿을 렌더한 결과다. 사람이 안 친다"),
+            Map.entry("notification_body.body", "〃"),
+
+            // ── 입구가 아직 없는 것 ────────────────────────────────────────────────
+            // 셀러 등록 청크가 서면 이 줄을 지우고 위 pairs() 로 옮긴다.
+            Map.entry("seller.name", "셀러 등록 입구가 아직 없다. 지금은 시드만 넣는다")));
+
     @Autowired
     private JdbcClient jdbc;
 
@@ -184,50 +320,6 @@ class LengthConstraintTest extends PostgresTestBase {
     }
 
     /**
-     * <b>대조하지 않는 제약과 그 이유</b>(`Q28`).
-     *
-     * <p>{@code EnumConstraintTest.everyEnumIsAccountedFor} 와 같은 틀이다 —
-     * <b>대조하든 안 하든, 적히지 않으면 빌드를 세운다.</b> 새 {@code length} 제약이 들어오면
-     * 여기나 {@link #pairs()} 중 한 곳에 이름이 있어야 한다.
-     *
-     * <p>값이 「왜 앱 검증과 대조할 것이 없나」다. 답이 안 되면 {@code pairs()} 로 가야 한다.
-     */
-    private static final Map<String, String> NOT_COMPARED = new java.util.TreeMap<>(Map.ofEntries(
-            Map.entry("webhook_delivery_last_error_length_check",
-                    "요청으로 안 들어온다 — 발송기가 짧은 문장만 적는다(`30`). 받는 쪽의 응답 본문은 안 담는다"),
-            Map.entry("email_change_request_token_hash_length_check",
-                    "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5e-1`)"),
-            Map.entry("password_reset_token_hash_length_check",
-                    "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5c-1`)"),
-            Map.entry("seller_invitation_token_hash_length_check",
-                    "토큰 해시는 우리가 만든다 — 요청으로 들어오는 값이 아니다(`5a`)"),
-            Map.entry("batch_run_failure_reason_length_check", "배치가 실패 사유를 직접 쓴다. 요청 입구가 없다"),
-            Map.entry("idempotency_key_length_check", "헤더로 받은 키를 그대로 저장한다. 요청 record 의 칸이 아니다"),
-            // 수거지 넷은 **요청 입구를 안 세운다**(2026-09-23 결정, `43a-5`) — 배송지를 수거지로 쓰고 다른 곳 수거는
-            // 문의로 받는다. 표는 `V63` 이 세운 채 남았다. 입구를 세우는 날 이 넷을 위 pairs() 로 옮긴다.
-            // 값은 짝인 order_shipping 과 맞춰 뒀으므로 그때 새로 정할 것이 없다.
-            // 상한이 **목록 원소**에 붙어 있다 — `List<@NotBlank @Size(max = 50) String> values`.
-            // 이 대조는 record 칸의 애노테이션을 읽으므로 원소 쪽은 안 보인다. 수는 옵션 이름과 같은 50 이고
-            // 갈리면 ProductOptionTest 가 잡는다. 원소까지 읽게 만드는 것은 이 대조가 아니라 청크가 할 일이다.
-            Map.entry("product_option_value_value_length_check",
-                    "상한이 ProductController.OptionRequest.values 의 원소 @Size 라 record 칸이 아니다"),
-            Map.entry("return_pickup_sender_name_length_check", "수거지 입구를 안 세운다(`43a-5` 결정). 값은 order_shipping 과 같다"),
-            Map.entry("return_pickup_address1_length_check", "〃"),
-            Map.entry("return_pickup_address2_length_check", "〃"),
-            Map.entry("return_pickup_pickup_memo_length_check", "〃"),
-            Map.entry("payment_approval_number_length_check", "결제 대행사가 준 값이다. 우리가 상한을 정하지 않는다"),
-            Map.entry("payment_card_issuer_length_check", "결제 대행사가 준 값이다"),
-            Map.entry("payment_decline_reason_length_check", "결제 대행사가 준 값이다"),
-            Map.entry("refund_gateway_refund_number_length_check", "결제 대행사가 준 값이다"),
-            Map.entry("return_note_request_reason_length_check",
-                    "쓰는 코드가 없다 — 반품 접수의 글은 order_status_history_note 로 간다(`43a`, ShipmentController.ReturnRequest.reason)"),
-            Map.entry("product_image_object_key_length_check",
-                    "저장소 열쇠는 앱이 만든다(`product/{UUID}/{이름}.{확장자}`) — 요청에 그런 칸이 없다"),
-            Map.entry("product_image_thumbnail_key_length_check", "〃"),
-            Map.entry("product_image_original_name_length_check",
-                    "올린 파일의 이름이라 요청 본문이 아니라 멀티파트 봉투에서 온다")));
-
-    /**
      * 모든 {@code length} 제약이 <b>대조되거나 이유가 적혀 있다</b>(`Q28`).
      *
      * <p><b>손으로 적는 쪽은 빠뜨려도 안 걸린다.</b> 독립 리뷰가 짚었다 —
@@ -331,30 +423,6 @@ class LengthConstraintTest extends PostgresTestBase {
 
 
     /**
-     * <b>입구가 아니라 서비스가 빈 값을 막는 자리</b>({@code Q108}, 마무리 29차 독립 리뷰가 잡았다).
-     *
-     * <p>여기 있는 다섯은 요청 record 에 일부러 {@code @NotBlank} 를 <b>안 건다.</b>
-     * 걸면 빈 사유가 <b>400 으로 떨어지는데, 형식은 맞고 값이 규칙에 안 맞는 것이라 422 다</b>
-     * ({@code D5}, {@code ShipmentController.RejectReturnRequest} 의 javadoc 이 그 결정을 든다).
-     * {@code @Size(min = 1)} 도 같은 400 을 만들므로 같이 안 쓴다.
-     *
-     * <p><b>값은 「어느 서비스가 무슨 코드로 막나」다.</b> 답이 안 되면 그 자리는 정말로
-     * 빈 값이 새는 자리라 입구를 고쳐야 한다.
-     */
-    private static final Map<String, String> BLANK_GUARDED_BY_SERVICE = Map.of(
-            "order_status_history_note_reason_length_check",
-            "OrderActionService.actorOf 가 TRANSITION_REASON_REQUIRED(422) 로 막고,"
-                    + " OrderStatusService.writeNote 는 빈 값이면 행을 아예 안 쓴다",
-            "return_note_decision_reason_length_check",
-            "ReturnRequestService 가 RETURN_DECISION_REASON_REQUIRED(422) 로 막는다",
-            "refund_note_decision_reason_length_check",
-            "RefundService#reject 가 TRANSITION_REASON_REQUIRED(422) 로 막는다",
-            "refund_note_request_reason_length_check",
-            "RefundService 가 blankToNull 로 빈 값을 null 로 바꿔서 넣는다",
-            "return_note_inspection_note_length_check",
-            "ReturnRequestService#receive 가 빈 소견이면 행을 안 쓰고 입고만 적는다 — 소견은 고르는 칸이다(`43a-5`)");
-
-    /**
      * 제약이 빈 문자열을 막나. <b>아래쪽 경계가 하나라도 있으면 막는다</b> —
      * 수가 1 일 필요는 없다({@code email_change_request_new_email_length_check} 는 3 이다).
      *
@@ -447,74 +515,6 @@ class LengthConstraintTest extends PostgresTestBase {
         }
         throw new AssertionError(record.getSimpleName() + " 에 " + name + " 칸이 없다");
     }
-
-    /**
-     * {@code check} 제약이 하나도 안 걸린 {@code text} 컬럼. <b>상한이 없다는 뜻이다.</b>
-     *
-     * <p>열거값({@code in (...)})이나 형식 제약으로 닫힌 칸은 그 제약이 길이를 대신 묶으므로 뺀다 —
-     * 물어야 하는 것은 <b>아무것도 안 걸린 칸</b>이다.
-     */
-    private static final String UNBOUNDED_TEXT_COLUMNS = """
-            select c.relname || '.' || a.attname
-            from pg_class c
-            join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
-            join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
-            where c.relkind = 'r'
-              and a.atttypid = 'text'::regtype
-              and not exists (select 1 from pg_constraint k
-                              where k.conrelid = c.oid and k.contype = 'c'
-                                and a.attnum = any (k.conkey))
-            order by 1
-            """;
-
-    /**
-     * 상한이 없어도 되는 칸과 그 근거.
-     *
-     * <p><b>근거 없이 이름만 넣지 않는다</b> — {@code data-lifecycle.md} 「수명을 안 정하는 표」와 같은 규칙이다.
-     * 근거 칸이 없으면 이 목록이 <b>제약을 안 걸고 싶을 때 도망칠 자리</b>가 된다.
-     */
-    private static final Map<String, String> UNBOUNDED_ON_PURPOSE = new java.util.TreeMap<>(Map.ofEntries(
-            // ── 구성 값. 배포로 바뀌고 요청 입구가 없다 ──────────────────────────────
-            // 사람이 폼에 쓰는 값이 아니라 마이그레이션과 시드가 넣는다. 상한을 걸어도
-            // 막을 입구가 없고, 대신 값이 갈리는 것은 열거형 대조(EnumConstraintTest)가 본다.
-            Map.entry("permission.resource", "권한 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
-            Map.entry("permission.action", "〃"),
-            Map.entry("permission.description", "〃"),
-            Map.entry("permission_field_group.code", "〃"),
-            Map.entry("permission_field_group.resource", "〃"),
-            Map.entry("permission_field_group.description", "〃"),
-            Map.entry("role_permission_field.effect", "〃"),
-            Map.entry("role.code", "역할 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
-            Map.entry("role.name", "〃"),
-            Map.entry("role.description", "〃"),
-            Map.entry("consent_item.code", "동의 항목의 판이다. 개정할 때 마이그레이션으로 넣는다"),
-            Map.entry("consent_item.title", "〃"),
-            Map.entry("holiday.name", "공휴일 이름이다. 임시공휴일도 마이그레이션으로 넣는다"),
-            Map.entry("policy_document.code", "약관의 판이다. 개정할 때 마이그레이션으로 넣는다"),
-            Map.entry("policy_document.title", "〃"),
-            Map.entry("notification_template.code", "알림 문구의 판이다. 마이그레이션으로 넣는다"),
-            Map.entry("notification_template.subject", "〃"),
-            Map.entry("notification_template.body", "〃"),
-
-
-            // ── 앱·트리거가 적는 값. 사람이 안 친다 ──────────────────────────────────
-            Map.entry("audit_log.event_type", "앱이 적는 상수다. 요청에서 안 온다"),
-            Map.entry("audit_log.target_type", "〃"),
-            Map.entry("user_consent.source", "앱이 적는 상수다(어느 경로로 동의했나)"),
-            Map.entry("outbox_event.source", "트리거가 적는다. 기본값이 상수 하나다(`D12`)"),
-            Map.entry("outbox_event.subject", "트리거가 노출 번호를 넣는다. 그 번호들이 각자 제약을 든다"),
-            Map.entry("settlement_item.supplier", "정산이 계산해 적는다. 요청 입구가 없다"),
-            Map.entry("seller.code", "우리가 발급하는 값이다. 요청에서 안 온다"),
-
-            // ── 박제. 원본이 따로 있고 앱이 복사한다 ────────────────────────────────
-            Map.entry("order_item.product_name", "주문 시점 박제다. 앱이 복사해 적고 요청 입구가 없다"),
-            Map.entry("order_item.option_label", "〃 — 옵션 여럿을 이어 붙이므로 원본 상한과 길이가 다르다"),
-            Map.entry("notification_body.subject", "템플릿을 렌더한 결과다. 사람이 안 친다"),
-            Map.entry("notification_body.body", "〃"),
-
-            // ── 입구가 아직 없는 것 ────────────────────────────────────────────────
-            // 셀러 등록 청크가 서면 이 줄을 지우고 위 pairs() 로 옮긴다.
-            Map.entry("seller.name", "셀러 등록 입구가 아직 없다. 지금은 시드만 넣는다")));
 
     /**
      * 상한이 아예 없는 칸을 찾는다. <b>위 {@code pairs()} 와 방향이 반대다.</b>

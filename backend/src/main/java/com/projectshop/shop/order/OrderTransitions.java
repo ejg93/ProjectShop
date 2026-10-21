@@ -19,9 +19,6 @@ import java.util.Set;
  */
 final class OrderTransitions {
 
-    private OrderTransitions() {
-    }
-
     /** 결제. `shop_order` 에 붙는다(`D7`) */
     enum Payment {
         PAYMENT_PENDING, PAID, PAYMENT_EXPIRED, PAYMENT_FAILED;
@@ -109,6 +106,9 @@ final class OrderTransitions {
     private static final Map<Shipment, Set<Shipment>> FORCIBLE = new EnumMap<>(Map.of(
             Shipment.PREPARING, EnumSet.of(Shipment.SHIPPING, Shipment.DELIVERED, Shipment.CANCELLED),
             Shipment.SHIPPING, EnumSet.of(Shipment.DELIVERED, Shipment.CANCELLED)));
+
+    private OrderTransitions() {
+    }
 
     static boolean forcible(Shipment from, Shipment to) {
         return FORCIBLE.getOrDefault(from, Set.of()).contains(to);

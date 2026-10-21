@@ -30,6 +30,11 @@ import com.projectshop.shop.auth.PersonalFieldGroup;
 @Component
 public class AuditLog {
 
+    /**
+     * 남의 개인정보를 열람한 사건의 이름(`Q276`). 열람 기록은 이 이름 하나로 모은다 — 감사 화면이 이 이름으로 거른다
+     */
+    public static final String PERSONAL_DATA_VIEWED = "personal_data.viewed";
+
     private final AuditLogWriter writer;
 
     AuditLog(AuditLogWriter writer) {
@@ -78,11 +83,6 @@ public class AuditLog {
             case OUTCOME -> writer.joined(eventType, actorUserId, target, detail);
         }
     }
-
-    /**
-     * 남의 개인정보를 열람한 사건의 이름(`Q276`). 열람 기록은 이 이름 하나로 모은다 — 감사 화면이 이 이름으로 거른다
-     */
-    public static final String PERSONAL_DATA_VIEWED = "personal_data.viewed";
 
     /**
      * 취급자가 남의 개인정보 한 건을 열람했다(`Q276`, `D2` R44 — 개인정보의 안전성 확보조치 기준 제8조제1항).

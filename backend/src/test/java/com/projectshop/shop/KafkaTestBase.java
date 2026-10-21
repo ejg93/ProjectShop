@@ -34,6 +34,9 @@ public abstract class KafkaTestBase extends PostgresTestBase {
     protected static final KafkaContainer KAFKA = new KafkaContainer("apache/kafka:4.3.1")
             .withReuse(true);
 
+    /** fork 마다 하나. 이름에 pid 를 넣어 같은 브로커를 쓰는 다른 fork 와 안 겹친다 */
+    private static final String TEST_TOPIC = "shop.events.test-" + ProcessHandle.current().pid();
+
     static {
         KAFKA.start();
     }
@@ -56,7 +59,4 @@ public abstract class KafkaTestBase extends PostgresTestBase {
         registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
         registry.add("shop.events.topic", () -> TEST_TOPIC);
     }
-
-    /** fork 마다 하나. 이름에 pid 를 넣어 같은 브로커를 쓰는 다른 fork 와 안 겹친다 */
-    private static final String TEST_TOPIC = "shop.events.test-" + ProcessHandle.current().pid();
 }

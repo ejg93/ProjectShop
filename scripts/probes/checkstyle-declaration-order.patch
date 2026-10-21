@@ -1,0 +1,24 @@
+# gate: Checkstyle DeclarationOrder 세 겹 — 접근자 차례 · 메서드 뒤 인스턴스 필드 · 인스턴스 뒤 static(Q289)
+# run: cd backend && ./gradlew checkstyleMain --console=plain
+# expect: BackendApplication\.java:9:[0-9]+: Variable access definition in wrong order
+# expect: BackendApplication\.java:15:[0-9]+: Instance variable definition in wrong order
+# expect: BackendApplication\.java:16:[0-9]+: Static variable definition in wrong order
+diff --git a/backend/src/main/java/com/projectshop/shop/BackendApplication.java b/backend/src/main/java/com/projectshop/shop/BackendApplication.java
+index 7a418c4..498e9cd 100644
+--- a/backend/src/main/java/com/projectshop/shop/BackendApplication.java
++++ b/backend/src/main/java/com/projectshop/shop/BackendApplication.java
+@@ -5,9 +5,14 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
+ 
+ @SpringBootApplication
+ public class BackendApplication {
++	private int breakPrivateFirst;
++	public int breakPublicAfterPrivate;
+ 
+ 	public static void main(String[] args) {
+ 		SpringApplication.run(BackendApplication.class, args);
+ 	}
+ 
++	private int breakAfterMethod;
++	static int breakStaticAfterInstance;
++
+ }

@@ -58,6 +58,31 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class OrderQuery {
 
     /**
+     * 주문 하나의 이력. <b>두 갈래를 {@code union all} 로 잇는다</b>(`Q243c`).
+     *
+     * <p>이력 한 줄은 {@code order_id}(결제 층)와 {@code seller_order_id}(배송 층) 중 정확히 하나만 채운다
+     * ({@code order_status_history_target_check}). 전에는 두 층을 {@code where h.order_id = ? or so.order_id = ?}
+     * 하나로 걸렀는데, {@code or} 가 조인 너머라 어느 인덱스도 못 타고 묶음 표 전체를 해시로 이었다
+     * (로컬 10만 건에서 27ms → 1.4ms, `doc/notes/perf-local-100k.md`). 갈래마다 제 인덱스를 탄다.
+     * 시험이 같은 문장의 실행 계획을 본다({@code OrderQueryTest}).
+     */
+    static final String HISTORY_SQL = """
+            select seller_name, from_status, to_status, actor_type, occurred_at
+              from (select null::text as seller_name, h.from_status, h.to_status, h.actor_type,
+                           h.occurred_at, h.order_status_history_id
+                      from order_status_history h
+                     where h.order_id = :orderId
+                    union all
+                    select s.name, h.from_status, h.to_status, h.actor_type,
+                           h.occurred_at, h.order_status_history_id
+                      from order_status_history h
+                      join seller_order so on so.seller_order_id = h.seller_order_id
+                      join seller s on s.seller_id = so.seller_id
+                     where so.order_id = :orderId) as history
+             order by occurred_at, order_status_history_id
+            """;
+
+    /**
      * 정렬 가능한 필드. 요청은 API 이름으로 오고 값은 실제 컬럼식이다(`D14`).
      *
      * <p>금액순을 안 연다. 주문 목록에서 금액으로 정렬하는 화면이 아직 없고,
@@ -523,31 +548,6 @@ public class OrderQuery {
                 })
                 .toList();
     }
-
-    /**
-     * 주문 하나의 이력. <b>두 갈래를 {@code union all} 로 잇는다</b>(`Q243c`).
-     *
-     * <p>이력 한 줄은 {@code order_id}(결제 층)와 {@code seller_order_id}(배송 층) 중 정확히 하나만 채운다
-     * ({@code order_status_history_target_check}). 전에는 두 층을 {@code where h.order_id = ? or so.order_id = ?}
-     * 하나로 걸렀는데, {@code or} 가 조인 너머라 어느 인덱스도 못 타고 묶음 표 전체를 해시로 이었다
-     * (로컬 10만 건에서 27ms → 1.4ms, `doc/notes/perf-local-100k.md`). 갈래마다 제 인덱스를 탄다.
-     * 시험이 같은 문장의 실행 계획을 본다({@code OrderQueryTest}).
-     */
-    static final String HISTORY_SQL = """
-            select seller_name, from_status, to_status, actor_type, occurred_at
-              from (select null::text as seller_name, h.from_status, h.to_status, h.actor_type,
-                           h.occurred_at, h.order_status_history_id
-                      from order_status_history h
-                     where h.order_id = :orderId
-                    union all
-                    select s.name, h.from_status, h.to_status, h.actor_type,
-                           h.occurred_at, h.order_status_history_id
-                      from order_status_history h
-                      join seller_order so on so.seller_order_id = h.seller_order_id
-                      join seller s on s.seller_id = so.seller_id
-                     where so.order_id = :orderId) as history
-             order by occurred_at, order_status_history_id
-            """;
 
     /**
      * 결제 층과 배송 층 이력을 한 줄로 세운다(`D2` R6).

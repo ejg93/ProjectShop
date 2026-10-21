@@ -47,6 +47,11 @@ public class WebhookEndpointService {
     private static final String SECRET_PREFIX = "whsec_";
     private static final int SECRET_BYTES = 32;
 
+    private static final String SELECT = """
+            select webhook_endpoint_id, seller_id, url, event_types, created_at
+              from webhook_endpoint
+            """;
+
     /** 엔드포인트 한 줄. 시크릿은 없다 — 등록 응답에만 한 번 나간다 */
     @Schema(name = "WebhookEndpoint")
     public record Endpoint(long webhookEndpointId, long sellerId, String url, List<String> eventTypes,
@@ -214,11 +219,6 @@ public class WebhookEndpointService {
 
     private record DeliveryRow(long endpointId, WebhookDeliveryStatus status) {
     }
-
-    private static final String SELECT = """
-            select webhook_endpoint_id, seller_id, url, event_types, created_at
-              from webhook_endpoint
-            """;
 
     private static Endpoint endpointOf(java.sql.ResultSet rs) throws java.sql.SQLException {
         String[] stored = (String[]) rs.getArray("event_types").getArray();

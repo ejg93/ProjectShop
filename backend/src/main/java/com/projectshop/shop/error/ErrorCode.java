@@ -542,14 +542,6 @@ public enum ErrorCode {
     ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "endpoint-not-found", "그런 경로가 없다");
 
     /**
-     * RFC 4151 의 {@code tag:} URI. 권한 이름과 날짜가 소유를 밝힌다.
-     *
-     * <p>날짜는 <b>이 이름을 쓰기 시작한 해</b>고 오류를 더할 때마다 바꾸지 않는다 —
-     * 바꾸면 같은 오류가 해마다 다른 {@code type} 으로 나간다.
-     */
-    private static final String TAG_PREFIX = "tag:projectshop.example,2026:error:";
-
-    /**
      * 사용자 문구가 없는 5xx 코드가 내는 문구. 다음에 무엇을 할지를 적는다(`D20` 「지키는 것」) — 서버 쪽 사정이라
      * 다시 시도가 답이다. 화면의 `api.ts` 가 같은 값을 든다(`api.test.ts` 가 대조한다).
      */
@@ -560,6 +552,14 @@ public enum ErrorCode {
      * (마무리 55차 독립 리뷰: 틀린 비밀번호에 「잠시 뒤 다시 시도」가 실렸다).
      */
     static final String FALLBACK_CLIENT_USER_TEXT = "요청을 처리하지 못했습니다. 입력한 내용을 확인해 주세요.";
+
+    /**
+     * RFC 4151 의 {@code tag:} URI. 권한 이름과 날짜가 소유를 밝힌다.
+     *
+     * <p>날짜는 <b>이 이름을 쓰기 시작한 해</b>고 오류를 더할 때마다 바꾸지 않는다 —
+     * 바꾸면 같은 오류가 해마다 다른 {@code type} 으로 나간다.
+     */
+    private static final String TAG_PREFIX = "tag:projectshop.example,2026:error:";
 
     private final HttpStatus status;
     private final String slug;

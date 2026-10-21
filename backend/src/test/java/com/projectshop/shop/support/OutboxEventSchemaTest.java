@@ -30,14 +30,14 @@ import com.projectshop.shop.order.OrderFixture;
 @DisplayName("아웃박스 스키마")
 class OutboxEventSchemaTest extends PostgresTestBase {
 
-    @Autowired
-    private JdbcClient jdbc;
-
     private static final String ORDER_NUMBER = "20260915-7QX4M8";
     private static final String REFUND_NUMBER = "R-20260915-7QX4M8";
     private static final String SELLER_ORDER_NUMBER = "S-20260915-7QX4M8";
     private static final String SETTLEMENT_NUMBER = "T-20260915-7QX4M8";
     private static final String BATCH_NAME = "outbox_probe";
+
+    @Autowired
+    private JdbcClient jdbc;
 
     private long orderId;
 

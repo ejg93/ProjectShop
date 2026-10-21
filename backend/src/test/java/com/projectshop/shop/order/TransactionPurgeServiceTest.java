@@ -55,6 +55,8 @@ class TransactionPurgeServiceTest extends StorageTestBase {
     private long sellerId;
     private long skuId;
 
+    private int counter;
+
     @BeforeEach
     void setUp() {
         AuthFixture fixture = new AuthFixture(jdbc);
@@ -529,8 +531,6 @@ class TransactionPurgeServiceTest extends StorageTestBase {
         insertShipping(orderId);
         return orderId;
     }
-
-    private int counter;
 
     @Nested
     @DisplayName("알림은")

@@ -58,8 +58,6 @@ import tools.jackson.databind.ObjectMapper;
 @ConditionalOnProperty(name = "shop.events.sink", havingValue = "kafka")
 public class OutboxPublisher {
 
-    private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
-
     /** 한 회차에 집는 편지 수. 늘리면 집는 트랜잭션이 한 번에 잠그는 행이 같이 는다 */
     static final int BATCH_SIZE = 200;
 
@@ -68,6 +66,8 @@ public class OutboxPublisher {
 
     /** 브로커 답을 이만큼 기다린다. 넘으면 도장을 안 찍고 다음 회차로 넘긴다 */
     static final Duration ACK_TIMEOUT = Duration.ofSeconds(10);
+
+    private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
 
     private final OutboxClaims claims;
     private final KafkaTemplate<String, String> kafka;

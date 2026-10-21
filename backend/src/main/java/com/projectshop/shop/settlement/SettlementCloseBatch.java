@@ -41,13 +41,13 @@ import com.projectshop.shop.support.RetryableBatch;
 @Component
 public class SettlementCloseBatch implements RetryableBatch {
 
-    private static final Logger log = LoggerFactory.getLogger(SettlementCloseBatch.class);
-
     /** 카탈로그(`D19`)가 부르는 이름. {@code batch_run.batch_name} 에 그대로 들어간다 */
     static final String BATCH_NAME = "settlement_close";
 
     /** 선행. 이 배치가 같은 기준일에 성공해 있어야 마감이 돈다({@code OrderStatusBatch}) */
     static final String REQUIRED_BATCH = "auto_confirm";
+
+    private static final Logger log = LoggerFactory.getLogger(SettlementCloseBatch.class);
 
     private final SettlementService settlements;
     private final BatchRuns runs;

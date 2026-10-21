@@ -379,6 +379,18 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
 **증상이 「빌드는 실패하는데 볼 것이 없다」라 원인이 안 드러난다.** 콘솔 출력을 세는 것으로는
 유형별 분포를 못 뽑고, 분포를 모르면 무엇을 제외할지 정할 수가 없다.
 
+### Checkstyle 13 설정 XML 은 DOCTYPE 이 있어야 읽힌다
+
+`config/checkstyle/checkstyle.xml`·`suppressions.xml` 에서 DOCTYPE 을 빼면 13.x 가 설정을 못 읽고
+「must match DOCTYPE root "null"」로 끝난다(dcare-SR 세션 실측, 2026-10-21). 위반이 0이 아니라 **설정 오류**라
+메시지를 안 읽으면 게이트가 깨진 줄 모른다.
+
+**`localeLanguage=en` 으로 메시지를 고정한다.** JVM 로케일이 ko 면 메시지가 한국어로 나와 출력 꼴이 바뀐다.
+위반 줄과 메시지는 `build/reports/checkstyle/main.xml`·`test.xml` 에 남는다.
+
+**한 줄에 위반이 둘이면 하나만 나온다**(`Q289` 부순 증거). 메서드 뒤에 `public` 필드를 `private` 필드 다음에 두면
+「Instance variable definition in wrong order」만 나오고 접근자 차례 위반은 가려진다 — 부술 때는 겹마다 다른 자리에 넣는다.
+
 ### ErrorProne 을 안 골랐다
 
 둘 다 버그 패턴 검출기인데 **붙는 자리가 다르다.**

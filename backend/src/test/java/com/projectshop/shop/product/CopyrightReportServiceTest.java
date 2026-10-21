@@ -34,13 +34,13 @@ import com.projectshop.shop.review.ReviewImageService;
 @DisplayName("저작권 신고·삭제")
 class CopyrightReportServiceTest extends StorageTestBase {
 
+    private static final Paging FIRST = new Paging(0, 20);
+
     @Autowired
     private CopyrightReportService service;
 
     @Autowired
     private CopyrightReportQuery query;
-
-    private static final Paging FIRST = new Paging(0, 20);
 
     @Autowired
     private ProductImageService imageService;

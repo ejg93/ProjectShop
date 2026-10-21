@@ -35,11 +35,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Service
 public class SalesStatsQuery {
 
-    private static final String RESOURCE = "sales_stats";
-    private static final String READ = "read";
-
     /** 한 번에 볼 수 있는 가장 긴 기간(일). 1년이면 작년 같은 달과 견줄 수 있다 */
     static final int MAX_DAYS = 366;
+
+    private static final String RESOURCE = "sales_stats";
+    private static final String READ = "read";
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;

@@ -35,6 +35,8 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
  */
 class PermissionMatrixTest {
 
+    static final List<Decider> DECIDERS = List.of(Decider.EVALUATOR, Decider.MANAGED);
+
     private static final Path SNAPSHOT = Path.of("src/test/resources/snapshots/permission-matrix.md");
 
     /** 판정을 받는 사람 */
@@ -50,8 +52,6 @@ class PermissionMatrixTest {
 
     /** 상태 축 절에서 동작이 열리는 상태 */
     private static final Allowed<String> OPEN_WHEN_PAID = Allowed.only(Set.of("PAID"));
-
-    static final List<Decider> DECIDERS = List.of(Decider.EVALUATOR, Decider.MANAGED);
 
     /** 대상의 생김새. 주인이 있나 없나, 셀러에 속하나 안 속하나의 조합이다 */
     private record Column(String label, Target target) {}

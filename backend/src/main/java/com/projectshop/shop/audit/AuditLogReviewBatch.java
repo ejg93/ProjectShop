@@ -32,10 +32,10 @@ import io.micrometer.core.instrument.MeterRegistry;
 @Component
 public class AuditLogReviewBatch implements RetryableBatch {
 
-    private static final Logger log = LoggerFactory.getLogger(AuditLogReviewBatch.class);
-
     /** 카탈로그(`D19`)가 부르는 이름. {@code batch_run.batch_name} 에 그대로 들어간다 */
     static final String BATCH_NAME = "audit_log_review";
+
+    private static final Logger log = LoggerFactory.getLogger(AuditLogReviewBatch.class);
 
     /**
      * 마지막 회차가 표시한 열람자 수. Gauge 는 이 값을 읽기만 한다 — 물을 때마다 세면 지표를 긁는 쪽이 부하가 된다

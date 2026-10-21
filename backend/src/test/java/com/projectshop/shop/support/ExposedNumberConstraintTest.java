@@ -61,6 +61,8 @@ class ExposedNumberConstraintTest {
             "drop\\s+(?:index|constraint)\\s+(?:if\\s+exists\\s+)?([a-z0-9_]+)",
             Pattern.CASE_INSENSITIVE);
 
+    private static final Pattern VERSION = Pattern.compile("^V(\\d+)__");
+
     @Test
     @DisplayName("노출 번호가 부르는 제약 이름이 마이그레이션에 실재한다")
     void everyNamedConstraintExists() throws IOException {
@@ -150,6 +152,4 @@ class ExposedNumberConstraintTest {
         Matcher version = VERSION.matcher(file.getFileName().toString());
         return version.find() ? Integer.parseInt(version.group(1)) : Integer.MAX_VALUE;
     }
-
-    private static final Pattern VERSION = Pattern.compile("^V(\\d+)__");
 }

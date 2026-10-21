@@ -115,10 +115,6 @@ class WebhookSender {
         }
     };
 
-    private static String ascii(String host) {
-        return IDN.toASCII(host, IDN.ALLOW_UNASSIGNED);
-    }
-
     private final CloseableHttpClient client;
     private final Duration maxExchange;
     private final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -219,5 +215,9 @@ class WebhookSender {
         } catch (java.security.GeneralSecurityException e) {
             throw new IllegalStateException("웹훅 서명을 못 만들었다", e);
         }
+    }
+
+    private static String ascii(String host) {
+        return IDN.toASCII(host, IDN.ALLOW_UNASSIGNED);
     }
 }

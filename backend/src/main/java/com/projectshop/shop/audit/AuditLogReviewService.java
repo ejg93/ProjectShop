@@ -29,13 +29,13 @@ import com.projectshop.shop.support.BusinessCalendar;
 @Service
 class AuditLogReviewService {
 
-    private static final Logger log = LoggerFactory.getLogger(AuditLogReviewService.class);
-
     /** 점검 결과의 사건 이름. 점검을 했다는 증거라 표시가 0이어도 남는다 */
     static final String REVIEWED = "audit_log.reviewed";
 
     /** 한 기간에 서로 다른 정보주체를 이만큼 연 열람자를 표시한다. 내부 관리계획 값(`security-baseline.md` 「접속기록 점검」) — 법이 정한 수가 아니다 */
     static final int REVIEW_SUBJECT_THRESHOLD = 50;
+
+    private static final Logger log = LoggerFactory.getLogger(AuditLogReviewService.class);
 
     private final JdbcClient jdbc;
     private final AuditLog auditLog;

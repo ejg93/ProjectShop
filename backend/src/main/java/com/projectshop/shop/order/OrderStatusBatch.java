@@ -38,13 +38,13 @@ import com.projectshop.shop.support.RetryableBatch;
 @Component
 public class OrderStatusBatch implements RetryableBatch {
 
+    /** 자동 구매확정이 카탈로그(`D19`)에서 불리는 이름. 기준일이 있어 이력을 남긴다(`36a`) */
+    static final String BATCH_NAME = "auto_confirm";
+
     private static final Logger log = LoggerFactory.getLogger(OrderStatusBatch.class);
 
     /** 주문을 만들고 이만큼 안에 결제가 끝나야 한다(`D7`) */
     private static final Duration PAYMENT_DEADLINE = Duration.ofMinutes(30);
-
-    /** 자동 구매확정이 카탈로그(`D19`)에서 불리는 이름. 기준일이 있어 이력을 남긴다(`36a`) */
-    static final String BATCH_NAME = "auto_confirm";
 
     /** 업무 판단은 KST 다(`D10`) */
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
