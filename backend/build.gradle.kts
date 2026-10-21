@@ -4,6 +4,8 @@ plugins {
 	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — ErrorProne 은 javac
 	// 플러그인이라 JDK 를 올릴 때마다 같이 막힌다(`stack.md`).
 	id("com.github.spotbugs") version "6.5.11"
+	// 선언 차례 하나만 본다(`Q289`). 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
+	checkstyle
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -177,6 +179,18 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
 	reports.create("html") { required = true }
 }
 
+// 클래스 안 선언 차례(`coding-rules.md` 「선언 순서」, `Q288`). 설정은 `config/checkstyle/`.
+//
+// **`test` 소스도 본다.** SpotBugs 가 test 를 뺀 이유는 픽스처 코드의 노이즈인데,
+// 선언 차례는 픽스처라고 어긋날 이유가 없다.
+//
+// 경고 0 을 문턱으로 둔다. 설정이 `severity=error` 라 위반은 이미 실패지만,
+// 누가 등급을 내려도 콘솔에만 찍히고 지나가는 일이 없게 한다.
+checkstyle {
+	toolVersion = "13.4.2"
+	maxWarnings = 0
+}
+
 // 무엇이 경고인지 이름을 대게 한다. 기본 설정은 "deprecated API 를 쓴다" 까지만 말하고
 // 어느 줄인지 안 알려줘서, 경고가 떠 있어도 고칠 대상을 못 짚는다.
 //
@@ -293,6 +307,10 @@ tasks.withType<Test> {
 tasks.test {
 	description = "컨테이너를 안 타는 테스트만 돌린다."
 	useJUnitPlatform { excludeTags("db") }
+
+	// **선언 차례를 청크 층에서 잰다**(`Q289`). `check` 에만 걸면 빠른 레인(`verify.sh` 의
+	// `gradlew test`)이 안 돌려서 번들 끝 `--full` 에서 처음 빨개진다. 두 태스크가 5초쯤이다.
+	dependsOn(tasks.checkstyleMain, tasks.checkstyleTest)
 
 	// 대조하는 문서를 입력으로 신고한다. 안 하면 문서만 고친 청크에서 Gradle 이 `test` 를
 	// `UP-TO-DATE` 로 건너뛰고, 그 대조가 한 번도 안 돈다.
