@@ -33,6 +33,36 @@ public class AuditLogQuery {
     private static final TypeReference<Map<String, Object>> DETAIL_TYPE = new TypeReference<>() {
     };
 
+    /**
+     * 조건이 값에 따라 켜지고 꺼진다. <b>조건마다 SQL 을 잇지 않고 한 문장에 둔다</b> —
+     * 어떤 조합이 와도 실행되는 쿼리가 하나로 유지된다.
+     *
+     * <p>파라미터마다 {@code cast} 가 붙은 이유가 있다. null 을 {@code is null} 비교에만 쓰면
+     * Postgres 가 그 자리의 타입을 못 정하고 {@code could not determine data type} 으로 죽는다.
+     * 값이 들어오는 경우에는 멀쩡히 돌아서 <b>필터를 안 건 요청에서만</b> 터진다.
+     *
+     * <p>상수라 인젝션은 아니지만 <b>문자열로 조립하지 않는다</b>(`D23`). 조건 조합이 늘어나는
+     * 모양이라, 지금 상수인 것이 나중에 값을 이어 붙이는 자리가 된다.
+     */
+    private static final String WHERE = """
+             where (cast(:actorUserId as bigint) is null or actor_user_id = cast(:actorUserId as bigint))
+               and (cast(:targetType  as text)   is null or target_type   = cast(:targetType as text))
+               and (cast(:targetId    as bigint) is null or target_id     = cast(:targetId as bigint))
+               and (cast(:from as timestamptz) is null or created_at >= cast(:from as timestamptz))
+               and (cast(:to   as timestamptz) is null or created_at <  cast(:to   as timestamptz))
+            """;
+
+    private static final String SELECT_ITEMS = """
+            select audit_log_id, event_type, actor_user_id, target_type, target_id,
+                   detail::text as detail, created_at
+              from audit_log
+            """ + WHERE + """
+             order by created_at desc, audit_log_id desc
+             limit :size offset :offset
+            """;
+
+    private static final String SELECT_TOTAL = "select count(*) from audit_log" + WHERE;
+
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
     private final ObjectMapper objectMapper;
@@ -66,36 +96,6 @@ public class AuditLogQuery {
     @Schema(name = "AuditLogPage")
     public record Page(List<Row> items, int page, int size, long total) {
     }
-
-    /**
-     * 조건이 값에 따라 켜지고 꺼진다. <b>조건마다 SQL 을 잇지 않고 한 문장에 둔다</b> —
-     * 어떤 조합이 와도 실행되는 쿼리가 하나로 유지된다.
-     *
-     * <p>파라미터마다 {@code cast} 가 붙은 이유가 있다. null 을 {@code is null} 비교에만 쓰면
-     * Postgres 가 그 자리의 타입을 못 정하고 {@code could not determine data type} 으로 죽는다.
-     * 값이 들어오는 경우에는 멀쩡히 돌아서 <b>필터를 안 건 요청에서만</b> 터진다.
-     *
-     * <p>상수라 인젝션은 아니지만 <b>문자열로 조립하지 않는다</b>(`D23`). 조건 조합이 늘어나는
-     * 모양이라, 지금 상수인 것이 나중에 값을 이어 붙이는 자리가 된다.
-     */
-    private static final String WHERE = """
-             where (cast(:actorUserId as bigint) is null or actor_user_id = cast(:actorUserId as bigint))
-               and (cast(:targetType  as text)   is null or target_type   = cast(:targetType as text))
-               and (cast(:targetId    as bigint) is null or target_id     = cast(:targetId as bigint))
-               and (cast(:from as timestamptz) is null or created_at >= cast(:from as timestamptz))
-               and (cast(:to   as timestamptz) is null or created_at <  cast(:to   as timestamptz))
-            """;
-
-    private static final String SELECT_ITEMS = """
-            select audit_log_id, event_type, actor_user_id, target_type, target_id,
-                   detail::text as detail, created_at
-              from audit_log
-            """ + WHERE + """
-             order by created_at desc, audit_log_id desc
-             limit :size offset :offset
-            """;
-
-    private static final String SELECT_TOTAL = "select count(*) from audit_log" + WHERE;
 
     public Page find(long viewerId, Criteria criteria, Paging paging) {
         authorize(viewerId, criteria);

@@ -36,8 +36,6 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class WebhookSweeper {
 
-    private static final Logger log = LoggerFactory.getLogger(WebhookSweeper.class);
-
     /** 한 회차에 보내는 줄 수. 받는 쪽이 늦으면 한 줄마다 타임아웃만큼 걸린다 */
     static final int BATCH_SIZE = 50;
 
@@ -49,6 +47,8 @@ public class WebhookSweeper {
 
     /** 펼칠 사건을 이만큼 거슬러 본다. 스위퍼가 이보다 오래 죽어 있었으면 그 사이 사건은 안 간다 */
     static final Duration FAN_OUT_WINDOW = Duration.ofDays(1);
+
+    private static final Logger log = LoggerFactory.getLogger(WebhookSweeper.class);
 
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;

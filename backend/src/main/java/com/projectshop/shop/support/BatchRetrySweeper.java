@@ -24,10 +24,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class BatchRetrySweeper {
 
-    private static final Logger log = LoggerFactory.getLogger(BatchRetrySweeper.class);
-
     /** 한 회차에 이만큼까지 시도한다. 첫 실행을 포함한 수다(`D19` — 10분 간격 3회) */
     static final int MAX_ATTEMPTS = 3;
+
+    private static final Logger log = LoggerFactory.getLogger(BatchRetrySweeper.class);
 
     /** 업무 판단은 KST 다(`D10`) */
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");

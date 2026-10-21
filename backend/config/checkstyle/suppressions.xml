@@ -17,35 +17,6 @@
     <!-- 영구 -->
     <!-- 규칙 필드 바로 밑에 그 규칙의 헬퍼를 둔 읽기 순서다. 차례대로 옮기면 헬퍼가 규칙과 떨어진다(`Q288`) -->
     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]ArchitectureTest\.java$"/>
-    <!-- 기준선 — main. `Q290a` 가 지운다 -->
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]account[\\/]AccountPurgeBatch\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]account[\\/]AccountPurgeService\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]audit[\\/]AuditLog\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]audit[\\/]AuditLogQuery\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]audit[\\/]AuditLogReviewBatch\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]audit[\\/]AuditLogReviewService\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]auth[\\/]ImpersonationReadOnlyFilter\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]error[\\/]ErrorCode\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]notification[\\/]AdvertisingGate\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]OrderQuery\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]OrderRecordText\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]OrderStatusBatch\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]OrderTransitions\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]TransactionPurgeBatch\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]payment[\\/]MockPaymentGateway\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]payment[\\/]RefundService\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]product[\\/]CopyrightReportService\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]product[\\/]ProductQuery\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]settlement[\\/]SettlementCloseBatch\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]settlement[\\/]SettlementQuery\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]stats[\\/]DailySalesBatch\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]stats[\\/]SalesStatsQuery\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]BatchRetrySweeper\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]EventEnvelope\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]OutboxPublisher\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]webhook[\\/]WebhookEndpointService\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]webhook[\\/]WebhookSender\.java$"/>
-    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]webhook[\\/]WebhookSweeper\.java$"/>
     <!-- 기준선 — test 최상위. `Q290b` 가 지운다 -->
     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]KafkaTestBase\.java$"/>
     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]LengthConstraintTest\.java$"/>

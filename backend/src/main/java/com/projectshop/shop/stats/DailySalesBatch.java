@@ -24,10 +24,10 @@ import com.projectshop.shop.support.RetryableBatch;
 @Component
 public class DailySalesBatch implements RetryableBatch {
 
-    private static final Logger log = LoggerFactory.getLogger(DailySalesBatch.class);
-
     /** 카탈로그(`D19`)가 부르는 이름. {@code batch_run.batch_name} 에 그대로 들어간다 */
     static final String BATCH_NAME = "daily_sales";
+
+    private static final Logger log = LoggerFactory.getLogger(DailySalesBatch.class);
 
     private final DailySalesService sales;
     private final BatchRuns runs;

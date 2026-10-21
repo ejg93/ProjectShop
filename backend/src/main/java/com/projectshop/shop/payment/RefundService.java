@@ -45,6 +45,25 @@ import com.projectshop.shop.support.ActorType;
 @Service
 public class RefundService {
 
+    /**
+     * 판정에 쓰는 자원 이름과 동작 이름(`V3`·`V24`).
+     *
+     * <p><b>둘로 갈린 것이 이 워크플로의 뼈대다.</b> 하나면 요청을 여는 순간 승인이 같이 열려서
+     * 고객이 남의 환불을 승인한다 — {@code refund_self_approval_check} 는 자기 것만 막는다.
+     *
+     * <p>{@link #APPROVE} 는 관리자에게만 있고 근거가 법이다(`D2` R5) —
+     * <b>제18조제2항 첫 문장 괄호</b>가 「소비자로부터 재화등의 대금을 받은 자」를
+     * 통신판매업자에 넣어서 <b>환급 의무자가 우리</b>다.
+     *
+     * <p><b>제20조의2제3항이 아니다</b>(`Q14` 에서 고쳤다). 그 조항은
+     * 「통신판매업자인 통신판매중개자」에게만 걸려서 우리를 직접 지목하지 않는다 —
+     * 결론은 같고 근거가 한 칸 비켜 있었다.
+     */
+    static final String RESOURCE = "payment";
+    // 승인과 반려가 같은 권한이다. 대기열(`RefundQuery`)이 버튼을 고를 때 이 이름을 같이 쓴다(`Q185`).
+    static final String APPROVE = "refund";
+    private static final String REQUEST = "request_refund";
+
     /** 환불 노출 번호의 접두어(`D9`). 주문·셀러 묶음과 형식이 같아서 이것이 종류를 가른다 */
     private static final String NUMBER_PREFIX = "R-";
 
@@ -89,25 +108,6 @@ public class RefundService {
      */
     private static final Set<String> DUE_FROM_CLOSED_AT =
             Set.of(RefundReason.CANCELLED.code(), RefundReason.WITHDRAWAL.code());
-
-    /**
-     * 판정에 쓰는 자원 이름과 동작 이름(`V3`·`V24`).
-     *
-     * <p><b>둘로 갈린 것이 이 워크플로의 뼈대다.</b> 하나면 요청을 여는 순간 승인이 같이 열려서
-     * 고객이 남의 환불을 승인한다 — {@code refund_self_approval_check} 는 자기 것만 막는다.
-     *
-     * <p>{@link #APPROVE} 는 관리자에게만 있고 근거가 법이다(`D2` R5) —
-     * <b>제18조제2항 첫 문장 괄호</b>가 「소비자로부터 재화등의 대금을 받은 자」를
-     * 통신판매업자에 넣어서 <b>환급 의무자가 우리</b>다.
-     *
-     * <p><b>제20조의2제3항이 아니다</b>(`Q14` 에서 고쳤다). 그 조항은
-     * 「통신판매업자인 통신판매중개자」에게만 걸려서 우리를 직접 지목하지 않는다 —
-     * 결론은 같고 근거가 한 칸 비켜 있었다.
-     */
-    static final String RESOURCE = "payment";
-    private static final String REQUEST = "request_refund";
-    // 승인과 반려가 같은 권한이다. 대기열(`RefundQuery`)이 버튼을 고를 때 이 이름을 같이 쓴다(`Q185`).
-    static final String APPROVE = "refund";
 
     private final JdbcClient jdbc;
     private final MockPaymentGateway gateway;

@@ -26,10 +26,10 @@ import com.projectshop.shop.support.RetryableBatch;
 @Component
 public class TransactionPurgeBatch implements RetryableBatch {
 
-    private static final Logger log = LoggerFactory.getLogger(TransactionPurgeBatch.class);
-
     /** 카탈로그(`D19`)가 부르는 이름. {@code batch_run.batch_name} 에 그대로 들어간다 */
     static final String BATCH_NAME = "transaction_purge";
+
+    private static final Logger log = LoggerFactory.getLogger(TransactionPurgeBatch.class);
 
     /** 업무 판단은 KST 다(`D10`) */
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");

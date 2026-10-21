@@ -26,13 +26,6 @@ import java.util.Map;
  */
 final class OrderRecordText {
 
-    /** 업무 시각은 KST 다(`D10`). 파일을 여는 사람은 우리 서버 시간대를 모른다 */
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-
-    private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-
-    private static final String LINE = "=".repeat(60);
-
     /** 주문 층의 상태. 화면의 `PAYMENT_STATUS` 와 같은 코드를 덮는다 */
     static final Map<String, String> PAYMENT_STATUS = Map.of(
             "PAYMENT_PENDING", "결제 대기",
@@ -49,6 +42,13 @@ final class OrderRecordText {
             "CANCELLED", "취소됨",
             "RETURN_REQUESTED", "반품 접수",
             "RETURNED", "반품 완료");
+
+    /** 업무 시각은 KST 다(`D10`). 파일을 여는 사람은 우리 서버 시간대를 모른다 */
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    private static final String LINE = "=".repeat(60);
 
     private static final Map<String, String> PAYMENT_RESULT = Map.of(
             "APPROVED", "승인",
