@@ -92,6 +92,99 @@ class ScreenLengthTest {
     private static final Map<String, String> AMBIGUOUS_NAMES = Map.of(
             "name", "상품 이름 100 과 옵션 이름 50 이 같은 칸 이름을 쓴다");
 
+    /**
+     * {@code name="x"} 만 있는 칸. <b>{@code maxLength} 가 붙었는지는 안 묻는다.</b>
+     *
+     * <p>위 {@code FIELD} 는 둘을 <b>같이</b> 요구해서 {@code maxLength} 가 없는 칸을 아예 못 걷는다 —
+     * 그래서 「상한을 빠뜨린 칸」이 목록에 안 들어가고 두 대조가 조용히 통과했다(점검 O).
+     */
+    private static final Pattern NAMED_FIELD = Pattern.compile(
+            "<[A-Za-z][^<>]*?\\bname=\"(\\w+)\"[^<>]*>",
+            Pattern.DOTALL);
+
+    /**
+     * {@code maxLength} 가 없어도 되는 화면 칸과 그 근거.
+     *
+     * <p><b>근거 없이 이름만 넣지 않는다.</b> 근거 칸이 없으면 이 목록이
+     * <b>상한을 빠뜨렸을 때 도망칠 자리</b>가 된다.
+     */
+    private static final Map<String, String> WITHOUT_SCREEN_LIMIT = new java.util.TreeMap<>(Map.ofEntries(
+            // **비밀번호는 안 자른다.** maxLength 는 넘친 글자를 조용히 버려서 사용자가 친 것과
+            // 다른 값이 간다 — 로그인은 그냥 실패하고, 변경은 <b>본인도 모르는 비밀번호</b>가 된다.
+            // 길이는 서버의 @Password 가 재고 거기서 400 으로 돌려준다(`D14`).
+            Map.entry("app/login/login-form.tsx  password", "비밀번호는 잘리면 안 된다. 서버 @Password 가 잰다"),
+            Map.entry("app/me/account-forms.tsx  currentPassword", "〃"),
+            Map.entry("app/me/account-forms.tsx  emailPassword", "〃"),
+            Map.entry("app/me/account-forms.tsx  newPassword", "〃"),
+            Map.entry("app/me/withdraw/withdraw-form.tsx  password", "〃"),
+            Map.entry("app/password-reset/reset-forms.tsx  newPassword", "〃 — 재설정(`Q180`)"),
+            Map.entry("app/signup/signup-form.tsx  password", "〃"),
+
+            // 아래 넷은 글자를 받는 칸이 아니다. maxLength 속성 자체가 안 걸린다.
+            Map.entry("app/me/inquiries/inquiry-form.tsx  kind", "select 다. 고를 수 있는 값이 목록으로 닫혀 있다"),
+            Map.entry("app/admin/orders/[orderNumber]/return-decision.tsx  reasonCode",
+                    "select 다. 네 사유뿐이고 서버 열거형과 return_request_rejection_reason_code_check 가 든다(`Q212`)"),
+            Map.entry("app/products/[productId]/ask-form.tsx  isPublic", "checkbox 다. 값이 둘뿐이다"),
+            Map.entry("app/seller/products/new/product-form.tsx  priceInclVat",
+                    "type=number 다. maxLength 가 안 걸리고 범위는 min/max 가 든다"),
+            Map.entry("app/seller/products/new/product-form.tsx  stockCount", "〃"),
+            Map.entry("app/seller/products/[productId]/images/image-manager.tsx  file",
+                    "type=file 이다. 글자가 아니라 파일이고 크기·형식은 서버가 막는다(`Q140`)"),
+            Map.entry("app/me/reviews/my-review-photos.tsx  file",
+                    "type=file 이다. 글자가 아니라 파일이고 크기·형식·장수는 서버가 막는다(`Q174`)"),
+            Map.entry("app/admin/roles/page.tsx  userId",
+                    "type=number 다. maxLength 가 안 걸리고 아래쪽은 min 이 든다(`16`)"),
+            Map.entry("app/seller/members/member-panel.tsx  roleCode",
+                    "select 다. 고를 수 있는 값이 목록으로 닫혀 있다(`16a`)"),
+            Map.entry("app/orders/[orderNumber]/review-form.tsx  rating",
+                    "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q160`)"),
+            Map.entry("app/me/reviews/my-review-actions.tsx  rating",
+                    "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q171`)"),
+            Map.entry("app/products/[productId]/report-button.tsx  reason",
+                    "select 다. 네 사유뿐이고 서버 @Pattern 과 review_report_reason_check 가 든다(`Q171`)"),
+            Map.entry("app/copyright-report/report-form.tsx  imageId",
+                    "radio 다. 고를 수 있는 값이 그 상품의 사진 번호로 닫혀 있다(`Q183`)"),
+            Map.entry("components/product-actions.tsx  backToSale",
+                    "radio 다. 참·거짓 둘뿐이고 서버 record 가 Boolean 으로 받는다(`Q182`)"),
+            Map.entry("app/seller/orders/[sellerOrderNumber]/ship-form.tsx  carrierCode",
+                    "select 다. 택배사 다섯뿐이고 서버 Carrier 열거형과 seller_order_carrier_code_check 가 든다(`57`)"),
+            // 관리자 주문 조회의 거르는 칸(`Q176`). 저장하는 값이 아니라 GET 조건이다.
+            Map.entry("app/admin/orders/order-list.tsx  status",
+                    "select 다. 결제 상태 넷뿐이고 모르는 값은 서버가 400 으로 돌린다"),
+            Map.entry("app/admin/orders/order-list.tsx  from",
+                    "type=date 다. 브라우저가 날짜 꼴로 닫고 서버가 LocalDate 로 받는다"),
+            Map.entry("app/admin/orders/order-list.tsx  until", "〃"),
+            // 손해배상 판정 칸(`43a-4c`). 글자는 사유(basis)와 문의 번호뿐이고 둘 다 위에서 잇는다.
+            Map.entry("app/admin/orders/[orderNumber]/compensations.tsx  kind",
+                    "select 다. 둘뿐이고 서버 CompensationKind 와 compensation_kind_check 가 든다"),
+            Map.entry("app/admin/orders/[orderNumber]/compensations.tsx  bearer",
+                    "select 다. 둘뿐이고 서버 CompensationBearer 와 compensation_bearer_check 가 든다"),
+            Map.entry("app/admin/orders/[orderNumber]/compensations.tsx  amount",
+                    "type=number 다. 1~1억은 min/max 와 서버 @Positive·@Max, 표의 compensation_amount_check 가 든다"),
+            Map.entry("app/admin/orders/[orderNumber]/force-status-form.tsx  to",
+                    "select 다. 서버가 내린 forcibleStatuses 로 닫혀 있고 표 밖은 서버가 409 로 돌린다(`16c`)"),
+            Map.entry("app/admin/orders/[orderNumber]/return-decision.tsx  restock",
+                    "radio 다. 참·거짓 둘뿐이고 서버 ApproveReturnRequest 가 @NotNull Boolean 으로 받는다(`43a-5`)"),
+            Map.entry("app/signup/signup-form.tsx  birthDate",
+                    "type=date 다. 브라우저가 날짜 꼴로 닫고 서버가 @Past LocalDate 로 받는다(`11b`)"),
+            Map.entry("app/seller/webhooks/webhook-actions.tsx  eventTypes",
+                    "checkbox 다. 사건 넷뿐이고 서버 Set<WebhookEventType> 과 webhook_endpoint_event_types_check 가 든다(`Q175`)"),
+
+            // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
+            // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라
+            // maxLength 가 안 걸리고, 범위는 min/max 와 표의 check 가 든다.
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  discountKind",
+                    "select 다. amount·percent 둘뿐이고 표의 coupon_discount_kind_check 와 같다"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  bearer",
+                    "select 다. mall·seller 둘뿐이고 표의 coupon_bearer_check 와 같다"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  discountValue",
+                    "type=number 다. 정률의 1~10000 은 min/max 와 coupon_discount_value_check 가 든다"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  maxDiscountAmount", "〃"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  minOrderAmount", "〃"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  sellerId", "〃"),
+            Map.entry("app/admin/coupons/new-coupon-form.tsx  validDays",
+                    "type=number 다. 1~3650 은 min/max 와 coupon_valid_days_check 가 든다")));
+
     private record ScreenField(String where, String name, int max) {}
 
     @Test
@@ -240,99 +333,6 @@ class ScreenLengthTest {
                     Integer.parseInt(matcher.group(maxGroup))));
         }
     }
-
-    /**
-     * {@code name="x"} 만 있는 칸. <b>{@code maxLength} 가 붙었는지는 안 묻는다.</b>
-     *
-     * <p>위 {@code FIELD} 는 둘을 <b>같이</b> 요구해서 {@code maxLength} 가 없는 칸을 아예 못 걷는다 —
-     * 그래서 「상한을 빠뜨린 칸」이 목록에 안 들어가고 두 대조가 조용히 통과했다(점검 O).
-     */
-    private static final Pattern NAMED_FIELD = Pattern.compile(
-            "<[A-Za-z][^<>]*?\\bname=\"(\\w+)\"[^<>]*>",
-            Pattern.DOTALL);
-
-    /**
-     * {@code maxLength} 가 없어도 되는 화면 칸과 그 근거.
-     *
-     * <p><b>근거 없이 이름만 넣지 않는다.</b> 근거 칸이 없으면 이 목록이
-     * <b>상한을 빠뜨렸을 때 도망칠 자리</b>가 된다.
-     */
-    private static final Map<String, String> WITHOUT_SCREEN_LIMIT = new java.util.TreeMap<>(Map.ofEntries(
-            // **비밀번호는 안 자른다.** maxLength 는 넘친 글자를 조용히 버려서 사용자가 친 것과
-            // 다른 값이 간다 — 로그인은 그냥 실패하고, 변경은 <b>본인도 모르는 비밀번호</b>가 된다.
-            // 길이는 서버의 @Password 가 재고 거기서 400 으로 돌려준다(`D14`).
-            Map.entry("app/login/login-form.tsx  password", "비밀번호는 잘리면 안 된다. 서버 @Password 가 잰다"),
-            Map.entry("app/me/account-forms.tsx  currentPassword", "〃"),
-            Map.entry("app/me/account-forms.tsx  emailPassword", "〃"),
-            Map.entry("app/me/account-forms.tsx  newPassword", "〃"),
-            Map.entry("app/me/withdraw/withdraw-form.tsx  password", "〃"),
-            Map.entry("app/password-reset/reset-forms.tsx  newPassword", "〃 — 재설정(`Q180`)"),
-            Map.entry("app/signup/signup-form.tsx  password", "〃"),
-
-            // 아래 넷은 글자를 받는 칸이 아니다. maxLength 속성 자체가 안 걸린다.
-            Map.entry("app/me/inquiries/inquiry-form.tsx  kind", "select 다. 고를 수 있는 값이 목록으로 닫혀 있다"),
-            Map.entry("app/admin/orders/[orderNumber]/return-decision.tsx  reasonCode",
-                    "select 다. 네 사유뿐이고 서버 열거형과 return_request_rejection_reason_code_check 가 든다(`Q212`)"),
-            Map.entry("app/products/[productId]/ask-form.tsx  isPublic", "checkbox 다. 값이 둘뿐이다"),
-            Map.entry("app/seller/products/new/product-form.tsx  priceInclVat",
-                    "type=number 다. maxLength 가 안 걸리고 범위는 min/max 가 든다"),
-            Map.entry("app/seller/products/new/product-form.tsx  stockCount", "〃"),
-            Map.entry("app/seller/products/[productId]/images/image-manager.tsx  file",
-                    "type=file 이다. 글자가 아니라 파일이고 크기·형식은 서버가 막는다(`Q140`)"),
-            Map.entry("app/me/reviews/my-review-photos.tsx  file",
-                    "type=file 이다. 글자가 아니라 파일이고 크기·형식·장수는 서버가 막는다(`Q174`)"),
-            Map.entry("app/admin/roles/page.tsx  userId",
-                    "type=number 다. maxLength 가 안 걸리고 아래쪽은 min 이 든다(`16`)"),
-            Map.entry("app/seller/members/member-panel.tsx  roleCode",
-                    "select 다. 고를 수 있는 값이 목록으로 닫혀 있다(`16a`)"),
-            Map.entry("app/orders/[orderNumber]/review-form.tsx  rating",
-                    "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q160`)"),
-            Map.entry("app/me/reviews/my-review-actions.tsx  rating",
-                    "select 다. 1~5 뿐이고 범위는 서버 @Min·@Max 가 든다(`Q171`)"),
-            Map.entry("app/products/[productId]/report-button.tsx  reason",
-                    "select 다. 네 사유뿐이고 서버 @Pattern 과 review_report_reason_check 가 든다(`Q171`)"),
-            Map.entry("app/copyright-report/report-form.tsx  imageId",
-                    "radio 다. 고를 수 있는 값이 그 상품의 사진 번호로 닫혀 있다(`Q183`)"),
-            Map.entry("components/product-actions.tsx  backToSale",
-                    "radio 다. 참·거짓 둘뿐이고 서버 record 가 Boolean 으로 받는다(`Q182`)"),
-            Map.entry("app/seller/orders/[sellerOrderNumber]/ship-form.tsx  carrierCode",
-                    "select 다. 택배사 다섯뿐이고 서버 Carrier 열거형과 seller_order_carrier_code_check 가 든다(`57`)"),
-            // 관리자 주문 조회의 거르는 칸(`Q176`). 저장하는 값이 아니라 GET 조건이다.
-            Map.entry("app/admin/orders/order-list.tsx  status",
-                    "select 다. 결제 상태 넷뿐이고 모르는 값은 서버가 400 으로 돌린다"),
-            Map.entry("app/admin/orders/order-list.tsx  from",
-                    "type=date 다. 브라우저가 날짜 꼴로 닫고 서버가 LocalDate 로 받는다"),
-            Map.entry("app/admin/orders/order-list.tsx  until", "〃"),
-            // 손해배상 판정 칸(`43a-4c`). 글자는 사유(basis)와 문의 번호뿐이고 둘 다 위에서 잇는다.
-            Map.entry("app/admin/orders/[orderNumber]/compensations.tsx  kind",
-                    "select 다. 둘뿐이고 서버 CompensationKind 와 compensation_kind_check 가 든다"),
-            Map.entry("app/admin/orders/[orderNumber]/compensations.tsx  bearer",
-                    "select 다. 둘뿐이고 서버 CompensationBearer 와 compensation_bearer_check 가 든다"),
-            Map.entry("app/admin/orders/[orderNumber]/compensations.tsx  amount",
-                    "type=number 다. 1~1억은 min/max 와 서버 @Positive·@Max, 표의 compensation_amount_check 가 든다"),
-            Map.entry("app/admin/orders/[orderNumber]/force-status-form.tsx  to",
-                    "select 다. 서버가 내린 forcibleStatuses 로 닫혀 있고 표 밖은 서버가 409 로 돌린다(`16c`)"),
-            Map.entry("app/admin/orders/[orderNumber]/return-decision.tsx  restock",
-                    "radio 다. 참·거짓 둘뿐이고 서버 ApproveReturnRequest 가 @NotNull Boolean 으로 받는다(`43a-5`)"),
-            Map.entry("app/signup/signup-form.tsx  birthDate",
-                    "type=date 다. 브라우저가 날짜 꼴로 닫고 서버가 @Past LocalDate 로 받는다(`11b`)"),
-            Map.entry("app/seller/webhooks/webhook-actions.tsx  eventTypes",
-                    "checkbox 다. 사건 넷뿐이고 서버 Set<WebhookEventType> 과 webhook_endpoint_event_types_check 가 든다(`Q175`)"),
-
-            // 쿠폰 만들기 칸 일곱(`Q163`). **글자를 받는 칸이 아니다** — 코드와 이름만
-            // 글자고 그 둘은 위 pairs() 에 이어져 있다. 나머지는 수와 닫힌 목록이라
-            // maxLength 가 안 걸리고, 범위는 min/max 와 표의 check 가 든다.
-            Map.entry("app/admin/coupons/new-coupon-form.tsx  discountKind",
-                    "select 다. amount·percent 둘뿐이고 표의 coupon_discount_kind_check 와 같다"),
-            Map.entry("app/admin/coupons/new-coupon-form.tsx  bearer",
-                    "select 다. mall·seller 둘뿐이고 표의 coupon_bearer_check 와 같다"),
-            Map.entry("app/admin/coupons/new-coupon-form.tsx  discountValue",
-                    "type=number 다. 정률의 1~10000 은 min/max 와 coupon_discount_value_check 가 든다"),
-            Map.entry("app/admin/coupons/new-coupon-form.tsx  maxDiscountAmount", "〃"),
-            Map.entry("app/admin/coupons/new-coupon-form.tsx  minOrderAmount", "〃"),
-            Map.entry("app/admin/coupons/new-coupon-form.tsx  sellerId", "〃"),
-            Map.entry("app/admin/coupons/new-coupon-form.tsx  validDays",
-                    "type=number 다. 1~3650 은 min/max 와 coupon_valid_days_check 가 든다")));
 
     /**
      * 화면 칸 중 {@code maxLength} 가 없는 것을 찾는다.

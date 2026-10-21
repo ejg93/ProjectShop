@@ -94,6 +94,26 @@ class SchemaNamingTest extends PostgresTestBase {
             "seller.mail_order_no", "통신판매업신고번호. 국가가 발급한다(`D2` R1)",
             "seller_order.tracking_no", "송장 번호. 택배사가 발급한다 — 형식을 우리가 안 정한다(`57`)"));
 
+    /**
+     * {@code _no}·{@code _number} 로 끝나는 컬럼 중 <b>우리가 발급하지 않는</b> 것과 그 근거.
+     *
+     * <p>{@code D22} 「접미사」가 가르는 기준이 「누가 발급했나」인데, <b>이름만으로는 그것을 못 본다.</b>
+     * 그래서 남이 준 번호를 여기 적고 <b>왜 그 이름으로 남았는지</b>를 값에 둔다.
+     */
+    private static final Map<String, String> FOREIGN_NUMBERS = Map.of(
+            "payment.approval_number",
+            "결제 대행사가 준 번호다. 기준대로면 _no 인데 approvalNumber 가 이미 주문 응답과 거래기록에 실렸다",
+            "refund.gateway_refund_number",
+            "결제 대행사가 준 번호다. 위와 같은 이유로 이름을 안 바꿨다");
+
+    /** 이 저장소가 발급하는 노출 번호. {@code identifier-rules.md} 가 형식까지 정한 것들이다. */
+    private static final Set<String> OUR_NUMBERS = Set.of(
+            "shop_order.order_number",
+            "seller_order.seller_order_number",
+            "refund.refund_number",
+            "settlement.settlement_number",
+            "inquiry.inquiry_number");
+
     @Autowired
     private JdbcClient jdbc;
 
@@ -353,18 +373,6 @@ class SchemaNamingTest extends PostgresTestBase {
     }
 
     /**
-     * {@code _no}·{@code _number} 로 끝나는 컬럼 중 <b>우리가 발급하지 않는</b> 것과 그 근거.
-     *
-     * <p>{@code D22} 「접미사」가 가르는 기준이 「누가 발급했나」인데, <b>이름만으로는 그것을 못 본다.</b>
-     * 그래서 남이 준 번호를 여기 적고 <b>왜 그 이름으로 남았는지</b>를 값에 둔다.
-     */
-    private static final Map<String, String> FOREIGN_NUMBERS = Map.of(
-            "payment.approval_number",
-            "결제 대행사가 준 번호다. 기준대로면 _no 인데 approvalNumber 가 이미 주문 응답과 거래기록에 실렸다",
-            "refund.gateway_refund_number",
-            "결제 대행사가 준 번호다. 위와 같은 이유로 이름을 안 바꿨다");
-
-    /**
      * {@code _number} 가 「우리가 발급한 번호」라는 약속을 지키나(`Q77`).
      *
      * <p><b>{@code _no} 쪽만 묻고 있었다.</b> {@code internalSequenceSuffixIsPinned} 가 그쪽을 핀하는 동안
@@ -386,12 +394,4 @@ class SchemaNamingTest extends PostgresTestBase {
                         + " 남이 준 번호면 _no 로 짓고, 이미 나간 이름이면 FOREIGN_NUMBERS 에 근거를 적는다")
                 .isEmpty();
     }
-
-    /** 이 저장소가 발급하는 노출 번호. {@code identifier-rules.md} 가 형식까지 정한 것들이다. */
-    private static final Set<String> OUR_NUMBERS = Set.of(
-            "shop_order.order_number",
-            "seller_order.seller_order_number",
-            "refund.refund_number",
-            "settlement.settlement_number",
-            "inquiry.inquiry_number");
 }

@@ -83,6 +83,12 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @Import(PostgresTestBase.Containers.class)
 public abstract class PostgresTestBase {
 
+    @Autowired
+    private JdbcClient auditCleanup;
+
+    @Autowired
+    private PlatformTransactionManager auditTxManager;
+
     /**
      * 인증을 스레드에서 걷어낸다.
      *
@@ -138,14 +144,11 @@ public abstract class PostgresTestBase {
                 });
     }
 
-    @Autowired
-    private JdbcClient auditCleanup;
-
-    @Autowired
-    private PlatformTransactionManager auditTxManager;
-
     @TestConfiguration(proxyBeanMethods = false)
     static class Containers {
+
+        /** Redis 논리 DB 수. 0 번은 손으로 들여다볼 때 쓰라고 비워 둔다. */
+        private static final int REDIS_DATABASES = 256;
 
         /**
          * `docker-compose.yml` 과 같은 이미지를 쓴다. 버전이 갈리면 테스트가 통과해도 운영에서 깨진다.
@@ -282,9 +285,6 @@ public abstract class PostgresTestBase {
                     .withCommand("redis-server", "--databases", String.valueOf(REDIS_DATABASES))
                     .withReuse(true);
         }
-
-        /** Redis 논리 DB 수. 0 번은 손으로 들여다볼 때 쓰라고 비워 둔다. */
-        private static final int REDIS_DATABASES = 256;
 
         /**
          * fork 마다 Redis 논리 DB 를 가른다(`2i-2`).

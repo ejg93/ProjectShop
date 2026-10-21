@@ -17,17 +17,9 @@
     <!-- 영구 -->
     <!-- 규칙 필드 바로 밑에 그 규칙의 헬퍼를 둔 읽기 순서다. 차례대로 옮기면 헬퍼가 규칙과 떨어진다(`Q288`) -->
     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]ArchitectureTest\.java$"/>
-    <!-- 기준선 — test 최상위. `Q290b` 가 지운다 -->
-    <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]KafkaTestBase\.java$"/>
-    <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]LengthConstraintTest\.java$"/>
-    <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]PostgresTestBase\.java$"/>
-    <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]PublicSurfaceTest\.java$"/>
-    <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]SchemaNameTest\.java$"/>
-    <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]SchemaNamingTest\.java$"/>
-    <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]ScreenLengthTest\.java$"/>
-    <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]SqlTextTest\.java$"/>
+    <!-- protected 컨테이너(`S3MOCK`)의 초기식이 package 이미지 이름·private 포트를 단순 이름으로 읽는다.
+         접근자 차례대로 올리면 forward reference 로 컴파일이 깨진다(`Q290b`). 어떻게 풀지는 `Q291` -->
     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]StorageTestBase\.java$"/>
-    <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]TestConventionTest\.java$"/>
     <!-- 기준선 — test 패키지. `Q290c` 가 지운다 -->
     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]auth[\\/]Decider\.java$"/>
     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]auth[\\/]PermissionMatrixTest\.java$"/>

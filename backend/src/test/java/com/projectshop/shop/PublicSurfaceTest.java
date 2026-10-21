@@ -57,6 +57,9 @@ class PublicSurfaceTest {
                     .because("아무도 안 쓰는 public 은 「여기로 들어와도 된다」는 신호가 된다"
                             + " (coding-rules.md, 43a-27). 좁히면 잘못 쓰는 코드가 컴파일이 안 된다");
 
+    private PublicSurfaceTest() {
+    }
+
     private static ArchCondition<JavaClass> usedFromAnotherPackage() {
         return new ArchCondition<>("패키지 밖에서 쓰인다") {
             @Override
@@ -71,8 +74,5 @@ class PublicSurfaceTest {
                 }
             }
         };
-    }
-
-    private PublicSurfaceTest() {
     }
 }
