@@ -657,7 +657,7 @@ Postgres 가 마이크로초 아래를 올린다든가, Next 가 `cookies()` 를
 | 겹 | 차례 |
 |---|---|
 | 종류 | static 변수 → 인스턴스 변수 → 생성자 → 메서드 |
-| 같은 종류 안 접근자 | public → protected → package → private |
+| 같은 종류의 변수(static·인스턴스) 안 접근자 | public → protected → package → private. 생성자·메서드에는 안 건다 — 게이트(`DeclarationOrder`)도 변수에만 잰다 |
 
 **출처는 관례다**(Java Code Conventions 3.1.3, 위 축 1의 4순위). 근거를 대면 버릴 수 있고, 버린 자리는 억제 목록에 근거와 함께 적는다.
 
