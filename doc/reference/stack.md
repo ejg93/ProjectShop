@@ -1034,7 +1034,7 @@ docker exec shop-db psql -U shop -d postgres -c "drop database shop_check;"
 **안 켜져 있어도 실패하지 않는다.** 경고 한 줄이 나가고 컨테이너를 새로 띄운다.
 
 ```
-WARN tc.postgres:17-alpine : Reuse was requested but the environment does not support the reuse of containers
+WARN tc.postgres:18-alpine : Reuse was requested but the environment does not support the reuse of containers
 To enable reuse of containers, you must set 'testcontainers.reuse.enable=true' in a file located at C:\Users\...\.testcontainers.properties
 ```
 
