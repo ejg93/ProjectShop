@@ -246,7 +246,10 @@ val comparedInFastLane = listOf(
 	"../load/baseline.json",
 	// 억제 목록(`Q292`). `CheckstyleSuppressionTest` 가 줄 수와 근거 주석을 잰다 — 근거 없는 줄을 더한 청크에서
 	// 그 시험이 `UP-TO-DATE` 로 건너뛰면 막으려던 그 변화가 지나간다(부순 증거를 만들다 실측).
-	"config/checkstyle/suppressions.xml")
+	"config/checkstyle/suppressions.xml",
+	// 선언 의존성(`Q298`). `DependencyLicenseTest` 가 두 맵의 이름을 라이선스 표와 견준다 — 패키지만 더한 청크에서
+	// 그 시험이 `UP-TO-DATE` 로 건너뛰면 표에 없는 의존성이 지나간다.
+	"../frontend/package.json")
 val comparedScreenRoot = "../frontend/src"
 val declaredComparedInputs = comparedInSlowLane + comparedInFastLane + comparedScreenRoot
 

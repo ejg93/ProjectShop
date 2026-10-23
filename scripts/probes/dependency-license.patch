@@ -1,0 +1,14 @@
+# gate: 선언 의존성마다 라이선스 표 행이 있다(Q298)
+# run: cd backend && ./gradlew test --tests '*DependencyLicenseTest*' --console=plain
+# expect: 선언한 의존성마다 표 행이 있다 FAILED
+diff --git a/doc/reference/external-references.md b/doc/reference/external-references.md
+--- a/doc/reference/external-references.md
++++ b/doc/reference/external-references.md
+@@ -456,7 +456,6 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
+ |---|---|---|
+ | Spring Boot · Spring Security · Spring Framework · 의존성 관리 플러그인 | Apache-2.0 (플러그인 2026-10-23 확인, POM) | `org.springframework.boot:*` `plugin:org.springframework.boot` `plugin:io.spring.dependency-management` |
+ | Micrometer · Micrometer Tracing (Brave) | Apache-2.0 | `io.micrometer:*` |
+-| Caffeine | Apache-2.0 | `com.github.ben-manes.caffeine:*` |
+ | Flyway (Community) | Apache-2.0 (2026-08-14 확인) | `org.flywaydb:*` |
+ | Jackson | Apache-2.0 | (전이) — `starter-webmvc` 가 들인다 |
+ | Apache HttpClient 5 (`httpclient5`) | Apache-2.0 (2026-09-26 확인) — 웹훅 발송기(`Q210`) | `org.apache.httpcomponents.client5:*` |

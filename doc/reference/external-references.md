@@ -452,43 +452,48 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 `build.gradle.kts` 에 줄을 추가할 때 본다. **앱에 실려 나가는 것에 GPL 계열은 0건**이다.
 빌드·시험 도구에는 LGPL 셋과 MPL 하나가 있다 — 아래 「도구」 표. 배포물(이미지·번들)에 안 실린다(점검 W, 2026-10-23).
 
-| 의존성 | 라이선스 |
-|---|---|
-| Spring Boot · Spring Security · Spring Framework | Apache-2.0 |
-| Micrometer · Micrometer Tracing (Brave) | Apache-2.0 |
-| Caffeine | Apache-2.0 |
-| Flyway (Community) | Apache-2.0 (2026-08-14 확인) |
-| Jackson | Apache-2.0 |
-| Apache HttpClient 5 (`httpclient5`) | Apache-2.0 (2026-09-26 확인) — 웹훅 발송기(`Q210`) |
-| PostgreSQL JDBC Driver | BSD-2-Clause |
-| AWS SDK for Java v2 (`s3`·`apache-client`) | Apache-2.0 (2026-10-23 확인, 부모 POM) — 파일 저장소(R2) |
-| Apache Kafka clients (`spring-boot-starter-kafka` 가 들인다) | Apache-2.0 (2026-10-23 확인, `kafka-clients` POM) |
-| springdoc-openapi | Apache-2.0 (2026-10-23 확인, 부모 POM) |
-| lz4-java (`at.yawk.lz4`) | Apache-2.0 (2026-10-23 확인) — 판만 고정한 전이 의존 |
-| Lettuce (`spring-boot-starter-data-redis` 가 들인다) | MIT (2026-10-23 확인) |
-| Testcontainers | MIT |
-| Next.js · React · Tailwind CSS | MIT |
-| react-markdown · remark-gfm (unified 계열) | MIT (2026-08-17 확인) |
-| geist (Vercel) — Geist·Geist Mono 글꼴 파일 | **SIL OFL 1.1** (2026-09-26 확인, 패키지의 `LICENSE.txt`) |
+| 의존성 | 라이선스 | 좌표 |
+|---|---|---|
+| Spring Boot · Spring Security · Spring Framework · 의존성 관리 플러그인 | Apache-2.0 (플러그인 2026-10-23 확인, POM) | `org.springframework.boot:*` `plugin:org.springframework.boot` `plugin:io.spring.dependency-management` |
+| Micrometer · Micrometer Tracing (Brave) | Apache-2.0 | `io.micrometer:*` |
+| Caffeine | Apache-2.0 | `com.github.ben-manes.caffeine:*` |
+| Flyway (Community) | Apache-2.0 (2026-08-14 확인) | `org.flywaydb:*` |
+| Jackson | Apache-2.0 | (전이) — `starter-webmvc` 가 들인다 |
+| Apache HttpClient 5 (`httpclient5`) | Apache-2.0 (2026-09-26 확인) — 웹훅 발송기(`Q210`) | `org.apache.httpcomponents.client5:*` |
+| PostgreSQL JDBC Driver | BSD-2-Clause | `org.postgresql:*` |
+| AWS SDK for Java v2 (`s3`·`apache-client`) | Apache-2.0 (2026-10-23 확인, 부모 POM) — 파일 저장소(R2) | `software.amazon.awssdk:*` |
+| Apache Kafka clients (`spring-boot-starter-kafka` 가 들인다) | Apache-2.0 (2026-10-23 확인, `kafka-clients` POM) | (전이) |
+| springdoc-openapi | Apache-2.0 (2026-10-23 확인, 부모 POM) | `org.springdoc:*` |
+| lz4-java (`at.yawk.lz4`) | Apache-2.0 (2026-10-23 확인) — 판만 고정한 전이 의존 | `at.yawk.lz4:*` |
+| Lettuce (`spring-boot-starter-data-redis` 가 들인다) | MIT (2026-10-23 확인) | (전이) |
+| Testcontainers | MIT | `org.testcontainers:*` |
+| Next.js · React · Tailwind CSS | MIT | `next` `react` `react-dom` `tailwindcss` `@tailwindcss/*` |
+| react-markdown · remark-gfm (unified 계열) | MIT (2026-08-17 확인) | `react-markdown` `remark-gfm` |
+| geist (Vercel) — Geist·Geist Mono 글꼴 파일 | **SIL OFL 1.1** (2026-09-26 확인, 패키지의 `LICENSE.txt`) | `geist` |
 
 `react-markdown` 은 **정책 문서를 그리려고 넣었다**(`13a-2`). 본문이 DB 에 마크다운으로 들어가서
 문법을 우리가 통제하지 않고, 처리방침이 목록과 표를 쓴다 — 표는 CommonMark 가 아니라 GFM 이라
 `remark-gfm` 이 같이 온다. **직접 쓴 렌더러는 안 다루는 문법을 오류 없이 원문 글자로 내보낸다.**
 
 **판단한 적 없는 것과 판단해서 괜찮은 것은 다르다**(`D23`). 위 표가 그 판단을 기록한 것이다.
-새 의존성을 넣으면 이 표에 줄을 더한다. **이 문장만으로는 안 지켜졌다** — 점검 W 가 앱에 실리는 다섯이 빠진 것을 찾았다.
+새 의존성을 넣으면 이 표에 줄을 더한다. **이 문장만으로는 안 지켜졌다** — 점검 W 가 앱에 실리는 다섯이 빠진 것을 찾았다. **그래서 `DependencyLicenseTest` 가 잰다**(`Q298`) — `build.gradle.kts` 의 설정 호출·플러그인과 `frontend/package.json` 의 두 맵이 전부 아래 두 표의 「좌표」 열에 걸려야 빠른 레인이 초록이다. 좌표는 `group:*` · `plugin:id` · npm 이름 · `@scope/*` 로 적고, 선언이 아닌 전이 의존은 「(전이)」로 적는다.
 
 **도구** — 빌드·시험에만 쓰고 배포물에 안 싣는다. LGPL·MPL 은 「고쳐서 배포하면 그 부분을 공개」가 요건이라
 쓰기만 하는 우리에게는 걸릴 것이 없다. **앱 의존성으로 옮기는 날 다시 판단한다.**
 
-| 도구 | 라이선스 |
-|---|---|
-| Checkstyle | LGPL-2.1-or-later (2026-10-23 확인) |
-| SpotBugs | LGPL-2.1 |
-| find-sec-bugs | LGPL-3.0 (2026-10-23 확인, 부모 POM) |
-| ArchUnit · PIT(pitest) | Apache-2.0 (2026-10-23 확인, 둘 다 POM) |
-| axe-core · `@axe-core/playwright` | MPL-2.0 (2026-10-23 확인, 패키지) |
-| Playwright · Vitest · jsdom · ESLint 계열 | Apache-2.0 · MIT (2026-10-23 확인, 패키지) |
+| 도구 | 라이선스 | 좌표 |
+|---|---|---|
+| Checkstyle | LGPL-2.1-or-later (2026-10-23 확인) | (전이) — `checkstyle` 플러그인이 `toolVersion` 으로 들인다 |
+| plexus-utils (Checkstyle 이 doxia 를 타고 들인다, 판만 고정) | Apache-2.0 (2026-10-23 확인, POM) | `org.codehaus.plexus:*` |
+| SpotBugs | LGPL-2.1 | (전이) — 아래 플러그인이 들인다 |
+| SpotBugs Gradle 플러그인 | Apache-2.0 (2026-10-23 확인, 캐시의 POM·GitHub `LICENSE`) | `plugin:com.github.spotbugs` |
+| find-sec-bugs | LGPL-3.0 (2026-10-23 확인, 부모 POM) | `com.h3xstream.findsecbugs:*` |
+| ArchUnit · PIT(pitest)·PIT JUnit 5 플러그인 | Apache-2.0 (2026-10-23 확인, 셋 다 POM) | `com.tngtech.archunit:*` `org.pitest:*` |
+| JUnit Platform 실행기 | **EPL-2.0** (2026-10-23 확인, POM) — 시험만 쓴다. 고쳐서 배포할 때 그 부분 공개가 요건이라 걸릴 것이 없다 | `org.junit.platform:*` |
+| axe-core · `@axe-core/playwright` | MPL-2.0 (2026-10-23 확인, 패키지) | `axe-core` `@axe-core/*` |
+| Playwright · Vitest · jsdom · ESLint 계열 | Apache-2.0 · MIT (2026-10-23 확인, 패키지) | `@playwright/*` `vitest` `jsdom` `eslint` `@eslint/*` `eslint-config-next` `eslint-plugin-jsx-a11y` |
+| TypeScript | Apache-2.0 (2026-10-23 확인, 패키지) | `typescript` |
+| 타입 정의 · Testing Library · Vite React 플러그인 | MIT (2026-10-23 확인, 패키지) | `@types/*` `@testing-library/*` `@vitejs/*` |
 
 **서비스** — 앱이 붙는 저장소다. 코드에 안 들어오고 우리가 배포하지 않는다(운영은 Railway 가 돌린다, `Q297`).
 
