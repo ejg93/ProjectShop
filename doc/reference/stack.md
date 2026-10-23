@@ -1045,7 +1045,7 @@ To enable reuse of containers, you must set 'testcontainers.reuse.enable=true' i
 
 `Containers` 가 `@TestConfiguration` 이라 **컨텍스트가 갈리면 컨테이너도 따로 뜬다.**
 `PostgresTestBase`(MOCK)와 `HttpTestBase`(RANDOM_PORT)가 다른 컨텍스트라
-느린 레인 한 번에 postgres 가 셋 뜬다(`--info` 의 `Container postgres:17-alpine started` 를 센다).
+느린 레인 한 번에 postgres 가 셋 뜬다(`--info` 의 `Container postgres:18-alpine started` 를 센다 — 2026-10-23 까지는 `17-alpine`).
 
 재사용을 켜면 그 셋이 같은 컨테이너에 붙어서 기동 비용이 사라진다.
 
@@ -1062,7 +1062,7 @@ To enable reuse of containers, you must set 'testcontainers.reuse.enable=true' i
 ### `initdb.d` 는 볼륨이 비었을 때만 돈다
 
 `docker-compose.yml` 의 `/docker-entrypoint-initdb.d` 마운트는 **데이터 디렉터리가 비어 있을 때 한 번**만 실행된다.
-이미 `db-data` 가 있는 기계에서는 파일을 넣어도 **아무 일이 안 일어나고 오류도 안 난다.**
+이미 `db-data-18` 이 차 있는 기계에서는 파일을 넣어도 **아무 일이 안 일어나고 오류도 안 난다.** 볼륨 이름이 판마다 갈린다(`Q297` — 17 은 `db-data`).
 
 ```
 docker compose down -v && docker compose up -d --wait

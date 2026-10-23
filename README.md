@@ -23,7 +23,7 @@
 ## 구조
 
 ```
-  브라우저 ──▶ Next.js (3000)  ──rewrite──▶ Spring Boot (8080) ──▶ PostgreSQL 17
+  브라우저 ──▶ Next.js (3000)  ──rewrite──▶ Spring Boot (8080) ──▶ PostgreSQL 18
                화면·세션 쿠키       /api/*        판정·업무 규칙        제약·트리거
                                                         │
                                                         └──▶ Redis (세션 저장소)
@@ -81,8 +81,12 @@ docker compose down
 스키마가 꼬였을 때 처음부터 다시 만드는 용도다.
 
 **`pg_stat_statements` 가 켜져 있다**(`42-0`). 느린 쿼리가 쌓여서 청크 `42`(성능 측정)가
-올 때 읽을 것이 이미 있다. **이 저장소를 예전에 띄워 본 기계라면 한 번은 `down -v` 가 필요하다** —
+올 때 읽을 것이 이미 있다. **`db-data-18` 볼륨이 비었을 때만 확장을 만든다** —
 확장을 만드는 스크립트가 **볼륨이 비었을 때만** 돌기 때문이다(`stack.md`).
+
+**2026-10-23 에 Postgres 를 18 로 올리며 볼륨을 갈랐다**(`Q297`). 17 을 쓰던 기계는 다음 `up` 에서 **빈 `db-data-18` 이 새로 생겨 DB 가 비어 보인다** —
+옛 데이터는 쓰는 서비스가 없는 `db-data` 볼륨에 그대로 있다. 백엔드를 한 번 띄우면 Flyway 가 스키마와 시드를 다시 붓고,
+부하 데이터(`shop_load`)는 그 뒤 `bash scripts/load-data.sh` 로 다시 만든다 — 먼저 돌리면 `flyway_schema_history` 가 없어서 죽는다.
 
 ```bash
 docker exec shop-db psql -U shop -d shop -c "select count(*) from pg_stat_statements"

@@ -68,9 +68,14 @@ final class StoreVersionCheck implements ApplicationRunner {
             log.warn("저장소 판을 못 쟀다(Q297): {}", e.getMessage());
             return;
         }
+        boolean redisRead = result.redisMajor() >= 0;
         log.info("저장소 판 postgres={} redis={}", result.postgresVersion(),
-                result.redisVersion() == null ? "못 읽음" : result.redisVersion());
-        if (result.postgresMajor() != EXPECTED_POSTGRES_MAJOR || result.redisMajor() != EXPECTED_REDIS_MAJOR) {
+                redisRead ? result.redisVersion() : "못 읽음");
+        // 못 읽은 것을 「다르다」로 적으면 실제 갈림과 구별이 안 된다 — 문구를 가른다(마무리 69차 독립 리뷰)
+        if (!redisRead) {
+            log.warn("Redis 판을 못 읽었다 — INFO server 가 막혔거나 redis_version 이 없다(Q297)");
+        }
+        if (result.postgresMajor() != EXPECTED_POSTGRES_MAJOR || (redisRead && result.redisMajor() != EXPECTED_REDIS_MAJOR)) {
             log.warn("저장소 판이 시험과 다르다 — 기대 postgres {}·redis {}. docker-compose.yml·PostgresTestBase 와 견준다(Q297)",
                     EXPECTED_POSTGRES_MAJOR, EXPECTED_REDIS_MAJOR);
         }

@@ -23,7 +23,8 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>{@code external-references.md} 「의존성」·「도구」 표가 「새 의존성을 넣으면 이 표에 줄을 더한다」를
  * 문서로만 들고 있었고, 점검 W(2026-10-23)가 앱에 실리는 것 다섯과 선언 열넷이 빠진 것을 찾았다.
- * <b>판단한 적 없는 것과 판단해서 괜찮은 것은 다르다</b>(`D23`) — 그 차이를 여기서 기계로 가른다.
+ * <b>판단한 적 없는 것과 판단해서 괜찮은 것은 다르다</b>(`D23`) — 여기서 재는 것은 <b>판단한 기록(행)이 있나</b>까지다.
+ * 행의 라이선스가 맞는지, 실제로 판단했는지 베꼈는지는 못 가른다 — 그건 행을 쓰는 사람과 리뷰의 몫이다.
  *
  * <p><b>선언만 본다.</b> {@code build.gradle.kts} 의 설정 호출과 {@code plugins { id(…) }},
  * {@code frontend/package.json} 의 두 맵이다. 전이 의존은 표에 {@code (전이)} 로 적고 좌표를 안 단다 —
@@ -38,12 +39,19 @@ class DependencyLicenseTest {
 
     private static final Path REFERENCES = Path.of("..", "doc", "reference", "external-references.md");
 
-    /** {@code implementation("group:artifact[:version]")} · {@code testImplementation(platform("…"))} 꼴 */
+    /**
+     * {@code implementation("group:artifact[:version]")} · {@code testImplementation(platform("…"))} · {@code mavenBom("…")} 꼴.
+     * 설정 이름은 대소문자를 안 가린다 — {@code testAnnotationProcessor} 처럼 접두가 붙은 것도 잡는다(마무리 69차 독립 리뷰)
+     */
     private static final Pattern GRADLE_CALL = Pattern.compile(
-            "\\b(?:implementation|testImplementation|testRuntimeOnly|runtimeOnly|developmentOnly|compileOnly"
-                    + "|annotationProcessor|spotbugsPlugins|pitest|checkstyle)\\((?:platform\\()?\"([^\":]+):([^\":]+)");
+            "\\b(?:implementation|testImplementation|testRuntimeOnly|runtimeOnly|testCompileOnly|developmentOnly"
+                    + "|compileOnly|api|annotationProcessor|testAnnotationProcessor|spotbugsPlugins|pitest|checkstyle"
+                    + "|mavenBom)\\((?:platform\\()?\"([^\":]+):([^\":]+)");
 
     private static final Pattern PLUGIN_ID = Pattern.compile("\\bid\\(\"([^\"]+)\"\\)");
+
+    /** 이 시험이 못 읽는 선언 꼴. 들어오면 빨갛게 해서 정규식을 먼저 넓히게 한다 */
+    private static final Pattern UNREAD_FORM = Pattern.compile("\\b(?:alias|kotlin)\\(|\\blibs\\.");
 
     private static final Pattern BACKTICKED = Pattern.compile("`([^`]+)`");
 
@@ -62,7 +70,7 @@ class DependencyLicenseTest {
             found.add("plugin:" + plugin.group(1));
         }
         JsonNode pkg = JsonMapper.builder().build().readTree(Files.readString(PACKAGE, StandardCharsets.UTF_8));
-        for (String map : List.of("dependencies", "devDependencies")) {
+        for (String map : List.of("dependencies", "devDependencies", "peerDependencies", "optionalDependencies")) {
             pkg.path(map).propertyNames().forEach(found::add);
         }
         return found;
@@ -130,6 +138,10 @@ class DependencyLicenseTest {
         assertThat(declarations())
                 .describedAs("Gradle 설정 호출 · 플러그인 · package.json 중 한 갈래를 못 읽었다 — 정규식이나 파일 위치가 바뀌었다")
                 .contains("org.springframework.boot:spring-boot-starter-webmvc", "plugin:org.springframework.boot", "next", "vitest");
+        assertThat(UNREAD_FORM.matcher(Files.readString(BUILD, StandardCharsets.UTF_8)).find())
+                .describedAs("build.gradle.kts 에 이 시험이 못 읽는 선언 꼴(alias(…)·kotlin(…)·버전 카탈로그 libs.)이 생겼다 — "
+                        + "GRADLE_CALL·PLUGIN_ID 를 먼저 넓힌다. 안 그러면 그 선언이 표 대조를 조용히 비켜 간다")
+                .isFalse();
     }
 
     @Test
