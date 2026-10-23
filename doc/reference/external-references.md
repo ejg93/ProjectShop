@@ -59,7 +59,7 @@ XACML 자체를 도입하지 않는다. XML 정책 언어라 이 규모에 과�
 | 자료 | 링크 |
 |---|---|
 | The Practical Test Pyramid | https://martinfowler.com/articles/practical-test-pyramid.html |
-| Spring Boot Testing (4.1.0) | https://docs.spring.io/spring-boot/reference/testing/index.html |
+| Spring Boot Testing (4.1.x — 지금 4.1.2) | https://docs.spring.io/spring-boot/reference/testing/index.html |
 | Testcontainers for Java | https://java.testcontainers.org/ |
 | Spring Boot × Testcontainers | https://docs.spring.io/spring-boot/reference/testing/testcontainers.html |
 
@@ -149,7 +149,7 @@ D3 의 기본 요율 10% 는 아래를 보고 가운데를 잡은 값이다. 202
 | OWASP Cheat Sheet Series | https://cheatsheetseries.owasp.org/ | 주제별 실무 지침. Top 10 이 "무엇이 위험한가" 라면 이쪽이 "어떻게 막나" 다 |
 | **NIST SP 800-63B Rev 4** | https://pages.nist.gov/800-63-4/sp800-63b.html | 비밀번호 규칙의 근거. **문장 단위로 대조했다**(점검 E) — 단독 인증수단이면 **최소 15자 `SHALL`**, 블록리스트 대조 `SHALL`, 조합 강제 `SHALL NOT`, 최대 64자·인쇄 ASCII+공백·유니코드는 `SHOULD` |
 | SecLists `Pwdb_top-1000000.txt` | https://github.com/danielmiessler/SecLists/blob/master/Passwords/Common-Credentials/Pwdb_top-1000000.txt | **비밀번호 블록리스트의 원본**(`D14-2`). 2026-09-23 에 받아 **15~64자 인쇄 ASCII 만** 남기고(우리 규칙을 통과할 수 있는 것만 — 나머지는 `@Password` 에서 이미 막힌다) 소문자로 모아 중복을 뺐다 — 5,311줄, `backend/src/main/resources/security/password-blocklist.txt`. hashcat 표기(`$HEX[...]`, 비ASCII)는 뺐다. **목록은 낡는다** — 갱신은 같은 거름으로 청크 하나다 |
-| Spring Security 레퍼런스 | https://docs.spring.io/spring-security/reference/index.html | **7.1.0**. CSRF 와 Session Management 절이 따로 있다 |
+| Spring Security 레퍼런스 | https://docs.spring.io/spring-security/reference/index.html | **7.1.2**(Boot 4.1.2 BOM, `Q295`). CSRF 와 Session Management 절이 따로 있다 |
 
 Spring Security 문서에서 청크가 직접 쓰는 절
 
@@ -205,7 +205,7 @@ ISO 4217 이 통화 코드 표준(`KRW`, `USD`)이고 `java.util.Currency` 가 �
 |---|---|---|
 | PostgreSQL 17 격리 수준 | https://www.postgresql.org/docs/17/transaction-iso.html | 기본이 **Read Committed**. Repeatable Read 와 Serializable 을 쓰려면 명시해야 한다 |
 | Stripe 멱등 요청 | https://docs.stripe.com/api/idempotent_requests | 멱등키 설계의 실물 |
-| `Idempotency-Key` 초안 | https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/ | **`draft-ietf-httpapi-idempotency-key-header-07`**, 2025-10-15 개정, **상태 Expired**(2026-04-18 만료. 2026-09-21 확인). 만료된 I-D 는 **표준이 아니다** — 출처 축에서 관례(4순위)로 놓고 우리 규약(3순위)이 이긴다 |
+| `Idempotency-Key` 초안 | https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/ | **`draft-ietf-httpapi-idempotency-key-header-08`**, 2026-10-22 개정, **상태 Active I-D**(만료 2027-04-25. 2026-10-23 확인 — -07 은 2026-04-18 에 만료됐었다). I-D 는 활성이어도 **표준이 아니다** — 출처 축에서 관례(4순위)로 놓고 우리 규약(3순위)이 이긴다 |
 
 Postgres 문서에서 확인한 것
 
@@ -226,7 +226,7 @@ Stripe 멱등키에서 확인한 것 — 우리 청크 12(모의 결제)가 그�
 - 헤더 이름 `Idempotency-Key` — 같다
 - §2.7 「같은 키에 다른 본문이면 **422**」 — 같다(`IDEMPOTENCY_KEY_REUSED`)
 - §2.7 「처리 중이면 **409**」 — 같다(`IDEMPOTENCY_IN_PROGRESS`)
-- §2.6 「완료 뒤 재시도는 앞 결과를 그대로 준다」 — 같다
+- §2.6 「완료 뒤 재시도는 앞 결과를 그대로 준다」 — 같다. **-08 이 「사용자 뜻대로 끝난 것과 맞는 응답」으로 느슨하게 고쳤다**(issue #48, 논의 중) — 그대로 주는 우리 쪽은 그것에도 맞는다
 - **갈리는 하나는 값의 문법이다.** §2.1 이 「Item Structured Header([RFC 8941])고 값은 String」이라
   큰따옴표로 감싸야 하는데, 우리는 생 문자열 1~255자를 받는다. 갈래와 근거는 `concurrency-rules.md` 가 든다
 - §2.3·§2.5.2 는 **키 범위를 사용자·자원으로 안 묶고** 만료 정책을 자원이 정해서 공개하라고만 한다 — 우리는 24시간이다
@@ -328,7 +328,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 |---|---|---|
 | 전자상거래법 전문 (CaseNote) | https://casenote.kr/법령/전자상거래_등에서의_소비자보호에_관한_법률 | 조문 제목 10개, 제12조 신고 면제 단서, **제17조제2항 제한 사유 6호** |
 | 통신판매업 신고면제 기준 고시 | https://www.law.go.kr/행정규칙/통신판매업신고면제기준에대한고시 | 면제 기준이 시행령이 아니라 **공정위 고시**라는 것 |
-| 공정거래위원회 | https://www.ftc.go.kr/www/contents.do?key=153 | 전자상거래법 주요 내용 |
+| 공정거래위원회 | https://www.ftc.go.kr/www/contents.do?key=703 | 「전자상거래에서 소비자 보호」 — 전자상거래법 주요 내용. **주소가 옮겼다**(2026-10-23 점검 W — `key=153` 이 403 「클라우드 서버 전환으로 주소 변경」) |
 
 **국가법령정보센터 본문에 직접 닿지 못했다.** 페이지가 스크립트로 본문을 그려서
 가져오면 "해당 법령이 존재하지 않습니다" 만 나온다. 위 셋으로 교차 대조했다.
@@ -373,6 +373,28 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 |---|---|
 | 2026-08-05 | 링크를 처음 열어 확인하고 이 문서를 만들었다 |
 | **2026-08-14** | 점검 E. **핵심 근거 여섯을 원문으로 대조**했다(아래) |
+| **2026-10-23** | 점검 W. **링크 55·다른 문서의 바깥 링크 아홉을 실제로 열었고**(끊긴 것 0, 옮긴 것 하나), 법 여섯·고시 넷·표준 다섯의 현재 판을 원문으로 대조했다(아래) |
+
+### 2026-10-23 에 확인한 것
+
+**법은 국가법령정보센터 공동활용 API(`lawSearch.do`·`lawService.do`, `target=eflaw`·`admrul`)로 읽었다** — 웹 화면은 스크립트로 그려서
+본문이 안 온다. 판마다 시행일 기준 조문을 뽑아 견줬다.
+
+| 자료 | 결과 |
+|---|---|
+| 전자상거래법 · 시행령 | 법률 제21312호(2026-07-21 시행)·대통령령 제36507호 — **2026-08-08 대조 뒤 개정 없다.** 2027-01-21 단계는 제20조의5·제45조(시행령 제25조의4·제40조)뿐 |
+| **개인정보법 · 시행령** | **바뀌었다** — 법률 제21445호·대통령령 제36671호(2026-09-11 시행). **제34조(유출등 통지·신고)가 걸렸다** — 일곱 항목·유출 가능성 통지·72시간, `security-baseline.md` 「사고 대응」·`commerce-compliance.md` R30 을 고쳤다. 제26조는 ④⑧만 바뀌어 인용한 ②는 그대로. 법률 제21910호(2027-03-09 시행)는 제37조의2 낱말만 |
+| 약관규제법 | 법률 제20239호(2024-08-07 시행) — 개정 없다 |
+| 정보통신망법 · 시행령 | 법률 제21988호(2026-10-02)·대통령령 제36728호 — **인용한 제50조①~⑧·제50조의7·시행령 제62조의2·제62조의3 은 그대로** |
+| 전자문서법 | 법률 제18478호(2022-10-20) — 개정 없다 |
+| 개인정보 안전성 확보조치 기준(고시) | 현행 제2026-9호(2026-07-01). **제2025-9호 부칙 제1조가 제8조①②를 2026-10-31 부터 시행** — `security-baseline.md` 「접속기록 점검」의 「2차 자료」를 원문 확인으로 올렸다 |
+| 표준 개인정보 보호지침 · 통신판매업 신고면제 고시 · 소비자분쟁해결기준 | 제2025-4호 · 제2022-4호 · 제2025-14호 — 개정 없다 |
+| **`Idempotency-Key` 초안** | **-08 이 2026-10-22 에 나왔다**(Active, 만료 2027-04-25). §2.6 재시도 응답이 느슨해졌고(issue #48 논의 중) 값 문법·400·422·409 는 그대로 — `concurrency-rules.md` 를 고쳤다. 등급은 그대로 관례(4순위) |
+| W3C Trace Context | Level 2 는 여전히 후보 권고 초안(2024-03-28). Level 1 그대로 |
+| KWCAG | 2.2(`KS X OT0003`, 2022-12-28) 그대로 — 더 새 판을 못 찾았다(목록 화면이 스크립트라 다 못 읽었다) |
+| CloudEvents | 1.0.2 그대로 |
+| OWASP Top 10:2025 · NIST SP 800-63B-4 | 둘 다 현행 최종(NIST 2025-07-31). OWASP 쪽 페이지에 발표일이 없다 |
+| 공정위 전자상거래 안내 | **주소가 옮겼다** — `key=153` → `key=703`(클라우드 전환) |
 
 ### 2026-08-14 에 확인한 것
 
@@ -427,7 +449,8 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 
 ### 의존성
 
-`build.gradle.kts` 에 줄을 추가할 때 본다. **GPL 계열은 0건**이다.
+`build.gradle.kts` 에 줄을 추가할 때 본다. **앱에 실려 나가는 것에 GPL 계열은 0건**이다.
+빌드·시험 도구에는 LGPL 셋과 MPL 하나가 있다 — 아래 「도구」 표. 배포물(이미지·번들)에 안 실린다(점검 W, 2026-10-23).
 
 | 의존성 | 라이선스 |
 |---|---|
@@ -438,6 +461,11 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | Jackson | Apache-2.0 |
 | Apache HttpClient 5 (`httpclient5`) | Apache-2.0 (2026-09-26 확인) — 웹훅 발송기(`Q210`) |
 | PostgreSQL JDBC Driver | BSD-2-Clause |
+| AWS SDK for Java v2 (`s3`·`apache-client`) | Apache-2.0 (2026-10-23 확인, 부모 POM) — 파일 저장소(R2) |
+| Apache Kafka clients (`spring-boot-starter-kafka` 가 들인다) | Apache-2.0 (2026-10-23 확인, `kafka-clients` POM) |
+| springdoc-openapi | Apache-2.0 (2026-10-23 확인, 부모 POM) |
+| lz4-java (`at.yawk.lz4`) | Apache-2.0 (2026-10-23 확인) — 판만 고정한 전이 의존 |
+| Lettuce (`spring-boot-starter-data-redis` 가 들인다) | MIT (2026-10-23 확인) |
 | Testcontainers | MIT |
 | Next.js · React · Tailwind CSS | MIT |
 | react-markdown · remark-gfm (unified 계열) | MIT (2026-08-17 확인) |
@@ -448,7 +476,19 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 `remark-gfm` 이 같이 온다. **직접 쓴 렌더러는 안 다루는 문법을 오류 없이 원문 글자로 내보낸다.**
 
 **판단한 적 없는 것과 판단해서 괜찮은 것은 다르다**(`D23`). 위 표가 그 판단을 기록한 것이다.
-새 의존성을 넣으면 이 표에 줄을 더한다.
+새 의존성을 넣으면 이 표에 줄을 더한다. **이 문장만으로는 안 지켜졌다** — 점검 W 가 앱에 실리는 다섯이 빠진 것을 찾았다.
+
+**도구** — 빌드·시험에만 쓰고 배포물에 안 싣는다. LGPL·MPL 은 「고쳐서 배포하면 그 부분을 공개」가 요건이라
+쓰기만 하는 우리에게는 걸릴 것이 없다. **앱 의존성으로 옮기는 날 다시 판단한다.**
+
+| 도구 | 라이선스 |
+|---|---|
+| Checkstyle | LGPL-2.1-or-later (2026-10-23 확인) |
+| SpotBugs | LGPL-2.1 |
+| find-sec-bugs | LGPL-3.0 (2026-10-23 확인, 부모 POM) |
+| ArchUnit · PIT(pitest) | Apache-2.0 (2026-10-23 확인, 둘 다 POM) |
+| axe-core · `@axe-core/playwright` | MPL-2.0 (2026-10-23 확인, 패키지) |
+| Playwright · Vitest · jsdom · ESLint 계열 | Apache-2.0 · MIT (2026-10-23 확인, 패키지) |
 
 `geist` 는 **글꼴 파일을 빌드에 싣으려고 넣었다**(`Q214`) — `next/font/google` 이 빌드 때 구글을 불러 못 받으면 빌드가 죽었다.
 OFL 은 글꼴을 소프트웨어에 끼워 배포하는 것을 허락하고 글꼴만 따로 파는 것과 이름을 바꾼 파생본의 원래 이름 사용을 막는다 —
