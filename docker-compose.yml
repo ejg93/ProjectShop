@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     container_name: shop-db
     restart: unless-stopped
     environment:
@@ -19,7 +19,9 @@ services:
       - -c
       - pg_stat_statements.track=all
     volumes:
-      - db-data:/var/lib/postgresql/data
+      # **18 부터 볼륨을 `/var/lib/postgresql` 에 건다**(`Q297`). 공식 이미지가 데이터를 `18/docker` 아래에 두고,
+      # 17 이 쓴 `db-data` 는 18 이 못 연다 — 새 이름으로 갈라 옛 볼륨은 남겼다(되돌릴 때 이미지와 이 줄을 함께 돌린다)
+      - db-data-18:/var/lib/postgresql
       # 볼륨이 비었을 때만 돈다. Testcontainers 는 이 경로를 안 태워서 테스트 DB 는 그대로다.
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
@@ -40,7 +42,7 @@ services:
   # 일어나던 일이라 나빠진 것이 아니다 — 대신 앱을 다시 띄워도 로그인이 유지된다.
   # `appendonly` 가 켜져 있어서 컨테이너를 껐다 켜도 남는다.
   redis:
-    image: redis:7-alpine
+    image: redis:8.2-alpine
     container_name: shop-redis
     restart: unless-stopped
     # appendonly 를 켠다. 유실돼도 치명적이지 않은 것만 담지만, 로컬은 재시작이 잦아서
@@ -211,6 +213,7 @@ services:
 
 volumes:
   db-data:
+  db-data-18:
   redis-data:
   kafka-data:
   s3mock-data:

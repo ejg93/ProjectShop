@@ -203,7 +203,7 @@ ISO 4217 이 통화 코드 표준(`KRW`, `USD`)이고 `java.util.Currency` 가 �
 
 | 자료 | 링크 | 확인한 것 |
 |---|---|---|
-| PostgreSQL 17 격리 수준 | https://www.postgresql.org/docs/17/transaction-iso.html | 기본이 **Read Committed**. Repeatable Read 와 Serializable 을 쓰려면 명시해야 한다 |
+| PostgreSQL 18 격리 수준 | https://www.postgresql.org/docs/18/transaction-iso.html | 기본이 **Read Committed**(18 판도 같다 — 2026-10-23 확인, `Q297`). Repeatable Read 와 Serializable 을 쓰려면 명시해야 한다 |
 | Stripe 멱등 요청 | https://docs.stripe.com/api/idempotent_requests | 멱등키 설계의 실물 |
 | `Idempotency-Key` 초안 | https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/ | **`draft-ietf-httpapi-idempotency-key-header-08`**, 2026-10-22 개정, **상태 Active I-D**(만료 2027-04-25. 2026-10-23 확인 — -07 은 2026-04-18 에 만료됐었다). I-D 는 활성이어도 **표준이 아니다** — 출처 축에서 관례(4순위)로 놓고 우리 규약(3순위)이 이긴다 |
 
@@ -489,6 +489,13 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | ArchUnit · PIT(pitest) | Apache-2.0 (2026-10-23 확인, 둘 다 POM) |
 | axe-core · `@axe-core/playwright` | MPL-2.0 (2026-10-23 확인, 패키지) |
 | Playwright · Vitest · jsdom · ESLint 계열 | Apache-2.0 · MIT (2026-10-23 확인, 패키지) |
+
+**서비스** — 앱이 붙는 저장소다. 코드에 안 들어오고 우리가 배포하지 않는다(운영은 Railway 가 돌린다, `Q297`).
+
+| 서비스 | 라이선스 | 판단 |
+|---|---|---|
+| PostgreSQL 18 | PostgreSQL License(BSD 계열) | 걸릴 것이 없다 |
+| Redis 8.2 | **RSALv2 · SSPLv1 · AGPLv3 중 택일**(7.4 부터 앞 둘, 8.0 부터 AGPLv3 가 더해졌다) | 셋 다 **Redis 를 서비스로 남에게 팔거나 고쳐서 배포할 때** 걸린다. 우리는 고치지 않은 이미지를 앱의 뒤에서 쓸 뿐이라 해당이 없다. **Redis 를 고쳐 쓰거나 관리형 Redis 를 남에게 내놓는 날 다시 판단한다** |
 
 `geist` 는 **글꼴 파일을 빌드에 싣으려고 넣었다**(`Q214`) — `next/font/google` 이 빌드 때 구글을 불러 못 받으면 빌드가 죽었다.
 OFL 은 글꼴을 소프트웨어에 끼워 배포하는 것을 허락하고 글꼴만 따로 파는 것과 이름을 바꾼 파생본의 원래 이름 사용을 막는다 —

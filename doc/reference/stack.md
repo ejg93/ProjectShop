@@ -18,8 +18,8 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | Spring Boot | 4.1.2 | `backend/build.gradle.kts` |
 | Java | 25 | 같은 파일의 toolchain |
 | Gradle | 9.8.1 | `gradle/wrapper/gradle-wrapper.properties` |
-| PostgreSQL | 17-alpine | `docker-compose.yml` |
-| Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
+| PostgreSQL | 18-alpine | `docker-compose.yml`. **운영은 Railway `postgres-ssl:18`**(Debian) — 메이저를 맞췄다(`Q297`), 판은 기동 로그가 든다 |
+| Redis | 8.2-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다. **운영은 `redis:8.2`** — 메이저를 맞췄다(`Q297`) |
 | Kafka | 4.3.1 | `docker-compose.yml`. **로컬 전용** — 배포에 브로커가 없다(`event-catalog.md` 「전송」) |
 | k6 | 2.3.0 | `docker-compose.yml` 의 `load` 프로필. **부하 시험 전용**(`70`) — 앱이 안 쓴다 |
 | spring-kafka | 4.1.2 | 안 적는다. **Boot BOM 이 관리한다** — `spring-boot-starter-kafka` 로 들인다 |
@@ -34,6 +34,9 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 
 **버전을 물으면 이 표가 아니라 위 파일들을 본다.** 표가 낡을 수 있다.
 
+**운영 저장소의 판은 이 표에 없다** — 저장소 밖(Railway)이라서다. 백엔드가 기동 때 「저장소 판 postgres=… redis=…」 한 줄을 남기고,
+메이저가 `StoreVersionCheck` 의 기대값(컴포즈 이미지와 시험으로 묶었다)과 다르면 WARN 을 붙인다(`Q297`). 배포 로그에서 그 줄을 읽는다.
+
 ## 공식 문서
 
 | 대상 | 링크 |
@@ -41,7 +44,7 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 | Spring Boot | https://docs.spring.io/spring-boot/index.html |
 | Spring Framework | https://docs.spring.io/spring-framework/reference/index.html |
 | Spring Security | https://docs.spring.io/spring-security/reference/index.html |
-| PostgreSQL 17 | https://www.postgresql.org/docs/17/index.html |
+| PostgreSQL 18 | https://www.postgresql.org/docs/18/index.html |
 | Testcontainers | https://java.testcontainers.org/ |
 
 설계 근거로 삼은 자료(Zalando·OWASP·Stripe 등)는 `external-references.md` 에 따로 있다.
@@ -1785,7 +1788,7 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 답은 맞고 느릴 뿐이다(`ProductSearchQueryTest` 가 2자 검색의 답을 잰다).
 
 **한글이 조각이 되는지는 DB 의 `ctype` 이 정한다.** `pg_trgm` 은 낱말 글자만 조각으로 쓰고, 그 판정이 로케일의 `isalnum` 이다.
-컴포즈·Testcontainers 의 `postgres:17-alpine` 은 `en_US.utf8` 이라 「운동화를 위한 깔창」이 조각 열하나를 낸다(2026-10-02 `show_trgm`).
+컴포즈·Testcontainers 의 `postgres:18-alpine`(2026-10-23 부터, `Q297` — 그전 `17-alpine` 도 같았다)은 `en_US.utf8` 이라 「운동화를 위한 깔창」이 조각 열하나를 낸다(2026-10-02 `show_trgm`).
 `C` 로케일 DB 면 한글이 조각에서 빠져 인덱스가 아무것도 못 거른다. **운영 값은 기동 로그가 든다**(`Q246`, `SearchLocaleCheck`) —
 Railway MCP `get-logs`(service backend)에서 「검색 로케일」 줄을 읽는다. 조각이 0 이면 같은 자리에 WARN 이 붙는다.
 **운영 값(2026-10-11, `2b3b614` 배포)**: `datctype=en_US.utf8 한글_조각=4` — 컴포즈·Testcontainers 와 같아서 운영에서도 인덱스가 한글 검색을 거른다.

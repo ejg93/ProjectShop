@@ -20,7 +20,7 @@ import ch.qos.logback.core.read.ListAppender;
 /**
  * 기동 탐침이 이 DB 의 검색 로케일을 재서 한 줄 남기는지 본다(`Q246`).
  *
- * <p>컨테이너(`postgres:17-alpine`)는 {@code en_US.utf8} 이라 한글이 조각이 된다 — 운영 값은 기동 로그가 든다.
+ * <p>컨테이너(`postgres:18-alpine`)는 {@code en_US.utf8} 이라 한글이 조각이 된다 — 운영 값은 기동 로그가 든다.
  */
 @DisplayName("검색 로케일 탐침")
 class SearchLocaleCheckTest extends PostgresTestBase {

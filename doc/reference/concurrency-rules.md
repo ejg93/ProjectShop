@@ -2,7 +2,7 @@
 
 같은 자원에 요청이 겹칠 때 무엇을 어떤 방식으로 어떻게 막는지 정한다.
 
-기준은 PostgreSQL 17 문서와 Stripe 멱등 요청이다. 링크는 `external-references.md` 에 있다.
+기준은 PostgreSQL 18 문서와 Stripe 멱등 요청이다. 링크는 `external-references.md` 에 있다.
 
 ## 격리 수준 — Read Committed 그대로
 
