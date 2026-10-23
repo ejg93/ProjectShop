@@ -36,26 +36,33 @@ class BatchRetrySweeperTest extends PostgresTestBase {
     private JdbcClient jdbc;
 
     private void insertFailure(String kind) {
-        OffsetDateTime now = OffsetDateTime.now();
+        insertFailure(BATCH, BASELINE, OffsetDateTime.now(), kind);
+    }
+
+    private void insertFailure(String batch, LocalDate baseline, OffsetDateTime startedAt, String kind) {
         jdbc.sql("""
                         insert into batch_run (batch_name, baseline_date, started_at, finished_at,
                                                status, failure_reason, failure_kind)
-                        values (:name, :baselineDate, :now, :now, 'failed', 'QueryTimeoutException', :kind)
+                        values (:name, :baselineDate, :startedAt, :startedAt, 'failed', 'QueryTimeoutException', :kind)
                         """)
-                .param("name", BATCH)
-                .param("baselineDate", BASELINE)
-                .param("now", now)
+                .param("name", batch)
+                .param("baselineDate", baseline)
+                .param("startedAt", startedAt)
                 .param("kind", kind)
                 .update();
     }
 
     private int runCount(String status) {
+        return runCount(BATCH, BASELINE, status);
+    }
+
+    private int runCount(String batch, LocalDate baseline, String status) {
         return jdbc.sql("""
                         select count(*) from batch_run
                          where batch_name = :name and baseline_date = :baselineDate and status = :status
                         """)
-                .param("name", BATCH)
-                .param("baselineDate", BASELINE)
+                .param("name", batch)
+                .param("baselineDate", baseline)
                 .param("status", status)
                 .query(Integer.class)
                 .single();
@@ -70,7 +77,7 @@ class BatchRetrySweeperTest extends PostgresTestBase {
         void retriesTransientFailure() {
             insertFailure(FailureKind.TRANSIENT.code());
 
-            assertThat(sweeper.sweep(BASELINE))
+            assertThat(sweeper.sweep())
                     .describedAs("연결이 끊긴 것은 10분 뒤에 다시 해 보면 된다(`D19` 2층)")
                     .isEqualTo(1);
             assertThat(runCount("succeeded")).isEqualTo(1);
@@ -82,9 +89,52 @@ class BatchRetrySweeperTest extends PostgresTestBase {
             insertFailure(FailureKind.TRANSIENT.code());
             insertFailure(FailureKind.TRANSIENT.code());
 
-            assertThat(sweeper.sweep(BASELINE))
+            assertThat(sweeper.sweep())
                     .describedAs("첫 실행을 포함해 셋까지다")
                     .isEqualTo(1);
+        }
+    }
+
+    /**
+     * 기준일이 실행일이 아닌 배치도 다시 도는가(`Q287`). 전에는 스위퍼가 오늘 기준일만 물어서
+     * 기준일이 어제·전달 말일인 셋이 일시적으로 실패해도 재시도가 영영 안 걸렸다.
+     */
+    @Nested
+    @DisplayName("기준일이 오늘이 아닌 회차")
+    class OtherBaselines {
+
+        @Test
+        @DisplayName("기준일이 어제인 일별 매출이 다시 돈다")
+        void retriesYesterdayBaseline() {
+            LocalDate yesterday = LocalDate.now(BusinessCalendar.ZONE).minusDays(1);
+            insertFailure("daily_sales", yesterday, OffsetDateTime.now(), FailureKind.TRANSIENT.code());
+
+            assertThat(sweeper.sweep())
+                    .describedAs("일별 매출은 00:15 에 어제를 센다 — 실패 행의 기준일을 그대로 다시 돌아야 한다")
+                    .isEqualTo(1);
+            assertThat(runCount("daily_sales", yesterday, "succeeded")).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("기준일이 전달 말일인 접속기록 점검이 다시 돈다")
+        void retriesPreviousMonthEndBaseline() {
+            LocalDate monthEnd = LocalDate.now(BusinessCalendar.ZONE).withDayOfMonth(1).minusDays(1);
+            insertFailure("audit_log_review", monthEnd, OffsetDateTime.now(), FailureKind.TRANSIENT.code());
+
+            assertThat(sweeper.sweep())
+                    .describedAs("접속기록 점검은 1일에 전달을 센다 — 기준일이 그 말일이다")
+                    .isEqualTo(1);
+            assertThat(runCount("audit_log_review", monthEnd, "succeeded")).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("마지막 시도가 24시간보다 앞이면 안 돈다")
+        void skipsFailureOutsideWindow() {
+            insertFailure(BATCH, BASELINE, OffsetDateTime.now().minusHours(25), FailureKind.TRANSIENT.code());
+
+            assertThat(sweeper.sweep())
+                    .describedAs("오래된 실패를 다시 돌리면 그새 바뀐 데이터 위에서 돈다 — 다음 회차나 사람 손이 집는다")
+                    .isZero();
         }
     }
 
@@ -97,7 +147,7 @@ class BatchRetrySweeperTest extends PostgresTestBase {
         void skipsPermanentFailure() {
             insertFailure(FailureKind.PERMANENT.code());
 
-            assertThat(sweeper.sweep(BASELINE))
+            assertThat(sweeper.sweep())
                     .describedAs("데이터가 틀린 것은 다시 해도 같은 자리에서 죽는다")
                     .isZero();
             assertThat(runCount("succeeded")).isZero();
@@ -110,7 +160,7 @@ class BatchRetrySweeperTest extends PostgresTestBase {
             insertFailure(FailureKind.TRANSIENT.code());
             insertFailure(FailureKind.TRANSIENT.code());
 
-            assertThat(sweeper.sweep(BASELINE))
+            assertThat(sweeper.sweep())
                     .describedAs("창을 넘기면 사람이 손으로 건다(`D19`)")
                     .isZero();
         }
@@ -119,9 +169,9 @@ class BatchRetrySweeperTest extends PostgresTestBase {
         @DisplayName("이미 성공한 회차는 안 건드린다")
         void skipsSucceededRun() {
             insertFailure(FailureKind.TRANSIENT.code());
-            sweeper.sweep(BASELINE);
+            sweeper.sweep();
 
-            assertThat(sweeper.sweep(BASELINE))
+            assertThat(sweeper.sweep())
                     .describedAs("성공 회차가 둘이 될 수 없다는 것을 스키마도 막는다(`36`)")
                     .isZero();
         }
@@ -129,7 +179,7 @@ class BatchRetrySweeperTest extends PostgresTestBase {
         @Test
         @DisplayName("한 번도 안 돈 회차는 재시도가 아니다")
         void skipsUntriedRun() {
-            assertThat(sweeper.sweep(BASELINE))
+            assertThat(sweeper.sweep())
                     .describedAs("그건 스케줄이 할 일이지 「다시」가 아니다")
                     .isZero();
         }

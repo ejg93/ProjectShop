@@ -15,22 +15,22 @@ API 가 필요하면 아래 공식 문서를 연다. **여기 적는 것은 "어
 
 | 대상 | 버전 | 어디에 박혀 있나 |
 |---|---|---|
-| Spring Boot | 4.1.1 | `backend/build.gradle.kts` |
+| Spring Boot | 4.1.2 | `backend/build.gradle.kts` |
 | Java | 25 | 같은 파일의 toolchain |
-| Gradle | 9.7.1 | `gradle/wrapper/gradle-wrapper.properties` |
+| Gradle | 9.8.1 | `gradle/wrapper/gradle-wrapper.properties` |
 | PostgreSQL | 17-alpine | `docker-compose.yml` |
 | Redis | 7-alpine | `docker-compose.yml`. 테스트 컨테이너도 같은 이미지다 |
 | Kafka | 4.3.1 | `docker-compose.yml`. **로컬 전용** — 배포에 브로커가 없다(`event-catalog.md` 「전송」) |
 | k6 | 2.3.0 | `docker-compose.yml` 의 `load` 프로필. **부하 시험 전용**(`70`) — 앱이 안 쓴다 |
-| spring-kafka | 4.1.1 | 안 적는다. **Boot BOM 이 관리한다** — `spring-boot-starter-kafka` 로 들인다 |
-| Tomcat | 11.0.25 | `backend/build.gradle.kts` 의 `tomcat.version`. **BOM 값을 덮었다** — 아래 「Boot BOM 의 Tomcat 이 보안 패치보다 낮을 수 있다」 |
+| spring-kafka | 4.1.2 | 안 적는다. **Boot BOM 이 관리한다** — `spring-boot-starter-kafka` 로 들인다 |
+| Tomcat | 11.0.27 | 안 적는다. **Boot BOM 이 관리한다** — 덮던 `tomcat.version` 은 4.1.2 에서 걷었다(`Q295`). 바닥은 `TomcatVersionTest` 가 잰다 — 아래 「Boot BOM 의 Tomcat 이 보안 패치보다 낮을 수 있다」 |
 | Testcontainers | 2.0.5 | `build.gradle.kts` 의 BOM |
 | springdoc-openapi | 3.1.1 | `build.gradle.kts`. **3.x 가 Boot 4 판이다** — 2.x 는 Boot 3 모듈 배치를 부른다 |
-| ArchUnit | 1.5.0 | `build.gradle.kts`. **`archunit-junit6`** 다 — 이 저장소가 JUnit 6 이다 |
+| ArchUnit | 1.5.1 | `build.gradle.kts`. **`archunit-junit6`** 다 — 이 저장소가 JUnit 6 이다 |
 | Caffeine | 3.2.4 | 안 적는다. **Boot BOM 이 관리한다** |
-| Jackson | 3.1.4 | 안 적는다. `starter-webmvc` 가 딸려 온다 |
-| Apache HttpClient 5 | 5.6.4 | 안 적는다. **Boot BOM 이 관리한다** — 웹훅 발송기만 쓴다(`Q210`) |
-| Spring Security | 7.1.0 | 아직 의존성에 없다. 청크 5 에서 들어온다 |
+| Jackson | 3.1.7 | 안 적는다. `starter-webmvc` 가 딸려 온다. 2.x(`com.fasterxml`)도 2.21.7 로 같이 온다 |
+| Apache HttpClient 5 | 5.6.5 | 안 적는다. **Boot BOM 이 관리한다** — 웹훅 발송기만 쓴다(`Q210`) |
+| Spring Security | 7.1.2 | 안 적는다. **Boot BOM 이 관리한다** — `spring-boot-starter-security` 로 들인다 |
 
 **버전을 물으면 이 표가 아니라 위 파일들을 본다.** 표가 낡을 수 있다.
 
@@ -341,6 +341,9 @@ extra["tomcat.version"] = "11.0.25"
 `TomcatVersionTest` 가 판정한다 — 클래스패스에 실제로 올라온 판을
 `ServerInfo.getServerNumber()` 로 읽어서 `11.0.25` 미만이면 빨개진다. **그 줄만 있고
 테스트가 없으면 다음 Boot 업그레이드가 조용히 되돌린다** — 지워도 빌드가 초록이다.
+
+**2026-10-23 에 걷었다**(`Q295`). Boot 4.1.2 BOM 이 `11.0.27` 을 줘서 덮기가 오히려 판을 내렸다 —
+**덮은 값은 Boot 를 올릴 때마다 BOM 값과 견준다.** 낮으면 지우고, 테스트의 바닥은 남긴다.
 
 ### `bootRun` 을 멈춰도 java 프로세스가 남는다
 
@@ -881,6 +884,19 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen |
     ForEach-Object { Stop-Process -Id $_ -Force }
 ```
 
+### 배포가 안 서면 Railway 상태 페이지가 먼저다
+
+머지 뒤 `deploy-check.sh` 가 600초를 기다려도 두 서비스가 앞 판이면 **우리 설정보다 플랫폼을 먼저 의심한다.**
+2026-10-21 에 Railway 보안 사고로 플랫폼 전체 빌드·배포가 멈췄고, 우리는 그것을 Dependabot 실패 체크 탓으로
+하루 오진했다(`Q293`, `Q294` 가 흡수). **두 서비스가 `checkSuites: false` 라 Railway 는 GitHub 체크를 안 본다** —
+머지 커밋에 남의 봇 실패가 붙어도 배포는 선다.
+
+| 무엇 | 어떻게 보이나 |
+|---|---|
+| 플랫폼 정지 | `railway redeploy --from-source` 가 `Deploys have been paused temporarily` 를 낸다. [상태 페이지](https://status.railway.com) |
+| 재개 뒤 | **멈춘 동안의 머지를 저절로 다시 안 돈다.** 사람이 `! railway redeploy --service <서비스> --from-source --yes` 로 서비스마다 건다 — 운영 배포라 자동 모드 분류기가 막는다 |
+| 변수를 바꾼 뒤 | 다음 배포부터 먹는다. 키를 바꿨으면 재배포 뒤 `deploy-check.sh` 의 서명 붙은 사진 주소가 200 인지 본다(`Q294`) |
+
 ### Dependabot 경보는 가지에 밀어도 안 닫힌다
 
 의존성을 올리고 밀었는데 경보가 그대로면 **고친 것이 안 먹은 것처럼 보인다.**
@@ -896,6 +912,15 @@ main 에 머지 ──▶ 그래프 갱신              ──▶ 경보가 fixe
 2026-09-12 에 `2e-6` 이 tomcat 을 `11.0.25` 로 올리고 밀었는데 critical 셋이 안 닫혔고,
 **머지 직후 셋이 한꺼번에 `fixed`** 가 됐다. **오탐(`commons-lang3`)은 이 경로와 무관하다** —
 그건 사람이 `inaccurate` 로 닫는 것이고 `gh api -X PATCH .../dependabot/alerts/N` 이 그 명령이다.
+
+**backend-minor 갱신 PR 은 봇 힘으로 초록이 안 된다.** Boot·Gradle·ArchUnit 을 올리면
+`StackVersionConsistencyTest` 가 이 문서의 버전 표를 보는데 봇은 표를 못 고친다.
+**닫고 우리 가지에서 같은 갱신에 표를 얹어 올린다**(`2f-1`, `Q295` — #104 가 10/19 부터 그렇게 막혀 있었다).
+그 사이 경보는 머지 뒤에야 `fixed` 가 된다.
+
+**경보가 빌드 도구 쪽일 수 있다.** `plexus-utils`(#25)는 앱이 아니라 `checkstyle` configuration 에
+doxia 를 타고 들어왔고, Dependabot 은 그것을 `settings.gradle.kts` 직접 의존이라 적었다.
+`gradlew dependencies` 로 configuration 을 찾고 `constraints { checkstyle(…) }` 로 핀한다(`Q295`).
 
 ### Gradle 에 잠금 파일을 안 둔다
 

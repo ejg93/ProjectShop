@@ -36,14 +36,11 @@ import org.testcontainers.containers.GenericContainer;
 @SpringBootTest(properties = "shop.storage.bootstrap=true")
 public abstract class StorageTestBase extends PostgresTestBase {
 
-    /** 컴포즈와 같은 이미지다. 갈리면 테스트가 통과해도 로컬에서 깨진다({@code stack.md} 버전 표) */
-    static final String S3MOCK_IMAGE = "adobe/s3mock:5.2.3";
-
-    private static final int S3MOCK_HTTP_PORT = 9090;
-
+    // 이미지·포트를 클래스 이름을 붙여 읽는다(`Q291`). 둘이 접근자 차례(`coding-rules.md` 「선언 순서」)로 아래에 있어서
+    // 단순 이름이면 forward reference 로 컴파일이 깨진다. 둘 다 컴파일 시점 상수라 붙여 읽어도 값이 같다
     @SuppressWarnings("resource")
-    protected static final GenericContainer<?> S3MOCK = new GenericContainer<>(S3MOCK_IMAGE)
-            .withExposedPorts(S3MOCK_HTTP_PORT)
+    protected static final GenericContainer<?> S3MOCK = new GenericContainer<>(StorageTestBase.S3MOCK_IMAGE)
+            .withExposedPorts(StorageTestBase.S3MOCK_HTTP_PORT)
             .withReuse(true);
 
     static {
@@ -52,6 +49,11 @@ public abstract class StorageTestBase extends PostgresTestBase {
 
     protected static final String PUBLIC_BUCKET = "shop-public-" + ProcessHandle.current().pid();
     protected static final String PRIVATE_BUCKET = "shop-private-" + ProcessHandle.current().pid();
+
+    /** 컴포즈와 같은 이미지다. 갈리면 테스트가 통과해도 로컬에서 깨진다({@code stack.md} 버전 표) */
+    static final String S3MOCK_IMAGE = "adobe/s3mock:5.2.3";
+
+    private static final int S3MOCK_HTTP_PORT = 9090;
 
     static String s3Url() {
         return "http://" + S3MOCK.getHost() + ":" + S3MOCK.getMappedPort(S3MOCK_HTTP_PORT);

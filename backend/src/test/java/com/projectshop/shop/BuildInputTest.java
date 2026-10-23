@@ -156,7 +156,8 @@ class BuildInputTest {
 
         List<String> declared = declaredInputs();
         List<String> uncovered = declared.stream()
-                .filter(d -> !d.startsWith("backend/") && !d.startsWith("src/"))
+                // backend 안 신고는 backend 레인 지문이 덮는다. `config/` 는 억제 목록(`Q292`)이 처음 들였다
+                .filter(d -> !d.startsWith("backend/") && !d.startsWith("src/") && !d.startsWith("config/"))
                 .filter(d -> compareLane.stream().noneMatch(c -> covers(c, d)))
                 .toList();
         assertThat(uncovered)

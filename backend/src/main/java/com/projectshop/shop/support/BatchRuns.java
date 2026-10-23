@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -277,10 +278,13 @@ public class BatchRuns {
                 .set();
     }
 
+    /** 다시 돌릴 회차 하나. 배치 이름과 그 회차의 기준일이다 */
+    public record RetryCandidate(String batchName, LocalDate baselineDate) {}
+
     /**
-     * 그 회차를 다시 돌려야 하나(`D19` 2층).
+     * 다시 돌려야 하는 회차들(`D19` 2층).
      *
-     * <p>셋을 다 만족해야 한다 — <b>아직 성공한 적이 없고</b>, <b>마지막 회차가 다시 해 볼 것</b>이고,
+     * <p>회차마다 셋을 다 만족해야 한다 — <b>아직 성공한 적이 없고</b>, <b>마지막 회차가 다시 해 볼 것</b>이고,
      * <b>시도 수가 상한 밑</b>이다. 한 번도 안 돈 회차는 여기 안 걸린다: 그건 스케줄이 할 일이지
      * 재시도가 아니고, 실패한 적이 없으니 「다시」가 성립하지 않는다.
      *
@@ -288,26 +292,32 @@ public class BatchRuns {
      * 스킵을 빼면 체인이 성립을 안 한다 — `D19` 가 「스킵된 후행은 재시도 창 안에서 다시 시도한다」고
      * 정한 자리가 여기고, 그 사이에 선행이 재시도로 성공하면 이어진다.
      *
+     * <p><b>기준일을 묻지 않고 이력에서 꺼낸다</b>(`Q287`). 기준일이 오늘인 배치만 있는 것이 아니라
+     * (일별 매출·정산 마감은 어제, 접속기록 점검은 전달 말일) 부르는 쪽이 날짜를 정하면 그 배치들이 빠진다.
+     *
+     * @param since 마지막 시도가 이 시각 뒤인 회차만 본다. 그 앞의 실패는 다음 회차가 집는다
      * @param maxAttempts 이 수를 채우면 포기한다. 시도마다 한 행이 남아서 그 수가 곧 시도 수다
      */
-    public boolean shouldRetry(String batchName, LocalDate baselineDate, int maxAttempts) {
-        return Boolean.TRUE.equals(jdbc.sql("""
-                        select count(*) filter (where status = :succeeded) = 0
-                           and count(*) > 0
+    public List<RetryCandidate> retryCandidates(OffsetDateTime since, int maxAttempts) {
+        return jdbc.sql("""
+                        select batch_name, baseline_date
+                          from batch_run
+                         group by batch_name, baseline_date
+                        having count(*) filter (where status = :succeeded) = 0
                            and count(*) < :maxAttempts
+                           and max(started_at) >= :since
                            and ((array_agg(failure_kind order by batch_run_id desc))[1] = :transient
                                 or (array_agg(status order by batch_run_id desc))[1] = :skipped)
-                          from batch_run
-                         where batch_name = :name and baseline_date = :baselineDate
+                         order by batch_name, baseline_date
                         """)
-                .param("name", batchName)
-                .param("baselineDate", baselineDate)
+                .param("since", since)
                 .param("maxAttempts", maxAttempts)
                 .param("succeeded", BatchRunStatus.SUCCEEDED.code())
                 .param("transient", FailureKind.TRANSIENT.code())
                 .param("skipped", BatchRunStatus.SKIPPED.code())
-                .query(Boolean.class)
-                .single());
+                .query((rs, n) -> new RetryCandidate(rs.getString("batch_name"),
+                        rs.getObject("baseline_date", LocalDate.class)))
+                .list();
     }
 
     private boolean alreadySucceeded(String batchName, LocalDate baselineDate) {

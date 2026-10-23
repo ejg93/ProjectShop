@@ -6,7 +6,7 @@ import java.util.Arrays;
  * 배치 회차가 실패한 종류. 저장값은 {@code batch_run.failure_kind} 고
  * 목록은 {@code batch_run_failure_kind_values_check} 다(`43a-23`).
  *
- * <p><b>재시도가 이 값으로 갈린다</b>(`D19` 2층). {@link BatchRuns#shouldRetry} 가
+ * <p><b>재시도가 이 값으로 갈린다</b>(`D19` 2층). {@link BatchRuns#retryCandidates} 가
  * 마지막 회차의 이 값이 {@code transient} 일 때만 다시 시도한다.
  *
  * <p><b>판단은 실패한 순간에 한다.</b> 이력만 보고 나중에 다시 가르면 판단이 두 벌이 되고,

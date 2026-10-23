@@ -1,0 +1,15 @@
+# gate: Checkstyle 억제 목록 래칫 — 기준선 · 근거 주석 · 임시 줄 Q 번호(Q292)
+# run: cd backend && ./gradlew test --tests '*CheckstyleSuppressionTest*' --console=plain
+# expect: 억제 줄 수가 기준선과 같다 FAILED
+# expect: 억제 줄마다 바로 위에 근거 주석이 있다 FAILED
+# expect: 임시 칸의 줄은 걷을 청크 번호를 든다 FAILED
+diff --git a/backend/config/checkstyle/suppressions.xml b/backend/config/checkstyle/suppressions.xml
+index a785591..dfa0850 100644
+--- a/backend/config/checkstyle/suppressions.xml
++++ b/backend/config/checkstyle/suppressions.xml
+@@ -18,4 +18,5 @@
+     <!-- 규칙 필드 바로 밑에 그 규칙의 헬퍼를 둔 읽기 순서다. 차례대로 옮기면 헬퍼가 규칙과 떨어진다(`Q288`) -->
+     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]ArchitectureTest\.java$"/>
+     <!-- 임시 -->
++    <suppress checks="DeclarationOrder" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]BackendApplication\.java$"/>
+ </suppressions>

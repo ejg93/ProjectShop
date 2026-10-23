@@ -28,7 +28,7 @@
 |---|---|---|---|---|
 | 접근성 검사가 걸린 화면 조각 | `expectNoAxeViolations` 를 부르는 `*.test.tsx` 파일 수 | 16(2026-10-12, `global-error.test.tsx` — 마무리 61차) | 바닥 16 — 올리기만 | `quality-goals.sh` |
 | E2E 시나리오 | `frontend/e2e/*.spec.ts` 의 `test(` 수 | 6 | 바닥 6 — 올리기만. 반품 승인·훼손 거절·구매 확정이 역할을 오가는 흐름이다(`Q207`) | `quality-goals.sh` |
-| 배포 건강(`Q205`) | `deploy-check.sh` — 머지 뒤 두 서비스의 커밋과 적용한 마이그레이션 수 | 초록(#78 뒤 `f8fa4df`, 111 = V 104 + 시드 7) | 초록 — 빨가면 다음 청크보다 먼저 | 마무리 「머지 뒤」 |
+| 배포 건강(`Q205`) | `deploy-check.sh` — 머지 뒤 두 서비스의 커밋과 적용한 마이그레이션 수 · 서명 붙은 사진 주소 200 · 뗀 주소는 2xx 아님(`Q294`) | 초록(#78 뒤 `f8fa4df`, 111 = V 104 + 시드 7) | 초록 — 빨가면 다음 청크보다 먼저 | 마무리 「머지 뒤」 |
 | 시험 없는 법 요건 | `req-coverage.sh` 의 「테스트가 언급하지 않는 요건」 | 0(40/40, 선언한 제외 2) | 천장 0 | CI `docs` · `quality-goals.sh` |
 
 ## 이미 게이트인 것
@@ -39,7 +39,7 @@
 |---|---|---|
 | 되돌리는 마이그레이션 | `V78` 부터 짝 100% | `MigrationUndoTest`·`MigrationUndoRunTest` |
 | CodeQL 열린 경보 | 0 | CI `analyze`(새 경보 0) |
-| Dependabot 열린 경보 | 0 | 주간 리포트(`2h`) |
+| Dependabot 열린 경보 | 0 | 세션 시작 훅(`Q296` — 0 이 아니면 「현재 상태」 밑에 한 줄) · 주간 리포트(`2h`) |
 | 문서와 실물의 어긋남 | 0 | `doc-lint.sh`·`IdentifierReferenceTest` |
 | 목록·상세의 쿼리 예산(`Q204`·`Q204b`) | 목록 아홉 3 이하·쪽 크기에 평평, 상세 셋 묶음·품목·정산 줄 수에 평평, 매출은 날짜 범위에 평평 | `QueryBudgetTest`(느린 레인) |
 | 인덱스 없는 외래키(`Q206`) | 0 — 외래키 108, 근거 적은 면제 29 | `ForeignKeyIndexTest`(느린 레인) |
