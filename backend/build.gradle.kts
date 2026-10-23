@@ -243,7 +243,10 @@ val comparedInFastLane = listOf(
 	"src/main/resources/db/seed-demo",
 	// 성능 기준선의 원본(`70`). `PerformanceBaselineConsistencyTest` 가 `performance-goals.md` 표와 견준다 —
 	// 기준선만 다시 쓴 청크에서 그 시험이 `UP-TO-DATE` 로 건너뛰면 낡은 표가 그대로 남는다.
-	"../load/baseline.json")
+	"../load/baseline.json",
+	// 억제 목록(`Q292`). `CheckstyleSuppressionTest` 가 줄 수와 근거 주석을 잰다 — 근거 없는 줄을 더한 청크에서
+	// 그 시험이 `UP-TO-DATE` 로 건너뛰면 막으려던 그 변화가 지나간다(부순 증거를 만들다 실측).
+	"config/checkstyle/suppressions.xml")
 val comparedScreenRoot = "../frontend/src"
 val declaredComparedInputs = comparedInSlowLane + comparedInFastLane + comparedScreenRoot
 
