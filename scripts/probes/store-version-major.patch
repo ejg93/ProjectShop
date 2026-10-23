@@ -1,0 +1,15 @@
+# gate: 저장소 판 탐침의 기대 메이저가 컴포즈 이미지와 같다(Q297)
+# run: cd backend && ./gradlew test --tests '*StackVersionConsistencyTest*' --tests '*StoreVersionWarningsTest*' --console=plain
+# expect: 저장소 판 탐침의 기대 메이저가 컴포즈 이미지와 같다 FAILED
+diff --git a/backend/src/main/java/com/projectshop/shop/support/StoreVersionCheck.java b/backend/src/main/java/com/projectshop/shop/support/StoreVersionCheck.java
+--- a/backend/src/main/java/com/projectshop/shop/support/StoreVersionCheck.java
++++ b/backend/src/main/java/com/projectshop/shop/support/StoreVersionCheck.java
+@@ -30,7 +30,7 @@ import org.springframework.stereotype.Component;
+ final class StoreVersionCheck implements ApplicationRunner {
+ 
+     /** 컴포즈 `db` 이미지(`postgres:18-alpine`)의 메이저 */
+-    static final int EXPECTED_POSTGRES_MAJOR = 18;
++    static final int EXPECTED_POSTGRES_MAJOR = 17;
+ 
+     /** 컴포즈 `redis` 이미지(`redis:8.2-alpine`)의 메이저 */
+     static final int EXPECTED_REDIS_MAJOR = 8;
