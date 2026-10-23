@@ -86,6 +86,7 @@ echo "${ci:-- 초록이다}"
 echo
 
 # ── ④ 보안 경보 수 ─────────────────────────────────────────────────────
+# 0 이 아니면 세션 시작 훅(`session-state.sh`)이 매 세션 한 줄로 낸다(`Q296`) — 여기는 주 1회 기록이다
 echo "### 경보"
 echo
 dep=$(gh_or_blank api "repos/{owner}/{repo}/dependabot/alerts?state=open&per_page=100" --jq 'length')

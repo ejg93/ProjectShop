@@ -39,7 +39,7 @@
 |---|---|---|
 | 되돌리는 마이그레이션 | `V78` 부터 짝 100% | `MigrationUndoTest`·`MigrationUndoRunTest` |
 | CodeQL 열린 경보 | 0 | CI `analyze`(새 경보 0) |
-| Dependabot 열린 경보 | 0 | 주간 리포트(`2h`) |
+| Dependabot 열린 경보 | 0 | 세션 시작 훅(`Q296` — 0 이 아니면 「현재 상태」 밑에 한 줄) · 주간 리포트(`2h`) |
 | 문서와 실물의 어긋남 | 0 | `doc-lint.sh`·`IdentifierReferenceTest` |
 | 목록·상세의 쿼리 예산(`Q204`·`Q204b`) | 목록 아홉 3 이하·쪽 크기에 평평, 상세 셋 묶음·품목·정산 줄 수에 평평, 매출은 날짜 범위에 평평 | `QueryBudgetTest`(느린 레인) |
 | 인덱스 없는 외래키(`Q206`) | 0 — 외래키 108, 근거 적은 면제 29 | `ForeignKeyIndexTest`(느린 레인) |
