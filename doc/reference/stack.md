@@ -884,6 +884,19 @@ Get-NetTCPConnection -LocalPort 8080 -State Listen |
     ForEach-Object { Stop-Process -Id $_ -Force }
 ```
 
+### 배포가 안 서면 Railway 상태 페이지가 먼저다
+
+머지 뒤 `deploy-check.sh` 가 600초를 기다려도 두 서비스가 앞 판이면 **우리 설정보다 플랫폼을 먼저 의심한다.**
+2026-10-21 에 Railway 보안 사고로 플랫폼 전체 빌드·배포가 멈췄고, 우리는 그것을 Dependabot 실패 체크 탓으로
+하루 오진했다(`Q293`, `Q294` 가 흡수). **두 서비스가 `checkSuites: false` 라 Railway 는 GitHub 체크를 안 본다** —
+머지 커밋에 남의 봇 실패가 붙어도 배포는 선다.
+
+| 무엇 | 어떻게 보이나 |
+|---|---|
+| 플랫폼 정지 | `railway redeploy --from-source` 가 `Deploys have been paused temporarily` 를 낸다. [상태 페이지](https://status.railway.com) |
+| 재개 뒤 | **멈춘 동안의 머지를 저절로 다시 안 돈다.** 사람이 `! railway redeploy --service <서비스> --from-source --yes` 로 서비스마다 건다 — 운영 배포라 자동 모드 분류기가 막는다 |
+| 변수를 바꾼 뒤 | 다음 배포부터 먹는다. 키를 바꿨으면 재배포 뒤 `deploy-check.sh` 의 서명 붙은 사진 주소가 200 인지 본다(`Q294`) |
+
 ### Dependabot 경보는 가지에 밀어도 안 닫힌다
 
 의존성을 올리고 밀었는데 경보가 그대로면 **고친 것이 안 먹은 것처럼 보인다.**
