@@ -70,6 +70,7 @@ cat > "$T/bin/gh" <<'GH'
 case "$1 $2" in
   "pr list") echo "${FAKE_OPEN_PRS:-0}" ;;
   "pr checks") exit "${FAKE_CHECKS_RC:-0}" ;;
+  api\ *alerts*) echo "${FAKE_ALERTS:-x}" ;;
   api\ *) echo "${FAKE_CHECK_RUN:-null null}" ;;
 esac
 GH
@@ -137,6 +138,17 @@ n=$((n + 1))
 out=$(printf '{}' | bash "$H/session-state.sh" 2>/dev/null); got=$?
 if [ "$got" = 0 ] && printf '%s' "$out" | grep -q "| 가 | 나 |"; then echo "  [통과] $n session-state.sh — 「현재 상태」를 낸다"
 else echo "  [실패] $n session-state.sh — exit $got, 출력 ${out:0:60}"; fail=1; fi
+# 경보 줄(`Q296`). 가짜 `gh` 가 두 경보 주소에 같은 수를 낸다. 0 이면 침묵, 100 은 한 쪽에서 잘린 수라 「100+」
+alert_case() { # 이름, FAKE_ALERTS, 출력에 있어야 할 글자(비면 「열린 보안 경보」가 없어야 한다)
+  n=$((n + 1))
+  out=$(FAKE_ALERTS=$2 bash "$H/session-state.sh" < /dev/null 2>/dev/null)
+  if [ -n "$3" ]; then printf '%s' "$out" | grep -qF "$3"; else ! printf '%s' "$out" | grep -q "열린 보안 경보"; fi \
+    && echo "  [통과] $n session-state.sh — $1" || { echo "  [실패] $n session-state.sh — $1, 출력 끝 ${out: -80}"; fail=1; }
+}
+alert_case "경보가 있으면 한 줄" 15 "Dependabot 15건 · CodeQL 15건"
+alert_case "경보 0 이면 침묵" 0 ""
+alert_case "한 쪽 100 은 100+" 100 "Dependabot 100+건"
+alert_case "숫자가 아니면(오프라인) 침묵" x ""
 rm -f "$T/repo/PROGRESS.md"
 
 echo "stop 훅 둘:"
