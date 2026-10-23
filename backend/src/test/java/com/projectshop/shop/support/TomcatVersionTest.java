@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
  * {@code extra["tomcat.version"]} 은 Boot 를 올리는 다음 청크가 「BOM 이 관리하니 지워도
  * 되겠지」로 지워도 <b>빌드가 초록이고 테스트도 전부 통과한다</b> — 그러면 CVSS 9.8 셋이
  * 조용히 다시 열린다. 그 자리를 강제 지점 4위(테스트)로 내린 것이 이 클래스다.
+ * <b>지금은 그 줄이 없다</b> — Boot 4.1.2 BOM 이 11.0.27 을 줘서 `Q295` 가 지웠다. 바닥은 남는다.
  *
  * <p><b>빌드 파일이 아니라 런타임을 읽는다.</b> 문자열을 대조하면 「그 줄이 있나」만 보는데,
  * 물어야 하는 것은 <b>해석된 버전이 얼마인가</b>다. BOM 이 나중에 더 높은 값을 주면 그 줄은
@@ -23,8 +24,8 @@ import org.junit.jupiter.api.Test;
  * {@link ServerInfo#getServerNumber()} 가 {@code tomcat-embed-core} 안의
  * {@code ServerInfo.properties} 를 읽어서 <b>실제로 올라온 판</b>을 준다.
  *
- * <p>이 검사가 빨개지면 고칠 자리는 둘 중 하나다 — {@code tomcat.version} 을 올리거나,
- * 그 값보다 높은 것을 주는 Boot 로 올리고 그 줄을 지운다.
+ * <p>이 검사가 빨개지면 고칠 자리는 둘 중 하나다 — {@code build.gradle.kts} 에
+ * {@code extra["tomcat.version"]} 줄을 다시 넣어 BOM 값을 덮거나, 바닥보다 높은 것을 주는 Boot 로 올린다.
  */
 class TomcatVersionTest {
 
@@ -50,8 +51,8 @@ class TomcatVersionTest {
 
         assertThat(compare(resolved, MINIMUM))
                 .describedAs("Tomcat %s 가 올라왔다. %s 미만은 critical 셋이 열려 있다 — "
-                        + "build.gradle.kts 의 tomcat.version 을 올리거나, "
-                        + "그보다 높은 값을 주는 Boot 로 올리고 그 줄을 지운다", resolved, MINIMUM)
+                        + "build.gradle.kts 에 extra[\"tomcat.version\"] 줄을 다시 넣어 BOM 값을 덮거나, "
+                        + "그보다 높은 값을 주는 Boot 로 올린다", resolved, MINIMUM)
                 .isNotNegative();
     }
 

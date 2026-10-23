@@ -11,6 +11,8 @@ case "$dep$code" in
   ''|*[!0-9]*) ;;
   *) if [ "${dep:-0}" != 0 ] || [ "${code:-0}" != 0 ]; then
        echo
+       # 한 쪽(100)만 받는다 — 다 넘기면 예산을 더 쓴다. 100 은 「그 이상」으로 읽는다(마무리 68차 독립 리뷰)
+       [ "$dep" = 100 ] && dep="100+"; [ "$code" = 100 ] && code="100+"
        echo "**열린 보안 경보**: Dependabot ${dep:-?}건 · CodeQL ${code:-?}건 — \`quality-goals.md\` 목표 0. 맡은 행이 없으면 세운다(\`Q296\`)"
      fi ;;
 esac

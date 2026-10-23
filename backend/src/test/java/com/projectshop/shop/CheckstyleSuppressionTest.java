@@ -71,13 +71,17 @@ class CheckstyleSuppressionTest {
         return SECTION_MARKERS.contains(comment) ? "" : comment;
     }
 
+    /**
+     * 수가 기준선과 <b>같아야</b> 한다. 넘지 않나만 보면 하나가 빠진 뒤 빈 자리가 리뷰 없이 다시 찬다 —
+     * 줄었을 때도 빨개야 기준선이 따라 내려간다(PR 리뷰 전 독립 리뷰, 마무리 68차).
+     */
     @Test
-    @DisplayName("억제 줄이 기준선보다 많지 않다")
-    void staysUnderBaseline() throws IOException {
+    @DisplayName("억제 줄 수가 기준선과 같다")
+    void matchesBaseline() throws IOException {
         assertThat(entries())
-                .describedAs("억제 목록은 줄이기만 한다(quality-gates.md). 새 위반은 고치거나, 영구 칸의 예외를 대고 "
+                .describedAs("억제 목록은 줄이기만 한다(quality-gates.md). 늘었으면 새 위반을 고치거나, 영구 칸의 예외를 대고 "
                         + "이 시험의 BASELINE 을 같이 올린다. 줄었으면 BASELINE 을 내린다")
-                .hasSizeLessThanOrEqualTo(BASELINE);
+                .hasSize(BASELINE);
     }
 
     @Test
