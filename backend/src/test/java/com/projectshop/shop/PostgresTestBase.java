@@ -164,7 +164,7 @@ public abstract class PostgresTestBase {
             // **연결 상한을 올린다**(2026-09-23). 두 fork 가 이 컨테이너 하나를 나눠 쓰고, 캐시에 살아 있는 문맥마다
             // Hikari 가 유휴 연결 10 개를 쥔다. 시험 클래스가 늘어 fork 분배가 바뀌자 기본 100 을 넘어
             // 「FATAL: sorry, too many clients already」 가 났고, 회차 잠금 연결을 못 얻은 정산 배치가 조용히 안 돌았다.
-            return new PostgreSQLContainer("postgres:17-alpine")
+            return new PostgreSQLContainer("postgres:18-alpine")
                     .withCommand("postgres", "-c", "max_connections=300")
                     .withReuse(true);
         }
@@ -278,7 +278,7 @@ public abstract class PostgresTestBase {
         @Bean
         @SuppressWarnings("resource")
         GenericContainer<?> redis() {
-            return new GenericContainer<>("redis:7-alpine")
+            return new GenericContainer<>("redis:8.2-alpine")
                     .withExposedPorts(6379)
                     // 논리 DB 를 기본 16 에서 늘린다(`2i-2`). fork 마다 하나씩 잡는데
                     // Gradle worker 번호가 빌드 내내 커져서 16 으로는 곧 넘친다.

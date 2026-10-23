@@ -142,6 +142,29 @@ class StackVersionConsistencyTest {
     }
 
     /**
+     * 기동 탐침의 기대 메이저가 컴포즈 이미지와 같은가(`Q297`). 컴포즈·시험을 올리고 상수를 안 고치면
+     * 운영이 맞아도 기동마다 WARN 이 나고, 그 반대면 운영이 갈려도 조용하다 — 둘을 여기서 묶는다.
+     */
+    @Test
+    @DisplayName("저장소 판 탐침의 기대 메이저가 컴포즈 이미지와 같다")
+    void storeVersionCheckMatchesCompose() throws IOException {
+        String compose = Files.readString(Path.of("..", "docker-compose.yml"), StandardCharsets.UTF_8);
+
+        assertThat(composeMajor(compose, "postgres"))
+                .describedAs("docker-compose.yml 의 postgres 이미지를 올렸으면 StoreVersionCheck.EXPECTED_POSTGRES_MAJOR 도 같이")
+                .isEqualTo(StoreVersionCheck.EXPECTED_POSTGRES_MAJOR);
+        assertThat(composeMajor(compose, "redis"))
+                .describedAs("docker-compose.yml 의 redis 이미지를 올렸으면 StoreVersionCheck.EXPECTED_REDIS_MAJOR 도 같이")
+                .isEqualTo(StoreVersionCheck.EXPECTED_REDIS_MAJOR);
+    }
+
+    /** {@code image: postgres:18-alpine} 의 18. 줄이 없으면 -1 */
+    private static int composeMajor(String compose, String image) {
+        Matcher m = Pattern.compile("(?m)^\\s*image:\\s*" + image + ":(\\d+)").matcher(compose);
+        return m.find() ? Integer.parseInt(m.group(1)) : -1;
+    }
+
+    /**
      * 칸에서 홑따옴표로 감싼 이름을 찾아 실재하는 경로로 바꾼다.
      *
      * <p>표가 적는 이름이 저장소 뿌리 기준일 때도 있고({@code backend/build.gradle.kts})

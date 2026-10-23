@@ -422,7 +422,7 @@ evaluator.decide(userId, "order", "update_status", target)
 컨테이너는 테스트마다 새로 뜨지 않는다. `static` 으로 한 번 띄우고 JVM 이 끝날 때까지 쓴다.
 Spring 컨텍스트 캐싱과 맞물려서 기동 비용이 전체 실행에 한 번만 든다.
 
-이미지는 `docker-compose.yml` 과 같은 `postgres:17-alpine` 이다. 버전이 갈리면 테스트가 통과해도 운영에서 깨진다.
+이미지는 `docker-compose.yml` 과 같은 `postgres:18-alpine` 이다. 버전이 갈리면 테스트가 통과해도 운영에서 깨진다 — **컴포즈만이 아니라 운영과도 맞춘다**(`Q297`). 2026-10-23 까지 시험은 17 이고 운영은 18 이었는데 아무도 몰랐다. 운영 판은 기동 탐침(`StoreVersionCheck`)이 로그에 남기고 기대 메이저와 다르면 WARN 을 낸다. 기대값은 `StackVersionConsistencyTest` 가 컴포즈와 묶는다.
 
 ### Testcontainers 버전을 왜 직접 적나
 
