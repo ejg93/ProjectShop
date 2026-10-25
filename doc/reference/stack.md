@@ -433,7 +433,7 @@ SpotBugs 6.5.11 은 JDK 25 바이트코드에서 그냥 돌았다. 성능이나 
 | JDK 25 에서 도나 | 돈다 — `--add-exports` 를 플러그인이 붙인다 |
 | 컴파일(main+test, 세 번 중앙값) | 14.9초 → 37.1초 |
 | ERROR — main | 1 — `ReturnValueIgnored`(`WebhookEndpointService` 의 잠금 질의). 고쳤다 |
-| ERROR — test | 1,303 — 전부 `UnicodeInCode`(한글 식별자). **체크를 끈다** — 시험이 한글 이름을 쓴다 |
+| ERROR — test | 1,303 — 전부 `UnicodeInCode`(한글 식별자). **test 컴파일에서만 끈다** — 시험이 한글 이름을 쓴다. main 은 0건이라 켜 둔다 |
 | WARNING | main 144 · test 80 — 안 막는다(`-Werror` 를 안 거는 판단 그대로). 많은 것은 `MissingSummary`·`StringCaseLocaleUsage`·`JavaTimeDefaultTimeZone` |
 
 **JDK 를 올리다 컴파일이 ErrorProne 에서 막히면** `-PerrorProne=false` 로 끄고 진행한다. ErrorProne 판이 새 JDK 를 받으면 판을 올리고 스위치를 뗀다. **끈 채로 머지하지 않는다** — CI 는 스위치 없이 돈다.

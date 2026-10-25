@@ -252,6 +252,24 @@ class ProductImageServiceTest extends StorageTestBase {
     }
 
     /**
+     * 후기 사진 표의 같은 바닥(`Q305`). 위 시험은 상품 사진 표 하나만 부딪쳐 봐서, 후기 쪽 제약이 빠지거나 다르게 적혀도
+     * 아무것도 안 빨갛던 자리다(마무리 70차 독립 리뷰). 후기 행을 세우는 대신 정의를 견준다 — 위 시험이 그 정의가 막는다는 것을 잰다.
+     */
+    @Test
+    @DisplayName("후기 사진 표에도 같은 이름 제약이 같은 정의로 걸려 있다")
+    void 후기_사진_표에도_같은_이름_제약이_있다() {
+        List<String> definitions = jdbc.sql("""
+                        select pg_get_constraintdef(oid) from pg_constraint
+                        where conname in ('product_image_original_name_chars_check', 'review_image_original_name_chars_check')
+                        """)
+                .query(String.class)
+                .list();
+
+        assertThat(definitions).hasSize(2);
+        assertThat(definitions.get(1)).isEqualTo(definitions.get(0));
+    }
+
+    /**
      * 목록을 내주는 자리(`Q139`).
      *
      * <p><b>왜 `Q95` 의 삭제만으로는 부족했나</b> — 지우는 입구가 {@code productImageId} 를 받는데

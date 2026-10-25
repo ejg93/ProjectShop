@@ -5,7 +5,7 @@ plugins {
 	jacoco
 	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — 아래 ErrorProne 과 달리 JDK 를 올려도 안 막힌다.
 	id("com.github.spotbugs") version "6.5.13"
-	// 선언 차례(`Q289`)와 안 쓰는 import(`Q303`) 둘을 본다. 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
+	// 선언 차례(`Q289`) · 안 쓰는 import(`Q303`) · 순환 복잡도(`Q304`) 셋을 본다. 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
 	checkstyle
 	// 버그 패턴의 소스 쪽 눈(`Q301`). 판정은 기준선 래칫 `pmdBaseline` 이 한다 — 아래.
 	pmd
@@ -180,10 +180,10 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
 	reports.create("html") { required = true }
 }
 
-// 클래스 안 선언 차례(`coding-rules.md` 「선언 순서」, `Q288`)와 안 쓰는 import(`Q303`). 설정은 `config/checkstyle/`.
+// 클래스 안 선언 차례(`coding-rules.md` 「선언 순서」, `Q288`) · 안 쓰는 import(`Q303`) · 순환 복잡도 15(`Q304`). 설정은 `config/checkstyle/`.
 //
 // **`test` 소스도 본다.** SpotBugs 가 test 를 뺀 이유는 픽스처 코드의 노이즈인데,
-// 선언 차례와 import 는 픽스처라고 어긋날 이유가 없다.
+// 선언 차례·import·갈래 수는 픽스처라고 어긋날 이유가 없다.
 //
 // 경고 0 을 문턱으로 둔다. 설정이 `severity=error` 라 위반은 이미 실패지만,
 // 누가 등급을 내려도 콘솔에만 찍히고 지나가는 일이 없게 한다.
@@ -280,7 +280,11 @@ tasks.withType<JavaCompile> {
 	// ErrorProne(`Q300`). **ERROR 등급만 빌드를 멈춘다** — WARNING 은 위 `-Werror` 를 안 거는 판단 그대로 지나간다.
 	// 끄는 스위치를 둔다(사용자 결정 2026-10-25): JDK 를 올려 javac 내부가 바뀌면 판이 따라올 때까지 `-PerrorProne=false`.
 	options.errorprone.enabled = (findProperty("errorProne") as String?) != "false"
-	// 한글 식별자 금지. 시험 코드가 규칙 필드·메서드 이름을 한글로 짓는다(`ArchitectureTest` 등 32파일) — 첫 측정에서 test 만 1,303건
+}
+
+// 한글 식별자 금지(`UnicodeInCode`)는 **test 컴파일에서만** 끈다. 시험 코드가 규칙 필드·메서드 이름을 한글로 짓는다
+// (`ArchitectureTest` 등 32파일, 첫 측정 1,303건). main 은 0건이라 켜 둔다 — 같이 끄면 공짜로 막던 자리를 버린다(마무리 70차 독립 리뷰).
+tasks.named<JavaCompile>("compileTestJava") {
 	options.errorprone.disable("UnicodeInCode")
 }
 
