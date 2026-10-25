@@ -1,0 +1,13 @@
+# gate: JUnit 시간 상한(Q299) — 빠른 레인 값을 100 ms 로 내리면 0.7초 걸리는 Jupiter 시험이 시간 초과로 빨갛다. ArchUnit(@ArchTest)은 상한 밖이라 쓰지 않는다
+# run: cd backend && ./gradlew test --tests '*WebhookSenderTest*' --console=plain; rc=$?; grep -ho 'timed out after [0-9]* milliseconds' build/test-results/test/TEST-*WebhookSenderTest.xml | head -1; exit $rc
+# expect: timed out after 100 milliseconds
+diff --git a/backend/src/test/resources/junit-platform.properties b/backend/src/test/resources/junit-platform.properties
+index d64146f..7d25673 100644
+--- a/backend/src/test/resources/junit-platform.properties
++++ b/backend/src/test/resources/junit-platform.properties
+@@ -1,4 +1,4 @@
+ # 시험 하나가 멈추면 CI 잡 한도(20분)까지 붙잡힌다(`Q299`). 값은 재서 정했다 — `testing-strategy.md` 「시간 상한」.
+ # 느린 레인(`integrationTest`)은 `build.gradle.kts` 가 시스템 속성으로 늘린다. 시스템 속성이 이 파일을 이긴다.
+-junit.jupiter.execution.timeout.default = 1 m
++junit.jupiter.execution.timeout.default = 100 ms
+ junit.jupiter.execution.timeout.mode = disabled_on_debug

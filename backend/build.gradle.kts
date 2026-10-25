@@ -272,6 +272,9 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 	// 기계마다 갈리는 값이라 `-PintegrationForks=N` 으로 다시 재고 이 기본값을 고친다.
 	maxParallelForks = (findProperty("integrationForks") as String?)?.toInt() ?: 2
 
+	// 시간 상한을 이 레인만 늘린다(`Q299`). 시스템 속성이 `junit-platform.properties` 를 이긴다.
+	systemProperty("junit.jupiter.execution.timeout.default", "5 m")
+
 	// **이 레인에도 문서를 읽는 대조가 있다**(`점검 M`). `DataLifecycleCoverageTest` 가
 	// `data-lifecycle.md` 를 읽어 DB 의 표 목록과 맞춰 보는데, **신고가 여기 하나도 없어서
 	// 그 문서만 고친 청크에서 통째로 `UP-TO-DATE` 로 건너뛴다.** 실측으로 확인했다.
