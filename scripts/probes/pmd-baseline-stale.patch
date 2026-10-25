@@ -1,0 +1,12 @@
+# gate: PMD 기준선 래칫 — 없어진 짝(Q301). 실물에 없는 짝을 기준선에 두면 빨갛다 — 고친 뒤 기준선이 따라 내려가게 한다
+# run: cd backend && ./gradlew pmdBaseline --console=plain
+# expect: 기준선에 없어진 짝 1개
+diff --git a/backend/config/pmd/baseline.txt b/backend/config/pmd/baseline.txt
+index 27fe37e..09258b2 100644
+--- a/backend/config/pmd/baseline.txt
++++ b/backend/config/pmd/baseline.txt
+@@ -1,3 +1,4 @@
++com.projectshop.shop.Nope=EmptyCatchBlock
+ com.projectshop.shop.account.AccountPurgeBatch=GuardLogStatement
+ com.projectshop.shop.account.AccountPurgeBatch=InvalidLogMessageFormat
+ com.projectshop.shop.account.AccountService=AvoidDuplicateLiterals

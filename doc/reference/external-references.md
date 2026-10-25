@@ -490,6 +490,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | find-sec-bugs | LGPL-3.0 (2026-10-23 확인, 부모 POM) | `com.h3xstream.findsecbugs:*` |
 | ErrorProne | Apache-2.0 (2026-10-25 확인, 부모 POM `error_prone_parent` 2.51.0) | `com.google.errorprone:*` |
 | ErrorProne Gradle 플러그인 | Apache-2.0 (2026-10-25 확인, 캐시의 POM `gradle-errorprone-plugin` 5.1.1) | `plugin:net.ltgt.errorprone` |
+| PMD | BSD-style (2026-10-25 확인, POM `pmd` 7.28.0) | (전이) — `pmd` 플러그인이 `toolVersion` 으로 들인다 |
 | ArchUnit · PIT(pitest)·PIT JUnit 5 플러그인 | Apache-2.0 (2026-10-23 확인, 셋 다 POM) | `com.tngtech.archunit:*` `org.pitest:*` |
 | JUnit Platform 실행기 | **EPL-2.0** (2026-10-23 확인, POM) — 시험만 쓴다. 고쳐서 배포할 때 그 부분 공개가 요건이라 걸릴 것이 없다 | `org.junit.platform:*` |
 | axe-core · `@axe-core/playwright` | MPL-2.0 (2026-10-23 확인, 패키지) | `axe-core` `@axe-core/*` |

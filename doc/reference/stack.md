@@ -405,6 +405,15 @@ javac 와 javadoc 은 받는 문법이다. **위반 이름이 `[UnusedImports]` 
 
 그래서 `processJavadoc=false` 로 둔다. javadoc 에서만 부르는 타입은 import 하지 않고 `{@link com.projectshop.shop.support.ActorType}` 처럼 전체 이름으로 적는다.
 
+### Gradle PMD 에는 기존 지적 면제 파일이 없다
+
+Maven PMD 의 `excludeFromFailureFile` 같은 「이 지적들은 통과」 목록이 Gradle `pmd` 플러그인에 없다(`Q301`).
+그래서 `isIgnoreFailures = true` 로 보고서(`build/reports/pmd/main.xml`)만 받고, `pmdBaseline` 태스크가 기준선과 맞춘다.
+
+**못 읽은 파일은 보고서의 `<error>` 로만 나온다** — 빌드는 초록이고 그 파일의 지적은 0 이다. 그래서 `pmdBaseline` 이 `<error>` 를 빨강으로 본다.
+PMD 7.28.0 은 이 저장소의 Java 25 소스를 다 읽었다(첫 측정 `<error>` 0).
+「Adding current platform … jrt-fs.jar to auxClasspath」 경고는 타입을 푸는 규칙이 PMD 를 돌린 JDK 의 클래스를 본다는 뜻이다 — 그 JDK 가 툴체인과 같은 25 라 둔다. 툴체인과 Gradle 의 JDK 가 갈리면 다시 본다.
+
 ### ErrorProne 은 SpotBugs 옆에 둔다
 
 둘 다 버그 패턴 검출기인데 **붙는 자리가 다르다.**

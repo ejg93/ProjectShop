@@ -7,6 +7,8 @@ plugins {
 	id("com.github.spotbugs") version "6.5.13"
 	// 선언 차례(`Q289`)와 안 쓰는 import(`Q303`) 둘을 본다. 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
 	checkstyle
+	// 버그 패턴의 소스 쪽 눈(`Q301`). 판정은 기준선 래칫 `pmdBaseline` 이 한다 — 아래.
+	pmd
 	id("org.springframework.boot") version "4.1.2"
 	id("io.spring.dependency-management") version "1.1.7"
 	// 컴파일 단계 버그 패턴(`Q300`). javac 플러그인이라 **JDK 를 올리면 같이 막힐 수 있다** —
@@ -190,6 +192,83 @@ checkstyle {
 	maxWarnings = 0
 }
 
+// 버그 패턴의 소스 쪽 눈(`Q301`). 룰셋은 `errorprone`·`bestpractices` 두 범주뿐이다(`config/pmd/ruleset.xml`).
+//
+// **PMD 가 실패를 정하지 않는다.** Gradle 의 pmd 에는 Maven 의 「기존 지적 면제 파일」이 없어서
+// 보고서만 받고, 판정은 아래 `pmdBaseline` 이 기준선과 맞춰서 한다(`stack.md`).
+// **`test` 소스는 안 본다** — SpotBugs 와 같은 근거(픽스처 노이즈)다.
+pmd {
+	toolVersion = "7.28.0"
+	ruleSets = listOf()
+	ruleSetFiles = files("config/pmd/ruleset.xml")
+	isIgnoreFailures = true
+	isConsoleOutput = false
+}
+
+tasks.pmdTest {
+	enabled = false
+}
+
+tasks.withType<Pmd>().configureEach {
+	reports {
+		xml.required = true
+		html.required = false
+	}
+}
+
+// PMD 지적을 기준선과 맞춘다(`Q301`). **정확히 맞아야 초록이다** — 새 짝도, 고쳐서 없어진 짝도 빨강이다
+// (`CheckstyleSuppressionTest` 와 같은 판단: 줄었을 때도 빨개야 기준선이 따라 내려간다).
+//
+// 짝은 `패키지.클래스=규칙` 한 줄이다. 줄 번호를 안 넣는다 — 위에 한 줄만 더해도 기준선이 통째로 바뀐다.
+// **갱신(`-Dpmd.baseline.update=true`)은 교집합만 쓴다** — 기준선은 줄기만 한다. 새 짝은 고치는 것이 답이다.
+// **보고서의 `<error>`(못 읽은 파일)도 빨강이다** — 안 읽힌 파일은 지적이 0 이라 조용히 초록이 된다.
+// `check` 에만 건다 — 빠른 레인(`test`)에 안 들어가고 `--full`·CI 가 돈다.
+val pmdBaseline = tasks.register("pmdBaseline") {
+	description = "PMD 지적을 기준선과 맞춘다(Q301). 새 짝·없어진 짝·못 읽은 파일이면 실패한다."
+	group = "verification"
+	dependsOn(tasks.pmdMain)
+	val report = layout.buildDirectory.file("reports/pmd/main.xml")
+	val baselineFile = file("config/pmd/baseline.txt")
+	val update = providers.systemProperty("pmd.baseline.update").map { it == "true" }.orElse(false)
+	inputs.file(report)
+	inputs.files(baselineFile)
+	inputs.property("update", update)
+	doLast {
+		val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(report.get().asFile)
+		val errors = doc.getElementsByTagName("error")
+		if (errors.length > 0) {
+			throw GradleException("PMD 가 못 읽은 파일 ${errors.length}개 — build/reports/pmd/main.xml 의 <error> 를 본다")
+		}
+		val current = sortedSetOf<String>()
+		val violations = doc.getElementsByTagName("violation")
+		for (i in 0 until violations.length) {
+			val v = violations.item(i) as org.w3c.dom.Element
+			val owner = listOf(v.getAttribute("package"), v.getAttribute("class")).filter { it.isNotEmpty() }.joinToString(".")
+				.ifEmpty { (v.parentNode as org.w3c.dom.Element).getAttribute("name").replace('\\', '/').substringAfter("src/main/java/") }
+			current += "$owner=${v.getAttribute("rule")}"
+		}
+		val baseline = if (baselineFile.exists()) baselineFile.readLines().filter { it.isNotBlank() }.toSortedSet() else null
+		if (update.get()) {
+			val next = baseline?.let { it.intersect(current).toSortedSet() } ?: current
+			baselineFile.writeText(next.joinToString("\n", postfix = "\n"))
+			return@doLast
+		}
+		if (baseline == null) {
+			throw GradleException("기준선이 없다 — -Dpmd.baseline.update=true 로 처음 만든다")
+		}
+		val added = current - baseline
+		val gone = baseline - current
+		if (added.isNotEmpty() || gone.isNotEmpty()) {
+			throw GradleException(buildString {
+				added.forEach { appendLine("새 PMD 지적: $it") }
+				if (gone.isNotEmpty()) {
+					appendLine("기준선에 없어진 짝 ${gone.size}개 — -Dpmd.baseline.update=true 로 줄인다: ${gone.joinToString()}")
+				}
+			})
+		}
+	}
+}
+
 // 무엇이 경고인지 이름을 대게 한다. 기본 설정은 "deprecated API 를 쓴다" 까지만 말하고
 // 어느 줄인지 안 알려줘서, 경고가 떠 있어도 고칠 대상을 못 짚는다.
 //
@@ -359,7 +438,7 @@ tasks.test {
 // `build` 는 두 레인을 다 돈다. **가른 것은 도는 자리지 무엇을 검증하나가 아니다** —
 // 「검증」 표의 통과 기준(`BUILD SUCCESSFUL`)이 뜻하는 범위가 좁아지면 안 된다.
 tasks.check {
-	dependsOn(integrationTest, tasks.jacocoTestReport)
+	dependsOn(integrationTest, tasks.jacocoTestReport, pmdBaseline)
 }
 
 // 커버리지는 측정만 하고 목표를 두지 않는다. 수치를 채우려는 테스트가 생기기 때문이다.
