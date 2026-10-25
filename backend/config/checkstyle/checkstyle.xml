@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <!--
-  Checkstyle 은 선언 차례 하나만 본다(`Q289`, `coding-rules.md` 「선언 순서」). 다른 모듈은 안 켠다 —
-  켜면 그 모듈이 무엇을 막는지 따로 재야 하고, 재지 않은 게이트는 목록 전체를 안 읽게 만든다.
+  Checkstyle 은 선언 차례(`Q289`, `coding-rules.md` 「선언 순서」)와 안 쓰는 import(`Q303`) 둘을 본다.
+  다른 모듈은 재기 전에 안 켠다 — 켜면 그 모듈이 무엇을 막는지 따로 재야 하고, 재지 않은 게이트는
+  목록 전체를 안 읽게 만든다.
 
   **DOCTYPE 을 지우지 않는다.** 13.x 는 DOCTYPE 이 없으면 설정을 못 읽는다(`stack.md`).
   `localeLanguage=en` 은 메시지를 영어로 고정한다 — JVM 로케일이 ko 여도 출력 꼴이 안 바뀐다.
@@ -22,5 +23,10 @@
     <module name="TreeWalker">
         <!-- 기본값 그대로 — 종류 차례와 같은 종류 안 접근자 차례 둘 다(`Q288` 사용자 결정) -->
         <module name="DeclarationOrder"/>
+        <!-- 안 쓰는 import(`Q303`). javadoc 을 안 읽는다 — Checkstyle 의 javadoc 문법이 한글 식별자
+             (`{@link #바깥}`)를 못 읽어 위반으로 낸다(`stack.md`). javadoc 에만 쓰는 이름은 전체 이름으로 적는다 -->
+        <module name="UnusedImports">
+            <property name="processJavadoc" value="false"/>
+        </module>
     </module>
 </module>

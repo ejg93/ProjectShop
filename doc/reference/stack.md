@@ -397,6 +397,14 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
 **한 줄에 위반이 둘이면 하나만 나온다**(`Q289` 부순 증거). 메서드 뒤에 `public` 필드를 `private` 필드 다음에 두면
 「Instance variable definition in wrong order」만 나오고 접근자 차례 위반은 가려진다 — 부술 때는 겹마다 다른 자리에 넣는다.
 
+### Checkstyle 의 javadoc 문법은 한글 식별자를 못 읽는다
+
+`UnusedImports` 의 기본값 `processJavadoc=true` 로 켜면 `{@link #바깥}`·`{@link #카운터를_치운다}` 같은 자리가
+「Javadoc comment at column N has parse error … while parsing MEMBER_REFERENCE」로 나온다(`Q303`, 시험 파일 넷에서 9건).
+javac 와 javadoc 은 받는 문법이다. **위반 이름이 `[UnusedImports]` 로 붙어서** import 문제로 읽히기 쉽다.
+
+그래서 `processJavadoc=false` 로 둔다. javadoc 에서만 부르는 타입은 import 하지 않고 `{@link com.projectshop.shop.support.ActorType}` 처럼 전체 이름으로 적는다.
+
 ### ErrorProne 을 안 골랐다
 
 둘 다 버그 패턴 검출기인데 **붙는 자리가 다르다.**

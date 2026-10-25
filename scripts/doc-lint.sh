@@ -13,11 +13,9 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
-# 절차 스킬(`2r`)도 프롬프트 역할 문서다. `design-taste-frontend` 는 바깥 스킬이라 뺀다.
-skill_files=()
-for f in .claude/skills/*/SKILL.md; do
-  case "$f" in *design-taste-frontend*) ;; *) skill_files+=("$f") ;; esac
-done
+# 절차 스킬(`2r`)도 프롬프트 역할 문서다. **저장소가 추적하는 것만 본다**(`Q303` 에서 드러났다) — 바깥 스킬은
+# 기계마다 `.git/info/exclude` 로 빼고 설치해서, 글롭으로 훑으면 로컬에만 있는 남의 문서로 빨개지고 CI 와 갈린다.
+mapfile -t skill_files < <(git ls-files '.claude/skills/*/SKILL.md')
 
 # 세션을 여는 말(`Q158`)도 같은 종류다 — 스킬이 「세션이 따르는 절차」라면 이쪽은
 # 「사람이 붙여넣는 말」이고, 둘 다 저장소가 드는 규칙 문서다. 올려 놓고 검사에서 빼면

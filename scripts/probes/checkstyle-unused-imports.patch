@@ -1,0 +1,14 @@
+# gate: Checkstyle UnusedImports(Q303)
+# run: cd backend && ./gradlew checkstyleMain --console=plain
+# expect: BackendApplication\.java:[0-9]+:[0-9]+: Unused import - java\.util\.List
+diff --git a/backend/src/main/java/com/projectshop/shop/BackendApplication.java b/backend/src/main/java/com/projectshop/shop/BackendApplication.java
+index 7a418c4..4b0cc20 100644
+--- a/backend/src/main/java/com/projectshop/shop/BackendApplication.java
++++ b/backend/src/main/java/com/projectshop/shop/BackendApplication.java
+@@ -1,5 +1,6 @@
+ package com.projectshop.shop;
+ 
++import java.util.List;
+ import org.springframework.boot.SpringApplication;
+ import org.springframework.boot.autoconfigure.SpringBootApplication;
+ 

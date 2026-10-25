@@ -4,7 +4,7 @@ plugins {
 	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — ErrorProne 은 javac
 	// 플러그인이라 JDK 를 올릴 때마다 같이 막힌다(`stack.md`).
 	id("com.github.spotbugs") version "6.5.13"
-	// 선언 차례 하나만 본다(`Q289`). 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
+	// 선언 차례(`Q289`)와 안 쓰는 import(`Q303`) 둘을 본다. 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
 	checkstyle
 	id("org.springframework.boot") version "4.1.2"
 	id("io.spring.dependency-management") version "1.1.7"
@@ -171,10 +171,10 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
 	reports.create("html") { required = true }
 }
 
-// 클래스 안 선언 차례(`coding-rules.md` 「선언 순서」, `Q288`). 설정은 `config/checkstyle/`.
+// 클래스 안 선언 차례(`coding-rules.md` 「선언 순서」, `Q288`)와 안 쓰는 import(`Q303`). 설정은 `config/checkstyle/`.
 //
 // **`test` 소스도 본다.** SpotBugs 가 test 를 뺀 이유는 픽스처 코드의 노이즈인데,
-// 선언 차례는 픽스처라고 어긋날 이유가 없다.
+// 선언 차례와 import 는 픽스처라고 어긋날 이유가 없다.
 //
 // 경고 0 을 문턱으로 둔다. 설정이 `severity=error` 라 위반은 이미 실패지만,
 // 누가 등급을 내려도 콘솔에만 찍히고 지나가는 일이 없게 한다.

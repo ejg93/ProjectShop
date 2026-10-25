@@ -26,7 +26,6 @@ import com.projectshop.shop.order.OrderTransitions.Payment;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
 import com.projectshop.shop.payment.PaymentMethod;
 import com.projectshop.shop.payment.PaymentService;
-import com.projectshop.shop.support.ActorType;
 import com.projectshop.shop.support.MainEnums;
 import com.projectshop.shop.support.WithdrawalRestrictionReason;
 
@@ -190,7 +189,7 @@ class ResponseEnumCaseTest extends PostgresTestBase {
     /**
      * 위 훑기가 <b>빈 응답을 훑고 통과한 것이 아님</b>을 못박는다(`43a-8`).
      *
-     * <p>「걸려 있다」와 「돈다」는 다르다. 값 집합에 {@link ActorType}·{@link ContractClause} 를
+     * <p>「걸려 있다」와 「돈다」는 다르다. 값 집합에 {@link com.projectshop.shop.support.ActorType}·{@link ContractClause} 를
      * 더해도 <b>그 칸이 응답에 없으면</b> 훑기는 아무것도 안 보고 초록이 된다 —
      * 이 프로젝트가 이미 한 번 밟은 함정이다(`V63` 의 지연 트리거가 걸린 채 0회 돌았다).
      */
