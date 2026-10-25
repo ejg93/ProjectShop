@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
@@ -227,6 +226,47 @@ class ProductImageServiceTest extends StorageTestBase {
                 .param("size", 100L)
                 .update())
                 .hasMessageContaining("Q102");
+    }
+
+    /**
+     * 표시 이름의 바닥(`Q305`, {@code V131}). 앱은 {@code ImagePipeline.Incoming} 이 400 으로 먼저 끊는다
+     * ({@code ImagePipelineIncomingTest}) — 여기서 {@code insert} 를 직접 넣는 것은 그 타입을 안 지나는 입구를 흉내 낸다.
+     */
+    @Test
+    @DisplayName("앱을 건너뛰어도 양방향 서식 문자가 든 이름은 DB 가 거절한다")
+    void 양방향_서식_문자_이름은_DB_가_거절한다() {
+        assertThatThrownBy(() -> jdbc.sql("""
+                        insert into product_image
+                            (product_id, object_key, thumbnail_key, original_name,
+                             content_type, byte_size)
+                        values (:id, :key, :thumb, :name, :type, :size)
+                        """)
+                .param("id", productA)
+                .param("key", "product/bidi/original.jpg")
+                .param("thumb", "product/bidi/thumbnail.jpg")
+                .param("name", "photo" + Character.toString(0x202E) + "gpj.exe")
+                .param("type", "image/jpeg")
+                .param("size", 100L)
+                .update())
+                .hasMessageContaining("product_image_original_name_chars_check");
+    }
+
+    /**
+     * 후기 사진 표의 같은 바닥(`Q305`). 위 시험은 상품 사진 표 하나만 부딪쳐 봐서, 후기 쪽 제약이 빠지거나 다르게 적혀도
+     * 아무것도 안 빨갛던 자리다(마무리 70차 독립 리뷰). 후기 행을 세우는 대신 정의를 견준다 — 위 시험이 그 정의가 막는다는 것을 잰다.
+     */
+    @Test
+    @DisplayName("후기 사진 표에도 같은 이름 제약이 같은 정의로 걸려 있다")
+    void 후기_사진_표에도_같은_이름_제약이_있다() {
+        List<String> definitions = jdbc.sql("""
+                        select pg_get_constraintdef(oid) from pg_constraint
+                        where conname in ('product_image_original_name_chars_check', 'review_image_original_name_chars_check')
+                        """)
+                .query(String.class)
+                .list();
+
+        assertThat(definitions).hasSize(2);
+        assertThat(definitions.get(1)).isEqualTo(definitions.get(0));
     }
 
     /**

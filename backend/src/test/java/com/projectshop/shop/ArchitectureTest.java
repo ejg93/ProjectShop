@@ -60,7 +60,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.notification.MockNotificationSender;
 import com.projectshop.shop.payment.MockPaymentGateway;
-import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 import jakarta.validation.Valid;

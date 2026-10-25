@@ -1,13 +1,19 @@
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
 	java
 	jacoco
-	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — ErrorProne 은 javac
-	// 플러그인이라 JDK 를 올릴 때마다 같이 막힌다(`stack.md`).
+	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — 아래 ErrorProne 과 달리 JDK 를 올려도 안 막힌다.
 	id("com.github.spotbugs") version "6.5.13"
-	// 선언 차례 하나만 본다(`Q289`). 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
+	// 선언 차례(`Q289`) · 안 쓰는 import(`Q303`) · 순환 복잡도(`Q304`) 셋을 본다. 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
 	checkstyle
+	// 버그 패턴의 소스 쪽 눈(`Q301`). 판정은 기준선 래칫 `pmdBaseline` 이 한다 — 아래.
+	pmd
 	id("org.springframework.boot") version "4.1.2"
 	id("io.spring.dependency-management") version "1.1.7"
+	// 컴파일 단계 버그 패턴(`Q300`). javac 플러그인이라 **JDK 를 올리면 같이 막힐 수 있다** —
+	// 그때는 `-PerrorProne=false` 로 끄고 판을 맞춘다(`stack.md` 「ErrorProne 은 SpotBugs 옆에 둔다」).
+	id("net.ltgt.errorprone") version "5.1.1"
 }
 
 // 저장소와 같은 선언이다(`2l`). 배포는 안 하지만 갈리면 안 된다 — 루트 `LICENSE` 가 원문이다.
@@ -147,6 +153,9 @@ dependencies {
 	// 경보 0이라 SQL 조립·암호·역직렬화를 지금 아무도 안 보고 있다.
 	// 게이트를 새로 안 만들고 위 SpotBugs 의 **눈만 넓힌다.**
 	spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0")
+
+	// 위 플러그인이 javac 에 거는 검출기 본체(`Q300`)
+	errorprone("com.google.errorprone:error_prone_core:2.51.0")
 }
 
 // 버그 패턴 검출을 어떻게 돌리나.
@@ -171,16 +180,93 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
 	reports.create("html") { required = true }
 }
 
-// 클래스 안 선언 차례(`coding-rules.md` 「선언 순서」, `Q288`). 설정은 `config/checkstyle/`.
+// 클래스 안 선언 차례(`coding-rules.md` 「선언 순서」, `Q288`) · 안 쓰는 import(`Q303`) · 순환 복잡도 15(`Q304`). 설정은 `config/checkstyle/`.
 //
 // **`test` 소스도 본다.** SpotBugs 가 test 를 뺀 이유는 픽스처 코드의 노이즈인데,
-// 선언 차례는 픽스처라고 어긋날 이유가 없다.
+// 선언 차례·import·갈래 수는 픽스처라고 어긋날 이유가 없다.
 //
 // 경고 0 을 문턱으로 둔다. 설정이 `severity=error` 라 위반은 이미 실패지만,
 // 누가 등급을 내려도 콘솔에만 찍히고 지나가는 일이 없게 한다.
 checkstyle {
 	toolVersion = "13.4.2"
 	maxWarnings = 0
+}
+
+// 버그 패턴의 소스 쪽 눈(`Q301`). 룰셋은 `errorprone`·`bestpractices` 두 범주뿐이다(`config/pmd/ruleset.xml`).
+//
+// **PMD 가 실패를 정하지 않는다.** Gradle 의 pmd 에는 Maven 의 「기존 지적 면제 파일」이 없어서
+// 보고서만 받고, 판정은 아래 `pmdBaseline` 이 기준선과 맞춰서 한다(`stack.md`).
+// **`test` 소스는 안 본다** — SpotBugs 와 같은 근거(픽스처 노이즈)다.
+pmd {
+	toolVersion = "7.28.0"
+	ruleSets = listOf()
+	ruleSetFiles = files("config/pmd/ruleset.xml")
+	isIgnoreFailures = true
+	isConsoleOutput = false
+}
+
+tasks.pmdTest {
+	enabled = false
+}
+
+tasks.withType<Pmd>().configureEach {
+	reports {
+		xml.required = true
+		html.required = false
+	}
+}
+
+// PMD 지적을 기준선과 맞춘다(`Q301`). **정확히 맞아야 초록이다** — 새 짝도, 고쳐서 없어진 짝도 빨강이다
+// (`CheckstyleSuppressionTest` 와 같은 판단: 줄었을 때도 빨개야 기준선이 따라 내려간다).
+//
+// 짝은 `패키지.클래스=규칙` 한 줄이다. 줄 번호를 안 넣는다 — 위에 한 줄만 더해도 기준선이 통째로 바뀐다.
+// **갱신(`-Dpmd.baseline.update=true`)은 교집합만 쓴다** — 기준선은 줄기만 한다. 새 짝은 고치는 것이 답이다.
+// **보고서의 `<error>`(못 읽은 파일)도 빨강이다** — 안 읽힌 파일은 지적이 0 이라 조용히 초록이 된다.
+// `check` 에만 건다 — 빠른 레인(`test`)에 안 들어가고 `--full`·CI 가 돈다.
+val pmdBaseline = tasks.register("pmdBaseline") {
+	description = "PMD 지적을 기준선과 맞춘다(Q301). 새 짝·없어진 짝·못 읽은 파일이면 실패한다."
+	group = "verification"
+	dependsOn(tasks.pmdMain)
+	val report = layout.buildDirectory.file("reports/pmd/main.xml")
+	val baselineFile = file("config/pmd/baseline.txt")
+	val update = providers.systemProperty("pmd.baseline.update").map { it == "true" }.orElse(false)
+	inputs.file(report)
+	inputs.files(baselineFile)
+	inputs.property("update", update)
+	doLast {
+		val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(report.get().asFile)
+		val errors = doc.getElementsByTagName("error")
+		if (errors.length > 0) {
+			throw GradleException("PMD 가 못 읽은 파일 ${errors.length}개 — build/reports/pmd/main.xml 의 <error> 를 본다")
+		}
+		val current = sortedSetOf<String>()
+		val violations = doc.getElementsByTagName("violation")
+		for (i in 0 until violations.length) {
+			val v = violations.item(i) as org.w3c.dom.Element
+			val owner = listOf(v.getAttribute("package"), v.getAttribute("class")).filter { it.isNotEmpty() }.joinToString(".")
+				.ifEmpty { (v.parentNode as org.w3c.dom.Element).getAttribute("name").replace('\\', '/').substringAfter("src/main/java/") }
+			current += "$owner=${v.getAttribute("rule")}"
+		}
+		val baseline = if (baselineFile.exists()) baselineFile.readLines().filter { it.isNotBlank() }.toSortedSet() else null
+		if (update.get()) {
+			val next = baseline?.let { it.intersect(current).toSortedSet() } ?: current
+			baselineFile.writeText(next.joinToString("\n", postfix = "\n"))
+			return@doLast
+		}
+		if (baseline == null) {
+			throw GradleException("기준선이 없다 — -Dpmd.baseline.update=true 로 처음 만든다")
+		}
+		val added = current - baseline
+		val gone = baseline - current
+		if (added.isNotEmpty() || gone.isNotEmpty()) {
+			throw GradleException(buildString {
+				added.forEach { appendLine("새 PMD 지적: $it") }
+				if (gone.isNotEmpty()) {
+					appendLine("기준선에 없어진 짝 ${gone.size}개 — -Dpmd.baseline.update=true 로 줄인다: ${gone.joinToString()}")
+				}
+			})
+		}
+	}
 }
 
 // 무엇이 경고인지 이름을 대게 한다. 기본 설정은 "deprecated API 를 쓴다" 까지만 말하고
@@ -190,6 +276,16 @@ checkstyle {
 // 빌드가 통째로 막히면, 급할 때 옵션을 통째로 끄게 된다.
 tasks.withType<JavaCompile> {
 	options.compilerArgs.addAll(listOf("-Xlint:deprecation", "-Xlint:unchecked"))
+
+	// ErrorProne(`Q300`). **ERROR 등급만 빌드를 멈춘다** — WARNING 은 위 `-Werror` 를 안 거는 판단 그대로 지나간다.
+	// 끄는 스위치를 둔다(사용자 결정 2026-10-25): JDK 를 올려 javac 내부가 바뀌면 판이 따라올 때까지 `-PerrorProne=false`.
+	options.errorprone.enabled = (findProperty("errorProne") as String?) != "false"
+}
+
+// 한글 식별자 금지(`UnicodeInCode`)는 **test 컴파일에서만** 끈다. 시험 코드가 규칙 필드·메서드 이름을 한글로 짓는다
+// (`ArchitectureTest` 등 32파일, 첫 측정 1,303건). main 은 0건이라 켜 둔다 — 같이 끄면 공짜로 막던 자리를 버린다(마무리 70차 독립 리뷰).
+tasks.named<JavaCompile>("compileTestJava") {
+	options.errorprone.disable("UnicodeInCode")
 }
 
 // 테스트를 두 레인으로 가른다.
@@ -272,6 +368,9 @@ val integrationTest = tasks.register<Test>("integrationTest") {
 	// 기계마다 갈리는 값이라 `-PintegrationForks=N` 으로 다시 재고 이 기본값을 고친다.
 	maxParallelForks = (findProperty("integrationForks") as String?)?.toInt() ?: 2
 
+	// 시간 상한을 이 레인만 늘린다(`Q299`). 시스템 속성이 `junit-platform.properties` 를 이긴다.
+	systemProperty("junit.jupiter.execution.timeout.default", "5 m")
+
 	// **이 레인에도 문서를 읽는 대조가 있다**(`점검 M`). `DataLifecycleCoverageTest` 가
 	// `data-lifecycle.md` 를 읽어 DB 의 표 목록과 맞춰 보는데, **신고가 여기 하나도 없어서
 	// 그 문서만 고친 청크에서 통째로 `UP-TO-DATE` 로 건너뛴다.** 실측으로 확인했다.
@@ -343,7 +442,7 @@ tasks.test {
 // `build` 는 두 레인을 다 돈다. **가른 것은 도는 자리지 무엇을 검증하나가 아니다** —
 // 「검증」 표의 통과 기준(`BUILD SUCCESSFUL`)이 뜻하는 범위가 좁아지면 안 된다.
 tasks.check {
-	dependsOn(integrationTest, tasks.jacocoTestReport)
+	dependsOn(integrationTest, tasks.jacocoTestReport, pmdBaseline)
 }
 
 // 커버리지는 측정만 하고 목표를 두지 않는다. 수치를 채우려는 테스트가 생기기 때문이다.

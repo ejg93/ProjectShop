@@ -480,6 +480,25 @@ Boot 의 BOM 이 Testcontainers 를 관리하지 않으므로 `build.gradle.kts`
 플래너가 두 요청에 같은 순서를 돌려주면 순환이 안 생긴다. 잠그는 순서를 손으로 엇갈리게 만든
 대조 테스트를 같이 둬서 위험이 실재함을 못박는다.
 
+## 시간 상한
+
+**시험 하나가 멈추면 그 레인이 통째로 멈춘다**(`Q299`). 상한이 없으면 CI 잡 한도(`ci.yml` `backend` 20분)까지 붙잡히고,
+그 한도에 걸려 끝나면 어느 시험이 멈췄는지 이름이 안 남는다.
+
+| 레인 | 상한 | 어디에 | 근거(2026-10-25 결과 XML) |
+|---|---|---|---|
+| 빠른(`test`) | 1분 | `src/test/resources/junit-platform.properties` | Jupiter 시험 하나의 최장이 0.9초(`WebhookSenderTest`). ArchUnit 셋(`ArchitectureTest`·`TestConventionTest`·`PublicSurfaceTest`, 최장 6.1초)은 상한 밖이다 |
+| 느린(`integrationTest`) | 5분 | `build.gradle.kts` 의 시스템 속성 — 파일 값을 이긴다 | 최장 9.4초(`MigrationUndoRunTest`). 10분이면 잡 한도에 먼저 걸릴 수 있다 |
+
+**안 세는 것**이 셋이다.
+- **컨테이너 기동** — `PostgresTestBase` 가 `@Bean` 안에서 띄운다. Spring 컨텍스트 적재는 시험 메서드가 아니라 상한 밖이다.
+- **ArchUnit `@ArchTest`** — 별도 엔진(`archunit-junit6`)이라 Jupiter 설정을 안 읽는다.
+- **가로채기가 안 되는 블로킹** — 스레드 모드가 기본 `SAME_THREAD` 라 상한이 지나면 인터럽트만 건다. 그것을 안 받는 대기는 못 끊고, 그 자리는 CI `timeout-minutes` 가 받친다.
+
+`SEPARATE_THREAD` 를 안 고른 이유는 Spring 시험 트랜잭션과 `SecurityContext` 가 스레드에 묶여 있어서다 — 다른 스레드로 돌리면 롤백·인증이 안 따라온다.
+
+**디버거를 붙이면 꺼진다**(`timeout.mode = disabled_on_debug`). **값을 다시 잴 때**는 `build/test-results/<레인>/*.xml` 의 `testcase time` 최댓값을 보고 그 수십 배로 둔다.
+
 ## 스냅샷 테스트
 
 청크 4c 가 쓴다. 케이스가 수백 개라 기대값을 사람이 다 못 쓴다.

@@ -46,7 +46,8 @@ class DependencyLicenseTest {
     private static final Pattern GRADLE_CALL = Pattern.compile(
             "\\b(?:implementation|testImplementation|testRuntimeOnly|runtimeOnly|testCompileOnly|developmentOnly"
                     + "|compileOnly|api|annotationProcessor|testAnnotationProcessor|spotbugsPlugins|pitest|checkstyle"
-                    + "|mavenBom)\\((?:platform\\()?\"([^\":]+):([^\":]+)");
+                    // `errorprone` 은 `Q300` 이 더했다 — 없으면 `error_prone_core` 선언이 조용히 안 보였다(플러그인 id 만 잡혔다)
+                    + "|errorprone|mavenBom)\\((?:platform\\()?\"([^\":]+):([^\":]+)");
 
     private static final Pattern PLUGIN_ID = Pattern.compile("\\bid\\(\"([^\"]+)\"\\)");
 

@@ -1,0 +1,20 @@
+# gate: 사진 표시 이름 — 앱 검증(Q305). 양방향 서식 문자를 목록에서 빼면 U+202E 등이 든 이름이 400 이 안 된다
+# run: cd backend && ./gradlew test --tests '*ImagePipelineIncomingTest*' --console=plain
+# expect: codePoint = 8238 FAILED
+diff --git a/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java b/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java
+index 3df7ca7..79e1ab2 100644
+--- a/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java
++++ b/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java
+@@ -82,11 +82,7 @@ public class ImagePipeline {
+ 
+         /** 제어문자(Cc)와 표시 방향을 바꾸는 서식 문자. {@code V131} 의 제약과 같은 목록이다 */
+         private static boolean disguisesDisplay(int codePoint) {
+-            return Character.getType(codePoint) == Character.CONTROL
+-                    || codePoint == 0x061C
+-                    || codePoint == 0x200E || codePoint == 0x200F
+-                    || (codePoint >= 0x202A && codePoint <= 0x202E)
+-                    || (codePoint >= 0x2066 && codePoint <= 0x2069);
++            return Character.getType(codePoint) == Character.CONTROL;
+         }
+ 
+         public long size() {

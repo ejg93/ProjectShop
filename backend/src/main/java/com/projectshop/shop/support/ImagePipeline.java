@@ -66,9 +66,28 @@ public class ImagePipeline {
      * {@code MultipartFile} 을 서비스가 받으면 이 규칙을 HTTP 가 아닌 자리(배치·이관)에서
      * 다시 쓸 수 없고, 계층 검사가 그것을 막는다.
      *
+     * <p><b>제어문자·양방향 서식 문자가 든 이름은 400 이다</b>(`Q305`, {@code D14} 입력 검증). 표시에만 쓰는 이름이라도
+     * U+202E 같은 문자는 {@code gpj.exe} 를 {@code exe.jpg} 처럼 보이게 한다. 생성자에서 막아서 이 타입을 만드는
+     * 입구가 늘어도 빠질 자리가 없다. 바닥은 {@code V131} 의 {@code *_original_name_chars_check} 다.
+     *
      * @param originalName 사람에게 보여 줄 이름. 표시에만 쓰고 저장 위치를 정하는 데 안 쓴다
      */
     public record Incoming(String originalName, byte[] bytes) {
+
+        public Incoming {
+            if (originalName != null && originalName.codePoints().anyMatch(Incoming::disguisesDisplay)) {
+                throw new ShopException(ErrorCode.VALIDATION_FAILED, "파일 이름에 제어문자나 양방향 서식 문자가 있다");
+            }
+        }
+
+        /** 제어문자(Cc)와 표시 방향을 바꾸는 서식 문자. {@code V131} 의 제약과 같은 목록이다 */
+        private static boolean disguisesDisplay(int codePoint) {
+            return Character.getType(codePoint) == Character.CONTROL
+                    || codePoint == 0x061C
+                    || codePoint == 0x200E || codePoint == 0x200F
+                    || (codePoint >= 0x202A && codePoint <= 0x202E)
+                    || (codePoint >= 0x2066 && codePoint <= 0x2069);
+        }
 
         public long size() {
             return bytes.length;

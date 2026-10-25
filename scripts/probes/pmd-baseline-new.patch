@@ -1,0 +1,19 @@
+# gate: PMD 기준선 래칫 — 새 짝(Q301). 빈 catch 를 넣으면 기준선에 없는 짝이라 빨갛다
+# run: cd backend && ./gradlew pmdBaseline --console=plain
+# expect: 새 PMD 지적: com\.projectshop\.shop\.BackendApplication=EmptyCatchBlock
+diff --git a/backend/src/main/java/com/projectshop/shop/BackendApplication.java b/backend/src/main/java/com/projectshop/shop/BackendApplication.java
+index 7a418c4..7197143 100644
+--- a/backend/src/main/java/com/projectshop/shop/BackendApplication.java
++++ b/backend/src/main/java/com/projectshop/shop/BackendApplication.java
+@@ -10,4 +10,11 @@ public class BackendApplication {
+ 		SpringApplication.run(BackendApplication.class, args);
+ 	}
+ 
++	static void breakEmptyCatch() {
++		try {
++			Integer.parseInt("x");
++		} catch (NumberFormatException e) {
++		}
++	}
++
+ }

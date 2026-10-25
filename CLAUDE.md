@@ -179,6 +179,9 @@
 **갱신되면 적용범위 문서를 다시 본다.** 스킬·라이브러리 버전이 바뀌는 청크는 그 스킬의
 적용범위를 정한 문서를 참조로 걸어서, 갱신이 그 결정을 흔들지 않는지 확인한다.
 
+**로컬 compose DB 를 다시 만드는 `docker compose down -v` 는 확인 없이 친다**(2026-10-25 사용자 결정). 이 저장소의 정식 절차이고(ADR `0001`·`coding-rules.md`·`stack.md`), 시드가 다시 채워서 날아갈 것이 없다. `docker-compose-patterns` 의 「지우기 전에 확인」은 이 명령에만 안 건다.
+다른 삭제(`prune`·`rm -f`·`volume rm`)는 `docker-compose-patterns`·`docker-destructive-guardrails` 를 그대로 따른다 — Testcontainers 재사용 컨테이너와 받아 둔 이미지가 거기 걸린다.
+
 ## 청크 하나를 어떻게 치나
 
 **시작·끝의 기준이다.** 예열이 그날의 축을 예보한다면, 이것은 **청크 하나의 축과 닫힘 조건**을 정한다.

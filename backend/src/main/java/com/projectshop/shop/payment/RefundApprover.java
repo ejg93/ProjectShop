@@ -1,6 +1,5 @@
 package com.projectshop.shop.payment;
 
-import java.util.Arrays;
 import java.util.Locale;
 
 /**
