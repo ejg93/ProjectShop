@@ -99,11 +99,16 @@ public class WebhookEndpointService {
     }
 
     private Created insert(long userId, long sellerId, String url, Set<WebhookEventType> eventTypes) {
-        jdbc.sql("select seller_id from seller where seller_id = :id for update")
+        // 행을 잠그고 셀러가 있는지만 본다. 반환값을 버리면 ErrorProne(`ReturnValueIgnored`)이,
+        // `var _` 로 받으면 SpotBugs(`DLS_DEAD_LOCAL_STORE`)가 막아서 있는지를 값으로 받는다(`Q300`)
+        boolean sellerExists = jdbc.sql("select seller_id from seller where seller_id = :id for update")
                 .param("id", sellerId)
                 .query(Long.class)
                 .optional()
-                .orElseThrow(() -> new ShopException(ErrorCode.WEBHOOK_FORBIDDEN));
+                .isPresent();
+        if (!sellerExists) {
+            throw new ShopException(ErrorCode.WEBHOOK_FORBIDDEN);
+        }
         long count = jdbc.sql("select count(*) from webhook_endpoint where seller_id = :id")
                 .param("id", sellerId)
                 .query(Long.class)

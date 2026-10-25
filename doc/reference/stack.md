@@ -405,22 +405,33 @@ javac 와 javadoc 은 받는 문법이다. **위반 이름이 `[UnusedImports]` 
 
 그래서 `processJavadoc=false` 로 둔다. javadoc 에서만 부르는 타입은 import 하지 않고 `{@link com.projectshop.shop.support.ActorType}` 처럼 전체 이름으로 적는다.
 
-### ErrorProne 을 안 골랐다
+### ErrorProne 은 SpotBugs 옆에 둔다
 
 둘 다 버그 패턴 검출기인데 **붙는 자리가 다르다.**
 
 | | SpotBugs | ErrorProne |
 |---|---|---|
 | 읽는 것 | 바이트코드 | 소스(javac 플러그인) |
-| JDK 를 올리면 | 클래스 파일 버전만 맞으면 된다 | **javac 내부 API 를 써서 같이 막힌다** |
+| JDK 를 올리면 | 클래스 파일 버전만 맞으면 된다 | **javac 내부 API 를 써서 같이 막힐 수 있다** |
 
-이 저장소는 툴체인이 JDK 25 다. ErrorProne 은 새 JDK 마다 `--add-exports` 를 붙여야 하는
-구간이 생기고, 그 구간에는 **검출기를 끄는 것 말고 할 수 있는 것이 없다.**
-SpotBugs 6.5.11 은 JDK 25 바이트코드에서 그냥 돌았다(청크 `2e` 에서 확인).
+**처음(청크 `2e`)에는 둘째 줄 하나로 ErrorProne 을 안 골랐다** — 막히는 구간에는 검출기를 끄는 것 말고 할 수 있는 것이 없어서다.
+SpotBugs 6.5.11 은 JDK 25 바이트코드에서 그냥 돌았다. 성능이나 검출 폭으로 가른 것이 아니었다.
 
-**성능이나 검출 폭으로 고른 것이 아니다** — 위 표의 두 번째 줄 하나로 갈렸다.
-SpotBugs 의 기본 검출기는 실제로 신호가 얇다(첫 측정 100건 중 96건이 구조적 오탐).
-넓히려면 `find-sec-bugs` 를 얹는데 그건 청크 `2e-1` 이 다룬다.
+**2026-10-25 에 다시 재고 붙였다**(`Q300`, toolbox-server 추천 · 사용자 결정 「끄는 스위치를 두고 켠다」). 잰 것(ErrorProne 2.51.0 · 플러그인 5.1.1 · JDK 25):
+
+| 무엇 | 값 |
+|---|---|
+| JDK 25 에서 도나 | 돈다 — `--add-exports` 를 플러그인이 붙인다 |
+| 컴파일(main+test, 세 번 중앙값) | 14.9초 → 37.1초 |
+| ERROR — main | 1 — `ReturnValueIgnored`(`WebhookEndpointService` 의 잠금 질의). 고쳤다 |
+| ERROR — test | 1,303 — 전부 `UnicodeInCode`(한글 식별자). **체크를 끈다** — 시험이 한글 이름을 쓴다 |
+| WARNING | main 144 · test 80 — 안 막는다(`-Werror` 를 안 거는 판단 그대로). 많은 것은 `MissingSummary`·`StringCaseLocaleUsage`·`JavaTimeDefaultTimeZone` |
+
+**JDK 를 올리다 컴파일이 ErrorProne 에서 막히면** `-PerrorProne=false` 로 끄고 진행한다. ErrorProne 판이 새 JDK 를 받으면 판을 올리고 스위치를 뗀다. **끈 채로 머지하지 않는다** — CI 는 스위치 없이 돈다.
+
+**두 검출기가 서로 반대를 요구하는 자리가 있다.** 반환값을 버리면 ErrorProne 이(`ReturnValueIgnored`), `var _` 로 받으면 SpotBugs 가(`DLS_DEAD_LOCAL_STORE`) 막는다. 받은 값을 실제로 쓰는 꼴로 바꾼다(`boolean exists = …isPresent(); if (!exists) throw …`).
+
+**재는 법**: javac 는 경고·오류를 기본 100개에서 자른다(`-Xmaxwarns`·`-Xmaxerrs`) — 셀 때는 늘리고, 경고가 수천이면 test 컴파일이 힙을 넘는다(fork 2 GB 로 쟀다). ERROR 를 경고로 내리는 `allErrorsAsWarnings` 로 test 까지 한 번에 센다.
 
 ### Windows 에서 만든 실행 파일은 실행 비트가 없다
 

@@ -1,13 +1,17 @@
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
 	java
 	jacoco
-	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — ErrorProne 은 javac
-	// 플러그인이라 JDK 를 올릴 때마다 같이 막힌다(`stack.md`).
+	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — 아래 ErrorProne 과 달리 JDK 를 올려도 안 막힌다.
 	id("com.github.spotbugs") version "6.5.13"
 	// 선언 차례(`Q289`)와 안 쓰는 import(`Q303`) 둘을 본다. 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
 	checkstyle
 	id("org.springframework.boot") version "4.1.2"
 	id("io.spring.dependency-management") version "1.1.7"
+	// 컴파일 단계 버그 패턴(`Q300`). javac 플러그인이라 **JDK 를 올리면 같이 막힐 수 있다** —
+	// 그때는 `-PerrorProne=false` 로 끄고 판을 맞춘다(`stack.md` 「ErrorProne 은 SpotBugs 옆에 둔다」).
+	id("net.ltgt.errorprone") version "5.1.1"
 }
 
 // 저장소와 같은 선언이다(`2l`). 배포는 안 하지만 갈리면 안 된다 — 루트 `LICENSE` 가 원문이다.
@@ -147,6 +151,9 @@ dependencies {
 	// 경보 0이라 SQL 조립·암호·역직렬화를 지금 아무도 안 보고 있다.
 	// 게이트를 새로 안 만들고 위 SpotBugs 의 **눈만 넓힌다.**
 	spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0")
+
+	// 위 플러그인이 javac 에 거는 검출기 본체(`Q300`)
+	errorprone("com.google.errorprone:error_prone_core:2.51.0")
 }
 
 // 버그 패턴 검출을 어떻게 돌리나.
@@ -190,6 +197,12 @@ checkstyle {
 // 빌드가 통째로 막히면, 급할 때 옵션을 통째로 끄게 된다.
 tasks.withType<JavaCompile> {
 	options.compilerArgs.addAll(listOf("-Xlint:deprecation", "-Xlint:unchecked"))
+
+	// ErrorProne(`Q300`). **ERROR 등급만 빌드를 멈춘다** — WARNING 은 위 `-Werror` 를 안 거는 판단 그대로 지나간다.
+	// 끄는 스위치를 둔다(사용자 결정 2026-10-25): JDK 를 올려 javac 내부가 바뀌면 판이 따라올 때까지 `-PerrorProne=false`.
+	options.errorprone.enabled = (findProperty("errorProne") as String?) != "false"
+	// 한글 식별자 금지. 시험 코드가 규칙 필드·메서드 이름을 한글로 짓는다(`ArchitectureTest` 등 32파일) — 첫 측정에서 test 만 1,303건
+	options.errorprone.disable("UnicodeInCode")
 }
 
 // 테스트를 두 레인으로 가른다.

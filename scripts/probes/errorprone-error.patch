@@ -1,0 +1,15 @@
+# gate: ErrorProne ERROR(Q300) — 반환값을 버린 trim() 이 ReturnValueIgnored(ERROR)로 컴파일을 멈춘다. EqualsIncompatibleType 은 이 판에서 WARNING 이라 안 쓴다
+# run: cd backend && ./gradlew compileJava --console=plain
+# expect: BackendApplication\.java:[0-9]+: error: \[ReturnValueIgnored\]
+diff --git a/backend/src/main/java/com/projectshop/shop/BackendApplication.java b/backend/src/main/java/com/projectshop/shop/BackendApplication.java
+index 7a418c4..acb95ca 100644
+--- a/backend/src/main/java/com/projectshop/shop/BackendApplication.java
++++ b/backend/src/main/java/com/projectshop/shop/BackendApplication.java
+@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
+ public class BackendApplication {
+ 
+ 	public static void main(String[] args) {
++		"x".trim();
+ 		SpringApplication.run(BackendApplication.class, args);
+ 	}
+ 
