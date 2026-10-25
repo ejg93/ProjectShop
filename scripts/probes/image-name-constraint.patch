@@ -1,0 +1,15 @@
+# gate: 사진 표시 이름 — DB 제약(Q305, V131). 시험 트랜잭션 안에서 제약을 지우면 앱을 건너뛴 insert 가 들어간다(롤백되어 DB 는 안 더러워진다)
+# run: cd backend && ./gradlew integrationTest --tests '*ProductImageServiceTest*' --console=plain
+# expect: 양방향 서식 문자가 든 이름은 DB 가 거절한다 FAILED
+diff --git a/backend/src/test/java/com/projectshop/shop/product/ProductImageServiceTest.java b/backend/src/test/java/com/projectshop/shop/product/ProductImageServiceTest.java
+index e3bd5d0..d3b2c94 100644
+--- a/backend/src/test/java/com/projectshop/shop/product/ProductImageServiceTest.java
++++ b/backend/src/test/java/com/projectshop/shop/product/ProductImageServiceTest.java
+@@ -235,6 +235,7 @@ class ProductImageServiceTest extends StorageTestBase {
+     @Test
+     @DisplayName("앱을 건너뛰어도 양방향 서식 문자가 든 이름은 DB 가 거절한다")
+     void 양방향_서식_문자_이름은_DB_가_거절한다() {
++        jdbc.sql("alter table product_image drop constraint product_image_original_name_chars_check").update();
+         assertThatThrownBy(() -> jdbc.sql("""
+                         insert into product_image
+                             (product_id, object_key, thumbnail_key, original_name,

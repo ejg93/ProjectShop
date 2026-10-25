@@ -229,6 +229,29 @@ class ProductImageServiceTest extends StorageTestBase {
     }
 
     /**
+     * 표시 이름의 바닥(`Q305`, {@code V131}). 앱은 {@code ImagePipeline.Incoming} 이 400 으로 먼저 끊는다
+     * ({@code ImagePipelineIncomingTest}) — 여기서 {@code insert} 를 직접 넣는 것은 그 타입을 안 지나는 입구를 흉내 낸다.
+     */
+    @Test
+    @DisplayName("앱을 건너뛰어도 양방향 서식 문자가 든 이름은 DB 가 거절한다")
+    void 양방향_서식_문자_이름은_DB_가_거절한다() {
+        assertThatThrownBy(() -> jdbc.sql("""
+                        insert into product_image
+                            (product_id, object_key, thumbnail_key, original_name,
+                             content_type, byte_size)
+                        values (:id, :key, :thumb, :name, :type, :size)
+                        """)
+                .param("id", productA)
+                .param("key", "product/bidi/original.jpg")
+                .param("thumb", "product/bidi/thumbnail.jpg")
+                .param("name", "photo" + Character.toString(0x202E) + "gpj.exe")
+                .param("type", "image/jpeg")
+                .param("size", 100L)
+                .update())
+                .hasMessageContaining("product_image_original_name_chars_check");
+    }
+
+    /**
      * 목록을 내주는 자리(`Q139`).
      *
      * <p><b>왜 `Q95` 의 삭제만으로는 부족했나</b> — 지우는 입구가 {@code productImageId} 를 받는데
