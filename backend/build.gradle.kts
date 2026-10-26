@@ -55,7 +55,7 @@ dependencies {
 	// 「막고 있다」고 읽힌다」와 같은 자리다. 압축을 켜는 날 이 경보를 다시 만나는 것보다
 	// 지금 한 줄이 싸고, **버전이 올라가면 이 제약이 저절로 무의미해진다**(아래가 더 낮으면 진다).
 	constraints {
-		implementation("at.yawk.lz4:lz4-java:1.12.0")
+		implementation("at.yawk.lz4:lz4-java:1.12.1")
 		// **Dependabot 경보 #25 를 닫는다**(2026-10-21, high). Checkstyle 이 doxia-core 를 타고
 		// `org.codehaus.plexus:plexus-utils` 3.3.0 을 들인다(`extractFile` 경로 순회, < 3.6.1).
 		// 빌드 도구 classpath 라 앱에는 안 실리고 우리 검사는 그 함수를 안 부른다 — 그래도 위와 같은 이유로 고정한다(`Q295`)
@@ -127,7 +127,7 @@ dependencies {
 	// 기동은 초록이고 업로드만 터져서 원인이 멀어 보인다.
 	//
 	// **BOM 으로 버전을 묶는다.** `s3` 와 전송 계층이 판이 갈리면 서명 방식에서 어긋난다.
-	implementation(platform("software.amazon.awssdk:bom:2.56.0"))
+	implementation(platform("software.amazon.awssdk:bom:2.57.3"))
 	implementation("software.amazon.awssdk:s3")
 	implementation("software.amazon.awssdk:apache-client")
 	// 웹훅 발송기(`Q210`). **연결이 검사한 주소에만 가게** 이름 풀이를 연결 관리자에 준다 — JDK `HttpClient` 에는 그 훅이 없다.
