@@ -274,16 +274,7 @@ public class OrderStatusService {
             ReturnReason returnReason, ReturnRequestService.Decision decision) {
 
         if (to == Shipment.RETURN_REQUESTED) {
-            // 사유를 안 주면 단순 변심이다. 하자 반품은 요청이 그렇다고 말해야 열린다 —
-            // 기본값을 하자로 두면 7일과 제한 검사가 아무에게도 안 걸린다.
-            ReturnReason reason = returnReason == null ? ReturnReason.CHANGE_OF_MIND : returnReason;
-
-            requireWithdrawable(sellerOrderId, reason);
-            recordReturnReason(sellerOrderId, reason);
-
-            // 반품 행을 같은 트랜잭션에서 연다. 묶음만 옮기면 `V63` 의 지연 트리거가
-            // 커밋에서 거부하고, 그때는 이 요청이 무엇을 하려던 것인지가 오류에 안 남는다.
-            returns.open(sellerOrderId, actor, reason);
+            openReturn(sellerOrderId, actor, returnReason);
         }
 
         // 반품 판정도 같은 자리에서 부른다(`43a-2`). 승인이면 묶음이 `returned` 로,
@@ -334,6 +325,19 @@ public class OrderStatusService {
         }
 
         recordSellerOrderHistory(sellerOrderId, from, to, actor);
+    }
+
+    private void openReturn(long sellerOrderId, Actor actor, ReturnReason returnReason) {
+        // 사유를 안 주면 단순 변심이다. 하자 반품은 요청이 그렇다고 말해야 열린다 —
+        // 기본값을 하자로 두면 7일과 제한 검사가 아무에게도 안 걸린다.
+        ReturnReason reason = returnReason == null ? ReturnReason.CHANGE_OF_MIND : returnReason;
+
+        requireWithdrawable(sellerOrderId, reason);
+        recordReturnReason(sellerOrderId, reason);
+
+        // 반품 행을 같은 트랜잭션에서 연다. 묶음만 옮기면 `V63` 의 지연 트리거가
+        // 커밋에서 거부하고, 그때는 이 요청이 무엇을 하려던 것인지가 오류에 안 남는다.
+        returns.open(sellerOrderId, actor, reason);
     }
 
     /**
