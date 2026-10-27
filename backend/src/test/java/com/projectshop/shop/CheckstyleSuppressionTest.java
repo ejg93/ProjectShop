@@ -28,9 +28,9 @@ class CheckstyleSuppressionTest {
 
     /**
      * 억제 줄 수의 천장. 2026-10-23 `Q291` 이 `StorageTestBase` 를 걷어 영구 `ArchitectureTest` 하나였고,
-     * 2026-10-25 `Q304` 가 순환 복잡도 상한을 켜며 넘는 셋을 임시로 올렸다(`Q306` 이 걷는다) — 2026-10-27 `Q306a` 가 `RateLimitFilter` 를 걷었다
+     * 2026-10-25 `Q304` 가 순환 복잡도 상한을 켜며 넘는 셋을 임시로 올렸다(`Q306` 이 걷는다) — 2026-10-27 `Q306a` 가 `RateLimitFilter` 를 걷었다 · `Q306b` 가 `JavaSourceText` 를 걷었다
      */
-    private static final int BASELINE = 3;
+    private static final int BASELINE = 2;
 
     private static final Path SUPPRESSIONS = Path.of("config", "checkstyle", "suppressions.xml");
 

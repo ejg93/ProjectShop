@@ -20,6 +20,4 @@
     <!-- 임시 -->
     <!-- 발송 반영 16(`applyShipment`) — 상한을 켜는 청크의 범위 밖이다. `Q306` 이 쪼갠다 -->
     <suppress checks="CyclomaticComplexity" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]OrderStatusService\.java$"/>
-    <!-- 소스 글자 걷기 33(시험 도우미) — 상한을 켜는 청크의 범위 밖이다. `Q306` 이 쪼갠다 -->
-    <suppress checks="CyclomaticComplexity" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]JavaSourceText\.java$"/>
 </suppressions>

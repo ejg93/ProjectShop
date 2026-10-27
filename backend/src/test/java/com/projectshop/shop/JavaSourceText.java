@@ -26,54 +26,84 @@ final class JavaSourceText {
             char c = source.charAt(i);
             char next = i + 1 < end ? source.charAt(i + 1) : '\0';
             if (c == '/' && next == '/') {
-                while (i < end && source.charAt(i) != '\n') {
-                    out.append(' ');
-                    i++;
-                }
+                i = skipLineComment(source, i, out);
             } else if (c == '/' && next == '*') {
-                out.append("  ");
-                i += 2;
-                while (i < end && !(source.charAt(i) == '*' && i + 1 < end && source.charAt(i + 1) == '/')) {
-                    out.append(source.charAt(i) == '\n' ? '\n' : ' ');
-                    i++;
-                }
-                if (i < end) {
-                    out.append("  ");
-                    i += 2;
-                }
+                i = skipBlockComment(source, i, out);
             } else if (c == '"' && next == '"' && i + 2 < end && source.charAt(i + 2) == '"') {
-                out.append("\"\"\"");
-                i += 3;
-                while (i < end && !(source.charAt(i) == '"' && i + 2 < end
-                        && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"')) {
-                    out.append(source.charAt(i));
-                    i++;
-                }
-                if (i < end) {
-                    out.append("\"\"\"");
-                    i += 3;
-                }
+                i = copyTextBlock(source, i, out);
             } else if (c == '"' || c == '\'') {
-                out.append(c);
-                i++;
-                while (i < end && source.charAt(i) != c && source.charAt(i) != '\n') {
-                    if (source.charAt(i) == '\\' && i + 1 < end) {
-                        out.append(source.charAt(i)).append(source.charAt(i + 1));
-                        i += 2;
-                        continue;
-                    }
-                    out.append(source.charAt(i));
-                    i++;
-                }
-                if (i < end) {
-                    out.append(source.charAt(i));
-                    i++;
-                }
+                i = copyQuoted(source, i, out);
             } else {
                 out.append(c);
                 i++;
             }
         }
         return out.toString();
+    }
+
+    /** {@code //} 부터 줄 끝 앞까지를 공백으로. 다음 인덱스(개행 자리)를 돌려준다 */
+    private static int skipLineComment(String source, int start, StringBuilder out) {
+        int i = start;
+        int end = source.length();
+        while (i < end && source.charAt(i) != '\n') {
+            out.append(' ');
+            i++;
+        }
+        return i;
+    }
+
+    /** {@code /*} 부터 닫는 표시까지를 공백으로 — 개행은 남긴다 */
+    private static int skipBlockComment(String source, int start, StringBuilder out) {
+        int end = source.length();
+        out.append("  ");
+        int i = start + 2;
+        while (i < end && !(source.charAt(i) == '*' && i + 1 < end && source.charAt(i + 1) == '/')) {
+            out.append(source.charAt(i) == '\n' ? '\n' : ' ');
+            i++;
+        }
+        if (i < end) {
+            out.append("  ");
+            i += 2;
+        }
+        return i;
+    }
+
+    /** 텍스트 블록을 닫는 {@code """} 까지 그대로 옮긴다 */
+    private static int copyTextBlock(String source, int start, StringBuilder out) {
+        int end = source.length();
+        out.append("\"\"\"");
+        int i = start + 3;
+        while (i < end && !(source.charAt(i) == '"' && i + 2 < end
+                && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"')) {
+            out.append(source.charAt(i));
+            i++;
+        }
+        if (i < end) {
+            out.append("\"\"\"");
+            i += 3;
+        }
+        return i;
+    }
+
+    /** 문자열·문자 리터럴을 같은 따옴표나 줄 끝까지 옮긴다. 이스케이프는 두 글자를 같이 넘긴다 */
+    private static int copyQuoted(String source, int start, StringBuilder out) {
+        int end = source.length();
+        char quote = source.charAt(start);
+        out.append(quote);
+        int i = start + 1;
+        while (i < end && source.charAt(i) != quote && source.charAt(i) != '\n') {
+            if (source.charAt(i) == '\\' && i + 1 < end) {
+                out.append(source.charAt(i)).append(source.charAt(i + 1));
+                i += 2;
+                continue;
+            }
+            out.append(source.charAt(i));
+            i++;
+        }
+        if (i < end) {
+            out.append(source.charAt(i));
+            i++;
+        }
+        return i;
     }
 }
