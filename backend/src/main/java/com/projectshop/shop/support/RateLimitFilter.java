@@ -156,18 +156,23 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return "unknown";
         }
         String a = address.toLowerCase(java.util.Locale.ROOT);
-        if (a.contains(":")) {
-            if (a.equals("::1") || a.equals("0:0:0:0:0:0:0:1")) {
-                return "loopback";
-            }
-            if (a.startsWith("fc") || a.startsWith("fd")) {
-                return "ipv6-ula";
-            }
-            if (a.startsWith("fe8") || a.startsWith("fe9") || a.startsWith("fea") || a.startsWith("feb")) {
-                return "ipv6-link-local";
-            }
-            return "ipv6-public";
+        return a.contains(":") ? ipv6Class(a) : ipv4Class(a);
+    }
+
+    private static String ipv6Class(String a) {
+        if (a.equals("::1") || a.equals("0:0:0:0:0:0:0:1")) {
+            return "loopback";
         }
+        if (a.startsWith("fc") || a.startsWith("fd")) {
+            return "ipv6-ula";
+        }
+        if (a.startsWith("fe8") || a.startsWith("fe9") || a.startsWith("fea") || a.startsWith("feb")) {
+            return "ipv6-link-local";
+        }
+        return "ipv6-public";
+    }
+
+    private static String ipv4Class(String a) {
         String[] parts = a.split("\\.");
         if (parts.length != 4) {
             return "unknown";

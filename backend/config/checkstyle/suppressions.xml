@@ -18,8 +18,6 @@
     <!-- 규칙 필드 바로 밑에 그 규칙의 헬퍼를 둔 읽기 순서다. 차례대로 옮기면 헬퍼가 규칙과 떨어진다(`Q288`) -->
     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]ArchitectureTest\.java$"/>
     <!-- 임시 -->
-    <!-- 손님 주소 분류 26 — 보안 자리라 상한을 켜는 청크에서 안 쪼갰다. 쪼갤지 근거를 대고 영구로 올릴지 `Q306` 이 정한다 -->
-    <suppress checks="CyclomaticComplexity" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]RateLimitFilter\.java$"/>
     <!-- 발송 반영 16(`applyShipment`) — 상한을 켜는 청크의 범위 밖이다. `Q306` 이 쪼갠다 -->
     <suppress checks="CyclomaticComplexity" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]OrderStatusService\.java$"/>
     <!-- 소스 글자 걷기 33(시험 도우미) — 상한을 켜는 청크의 범위 밖이다. `Q306` 이 쪼갠다 -->
