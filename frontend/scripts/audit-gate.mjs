@@ -8,19 +8,19 @@
  * <b>면제는 권고 id 하나씩이다.</b> 패키지 이름으로 빼면 같은 패키지의 다음 권고까지 같이 빠진다.
  * 사슬 중간의 패키지(`micromatch` 등)는 권고를 직접 안 들고 원본 패키지 이름만 가리켜서, 원본이 빠지면 같이 빠진다.
  *
- * <b>고친 판이 나오면 그 줄을 지운다.</b> 면제가 늘면 이 파일의 diff 에 뜬다.
+ * <b>고친 판이 나오면 그 줄을 지운다.</b> 면제는 `audit-exempt.json`(`{"GHSA-…": "왜 면제하나"}`)에 있고 늘면 그 파일의 diff 에 뜬다.
+ * 둘째 인자로 다른 면제 파일을 줄 수 있다 — 시험이 쓴다(`Q308`).
  *
  *   npm audit --json > audit.json; node scripts/audit-gate.mjs audit.json
  */
 import { readFileSync } from "node:fs";
 
 /** 권고 id → 왜 면제하나. 고친 판이 없을 때만 적는다 */
-const EXEMPT = new Map([
-  [
-    "GHSA-vfj7-8cjw-p6xm",
-    "braces <= 3.0.3 전부, 고친 판 없음. eslint-config-next → fast-glob → micromatch 사슬(개발 도구)에만 있다(Q257)",
-  ],
-]);
+const EXEMPT = new Map(
+  Object.entries(
+    JSON.parse(readFileSync(process.argv[3] ?? new URL("./audit-exempt.json", import.meta.url), "utf8")),
+  ),
+);
 
 const BLOCKING = new Set(["high", "critical"]);
 

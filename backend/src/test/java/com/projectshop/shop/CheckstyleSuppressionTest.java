@@ -27,10 +27,10 @@ import org.junit.jupiter.api.Test;
 class CheckstyleSuppressionTest {
 
     /**
-     * 억제 줄 수의 천장. 2026-10-23 `Q291` 이 `StorageTestBase` 를 걷어 영구 `ArchitectureTest` 하나였고,
-     * 2026-10-25 `Q304` 가 순환 복잡도 상한을 켜며 넘는 셋을 임시로 올렸다(`Q306` 이 걷는다)
+     * 억제 줄 수의 천장. 영구 `ArchitectureTest` 하나, 임시 0. 2026-10-25 `Q304` 가 순환 복잡도 상한을 켜며
+     * 넘는 셋을 임시로 올렸고 2026-10-27 `Q306a`~`Q306c` 가 다 걷었다
      */
-    private static final int BASELINE = 4;
+    private static final int BASELINE = 1;
 
     private static final Path SUPPRESSIONS = Path.of("config", "checkstyle", "suppressions.xml");
 
