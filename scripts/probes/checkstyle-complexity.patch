@@ -1,15 +1,17 @@
-# gate: Checkstyle CyclomaticComplexity 15(Q304) — 임시 억제 하나를 걷으면 그 메서드가 상한에 걸린다
+# gate: Checkstyle CyclomaticComplexity 15(Q304) — 상한에 붙은 메서드(ipv4Class 15)에 갈래 하나를 더하면 걸린다. 임시 억제는 Q306a~c 가 다 걷었다
 # run: cd backend && ./gradlew checkstyleMain --console=plain
-# expect: RateLimitFilter\.java:[0-9]+:[0-9]+: Cyclomatic Complexity is [0-9]+ \(max allowed is 15\)
-diff --git a/backend/config/checkstyle/suppressions.xml b/backend/config/checkstyle/suppressions.xml
-index ef4ac90..bd71c87 100644
---- a/backend/config/checkstyle/suppressions.xml
-+++ b/backend/config/checkstyle/suppressions.xml
-@@ -19,7 +19,6 @@
-     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]ArchitectureTest\.java$"/>
-     <!-- 임시 -->
-     <!-- 손님 주소 분류 26 — 보안 자리라 상한을 켜는 청크에서 안 쪼갰다. 쪼갤지 근거를 대고 영구로 올릴지 `Q306` 이 정한다 -->
--    <suppress checks="CyclomaticComplexity" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]RateLimitFilter\.java$"/>
-     <!-- 발송 반영 16(`applyShipment`) — 상한을 켜는 청크의 범위 밖이다. `Q306` 이 쪼갠다 -->
-     <suppress checks="CyclomaticComplexity" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]OrderStatusService\.java$"/>
-     <!-- 소스 글자 걷기 33(시험 도우미) — 상한을 켜는 청크의 범위 밖이다. `Q306` 이 쪼갠다 -->
+# expect: RateLimitFilter\.java:[0-9]+:[0-9]+: Cyclomatic Complexity is 16 \(max allowed is 15\)
+diff --git a/backend/src/main/java/com/projectshop/shop/support/RateLimitFilter.java b/backend/src/main/java/com/projectshop/shop/support/RateLimitFilter.java
+index 56a0888..89f2679 100644
+--- a/backend/src/main/java/com/projectshop/shop/support/RateLimitFilter.java
++++ b/backend/src/main/java/com/projectshop/shop/support/RateLimitFilter.java
+@@ -197,6 +197,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
+         if (first == 169 && second == 254) {
+             return "ipv4-link-local";
+         }
++        if (first == 0) {
++            return "ipv4-this-network";
++        }
+         return "ipv4-public";
+     }
+ }

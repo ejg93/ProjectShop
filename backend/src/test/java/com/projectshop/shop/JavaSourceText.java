@@ -3,10 +3,12 @@ package com.projectshop.shop;
 /**
  * 자바 소스에서 <b>주석만</b> 걷어낸다. 문자열·텍스트 블록 안은 그대로 둔다.
  *
- * <p><b>둘이 같은 걷기를 쓴다.</b> {@link SqlTextTest} 는 주석 안의 SQL 예시가 위반으로 뜨는 것을
+ * <p><b>넷이 같은 걷기를 쓴다.</b> {@link SqlTextTest} 는 주석 안의 SQL 예시가 위반으로 뜨는 것을
  * 막으려고(`ListQuery` javadoc 에 {@code " order by " + sort} 가 세 줄 있다),
  * {@link BuildInputTest} 는 주석 안의 경로 예시가 대조 대상으로 잡히는 것을 막으려고 쓴다 —
  * <b>실제로 이 클래스의 javadoc 이 자기 테스트를 빨갛게 만들었다</b>(`Q25`).
+ * {@link RowMapperCallTest}·{@link SchemaNameTest} 도 소스를 훑기 전에 이것으로 주석을 걷는다.
+ * 줄 보존은 {@link JavaSourceTextTest} 가 잰다(`Q306b`).
  *
  * <p>줄 구조를 그대로 둔다 — 줄을 없애면 번호가 밀려서 어디를 고쳐야 하는지 못 짚는다.
  *
