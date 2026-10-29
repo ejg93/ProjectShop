@@ -1,0 +1,16 @@
+# gate: fields 허용 목록 — 응답 record 성분에 없는 이름은 400(Q309a). 검증을 끄면 모르는 이름이 조용히 지나간다
+# run: cd backend && ./gradlew integrationTest --tests '*FieldSelectionTest*' --console=plain
+# expect: 모르는 이름은 400 이고 fields 칸을 짚는다 FAILED
+diff --git a/backend/src/main/java/com/projectshop/shop/support/FieldSelection.java b/backend/src/main/java/com/projectshop/shop/support/FieldSelection.java
+index a691173..32fd09e 100644
+--- a/backend/src/main/java/com/projectshop/shop/support/FieldSelection.java
++++ b/backend/src/main/java/com/projectshop/shop/support/FieldSelection.java
+@@ -49,7 +49,7 @@ public record FieldSelection(Set<String> names) {
+             throw new InvalidParameterException(PARAMETER, "고를 칸 이름이 없다");
+         }
+         Set<String> unknown = new TreeSet<>(names);
+-        unknown.removeAll(allowed);
++        unknown.clear();
+         if (!unknown.isEmpty()) {
+             throw new InvalidParameterException(PARAMETER,
+                     "고를 수 없는 칸이다: " + unknown + ". 고를 수 있는 것: " + new TreeSet<>(allowed));

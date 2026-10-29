@@ -380,6 +380,31 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
 **화면 URL 의 `?page=` 는 그대로다** — 사람이 읽는 쪽 번호고 API 계약이 아니다. 변환은 화면의 한 곳이 한다(`frontend-rules.md`).
 
+## 필드 선택·확장
+
+### `fields` — 응답의 최상위 칸을 고른다
+
+`GET` JSON 응답 전부가 받는다(`Q309a`). 관례에서 왔다 — Zalando 157 「SHOULD support partial responses via filtering」, Medusa·Spree 의 `fields`.
+
+| 규칙 | 무엇 |
+|---|---|
+| 문법 | 쉼표로 구분한 칸 이름. `?fields=display_name,created_at` |
+| 범위 | **응답의 최상위 칸만**(snake_case). 목록이면 `items` 의 원소에 걸고 껍데기 넷(`items`·`offset`·`limit`·`total`)은 그대로 둔다. 중첩 칸은 못 고른다 |
+| 모르는 이름 | **400 `validation-failed`**, `errors[].field` 는 `fields`. 정렬 허용 목록과 같은 쪽이다 |
+| 마스킹 | **판정이 깎은 뒤에 건다.** 판정이 안 준 칸은 이름을 불러도 안 열린다. `_visible_field_groups` 는 고르지 않아도 남는다 |
+| 안 보내면 | 응답이 그대로다 |
+| 제외 | 오류 응답(`application/problem+json`)과 파일 응답 |
+
+**모르는 이름을 조용히 빼지 않는다.** Medusa 는 금지된 칸을 소리 없이 뺀다. 아래 「버전」 절이 미디어 타입 버전을 버린 근거(「틀리면 조용하다」)와 반대라 안 따른다 — 오타를 낸 쪽이 칸이 없는 이유를 모른다.
+
+**걸리는 자리는 한 곳이다** — 입구마다 안 심는다. 입구마다 두면 새 입구가 빠뜨린다(`coding-rules.md` 축 2 「앱 검증」). 허용 목록은 **응답 타입의 record 성분**에서 뽑아서 사본이 없다.
+
+**화면은 지금 안 쓴다.** 쓰는 날 `api.ts` 에서 `fields` 를 넘기는 한 자리를 둔다(`frontend-rules.md`).
+
+### `expand` — 상세에 하위 목록 첫 쪽을 끼운다
+
+`Q309b` 가 이 자리에 적는다.
+
 ## 값의 형식
 
 | 종류 | 형식 | 예 |

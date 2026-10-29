@@ -54,7 +54,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ShopException.class)
     ProblemDetail handle(ShopException e, HttpServletRequest request) {
-        return problems.create(e.code(), e.getMessage(), request);
+        ProblemDetail problem = problems.create(e.code(), e.getMessage(), request);
+        if (e instanceof InvalidParameterException invalid) {
+            problem.setProperty("errors", List.of(new FieldError(invalid.parameter(), invalid.getMessage())));
+        }
+        return problem;
     }
 
     /**

@@ -154,6 +154,34 @@ class OpenApiSpecTest extends HttpTestBase {
     }
 
     /**
+     * {@code fields} 는 모든 {@code GET} 이 받는다(`Q309a`, {@code api-guidelines.md} 「필드 선택·확장」).
+     *
+     * <p>걸리는 자리가 {@code ResponseBodyAdvice} 하나라 입구 선언에 파라미터가 없다 — 스펙에 따로 적지 않으면
+     * 부르는 쪽이 문서만 보고는 칸을 고를 수 있는지 모른다.
+     */
+    @Test
+    @DisplayName("모든 GET 이 fields 를 스펙에 싣는다")
+    void everyGetDocumentsFields() {
+        JsonNode paths = spec().path("paths");
+        List<String> missing = new ArrayList<>();
+        int gets = 0;
+        for (String route : names(paths)) {
+            JsonNode get = paths.path(route).path("get");
+            if (get.isMissingNode()) {
+                continue;
+            }
+            gets++;
+            Set<String> parameters = new java.util.TreeSet<>();
+            get.path("parameters").forEach(parameter -> parameters.add(parameter.path("name").asString()));
+            if (!parameters.contains("fields")) {
+                missing.add(route);
+            }
+        }
+        assertThat(gets).as("GET 을 0개 찾았다 — 스펙을 못 걷었다").isGreaterThan(10);
+        assertThat(missing).as("fields 를 안 싣는 GET").isEmpty();
+    }
+
+    /**
      * 상품 검색은 공개 목록과 같은 입구의 {@code q} 다(`61`). 스펙에 없으면 부르는 쪽이 검색이 있는지 모르고
      * 다른 입구를 찾거나 만든다 — 검색만 다른 모양이면 화면이 목록을 두 벌 그린다.
      */

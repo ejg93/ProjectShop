@@ -1,7 +1,14 @@
 package com.projectshop.shop.support;
 
+import java.util.Objects;
+
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import io.swagger.v3.core.jackson.ModelResolver;
+import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.media.StringSchema;
+import io.swagger.v3.oas.models.parameters.QueryParameter;
+
+import org.springdoc.core.customizers.OpenApiCustomizer;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -48,5 +55,22 @@ class OpenApiConfig {
                 new com.fasterxml.jackson.databind.ObjectMapper();
         specMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         return new ModelResolver(specMapper);
+    }
+
+    /**
+     * 모든 {@code GET} 에 {@code fields} 를 적는다(`Q309a`).
+     *
+     * <p>걸리는 자리가 {@link FieldSelectionAdvice} 하나라 입구 선언에 파라미터가 없다 — 여기서 안 적으면
+     * 스펙만 보는 쪽이 칸을 고를 수 있는지 모른다. 입구마다 적지 않는 것과 같은 이유로 한 곳에서 적는다.
+     */
+    @Bean
+    OpenApiCustomizer fieldSelectionParameter() {
+        return openApi -> openApi.getPaths().values().stream()
+                .map(PathItem::getGet)
+                .filter(Objects::nonNull)
+                .forEach(get -> get.addParametersItem(new QueryParameter()
+                        .name(FieldSelection.PARAMETER)
+                        .description("쉼표로 구분한 최상위 칸 이름. 목록이면 items 의 원소에 건다. 모르는 이름은 400")
+                        .schema(new StringSchema())));
     }
 }
