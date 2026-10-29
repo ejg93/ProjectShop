@@ -65,11 +65,22 @@ class IdempotencyServiceTest extends PostgresTestBase {
                     .isEqualTo(1);
         }
 
+        /** 부르는 쪽이 재생인지 알아야 `Idempotent-Replayed` 를 단다(`Q310`). 본문만 돌려주면 처음과 재생이 안 갈린다 */
+        @Test
+        @DisplayName("처음은 재생이 아니고 둘째는 재생이다")
+        void tellsWhetherItReplayed() {
+            boolean first = idempotency.run(userId, "key-r", request(), Response.class, work()).replayed();
+            boolean second = idempotency.run(userId, "key-r", request(), Response.class, work()).replayed();
+
+            assertThat(first).isFalse();
+            assertThat(second).isTrue();
+        }
+
         @Test
         @DisplayName("첫 응답을 그대로 돌려준다")
         void replaysTheFirstResponse() {
-            Response first = idempotency.run(userId, "key-2", request(), Response.class, work());
-            Response second = idempotency.run(userId, "key-2", request(), Response.class, work());
+            Response first = idempotency.run(userId, "key-2", request(), Response.class, work()).value();
+            Response second = idempotency.run(userId, "key-2", request(), Response.class, work()).value();
 
             assertThat(second.orderNumber())
                     .as("클라이언트는 재전송인 줄 모르고 첫 결과를 받아야 한다")

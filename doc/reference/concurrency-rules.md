@@ -158,6 +158,8 @@ B: sku 20 잠금 → sku 10 대기        ← 서로 기다린다
 
 본문 비교는 요청 본문의 해시로 한다. 본문 전체를 보관하지 않는다.
 
+**재생 응답은 `Idempotent-Replayed: true` 를 단다 — 처음 응답에는 없다**(`Q310`). 본문·상태·`Location` 은 처음과 같아서, 헤더가 없으면 받는 쪽이 「이미 처리된 것을 다시 받았다」를 못 가른다. 관례 둘(Stripe·Spree)이 같은 이름을 재생에만 달고, IETF `Idempotency-Key` 초안에는 재생 표시 헤더가 없다. `IdempotencyService` 가 `Replay<T>(value, replayed)` 를 돌려주고 헤더는 부르는 컨트롤러가 단다 — 반환형이 본문만이면 부르는 쪽이 재생 여부를 모른다. `OrderIdempotencyTest` 가 「재생에만」을 잰다.
+
 ### 선점·처리·저장을 한 트랜잭션에 둔다
 
 이게 나머지를 다 정한다. 서블릿 필터에 두면 셋이 갈라져서

@@ -39,6 +39,12 @@ import tools.jackson.databind.ObjectMapper;
 public class IdempotencyService {
 
     /**
+     * 재생 응답에 다는 헤더(`Q310`, `D11` 「멱등키」). <b>재생일 때만</b> 단다 — 처음 응답에는 없다.
+     * 값은 늘 {@code true} 다. Stripe·Spree 와 같은 이름이고 IETF 초안에는 없다.
+     */
+    public static final String REPLAYED_HEADER = "Idempotent-Replayed";
+
+    /**
      * 앞 요청을 기다리는 한도.
      *
      * <p>같은 키의 뒤 요청은 앞이 끝날 때까지 유니크 충돌로 대기한다. 앞이 커밋되면 재생을 읽고,
@@ -69,11 +75,11 @@ public class IdempotencyService {
      * @param responseType 재생할 때 무엇으로 되돌릴지. 저장은 JSON 이라 타입이 필요하다
      */
     @Transactional
-    public <T> T run(long userId, String key, Object request, Class<T> responseType, Supplier<T> work) {
+    public <T> Replay<T> run(long userId, String key, Object request, Class<T> responseType, Supplier<T> work) {
         String hash = sha256(toJson(request));
 
         if (!claim(userId, key, hash)) {
-            return replay(userId, key, hash, responseType);
+            return new Replay<>(replay(userId, key, hash, responseType), true);
         }
 
         T result = work.get();
@@ -87,7 +93,7 @@ public class IdempotencyService {
                 .param("key", key)
                 .update();
 
-        return result;
+        return new Replay<>(result, false);
     }
 
     /**
@@ -178,6 +184,14 @@ public class IdempotencyService {
     }
 
     private record Stored(String requestHash, String responseBody) {}
+
+    /**
+     * 응답과 그것이 재생인지(`Q310`). <b>본문만 돌려주면 부르는 쪽이 처음과 재생을 못 가른다</b> —
+     * 헤더를 다는 것은 부르는 컨트롤러다(헤더를 자리마다 다는 기존 모양).
+     *
+     * @param replayed 앞 요청이 저장한 응답을 돌려준 것이면 true
+     */
+    public record Replay<T>(T value, boolean replayed) {}
 
     private String toJson(Object value) {
         try {

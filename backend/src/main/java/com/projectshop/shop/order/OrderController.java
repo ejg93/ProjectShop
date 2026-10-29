@@ -29,6 +29,7 @@ import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.support.IdempotencyService;
+import com.projectshop.shop.support.IdempotencyService.Replay;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.Retries;
 
@@ -110,7 +111,7 @@ public class OrderController {
         // 재시도가 멱등 바깥이다(`D11`). 안쪽은 이미 깨진 트랜잭션이라 다음 문장부터 못 돈다.
         // 바깥이면 선점 기록도 같이 롤백돼 있어서 같은 키로 다시 들어오는 것이 맞다 —
         // 앞 시도가 아무것도 안 남겼으므로 막을 중복이 없다.
-        CreateResponse response = Retries.onConflict(
+        Replay<CreateResponse> response = Retries.onConflict(
                 () -> idempotency.run(user.id(), idempotencyKey, request,
                         CreateResponse.class,
                         () -> {
@@ -121,9 +122,12 @@ public class OrderController {
 
         // 새 자원이 요청 URI 와 다른 경로에 선다. `Location` 이 없으면 만들어진 것이
         // `/api/orders` 자신이라는 뜻이 되고, 그건 사실이 아니다(`D5` 「헤더」, `Q11`).
-        return ResponseEntity
-                .created(URI.create("/api/orders/" + response.orderNumber()))
-                .body(response);
+        ResponseEntity.BodyBuilder created = ResponseEntity
+                .created(URI.create("/api/orders/" + response.value().orderNumber()));
+        if (response.replayed()) {
+            created.header(IdempotencyService.REPLAYED_HEADER, "true");
+        }
+        return created.body(response.value());
     }
 
     /**

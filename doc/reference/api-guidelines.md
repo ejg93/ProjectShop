@@ -660,6 +660,7 @@ POST /api/settlements/{id}/confirm
 | `traceparent` | 요청 추적. W3C Trace Context 형식 (D16) |
 | `Idempotency-Key` | 멱등 요청. `POST /api/orders`·`POST /api/payments` 에 필수다 (D11) |
 | `Location` | 201 응답에서 새 자원 경로 |
+| `Idempotent-Replayed` | 멱등 재생 응답에만 `true`. 처음 응답에는 없다 (D11, `Q310`) |
 
 자체 헤더를 만들 때는 `X-` 를 붙이지 않는다. RFC 6648 이 그 관행을 폐기했다. `SourceTextTest` 가 main 의 `"X-` 글자를 막는다(`Q226`).
 
