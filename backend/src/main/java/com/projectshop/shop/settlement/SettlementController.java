@@ -17,7 +17,6 @@ import com.projectshop.shop.support.Expansion;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * 정산서를 조회하는 입구(청크 20).
@@ -61,8 +60,7 @@ public class SettlementController {
     @GetMapping("/{settlementNumber}")
     public SettlementQuery.Detail one(@AuthenticationPrincipal ShopUser user,
             @PathVariable String settlementNumber,
-            @Parameter(description = "끼울 하위 목록 첫 쪽(`D5` 「필드 선택·확장」)",
-                    schema = @Schema(allowableValues = LINES))
+            @Parameter(description = "끼울 하위 목록 첫 쪽 — `lines`(`D5` 「필드 선택·확장」)")
             @RequestParam(required = false) String expand) {
 
         Expansion expansion = Expansion.of(expand, Set.of(LINES));

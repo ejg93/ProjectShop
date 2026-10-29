@@ -394,13 +394,13 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 | 마스킹 | **판정이 깎은 뒤에 건다.** 판정이 안 준 칸은 이름을 불러도 안 열린다. `_visible_field_groups` 는 고르지 않아도 남는다 |
 | 안 보내면 | 응답이 그대로다 |
 | 제외 | 오류 응답(`application/problem+json`)과 파일 응답 |
-| 칸을 못 고르는 응답 | 본문이 record 도 record 목록도 아니면 400 이다 — 조용히 무시하지 않는다 |
+| 칸을 못 고르는 응답 | 본문이 record 도 record 목록도 아니면 400 이다 — 조용히 무시하지 않는다. 스펙은 그런 `GET` 에도 `fields` 를 적는다(`OpenApiConfig` 가 입구를 가르지 않는다) |
 
 **모르는 이름을 조용히 빼지 않는다.** Medusa 는 금지된 칸을 소리 없이 뺀다. 아래 「버전」 절이 미디어 타입 버전을 버린 근거(「틀리면 조용하다」)와 반대라 안 따른다 — 오타를 낸 쪽이 칸이 없는 이유를 모른다.
 
 **걸리는 자리는 한 곳이다** — 입구마다 안 심는다. 입구마다 두면 새 입구가 빠뜨린다(`coding-rules.md` 축 2 「앱 검증」). 허용 목록은 **응답 타입의 record 성분**에서 뽑아서 사본이 없다.
 
-**화면은 지금 안 쓴다.** 쓰는 날 `api.ts` 에서 `fields` 를 넘기는 한 자리를 둔다(`frontend-rules.md`).
+**화면은 지금 안 쓴다.** 쓰는 날 `api.ts` 에서 `fields` 를 넘기는 한 자리를 두고 `frontend-rules.md` 에 그 절을 세운다.
 
 ### `expand` — 상세에 하위 목록 첫 쪽을 끼운다
 
@@ -415,7 +415,8 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 | 규칙 | 무엇 |
 |---|---|
 | 모양 | 하위 입구와 **같은 껍데기**(`items`·`offset`·`limit`·`total`)다. 첫 쪽은 그 입구의 기본(`offset` 0 · `limit` 20)이다 |
-| 판정 | **하위 입구와 같은 질의를 부른다** — 판정도 같다. 표를 다시 읽으면 판정을 지나치는 두 번째 경로가 생긴다(아래 「파일 응답」과 같은 이유) |
+| 판정 | **하위 입구와 같은 질의를 부른다** — 판정도 같다. 표를 다시 읽으면 판정을 지나치는 두 번째 경로가 생긴다(아래 「파일 응답」과 같은 이유). **이것을 드는 것은 코드 모양이다** — 컨트롤러는 `JdbcClient` 를 못 들어서(`ArchitectureTest`) 하위 조회기를 부를 수밖에 없다. `ExpansionTest` 는 같은 쪽·같은 본문만 잰다 — 지금 셋은 상세 판정이 하위 판정을 품어서 판정 우회를 시험으로 만들 수 없다. 하위 판정이 상세보다 좁은 입구가 생기면 그날 시험을 세운다 |
+| `fields` 와 겹침 | 끼운 칸(`reviews`·`lines` …)도 상세의 최상위 칸이라 `fields` 로 고른다. `expand` 없이 `fields=lines` 만 보내면 그 칸은 없다 |
 | 모르는 이름 | 400 `validation-failed`, `errors[].field` 는 `expand`(`fields` 와 같다) |
 | 안 보내면 | 지금과 같은 응답이다 — 그 칸이 없다. 깨는 변경이 아니다 |
 | 질의 수 | 이름 하나당 하위 입구 한 번 몫이 더해진다. `QueryBudgetTest` 가 정산서 상세로 「상세 + 줄 목록」과 같은지 잰다 |

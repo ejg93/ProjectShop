@@ -101,8 +101,8 @@ public class ProductController {
      */
     @GetMapping("/{productId}")
     public ProductQuery.PublicDetail detail(@AuthenticationPrincipal ShopUser user, @PathVariable long productId,
-            @Parameter(description = "끼울 하위 목록 첫 쪽. 쉼표로 구분(`D5` 「필드 선택·확장」)",
-                    schema = @Schema(allowableValues = {REVIEWS, INQUIRIES}))
+            // 값이 쉼표로 이어져 와서 enum(`allowableValues`)으로 그리면 스펙대로 보낸 값이 enum 밖이 된다
+            @Parameter(description = "끼울 하위 목록 첫 쪽 — `reviews`·`inquiries` 를 쉼표로 잇는다(`D5` 「필드 선택·확장」)")
             @RequestParam(required = false) String expand) {
 
         Expansion expansion = Expansion.of(expand, Set.of(REVIEWS, INQUIRIES));
