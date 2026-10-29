@@ -3,6 +3,7 @@ import Link from "next/link";
 import { apiPublic, apiSessionOptional } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
 import { can, type Me } from "@/lib/permissions";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { AskForm } from "./ask-form";
 import { BlockInquiryButton } from "./block-inquiry-button";
@@ -20,7 +21,6 @@ type PublicEntry = {
   answeredAt: string | null;
 };
 
-type Page = { items: PublicEntry[]; page: number; size: number; total: number };
 
 /**
  * 상품의 공개 문의(`59-1`).
@@ -34,7 +34,7 @@ type Page = { items: PublicEntry[]; page: number; size: number; total: number };
  * <p><b>묻는 것은 로그인이 필요하다.</b> 그 조각만 클라이언트로 뗐다(`D24`).
  */
 export async function ProductInquiries({ productId }: { productId: number }) {
-  const page = await apiPublic<Page>(`/api/products/${productId}/inquiries?size=20`);
+  const page = await apiPublic<Page<PublicEntry>>(`/api/products/${productId}/inquiries?${pageQuery(0, 20)}`);
   // 게시 중단은 관리자만 한다(`Q184`, `R34`). 목록은 공개 입구로 읽고 세션으로는 버튼을 그릴지만 묻는다.
   const canBlock = can(await apiSessionOptional<Me>("/api/me/permissions"), "inquiry", "block");
 

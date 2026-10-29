@@ -4,6 +4,7 @@ import { Pager, pageNumberOf } from "@/components/pager";
 import { Td, Th } from "@/components/table-cells";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText } from "@/lib/format";
+import { lastPageOf, pageQuery, type Page } from "@/lib/paging";
 
 export const metadata: Metadata = { title: "감사 기록 · ProjectShop" };
 
@@ -30,12 +31,7 @@ type AuditLogRow = {
   createdAt: string;
 };
 
-type AuditLogPage = {
-  items: AuditLogRow[];
-  page: number;
-  size: number;
-  total: number;
-};
+type AuditLogPage = Page<AuditLogRow>;
 
 /**
  * 감사 기록(`Q132`).
@@ -69,9 +65,9 @@ export default async function AdminAuditPage({
   const requested = await searchParams;
   const page = pageNumberOf(requested.page);
 
-  const query = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+  const query = pageQuery(page, PAGE_SIZE);
   const result = await apiSession<AuditLogPage>(`/api/audit-logs?${query}`, OPAQUE);
-  const lastPage = Math.max(0, Math.ceil(result.total / result.size) - 1);
+  const lastPage = lastPageOf(result);
 
   return (
     <>
@@ -86,7 +82,7 @@ export default async function AdminAuditPage({
         <>
           <AuditTable items={result.items} />
           <Pager
-            page={result.page}
+            page={page}
             lastPage={lastPage}
             total={result.total}
             basePath="/admin/audit"

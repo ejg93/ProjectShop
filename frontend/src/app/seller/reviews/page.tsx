@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { apiSession } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { ReplyForm } from "./reply-form";
 
@@ -20,7 +21,6 @@ type SellerReview = {
   createdAt: string;
 };
 
-type Page = { items: SellerReview[]; page: number; size: number; total: number };
 
 /**
  * 받은 후기(`Q171`).
@@ -32,7 +32,7 @@ type Page = { items: SellerReview[]; page: number; size: number; total: number }
  * <p><b>내려간 후기는 안 나온다.</b> 공개 목록과 같다 — 답할 대상이 아니다.
  */
 export default async function SellerReviewsPage() {
-  const page = await apiSession<Page>("/api/seller/reviews?size=50");
+  const page = await apiSession<Page<SellerReview>>(`/api/seller/reviews?${pageQuery(0, 50)}`);
 
   const unanswered = page.items.filter((item) => item.reply === null).length;
 

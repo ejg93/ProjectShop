@@ -4,6 +4,7 @@ import Link from "next/link";
 import { apiSession } from "@/lib/api-session";
 import { dateText, dateTimeText, priceText } from "@/lib/format";
 import { refundReasonText, refundStatusText } from "@/lib/refund-text";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { RefundDecision } from "./refund-decision";
 
@@ -25,7 +26,6 @@ type Refund = {
   allowedActions: string[];
 };
 
-type Page = { items: Refund[]; page: number; size: number; total: number };
 
 const TABS: { status: Status; label: string }[] = [
   { status: "REQUESTED", label: "승인 대기" },
@@ -50,7 +50,7 @@ export default async function AdminRefundsPage({
 }) {
   const requested = (await searchParams).status;
   const status: Status = TABS.some((tab) => tab.status === requested) ? (requested as Status) : "REQUESTED";
-  const page = await apiSession<Page>(`/api/refunds?status=${status}&size=50`);
+  const page = await apiSession<Page<Refund>>(`/api/refunds?status=${status}&${pageQuery(0, 50)}`);
 
   return (
     <div className="grid gap-8">

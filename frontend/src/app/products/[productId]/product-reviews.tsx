@@ -3,6 +3,7 @@ import Link from "next/link";
 import { apiPublic, apiSessionOptional } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
 import { can, type Me } from "@/lib/permissions";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { ReportButton } from "./report-button";
 
@@ -26,11 +27,7 @@ type Review = {
   photos: { thumbnailUrl: string; originalUrl: string }[];
 };
 
-type ReviewPage = {
-  items: Review[];
-  page: number;
-  size: number;
-  total: number;
+type ReviewPage = Page<Review> & {
   /** 후기가 없으면 average 가 null 이다 — 「별 0점」과 「후기 없음」을 가른다 */
   summary: { count: number; average: number | null };
 };
@@ -53,7 +50,7 @@ const PAGE_SIZE = 10;
  */
 export async function ProductReviews({ productId }: { productId: number }) {
   const page = await apiPublic<ReviewPage>(
-    `/api/products/${productId}/reviews?page=0&size=${PAGE_SIZE}`,
+    `/api/products/${productId}/reviews?${pageQuery(0, PAGE_SIZE)}`,
   );
   // 신고는 로그인한 사람만 한다(`Q171`). 목록은 공개 입구로 읽고(`Q170`), 세션으로는
   // 버튼을 그릴지만 묻는다 — 머리글(`site-header`)이 같은 목록을 같은 방법으로 읽는다.

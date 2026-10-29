@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText } from "@/lib/format";
 import { deliveryStatusText, webhookEventText } from "@/lib/webhook-text";
+import { lastPageOf, pageQuery, type Page } from "@/lib/paging";
 
 import type { WebhookEndpoint } from "../page";
 import { ResendButton } from "../webhook-actions";
@@ -30,7 +31,7 @@ type Delivery = {
   allowedActions: string[];
 };
 
-type DeliveryPage = { items: Delivery[]; page: number; size: number; total: number };
+type DeliveryPage = Page<Delivery>;
 
 const TABS: { status?: string; label: string }[] = [
   { label: "전체" },
@@ -61,12 +62,12 @@ export default async function WebhookDeliveriesPage({
   const page = pageNumberOf(requested.page);
 
   const endpoint = await findEndpoint(id);
-  const query = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+  const query = pageQuery(page, PAGE_SIZE);
   if (status) {
     query.set("status", status);
   }
   const result = await apiSession<DeliveryPage>(`/api/seller/webhooks/${endpoint.webhookEndpointId}/deliveries?${query}`);
-  const lastPage = Math.max(0, Math.ceil(result.total / result.size) - 1);
+  const lastPage = lastPageOf(result);
   const basePath = `/seller/webhooks/${endpoint.webhookEndpointId}`;
 
   return (

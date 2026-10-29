@@ -4,6 +4,7 @@ import Link from "next/link";
 import { apiSession } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
 import { REVIEW_REASON_TEXT, type ReviewReason } from "@/lib/review-text";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { ReportActions, RestoreForm } from "./report-actions";
 
@@ -31,7 +32,6 @@ type ReviewReport = {
   reviewActions: string[];
 };
 
-type Page = { items: ReviewReport[]; page: number; size: number; total: number };
 
 const TABS: { status: Status; label: string }[] = [
   { status: "PENDING", label: "접수" },
@@ -58,7 +58,7 @@ export default async function ReviewReportsPage({
     ? (requested as Status)
     : "PENDING";
 
-  const page = await apiSession<Page>(`/api/admin/review-reports?status=${status}&size=50`);
+  const page = await apiSession<Page<ReviewReport>>(`/api/admin/review-reports?status=${status}&${pageQuery(0, 50)}`);
 
   return (
     <div className="grid gap-8">

@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { apiSession } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { AnswerForm } from "./answer-form";
 
@@ -24,7 +25,6 @@ type SellerInquiry = {
   allowedActions: string[];
 };
 
-type Page = { items: SellerInquiry[]; page: number; size: number; total: number };
 
 const STATUS_TEXT: Record<SellerInquiry["status"], string> = {
   RECEIVED: "답변 대기",
@@ -44,7 +44,7 @@ const STATUS_TEXT: Record<SellerInquiry["status"], string> = {
  * 대신 그 글이 공개 Q&A 에는 안 나간다.
  */
 export default async function SellerInquiriesPage() {
-  const page = await apiSession<Page>("/api/seller/inquiries?size=50");
+  const page = await apiSession<Page<SellerInquiry>>(`/api/seller/inquiries?${pageQuery(0, 50)}`);
 
   const waiting = page.items.filter((item) => item.status === "RECEIVED").length;
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { RegisterCouponForm } from "./register-coupon-form";
 
@@ -29,12 +30,7 @@ type MyCoupon = {
   expired: boolean;
 };
 
-type MyCouponPage = {
-  items: MyCoupon[];
-  page: number;
-  size: number;
-  total: number;
-};
+type MyCouponPage = Page<MyCoupon>;
 
 /**
  * 내 쿠폰함(`Q163`).
@@ -46,7 +42,7 @@ type MyCouponPage = {
  * 쿠폰을 뿌리면 아직 안 알린 코드가 통째로 새서, 사는 사람에게 정의 조회를 안 줬다(`V91`).
  */
 export default async function MyCouponsPage() {
-  const page = await apiSession<MyCouponPage>("/api/me/coupons?page=0&size=50");
+  const page = await apiSession<MyCouponPage>(`/api/me/coupons?${pageQuery(0, 50)}`);
 
   // **기한도 같이 본다**(마무리 44차 독립 리뷰). `usedAt` 하나로 가르면 지난 쿠폰이
   // 「…까지」 문구와 함께 쓸 수 있는 칸에 그려지고, 주문에서 고르면 그때 막힌다(`D20`).

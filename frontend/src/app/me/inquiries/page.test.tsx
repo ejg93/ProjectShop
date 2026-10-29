@@ -33,14 +33,14 @@ function inquiry(allowedActions: string[]) {
  */
 describe("내 문의", () => {
   it("WITHDRAWAL 이 오면 거두기 버튼을 그린다", async () => {
-    apiSession.mockResolvedValue({ items: [inquiry(["WITHDRAWAL"])], page: 0, size: 50, total: 1 });
+    apiSession.mockResolvedValue({ items: [inquiry(["WITHDRAWAL"])], offset: 0, limit: 50, total: 1 });
     render(await MyInquiriesPage());
 
     expect(screen.getByRole("button", { name: /거두기/ })).toBeInTheDocument();
   });
 
   it("접수 상태라도 목록에 없으면 거두기 버튼이 없다", async () => {
-    apiSession.mockResolvedValue({ items: [inquiry([])], page: 0, size: 50, total: 1 });
+    apiSession.mockResolvedValue({ items: [inquiry([])], offset: 0, limit: 50, total: 1 });
     render(await MyInquiriesPage());
 
     expect(screen.queryByRole("button", { name: /거두기/ })).not.toBeInTheDocument();

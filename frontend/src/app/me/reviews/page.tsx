@@ -4,6 +4,7 @@ import Link from "next/link";
 import { apiSession } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
 import { REVIEW_REASON_TEXT, type ReviewReason } from "@/lib/review-text";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { MyReviewActions } from "./my-review-actions";
 import { MyReviewPhotos, type MyReviewPhoto } from "./my-review-photos";
@@ -24,7 +25,6 @@ type MyReview = {
   photos: MyReviewPhoto[];
 };
 
-type Page = { items: MyReview[]; page: number; size: number; total: number };
 
 /**
  * 내 후기(`Q171`).
@@ -37,7 +37,7 @@ type Page = { items: MyReview[]; page: number; size: number; total: number };
  * 모른다(`Q160`) — 세션을 싣는 이 화면이 그 자리다.
  */
 export default async function MyReviewsPage() {
-  const page = await apiSession<Page>("/api/me/reviews?size=50");
+  const page = await apiSession<Page<MyReview>>(`/api/me/reviews?${pageQuery(0, 50)}`);
 
   return (
     <div className="mx-auto grid w-full max-w-3xl flex-1 content-start gap-8 px-4 py-16">

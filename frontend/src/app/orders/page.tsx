@@ -5,6 +5,7 @@ import { Pager, pageNumberOf } from "@/components/pager";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
 import { paymentStatusText } from "@/lib/order-text";
+import { lastPageOf, pageQuery, type Page } from "@/lib/paging";
 
 export const metadata: Metadata = { title: "내 주문 · ProjectShop" };
 
@@ -19,7 +20,7 @@ type OrderSummary = {
   createdAt: string;
 };
 
-type OrderPage = { items: OrderSummary[]; page: number; size: number; total: number };
+type OrderPage = Page<OrderSummary>;
 
 /**
  * 내 주문 목록(`15-3`).
@@ -41,10 +42,10 @@ export default async function OrdersPage({
   const page = pageNumberOf(requested.page);
 
   const result = await apiSession<OrderPage>(
-    `/api/orders?page=${page}&size=${PAGE_SIZE}`,
+    `/api/orders?${pageQuery(page, PAGE_SIZE)}`,
   );
 
-  const lastPage = Math.max(0, Math.ceil(result.total / result.size) - 1);
+  const lastPage = lastPageOf(result);
 
   return (
     <div className="mx-auto grid w-full max-w-4xl flex-1 content-start gap-8 px-4 py-16">
@@ -65,7 +66,7 @@ export default async function OrdersPage({
             ))}
           </ul>
           <Pager
-            page={result.page}
+            page={page}
             lastPage={lastPage}
             total={result.total}
             basePath="/orders"

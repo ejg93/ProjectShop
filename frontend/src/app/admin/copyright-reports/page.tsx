@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { apiSession } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { CopyrightDecisionButtons } from "./decision-buttons";
 
@@ -27,7 +28,6 @@ type CopyrightReport = {
   decidedAt: string | null;
 };
 
-type Page = { items: CopyrightReport[]; page: number; size: number; total: number };
 
 const DECISION_TEXT: Record<"TAKEN_DOWN" | "REJECTED", string> = {
   TAKEN_DOWN: "게시 중단(사진 삭제)",
@@ -46,7 +46,7 @@ export default async function CopyrightReportsPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const status: Status = (await searchParams).status === "DECIDED" ? "DECIDED" : "PENDING";
-  const page = await apiSession<Page>(`/api/copyright-reports?status=${status}&size=50`);
+  const page = await apiSession<Page<CopyrightReport>>(`/api/copyright-reports?status=${status}&${pageQuery(0, 50)}`);
 
   return (
     <div className="grid gap-8">

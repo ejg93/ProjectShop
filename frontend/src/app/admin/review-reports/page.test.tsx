@@ -32,7 +32,7 @@ function report(status: string, allowedActions: string[], reviewActions: string[
 }
 
 async function renderWith(status: string, item: ReturnType<typeof report>) {
-  apiSession.mockResolvedValue({ items: [item], page: 0, size: 50, total: 1 });
+  apiSession.mockResolvedValue({ items: [item], offset: 0, limit: 50, total: 1 });
   render(await ReviewReportsPage({ searchParams: Promise.resolve({ status }) }));
 }
 
