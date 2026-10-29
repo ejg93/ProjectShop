@@ -10,7 +10,7 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 /**
- * 컨트롤러가 {@link Paging} 을 받으면 {@code page}·{@code size} 를 읽어서 만들어 준다(`Q23`).
+ * 컨트롤러가 {@link Paging} 을 받으면 {@code offset}·{@code limit} 을 읽어서 만들어 준다(`Q23`).
  *
  * <p><b>보정을 지나는 자리를 하나로 만든다.</b> 전에는 컨트롤러가 {@code int page, int size} 를
  * 받아 그대로 넘기고 {@code *Query} 가 각자 보정을 불렀다 — 목록이 하나 늘 때 그 호출을
@@ -27,8 +27,8 @@ import com.projectshop.shop.support.ListQuery.Paging;
  */
 class PagingArgumentResolver implements HandlerMethodArgumentResolver {
 
-    private static final String PAGE = "page";
-    private static final String SIZE = "size";
+    private static final String OFFSET = "offset";
+    private static final String LIMIT = "limit";
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
@@ -40,22 +40,27 @@ class PagingArgumentResolver implements HandlerMethodArgumentResolver {
             NativeWebRequest request, WebDataBinderFactory binderFactory) {
 
         return new Paging(
-                intParam(request, parameter, PAGE, 0),
-                intParam(request, parameter, SIZE, ListQuery.DEFAULT_SIZE));
+                longParam(request, parameter, OFFSET, 0, long.class),
+                Math.toIntExact(longParam(request, parameter, LIMIT, ListQuery.DEFAULT_LIMIT, int.class)));
     }
 
-    /** 안 주면 기본값, 숫자가 아니면 400. 범위 보정은 {@link Paging} 의 생성자가 한다. */
-    private static int intParam(NativeWebRequest request, MethodParameter parameter,
-            String name, int fallback) {
+    /**
+     * 안 주면 기본값, 숫자가 아니거나 {@code type} 범위 밖이면 400. 범위 보정은 {@link Paging} 의 생성자가 한다.
+     *
+     * <p>{@code limit} 은 {@code int} 범위로 읽는다 — {@code long} 을 {@code int} 로 깎으면 부호가 뒤집혀
+     * 큰 음수가 양수로 들어온다.
+     */
+    private static long longParam(NativeWebRequest request, MethodParameter parameter,
+            String name, long fallback, Class<?> type) {
 
         String raw = request.getParameter(name);
         if (raw == null || raw.isBlank()) {
             return fallback;
         }
         try {
-            return Integer.parseInt(raw.trim());
+            return type == int.class ? Integer.parseInt(raw.trim()) : Long.parseLong(raw.trim());
         } catch (NumberFormatException e) {
-            throw new MethodArgumentTypeMismatchException(raw, int.class, name, parameter, e);
+            throw new MethodArgumentTypeMismatchException(raw, type, name, parameter, e);
         }
     }
 }

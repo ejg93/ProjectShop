@@ -53,7 +53,7 @@ public class CopyrightReportQuery {
             OffsetDateTime reportedAt, String decision, OffsetDateTime decidedAt) {}
 
     @Schema(name = "CopyrightReportPage")
-    public record Result(List<Item> items, int page, int size, long total) {}
+    public record Result(List<Item> items, long offset, int limit, long total) {}
 
     /**
      * @param pending 참이면 아직 판정 안 한 것(오래된 것부터), 거짓이면 판정한 것(최근 것부터)
@@ -84,8 +84,8 @@ public class CopyrightReportQuery {
                                  order by {order}
                                  limit :size offset :offset
                                 """.replace("{where}", where).replace("{order}", order))
-                        .param("size", paging.size())
-                        .param("offset", paging.page() * paging.size())
+                        .param("size", paging.limit())
+                        .param("offset", paging.offset())
                         .query((rs, rowNum) -> {
                             String thumbnailKey = rs.getString("thumbnail_key");
                             String decision = rs.getString("decision");
@@ -109,6 +109,6 @@ public class CopyrightReportQuery {
         long total = jdbc.sql("select count(*) from copyright_report cr where {where}".replace("{where}", where))
                 .query(Long.class)
                 .single();
-        return new Result(items, paging.page(), paging.size(), total);
+        return new Result(items, paging.offset(), paging.limit(), total);
     }
 }

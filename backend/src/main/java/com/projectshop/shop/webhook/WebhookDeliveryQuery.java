@@ -35,7 +35,7 @@ public class WebhookDeliveryQuery {
     }
 
     @Schema(name = "WebhookDeliveryPage")
-    public record Page(List<Delivery> items, int page, int size, long total) {
+    public record Page(List<Delivery> items, long offset, int limit, long total) {
     }
 
     private final JdbcClient jdbc;
@@ -65,7 +65,7 @@ public class WebhookDeliveryQuery {
                         """)
                 .param("endpointId", endpointId)
                 .param("status", stored)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> {
                     WebhookDeliveryStatus deliveryStatus = WebhookDeliveryStatus.of(rs.getString("status"));
@@ -92,7 +92,7 @@ public class WebhookDeliveryQuery {
                 .param("status", stored)
                 .query(Long.class)
                 .single();
-        return new Page(items, paging.page(), paging.size(), total);
+        return new Page(items, paging.offset(), paging.limit(), total);
     }
 
     private static String storedStatus(String status) {

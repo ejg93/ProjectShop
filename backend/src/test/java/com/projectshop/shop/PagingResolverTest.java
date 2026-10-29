@@ -12,7 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.hamcrest.Matchers;
 
 /**
- * {@code page}·{@code size} 가 요청에서 {@link com.projectshop.shop.support.ListQuery.Paging}
+ * {@code offset}·{@code limit} 가 요청에서 {@link com.projectshop.shop.support.ListQuery.Paging}
  * 으로 바뀌는지 본다(`Q23`).
  *
  * <p><b>인자를 만들어 주는 것은 우리가 부르지 않는다.</b> 스프링이 부르므로,
@@ -33,7 +33,7 @@ import org.hamcrest.Matchers;
  * {@code Paging} 을 <b>생성자 바인딩</b>으로 만들어 주고, 그러면 보정·400 은 그대로 돈다 —
  * <b>강제가 {@code PagingArgumentResolver} 에 매달려 있지 않다</b>는 증거다.
  * 그 클래스가 혼자 드는 것은 <b>기본값</b>뿐이다: 없으면 스프링이 0 을 넣고 생성자가 1 로 보정해서
- * {@code size} 가 20 이 아니라 1 이 된다. 그래서 등록이 빠지면 「안 주면 기본값」만 무너진다.
+ * {@code limit} 이 20 이 아니라 1 이 된다. 그래서 등록이 빠지면 「안 주면 기본값」만 무너진다.
  *
  * <p><b>공개 목록을 쓴다.</b> 로그인도 데이터도 필요 없어서, 재는 대상(파라미터를 어떻게 읽나)만 남는다.
  */
@@ -51,24 +51,24 @@ class PagingResolverTest extends PostgresTestBase {
         mvc.perform(get(PUBLIC_LIST))
                 .andExpect(status().isOk())
                 .andExpect(content().string(Matchers.allOf(
-                        Matchers.containsString("\"page\":0"),
-                        Matchers.containsString("\"size\":20"))));
+                        Matchers.containsString("\"offset\":0"),
+                        Matchers.containsString("\"limit\":20"))));
     }
 
     @Test
     @DisplayName("상한을 넘겨도 100 에서 잘린다")
     void capsOversizedRequest() throws Exception {
-        mvc.perform(get(PUBLIC_LIST).param("page", "0").param("size", "5000"))
+        mvc.perform(get(PUBLIC_LIST).param("offset", "0").param("limit", "5000"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(Matchers.containsString("\"size\":100")));
+                .andExpect(content().string(Matchers.containsString("\"limit\":100")));
     }
 
     @Test
-    @DisplayName("음수 페이지는 0 으로 본다")
-    void negativePageIsFirstPage() throws Exception {
-        mvc.perform(get(PUBLIC_LIST).param("page", "-3").param("size", "20"))
+    @DisplayName("음수 offset 은 0 으로 본다")
+    void negativeOffsetIsStart() throws Exception {
+        mvc.perform(get(PUBLIC_LIST).param("offset", "-3").param("limit", "20"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(Matchers.containsString("\"page\":0")));
+                .andExpect(content().string(Matchers.containsString("\"offset\":0")));
     }
 
     /**
@@ -78,7 +78,7 @@ class PagingResolverTest extends PostgresTestBase {
     @Test
     @DisplayName("숫자가 아니면 400 이다")
     void rejectsNonNumeric() throws Exception {
-        mvc.perform(get(PUBLIC_LIST).param("size", "abc"))
+        mvc.perform(get(PUBLIC_LIST).param("limit", "abc"))
                 .andExpect(status().isBadRequest());
     }
 }

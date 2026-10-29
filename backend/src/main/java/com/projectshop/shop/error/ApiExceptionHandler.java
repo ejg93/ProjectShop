@@ -140,7 +140,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     /**
      * 파라미터를 <b>요청에 쓴 이름</b>으로 부른다.
      *
-     * <p>헤더는 {@code Idempotency-Key} 고 질의 파라미터는 {@code page} 다 — Java 이름을 그대로
+     * <p>헤더는 {@code Idempotency-Key} 고 질의 파라미터는 {@code offset} 이다 — Java 이름을 그대로
      * 주면 보낸 쪽에 없는 이름이라 화면이 짚을 칸을 못 찾는다(`D20` 「모르는 칸을 지목하지 않는다」).
      * 애너테이션이 이름을 안 적었으면 Java 이름을 snake_case 로 바꿔 쓴다.
      */

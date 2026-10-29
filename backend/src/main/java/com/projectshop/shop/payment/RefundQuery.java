@@ -82,7 +82,7 @@ public class RefundQuery {
     }
 
     @Schema(name = "RefundPage")
-    public record Page(List<Summary> items, int page, int size, long total) {
+    public record Page(List<Summary> items, long offset, int limit, long total) {
     }
 
     /** 돌려주는 항목 한 줄. 주문 시점에 박제된 이름을 그대로 쓴다 */
@@ -140,7 +140,7 @@ public class RefundQuery {
                 .param("viewerId", viewerId)
                 .param("sellers", visible.sellers())
                 .param("status", storedStatus)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new SummaryRow(
                         rs.getString("refund_number"),
@@ -190,7 +190,7 @@ public class RefundQuery {
                 .query(Long.class)
                 .single();
 
-        return new Page(items, paging.page(), paging.size(), total);
+        return new Page(items, paging.offset(), paging.limit(), total);
     }
 
     /**

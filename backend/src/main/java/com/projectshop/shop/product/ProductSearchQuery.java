@@ -60,7 +60,7 @@ public class ProductSearchQuery {
                 .param("sellerId", sellerId)
                 .param("pattern", escapeLike(raw))
                 .param("raw", raw)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> products.publicItem(rs))
                 .list();
@@ -72,7 +72,7 @@ public class ProductSearchQuery {
                 .query(Long.class)
                 .single();
 
-        return new PublicPage(items, paging.page(), paging.size(), total);
+        return new PublicPage(items, paging.offset(), paging.limit(), total);
     }
 
     /**

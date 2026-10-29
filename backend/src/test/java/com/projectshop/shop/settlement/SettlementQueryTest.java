@@ -173,7 +173,7 @@ class SettlementQueryTest extends PostgresTestBase {
             String number = numberOf("s-mine");
 
             SettlementQuery.LinePage first = query.findLines(ownerId, number, new Paging(0, 2));
-            SettlementQuery.LinePage second = query.findLines(ownerId, number, new Paging(1, 2));
+            SettlementQuery.LinePage second = query.findLines(ownerId, number, new Paging(2, 2));
 
             assertThat(first.items()).hasSize(2);
             assertThat(first.total()).isEqualTo(3);

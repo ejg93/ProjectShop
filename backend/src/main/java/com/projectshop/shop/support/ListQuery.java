@@ -9,46 +9,38 @@ import com.projectshop.shop.error.ShopException;
 /**
  * 목록 조회에서 두 번 이상 나오는 것을 모은다(`D5` 「목록 조회」).
  *
- * <p>페이지 보정과 정렬 허용 목록이다. 목록 API 가 하나뿐일 때는 각자 두는 편이 읽기 쉬웠지만,
+ * <p>범위 보정과 정렬 허용 목록이다. 목록 API 가 하나뿐일 때는 각자 두는 편이 읽기 쉬웠지만,
  * 두 번째가 생기면서 <b>같은 규칙이 두 벌</b>이 됐다 — 상한을 한쪽만 올리는 날이 온다.
  */
 public final class ListQuery {
 
     /** 목록 하나로 전체를 긁어 가지 못하게 막는다(`D5`). */
-    public static final int MAX_SIZE = 100;
+    public static final int MAX_LIMIT = 100;
 
-    /** 크기를 안 주면 이만큼(`D5` 「목록 조회」). 컨트롤러마다 적던 값을 한 곳으로 모았다. */
-    public static final int DEFAULT_SIZE = 20;
+    /** {@code limit} 을 안 주면 이만큼(`D5` 「목록 조회」). 컨트롤러마다 적던 값을 한 곳으로 모았다. */
+    public static final int DEFAULT_LIMIT = 20;
 
     private ListQuery() {
     }
 
     /**
-     * 페이지 번호와 크기. <b>성한 값이라는 것을 타입이 보증한다.</b>
+     * 건너뛸 행 수와 받을 행 수. <b>성한 값이라는 것을 타입이 보증한다.</b>
      *
      * <p><b>보정이 생성자에 있다</b>(`Q23`). 전에는 {@code of()} 안에 있어서
      * <b>안 부르면 안 돌았다</b> — 목록 입구 열 곳이 각자 그것을 부르고 있었고,
      * 열한 번째가 빠뜨려도 컴파일도 테스트도 통과한다. 상한만 조용히 사라진다.
      * 지금은 이 타입이 존재한다는 것 자체가 「보정을 거쳤다」는 뜻이다.
      *
-     * <p><b>{@code offset} 을 칸에서 뺐다.</b> 칸이면 {@code new Paging(3, 20, 0)} 처럼
-     * <b>말이 안 되는 값</b>을 넣을 수 있는데, 계산해서 주면 그 실수가 성립하지 않는다.
+     * <p><b>쪽 번호가 아니라 행 수다</b>(`Q311b`). 쪽 번호는 화면이 센다 — 화면 URL 의 {@code ?page=} 를
+     * {@code offset} 으로 바꾸는 것은 프론트의 한 곳이다(`frontend-rules.md`).
+     *
+     * <p><b>{@code offset} 이 {@code long} 이다.</b> {@code int} 로 받으면 큰 값이 그 자리에서 잘린다.
      */
-    public record Paging(int page, int size) {
+    public record Paging(long offset, int limit) {
 
         public Paging {
-            page = Math.max(page, 0);
-            size = Math.min(Math.max(size, 1), MAX_SIZE);
-        }
-
-        /**
-         * 건너뛸 행 수.
-         *
-         * <p><b>{@code long} 이라야 한다.</b> 호출자가 {@code page * size} 를 {@code int} 로
-         * 곱하면 한 번은 넘쳐서 <b>음수 offset</b> 이 SQL 로 나간다.
-         */
-        public long offset() {
-            return (long) page * size;
+            offset = Math.max(offset, 0);
+            limit = Math.min(Math.max(limit, 1), MAX_LIMIT);
         }
     }
 

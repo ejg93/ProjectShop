@@ -124,7 +124,7 @@ public class ProductQuery {
             long minPriceInclVat, long totalStock, OffsetDateTime createdAt, long createdByUserId) {
     }
 
-    public record PublicPage(List<PublicItem> items, int page, int size, long total) {
+    public record PublicPage(List<PublicItem> items, long offset, int limit, long total) {
     }
 
     /**
@@ -161,7 +161,7 @@ public class ProductQuery {
     public record PublicSku(long skuId, long priceInclVat, boolean inStock, List<Long> optionValueIds) {
     }
 
-    public record SellerPage(List<SellerItem> items, int page, int size, long total) {
+    public record SellerPage(List<SellerItem> items, long offset, int limit, long total) {
     }
 
     /**
@@ -177,7 +177,7 @@ public class ProductQuery {
 
         List<PublicItem> items = jdbc.sql(listSql(sellerId, orderBy))
                 .param("sellerId", sellerId)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> publicItem(rs))
                 .list();
@@ -187,7 +187,7 @@ public class ProductQuery {
                 .query(Long.class)
                 .single();
 
-        return new PublicPage(items, paging.page(), paging.size(), total);
+        return new PublicPage(items, paging.offset(), paging.limit(), total);
     }
 
     /** 공개 목록 SQL 전체. 시험이 같은 문장의 실행 계획을 본다({@code ProductQueryTest}) */
@@ -279,7 +279,7 @@ public class ProductQuery {
                 .param("sellers", sellers)
                 .param("sellerId", sellerId)
                 .param("status", statusCode)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new SellerItemRow(
                         rs.getLong("product_id"),
@@ -322,7 +322,7 @@ public class ProductQuery {
                 .query(Long.class)
                 .single();
 
-        return new SellerPage(items, paging.page(), paging.size(), total);
+        return new SellerPage(items, paging.offset(), paging.limit(), total);
     }
 
     /**

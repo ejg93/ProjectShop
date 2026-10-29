@@ -129,7 +129,7 @@ public class OrderController {
     /**
      * 내가 산 것을 훑는다.
      *
-     * <p>기본 크기를 20 으로 둔다. 상한은 {@code ListQuery.MAX_SIZE} 가 걸고 여기서 다시 안 적는다 —
+     * <p>기본 크기를 20 으로 둔다. 상한은 {@code ListQuery.MAX_LIMIT} 가 걸고 여기서 다시 안 적는다 —
      * 두 군데 적으면 한쪽만 올리는 날이 온다.
      */
     @GetMapping

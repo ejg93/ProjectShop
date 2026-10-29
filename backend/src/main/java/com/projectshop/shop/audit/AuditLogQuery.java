@@ -94,14 +94,14 @@ public class AuditLogQuery {
     }
 
     @Schema(name = "AuditLogPage")
-    public record Page(List<Row> items, int page, int size, long total) {
+    public record Page(List<Row> items, long offset, int limit, long total) {
     }
 
     public Page find(long viewerId, Criteria criteria, Paging paging) {
         authorize(viewerId, criteria);
 
         List<Row> items = bind(jdbc.sql(SELECT_ITEMS), criteria)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Row(
                         rs.getLong("audit_log_id"),
@@ -117,7 +117,7 @@ public class AuditLogQuery {
                 .query(Long.class)
                 .single();
 
-        return new Page(items, paging.page(), paging.size(), total);
+        return new Page(items, paging.offset(), paging.limit(), total);
     }
 
     /**

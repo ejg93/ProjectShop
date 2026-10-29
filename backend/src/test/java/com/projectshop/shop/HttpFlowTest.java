@@ -279,7 +279,7 @@ class HttpFlowTest extends HttpTestBase {
             grantAuditor("auditor");
             logIn(session, "auditor");
 
-            Response logs = session.get("/api/audit-logs?size=5");
+            Response logs = session.get("/api/audit-logs?limit=5");
 
             assertThat(logs.is(200)).isTrue();
             assertThat(logs.body())

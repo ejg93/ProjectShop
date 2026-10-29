@@ -136,7 +136,7 @@ class OpenApiSpecTest extends HttpTestBase {
      * {@code ArchitectureTest} 의 「공용 도구는 자원을 모른다」가 막는다.</b>
      */
     @Test
-    @DisplayName("목록 경로가 page·size 를 스펙에 싣는다")
+    @DisplayName("목록 경로가 offset·limit 을 스펙에 싣는다")
     void listRoutesDocumentPaging() {
         JsonNode paths = spec().path("paths");
 
@@ -146,9 +146,10 @@ class OpenApiSpecTest extends HttpTestBase {
                     .forEach(parameter -> names.add(parameter.path("name").asString()));
 
             assertThat(names)
-                    .as("%s 가 page·size 를 안 싣는다. 부르는 쪽이 문서만 보고는 페이지를 못 넘긴다"
+                    .as("%s 가 offset·limit 을 안 싣거나 옛 page·size 를 싣는다. 부르는 쪽이 문서만 보고는 다음 쪽을 못 받는다"
                             + " (api-guidelines.md 「목록 조회」). 실린 것: %s", route, names)
-                    .contains("page", "size");
+                    .contains("offset", "limit")
+                    .doesNotContain("page", "size");
         }
     }
 
@@ -163,31 +164,31 @@ class OpenApiSpecTest extends HttpTestBase {
         spec().path("paths").path("/api/products").path("get").path("parameters")
                 .forEach(parameter -> names.add(parameter.path("name").asString()));
 
-        assertThat(names).as("실린 것: %s", names).contains("q", "page", "size", "sort");
+        assertThat(names).as("실린 것: %s", names).contains("q", "offset", "limit", "sort");
     }
 
     /**
-     * 목록 껍데기는 {@code items}·{@code page}·{@code size}·{@code total} 넷이다(`Q227`, {@code quality-gates.md} 「규칙 원장」 ⑨).
+     * 목록 껍데기는 {@code items}·{@code offset}·{@code limit}·{@code total} 넷이다(`Q227`, {@code quality-gates.md} 「규칙 원장」 ⑨).
      *
-     * <p>위 시험은 목록 경로가 page·size 를 <b>요청</b>에 싣는지만 봤다. 응답 껍데기 이름이 섞이면({@code content}·{@code count})
+     * <p>위 시험은 목록 경로가 offset·limit 을 <b>요청</b>에 싣는지만 봤다. 응답 껍데기 이름이 섞이면({@code content}·{@code count})
      * 화면이 엔드포인트마다 다른 코드를 쓴다({@code api-guidelines.md} 「목록 조회 — 응답」).
      *
-     * <p><b>{@code page} 가 {@code items} 나 {@code total} 과 같이 있을 때만 껍데기로 본다.</b> {@code total} 은 금액으로도 쓰이고
+     * <p><b>{@code offset} 이 {@code items} 나 {@code total} 과 같이 있을 때만 껍데기로 본다.</b> {@code total} 은 금액으로도 쓰이고
      * (장바구니 {@code Cart(items, total)}·쿠폰 {@code Applied}), {@code items} 만 있는 도메인 목록(주문 항목)은 껍데기가 아니다.
      */
     @Test
-    @DisplayName("목록 응답 껍데기가 items·page·size·total 넷을 다 싣는다")
+    @DisplayName("목록 응답 껍데기가 items·offset·limit·total 넷을 다 싣는다")
     void pageEnvelopesCarryAllFour() {
         JsonNode schemas = spec().path("components").path("schemas");
         List<String> envelopes = new ArrayList<>();
         List<String> partial = new ArrayList<>();
         for (String name : names(schemas)) {
             Set<String> properties = new java.util.TreeSet<>(names(schemas.path(name).path("properties")));
-            if (!properties.contains("page") || !(properties.contains("items") || properties.contains("total"))) {
+            if (!properties.contains("offset") || !(properties.contains("items") || properties.contains("total"))) {
                 continue;
             }
             envelopes.add(name);
-            if (!properties.containsAll(Set.of("items", "page", "size", "total"))) {
+            if (!properties.containsAll(Set.of("items", "offset", "limit", "total"))) {
                 partial.add(name + " " + properties);
             }
         }

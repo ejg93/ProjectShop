@@ -332,13 +332,13 @@ class ProductQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("크기를 100 으로 막는다")
         void capsSize() {
-            assertThat(productQuery.findPublic(null, null, new Paging(0, 5000)).size()).isEqualTo(100);
+            assertThat(productQuery.findPublic(null, null, new Paging(0, 5000)).limit()).isEqualTo(100);
         }
 
         @Test
         @DisplayName("음수 페이지는 0 으로 본다")
-        void negativePageIsFirst() {
-            assertThat(productQuery.findPublic(null, null, new Paging(-3, 20)).page()).isZero();
+        void negativeOffsetIsStart() {
+            assertThat(productQuery.findPublic(null, null, new Paging(-3, 20)).offset()).isZero();
         }
     }
 

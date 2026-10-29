@@ -1,0 +1,16 @@
+# gate: 목록 껍데기 넷 — 식별 키가 offset 이다(Q311b). 옛 키 page 로 되돌리면 껍데기를 0개 찾는다
+# run: cd backend && ./gradlew integrationTest --tests '*OpenApiSpecTest*' --console=plain
+# expect: 목록 응답 껍데기가 items·offset·limit·total 넷을 다 싣는다 FAILED
+diff --git a/backend/src/test/java/com/projectshop/shop/OpenApiSpecTest.java b/backend/src/test/java/com/projectshop/shop/OpenApiSpecTest.java
+index d59c90d..dd56126 100644
+--- a/backend/src/test/java/com/projectshop/shop/OpenApiSpecTest.java
++++ b/backend/src/test/java/com/projectshop/shop/OpenApiSpecTest.java
+@@ -184,7 +184,7 @@ class OpenApiSpecTest extends HttpTestBase {
+         List<String> partial = new ArrayList<>();
+         for (String name : names(schemas)) {
+             Set<String> properties = new java.util.TreeSet<>(names(schemas.path(name).path("properties")));
+-            if (!properties.contains("offset") || !(properties.contains("items") || properties.contains("total"))) {
++            if (!properties.contains("page") || !(properties.contains("items") || properties.contains("total"))) {
+                 continue;
+             }
+             envelopes.add(name);
