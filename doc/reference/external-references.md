@@ -475,6 +475,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | Apache Kafka clients (`spring-boot-starter-kafka` 가 들인다) | Apache-2.0 (2026-10-23 확인, `kafka-clients` POM) | (전이) |
 | springdoc-openapi | Apache-2.0 (2026-10-23 확인, 부모 POM) | `org.springdoc:*` |
 | lz4-java (`at.yawk.lz4`) | Apache-2.0 (2026-10-23 확인) — 판만 고정한 전이 의존 | `at.yawk.lz4:*` |
+| snappy-java (`org.xerial.snappy`, `kafka-clients` 가 들인다) | Apache-2.0 (2026-10-29 확인, POM) — 판만 고정한 전이 의존(`Q319`) | `org.xerial.snappy:*` |
 | Lettuce (`spring-boot-starter-data-redis` 가 들인다) | MIT (2026-10-23 확인) | (전이) |
 | Testcontainers | MIT | `org.testcontainers:*` |
 | Next.js · React · Tailwind CSS | MIT | `next` `react` `react-dom` `tailwindcss` `@tailwindcss/*` |
@@ -495,6 +496,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 |---|---|---|
 | Checkstyle | LGPL-2.1-or-later (2026-10-23 확인) | (전이) — `checkstyle` 플러그인이 `toolVersion` 으로 들인다 |
 | plexus-utils (Checkstyle 이 doxia 를 타고 들인다, 판만 고정) | Apache-2.0 (2026-10-23 확인, POM) | `org.codehaus.plexus:*` |
+| Guava (Checkstyle 이 들인다, 판만 고정) | Apache-2.0 (2026-10-29 확인, 부모 POM) — `Q319` | `com.google.guava:*` |
 | SpotBugs | LGPL-2.1 | (전이) — 아래 플러그인이 들인다 |
 | SpotBugs Gradle 플러그인 | Apache-2.0 (2026-10-23 확인, 캐시의 POM·GitHub `LICENSE`) | `plugin:com.github.spotbugs` |
 | find-sec-bugs | LGPL-3.0 (2026-10-23 확인, 부모 POM) | `com.h3xstream.findsecbugs:*` |
