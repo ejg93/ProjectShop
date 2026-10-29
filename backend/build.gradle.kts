@@ -60,6 +60,13 @@ dependencies {
 		// `org.codehaus.plexus:plexus-utils` 3.3.0 을 들인다(`extractFile` 경로 순회, < 3.6.1).
 		// 빌드 도구 classpath 라 앱에는 안 실리고 우리 검사는 그 함수를 안 부른다 — 그래도 위와 같은 이유로 고정한다(`Q295`)
 		checkstyle("org.codehaus.plexus:plexus-utils:3.6.1")
+		// **Dependabot 경보 #27·#28·#29 를 닫는다**(2026-10-29, high 둘·medium 하나). `org.xerial.snappy:snappy-java` 1.1.10.7 이
+		// lz4 와 같은 길(`kafka-clients` 4.2.2)로 들어온다 — 압축 해제의 힙 넘침·무한 할당·범위 미검사(<= 1.1.10.8).
+		// 우리는 `compression.type` 을 안 정해 Snappy 코덱도 안 불린다. 위 lz4 와 같은 이유로 고정한다 — 같은 패치 줄의 최신판(`Q319`)
+		implementation("org.xerial.snappy:snappy-java:1.1.10.12")
+		// **Dependabot 경보 #26 을 닫는다**(2026-10-29, high). Checkstyle 13.4.2 가 `com.google.guava:guava` 33.6.0-jre 를 들인다
+		// (CompactHashMap 계열 역직렬화, <= 33.7.1). 빌드 도구 classpath 라 앱에는 안 실린다 — ErrorProne 쪽은 이미 33.7.2-jre 다(`Q319`)
+		checkstyle("com.google.guava:guava:33.7.2-jre")
 	}
 
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
