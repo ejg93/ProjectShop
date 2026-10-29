@@ -314,6 +314,16 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
   **관례(4순위)라 기본값을 그대로 안 받는다** — 경로를 `/v3/api-docs` 에서 `/api/docs` 로 옮긴 근거는
   `application.yml` 에 적었다
 
+## 남의 실물 — 대조 점검
+
+**읽기만 하고 코드를 옮기지 않는다.** 판정은 `doc/notes/engine-comparison.md`, 차례는 `PLAN.md` 「대조」 절이 든다.
+남의 코드는 관례(4순위)라 근거가 아니라 세는 참고다. 읽는 것이라 라이선스가 우리 저장소에 안 옮아온다.
+
+| 저장소 | 커밋 | 라이선스 | 읽은 자리 | 묶음 |
+|---|---|---|---|---|
+| https://github.com/medusajs/medusa | `5ac3fdcbf82e`(2026-10-28) | MIT — `ENTERPRISE-LICENSE.md` 가 든 폴더만 밖 | `packages/core/framework/src/http` · `packages/core/utils/src/common` · `packages/medusa/src/api/store`·`api/utils` | 1 API 계약(`점검 X`) |
+| https://github.com/spree/spree | `f227994feffd`(2026-10-28) | BSD-3-Clause | `spree/api/app/controllers/spree/api/v3` · `controllers/concerns` · `serializers/spree/api/v3` | 1 API 계약(`점검 X`) |
+
 ## D2 법·정책 (완료)
 
 - 국가법령정보센터: https://law.go.kr — 법령 원문의 정본.

@@ -164,6 +164,10 @@ RFC 5789 는 `PATCH` 의 본문이 「바꿀 것의 목록」이고 **그 형식
 **사본이 하나 느는 값이 오류 코드 하나보다 크다.** 400 과 422 는 둘 다 「클라이언트가 고칠 것」을
 말하고, 사본은 값이 늘 때마다 **한쪽만 고쳐지는 날**을 만든다.
 
+**201 에 `Location` 을 싣는 근거는 표준이다**(RFC 9110 §15.3.2) — 「The primary resource created by the request is identified by either a Location header field in the response or, if no Location header field is received, by the target URI」.
+우리 생성은 `POST /api/orders` 처럼 모음에 보내고 자원은 `/api/orders/{번호}` 에 서서, `Location` 이 없으면 **모음 주소가 새 자원으로 읽힌다.**
+대조한 두 엔진(Medusa v2·Spree 5 v3)은 안 싣는다 — 관례(4순위)라 표준이 이긴다(`점검 X`, `doc/notes/engine-comparison.md`).
+
 **`Location` 이 만들어진 자원을 못 가리킬 때가 있다.** 결제(`POST /api/payments`)가 그 자리다 —
 결제 결과를 다시 보는 경로가 주문 상세뿐이라 거기를 가리킨다. 결제만 여는 경로를 따로 내면
 그 응답이 주문 상세의 `payment` 필드 그룹과 같은 것을 그리게 된다(청크 12-2).
