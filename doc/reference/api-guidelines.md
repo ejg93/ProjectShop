@@ -394,6 +394,7 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 | 마스킹 | **판정이 깎은 뒤에 건다.** 판정이 안 준 칸은 이름을 불러도 안 열린다. `_visible_field_groups` 는 고르지 않아도 남는다 |
 | 안 보내면 | 응답이 그대로다 |
 | 제외 | 오류 응답(`application/problem+json`)과 파일 응답 |
+| 칸을 못 고르는 응답 | 본문이 record 도 record 목록도 아니면 400 이다 — 조용히 무시하지 않는다 |
 
 **모르는 이름을 조용히 빼지 않는다.** Medusa 는 금지된 칸을 소리 없이 뺀다. 아래 「버전」 절이 미디어 타입 버전을 버린 근거(「틀리면 조용하다」)와 반대라 안 따른다 — 오타를 낸 쪽이 칸이 없는 이유를 모른다.
 
