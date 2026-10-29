@@ -21,6 +21,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.EnumValue;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -55,7 +56,12 @@ public class WebhookEndpointService {
     /** 엔드포인트 한 줄. 시크릿은 없다 — 등록 응답에만 한 번 나간다 */
     @Schema(name = "WebhookEndpoint")
     public record Endpoint(long webhookEndpointId, long sellerId, String url, List<String> eventTypes,
-            OffsetDateTime createdAt) {
+            OffsetDateTime createdAt, @JsonInclude(JsonInclude.Include.NON_NULL) WebhookDeliveryQuery.Page deliveries) {
+
+        /** 발송 기록 입구의 첫 쪽을 끼운 사본(`Q309b`). {@code expand=deliveries} 가 아니면 null 이라 응답에서 빠진다 */
+        public Endpoint expanded(WebhookDeliveryQuery.Page deliveries) {
+            return new Endpoint(webhookEndpointId, sellerId, url, eventTypes, createdAt, deliveries);
+        }
     }
 
     @Schema(name = "WebhookEndpointList")
@@ -232,7 +238,8 @@ public class WebhookEndpointService {
                 rs.getLong("seller_id"),
                 rs.getString("url"),
                 Arrays.stream(stored).map(code -> EnumValue.of(code, WebhookEventType::of)).toList(),
-                rs.getObject("created_at", OffsetDateTime.class));
+                rs.getObject("created_at", OffsetDateTime.class),
+                null);
     }
 
     /** 이 사람이 그 셀러의 발송을 다시 보낼 수 있나. 발송 목록이 {@code RESEND} 를 실을지 여기서 고른다 */

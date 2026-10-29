@@ -1,5 +1,7 @@
 package com.projectshop.shop.settlement;
 
+import java.util.Set;
+
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -7,10 +9,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.Expansion;
 import com.projectshop.shop.support.ListQuery.Paging;
+
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * 정산서를 조회하는 입구(청크 20).
@@ -27,6 +34,8 @@ import com.projectshop.shop.support.ListQuery.Paging;
 @RestController
 @RequestMapping("/api/settlements")
 public class SettlementController {
+
+    private static final String LINES = "lines";
 
     private final SettlementQuery query;
     private final SettlementPayoutService payouts;
@@ -51,8 +60,17 @@ public class SettlementController {
      */
     @GetMapping("/{settlementNumber}")
     public SettlementQuery.Detail one(@AuthenticationPrincipal ShopUser user,
-            @PathVariable String settlementNumber) {
-        return query.findOne(user.id(), settlementNumber);
+            @PathVariable String settlementNumber,
+            @Parameter(description = "끼울 하위 목록 첫 쪽(`D5` 「필드 선택·확장」)",
+                    schema = @Schema(allowableValues = LINES))
+            @RequestParam(required = false) String expand) {
+
+        Expansion expansion = Expansion.of(expand, Set.of(LINES));
+        SettlementQuery.Detail detail = query.findOne(user.id(), settlementNumber);
+        // 줄 입구와 같은 질의·같은 첫 쪽이다 — 판정도 같다(`Q309b`)
+        return expansion.has(LINES)
+                ? detail.expanded(query.findLines(user.id(), settlementNumber, Expansion.FIRST_PAGE))
+                : detail;
     }
 
     /** 정산서의 줄. 종류·번호 순이고 쪽으로 넘긴다(`D5` 목록 규약). 못 보는 정산서는 상세와 같은 404 다 */

@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.inquiry.InquiryQuery;
 import com.projectshop.shop.order.OrderFixture;
 import com.projectshop.shop.order.OrderQuery;
@@ -25,8 +26,10 @@ import com.projectshop.shop.payment.RefundQuery;
 import com.projectshop.shop.product.ProductQuery;
 import com.projectshop.shop.product.ProductSearchQuery;
 import com.projectshop.shop.review.ReviewQuery;
+import com.projectshop.shop.settlement.SettlementController;
 import com.projectshop.shop.settlement.SettlementQuery;
 import com.projectshop.shop.stats.SalesStatsQuery;
+import com.projectshop.shop.support.Expansion;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.QueryCounter;
 
@@ -95,6 +98,9 @@ class QueryBudgetTest extends PostgresTestBase {
 
     @Autowired
     private SettlementQuery settlements;
+
+    @Autowired
+    private SettlementController settlementController;
 
     @Autowired
     private InquiryQuery inquiries;
@@ -266,6 +272,29 @@ class QueryBudgetTest extends PostgresTestBase {
                 .singleElement()
                 .extracting(SettlementQuery.KindTotal::lineCount)
                 .isEqualTo(3L);
+        assertThat(three).as("줄 1 에서 %d, 3 에서 %d", one, three).isEqualTo(one);
+    }
+
+    /**
+     * {@code expand=lines} 는 상세와 줄 입구를 <b>그대로 한 번씩</b> 부른다(`Q309b`). 더 나가면 끼우는 자리가 표를 따로 읽는 것이고,
+     * 줄 수에 따라 늘면 N+1 이다. 입구를 부르는 것은 조립이 컨트롤러에 있어서다 — 그래도 세는 것은 조회 문장이다.
+     */
+    @Test
+    @DisplayName("정산서 상세 expand=lines — 상세와 줄 목록의 합이고 줄 수와 상관없다")
+    void settlementExpandIsDetailPlusLines() {
+        String single = insertSettlement(sellers[0], 3);
+        String triple = insertSettlement(sellers[0], 4);
+        insertSaleLines(single, 1);
+        insertSaleLines(triple, 3);
+        ShopUser viewer = new ShopUser(owner, "budget-owner@test.local", null, true);
+
+        settlementController.one(viewer, single, "lines");
+        int detail = QueryCounter.count(() -> settlements.findOne(owner, single));
+        int lines = QueryCounter.count(() -> settlements.findLines(owner, single, Expansion.FIRST_PAGE));
+        int one = QueryCounter.count(() -> settlementController.one(viewer, single, "lines"));
+        int three = QueryCounter.count(() -> settlementController.one(viewer, triple, "lines"));
+
+        assertThat(one).as("상세 %d + 줄 %d", detail, lines).isEqualTo(detail + lines);
         assertThat(three).as("줄 1 에서 %d, 3 에서 %d", one, three).isEqualTo(one);
     }
 

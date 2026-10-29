@@ -17,6 +17,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.VatSplit;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -149,7 +150,14 @@ public class SettlementQuery {
      *                       경로</b>다 — {@code PAYOUT_REQUEST} 가 {@code /api/settlements/{번호}/payout-request} 다
      */
     @Schema(name = "SettlementDetail")
-    public record Detail(Summary summary, List<KindTotal> totals, List<String> allowedActions) {}
+    public record Detail(Summary summary, List<KindTotal> totals, List<String> allowedActions,
+            @JsonInclude(JsonInclude.Include.NON_NULL) LinePage lines) {
+
+        /** 줄 입구의 첫 쪽을 끼운 사본(`Q309b`). {@code expand=lines} 가 아니면 null 이라 응답에서 빠진다 */
+        public Detail expanded(LinePage lines) {
+            return new Detail(summary, totals, allowedActions, lines);
+        }
+    }
 
     @Schema(name = "SettlementPage")
     public record Page(List<Summary> items, long offset, int limit, long total) {}
@@ -259,7 +267,7 @@ public class SettlementQuery {
                 .list();
 
         return new Detail(head.summary(), totals,
-                payoutActions(viewerId, head.sellerId(), head.requestedBy(), head.summary()));
+                payoutActions(viewerId, head.sellerId(), head.requestedBy(), head.summary()), null);
     }
 
     public LinePage findLines(long viewerId, String settlementNumber, Paging paging) {

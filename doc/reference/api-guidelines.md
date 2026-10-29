@@ -403,7 +403,23 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
 ### `expand` — 상세에 하위 목록 첫 쪽을 끼운다
 
-`Q309b` 가 이 자리에 적는다.
+상세가 기본으로 안 품는 하위 목록의 **첫 쪽**을 끼운다(`Q309b`). 위 「상세 안의 목록이 데이터에 따라 늘면 하위 자원 입구로 뗀다」가 뗀 넷만 받는다. 관례에서 왔다 — Zalando 158 「SHOULD allow optional embedding of sub-resources」, Medusa `fields=*관계`, Spree `expand`.
+
+| 상세 | `expand` 값 | 끼우는 것 |
+|---|---|---|
+| `GET /api/products/{productId}` | `reviews`·`inquiries` | 하위 입구 `/reviews`·`/inquiries` 의 첫 쪽 |
+| `GET /api/seller/webhooks/{webhookEndpointId}` | `deliveries` | `/deliveries` 의 첫 쪽(상태 거르기 없음) |
+| `GET /api/settlements/{settlementNumber}` | `lines` | `/lines` 의 첫 쪽 |
+
+| 규칙 | 무엇 |
+|---|---|
+| 모양 | 하위 입구와 **같은 껍데기**(`items`·`offset`·`limit`·`total`)다. 첫 쪽은 그 입구의 기본(`offset` 0 · `limit` 20)이다 |
+| 판정 | **하위 입구와 같은 질의를 부른다** — 판정도 같다. 표를 다시 읽으면 판정을 지나치는 두 번째 경로가 생긴다(아래 「파일 응답」과 같은 이유) |
+| 모르는 이름 | 400 `validation-failed`, `errors[].field` 는 `expand`(`fields` 와 같다) |
+| 안 보내면 | 지금과 같은 응답이다 — 그 칸이 없다. 깨는 변경이 아니다 |
+| 질의 수 | 이름 하나당 하위 입구 한 번 몫이 더해진다. `QueryBudgetTest` 가 정산서 상세로 「상세 + 줄 목록」과 같은지 잰다 |
+
+**화면은 지금 안 바꾼다.** 그 셋이 상세와 하위 목록을 따로 부르지만 서버 컴포넌트가 둘을 나란히 부른다 — 바깥 소비자가 한 번에 받는 자리다.
 
 ## 값의 형식
 

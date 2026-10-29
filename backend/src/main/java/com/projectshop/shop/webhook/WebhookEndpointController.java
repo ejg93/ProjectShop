@@ -22,7 +22,11 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.Expansion;
 import com.projectshop.shop.support.ListQuery.Paging;
+
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * 셀러 웹훅 엔드포인트의 입구(`29`). 등록·재발송은 대표만 자기 셀러에 한다({@code webhook:manage}), 조회는 {@code webhook:read}, 삭제는 {@code webhook:delete} — 관리자는 보고 내리기만(`Q211`, `V114`).
@@ -30,6 +34,8 @@ import com.projectshop.shop.support.ListQuery.Paging;
 @RestController
 @RequestMapping("/api/seller/webhooks")
 public class WebhookEndpointController {
+
+    private static final String DELIVERIES = "deliveries";
 
     private final WebhookEndpointService endpoints;
     private final WebhookDeliveryQuery deliveries;
@@ -70,8 +76,17 @@ public class WebhookEndpointController {
 
     @GetMapping("/{webhookEndpointId}")
     public WebhookEndpointService.Endpoint find(@AuthenticationPrincipal ShopUser user,
-            @PathVariable long webhookEndpointId) {
-        return endpoints.find(user.id(), webhookEndpointId);
+            @PathVariable long webhookEndpointId,
+            @Parameter(description = "끼울 하위 목록 첫 쪽(`D5` 「필드 선택·확장」)",
+                    schema = @Schema(allowableValues = DELIVERIES))
+            @RequestParam(required = false) String expand) {
+
+        Expansion expansion = Expansion.of(expand, Set.of(DELIVERIES));
+        WebhookEndpointService.Endpoint endpoint = endpoints.find(user.id(), webhookEndpointId);
+        // 발송 기록 입구와 같은 질의·같은 첫 쪽이다(상태 거르기 없음) — 판정도 같다(`Q309b`)
+        return expansion.has(DELIVERIES)
+                ? endpoint.expanded(deliveries.find(user.id(), webhookEndpointId, null, Expansion.FIRST_PAGE))
+                : endpoint;
     }
 
     /**
