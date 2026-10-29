@@ -8,7 +8,9 @@ package com.projectshop.shop.error;
  */
 public class InvalidParameterException extends ShopException {
 
-    private final String parameter;
+    private static final long serialVersionUID = 1L;
+
+    private final String parameterName;
 
     /**
      * 틀린 파라미터를 짚는다.
@@ -18,10 +20,10 @@ public class InvalidParameterException extends ShopException {
      */
     public InvalidParameterException(String parameter, String detail) {
         super(ErrorCode.VALIDATION_FAILED, detail);
-        this.parameter = parameter;
+        this.parameterName = parameter;
     }
 
     public String parameter() {
-        return parameter;
+        return parameterName;
     }
 }

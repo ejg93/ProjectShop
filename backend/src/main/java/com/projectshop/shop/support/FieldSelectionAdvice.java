@@ -2,6 +2,7 @@ package com.projectshop.shop.support;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.core.MethodParameter;
@@ -116,18 +117,17 @@ class FieldSelectionAdvice implements ResponseBodyAdvice<Object> {
     }
 
     /** 원소 타입을 모르면(빈 목록의 안 풀린 제네릭) 거를 것도 없어서 검증만 건너뛴다 */
-    private static Set<String> selection(String raw, Class<?> element) {
-        return element == null ? null : FieldSelection.parse(raw, FieldSelection.jsonNamesOf(element)).names();
+    private static Optional<Set<String>> selection(String raw, Class<?> element) {
+        return Optional.ofNullable(element)
+                .map(type -> FieldSelection.parse(raw, FieldSelection.jsonNamesOf(type)).names());
     }
 
-    private static JsonNode filterEach(JsonNode array, Set<String> names) {
-        if (names != null) {
-            array.forEach(item -> {
-                if (item instanceof ObjectNode object) {
-                    keepOnly(object, names);
-                }
-            });
-        }
+    private static JsonNode filterEach(JsonNode array, Optional<Set<String>> selection) {
+        selection.ifPresent(names -> array.forEach(item -> {
+            if (item instanceof ObjectNode object) {
+                keepOnly(object, names);
+            }
+        }));
         return array;
     }
 

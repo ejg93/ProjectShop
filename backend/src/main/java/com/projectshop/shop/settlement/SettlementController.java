@@ -34,7 +34,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 @RequestMapping("/api/settlements")
 public class SettlementController {
 
-    private static final String LINES = "lines";
+    private static final String EXPAND_LINES = "lines";
 
     private final SettlementQuery query;
     private final SettlementPayoutService payouts;
@@ -63,10 +63,10 @@ public class SettlementController {
             @Parameter(description = "끼울 하위 목록 첫 쪽 — `lines`(`D5` 「필드 선택·확장」)")
             @RequestParam(required = false) String expand) {
 
-        Expansion expansion = Expansion.of(expand, Set.of(LINES));
+        Expansion expansion = Expansion.of(expand, Set.of(EXPAND_LINES));
         SettlementQuery.Detail detail = query.findOne(user.id(), settlementNumber);
         // 줄 입구와 같은 질의·같은 첫 쪽이다 — 판정도 같다(`Q309b`)
-        return expansion.has(LINES)
+        return expansion.has(EXPAND_LINES)
                 ? detail.expanded(query.findLines(user.id(), settlementNumber, Expansion.FIRST_PAGE))
                 : detail;
     }

@@ -34,7 +34,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 @RequestMapping("/api/seller/webhooks")
 public class WebhookEndpointController {
 
-    private static final String DELIVERIES = "deliveries";
+    private static final String EXPAND_DELIVERIES = "deliveries";
 
     private final WebhookEndpointService endpoints;
     private final WebhookDeliveryQuery deliveries;
@@ -79,10 +79,10 @@ public class WebhookEndpointController {
             @Parameter(description = "끼울 하위 목록 첫 쪽 — `deliveries`(`D5` 「필드 선택·확장」)")
             @RequestParam(required = false) String expand) {
 
-        Expansion expansion = Expansion.of(expand, Set.of(DELIVERIES));
+        Expansion expansion = Expansion.of(expand, Set.of(EXPAND_DELIVERIES));
         WebhookEndpointService.Endpoint endpoint = endpoints.find(user.id(), webhookEndpointId);
         // 발송 기록 입구와 같은 질의·같은 첫 쪽이다(상태 거르기 없음) — 판정도 같다(`Q309b`)
-        return expansion.has(DELIVERIES)
+        return expansion.has(EXPAND_DELIVERIES)
                 ? endpoint.expanded(deliveries.find(user.id(), webhookEndpointId, null, Expansion.FIRST_PAGE))
                 : endpoint;
     }
