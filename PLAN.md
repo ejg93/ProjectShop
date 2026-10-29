@@ -225,8 +225,8 @@ GitHub가 저장소별로 역할을 붙이는 방식과 같다. `scope=seller` �
 |---|---|---|---|---|
 | 1 | API 계약 | `api-guidelines.md`(D5) · `identifier-rules.md`(D22) | Medusa v2 · Spree 5 v3 | 조사 완료(`점검 X`, 2026-10-29) — 처분 설계 대기: `Q309`~`Q312` |
 | 2 | 데이터 모델·돈 | `domain-model.md` · `money-rules.md` · `money-invariants.md` · ERD | Saleor · Solidus · Spree | 미착수 |
-| 3 | 거래 — 주문·결제 상태 · 셀러 주문 분할·정산 · 반품·환불·취소 | `state-machines.md` · `concurrency-rules.md` · `business-model.md` | Medusa · Mercur · Spree v3 `seller` · Solidus | 미착수 |
-| 4 | 보안 — 인증·권한·요청 제한·업로드 넷만(비밀번호 같은 기준은 표준 점검 줄이 든다) | `security-baseline.md` · `permission-models.md` · `permission-rules.md` · `media-rules.md` | Saleor · Medusa · Spree v3 | 미착수 |
+| 3 | 거래 — 주문·결제 상태 · 셀러 주문 분할·정산 · 반품·환불·취소 | `state-machines.md` · `concurrency-rules.md` · `business-model.md` | Medusa · Mercur · Spree v3 `seller` · Solidus | 미착수 — 입력 하나: Spree 주문의 철회 기한 칸(`engine-comparison.md` 묶음 1 끝 표) |
+| 4 | 보안 — 인증·권한·요청 제한·업로드 넷만(비밀번호 같은 기준은 표준 점검 줄이 든다) | `security-baseline.md` · `permission-models.md` · `permission-rules.md` · `media-rules.md` | Saleor · Medusa · Spree v3 | 미착수 — 입력 하나: Spree `X-RateLimit-*` 응답 헤더(`engine-comparison.md` 묶음 1 끝 표) |
 | 5 | 이벤트·배치·알림 | `event-catalog.md` · `batch-catalog.md` · `notification-rules.md` · `data-lifecycle.md` | Medusa · Saleor | 미착수 |
 | 6 | 화면 | `screen-rules.md`(D20) · `frontend-rules.md`(D24) | **짝 미정** — 처음 둔 둘(`vercel/commerce`·`medusajs/nextjs-starter-medusa`)이 보관(archived)됐다(2026-10-29 확인) | 미착수 |
 
