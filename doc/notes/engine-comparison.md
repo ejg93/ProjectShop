@@ -53,3 +53,39 @@
 | Spree 주문에 철회 기한 칸이 있다(`order_serializer.rb:17` `withdrawal_period_ends_at`·`within_withdrawal_period`) | — | 청약철회(R3) 기한을 응답에 싣나 — **묶음 3(거래)** 의 입력 |
 </content>
 </invoke>
+
+---
+
+## 묶음 2 — 데이터 모델·돈(`점검 Y`, 2026-10-29)
+
+**짝**: Saleor(`saleor/saleor` `c982006`, BSD-3 — 설계 해시와 같다) · Solidus(`solidusio/solidus` `f41bf95`, BSD-3 — **설계의 `76bcf31` 과 다르다**, 받은 기본 가지 HEAD 다. 줄 번호는 이 해시 기준).
+**표기**: `SA:` 는 Saleor 의 `saleor/` 아래, `SO:` 는 Solidus 의 `core/` 아래 경로다. 마이그레이션은 `SO:db/migrate/20160101010000_solidus_one_four.rb` 를 `one_four` 로 줄였다.
+**우리 쪽**: `money-rules.md`(D8)·`money-invariants.md`(불변식 카탈로그 — D 번호 없음)·`domain-model.md`(D4)의 절 이름으로 적는다.
+**공식 문서**: 미열람 — **판정은 코드가 근거다.** Saleor 의 반올림 기본값은 저장소 밖 패키지 `mirumee/prices`(`95fd44366d9b`)의 `money.py:113` 을 `gh api` 로 읽었다.
+
+| 항목 | 우리 | Saleor | SA 판정 | Solidus | SO 판정 | 처분 |
+|---|---|---|---|---|---|---|
+| 통화 | 원화만 · 통화 컬럼 없음(D8 「통화」) | 행마다 `currency` `CharField(3)`(`SA:order/models.py:167`·`:604`), 채널이 통화를 정한다 | 다르다·근거 있음 | 주문·가격에 `currency`(`one_four:286`·`:369`), 줄은 주문 통화를 따른다(`SO:app/models/spree/line_item.rb:42`) | 다르다·근거 있음 | D8 「통화」 — 다중 통화를 안 한다(`business-model.md`) |
+| 금액 저장 형식 | `bigint` 원 정수(D8 「저장」) | `decimal(20,3)` 전부(`SA:settings.py:485-486`) | 다르다·근거 있음 | 대부분 `decimal(10,2)`(`one_four:271-293`), 반품 `(12,4)`·배송 요금 `(8,2)` 가 섞인다 | 다르다·근거 있음 | D8 「저장」 — 원이 최소 단위라 소수 자리가 들어갈 여지를 없앤다 |
+| 요율 저장 | 만분율 정수 `_bp`(D8 「요율」) | 설정은 백분율 `decimal(20,3)`(`SA:tax/models.py:25-28`), 주문 박제는 분수 `decimal(5,4)`(`SA:order/models.py:726-728`) — 두 눈금을 `/100` 으로 잇는다(`SA:tax/utils.py:338-347`) | 다르다·근거 있음 | 분수 `decimal(8,5)`(`one_four:831`) | 다르다·근거 있음 | D8 「요율」 — 곱한 결과가 소수가 되고 `BigDecimal` 비교에 함정이 있다 |
+| 부가세 포함/별도 | 포함가 하나(`price_incl_vat`) · 공급가액·세액은 역산(D8 「부가세」) | 순액·총액 짝을 다 저장한다(`unit_price_net_amount`/`_gross_amount` 등, `SA:order/models.py:624-704`) + 세 전 `base_*` | 다르다·근거 있음 | 가격 하나 + 세금을 조정 행으로(`SO:app/models/spree/adjustment.rb:23`, `included` 플래그 `one_four:90`) | 다르다·근거 있음 | D8 「부가세」 — 값을 하나로 둔다. **행 밖 낱개**: 두 엔진 다 줄에 **세율을 박제**한다(`SA:order/models.py:726` `tax_rate` · `SO:adjustment.rb:51-60` `finalized`). 우리는 수수료율은 박제하고(D8 「요율」) 부가세율은 상수(`VatSplit.VAT_RATE_PERCENT`)로 역산해서, 세율이 바뀌면 과거 주문의 공급가액이 바뀐다 → **`Q320`** |
+| 절사 방식 | 버림 — 물어 주는 돈만 올림(D8 「절사 > 방식」) | `quantize` 에 모드를 안 줘서 `prices` 의 기본 `ROUND_HALF_UP`(`SA:core/prices.py:21-26`), 퍼센트 쿠폰도 `ROUND_HALF_UP` 를 명시(`SA:discount/models.py:193`) | 다르다·근거 있음 | `round(2, ROUND_HALF_UP)` — 자리 2 가 통화와 무관하게 박혀 있다(`SO:app/models/spree/calculator/default_tax.rb:44-46`) | 다르다·근거 있음 | D8 그 절 — 한 방향으로만 어긋나야 검증이 쉽다 |
+| 절사 단계 | 주문 항목마다(D8 「단계」) | 줄마다 자르고 주문 합계는 자른 줄의 합(`SA:tax/calculations/order.py:180-186`·`:94-108`) | 같다 | 세금을 항목(줄·배송)마다 자른다(`default_tax.rb:25-36`) | 같다 | 없음 |
+| 합계 저장과 불변식 | 저장 + 지연 트리거(카탈로그 「합계를 저장하기로 했다」·「왜 지연 트리거인가」) | 저장하고 앱이 다시 센다 — 편집 가능한 상태에서만(`SA:order/calculations.py:71-88`), DB 제약·트리거 0 | 다르다·근거 있음 | 저장하고 `OrderUpdater#recalculate` 가 한 트랜잭션에서 다시 센다(`SO:app/models/spree/order_updater.rb:19-33`), DB 제약 0 | 다르다·근거 있음 | 카탈로그 그 절 — 앱 재계산은 새 입구가 빠뜨린다 |
+| 할인 배분 | 항목마다 내림, 마지막 대상 항목이 잔차(D8 「어디에 적용되나」) | 기준가 비율로 나누고 **마지막 줄이 잔차**(`SA:order/base_calculations.py:237-262`), 줄마다 0 아래로 안 간다(`:211`) | 같다 | 할인 엔진이 core 밖 gem 이다. core 의 `DistributedAmountsHandler` 는 부르는 곳이 없다 | 범위 밖 | 없음. Saleor 는 고정 할인을 상품 합계와 배송비에 비율로 가른다(`:139-155`) — 묶음 3(거래)의 입력 |
+| 배송비 | 상품 금액과 따로 · 셀러별(D8 「배송비」) | 주문에 하나(`SA:order/models.py:197-238`), 따로 과세 | 다르다·근거 있음 | 배송(shipment)마다 · 주문은 그 합(`order_updater.rb:157`) | 같다 | D8 그 절 — 멀티 셀러라 주문 하나에 배송비가 여럿이다 |
+| 음수 | 자원마다 판단 · 정산 줄은 종류가 부호를 정한다(D8 「음수」·카탈로그 「부호를 종류가 정한다」) | 할인·환불은 양수로 따로 둔다(`SA:order/models.py:946-950`), 음수 결과는 0 으로 자른다 — 전부 앱 검증 | 다르다·근거 있음 | 조정 행에 부호가 있다(할인 `< 0`, `adjustment.rb:34-35`) · 환불은 양수 따로(`refund.rb:15`) | 같다 | D8·카탈로그 그 절 |
+| 주문 시점 값 박제 | 상품명·가격·요율을 주문 항목에 박제(D4 「외래키를 건다」·D8 「요율」) | 이름·SKU·가격·세율을 줄에 박제(`SA:order/models.py:585-594`·`:726-741`) | 같다 | **가격만 박제** — 이름·설명·SKU 는 살아 있는 변형을 위임으로 읽는다(`line_item.rb:40`, 변형은 소프트 삭제 `:16`) | 다르다·근거 있음 | D4 그 절 — 박제는 표시용이라 SKU 가 없어도 주문이 읽혀야 한다 |
+| 애그리거트 경계 | 주문 + 항목 · 배송지는 수명이 달라 따로(D4 「주문과 배송지는 한 덩어리가 아니다」) | 줄·할인은 cascade, 주소는 결제 완료 때 **주문용 사본**을 만든다(`SA:checkout/complete_checkout.py:214`), 결제는 `PROTECT` | 같다 | 주소가 **불변 행을 여러 주문이 같이 쓴다**(`SO:app/models/spree/address.rb:130-135`) | 다르다·근거 있음 | D4 그 절 — 배송지는 파기 대상이라 주문마다 따로 지워야 한다 |
+| 수명/업무 상태 분리 | 둘을 섞지 않는다 · 주문에는 수명 컬럼이 없다(D4 「수명과 업무 상태를 섞지 않는다」) | 주문에 소프트 삭제 없음 · `status`·`authorize_status`·`charge_status` 가 따로(`SA:order/models.py:117-126`) | 같다 | 주문은 `state`·`payment_state`·`shipment_state`, `deleted_at` 은 상품·변형·가격에만(`one_four:370`·`:406`) | 같다 | 없음 |
+| 참조·cascade | 외래키를 건다 · 안쪽만 cascade · 바깥은 restrict(D4 「참조 규칙」) | 줄 → 변형 `SET_NULL`(`SA:order/models.py:580`) · 주문 → 사용자 `SET_NULL`(`:137`) | 다르다·근거 있음 | 주문·줄·조정에 DB 외래키가 없고 Rails `dependent: :destroy` 로 지운다(`SO:app/models/spree/order.rb:93`) | 다르다·근거 있음 | D4 「외래키를 건다」 — 「어떤 SKU 였나」를 끝까지 따라간다 |
+
+**셈**: 판정 스물여덟 — 같다 아홉 · 다르다·근거 있음 열여덟 · 범위 밖 하나 · 다르다·근거 없음 0 · 우리에 없음 0. 행 판정 밖의 낱개 하나(부가세율 박제 → `Q320`)는 셈에 안 넣었다.
+**읽은 양**: Saleor 열한 자리 약 1100줄 · Solidus 열일곱 자리 약 900줄(상한 엔진당 40 파일·8천 줄 안). 받은 파일은 Saleor 1105 · Solidus 370 이고, 나머지는 `grep` 으로 자리만 찾았다.
+
+**열넷 밖에서 본 것**(판정 칸에 안 셌다):
+
+| 무엇 | 어디 | 우리 |
+|---|---|---|
+| Saleor 는 줄마다 값을 세 겹 둔다 — 세 전 `base_*` · 할인 전 `undiscounted_*` · 세 후 | `SA:order/models.py:624-723` | 주문 항목은 할인 전 `line_amount` 와 `discount_amount` 두 겹 — 세 전 값은 역산(카탈로그 「주문 > 한 행 안에서 끝나는 것」) |
+| Solidus 는 완료 전까지 줄 가격을 살아 있는 가격으로 다시 읽는다(`recalculate_cart_prices` 5.0 부터 기본 참) | `SO:lib/spree/app_configuration.rb:284-286` | 주문을 만들 때 항목에 박제한다(D4 「외래키를 건다」). 장바구니 가격의 모양은 묶음 3(거래)의 입력 |

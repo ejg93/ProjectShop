@@ -323,6 +323,8 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 |---|---|---|---|---|
 | https://github.com/medusajs/medusa | `5ac3fdcbf82e`(2026-10-28) | MIT — `ENTERPRISE-LICENSE.md` 가 든 폴더만 밖 | `packages/core/framework/src/http` · `packages/core/utils/src/common` · `packages/medusa/src/api/store`·`api/utils` | 1 API 계약(`점검 X`) |
 | https://github.com/spree/spree | `f227994feffd`(2026-10-28) | BSD-3-Clause | `spree/api/app/controllers/spree/api/v3` · `controllers/concerns` · `serializers/spree/api/v3` | 1 API 계약(`점검 X`) |
+| https://github.com/saleor/saleor | `c982006`(2026-10-27) | BSD-3-Clause | `saleor/order` · `saleor/tax` · `saleor/discount` · `saleor/payment` · `saleor/checkout` · `saleor/core/prices.py` — 반올림 기본값은 `mirumee/prices`(`95fd44366d9b`, `gh api`) | 2 데이터 모델·돈(`점검 Y`) — 금액·세금 겹 |
+| https://github.com/solidusio/solidus | `f41bf95`(2026-10-28) | BSD-3-Clause | `core/app/models/spree` · `core/db/migrate` · `core/lib/spree/core` | 2 데이터 모델·돈(`점검 Y`) — 주문·조정 행 |
 
 ## D2 법·정책 (완료)
 
