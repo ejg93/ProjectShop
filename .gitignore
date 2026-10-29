@@ -37,3 +37,6 @@ logs/
 # 안 적으면 「왜 커밋이 안 되나」를 다음 사람이 다시 찾는다. 사람마다 날마다 갈리는 값이라
 # 저장소가 들 것이 아니다.
 .claude/explain-mode
+
+# Superpowers 계획 파일·진행 원장(`.superpowers/plans/`·`.superpowers/sdd/`). 원천은 `PLAN.md` 라 실행용 사본만 남는다(`CLAUDE.md` 「Superpowers 와 잇는 법」, `Q330`)
+.superpowers/
