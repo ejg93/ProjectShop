@@ -106,10 +106,17 @@
 **설계(「Superpowers 와 잇는 법 > 설계」)가 적어 둔 행을 `executing-plans` 로 순서대로 친다**(`Q219`·`Q330`). 차례는 `PLAN.md` 「구간 > 번들」 표가 든다. 계획 파일·인라인·제자리는 그 절 「덮는 자리」가 정한다.
 청크마다 위 1~9 는 같다 — **6번(설명 모드)만 설계가 정한 대로다**(번들 표 「설계」 칸 — 첫 행에만 펴거나 끄고 간다). 다른 것:
 
+- **실행 모델은 Opus 다**(`PLAN.md` 「구간 > 번들」 — 설계는 Fable). 다른 모델이면 첫 응답에서 말하고 계속한다
+- **brainstorming 은 여기서 안 선다** — 행에 사실·결정·절차가 다 있다(`brainstorming` 「다 있으면 그냥 한다」). 예열·점검·검증도 창작이 아니라 안 부른다 — `using-superpowers` 의 1% 규칙은 이 네 자리에서 이 줄로 끝난다
+- **`writing-plans` 가 행을 계획 파일로 옮길 때** — 계획의 `Spec:` 줄은 `PLAN.md` 의 그 행 id 와 행이 부르는 D 문서다(spec 파일은 없다) · 헤더의 REQUIRED SUB-SKILL 은 `superpowers:executing-plans` 하나다 · **계획 검토를 사람에게 묻지 않는다** — 검토는 설계가 행을 적을 때 끝났다
+- **worktree 선호: 쓰지 않는다.** 제자리(`work/<날짜>` 체크아웃)에서 친다 — 이유는 「덮는 자리」 2 행. `using-git-worktrees` 는 이 선언으로 묻지 않고 넘어간다
+- **TDD 예외(2026-10-29 사용자 허락)**: 문서·설정 파일·마이그레이션만 건드리는 행은 「실패하는 테스트 먼저」를 건너뛴다. 그 행의 마지막 번호에 적힌 시험(`doc-lint.sh`·대조 시험·도구 레인·`integrationTest`)이 RED→GREEN 자리다. 계획에서 그 단계를 빼고 원장에 `Ruling:` 한 줄
+- **Task 끝**: `bash scripts/verify.sh` → 커밋(`PLAN`·`PROGRESS` 같은 커밋, 위 8·9) → `task-done PLAN N BASE -- bash scripts/verify.sh`. `task-done` 은 명령을 직접 실행해서 `JAVA_HOME=… bash` 꼴 환경 접두가 안 돈다 — `verify.sh` 는 스스로 `JAVA_HOME` 을 잡고(`verify.sh:27`), gradlew 를 직접 줄 때는 `env JAVA_HOME="C:/Program Files/Java/jdk-25" backend/gradlew -p backend …`
+- **push·PR·머지는 묻지 않는다** — 사용자가 위임했다(`Q330`, 「계획 끝」 8). `executing-plans` 의 「물어야 하는 부작용」에 해당하지 않는다
 - **「시작 세 줄」은 행에 이미 있다** — 말하되 행을 베끼지 않고, 치면서 달라진 것만 밝힌다
 - **행의 「불확실」을 ① 앞에 확인한다**(「잇는 법 > 행 형식」) — 틀리면 그 칸이 적은 갈 곳으로 가고 행에 적는다
 - **갈려도 안 멈춘다** — 아래 「중간 — 갈리면 멈춘다」의 예외다. 실패 사다리에 있으면 그대로, 없으면 정하고 이력에 「정한 것(계획 밖)」. **행당 둘까지** — 넘으면 WIP 로 빼고 다음 행
-- 청크 verify 가 빨가면 **고치기 둘까지.** 그래도면 WIP 로 빼고 다음 행
+- 청크 verify 가 빨가면 **고치기 둘까지.** 그래도면 WIP 로 빼고 다음 행 — `systematic-debugging` 이 근본 원인을 찾으라 해도 횟수 상한은 이것이다
 - **WIP 는 번들 가지에 안 올린다** — `wip/<청크>` 곁가지에 커밋하고 번들 가지로 돌아온다. 빨간 트리가 뒤 청크의 검증을 다 빨갛게 한다(commit hook, `Q215`)
 - Docker 가 꺼져 있어도 안 선다 — 새 `V*` 청크는 도장이 `fast-nodb` 고 번들 끝 `--full` 이 잡는다(`Q216`). **예외는 `doc/erd`** — 그림을 다시 만든 가지는 그 뒤 청크마다 `SchemaErdTest` 가 Docker 를 문다(`Q110`). 그런 번들은 Docker 를 켜고 연다
 - **청크 사이에 턴을 안 끝낸다** — 한 줄 보고 뒤 바로 다음 행. 멈추는 자리는 설계가 정한 것뿐이다
@@ -290,7 +297,7 @@
 청크를 하다 보면 계획에 없던 것이 나온다. **`PROGRESS.md` 에 적는 것으로 끝내지 않는다.**
 적어만 두면 이력 속으로 내려가고, 그걸 읽는 사람은 이미 그 청크를 지난 뒤다.
 
-**마무리에서 나온 것은 여기가 아니다** — 「잇는 법 > 계획 끝」 6 이 다룬다.
+**마무리에서 나온 것은 여기가 아니다** — 「잇는 법 > 계획 끝」 4 가 다룬다.
 **여기는 담당 청크로 가르고 거기는 규모로 가른다.**
 
 나온 자리에서 셋 중 하나로 처분하고, 어느 쪽인지 이력에 밝힌다.
@@ -307,24 +314,24 @@
 
 **절차는 Superpowers 플러그인(`obra/superpowers`, MIT)이 굴리고 관문은 이 저장소의 검증 도구가 든다**(`Q330`, 2026-10-29 사용자 결정 — ProjectTicket 과 같은 조건: 1인 · 결과물 우선 · 머지 위임 · 대화형과 무인).
 **이 파일이 스킬보다 앞선다** — `using-superpowers` 가 스스로 「CLAUDE.md 같은 사용자 지시가 스킬보다 앞선다」고 정한다. 둘이 다르면 여기를 따른다. 플러그인은 관례(4순위)다.
-**확인한 판: 7.0.0.** 판이 바뀌면 아래 「덮는 자리」 넷을 원문과 다시 대조한다(「바깥 스킬·라이브러리를 들일 때」).
+**확인한 판: 7.0.0**(2026-10-29 `점검 Z` 가 다시 댔다). 판이 바뀌면 아래 「덮는 자리」 넷과 「번들 모드」의 덮은 줄 여덟(모델 · brainstorming · 계획 검토 · worktree 선언 · TDD 예외 · `task-done` 꼴 · push 위임 · 고치기 상한)을 원문과 다시 대조한다(「바깥 스킬·라이브러리를 들일 때」).
 
 | Superpowers 단계 | 여기서 무엇을 하나 | 끼우는 관문 |
 |---|---|---|
-| `brainstorming` | 아래 「설계」 — spec 파일을 안 만들고 `PLAN.md` 행에 적는다. Fable 몫 | `doc-lint.sh` 설계 행 검사(`Q218`) |
-| `writing-plans` | 설계된 번들 행을 계획 파일로 옮긴다 — 행 하나가 Task 하나. **원천은 `PLAN.md`** 고 계획 파일은 실행용 사본이다 | |
+| `brainstorming` | 아래 「설계」 — spec 파일을 안 만들고 `PLAN.md` 행에 적는다. Fable 몫. **선호 선언**(`brainstorming:158` 「사용자 선호가 덮는다」): 사람만 답할 질문은 한 메시지에 (가)/(나) 로 모은다 · 설계 문서는 `docs/superpowers/specs` 가 아니라 `PLAN.md` 행이다 · builder-check 서브에이전트와 시각 보조는 안 쓴다 · 승인 뒤 `writing-plans` 로 안 넘어간다 — 실행은 다른 세션(Opus)이 `번들 해` 로 연다 | `doc-lint.sh` 설계 행 검사(`Q218`) |
+| `writing-plans` | 설계된 번들 행을 계획 파일로 옮긴다 — 행 하나가 Task 하나. **원천은 `PLAN.md`** 고 계획 파일은 실행용 사본이다. `Spec:` 줄·헤더·검토는 「번들 모드」가 정한다 | |
 | `executing-plans` | 「번들 모드」 — 한 세션이 인라인으로 친다 | Task 끝 `verify.sh` → 커밋(commit hook, `Q215`) |
-| `test-driven-development` | 코드 청크만. 문서·스크립트 청크는 `verify.sh` 가 관문이다 | |
-| 최종 리뷰 · `finishing-a-development-branch` | 아래 「계획 끝」. 메뉴를 안 내민다 | `--full` · 탐침 · 독립 리뷰 · PR · 머지 |
+| `test-driven-development` | 코드 청크만. 문서·설정·마이그레이션만 건드리는 행은 예외다(2026-10-29 사용자 허락 — 「번들 모드」 TDD 예외 줄). 문서·스크립트 청크는 `verify.sh` 가 관문이다 | |
+| 최종 리뷰 | 아래 「계획 끝」 3. `finishing-a-development-branch` 는 **부르지 않는다** — 메뉴가 사람 답을 기다린다 | `--full` · 탐침 · PR · 머지 |
 
 ### 덮는 자리 — 7.0.0 원문과 다르게 하는 넷
 
 | 기본 동작(원문) | 여기 |
 |---|---|
 | 계획은 `docs/superpowers/plans/`, spec 은 `docs/superpowers/specs/` 에 커밋한다 | 계획은 `.superpowers/plans/<날짜>-번들<N>.md` 에 두고 커밋하지 않는다. spec 은 안 만든다 — 설계 행이 spec 이다. 진행 원장(`.superpowers/sdd/`)도 같은 폴더라 `.gitignore` 가 거른다 — 안 거르면 Stop hook 이 미커밋으로 막는다 |
-| 시작에 worktree 를 만들거나 확인한다(`using-git-worktrees`) | **제자리에서 친다.** 훅이 `CLAUDE_PROJECT_DIR` 의 트리만 봐서 worktree 커밋은 도장 검사를 안 지난다(「병렬 줄」). 물으면 아니오 |
+| 시작에 worktree 를 만들거나 확인한다(`using-git-worktrees`) | **선호 선언 — worktree 를 쓰지 않는다**(「번들 모드」). 스킬이 「지시에 선언된 선호가 있으면 묻지 않는다」(`:41-45`)고 적어 선언이 먹는다. 안 쓰는 이유 — 훅이 `CLAUDE_PROJECT_DIR` 의 트리만 봐서 worktree 커밋은 도장 검사를 안 지난다(「병렬 줄」) |
 | Task 마다 구현·리뷰 서브에이전트(`subagent-driven-development`) | 안 쓴다 — 토큰이 몇 배다. 독립 리뷰는 「계획 끝」에 한 번 |
-| `finishing` 이 메뉴 셋을 내밀고 답을 기다린다 | 메뉴 없이 「계획 끝」 1~8 로 간다. 메뉴 1(로컬에서 `main` 에 합친다)은 훅이 막는다(`2x`) |
+| `finishing` 이 메뉴 셋을 내밀고 답을 기다린다 | **`finishing-a-development-branch` 를 부르지 않는다** — 스킬이 「메뉴를 적힌 대로 내밀고 기다린다」(`:78`·`:216`)고 덮기를 미리 막아서, 덮는 대신 안 부른다. `executing-plans:304` 가 거기로 넘기는 자리에서 「계획 끝」 1~8 로 간다. 메뉴 1(로컬에서 `main` 에 합친다)은 훅이 막는다(`2x`) |
 
 **첫 번들에서 덮은 자리를 실제로 따르는지 본다.** 문서(5위)라 모델이 읽을 때만 걸린다. 안 따르면 플러그인을 끄고(`settings.local.json` 의 `enabledPlugins`) 걷은 스킬(`design`·`wrapup`)을 git 에서 되살린다.
 
@@ -371,12 +378,12 @@
 |---|---|
 | 1 | `bash scripts/doc-lint.sh` 뒤 기계가 못 잡는 일곱 — 문서가 부르는 `V`번호·스크립트·청크 번호가 실물과 맞나(컬럼·시험 클래스는 `IdentifierReferenceTest`) · 끝난 청크가 분할표에 있나 · 「나중에」에 청크가 적혔나 · 처분이 없는 청크를 가리키나 · 문서가 고른 값과 설정·상수가 같나 · **이번 결정끼리 부딪치나** · **말한 축과 편 축이 같나**. **이력은 안 고친다** |
 | 2 | 줄이 둘이면 먼저 합친다 — 본 디렉터리에서 `git merge --no-ff`, 이력·허브 충돌은 양쪽을 살린다, 「현재 상태」는 여기서 한 번, 합친 가지에서 검증을 다시 |
-| 3 | `bash scripts/quality-goals.sh` 값을 이력 줄에(`D26`). 후퇴하면 6 으로 |
-| 4 | `/verify` 손 줄 중 「번들 끝」 — `verify.sh --full`(push 와 **따로** 낸다) · 새 `V*` 면 빈 DB 기동 · 화면이면 e2e · 목록 질의·인덱스면 부하 대조(`Q247`). 돌린 것과 안 돌린 이유를 이력 「검증」 칸에 |
-| 5 | **독립 리뷰** — 서브에이전트 하나에 `git diff origin/main...HEAD` · 「청크 하나를 어떻게 치나」 · 시작 세 줄만 준다. **대화는 안 준다.** 묻는 것: ① 결정끼리 부딪치는 것 ② 시작 세 줄과 diff 가 다른 자리. 답은 「없다」 또는 `파일:줄 — 무엇 — 어느 규칙` |
-| 6 | 처분 — 글 한 줄·값 하나는 **지금 고친다** · 있는 청크가 다룰 것은 그 행에 · 결정이 필요하거나 파일이 여럿이면 새 청크. 「오탐」도 근거를 적는다. 이력에 「독립 리뷰: 지적 N, 처분 …」 |
-| 7 | 끝 보고 — 정한 것(계획 밖) · WIP 행(`git branch --list 'wip/*'`, `work/*` 에 WIP 커밋 0) · 새로 선 행 · 다음 번들 후보 |
-| 8 | PR 하나 — 본문은 청크마다 시작 세 줄. CI·`review` 잡은 `gh api` 로 읽는다(`gh pr checks` 는 분류기가 막는다). 초록이고 봇 코멘트를 처분했으면 **머지는 Claude 가 맨 명령으로** `gh pr merge N --merge` — `cd`·`&&`·`;`·파이프를 붙이면 허용 규칙(`settings.local.json`)에 안 걸려 판정기가 막는다. squash·`--auto` 는 안 쓴다. 결과는 다음 호출에서 `gh api repos/{owner}/{repo}/pulls/N --jq .merged`, 머지 뒤 `bash scripts/deploy-check.sh`(`Q205`) |
+| 3 | **독립 리뷰 = `executing-plans` 의 Final Review 하나** — `review-package <계획> <BASE> HEAD` 가 만든 패키지 + `code-reviewer.md`, 모델은 `fable` 로 명시(2026-10-29 사용자 결정). 계획의 Review Focus 에 질문 둘을 적어 둔다: ① 결정끼리 부딪치는 것 ② 시작 세 줄(행의 축·강제 지점)과 diff 가 다른 자리. **대화는 안 준다.** 따로 리뷰를 또 돌리지 않는다. 묶음 세션(`bundle-session.md`)은 계획 모드 파일을 `<계획>` 으로 준다. 답은 「없다」 또는 `파일:줄 — 무엇 — 어느 규칙` |
+| 4 | 처분 — 글 한 줄·값 하나는 **지금 고친다** · 있는 청크가 다룰 것은 그 행에 · 결정이 필요하거나 파일이 여럿이면 새 청크. 「오탐」도 근거를 적는다. 이력에 「독립 리뷰: 지적 N, 처분 …」. 플러그인의 「Critical/Important 는 한 번의 fix pass」보다 이 처분표가 앞선다 |
+| 5 | `bash scripts/quality-goals.sh` 값을 이력 줄에(`D26`). 후퇴하면 4 로 |
+| 6 | `/verify` 손 줄 중 「번들 끝」 — `verify.sh --full`(push 와 **따로** 낸다) · 새 `V*` 면 빈 DB 기동 · 화면이면 e2e · 목록 질의·인덱스면 부하 대조(`Q247`). **4 의 고침 커밋 뒤에 돈다** — 먼저 돌면 고침이 지문을 바꿔 push hook 이 막는다. 돌린 것과 안 돌린 이유를 이력 「검증」 칸에 |
+| 7 | 끝 보고 — 정한 것(계획 밖) · WIP 행(`git branch --list 'wip/*'`, `work/*` 에 WIP 커밋 0) · 새로 선 행 · 다음 번들 후보. 원장 `.superpowers/sdd/<계획>/progress.md` 의 `Ruling:` 줄이 이력 「정한 것(계획 밖)」에 다 있는지 대조한 뒤 워크스페이스를 지운다 |
+| 8 | PR 하나 — 본문은 청크마다 시작 세 줄. CI·`review` 잡은 `gh api` 로 읽는다(`gh pr checks` 는 분류기가 막는다). 초록이고 봇 코멘트를 처분했으면 **머지는 Claude 가 맨 명령으로, 묻지 않고** `gh pr merge N --merge` — `cd`·`&&`·`;`·파이프를 붙이면 허용 규칙(`settings.local.json`)에 안 걸려 판정기가 막는다. squash·`--auto` 는 안 쓴다. 결과는 다음 호출에서 `gh api repos/{owner}/{repo}/pulls/N --jq .merged`, 머지 뒤 `bash scripts/deploy-check.sh`(`Q205`) |
 
 ## 구역 지도
 
