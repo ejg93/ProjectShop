@@ -49,27 +49,27 @@
 
 **요청 제한을 끄고 잰다**(`RATE_LIMIT_ENABLED=false`). 제한이 주소당 1분 120 이라 켜 두면 부하가 429 를 잰다.
 
-**기준선은 Postgres 17 에서 쟀다**(`70`·`Q250`). 2026-10-23 `Q297` 이 컴포즈를 18 로 올렸고, 18 위에서 다시 잰 적이 아직 없다 —
-**다음 부하 대조가 1.5배를 넘으면 판부터 의심한다.** 질의를 안 바꿨는데 넘었으면 18 에서 `--update-baseline` 으로 다시 잡고 이 문장을 지운다.
+**p95 기준선은 Postgres 18 에서 다시 쟀다**(2026-10-29, 마무리 73차). `Q297` 이 컴포즈를 17 → 18 로 올린 뒤 첫 대조가 여섯 입구 모두 1.2~1.9배였고,
+**같은 조건의 `origin/main` 도 같은 값**(products 1.92배·my_orders 1.58배)이라 질의가 아니라 판의 이동으로 보고 옮겼다.
 
 **`load-test.sh` 는 번들 끝 손 줄이다**(`/verify`, `Q247`) — 목록 조회기·인덱스 마이그레이션·`load/` 를 바꾼 번들의 마무리가
 돌린다. `verify.sh`·CI·훅은 안 부른다 — 한 번에 약 8분이고 이미지 빌드와 10만 건 붓기가 메모리를 크게 쓴다(사용자 결정 2026-10-03).
 
 ## 기준선
 
-입구마다 질의 평균과 p95 다. **둘 다 같은 실행에서 쟀다** — 갓 부은 `shop_load` 에 `load-test.sh --update-baseline` 을 건
-2026-10-11 의 실행이고(`Q250`), 평균은 그동안의 `pg_stat_statements` 다(부하 중 평균이라 `42` 의 한가한 측정보다 크다 —
+입구마다 질의 평균과 p95 다. **둘이 다른 실행이다** — 둘 다 갓 부은 `shop_load` 에 `load-test.sh --update-baseline` 을 건 실행인데,
+p95 는 2026-10-29 PG 18 실행(마무리 73차)이고 평균은 2026-10-11 PG 17 실행(`Q250`)의 `pg_stat_statements` 다(부하 중 평균이라 `42` 의 한가한 측정보다 크다 —
 그쪽은 배치를 돌린 DB 라 이 표에 안 옮긴다, `doc/notes/perf-local-100k.md`). **p95 칸의 원본은 `load/baseline.json` 이고
 이 표는 사본이다** — `70` 의 대조 시험이 둘을 견준다. 키는 그 JSON 의 이름이다.
 
 | 입구 | 키 | 경로 | 질의 평균(ms) — 목록 · 건수 | p95(ms) |
 |---|---|---|---|---|
-| 상품 공개 목록 | `products` | `GET /api/products` | 0.3 · 0.8 | 5.2 |
-| 상품 검색 | `search` | `GET /api/products?q=` | 6.8 · 1.2 | 14.6 |
-| 내 주문 목록 | `my_orders` | `GET /api/orders` | 0.3 · 0.1 | 9.8 |
-| 셀러 주문 목록 | `seller_orders` | `GET /api/seller/orders` | 2.1 · 37.5 | 62.8 |
-| 관리자 주문 목록 | `admin_orders` | `GET /api/admin/orders` | 0.3 · 5.5 | 17.1 |
-| 환불 대기열 | `refunds` | `GET /api/refunds` | 0.3 · 29.0 | 46.2 |
+| 상품 공개 목록 | `products` | `GET /api/products` | 0.3 · 0.8 | 10.1 |
+| 상품 검색 | `search` | `GET /api/products?q=` | 6.8 · 1.2 | 22.1 |
+| 내 주문 목록 | `my_orders` | `GET /api/orders` | 0.3 · 0.1 | 15.9 |
+| 셀러 주문 목록 | `seller_orders` | `GET /api/seller/orders` | 2.1 · 37.5 | 74.9 |
+| 관리자 주문 목록 | `admin_orders` | `GET /api/admin/orders` | 0.3 · 5.5 | 22.8 |
+| 환불 대기열 | `refunds` | `GET /api/refunds` | 0.3 · 29.0 | 58.4 |
 
 p95 는 VU 10·1분·세 회차 중앙값이다(`load/README.md` 의 기계). 검색어는 「운동화」(파는 중인 상품 중 1,000 건이 맞는다).
 **정산서 목록은 안 잰다** — 부은 DB 에 정산이 없어 빈 목록을 재고 문턱이 아무것도 못 막는다(마무리 56차 독립 리뷰).
