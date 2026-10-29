@@ -13,7 +13,7 @@
 **둘 중 아무 쪽으로 답해도 근거가 안 남는다.**
 
 그리고 신호는 쌓인다. 이 저장소엔 처분 표가 이미 둘 있는데
-(`CLAUDE.md` 「드러난 것의 처분」·`/wrapup` 「찾은 것을 어떻게 처분하나」),
+(`CLAUDE.md` 「드러난 것의 처분」·`CLAUDE.md` 「계획 끝」 6),
 게이트가 만든 것이 그 둘 중 어디로도 안 가면 **세 번째 더미**가 생긴다.
 
 ## 지금 무엇이 어디에 걸려 있나
@@ -286,7 +286,7 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 | ⑲ | Java 필드는 컬럼 이름의 camelCase, 축약 없음 | `D22` | `SchemaNamingTest` 는 SQL 쪽만. API 로 새는 쪽은 `OpenApiSpecTest` 표기가 잰다 | **못 내린다** 싸게 — record 성분과 컬럼을 잇는 표가 없다. 독립 리뷰 |
 | ⑳ | 의존성을 더할 때 라이선스를 본다 — GPL 계열이면 멈춘다 | `D23` | 막는 것 없음. 플러그인 없음 | **안 세움** — 도구 도입은 결정이다. 마무리 대조가 `build.gradle.kts` diff 를 본다 |
 
-**대조에서 뺀 것**: 이미 표에 있는 것(`ArchitectureTest` 스물·`SqlTextTest`·`SchemaNamingTest`·`LogArgumentTest`·`OpenApiSpecTest`·`TestConventionTest`·`ScreenLengthTest`·`HttpFlowTest`·`SessionStoreTest`·eslint 입구·운반·`react/no-danger`·`form-pending`·`forbidden`·`screen-text`), 표 밖이지만 시험이 있는 것(`LoginAttemptTest` 5회/15분 · `AuthLoginTest` 같은 문구 · `ProblemResponseTest` 프레임워크 오류 `type`·검증 필드 snake_case·`trace_id` · `WebhookUrlPolicyTest` · `WWW-Authenticate` · `Idempotency-Key`), 절차 규칙(「문서를 먼저 고친다」·「값 옆에 출처」의 절차 쪽), 판단 규칙(「마스킹은 갈릴 때만」·「모르는 칸을 지목하지 않는다」·「확인 문구는 무엇이 사라지는지」·「빈 상태 둘을 가른다」). 절차·판단은 `/wrapup` 대조와 독립 리뷰가 본다.
+**대조에서 뺀 것**: 이미 표에 있는 것(`ArchitectureTest` 스물·`SqlTextTest`·`SchemaNamingTest`·`LogArgumentTest`·`OpenApiSpecTest`·`TestConventionTest`·`ScreenLengthTest`·`HttpFlowTest`·`SessionStoreTest`·eslint 입구·운반·`react/no-danger`·`form-pending`·`forbidden`·`screen-text`), 표 밖이지만 시험이 있는 것(`LoginAttemptTest` 5회/15분 · `AuthLoginTest` 같은 문구 · `ProblemResponseTest` 프레임워크 오류 `type`·검증 필드 snake_case·`trace_id` · `WebhookUrlPolicyTest` · `WWW-Authenticate` · `Idempotency-Key`), 절차 규칙(「문서를 먼저 고친다」·「값 옆에 출처」의 절차 쪽), 판단 규칙(「마스킹은 갈릴 때만」·「모르는 칸을 지목하지 않는다」·「확인 문구는 무엇이 사라지는지」·「빈 상태 둘을 가른다」). 절차·판단은 「계획 끝」 대조와 독립 리뷰가 본다(`CLAUDE.md`).
 
 ## 문턱
 
