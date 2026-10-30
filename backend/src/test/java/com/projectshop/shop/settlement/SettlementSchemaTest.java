@@ -388,12 +388,6 @@ class SettlementSchemaTest extends PostgresTestBase {
         }
     }
 
-    /**
-     * 수수료 줄이 <b>무엇에 몇 퍼센트를 뗐는지</b>를 들고 있나(청크 18).
-     *
-     * <p>금액만 있으면 셀러가 정산서만으로 대사를 못 하고 주문 표를 다시 뒤져야 하는데,
-     * <b>그때 하는 계산이 마감 때와 같다는 보장이 없다</b> — 그것이 곧 박제가 안 된 상태다.
-     */
     /** 플랫폼이 공급한 줄의 부가세율 박제(`Q320`, `V132`) — 부가가치세법 제30조·제16조제1항제1호 */
     @Nested
     @DisplayName("부가세율")
@@ -515,6 +509,12 @@ class SettlementSchemaTest extends PostgresTestBase {
         }
     }
 
+    /**
+     * 수수료 줄이 <b>무엇에 몇 퍼센트를 뗐는지</b>를 들고 있나(청크 18).
+     *
+     * <p>금액만 있으면 셀러가 정산서만으로 대사를 못 하고 주문 표를 다시 뒤져야 하는데,
+     * <b>그때 하는 계산이 마감 때와 같다는 보장이 없다</b> — 그것이 곧 박제가 안 된 상태다.
+     */
     @Nested
     @DisplayName("수수료 근거는")
     class CommissionBasis {
