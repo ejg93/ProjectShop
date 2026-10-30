@@ -59,10 +59,48 @@ class VatSplitTest {
     @Test
     @DisplayName("원금의 역산이 아닌 값은 만들 수 없다")
     void rejectsMismatchedSum() {
-        assertThatThrownBy(() -> new VatSplit(11_000, 10_000, 999))
+        assertThatThrownBy(() -> new VatSplit(11_000, 10_000, 999, VatSplit.VAT_RATE_BP))
                 .isInstanceOf(IllegalArgumentException.class);
         // 합은 맞아도 역산이 아니다
-        assertThatThrownBy(() -> new VatSplit(11_000, 0, 11_000))
+        assertThatThrownBy(() -> new VatSplit(11_000, 0, 11_000, VatSplit.VAT_RATE_BP))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /** 정산 마감 때 박제한 요율로 나눈다 — 세율이 바뀌어도 과거 정산서의 값이 안 바뀐다(`Q320`) */
+    @Test
+    @DisplayName("요율을 받으면 그 요율로 나눈다")
+    void splitsAtTheGivenRate() {
+        VatSplit split = VatSplit.of(10_500, 500);
+
+        assertThat(split.supply()).isEqualTo(10_000);
+        assertThat(split.vat()).isEqualTo(500);
+        assertThat(split.rateBp()).isEqualTo(500);
+    }
+
+    @Test
+    @DisplayName("요율 없이 나누면 지금 세율이다")
+    void defaultsToTheCurrentRate() {
+        assertThat(VatSplit.of(11_000)).isEqualTo(VatSplit.of(11_000, VatSplit.VAT_RATE_BP));
+        assertThat(VatSplit.VAT_RATE_BP).as("부가가치세법 제30조 — 10퍼센트").isEqualTo(1_000);
+    }
+
+    /** 만분율이라 소수 요율도 정수식으로 선다 — SQL 의 `vat_supply_amount` 와 같은 식이다 */
+    @Test
+    @DisplayName("소수 요율에서도 합이 원금이다")
+    void sumIsTheOriginalAtFractionalRate() {
+        for (long amount = -2_000; amount <= 2_000; amount++) {
+            VatSplit split = VatSplit.of(amount, 1_050);
+            assertThat(split.supply() + split.vat()).as("amount=%d", amount).isEqualTo(amount);
+            assertThat(VatSplit.of(-amount, 1_050).supply()).as("amount=%d", amount).isEqualTo(-split.supply());
+        }
+    }
+
+    @Test
+    @DisplayName("다른 요율의 역산은 만들 수 없다")
+    void rejectsAnotherRatesSplit() {
+        VatSplit atTen = VatSplit.of(11_000);
+
+        assertThatThrownBy(() -> new VatSplit(11_000, atTen.supply(), atTen.vat(), 500))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

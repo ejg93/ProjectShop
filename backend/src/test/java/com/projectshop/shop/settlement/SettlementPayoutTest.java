@@ -333,8 +333,10 @@ class SettlementPayoutTest extends PostgresTestBase {
 
         jdbc.sql("""
                         insert into settlement_item (settlement_id, kind, amount, order_item_id,
-                                                     commission_bp, commission_base_amount)
-                        values (:id, 'commission', :amount, :orderItemId, :bp, :base)
+                                                     commission_bp, commission_base_amount,
+                                                     vat_rate_bp, supply_amount)
+                        values (:id, 'commission', :amount, :orderItemId, :bp, :base,
+                                1000, vat_supply_amount(:amount, 1000))
                         """)
                 .param("id", settlementId)
                 .param("amount", -COMMISSION)

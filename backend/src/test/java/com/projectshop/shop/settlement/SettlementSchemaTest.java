@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.order.OrderFixture;
+import com.projectshop.shop.support.VatSplit;
 
 /**
  * 정산 스키마가 `money-invariants.md` 의 등식 다섯을 실제로 막는지 본다.
@@ -393,6 +394,86 @@ class SettlementSchemaTest extends PostgresTestBase {
      * <p>금액만 있으면 셀러가 정산서만으로 대사를 못 하고 주문 표를 다시 뒤져야 하는데,
      * <b>그때 하는 계산이 마감 때와 같다는 보장이 없다</b> — 그것이 곧 박제가 안 된 상태다.
      */
+    /** 플랫폼이 공급한 줄의 부가세율 박제(`Q320`, `V132`) — 부가가치세법 제30조·제16조제1항제1호 */
+    @Nested
+    @DisplayName("부가세율")
+    class VatRate {
+
+        @Test
+        @DisplayName("수수료 줄은 세율 없이 설 수 없다")
+        void commissionNeedsTheRate() {
+            long settlementId = insertSettlement(-COMMISSION, -COMMISSION);
+
+            assertThatThrownBy(() -> insertCommission(settlementId, null, null))
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("settlement_item_vat_platform_check");
+        }
+
+        @Test
+        @DisplayName("세율은 만분율 범위 안이다")
+        void rateStaysInRange() {
+            long settlementId = insertSettlement(-COMMISSION, -COMMISSION);
+
+            assertThatThrownBy(() -> insertCommission(settlementId, 10_001, -COMMISSION))
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("settlement_item_vat_rate_range_check");
+        }
+
+        @Test
+        @DisplayName("셀러가 공급한 줄에는 세율이 없다")
+        void sellerLineHasNoRate() {
+            long settlementId = insertSettlement(PRICE, 0);
+
+            assertThatThrownBy(() -> jdbc.sql("""
+                            insert into settlement_item (settlement_id, kind, amount, order_item_id,
+                                                         vat_rate_bp, supply_amount)
+                            values (:id, 'sale', :amount, :orderItemId, 1000, vat_supply_amount(:amount, 1000))
+                            """)
+                    .param("id", settlementId)
+                    .param("amount", PRICE)
+                    .param("orderItemId", anOrderItem())
+                    .update())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("settlement_item_vat_platform_check");
+        }
+
+        /** SQL 식과 {@link VatSplit} 이 같은 값을 낸다 — 다르면 정산서를 읽을 때 생성자가 거부한다 */
+        @Test
+        @DisplayName("공급가액 함수는 VatSplit 과 같은 값이다")
+        void supplyFunctionMatchesVatSplit() {
+            for (long amount : new long[] {-100_005, -1_000, -7, 0, 7, 1_000, 11_000, 100_005, 9_999_999_999L}) {
+                for (int rate : new int[] {0, 1_000, 1_050, 10_000}) {
+                    long fromSql = jdbc.sql("select vat_supply_amount(:amount, :rate)")
+                            .param("amount", amount)
+                            .param("rate", rate)
+                            .query(Long.class)
+                            .single();
+                    assertThat(fromSql).as("amount=%d rate=%d", amount, rate)
+                            .isEqualTo(VatSplit.of(amount, rate).supply());
+                }
+            }
+        }
+
+        private void insertCommission(long settlementId, Integer rate, Long amountForSupply) {
+            jdbc.sql("""
+                            insert into settlement_item (settlement_id, kind, amount, order_item_id,
+                                                         commission_bp, commission_base_amount,
+                                                         vat_rate_bp, supply_amount)
+                            values (:id, 'commission', :amount, :orderItemId, :bp, :base,
+                                    cast(:rate as int),
+                                    vat_supply_amount(cast(:supplyOf as bigint), cast(:rate as int)))
+                            """)
+                    .param("id", settlementId)
+                    .param("amount", -COMMISSION)
+                    .param("orderItemId", anOrderItem())
+                    .param("bp", COMMISSION_BP)
+                    .param("base", PRICE)
+                    .param("rate", rate)
+                    .param("supplyOf", amountForSupply)
+                    .update();
+        }
+    }
+
     @Nested
     @DisplayName("수수료 근거는")
     class CommissionBasis {
@@ -412,8 +493,10 @@ class SettlementSchemaTest extends PostgresTestBase {
             long settlementId = insertSettlement(-COMMISSION, -COMMISSION);
 
             assertThatThrownBy(() -> jdbc.sql("""
-                            insert into settlement_item (settlement_id, kind, amount, order_item_id)
-                            values (:id, 'commission', :amount, :orderItemId)
+                            insert into settlement_item (settlement_id, kind, amount, order_item_id,
+                                                         vat_rate_bp, supply_amount)
+                            values (:id, 'commission', :amount, :orderItemId,
+                                    1000, vat_supply_amount(:amount, 1000))
                             """)
                     .param("id", settlementId)
                     .param("amount", -COMMISSION)
@@ -697,11 +780,15 @@ class SettlementSchemaTest extends PostgresTestBase {
         // 안 넣으면 검사에 먼저 걸려서 「무엇을 막았나」가 안 갈린다.
         String bearer = "compensation".equals(kind) ? "'seller'" : "null";
 
+        // 플랫폼이 공급한 줄은 부가세율과 공급가액을 든다(`V132`). 근거 칸과 같은 이유로 안 넣으면 그 검사에 먼저 걸린다.
+        boolean platform = commission || "commission_reversal".equals(kind);
+
         jdbc.sql("""
                         insert into settlement_item (settlement_id, kind, amount, %s,
                                                      commission_bp, commission_base_amount,
-                                                     compensation_bearer)
-                        values (:id, :kind, :amount, :sourceId, :bp, :base, %s)
+                                                     compensation_bearer, vat_rate_bp, supply_amount)
+                        values (:id, :kind, :amount, :sourceId, :bp, :base, %s,
+                                cast(:vat as int), vat_supply_amount(:amount, cast(:vat as int)))
                         """.formatted(sourceColumn, bearer))
                 .param("id", settlementId)
                 .param("kind", kind)
@@ -709,6 +796,7 @@ class SettlementSchemaTest extends PostgresTestBase {
                 .param("sourceId", sourceId)
                 .param("bp", commission ? COMMISSION_BP : null)
                 .param("base", commission ? PRICE : null)
+                .param("vat", platform ? VatSplit.VAT_RATE_BP : null)
                 .update();
     }
 
@@ -728,8 +816,10 @@ class SettlementSchemaTest extends PostgresTestBase {
     private void insertBasisRaw(long settlementId, long amount, int bp, long base) {
         jdbc.sql("""
                         insert into settlement_item (settlement_id, kind, amount, order_item_id,
-                                                     commission_bp, commission_base_amount)
-                        values (:id, 'commission', :amount, :orderItemId, :bp, :base)
+                                                     commission_bp, commission_base_amount,
+                                                     vat_rate_bp, supply_amount)
+                        values (:id, 'commission', :amount, :orderItemId, :bp, :base,
+                                1000, vat_supply_amount(:amount, 1000))
                         """)
                 .param("id", settlementId)
                 .param("amount", amount)
@@ -743,8 +833,10 @@ class SettlementSchemaTest extends PostgresTestBase {
     private void insertReversalBasisRaw(long settlementId, long amount, int bp, long base) {
         jdbc.sql("""
                         insert into settlement_item (settlement_id, kind, amount, refund_item_id,
-                                                     commission_bp, commission_base_amount)
-                        values (:id, 'commission_reversal', :amount, :refundItemId, :bp, :base)
+                                                     commission_bp, commission_base_amount,
+                                                     vat_rate_bp, supply_amount)
+                        values (:id, 'commission_reversal', :amount, :refundItemId, :bp, :base,
+                                1000, vat_supply_amount(:amount, 1000))
                         """)
                 .param("id", settlementId)
                 .param("amount", amount)

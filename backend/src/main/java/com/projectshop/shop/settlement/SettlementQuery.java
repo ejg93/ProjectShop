@@ -58,6 +58,7 @@ public class SettlementQuery {
     static final String LINES_SQL = """
             select i.kind, i.supplier, i.amount,
                    i.commission_bp, i.commission_base_amount,
+                   i.vat_rate_bp, i.supply_amount,
                    coalesce(so.seller_order_number, rso.seller_order_number,
                             sso.seller_order_number) as seller_order_number,
                    coalesce(oi.product_name, roi.product_name) as product_name
@@ -100,11 +101,12 @@ public class SettlementQuery {
      * @param supplyAmount 플랫폼이 공급한 줄(수수료와 그 되돌림)의 공급가액. 셀러가 공급한 줄은 {@code null} 이다 —
      *                     그 세금계산서는 셀러가 내고, 우리는 그 금액을 나눌 근거가 없다({@link VatSplit}, `Q274`)
      * @param vatAmount    같은 줄의 세액. {@code supplyAmount} 와 합하면 {@code amount} 다
+     * @param vatRateBp    같은 줄의 부가세율(만분율). <b>정산 마감 때 박제한 값이다</b>(`Q320`) — 세율이 바뀌어도 이 줄은 이 요율로 나뉜다
      */
     @Schema(name = "SettlementLine")
     public record Line(String kind, String supplier, long amount, Integer commissionBp,
             Long commissionBaseAmount, String sellerOrderNumber, String productName,
-            Long supplyAmount, Long vatAmount) {
+            Long supplyAmount, Long vatAmount, Integer vatRateBp) {
 
         /**
          * <b>플랫폼 공급 줄이면 나뉘어 있고 아니면 비어 있다</b> — 그리고 나눈 값은 금액의 역산이다({@link VatSplit} 이 잰다).
@@ -112,26 +114,31 @@ public class SettlementQuery {
          */
         public Line {
             boolean platform = SettlementSupplier.PLATFORM.name().equals(supplier);
-            if (platform != (supplyAmount != null) || platform != (vatAmount != null)) {
-                throw new IllegalArgumentException("공급가액·세액은 플랫폼이 공급한 줄에만 있다 — supplier=" + supplier);
+            if (platform != (supplyAmount != null) || platform != (vatAmount != null)
+                    || platform != (vatRateBp != null)) {
+                throw new IllegalArgumentException("공급가액·세액·세율은 플랫폼이 공급한 줄에만 있다 — supplier=" + supplier);
             }
             if (platform) {
-                new VatSplit(amount, supplyAmount, vatAmount);
+                new VatSplit(amount, supplyAmount, vatAmount, vatRateBp);
             }
         }
 
         /**
-         * 공급자가 플랫폼인 줄만 나눈다 — 수수료는 부가세 포함가다(`business-model.md` 「수수료는 부가세 포함가다」).
+         * 마감 때 박제한 세율·공급가액을 읽는다(`Q320`) — 지금 세율로 다시 나누지 않는다. 세액은 뺄셈이 정의다.
+         * 플랫폼 줄이면 생성자가 저장값을 {@link VatSplit} 로 잰다.
          *
          * @param supplierCode 저장값. <b>이월 줄은 비어 있다</b> — 공급이 아니다(`V52` 의 생성 식)
+         * @param vatRateBp    저장값. 플랫폼이 공급한 줄에만 있다({@code settlement_item_vat_platform_check})
+         * @param supplyAmount 저장값. 같은 줄에만 있다
          */
         static Line of(String supplierCode, String kind, long amount, Integer commissionBp,
-                Long commissionBaseAmount, String sellerOrderNumber, String productName) {
+                Long commissionBaseAmount, String sellerOrderNumber, String productName,
+                Integer vatRateBp, Long supplyAmount) {
             String supplier = EnumValue.of(supplierCode, SettlementSupplier::of);
-            VatSplit split = SettlementSupplier.PLATFORM.name().equals(supplier) ? VatSplit.of(amount) : null;
+            Long vatAmount = supplyAmount == null ? null : amount - supplyAmount;
             return new Line(kind, supplier, amount, commissionBp,
                     commissionBaseAmount, sellerOrderNumber, productName,
-                    split == null ? null : split.supply(), split == null ? null : split.vat());
+                    supplyAmount, vatAmount, vatRateBp);
         }
     }
 
@@ -284,7 +291,9 @@ public class SettlementQuery {
                         (Integer) rs.getObject("commission_bp"),
                         (Long) rs.getObject("commission_base_amount"),
                         rs.getString("seller_order_number"),
-                        rs.getString("product_name")))
+                        rs.getString("product_name"),
+                        (Integer) rs.getObject("vat_rate_bp"),
+                        (Long) rs.getObject("supply_amount")))
                 .list();
 
         return new LinePage(items, paging.offset(), paging.limit(), head.lineCount());

@@ -19,6 +19,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderFixture;
 import com.projectshop.shop.support.BusinessCalendar;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.support.VatSplit;
 
 /**
  * 정산서를 누가 어디까지 보나(청크 20).
@@ -293,6 +294,9 @@ class SettlementQueryTest extends PostgresTestBase {
                     .isEqualTo(-909L);
             assertThat(commission.vatAmount()).isEqualTo(-91L);
             assertThat(commission.supplyAmount() + commission.vatAmount()).isEqualTo(commission.amount());
+            assertThat(commission.vatRateBp())
+                    .as("마감 때 박제한 세율이다 — 부가가치세법 제30조(`Q320`)")
+                    .isEqualTo(VatSplit.VAT_RATE_BP);
 
             assertThat(linesOf("s-mine"))
                     .as("셀러가 고객에게 공급한 줄의 세금계산서는 셀러가 낸다 — 우리가 나눌 근거가 없다")
@@ -301,7 +305,47 @@ class SettlementQueryTest extends PostgresTestBase {
                     .allSatisfy(line -> {
                         assertThat(line.supplyAmount()).isNull();
                         assertThat(line.vatAmount()).isNull();
+                        assertThat(line.vatRateBp()).isNull();
                     });
+        }
+
+        /**
+         * 세율이 바뀐 뒤에도 과거 정산서는 박제한 값으로 나뉜다(`Q320`) — 공급시기의 세율이다(부가가치세법 부칙 적용례).
+         * 저장값을 다른 요율로 고쳐 두고 읽어서, 읽기가 지금 상수로 다시 나누지 않는다는 것을 본다.
+         */
+        @Test
+        @DisplayName("수수료 줄은 마감 때 박제한 세율로 나뉜다")
+        void pinsVatRateAtClose() {
+            closeWith(sellerId);
+            jdbc.sql("""
+                            update settlement_item
+                               set vat_rate_bp = 500, supply_amount = vat_supply_amount(amount, 500)
+                             where kind = 'commission'
+                            """)
+                    .update();
+
+            SettlementQuery.Line commission = linesOf("s-mine").stream()
+                    .filter(line -> "COMMISSION".equals(line.kind()))
+                    .findFirst()
+                    .orElseThrow();
+
+            VatSplit atFive = VatSplit.of(-COMMISSION, 500);
+            assertThat(commission.vatRateBp()).isEqualTo(500);
+            assertThat(commission.supplyAmount())
+                    .as("지금 세율로 다시 나누면 %d 다", VatSplit.of(-COMMISSION).supply())
+                    .isEqualTo(atFive.supply());
+            assertThat(commission.vatAmount()).isEqualTo(atFive.vat());
+        }
+
+        /** 저장된 공급가액이 저장된 세율의 역산이 아니면 정산서를 안 낸다 — SQL 식과 Java 식이 어긋난 날 여기서 드러난다 */
+        @Test
+        @DisplayName("세율과 맞지 않는 공급가액은 읽을 때 거부된다")
+        void refusesASupplyAmountThatIsNotTheRatesSplit() {
+            closeWith(sellerId);
+            jdbc.sql("update settlement_item set vat_rate_bp = 500 where kind = 'commission'").update();
+
+            assertThatThrownBy(() -> linesOf("s-mine"))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
