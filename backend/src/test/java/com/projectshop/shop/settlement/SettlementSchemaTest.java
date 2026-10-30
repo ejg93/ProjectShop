@@ -419,6 +419,17 @@ class SettlementSchemaTest extends PostgresTestBase {
                     .hasMessageContaining("settlement_item_vat_rate_range_check");
         }
 
+        /** 공급가액이 박제한 세율의 역산이어야 한다 — 식이 바뀌어도 이미 선 행은 재검사되지 않아 박제가 선다 */
+        @Test
+        @DisplayName("공급가액은 박제한 세율의 역산이다")
+        void supplyIsTheRatesSplit() {
+            long settlementId = insertSettlement(-COMMISSION, -COMMISSION);
+
+            assertThatThrownBy(() -> insertCommission(settlementId, 500, -COMMISSION * 2))
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("settlement_item_vat_supply_check");
+        }
+
         @Test
         @DisplayName("셀러가 공급한 줄에는 세율이 없다")
         void sellerLineHasNoRate() {

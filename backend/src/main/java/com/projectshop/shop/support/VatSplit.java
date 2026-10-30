@@ -54,15 +54,16 @@ public record VatSplit(long inclVat, long supply, long vat, int rateBp) {
         return new VatSplit(inclVat, supply, inclVat - supply, rateBp);
     }
 
-    /** SQL 함수 {@code vat_supply_amount}(`V132`)와 같은 식이다 — 둘이 다르면 정산서를 읽을 때 생성자가 거부한다 */
+    /** SQL 함수 {@code vat_supply_amount}(`V132`)와 같은 식이다 — {@code SettlementSchemaTest} 가 둘을 견준다 */
     private static long supplyOf(long inclVat, int rateBp) {
         if (rateBp < 0 || rateBp > BP_SCALE) {
             throw new IllegalArgumentException("부가세율은 0~10000 만분율이다 — rateBp=" + rateBp);
         }
-        long magnitude = Math.abs(inclVat);
+        long magnitude = Math.absExact(inclVat);
         long divisor = BP_SCALE + rateBp;
-        // 반올림: (a × 10000 + divisor/2) / divisor — 정수로 해서 실수 오차가 안 낀다
-        long supplyMagnitude = (magnitude * BP_SCALE + divisor / 2) / divisor;
+        // 반올림: (a × 10000 + divisor/2) / divisor — 정수로 해서 실수 오차가 안 낀다.
+        // 넘치면 던진다 — SQL 의 bigint 도 넘치면 실패한다(조용히 다른 값을 내지 않는다)
+        long supplyMagnitude = Math.addExact(Math.multiplyExact(magnitude, BP_SCALE), divisor / 2) / divisor;
         return Long.signum(inclVat) * supplyMagnitude;
     }
 }

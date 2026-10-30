@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
@@ -337,15 +338,16 @@ class SettlementQueryTest extends PostgresTestBase {
             assertThat(commission.vatAmount()).isEqualTo(atFive.vat());
         }
 
-        /** 저장된 공급가액이 저장된 세율의 역산이 아니면 정산서를 안 낸다 — SQL 식과 Java 식이 어긋난 날 여기서 드러난다 */
+        /** 세율만 고치면 박제한 공급가액과 어긋난다 — 저장 층이 막는다(`settlement_item_vat_supply_check`) */
         @Test
-        @DisplayName("세율과 맞지 않는 공급가액은 읽을 때 거부된다")
+        @DisplayName("세율과 맞지 않는 공급가액은 저장되지 않는다")
         void refusesASupplyAmountThatIsNotTheRatesSplit() {
             closeWith(sellerId);
-            jdbc.sql("update settlement_item set vat_rate_bp = 500 where kind = 'commission'").update();
 
-            assertThatThrownBy(() -> linesOf("s-mine"))
-                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> jdbc.sql("update settlement_item set vat_rate_bp = 500 where kind = 'commission'")
+                    .update())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("settlement_item_vat_supply_check");
         }
 
         @Test

@@ -95,6 +95,16 @@ class VatSplitTest {
         }
     }
 
+    /** SQL 의 bigint 처럼 넘치면 실패한다 — 조용히 다른 값을 내면 두 식이 갈린다 */
+    @Test
+    @DisplayName("넘치는 금액은 거부한다")
+    void rejectsOverflow() {
+        assertThatThrownBy(() -> VatSplit.of(Long.MAX_VALUE / 1_000))
+                .isInstanceOf(ArithmeticException.class);
+        assertThatThrownBy(() -> VatSplit.of(Long.MIN_VALUE))
+                .isInstanceOf(ArithmeticException.class);
+    }
+
     @Test
     @DisplayName("다른 요율의 역산은 만들 수 없다")
     void rejectsAnotherRatesSplit() {

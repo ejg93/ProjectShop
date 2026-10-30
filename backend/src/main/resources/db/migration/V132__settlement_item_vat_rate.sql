@@ -41,3 +41,9 @@ alter table settlement_item add constraint settlement_item_vat_platform_check
 
 alter table settlement_item add constraint settlement_item_vat_rate_range_check
     check (vat_rate_bp between 0 and 10000);
+
+-- 공급가액은 넣는 순간의 식으로 박제한 세율의 역산이다. **읽을 때 다시 재지 않는다** — 반올림 규칙이 바뀌어
+-- 함수를 고쳐도 이미 선 행은 재검사되지 않아 박제가 선다(마무리 74차 독립 리뷰). 읽기 쪽은 식에 안 기대는
+-- 불변식만 본다(`SettlementQuery.Line`).
+alter table settlement_item add constraint settlement_item_vat_supply_check
+    check (supply_amount is null or supply_amount = vat_supply_amount(amount, vat_rate_bp));
