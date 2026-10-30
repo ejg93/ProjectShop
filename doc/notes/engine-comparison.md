@@ -49,7 +49,7 @@
 | 무엇 | 어디 | 우리 |
 |---|---|---|
 | Medusa 는 수정도 `POST` 다(`carts/[id]/line-items/[line_id]/route.ts` 의 `POST`) | Spree 는 `PATCH` | D5 「메서드」 — `PATCH` + `merge-patch+json` |
-| Spree 는 요청 제한 헤더를 `X-RateLimit-Limit`·`X-RateLimit-Remaining` 으로 모든 응답에 싣는다(`rate_limit_headers.rb:5`) | Medusa 범위 밖 | `X-` 는 RFC 6648 로 막는다(D5 「헤더」). 남은 양을 싣는 칸은 없다 — **묶음 4(보안)** 가 요청 제한 줄에서 본다 |
+| Spree 는 요청 제한 헤더를 `X-RateLimit-Limit`·`X-RateLimit-Remaining` 으로 모든 응답에 싣는다(`rate_limit_headers.rb:5`) | Medusa 범위 밖 | `X-` 는 RFC 6648 로 막는다(D5 「헤더」). 남은 양을 싣는 칸은 없다 — **묶음 4(보안)** 가 요청 제한 줄에서 본다. **묶음 4 ⑬ 이 봤다**(2026-10-31) — 셋 중 Spree 하나(1곳)라 행을 안 세웠다 |
 | Spree 주문에 철회 기한 칸이 있다(`order_serializer.rb:17` `withdrawal_period_ends_at`·`within_withdrawal_period`) | — | 청약철회(R3) 기한을 응답에 싣나 — **묶음 3 ⑥ 이 봤다**(같은 시점에 박제해 싣는다). 처음 적은 것: **묶음 3(거래)** 의 입력 |
 
 ---
@@ -130,3 +130,42 @@
 | Spree 는 수수료에 붙는 부가세를 따로 계산해 박제한다(`tax_amount`) | `S:commission_line.rb:16-19` | 수수료가 부가세 포함가다(`Q274`) — 세율·공급가액은 정산 마감 때 박제한다(`Q320`) |
 | Spree 는 원물을 돌려받지 않는 해결(환불·대체품)을 반품과 다른 모델(`Claim`)로 둔다 | `S:claim.rb:1-4,28` | 교환은 「안 다루는 것」에 근거가 있다(`45`). 원물 없는 환불은 없다 |
 | Mercur 는 셀러 지급 계좌가 없거나 꺼져 있으면 지급을 보류하고 다음 실행이 다시 판정한다 | `R:workflows/payout/utils/payout-amounts.ts:219-224` | 지급 대기는 「정산 지급 상태」(`21`). **묶음 5** 의 입력 |
+
+## 묶음 4 — 보안(`점검 AC`, 2026-10-31)
+
+**짝**: Saleor(`saleor/saleor` `cc4aea76e397`, BSD-3 — 설계 해시 그대로) · Medusa(`medusajs/medusa` `da4480ae9a01` 기본 가지 `develop`, MIT) · Spree v3(`spree/spree` `4e46436f3363`, BSD-3). **Medusa·Spree 는 설계 해시(`12a55804efc9`·`8890e33bae96`)에서 움직여 받은 HEAD 를 적었다.** 받은 파일 Saleor 47 · Medusa 357 · Spree 442(희소 받기의 원뿔 모드가 상위 디렉터리 파일을 같이 받는다) — 판정에 연 파일은 엔진당 스물 안팎이다. Spree `core/lib/spree/core/configuration.rb` 하나는 받은 디렉터리 밖이라 같은 해시로 `gh api` 에서 읽었다.
+**표기**: `A:` 는 Saleor 의 `saleor/` 아래, `M:` 은 Medusa 의 저장소 루트 아래, `S:` 는 Spree 의 `spree/` 아래 경로다.
+**우리 쪽**: `security-baseline.md`·`permission-rules.md`·`media-rules.md` 의 절 이름으로 적는다.
+**공식 문서**: 안 열었다 — **판정은 코드가 근거다.**
+**셋 다 없는 것**: 동시접속 제한 · 소유가 곧 권한인 입구의 박제 · 거부의 감사 기록 · EXIF 를 원본에서 지우는 것. 우리 쪽은 규제 등급·법(안전성 확보조치 기준·개인정보법)에서 나온 근거가 있다.
+
+| 항목 | 우리 | Saleor | A 판정 | Medusa | M 판정 | Spree | S 판정 | 처분 |
+|---|---|---|---|---|---|---|---|---|
+| ① 비밀번호 해시 | 「비밀번호 해시 — bcrypt」 cost 10 | `A:settings.py:263-267` — Django 기본 목록(PBKDF2 가 앞) + bcrypt + 자체 SHA512 PBKDF2 | 다르다·근거 있음 | `M:packages/modules/providers/auth-emailpass/src/services/emailpass.ts:51` — scrypt `logN 15, r 8, p 1` | 다르다·근거 있음 | `S:core/lib/spree/core/configuration.rb:187` — 최대 길이를 `ActiveModel::SecurePassword` 상수에서 받는다(bcrypt) | 같다 | 그 절 |
+| ② 비밀번호 규칙 | 「비밀번호 규칙 — 길이만 본다」 15자·블록리스트 | `A:settings.py:477-480` — 최소 8, 검증기는 길이 하나 | 다르다·근거 있음 | `M:…/emailpass.ts:107` — 문자열인지만 본다 | 다르다·근거 있음 | `S:core/lib/spree/core/configuration.rb:184-187` · `core/app/validators/spree/password_length_validator.rb:13-19` — 최소 8·최대 72 | 다르다·근거 있음 | NIST SP 800-63B-4(표준) — 그 절 |
+| ③ 세션 | 「세션 — Redis」 무활동 30분·절대 12시간·로그인 때 ID 재발급 | `A:settings.py:992-999` — JWT access 5분·refresh 30일 | 다르다·근거 있음 | `M:packages/core/framework/src/http/express-loader.ts:70-79,98-103` — `express-session` + Redis 10시간. 로그인이 세션 ID 를 안 간다(`M:packages/medusa/src/api/auth/session/route.ts:11`) | 다르다·근거 있음 | `S:api/lib/spree/api/configuration.rb:6-14` — JWT 1시간(관리자 5분)·refresh 30일 | 다르다·근거 있음 | `PLAN.md` 「인증은 세션 쿠키, JWT 아님」 · ID 재발급은 그 절 |
+| ④ 쿠키 속성 | 「쿠키 속성」 `HttpOnly`·`SameSite=Lax`·`Secure`(배포) | `A:core/middleware.py:25-43` — refresh 토큰 쿠키 `httponly`·`secure`(DEBUG 밖)·`SameSite=None`(secure 일 때) | 다르다·근거 있음 | `M:…/express-loader.ts:37-41,70-79` — `lax`·`secure` 는 운영만 | 같다 | 쿠키 세션이 없다 — JWT 를 헤더로 싣는다(`S:api/app/controllers/concerns/spree/api/v3/jwt_authentication.rb`) | 범위 밖 | 그 절 |
+| ⑤ 로그인 실패 제한 | 「로그인 실패 제한」 (계정, IP) 5회 / 15분 | `A:account/throttling.py:14-16,95-128` — IP 단위(10회마다)와 (IP, 계정) 단위(매회) 지연을 2배씩, 1초~3600초 | 다르다·근거 있음 | 없다 — 시도 수는 MFA 챌린지에만(`M:packages/modules/auth/src/services/auth-module.ts:457-514`) | 다르다·근거 있음 | `S:core/lib/spree/core/configuration.rb:178-179` · `core/app/models/concerns/spree/account_lockout.rb:24-27` — 계정만 5회 / 30분 잠금 | 다르다·근거 있음 | 그 절 — 계정만 잠그면 남의 계정을 잠그는 공격이 열린다 · NIST 5.2.2 |
+| ⑥ 동시접속 | 「동시접속은 1개다」 | 없다 | 다르다·근거 있음 | 없다 | 다르다·근거 있음 | 없다 | 다르다·근거 있음 | 그 절 — `real-service-comparison.md` 「규제」 등급 |
+| ⑦ 계정이 죽은 뒤 세션 | 「계정이 죽었는데 세션이 살아 있는 구간」 두 겹(ADR `0010`) | `A:core/jwt.py:125-136` — 요청마다 `is_active` 와 `jwt_token_key` 를 댄다 | 같다 | `M:packages/core/framework/src/http/middlewares/authenticate-middleware.ts:241-244` — 세션의 `auth_context` 를 다시 안 본다 | 다르다·근거 있음 | `S:api/app/controllers/concerns/spree/api/v3/jwt_authentication.rb:120-142` · `core/app/models/concerns/spree/account_deactivation.rb:21-40` — 요청마다 비활성·익명화를 보고, 비활성화가 토큰을 다 거둔다 | 같다 | ADR `0010` |
+| ⑧ 응답 문구 | 「응답 문구는 계정 존재 여부를 안 흘린다」 — 시간도 | `A:account/throttling.py:47-52` · `graphql/account/mutations/authentication/create_token.py:53-61` — 한 문구, 없는 계정도 빈 `User` 로 해시를 돈다. 비활성·미확인 문구는 비밀번호가 맞은 뒤다 | 같다 | `M:…/emailpass.ts:121-144` — 한 문구지만 없는 계정은 해시 없이 끝나 시간이 갈린다 | 다르다·근거 있음 | `S:core/app/models/spree/authentication/strategies/email_password_strategy.rb:11-18` — 없는 계정은 해시 없이 끝나고, 잠긴 계정은 다른 문구(「Account temporarily locked」) | 다르다·근거 있음 | 그 절 |
+| ⑨ 판정 모델 | 「판정 순서」 역할×권한, 스코프 `all`>`seller`>`own`, deny 먼저 | `A:permission/utils.py:12-31` · `account/models.py:468-469` — 권한 전부 충족(allow 만), 그룹을 채널로 좁힌다 | 다르다·근거 있음 | `M:packages/modules/rbac/src/models/rbac-policy.ts:5-8` · `M:…/middlewares/check-permissions.ts:29-52` — `resource:operation` allow 만, 역할 상속 | 다르다·근거 있음 | `S:core/app/models/spree/ability.rb:104-105` · `role_user.rb:3,23` — `can`·`cannot`(마지막에 맞는 규칙이 이긴다), 역할에 스토어·셀러 범위 | 다르다·근거 있음 | `permission-models.md` 가 모델을 고른 근거 · 그 절 |
+| ⑩ 필드 그룹 | 「필드 그룹」 마스킹 + `_visible_field_groups` | GraphQL 필드 권한은 타입 정의에 있고 그 디렉터리를 안 받았다 | 범위 밖 | `M:packages/core/framework/src/http/utils/policies/rbac-field-filter.ts:404-440` — 관계마다 읽기 권한으로 필드를 거르고, 거른 것을 응답에 안 밝힌다 | 다르다·근거 있음 | `S:api/app/controllers/concerns/spree/api/v3/admin/embed_permissions.rb` 머리 주석 — `expand` 경로 마디마다 키, 기프트카드 코드 마스킹, 밝히는 칸 없음 | 다르다·근거 있음 | 그 절 |
+| ⑪ 판정을 안 지나는 입구 | 「판정을 안 지나는 입구」 `ArchitectureTest` 박제 | 받은 디렉터리에 없다 | 다르다·근거 있음 | 없다 | 다르다·근거 있음 | 없다 | 다르다·근거 있음 | 그 절 |
+| ⑫ 거부 기록 | 「판정 결과의 종류」 `decide` 만 감사 로그에 | `A:graphql/core/mutations.py:499-524` — `PermissionDenied` 를 던지기만 | 다르다·근거 있음 | `M:…/check-permissions.ts:42-52` — `FORBIDDEN` 을 던지기만 | 다르다·근거 있음 | `S:api/app/controllers/concerns/spree/api/v3/error_handler.rb:109-110` — 응답만 | 다르다·근거 있음 | 접속기록(안전성 확보조치 기준 — 법) |
+| ⑬ 요청 제한 | `RateLimitFilter` 주소 단위 1분 창, 인증 경로 20·나머지 120, 429 + `Retry-After` 60, 남은 양 헤더 없음 | 없다(로그인 지연 가중만, ⑤) | 다르다·근거 있음 | 없다(`modules/search/src/utils/rate-limit.ts` 는 검색 공급자 호출용) | 다르다·근거 있음 | `S:api/lib/spree/api/configuration.rb:17-23` · `api/app/controllers/concerns/spree/api/v3/rate_limit_headers.rb:39-61` — 공개 키+IP 300·비밀 키 600 / 분, 로그인 5·가입 3·재설정 3 / IP. `X-RateLimit-Limit`·`X-RateLimit-Remaining` 을 모든 응답에, 넘으면 `Retry-After` | 다르다·근거 있음 | 값의 근거가 `RateLimitFilter` Javadoc 에만 있었다 → `security-baseline.md` 「요청 제한」 절로 올렸다. **헤더는 우리에 없음 · 1곳**(Spree) — 행을 안 세운다(2026-10-30 사용자). IETF `draft-ietf-httpapi-ratelimit-headers` -11(2026-05-23)은 RFC 가 아니다 — RFC 가 되면 「바깥 근거」 점검이 본다 |
+| ⑭ 프록시 뒤 IP | 「프록시 뒤의 클라이언트 IP」 `native` · `X-Real-IP` · 사설·루프백 신뢰 | `A:settings.py:828-830` — 환경변수로 헤더 하나(기본 `REMOTE_ADDR`), 신뢰 대역 없음 | 다르다·근거 있음 | `M:…/express-loader.ts:109` — `trust proxy 1`(한 홉 `X-Forwarded-For`) | 다르다·근거 있음 | `S:…/rate_limit_headers.rb:45-47` — Rails `request.remote_ip` | 다르다·근거 있음 | 그 절(`Q242` — 앞단이 적는 헤더) |
+| ⑮ 제한값 | 「받는 것 — 제한값」 5 MiB·10장·JPEG·PNG | `A:settings.py:500-509,1257` — 10 MB · 3천만 화소 · 이미지 MIME 일곱 | 다르다·근거 있음 | 크기 상한 없음(`M:packages/medusa/src/api/admin/uploads/middlewares.ts:14` 메모리 저장) · MIME 목록 없음 | 다르다·근거 있음 | `S:core/lib/spree/core/configuration.rb:116,125` — 직접 업로드 5 GB · 동영상 500 MB | 다르다·근거 있음 | 관례 값이라 **수를 셌다** → `media-rules.md` 「받는 것」에 적었다. 결정은 안 바꾼다. 장수 상한은 셋 다 받은 디렉터리에 없다 |
+| ⑯ 판별 순서 | 매직 바이트 → 확장자 짝 → 크기, 413/415/422 | `A:graphql/core/validators/file.py:26-66,111` — 매직 바이트 + 확장자 짝 + 크기. 오류는 GraphQL 오류 하나라 상태 코드가 없다 | 같다 | `M:packages/medusa/src/api/admin/uploads/route.ts:26` — 보낸 쪽 MIME 을 그대로 쓴다 | 다르다·근거 있음 | `S:core/app/validators/spree/attachment_content_type_validator.rb:1-27` — 매직 바이트(Marcel)는 낮은 신뢰 업로드(구매 주문서·셀러 서류)에만, 직접 업로드는 선언한 `content_type`·`byte_size`(`core/app/models/spree/file_upload.rb:19-37`) | 다르다·근거 있음 | 「클라이언트가 보낸 `Content-Type` 을 안 믿는다」(OWASP) |
+| ⑰ EXIF | 「EXIF 를 지운다」 저장 전 다시 인코딩 | `A:thumbnail/utils.py:199-243` — 썸네일은 EXIF 를 안 실어 빠지지만 원본은 받은 대로 두고 연다(`:60-70` 「original-image」) | 다르다·근거 있음 | 지우는 코드 없음 | 다르다·근거 있음 | 지우는 코드 없음(`S:core/lib/spree/core/configuration.rb` 에 `strip`·`saver` 0) | 다르다·근거 있음 | 그 절 — 개인정보(법) |
+| ⑱ 키·여는 법 | 「두는 곳」·「여는 법」 키에 원본 이름·순번 없음, 공개 5분 서명·비공개 판정 프록시 | `A:thumbnail/utils.py:113-116` — 파일 이름이 원본 이름에서 나온다, 이미지는 앱 프록시 주소(`:35-70`) | 다르다·근거 있음 | `M:packages/modules/providers/file-s3/src/services/s3-file.ts:122,196-200` — 키 `{prefix}{원본 이름}-{ulid}{확장자}`, 서명 URL 1시간, 공개·비공개 ACL | 다르다·근거 있음 | `S:core/app/models/spree/file_upload.rb:22,34` · `core/app/models/concerns/spree/signed_id_attachments.rb:2-7` — 공개·비공개 갈래, 첨부는 서명 ID 로 잇는다 | 같다 | 그 절 |
+
+**판정 쉰넷**: 같다 7 · 다르다·근거 있음 45 · 범위 밖 2 · 근거 없이 다른 것 0 · 우리에 없음 0(헤더 하나는 1곳). **신규 행 0** — `Q341`~`Q348` 은 안 썼다. 근거가 문서 밖에 있던 둘(⑬ 값은 Javadoc, ⑮ 값은 「안 셌다」)을 기준 문서로 올렸다.
+
+### 열여덟 밖에서 눈에 띈 것
+
+| 무엇 | 어디 | 우리 |
+|---|---|---|
+| Saleor 는 디코딩 화소 수를 따로 막는다 — 파일 크기 상한은 디코딩 메모리를 못 막는다(8000×8000 WebP 예) | `A:settings.py:505-509` | **화소 상한이 없다**(`ImagePipeline` 이 크기만 본다). 1곳이라 행을 안 세웠다 — **묶음 4 처분 설계가 볼 것**(5 MiB PNG 가 풀리면 얼마인지부터) |
+| Spree 는 관리자 JWT 를 5분으로 손님(1시간)보다 짧게 둔다(「관리자 토큰은 폭발 반경이 크다」) | `S:api/lib/spree/api/configuration.rb:7` | 세션 만료는 역할로 안 가른다(「세션 — Redis」). 재인증은 「동시접속은 1개다」가 「아직 안 한다」로 적었다 |
+| Spree 는 요청 본문을 100KB 로 막는다 | `S:api/lib/spree/api/configuration.rb:26` | 본문 상한은 이 묶음의 자리가 아니다 — 업로드는 ⑮ 가 든다 |
