@@ -44,7 +44,7 @@ public record VatSplit(long inclVat, long supply, long vat, int rateBp) {
         }
     }
 
-    /** 지금 세율로 나눈다 — 정산 마감이 박제할 값을 낼 때 */
+    /** 지금 세율로 나눈다. 정산 마감은 SQL {@code vat_supply_amount} 로 박제하고, 이 식은 그 대조 사본이다 */
     public static VatSplit of(long inclVat) {
         return of(inclVat, VAT_RATE_BP);
     }

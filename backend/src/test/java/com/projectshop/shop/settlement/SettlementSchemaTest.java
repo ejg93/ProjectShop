@@ -448,7 +448,37 @@ class SettlementSchemaTest extends PostgresTestBase {
                     .hasMessageContaining("settlement_item_vat_platform_check");
         }
 
-        /** SQL 식과 {@link VatSplit} 이 같은 값을 낸다 — 다르면 정산서를 읽을 때 생성자가 거부한다 */
+        /** 한쪽만 찬 줄도 막는다 — 두 칸을 따로 재야 「둘 다 비었다」와 「하나만 찼다」가 갈린다(PR #119 리뷰) */
+        @Test
+        @DisplayName("셀러가 공급한 줄에는 세율 칸만도 없다")
+        void sellerLineHasNoRateAlone() {
+            assertSellerLineRefuses("vat_rate_bp");
+        }
+
+        @Test
+        @DisplayName("셀러가 공급한 줄에는 공급가액 칸만도 없다")
+        void sellerLineHasNoSupplyAlone() {
+            assertSellerLineRefuses("supply_amount");
+        }
+
+        /** 실패가 트랜잭션을 깨므로 시험 하나에 한 번만 부른다 */
+        private void assertSellerLineRefuses(String column) {
+            long settlementId = insertSettlement(PRICE, 0);
+            long orderItemId = anOrderItem();
+
+            assertThatThrownBy(() -> jdbc.sql("""
+                            insert into settlement_item (settlement_id, kind, amount, order_item_id, %s)
+                            values (:id, 'sale', :amount, :orderItemId, 1000)
+                            """.formatted(column))
+                    .param("id", settlementId)
+                    .param("amount", PRICE)
+                    .param("orderItemId", orderItemId)
+                    .update())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("settlement_item_vat_platform_check");
+        }
+
+        /** SQL 식과 {@link VatSplit} 이 같은 값을 낸다 — 마감 insert 는 SQL 로, 상수와 대조 사본은 Java 로 낸다 */
         @Test
         @DisplayName("공급가액 함수는 VatSplit 과 같은 값이다")
         void supplyFunctionMatchesVatSplit() {

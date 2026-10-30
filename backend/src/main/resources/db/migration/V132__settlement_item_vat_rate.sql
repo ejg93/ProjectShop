@@ -13,7 +13,7 @@
 -- 과거 금액이 달라지고, 금액만이면 왜 그 금액인지 못 따라간다. 세액은 `amount - supply_amount` 가 정의다.
 
 -- 부가세 포함 금액의 공급가액. **`VatSplit.supplyOf` 와 같은 식이다** — 부호를 떼고 만분율로 반올림해 다시 붙인다.
--- 둘이 다르면 정산서를 읽을 때 `VatSplit` 생성자가 저장값을 거부한다.
+-- 둘이 같은지는 `SettlementSchemaTest` 가 잰다. 넣는 순간의 대조는 아래 `settlement_item_vat_supply_check` 가 한다.
 create function vat_supply_amount(p_amount bigint, p_rate_bp int) returns bigint
 language sql immutable as $$
     select sign(p_amount)::bigint
@@ -35,9 +35,10 @@ update settlement_item
  where kind in ('commission', 'commission_reversal');
 
 -- 플랫폼이 공급한 줄이면 반드시 있고, 아니면 없다. `supplier` 생성 열과 같은 목록이다(`V88`).
+-- **칸마다 따로 잰다** — 둘을 `and` 로 묶으면 셀러 줄에 한 칸만 찬 행이 「둘 다 찼나 = 아니다」로 지나간다(PR #119 리뷰).
 alter table settlement_item add constraint settlement_item_vat_platform_check
-    check ((kind in ('commission', 'commission_reversal'))
-           = (vat_rate_bp is not null and supply_amount is not null));
+    check ((kind in ('commission', 'commission_reversal')) = (vat_rate_bp is not null)
+           and (kind in ('commission', 'commission_reversal')) = (supply_amount is not null));
 
 alter table settlement_item add constraint settlement_item_vat_rate_range_check
     check (vat_rate_bp between 0 and 10000);
