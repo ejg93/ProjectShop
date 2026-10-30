@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Td, Th } from "@/components/table-cells";
 import { dateTimeText, priceText } from "@/lib/format";
 import { paymentStatusText } from "@/lib/order-text";
+import { type Page } from "@/lib/paging";
 
 /** 관리자 목록 한 줄(`Q176`). <b>구매자가 안 온다</b> — 누가 샀나는 상세의 필드 그룹이 가른다(`4d`) */
 export type AdminOrder = {
@@ -13,7 +14,7 @@ export type AdminOrder = {
   createdAt: string;
 };
 
-export type AdminOrderPage = { items: AdminOrder[]; page: number; size: number; total: number };
+export type AdminOrderPage = Page<AdminOrder>;
 
 /**
  * 화면이 받는 조건. <b>끝날은 그날을 넣는다</b> — 사람은 「23일까지」를 23일 포함으로 읽는다.

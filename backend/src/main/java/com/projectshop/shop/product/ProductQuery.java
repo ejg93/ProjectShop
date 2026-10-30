@@ -12,6 +12,8 @@ import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import com.projectshop.shop.auth.Allowed;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -23,6 +25,8 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.inquiry.InquiryQuery;
+import com.projectshop.shop.review.ReviewQuery;
 
 /**
  * 상품을 찾아 본다. <b>공개 목록과 셀러 목록을 가른다.</b>
@@ -124,7 +128,7 @@ public class ProductQuery {
             long minPriceInclVat, long totalStock, OffsetDateTime createdAt, long createdByUserId) {
     }
 
-    public record PublicPage(List<PublicItem> items, int page, int size, long total) {
+    public record PublicPage(List<PublicItem> items, long offset, int limit, long total) {
     }
 
     /**
@@ -142,7 +146,22 @@ public class ProductQuery {
     public record PublicDetail(long productId, long sellerId, String sellerName, String name,
             String description, boolean withdrawalRestricted, String withdrawalRestrictionReason,
             long shippingFee, Integer supplyLeadDays, List<String> imageUrls, List<OptionGroup> options,
-            List<PublicSku> skus, OffsetDateTime createdAt, List<Long> imageIds) {
+            List<PublicSku> skus, OffsetDateTime createdAt, List<Long> imageIds,
+            @JsonInclude(JsonInclude.Include.NON_NULL) ReviewQuery.Result reviews,
+            @JsonInclude(JsonInclude.Include.NON_NULL) InquiryQuery.Page<InquiryQuery.PublicEntry> inquiries) {
+
+        /**
+         * 하위 목록 첫 쪽을 끼운 사본(`Q309b`). <b>안 고른 것은 null 이라 응답에서 빠진다</b>.
+         *
+         * @param reviews   {@code expand=reviews} 일 때 후기 입구의 첫 쪽. 아니면 null
+         * @param inquiries {@code expand=inquiries} 일 때 문의 입구의 첫 쪽. 아니면 null
+         */
+        public PublicDetail expanded(ReviewQuery.Result reviews,
+                InquiryQuery.Page<InquiryQuery.PublicEntry> inquiries) {
+            return new PublicDetail(productId, sellerId, sellerName, name, description, withdrawalRestricted,
+                    withdrawalRestrictionReason, shippingFee, supplyLeadDays, imageUrls, options, skus, createdAt,
+                    imageIds, reviews, inquiries);
+        }
     }
 
     /** 옵션 하나와 고를 수 있는 값들. 「색상」에 「빨강·파랑」 같은 것 */
@@ -161,7 +180,7 @@ public class ProductQuery {
     public record PublicSku(long skuId, long priceInclVat, boolean inStock, List<Long> optionValueIds) {
     }
 
-    public record SellerPage(List<SellerItem> items, int page, int size, long total) {
+    public record SellerPage(List<SellerItem> items, long offset, int limit, long total) {
     }
 
     /**
@@ -177,7 +196,7 @@ public class ProductQuery {
 
         List<PublicItem> items = jdbc.sql(listSql(sellerId, orderBy))
                 .param("sellerId", sellerId)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> publicItem(rs))
                 .list();
@@ -187,7 +206,7 @@ public class ProductQuery {
                 .query(Long.class)
                 .single();
 
-        return new PublicPage(items, paging.page(), paging.size(), total);
+        return new PublicPage(items, paging.offset(), paging.limit(), total);
     }
 
     /** 공개 목록 SQL 전체. 시험이 같은 문장의 실행 계획을 본다({@code ProductQueryTest}) */
@@ -279,7 +298,7 @@ public class ProductQuery {
                 .param("sellers", sellers)
                 .param("sellerId", sellerId)
                 .param("status", statusCode)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new SellerItemRow(
                         rs.getLong("product_id"),
@@ -322,7 +341,7 @@ public class ProductQuery {
                 .query(Long.class)
                 .single();
 
-        return new SellerPage(items, paging.page(), paging.size(), total);
+        return new SellerPage(items, paging.offset(), paging.limit(), total);
     }
 
     /**
@@ -365,7 +384,7 @@ public class ProductQuery {
                         List.of(),
                         List.of(),
                         rs.getObject("created_at", OffsetDateTime.class),
-                        List.of()))
+                        List.of(), null, null))
                 .optional()
                 // 파는 중이 아닌 것과 아예 없는 것을 안 가른다. 가르면 draft 상품의 존재가 샌다.
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
@@ -373,7 +392,7 @@ public class ProductQuery {
         return new PublicDetail(head.productId(), head.sellerId(), head.sellerName(), head.name(),
                 head.description(), head.withdrawalRestricted(), head.withdrawalRestrictionReason(),
                 head.shippingFee(), head.supplyLeadDays(), findImageUrls(productId), findOptions(productId),
-                findPublicSkus(productId), head.createdAt(), findImageIds(productId));
+                findPublicSkus(productId), head.createdAt(), findImageIds(productId), null, null);
     }
 
     /**

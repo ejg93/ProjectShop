@@ -69,8 +69,8 @@ const lines = {
       vatAmount: 50,
     },
   ],
-  page: 0,
-  size: 50,
+  offset: 0,
+  limit: 50,
   total: 3,
 };
 

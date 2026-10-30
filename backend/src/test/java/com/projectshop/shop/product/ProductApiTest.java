@@ -139,8 +139,8 @@ class ProductApiTest extends PostgresTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.items[0].name").value("공개 티셔츠"))
-                .andExpect(jsonPath("$.page").value(0))
-                .andExpect(jsonPath("$.size").isNumber())
+                .andExpect(jsonPath("$.offset").value(0))
+                .andExpect(jsonPath("$.limit").isNumber())
                 .andExpect(jsonPath("$.total").value(1));
 
         mvc.perform(get("/api/products").param("q", "없는낱말"))

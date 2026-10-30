@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { NewCouponForm } from "./new-coupon-form";
 import { WithdrawCouponButton } from "./withdraw-coupon-button";
@@ -32,11 +33,7 @@ type CouponDefinition = {
   issueEndAt: string | null;
 };
 
-type CouponDefinitionPage = {
-  items: CouponDefinition[];
-  page: number;
-  size: number;
-  total: number;
+type CouponDefinitionPage = Page<CouponDefinition> & {
   /** 만들 수 있나. **읽기와 만들기가 다른 권한이라** 칸으로 가른다(청크 16 의 canAssign 과 같다) */
   canCreate: boolean;
 };
@@ -56,7 +53,7 @@ type CouponDefinitionPage = {
  * <p>바깥 틀은 {@code admin/layout.tsx} 가 진다.
  */
 export default async function AdminCouponsPage() {
-  const page = await apiSession<CouponDefinitionPage>("/api/coupons?page=0&size=50");
+  const page = await apiSession<CouponDefinitionPage>(`/api/coupons?${pageQuery(0, 50)}`);
 
   return (
     <>

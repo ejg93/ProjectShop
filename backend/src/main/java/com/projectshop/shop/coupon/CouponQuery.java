@@ -61,7 +61,7 @@ public class CouponQuery {
             OffsetDateTime issueEndAt) {}
 
     @Schema(name = "MyCouponPage")
-    public record IssuedPage(List<Issued> items, int page, int size, long total) {}
+    public record IssuedPage(List<Issued> items, long offset, int limit, long total) {}
 
     /**
      * @param canCreate 만들 수 있나. <b>읽기와 만들기가 다른 권한이라 칸으로 가른다</b> —
@@ -70,7 +70,7 @@ public class CouponQuery {
      *        과 같은 판단)
      */
     @Schema(name = "CouponDefinitionPage")
-    public record DefinitionPage(List<Definition> items, int page, int size, long total,
+    public record DefinitionPage(List<Definition> items, long offset, int limit, long total,
             boolean canCreate) {}
 
     /**
@@ -100,8 +100,8 @@ public class CouponQuery {
                          limit :size offset :offset
                         """)
                 .param("userId", userId)
-                .param("size", paging.size())
-                .param("offset", paging.page() * paging.size())
+                .param("size", paging.limit())
+                .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Issued(
                         rs.getLong("coupon_issue_id"),
                         rs.getString("name"),
@@ -119,7 +119,7 @@ public class CouponQuery {
                 .query(Long.class)
                 .single();
 
-        return new IssuedPage(items, paging.page(), paging.size(), total);
+        return new IssuedPage(items, paging.offset(), paging.limit(), total);
     }
 
     /**
@@ -144,8 +144,8 @@ public class CouponQuery {
                          order by coupon_id desc
                          limit :size offset :offset
                         """)
-                .param("size", paging.size())
-                .param("offset", paging.page() * paging.size())
+                .param("size", paging.limit())
+                .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Definition(
                         rs.getLong("coupon_id"),
                         rs.getString("code"),
@@ -169,6 +169,6 @@ public class CouponQuery {
                 .decide(actorUserId, "coupon", "create", new Target(null, null, null))
                 .allowed();
 
-        return new DefinitionPage(items, paging.page(), paging.size(), total, canCreate);
+        return new DefinitionPage(items, paging.offset(), paging.limit(), total, canCreate);
     }
 }

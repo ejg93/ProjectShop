@@ -169,7 +169,7 @@ doc/reference/state-machines.md	`return_requested` → `delivered`
 KNOWN
 )
 
-# **설계 행 형식**(`Q218`, `/design` 「행 형식」). 「번호 절차」가 있는 안 닫힌 행은 결정·실패 사다리가 있고
+# **설계 행 형식**(`Q218`, `CLAUDE.md` 「행 형식」). 「번호 절차」가 있는 안 닫힌 행은 결정·실패 사다리가 있고
 # 닫힘이 번호 하나(①~⑨)를 가리킨다. 하나라도 빠지면 실행 세션(Opus)이 그 행에서 멈춘다 — 설계가 없애려는 것이
 # 바로 그 멈춤이다. **0 기준** — 설계 세션이 미달 여덟을 채웠다(2026-09-25).
 # **「불확실」도 있어야 한다**(`Q259`) — 확인 못 한 가정을 사실과 가르는 칸이다(`Q258`). 「없다」도 적어야 지나간다 —
@@ -513,7 +513,7 @@ elif [ "$plan_test_count" -lt "$plan_test_counts_baseline" ]; then
 fi
 
 if [ -n "$design_incomplete" ]; then
-  echo "[설계 행 누락] PLAN.md — 번호 절차가 있는 안 닫힌 행에 결정·불확실·실패 사다리·「닫힘: ①~⑨」 중 빠진 것이 있다(/design 「행 형식」):"
+  echo "[설계 행 누락] PLAN.md — 번호 절차가 있는 안 닫힌 행에 결정·불확실·실패 사다리·「닫힘: ①~⑨」 중 빠진 것이 있다(CLAUDE.md 「행 형식」):"
   echo "$design_incomplete" | sed 's/^/    /'
   fail=1
 fi

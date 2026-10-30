@@ -117,7 +117,7 @@ public class OrderQuery {
     }
 
     @Schema(name = "OrderPage")
-    public record Page(List<Summary> items, int page, int size, long total) {
+    public record Page(List<Summary> items, long offset, int limit, long total) {
     }
 
     /**
@@ -276,7 +276,7 @@ public class OrderQuery {
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
         if (!evaluator.decide(userId, "order", "read", Target.ownedBy(userId)).allowed()) {
-            return new Page(List.of(), paging.page(), paging.size(), 0);
+            return new Page(List.of(), paging.offset(), paging.limit(), 0);
         }
 
         List<Summary> items = jdbc.sql("""
@@ -292,7 +292,7 @@ public class OrderQuery {
                 + " order by " + orderBy.clause() + ", o.order_id desc"
                 + " limit :size offset :offset")
                 .param("userId", userId)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Summary(
                         rs.getString("order_number"),
@@ -307,7 +307,7 @@ public class OrderQuery {
                 .query(Long.class)
                 .single();
 
-        return new Page(items, paging.page(), paging.size(), total);
+        return new Page(items, paging.offset(), paging.limit(), total);
     }
 
     /**
@@ -360,7 +360,7 @@ public class OrderQuery {
                 .param("status", storedStatus)
                 .param("fromAt", fromAt)
                 .param("toAt", toAt)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Summary(
                         rs.getString("order_number"),
@@ -377,7 +377,7 @@ public class OrderQuery {
                 .query(Long.class)
                 .single();
 
-        return new Page(items, paging.page(), paging.size(), total);
+        return new Page(items, paging.offset(), paging.limit(), total);
     }
 
     /** 요청의 상태({@code PAID})를 저장 값({@code paid})으로. 모르는 값은 400 이다 — 조용히 전부를 주면 필터가 먹은 줄 안다 */

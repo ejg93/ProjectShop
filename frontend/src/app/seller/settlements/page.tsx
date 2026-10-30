@@ -6,6 +6,7 @@ import { Td, Th } from "@/components/table-cells";
 import { apiSession } from "@/lib/api-session";
 import { dateText, priceText } from "@/lib/format";
 import { payoutStatusText } from "@/lib/settlement-text";
+import { lastPageOf, pageQuery, type Page } from "@/lib/paging";
 
 export const metadata: Metadata = { title: "정산서 · ProjectShop" };
 
@@ -25,12 +26,7 @@ type SettlementSummary = {
   createdAt: string;
 };
 
-type SettlementPage = {
-  items: SettlementSummary[];
-  page: number;
-  size: number;
-  total: number;
-};
+type SettlementPage = Page<SettlementSummary>;
 
 /**
  * 정산서 목록(`20-1`).
@@ -56,9 +52,9 @@ export default async function SettlementsPage({
   const requested = await searchParams;
   const page = pageNumberOf(requested.page);
 
-  const query = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+  const query = pageQuery(page, PAGE_SIZE);
   const result = await apiSession<SettlementPage>(`/api/settlements?${query}`);
-  const lastPage = Math.max(0, Math.ceil(result.total / result.size) - 1);
+  const lastPage = lastPageOf(result);
 
   return (
     <>
@@ -73,7 +69,7 @@ export default async function SettlementsPage({
         <>
           <SettlementTable items={result.items} />
           <Pager
-            page={result.page}
+            page={page}
             lastPage={lastPage}
             total={result.total}
             basePath="/seller/settlements"

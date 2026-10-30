@@ -323,6 +323,8 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 |---|---|---|---|---|
 | https://github.com/medusajs/medusa | `5ac3fdcbf82e`(2026-10-28) | MIT — `ENTERPRISE-LICENSE.md` 가 든 폴더만 밖 | `packages/core/framework/src/http` · `packages/core/utils/src/common` · `packages/medusa/src/api/store`·`api/utils` | 1 API 계약(`점검 X`) |
 | https://github.com/spree/spree | `f227994feffd`(2026-10-28) | BSD-3-Clause | `spree/api/app/controllers/spree/api/v3` · `controllers/concerns` · `serializers/spree/api/v3` | 1 API 계약(`점검 X`) |
+| https://github.com/saleor/saleor | `c982006`(2026-10-27) | BSD-3-Clause | `saleor/order` · `saleor/tax` · `saleor/discount` · `saleor/payment` · `saleor/checkout` · `saleor/core/prices.py` — 반올림 기본값은 `mirumee/prices`(`95fd44366d9b`, `gh api`) | 2 데이터 모델·돈(`점검 Y`) — 금액·세금 겹 |
+| https://github.com/solidusio/solidus | `f41bf95`(2026-10-28) | BSD-3-Clause | `core/app/models/spree` · `core/db/migrate` · `core/lib/spree/core` | 2 데이터 모델·돈(`점검 Y`) — 주문·조정 행 |
 
 ## D2 법·정책 (완료)
 
@@ -435,6 +437,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | RFC 9457 · W3C Trace Context | IETF Trust / W3C 문서 라이선스 | 형식을 따랐다 |
 | Zalando RESTful API Guidelines | MIT | 규칙을 따르고 **벗어난 넷**을 명시했다 — 페이징·전체 개수(`SHOULD`) 와 버전 위치·운반(`MUST` 115·114, 청크 `72`). 목록과 근거는 `api-guidelines.md` 「기준에서 벗어난 것」이 든다 |
 | `design-taste-frontend` 스킬 (Leonxlnx/taste-skill) | **MIT** | 사본이 `.agents/skills/design-taste-frontend/` 에 있다. **고지를 그 옆 `LICENSE` 에 뒀다**(`2l-1`) — MIT 는 사본에 저작권 고지가 있어야 성립한다 |
+| Superpowers 플러그인 (obra/superpowers) 7.0.0 | **MIT** (2026-10-29 확인, 플러그인 캐시의 `LICENSE`) | 사본이 없다 — 저장소 local 범위로 깔린 플러그인이라 이 저장소에 파일이 안 들어온다. 관례(4순위)라 `CLAUDE.md` 「Superpowers 와 잇는 법」이 덮는다(`Q330`) |
 
 ### 데모 상품 사진
 

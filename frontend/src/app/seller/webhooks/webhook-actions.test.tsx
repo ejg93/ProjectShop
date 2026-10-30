@@ -74,7 +74,7 @@ describe("셀러 웹훅", () => {
           // 상태만 보고 고르면 이 줄에도 버튼이 선다 — 서버가 안 줬으니 없어야 한다(`Q79`).
           delivery(13, "FAILED", []),
         ],
-        page: 0, size: 20, total: 3,
+        offset: 0, limit: 20, total: 3,
       });
 
     const { container } = render(
@@ -82,7 +82,7 @@ describe("셀러 웹훅", () => {
     );
 
     expect(screen.getAllByRole("button", { name: "다시 보내기" })).toHaveLength(1);
-    expect(apiSession).toHaveBeenLastCalledWith("/api/seller/webhooks/3/deliveries?page=0&size=20");
+    expect(apiSession).toHaveBeenLastCalledWith("/api/seller/webhooks/3/deliveries?offset=0&limit=20");
     await expectNoAxeViolations(container);
   });
 });

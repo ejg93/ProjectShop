@@ -17,6 +17,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.VatSplit;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -149,13 +150,20 @@ public class SettlementQuery {
      *                       경로</b>다 — {@code PAYOUT_REQUEST} 가 {@code /api/settlements/{번호}/payout-request} 다
      */
     @Schema(name = "SettlementDetail")
-    public record Detail(Summary summary, List<KindTotal> totals, List<String> allowedActions) {}
+    public record Detail(Summary summary, List<KindTotal> totals, List<String> allowedActions,
+            @JsonInclude(JsonInclude.Include.NON_NULL) LinePage lines) {
+
+        /** 줄 입구의 첫 쪽을 끼운 사본(`Q309b`). {@code expand=lines} 가 아니면 null 이라 응답에서 빠진다 */
+        public Detail expanded(LinePage lines) {
+            return new Detail(summary, totals, allowedActions, lines);
+        }
+    }
 
     @Schema(name = "SettlementPage")
-    public record Page(List<Summary> items, int page, int size, long total) {}
+    public record Page(List<Summary> items, long offset, int limit, long total) {}
 
     @Schema(name = "SettlementLinePage")
-    public record LinePage(List<Line> items, int page, int size, long total) {}
+    public record LinePage(List<Line> items, long offset, int limit, long total) {}
 
     /**
      * 정산서 머리. 응답에 안 나가는 넷을 같이 든다 — 줄을 거를 번호, 권한 대상인 셀러,
@@ -218,7 +226,7 @@ public class SettlementQuery {
                         """)
                 .param("seesEverything", visible.everything())
                 .param("sellers", visible.sellers())
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> summaryOf(rs))
                 .list();
@@ -232,7 +240,7 @@ public class SettlementQuery {
                 .query(Long.class)
                 .single();
 
-        return new Page(items, paging.page(), paging.size(), total);
+        return new Page(items, paging.offset(), paging.limit(), total);
     }
 
     /**
@@ -259,7 +267,7 @@ public class SettlementQuery {
                 .list();
 
         return new Detail(head.summary(), totals,
-                payoutActions(viewerId, head.sellerId(), head.requestedBy(), head.summary()));
+                payoutActions(viewerId, head.sellerId(), head.requestedBy(), head.summary()), null);
     }
 
     public LinePage findLines(long viewerId, String settlementNumber, Paging paging) {
@@ -267,7 +275,7 @@ public class SettlementQuery {
 
         List<Line> items = jdbc.sql(LINES_SQL)
                 .param("settlementId", head.settlementId())
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> Line.of(
                         rs.getString("supplier"),
@@ -279,7 +287,7 @@ public class SettlementQuery {
                         rs.getString("product_name")))
                 .list();
 
-        return new LinePage(items, paging.page(), paging.size(), head.lineCount());
+        return new LinePage(items, paging.offset(), paging.limit(), head.lineCount());
     }
 
     /**

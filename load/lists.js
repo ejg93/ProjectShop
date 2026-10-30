@@ -12,14 +12,14 @@ const PASSWORD = "demo-password-1234";
 
 // [키, 경로, 누구로]. 누구 = null 이면 로그인 없이 부른다.
 const ENDPOINTS = [
-  ["products", "/api/products?size=20", null],
-  ["search", "/api/products?q=%EC%9A%B4%EB%8F%99%ED%99%94&size=20", null], // q=운동화
-  ["my_orders", "/api/orders?size=20", "customer"],
-  ["seller_orders", "/api/seller/orders?size=20", "seller"],
-  ["admin_orders", "/api/admin/orders?size=20", "admin"],
+  ["products", "/api/products?limit=20", null],
+  ["search", "/api/products?q=%EC%9A%B4%EB%8F%99%ED%99%94&limit=20", null], // q=운동화
+  ["my_orders", "/api/orders?limit=20", "customer"],
+  ["seller_orders", "/api/seller/orders?limit=20", "seller"],
+  ["admin_orders", "/api/admin/orders?limit=20", "admin"],
   // 정산서 목록이 아니라 환불 대기열이다 — 부은 DB 에는 정산이 없어 정산서 목록은 빈 목록을 재고,
   // 질의 모양이 나빠져도 문턱이 안 걸린다(마무리 56차 독립 리뷰). 환불은 8,000 건이다.
-  ["refunds", "/api/refunds?size=20", "admin"],
+  ["refunds", "/api/refunds?limit=20", "admin"],
 ];
 
 const ACCOUNTS = {

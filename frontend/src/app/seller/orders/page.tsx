@@ -6,6 +6,7 @@ import { Td, Th } from "@/components/table-cells";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
 import { shipmentStatusText } from "@/lib/order-text";
+import { lastPageOf, pageQuery, type Page } from "@/lib/paging";
 
 export const metadata: Metadata = { title: "받은 주문 · ProjectShop" };
 
@@ -24,12 +25,7 @@ type SellerOrderSummary = {
   createdAt: string;
 };
 
-type SellerOrderPage = {
-  items: SellerOrderSummary[];
-  page: number;
-  size: number;
-  total: number;
-};
+type SellerOrderPage = Page<SellerOrderSummary>;
 
 /**
  * 받은 주문(`13g`).
@@ -56,13 +52,13 @@ export default async function SellerOrdersPage({
   const page = pageNumberOf(requested.page);
   const sellerId = requested.sellerId;
 
-  const query = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+  const query = pageQuery(page, PAGE_SIZE);
   if (sellerId) {
     query.set("sellerId", sellerId);
   }
 
   const result = await apiSession<SellerOrderPage>(`/api/seller/orders?${query}`);
-  const lastPage = Math.max(0, Math.ceil(result.total / result.size) - 1);
+  const lastPage = lastPageOf(result);
 
   return (
     <>
@@ -77,7 +73,7 @@ export default async function SellerOrdersPage({
         <>
           <OrderTable items={result.items} />
           <Pager
-            page={result.page}
+            page={page}
             lastPage={lastPage}
             total={result.total}
             basePath="/seller/orders"

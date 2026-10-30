@@ -177,7 +177,7 @@ class AuditLogQueryTest extends PostgresTestBase {
         void capsPageSize() {
             Page page = find(auditor, all(), new Paging(0, 5000));
 
-            assertThat(page.size())
+            assertThat(page.limit())
                     .as("안 막으면 목록 하나로 전체를 긁어 간다")
                     .isEqualTo(100);
         }
@@ -193,8 +193,8 @@ class AuditLogQueryTest extends PostgresTestBase {
 
         @Test
         @DisplayName("음수 페이지는 0 으로 본다")
-        void negativePageIsFirstPage() {
-            assertThat(find(auditor, all(), new Paging(-3, 20)).page())
+        void negativeOffsetIsStart() {
+            assertThat(find(auditor, all(), new Paging(-3, 20)).offset())
                     .isZero();
         }
     }

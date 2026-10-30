@@ -17,6 +17,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.support.IdempotencyService;
+import com.projectshop.shop.support.IdempotencyService.Replay;
 
 /**
  * 결제를 거는 입구.
@@ -83,11 +85,15 @@ public class PaymentController {
             @RequestHeader("Idempotency-Key") @Size(min = 1, max = 255) String idempotencyKey,
             @Valid @RequestBody PayRequest request) {
 
-        PaymentService.Result result = payments.pay(user.id(), idempotencyKey,
+        Replay<PaymentService.Result> result = payments.pay(user.id(), idempotencyKey,
                 new PaymentService.Command(request.orderNumber(), request.method(),
                         request.cardNumber()));
 
-        return ResponseEntity.created(URI.create("/api/orders/" + result.orderNumber()))
-                .body(result);
+        ResponseEntity.BodyBuilder created =
+                ResponseEntity.created(URI.create("/api/orders/" + result.value().orderNumber()));
+        if (result.replayed()) {
+            created.header(IdempotencyService.REPLAYED_HEADER, "true");
+        }
+        return created.body(result.value());
     }
 }

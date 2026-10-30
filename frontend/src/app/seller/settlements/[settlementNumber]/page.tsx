@@ -7,6 +7,7 @@ import { PayoutActions } from "@/components/payout-actions";
 import { ApiError } from "@/lib/api";
 import { apiSession } from "@/lib/api-session";
 import { dateText, dateTimeText, priceText } from "@/lib/format";
+import { lastPageOf, pageQuery, type Page } from "@/lib/paging";
 import {
   commissionRateText,
   payoutStatusText,
@@ -63,12 +64,7 @@ type SettlementDetail = {
   allowedActions: string[];
 };
 
-type SettlementLinePage = {
-  items: SettlementLine[];
-  page: number;
-  size: number;
-  total: number;
-};
+type SettlementLinePage = Page<SettlementLine>;
 
 /** 줄 한 쪽의 크기. 한 장의 줄이 수만일 수 있다(`Q244`) */
 const LINE_PAGE_SIZE = 50;
@@ -100,11 +96,11 @@ export default async function SettlementDetailPage({
   // 둘이 나란히 나간다. 못 보는 정산서는 둘 다 같은 404 다.
   const [detail, lines] = await Promise.all([
     orNotFound(apiSession<SettlementDetail>(path)),
-    orNotFound(apiSession<SettlementLinePage>(`${path}/lines?page=${page}&size=${LINE_PAGE_SIZE}`)),
+    orNotFound(apiSession<SettlementLinePage>(`${path}/lines?${pageQuery(page, LINE_PAGE_SIZE)}`)),
   ]);
 
   const { summary, totals, allowedActions } = detail;
-  const lastPage = Math.max(0, Math.ceil(lines.total / lines.size) - 1);
+  const lastPage = lastPageOf(lines);
 
   return (
     <>
@@ -147,7 +143,7 @@ export default async function SettlementDetailPage({
         {lines.items.length > 0 ? <LineTable lines={lines.items} /> : <p className="text-sm text-text-muted">이 쪽에는 항목이 없습니다.</p>}
         {lines.total > 0 ? (
           <Pager
-            page={lines.page}
+            page={page}
             lastPage={lastPage}
             total={lines.total}
             basePath={`/seller/settlements/${encodeURIComponent(summary.settlementNumber)}`}

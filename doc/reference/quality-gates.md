@@ -13,7 +13,7 @@
 **둘 중 아무 쪽으로 답해도 근거가 안 남는다.**
 
 그리고 신호는 쌓인다. 이 저장소엔 처분 표가 이미 둘 있는데
-(`CLAUDE.md` 「드러난 것의 처분」·`/wrapup` 「찾은 것을 어떻게 처분하나」),
+(`CLAUDE.md` 「드러난 것의 처분」·`CLAUDE.md` 「계획 끝」 4),
 게이트가 만든 것이 그 둘 중 어디로도 안 가면 **세 번째 더미**가 생긴다.
 
 ## 지금 무엇이 어디에 걸려 있나
@@ -34,7 +34,7 @@
 | `SourceTextTest` | 4 테스트 | 로컬·CI | **사유 없는 `default` 가지와 `X-` 헤더**(`Q226`, 원장 ①④). `default` 마다 바로 위 `// default-ok: majority\|string-switch`, 아래가 `default` 가 아닌 마커도 빨강. main 의 `"X-` 글자(주석 줄 빼고) | `Q226` 2026-09-26 — 마커를 지우니 빨강 · `"X-Trace"` 를 넣으니 빨강 |
 | `MetricNameTest` | 4 테스트 | 로컬·CI | **표 이름이 아닌 지표 이름·목록 밖 태그 키·문서와 갈린 노출 목록**(`Q226`, 원장 ⑤). 소스의 미터 `builder` 이름·`.tag` 키를 글자로 — 레지스트리로 재면 호출 자리에서 등록되는 미터 셋이 빠진다. 노출은 `application.yml` 과 `security-baseline.md` 「노출면」 칸의 백틱 값 | `Q226` 2026-09-26 — `shop.foo.bar` 미터 · `include` 에 `env` 로 각각 빨강 |
 | `forbidden.test.tsx` 배선 | 4 테스트 | 로컬·CI(frontend) | **403 이 권한 화면으로 못 가게 되는 것**(`Q133`). `next.config.ts` 의 `experimental.authInterrupts` 와 `api-session.ts` 의 `forbidden()` 호출을 **원문으로** 잰다. 입구 시험은 `forbidden()` 을 **목으로 잡아서 플래그가 꺼진 것을 모른다** — 그러면 403 이 다시 `error.tsx` 로 떨어져 「실패했습니다 · 다시 시도」가 되는데 시험은 초록이다. Next 를 올릴 때 그 실험 플래그가 살아 있는지도 이 시험이 대신 본다 | `Q133` 2026-09-21 — 플래그를 `false` 로 바꾸니 그 하나가 빨갛다(7 tests, 1 failed) |
-| `OpenApiSpecTest` | 4 테스트 | 〃 | 뜬 라우트가 스펙에 없는 것(`2a`). **목록 껍데기 넷**(`Q227`, 원장 ⑨ — `page` 가 `items`·`total` 과 같이 있는 스키마는 넷을 다 싣는다. 한 `Page` 의 `total` 을 `totalCount` 로 바꾸니 빨강). 진짜 HTTP 로 받아서 보안 설정이 막는 것도 같이 본다 | `2a` 2026-09-10 |
+| `OpenApiSpecTest` | 13 테스트 | 〃 | 뜬 라우트가 스펙에 없는 것(`2a`). **목록 껍데기 넷**(`Q227`, 원장 ⑨ — `offset` 이 `items`·`total` 과 같이 있는 스키마는 넷을 다 싣는다. 한 `Page` 의 `total` 을 `totalCount` 로 바꾸니 빨강, 식별 키는 `Q311b` 가 `page` 에서 옮겼다). **모든 `GET` 이 `fields` 를 싣는다**(`Q309a`). 진짜 HTTP 로 받아서 보안 설정이 막는 것도 같이 본다 | `2a` 2026-09-10 |
 | `ActionPermissionTest` | 4 테스트 | 〃 | 주문 동작이 넘기는 권한 이름이 `permission` 표에 없는 것(`43a-21`). 없으면 그 동작이 **언제나 거부**인데 초록이다 | `43a-21` 2026-09-10 |
 | `SellerSchemaTest` 상태 목록 | 4 테스트 | 〃 | 셀러 상태 값이 SQL 두 곳이 매달린 것과 갈리는 것(`43a-22`). 열거형이 없어 `EnumConstraintTest` 가 못 보는 자리다 | `43a-22` 2026-09-10 |
 | `StackVersionConsistencyTest` | 4 테스트 | 〃 | `stack.md` 버전 표가 실제 파일과 갈리는 것(`2f`) | `2f` 2026-09-04 |
@@ -286,7 +286,7 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 | ⑲ | Java 필드는 컬럼 이름의 camelCase, 축약 없음 | `D22` | `SchemaNamingTest` 는 SQL 쪽만. API 로 새는 쪽은 `OpenApiSpecTest` 표기가 잰다 | **못 내린다** 싸게 — record 성분과 컬럼을 잇는 표가 없다. 독립 리뷰 |
 | ⑳ | 의존성을 더할 때 라이선스를 본다 — GPL 계열이면 멈춘다 | `D23` | 막는 것 없음. 플러그인 없음 | **안 세움** — 도구 도입은 결정이다. 마무리 대조가 `build.gradle.kts` diff 를 본다 |
 
-**대조에서 뺀 것**: 이미 표에 있는 것(`ArchitectureTest` 스물·`SqlTextTest`·`SchemaNamingTest`·`LogArgumentTest`·`OpenApiSpecTest`·`TestConventionTest`·`ScreenLengthTest`·`HttpFlowTest`·`SessionStoreTest`·eslint 입구·운반·`react/no-danger`·`form-pending`·`forbidden`·`screen-text`), 표 밖이지만 시험이 있는 것(`LoginAttemptTest` 5회/15분 · `AuthLoginTest` 같은 문구 · `ProblemResponseTest` 프레임워크 오류 `type`·검증 필드 snake_case·`trace_id` · `WebhookUrlPolicyTest` · `WWW-Authenticate` · `Idempotency-Key`), 절차 규칙(「문서를 먼저 고친다」·「값 옆에 출처」의 절차 쪽), 판단 규칙(「마스킹은 갈릴 때만」·「모르는 칸을 지목하지 않는다」·「확인 문구는 무엇이 사라지는지」·「빈 상태 둘을 가른다」). 절차·판단은 `/wrapup` 대조와 독립 리뷰가 본다.
+**대조에서 뺀 것**: 이미 표에 있는 것(`ArchitectureTest` 스물·`SqlTextTest`·`SchemaNamingTest`·`LogArgumentTest`·`OpenApiSpecTest`·`TestConventionTest`·`ScreenLengthTest`·`HttpFlowTest`·`SessionStoreTest`·eslint 입구·운반·`react/no-danger`·`form-pending`·`forbidden`·`screen-text`), 표 밖이지만 시험이 있는 것(`LoginAttemptTest` 5회/15분 · `AuthLoginTest` 같은 문구 · `ProblemResponseTest` 프레임워크 오류 `type`·검증 필드 snake_case·`trace_id` · `WebhookUrlPolicyTest` · `WWW-Authenticate` · `Idempotency-Key`), 절차 규칙(「문서를 먼저 고친다」·「값 옆에 출처」의 절차 쪽), 판단 규칙(「마스킹은 갈릴 때만」·「모르는 칸을 지목하지 않는다」·「확인 문구는 무엇이 사라지는지」·「빈 상태 둘을 가른다」). 절차·판단은 「계획 끝」 대조와 독립 리뷰가 본다(`CLAUDE.md`).
 
 ## 문턱
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
@@ -133,6 +134,23 @@ class OrderIdempotencyTest extends PostgresTestBase {
         assertThat(orderCount())
                 .as("감싸는 것을 빠뜨리면 재전송이 주문을 하나 더 만들고 재고가 두 번 빠진다")
                 .isEqualTo(1);
+    }
+
+    /**
+     * 재생 응답에만 `Idempotent-Replayed: true` 가 붙는다(`Q310`, `D11` 「멱등키」). 처음에도 달면
+     * 받는 쪽이 「이미 처리된 것을 다시 받았다」를 못 가른다.
+     */
+    @Test
+    @DisplayName("재생 응답에만 Idempotent-Replayed 가 붙는다")
+    void marksOnlyTheReplay() throws Exception {
+        String key = "77777777-8888-9999-aaaa-bbbbbbbbbbbb";
+
+        mvc.perform(orderRequest(key))
+                .andExpect(status().isCreated())
+                .andExpect(header().doesNotExist("Idempotent-Replayed"));
+        mvc.perform(orderRequest(key))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Idempotent-Replayed", "true"));
     }
 
     @Test

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ApiError } from "@/lib/api";
 import { apiPublic } from "@/lib/api-session";
+import { pageQuery } from "@/lib/paging";
 
 import { CopyrightReportForm } from "./report-form";
 
@@ -49,7 +50,7 @@ export default async function CopyrightReportPage({
 
   const images = product.imageIds.map((imageId, index) => ({ imageId, url: product.imageUrls[index] }));
   // 후기 사진도 같은 절차를 받는다(`Q196`). 공개 후기 목록이 싣는 사진이 곧 신고할 수 있는 표면이다.
-  const reviews = await apiPublic<ReviewPage>(`/api/products/${productId}/reviews?size=50`);
+  const reviews = await apiPublic<ReviewPage>(`/api/products/${productId}/reviews?${pageQuery(0, 50)}`);
   const reviewImages = reviews.items.flatMap((review) =>
     review.photos.map((photo) => ({ reviewImageId: photo.reviewImageId, url: photo.thumbnailUrl })),
   );

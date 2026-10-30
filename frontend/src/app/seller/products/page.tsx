@@ -7,6 +7,7 @@ import { Td, Th } from "@/components/table-cells";
 import { apiSession } from "@/lib/api-session";
 import { dateTimeText, priceText } from "@/lib/format";
 import { productStatusHint, productStatusText } from "@/lib/product-text";
+import { lastPageOf, pageQuery, type Page } from "@/lib/paging";
 
 export const metadata: Metadata = { title: "내 상품 · ProjectShop" };
 
@@ -26,12 +27,7 @@ type SellerProduct = {
   allowedActions: string[];
 };
 
-type SellerProductPage = {
-  items: SellerProduct[];
-  page: number;
-  size: number;
-  total: number;
-};
+type SellerProductPage = Page<SellerProduct>;
 
 /**
  * 내 상품(`13f`).
@@ -55,13 +51,13 @@ export default async function SellerProductsPage({
   const page = pageNumberOf(requested.page);
   const sellerId = requested.sellerId;
 
-  const query = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+  const query = pageQuery(page, PAGE_SIZE);
   if (sellerId) {
     query.set("seller_id", sellerId);
   }
 
   const result = await apiSession<SellerProductPage>(`/api/seller/products?${query}`);
-  const lastPage = Math.max(0, Math.ceil(result.total / result.size) - 1);
+  const lastPage = lastPageOf(result);
 
   return (
     <>
@@ -76,7 +72,7 @@ export default async function SellerProductsPage({
         <>
           <ProductTable items={result.items} />
           <Pager
-            page={result.page}
+            page={page}
             lastPage={lastPage}
             total={result.total}
             basePath="/seller/products"

@@ -19,6 +19,7 @@ import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderService;
+import com.projectshop.shop.support.IdempotencyService.Replay;
 
 /**
  * 결제가 무엇을 남기고 무엇을 안 남기나.
@@ -175,6 +176,16 @@ class PaymentServiceTest extends PostgresTestBase {
     @DisplayName("같은 멱등키로 다시 오면")
     class Retransmission {
 
+        /** 재생 확인이 두 자리(`replayIfPresent`·`run`)라 둘 다 재생을 알려야 컨트롤러가 헤더를 단다(`Q310`) */
+        @Test
+        @DisplayName("처음은 재생이 아니고 둘째는 재생이다")
+        void tellsWhetherItReplayed() {
+            String key = UUID.randomUUID().toString();
+
+            assertThat(payReplay(key, GOOD_CARD).replayed()).isFalse();
+            assertThat(payReplay(key, GOOD_CARD).replayed()).isTrue();
+        }
+
         @Test
         @DisplayName("앞의 승인을 그대로 돌려준다")
         void replaysTheSameApproval() {
@@ -290,6 +301,10 @@ class PaymentServiceTest extends PostgresTestBase {
     }
 
     private PaymentService.Result pay(String idempotencyKey, String cardNumber) {
+        return payReplay(idempotencyKey, cardNumber).value();
+    }
+
+    private Replay<PaymentService.Result> payReplay(String idempotencyKey, String cardNumber) {
         return payments.pay(userId, idempotencyKey,
                 new PaymentService.Command(orderNumber, PaymentMethod.CARD, cardNumber));
     }

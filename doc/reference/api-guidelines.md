@@ -11,7 +11,7 @@
 
 | 항목 | Zalando | 우리 | 왜 |
 |---|---|---|---|
-| 페이징 | 커서 기반 권장 (SHOULD) | **오프셋 기반** | 커서는 정렬 키가 고정돼야 하고 임의 페이지 이동이 안 된다. 관리자 화면(청크 16)이 페이지 번호를 쓴다. 데이터 규모가 작아 오프셋의 성능 문제가 안 온다 |
+| 페이징 | 커서 기반 권장 (SHOULD, 160) | **오프셋 기반** | 파라미터 이름은 Zalando 관례 이름(`offset`·`limit`)과 같다 — 커서(160)만 벗어난다. 커서는 정렬 키가 고정돼야 하고 임의 페이지 이동이 안 된다. 관리자 화면(청크 16)이 페이지 번호를 쓴다. 데이터 규모가 작아 오프셋의 성능 문제가 안 온다 |
 | 전체 개수 | 안 주는 것을 권장 (SHOULD) | **준다** | 위와 같은 이유. 관리자 화면에 총 건수가 필요하다 |
 | 버전 위치 | URL 버전 금지 (MUST, 115) | **경로에 붙인다** | 프록시·로그·캐시·CDN 이 경로로 가른다 · 주소창으로 재현된다 · `Accept` 를 틀리면 조용히 다른 버전을 200 으로 받는다. 아래 「버전」 절이 길게 적었다 (청크 `72`, 사용자 결정 2026-09-19) |
 | 버전 운반 | 미디어 타입 버전 (MUST, 114) | **안 쓴다** | 위와 같은 결정의 뒷면이다 |
@@ -279,8 +279,8 @@ spring:
 
 | 파라미터 | 뜻 | 기본값 |
 |---|---|---|
-| `page` | 0 부터 시작하는 페이지 번호 | 0 |
-| `size` | 한 페이지 크기 | 20 |
+| `offset` | 건너뛸 행 수. 0 부터 | 0 |
+| `limit` | 한 번에 받을 행 수 | 20 |
 | `sort` | `필드,방향`. 예: `created_at,desc` | 자원마다 정함 |
 
 **정렬 필드는 허용 목록으로 받는다.** 컬럼명은 값이 아니라 식별자라 바인딩이 안 되고,
@@ -299,7 +299,7 @@ spring:
 상품에 `price` 를 안 열었다. 가격은 `sku` 에 있어서 상품당 여럿이고
 "최저가 기준인가", "품절 조합도 세나" 를 재고 축(52) 전에 정하면 감이다.
 
-`size` 의 최대값을 100 으로 막는다. 안 막으면 목록 하나로 전체를 긁어 갈 수 있다.
+`limit` 의 최대값을 100 으로 막는다. 음수 `offset` 은 0 으로 본다. 안 막으면 목록 하나로 전체를 긁어 갈 수 있다.
 
 **그 셋을 컨트롤러가 직접 안 받는다**(`Q23`). `Paging` 하나로 받고 `*Query` 에도 그대로 넘긴다.
 
@@ -336,19 +336,21 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 ```json
 {
   "items": [ ... ],
-  "page": 0,
-  "size": 20,
+  "offset": 0,
+  "limit": 20,
   "total": 137
 }
 ```
 
-**`OpenApiSpecTest` 가 잰다**(`Q227`) — `page` 가 `items` 나 `total` 과 같이 있는 스키마는 넷을 다 싣는다(`total` 은 금액으로도 쓰여서 `page` 로 껍데기를 알아본다).
+**`offset`·`limit` 은 받은 값을 보정 뒤 그대로 돌려준다.** 요청과 응답이 같은 이름을 쓴다 — 한 응답에 이름 체계를 둘 두지 않는다.
+
+**`OpenApiSpecTest` 가 잰다**(`Q227`) — `offset` 이 `items` 나 `total` 과 같이 있는 스키마는 넷을 다 싣는다(`total` 은 금액으로도 쓰여서 `offset` 으로 껍데기를 알아본다).
 껍데기 이름을 하나로 고정한다. `data`·`list`·`content` 를 섞어 쓰면 프론트가 엔드포인트마다 다른 코드를 쓴다.
 
 **빈 목록은 `[]` 다.** `null` 을 주지 않는다.
 
-**상한이 박힌 목록은 껍데기를 안 쓴다.** 그냥 배열이다. 쪽이 하나뿐인데 `page`·`size`·`total`
-을 주면 **넘길 수 없는 쪽 번호**를 계약에 적는 것이 된다. 지금 넷이 이 모양이다 —
+**상한이 박힌 목록은 껍데기를 안 쓴다.** 그냥 배열이다. 쪽이 하나뿐인데 `offset`·`limit`·`total`
+을 주면 **넘길 수 없는 위치**를 계약에 적는 것이 된다. 지금 넷이 이 모양이다 —
 동의 항목(`ConsentItemController`), 내 소속 셀러와 내 동의(`MeController` 둘),
 상품 사진(`SellerProductController`, 열 장 상한 — `Q139`).
 
@@ -365,6 +367,61 @@ OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 떼어 낸 입구는 위 껍데기 넷을 쓴다. 선례가 넷이다 — 상품의 후기(`/api/products/{productId}/reviews`)·
 문의(`/api/products/{productId}/inquiries`)·웹훅 발송 이력(`/api/seller/webhooks/{webhookEndpointId}/deliveries`)·
 정산서의 줄(`/api/settlements/{settlementNumber}/lines`).
+
+### 이름을 `offset`·`limit` 으로 옮긴 근거
+
+전에는 `page`(0 부터)·`size` 였다. 2026-10-29 사용자 결정으로 옮겼다(`Q311`).
+
+| 근거 | 무엇 |
+|---|---|
+| 남의 실물 | `점검 X` 가 맞댄 두 엔진이 다 `limit` 을 쓴다 — Medusa `offset`·`limit`, Spree `page`·`limit`(`doc/notes/engine-comparison.md`) |
+| 관례 | Zalando 가 질의 파라미터 관례 이름으로 `offset`·`limit`·`cursor` 를 든다 |
+| 비용 | 소비자가 우리 화면 하나라 지금이 제일 싸다. 바깥 소비자가 생기면 이름 하나가 버전 하나다 |
+
+**화면 URL 의 `?page=` 는 그대로다** — 사람이 읽는 쪽 번호고 API 계약이 아니다. 변환은 화면의 한 곳이 한다(`frontend-rules.md`).
+
+## 필드 선택·확장
+
+### `fields` — 응답의 최상위 칸을 고른다
+
+`GET` JSON 응답 전부가 받는다(`Q309a`). 관례에서 왔다 — Zalando 157 「SHOULD support partial responses via filtering」, Medusa·Spree 의 `fields`.
+
+| 규칙 | 무엇 |
+|---|---|
+| 문법 | 쉼표로 구분한 칸 이름. `?fields=display_name,created_at` |
+| 범위 | **응답의 최상위 칸만**(snake_case). 목록이면 `items` 의 원소에 걸고 껍데기 넷(`items`·`offset`·`limit`·`total`)은 그대로 둔다. 중첩 칸은 못 고른다 |
+| 모르는 이름 | **400 `validation-failed`**, `errors[].field` 는 `fields`. 정렬 허용 목록과 같은 쪽이다 |
+| 마스킹 | **판정이 깎은 뒤에 건다.** 판정이 안 준 칸은 이름을 불러도 안 열린다. `_visible_field_groups` 는 고르지 않아도 남는다 |
+| 안 보내면 | 응답이 그대로다 |
+| 제외 | 오류 응답(`application/problem+json`)과 파일 응답 |
+| 칸을 못 고르는 응답 | 본문이 record 도 record 목록도 아니면 400 이다 — 조용히 무시하지 않는다. 스펙은 그런 `GET` 에도 `fields` 를 적는다(`OpenApiConfig` 가 입구를 가르지 않는다) |
+
+**모르는 이름을 조용히 빼지 않는다.** Medusa 는 금지된 칸을 소리 없이 뺀다. 아래 「버전」 절이 미디어 타입 버전을 버린 근거(「틀리면 조용하다」)와 반대라 안 따른다 — 오타를 낸 쪽이 칸이 없는 이유를 모른다.
+
+**걸리는 자리는 한 곳이다** — 입구마다 안 심는다. 입구마다 두면 새 입구가 빠뜨린다(`coding-rules.md` 축 2 「앱 검증」). 허용 목록은 **응답 타입의 record 성분**에서 뽑아서 사본이 없다.
+
+**화면은 지금 안 쓴다.** 쓰는 날 `api.ts` 에서 `fields` 를 넘기는 한 자리를 두고 `frontend-rules.md` 에 그 절을 세운다.
+
+### `expand` — 상세에 하위 목록 첫 쪽을 끼운다
+
+상세가 기본으로 안 품는 하위 목록의 **첫 쪽**을 끼운다(`Q309b`). 위 「상세 안의 목록이 데이터에 따라 늘면 하위 자원 입구로 뗀다」가 뗀 넷만 받는다. 관례에서 왔다 — Zalando 158 「SHOULD allow optional embedding of sub-resources」, Medusa `fields=*관계`, Spree `expand`.
+
+| 상세 | `expand` 값 | 끼우는 것 |
+|---|---|---|
+| `GET /api/products/{productId}` | `reviews`·`inquiries` | 하위 입구 `/reviews`·`/inquiries` 의 첫 쪽 |
+| `GET /api/seller/webhooks/{webhookEndpointId}` | `deliveries` | `/deliveries` 의 첫 쪽(상태 거르기 없음) |
+| `GET /api/settlements/{settlementNumber}` | `lines` | `/lines` 의 첫 쪽 |
+
+| 규칙 | 무엇 |
+|---|---|
+| 모양 | 하위 입구와 **같은 껍데기**(`items`·`offset`·`limit`·`total`)다. 첫 쪽은 그 입구의 기본(`offset` 0 · `limit` 20)이다 |
+| 판정 | **하위 입구와 같은 질의를 부른다** — 판정도 같다. 표를 다시 읽으면 판정을 지나치는 두 번째 경로가 생긴다(아래 「파일 응답」과 같은 이유). **이것을 드는 것은 코드 모양이다** — 컨트롤러는 `JdbcClient` 를 못 들어서(`ArchitectureTest`) 하위 조회기를 부를 수밖에 없다. `ExpansionTest` 는 같은 쪽·같은 본문만 잰다 — 지금 셋은 상세 판정이 하위 판정을 품어서 판정 우회를 시험으로 만들 수 없다. 하위 판정이 상세보다 좁은 입구가 생기면 그날 시험을 세운다 |
+| `fields` 와 겹침 | 끼운 칸(`reviews`·`lines` …)도 상세의 최상위 칸이라 `fields` 로 고른다. `expand` 없이 `fields=lines` 만 보내면 그 칸은 없다 |
+| 모르는 이름 | 400 `validation-failed`, `errors[].field` 는 `expand`(`fields` 와 같다) |
+| 안 보내면 | 지금과 같은 응답이다 — 그 칸이 없다. 깨는 변경이 아니다 |
+| 질의 수 | 이름 하나당 하위 입구 한 번 몫이 더해진다. `QueryBudgetTest` 가 정산서 상세로 「상세 + 줄 목록」과 같은지 잰다 |
+
+**화면은 지금 안 바꾼다.** 그 셋이 상세와 하위 목록을 따로 부르지만 서버 컴포넌트가 둘을 나란히 부른다 — 바깥 소비자가 한 번에 받는 자리다.
 
 ## 값의 형식
 
@@ -524,6 +581,9 @@ POST /api/settlements/{id}/confirm
 **지금은 버전을 안 붙인다.** `/api/orders` 로 간다.
 지금 `/api/v1/` 을 붙이면 쓰지도 않을 버전 체계를 이고 간다.
 
+**바깥 소비자가 생기기 전까지는 깨는 변경을 같은 PR 에서 화면과 함께 친다**(`Q311` 의 `page`→`offset` 이 그 예다).
+생기면 이 문단을 지우고 아래 「버전을 붙여야 할 때」로 간다.
+
 ### 깨는 변경이 무엇인가
 
 **아래 다섯 중 하나면 깨는 변경이다**(Zalando Rule 106). 소비자가 코드를 안 고치면
@@ -602,6 +662,7 @@ POST /api/settlements/{id}/confirm
 | `traceparent` | 요청 추적. W3C Trace Context 형식 (D16) |
 | `Idempotency-Key` | 멱등 요청. `POST /api/orders`·`POST /api/payments` 에 필수다 (D11) |
 | `Location` | 201 응답에서 새 자원 경로 |
+| `Idempotent-Replayed` | 멱등 재생 응답에만 `true`. 처음 응답에는 없다 (D11, `Q310`) |
 
 자체 헤더를 만들 때는 `X-` 를 붙이지 않는다. RFC 6648 이 그 관행을 폐기했다. `SourceTextTest` 가 main 의 `"X-` 글자를 막는다(`Q226`).
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { Pager, pageNumberOf } from "@/components/pager";
 import { apiSession } from "@/lib/api-session";
+import { lastPageOf, pageQuery } from "@/lib/paging";
 
 import { type AdminOrderPage, OrderFilters, OrderTable, apiQueryOf, filterOf, isReversed } from "./order-list";
 
@@ -26,9 +27,9 @@ export default async function AdminOrdersPage({
   const filter = filterOf(requested);
   const reversed = isReversed(filter);
 
+  const page = pageNumberOf(requested.page);
   const query = new URLSearchParams({
-    page: String(pageNumberOf(requested.page)),
-    size: String(PAGE_SIZE),
+    ...Object.fromEntries(pageQuery(page, PAGE_SIZE)),
     ...apiQueryOf(filter),
   });
   const result = reversed ? null : await apiSession<AdminOrderPage>(`/api/admin/orders?${query}`);
@@ -52,8 +53,8 @@ export default async function AdminOrdersPage({
         <>
           <OrderTable items={result.items} />
           <Pager
-            page={result.page}
-            lastPage={Math.max(0, Math.ceil(result.total / result.size) - 1)}
+            page={page}
+            lastPage={lastPageOf(result)}
             total={result.total}
             basePath="/admin/orders"
             label="주문 목록"

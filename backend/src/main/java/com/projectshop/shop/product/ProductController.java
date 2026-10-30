@@ -2,6 +2,7 @@ package com.projectshop.shop.product;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
@@ -28,8 +29,12 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
+import com.projectshop.shop.inquiry.InquiryQuery;
+import com.projectshop.shop.review.ReviewQuery;
+import com.projectshop.shop.support.Expansion;
 import com.projectshop.shop.support.ListQuery.Paging;
 
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -41,18 +46,26 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @RequestMapping("/api/products")
 public class ProductController {
 
+    private static final String REVIEWS = "reviews";
+    private static final String INQUIRIES = "inquiries";
+
     private final ProductService productService;
     private final ProductQuery productQuery;
     private final ProductSearchQuery productSearchQuery;
     private final ProductReviewService reviewService;
+    private final ReviewQuery reviewQuery;
+    private final InquiryQuery inquiryQuery;
 
     ProductController(ProductService productService, ProductQuery productQuery,
-            ProductSearchQuery productSearchQuery, ProductReviewService reviewService) {
+            ProductSearchQuery productSearchQuery, ProductReviewService reviewService,
+            ReviewQuery reviewQuery, InquiryQuery inquiryQuery) {
 
         this.productService = productService;
         this.productQuery = productQuery;
         this.productSearchQuery = productSearchQuery;
         this.reviewService = reviewService;
+        this.reviewQuery = reviewQuery;
+        this.inquiryQuery = inquiryQuery;
     }
 
     /**
@@ -87,8 +100,22 @@ public class ProductController {
      * 남의 {@code draft} 가 존재한다는 것을 알아낼 수 있다(`D5` 「403 이냐 404 냐」).
      */
     @GetMapping("/{productId}")
-    public ProductQuery.PublicDetail detail(@PathVariable long productId) {
-        return productQuery.findPublicDetail(productId);
+    public ProductQuery.PublicDetail detail(@AuthenticationPrincipal ShopUser user, @PathVariable long productId,
+            // 값이 쉼표로 이어져 와서 enum(`allowableValues`)으로 그리면 스펙대로 보낸 값이 enum 밖이 된다
+            @Parameter(description = "끼울 하위 목록 첫 쪽 — `reviews`·`inquiries` 를 쉼표로 잇는다(`D5` 「필드 선택·확장」)")
+            @RequestParam(required = false) String expand) {
+
+        Expansion expansion = Expansion.of(expand, Set.of(REVIEWS, INQUIRIES));
+        ProductQuery.PublicDetail detail = productQuery.findPublicDetail(productId);
+        if (expansion.names().isEmpty()) {
+            return detail;
+        }
+        // 하위 입구와 같은 질의·같은 첫 쪽이다 — 판정도 같다(`Q309b`)
+        return detail.expanded(
+                expansion.has(REVIEWS)
+                        ? reviewQuery.findByProduct(user == null ? null : user.id(), productId, Expansion.FIRST_PAGE)
+                        : null,
+                expansion.has(INQUIRIES) ? inquiryQuery.findPublic(productId, Expansion.FIRST_PAGE) : null);
     }
 
     /**

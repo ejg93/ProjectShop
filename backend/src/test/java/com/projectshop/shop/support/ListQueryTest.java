@@ -14,7 +14,7 @@ import com.projectshop.shop.support.ListQuery.Paging;
 /**
  * 목록 조회의 보정과 허용 목록이 실제로 도는지 본다.
  *
- * <p><b>걸려 있는 것과 도는 것은 다르다</b>(`점검 L`). {@link ListQuery#MAX_SIZE} 는
+ * <p><b>걸려 있는 것과 도는 것은 다르다</b>(`점검 L`). {@link ListQuery#MAX_LIMIT} 는
  * 「목록 하나로 전체를 긁어 가지 못하게 막는다」고 `D5` 가 이유까지 적어 뒀는데
  * <b>그 100 이 실제로 자르는지 재는 자리가 하나도 없었다.</b> 목록 입구 열 곳이 전부
  * 이 클래스를 지나가므로 여기가 뚫리면 열 곳이 같이 뚫린다.
@@ -32,37 +32,33 @@ class ListQueryTest {
      * 전에는 {@code of()} 안에 있어서 그것을 안 부르는 길이 열려 있었다.
      */
     @Test
-    @DisplayName("size 는 만드는 순간 상한에서 잘린다")
-    void sizeIsCappedAtMax() {
-        assertThat(new Paging(0, ListQuery.MAX_SIZE + 1).size()).isEqualTo(ListQuery.MAX_SIZE);
-        assertThat(new Paging(0, Integer.MAX_VALUE).size()).isEqualTo(ListQuery.MAX_SIZE);
+    @DisplayName("limit 은 만드는 순간 상한에서 잘린다")
+    void limitIsCappedAtMax() {
+        assertThat(new Paging(0, ListQuery.MAX_LIMIT + 1).limit()).isEqualTo(ListQuery.MAX_LIMIT);
+        assertThat(new Paging(0, Integer.MAX_VALUE).limit()).isEqualTo(ListQuery.MAX_LIMIT);
     }
 
     @Test
-    @DisplayName("0 이나 음수 size 는 1 이 되고 음수 page 는 0 이 된다")
+    @DisplayName("0 이나 음수 limit 은 1 이 되고 음수 offset 은 0 이 된다")
     void nonPositiveInputsBecomeSane() {
-        assertThat(new Paging(0, 0).size()).isEqualTo(1);
-        assertThat(new Paging(0, -5).size()).isEqualTo(1);
-        assertThat(new Paging(-3, 20).page()).isZero();
+        assertThat(new Paging(0, 0).limit()).isEqualTo(1);
+        assertThat(new Paging(0, -5).limit()).isEqualTo(1);
+        assertThat(new Paging(-3, 20).offset()).isZero();
     }
 
     /**
-     * {@code offset} 은 {@code long} 이라야 한다.
+     * {@code offset} 은 {@code long} 이다(`Q311b`).
      *
-     * <p>호출자가 {@code page * size} 를 직접 곱하던 자리인데, {@code int} 끼리 곱하면
-     * <b>한 번은 넘쳐서 음수가 된다</b> — 그러면 {@code offset} 이 음수인 SQL 이 나간다.
-     *
-     * <p><b>칸이 아니라 계산이다</b>(`Q23`). 칸이면 {@code new Paging(3, 20, 0)} 처럼
-     * 페이지와 안 맞는 값을 넣을 수 있는데, 계산해서 주면 그 실수가 성립하지 않는다.
+     * <p>쪽 번호 × 크기로 계산하던 때는 {@code int} 끼리 곱하면 넘쳐서 음수가 됐다.
+     * 이제 요청이 행 수를 직접 주므로 <b>{@code int} 범위를 넘는 값도 그대로 받는다</b> —
+     * {@code int} 로 받으면 그 자리에서 다시 잘린다.
      */
     @Test
-    @DisplayName("offset 은 int 로 넘치지 않는다")
-    void offsetDoesNotOverflow() {
-        Paging paging = new Paging(Integer.MAX_VALUE, ListQuery.MAX_SIZE);
+    @DisplayName("offset 은 int 범위를 넘어도 그대로다")
+    void offsetBeyondIntIsKept() {
+        long beyond = (long) Integer.MAX_VALUE * ListQuery.MAX_LIMIT;
 
-        assertThat(paging.offset())
-                .isEqualTo((long) Integer.MAX_VALUE * ListQuery.MAX_SIZE)
-                .isPositive();
+        assertThat(new Paging(beyond, ListQuery.MAX_LIMIT).offset()).isEqualTo(beyond);
     }
 
     @Test

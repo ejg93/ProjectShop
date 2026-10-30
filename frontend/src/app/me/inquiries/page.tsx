@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { apiSession } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
+import { pageQuery, type Page } from "@/lib/paging";
 
 import { InquiryForm } from "./inquiry-form";
 import { WithdrawButton } from "./withdraw-button";
@@ -31,7 +32,6 @@ export type MyInquiry = {
   allowedActions: string[];
 };
 
-type Page = { items: MyInquiry[]; page: number; size: number; total: number };
 
 /** 종류를 사람 말로. <b>API 는 대문자, 화면은 우리말</b>(`D20`) */
 const KIND_TEXT: Record<MyInquiry["kind"], string> = {
@@ -68,7 +68,7 @@ const STATUS_TEXT: Record<MyInquiry["status"], string> = {
  * <p><b>읽기는 여기, 쓰기는 잎사귀</b>(`D24`).
  */
 export default async function MyInquiriesPage() {
-  const page = await apiSession<Page>("/api/me/inquiries?size=50");
+  const page = await apiSession<Page<MyInquiry>>(`/api/me/inquiries?${pageQuery(0, 50)}`);
 
   return (
     <div className="mx-auto grid w-full max-w-3xl flex-1 content-start gap-10 px-4 py-16">

@@ -9,7 +9,7 @@
 **요청 제한이 꺼져 있다**(`RATE_LIMIT_ENABLED=false`) — 운영과 다른 자리라 Redis 실험의 공개 경로 줄은 코드로 보탠다.
 
 1. `docker compose --profile load up -d --build backend` — `/api/health` 가 200 일 때까지
-2. 탐침: 공개 목록(`GET /api/products?size=5`) · 이미 로그인한 세션의 내 주문(`GET /api/orders`, 손님 계정) ·
+2. 탐침: 공개 목록(`GET /api/products?limit=5`) · 이미 로그인한 세션의 내 주문(`GET /api/orders`, 손님 계정) ·
    새 로그인(`POST /api/auth/login`, **다른 계정** — 같은 계정이면 동시 세션 제한이 앞 세션을 내보내 401 로 오진한다) · `/api/health`.
    `curl -m 40` 으로 코드와 시간을 잰다
 3. 죽인다 → 탐침 → 되살린다 → 탐침

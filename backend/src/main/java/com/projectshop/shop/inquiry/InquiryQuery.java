@@ -104,7 +104,7 @@ public class InquiryQuery {
      * 고정 이름을 주면 <b>둘이 한 스키마로 합쳐진다</b> — 이름 충돌을 없애려던 청크가
      * 충돌을 하나 만든 꼴이었다.
      */
-    public record Page<T>(List<T> items, int page, int size, long total) {}
+    public record Page<T>(List<T> items, long offset, int limit, long total) {}
 
     /**
      * 상품 하나의 공개 문의.
@@ -128,7 +128,7 @@ public class InquiryQuery {
                          limit :size offset :offset
                         """)
                 .param("productId", productId)
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new PublicEntry(
                         rs.getString("inquiry_number"),
@@ -149,7 +149,7 @@ public class InquiryQuery {
                 .query(Long.class)
                 .single();
 
-        return new Page<>(items, paging.page(), paging.size(), total);
+        return new Page<>(items, paging.offset(), paging.limit(), total);
     }
 
     /**
@@ -258,7 +258,7 @@ public class InquiryQuery {
                          order by i.created_at desc, i.inquiry_id desc
                          limit :size offset :offset
                         """.formatted(condition))
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset());
 
         var counting = jdbc.sql("""
@@ -293,7 +293,7 @@ public class InquiryQuery {
                         visibility.groups()))
                 .list();
 
-        return Unrecorded.of(new Page<>(items, paging.page(), paging.size(), counting.query(Long.class).single()),
+        return Unrecorded.of(new Page<>(items, paging.offset(), paging.limit(), counting.query(Long.class).single()),
                 items.stream().map(Entry::inquiryNumber).toList());
     }
 

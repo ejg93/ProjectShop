@@ -77,7 +77,7 @@ public class SellerOrderQuery {
     }
 
     @Schema(name = "SellerOrderPage")
-    public record Page(List<Summary> items, int page, int size, long total) {
+    public record Page(List<Summary> items, long offset, int limit, long total) {
     }
 
     /**
@@ -137,13 +137,13 @@ public class SellerOrderQuery {
         Scope scope = Scope.of(visible, sellerId);
         if (scope.branch() == Branch.NONE) {
             // 범위 밖 셀러를 골랐다. 질의를 안 내고 빈 쪽이다 — 전에도 조건 둘이 겹쳐 0건이었다.
-            return new Page(List.of(), paging.page(), paging.size(), 0);
+            return new Page(List.of(), paging.offset(), paging.limit(), 0);
         }
 
         List<Summary> items = jdbc.sql(listSql(scope.branch(), orderBy))
                 .param("sellerId", scope.sellerId())
                 .param("sellers", scope.sellers())
-                .param("size", paging.size())
+                .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> new Summary(
                         rs.getString("seller_order_number"),
@@ -162,7 +162,7 @@ public class SellerOrderQuery {
                 .query(Long.class)
                 .single();
 
-        return new Page(items, paging.page(), paging.size(), total);
+        return new Page(items, paging.offset(), paging.limit(), total);
     }
 
     /**

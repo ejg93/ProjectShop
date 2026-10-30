@@ -1,0 +1,16 @@
+# gate: Idempotent-Replayed 는 재생에만 붙는다(Q310). 조건을 늘 참으로 바꾸면 첫 응답에도 붙는다
+# run: cd backend && ./gradlew integrationTest --tests '*OrderIdempotencyTest*' --console=plain
+# expect: 재생 응답에만 Idempotent-Replayed 가 붙는다 FAILED
+diff --git a/backend/src/main/java/com/projectshop/shop/order/OrderController.java b/backend/src/main/java/com/projectshop/shop/order/OrderController.java
+index a4dc16b..47d8780 100644
+--- a/backend/src/main/java/com/projectshop/shop/order/OrderController.java
++++ b/backend/src/main/java/com/projectshop/shop/order/OrderController.java
+@@ -124,7 +124,7 @@ public class OrderController {
+         // `/api/orders` 자신이라는 뜻이 되고, 그건 사실이 아니다(`D5` 「헤더」, `Q11`).
+         ResponseEntity.BodyBuilder created = ResponseEntity
+                 .created(URI.create("/api/orders/" + response.value().orderNumber()));
+-        if (response.replayed()) {
++        if (response.replayed() || response.value() != null) {
+             created.header(IdempotencyService.REPLAYED_HEADER, "true");
+         }
+         return created.body(response.value());

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.IdempotencyService;
+import com.projectshop.shop.support.IdempotencyService.Replay;
 import com.projectshop.shop.support.Retries;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -80,7 +81,7 @@ public class PaymentService {
      *
      * @param idempotencyKey 클라이언트가 만든 키(`D11`). 우리 표와 PG 가 같은 값을 쓴다
      */
-    public Result pay(long userId, String idempotencyKey, Command command) {
+    public Replay<Result> pay(long userId, String idempotencyKey, Command command) {
         requireCardNumberForCard(command);
 
         Fingerprint fingerprint = fingerprint(command);
@@ -91,7 +92,7 @@ public class PaymentService {
         Optional<Result> replayed = idempotency.replayIfPresent(userId, idempotencyKey,
                 fingerprint, Result.class);
         if (replayed.isPresent()) {
-            return replayed.get();
+            return new Replay<>(replayed.get(), true);
         }
 
         Payable payable = findPayable(userId, command.orderNumber());

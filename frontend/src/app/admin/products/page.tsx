@@ -5,6 +5,7 @@ import { ProductActions } from "@/components/product-actions";
 import { apiSession } from "@/lib/api-session";
 import { dateText } from "@/lib/format";
 import { productStatusText } from "@/lib/product-text";
+import { pageQuery, type Page } from "@/lib/paging";
 
 export const metadata: Metadata = { title: "상품 검수 · ProjectShop" };
 
@@ -19,7 +20,6 @@ type AdminProduct = {
   allowedActions: string[];
 };
 
-type Page = { items: AdminProduct[]; page: number; size: number; total: number };
 
 const TABS: { status: Status; label: string }[] = [
   { status: "PENDING_REVIEW", label: "검수 대기" },
@@ -43,7 +43,7 @@ export default async function AdminProductsPage({
 }) {
   const requested = (await searchParams).status;
   const status: Status = TABS.some((tab) => tab.status === requested) ? (requested as Status) : "PENDING_REVIEW";
-  const page = await apiSession<Page>(`/api/seller/products?status=${status}&size=50`);
+  const page = await apiSession<Page<AdminProduct>>(`/api/seller/products?status=${status}&${pageQuery(0, 50)}`);
 
   return (
     <div className="grid gap-8">

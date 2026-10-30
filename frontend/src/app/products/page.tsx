@@ -6,6 +6,7 @@ import { Pager, pageNumberOf } from "@/components/pager";
 import { ProductSearchForm, SEARCH_TERM_MAX_LENGTH } from "@/components/product-search-form";
 import { apiPublic } from "@/lib/api-session";
 import { priceText } from "@/lib/format";
+import { lastPageOf, pageQuery, type Page } from "@/lib/paging";
 
 export const metadata: Metadata = { title: "상품 · ProjectShop" };
 
@@ -17,12 +18,7 @@ const PAGE_SIZE = 20;
  *
  * <p>수수료율과 재고가 없다. 서버가 공개용 record 를 따로 두고 아예 안 내린다(`8`).
  */
-type ProductPage = {
-  items: ProductItem[];
-  page: number;
-  size: number;
-  total: number;
-};
+type ProductPage = Page<ProductItem>;
 
 type ProductItem = {
   productId: number;
@@ -57,13 +53,13 @@ export default async function ProductsPage({
   const page = pageNumberOf(requested.page);
   const q = searchTermOf(requested.q);
 
-  const query = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+  const query = pageQuery(page, PAGE_SIZE);
   if (q) {
     query.set("q", q);
   }
   const result = await apiPublic<ProductPage>(`/api/products?${query}`);
 
-  const lastPage = Math.max(0, Math.ceil(result.total / result.size) - 1);
+  const lastPage = lastPageOf(result);
 
   return (
     <div className="mx-auto grid w-full max-w-6xl flex-1 content-start gap-8 px-4 py-16">
@@ -87,7 +83,7 @@ export default async function ProductsPage({
             ))}
           </ul>
           <Pager
-            page={result.page}
+            page={page}
             lastPage={lastPage}
             total={result.total}
             basePath="/products"

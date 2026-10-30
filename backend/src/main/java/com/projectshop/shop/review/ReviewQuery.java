@@ -86,7 +86,7 @@ public class ReviewQuery {
     public record Summary(long count, Double average) {}
 
     @Schema(name = "ProductReviewPage")
-    public record Result(List<Item> items, int page, int size, long total, Summary summary) {}
+    public record Result(List<Item> items, long offset, int limit, long total, Summary summary) {}
 
     /**
      * 그 상품의 후기.
@@ -107,8 +107,8 @@ public class ReviewQuery {
                                  limit :size offset :offset
                                 """)
                         .param("productId", productId)
-                        .param("size", paging.size())
-                        .param("offset", paging.page() * paging.size())
+                        .param("size", paging.limit())
+                        .param("offset", paging.offset())
                         .query((rs, rowNum) -> new Item(
                                 rs.getLong("review_id"),
                                 MaskedName.of(rs.getString("display_name")),
@@ -121,7 +121,7 @@ public class ReviewQuery {
         items = attachPhotos(items);
 
         Summary summary = summaryOf(productId);
-        return new Result(items, paging.page(), paging.size(), summary.count(), summary);
+        return new Result(items, paging.offset(), paging.limit(), summary.count(), summary);
     }
 
     /**
@@ -166,7 +166,7 @@ public class ReviewQuery {
     public record MyPhoto(long reviewImageId, String thumbnailUrl) {}
 
     @Schema(name = "MyReviewPage")
-    public record MyResult(List<MyItem> items, int page, int size, long total) {}
+    public record MyResult(List<MyItem> items, long offset, int limit, long total) {}
 
     /** 내가 쓴 후기. 지운 것은 안 나온다 — 쓴 사람이 거둔 것이다 */
     public MyResult findMine(long userId, Paging paging) {
@@ -183,8 +183,8 @@ public class ReviewQuery {
                                  limit :size offset :offset
                                 """)
                         .param("userId", userId)
-                        .param("size", paging.size())
-                        .param("offset", paging.page() * paging.size())
+                        .param("size", paging.limit())
+                        .param("offset", paging.offset())
                         .query((rs, rowNum) -> new MyItem(
                                 rs.getLong("review_id"),
                                 rs.getLong("product_id"),
@@ -210,7 +210,7 @@ public class ReviewQuery {
                 .param("userId", userId)
                 .query(Long.class)
                 .single();
-        return new MyResult(items, paging.page(), paging.size(), total);
+        return new MyResult(items, paging.offset(), paging.limit(), total);
     }
 
     /**
@@ -222,7 +222,7 @@ public class ReviewQuery {
             int rating, String body, String reply, OffsetDateTime createdAt) {}
 
     @Schema(name = "SellerReviewPage")
-    public record SellerResult(List<SellerItem> items, int page, int size, long total) {}
+    public record SellerResult(List<SellerItem> items, long offset, int limit, long total) {}
 
     /**
      * 내가 답할 수 있는 셀러들의 상품 후기.
@@ -260,8 +260,8 @@ public class ReviewQuery {
                                  limit :size offset :offset
                                 """)
                         .param("sellers", sellers)
-                        .param("size", paging.size())
-                        .param("offset", paging.page() * paging.size())
+                        .param("size", paging.limit())
+                        .param("offset", paging.offset())
                         .query((rs, rowNum) -> new SellerItem(
                                 rs.getLong("review_id"),
                                 rs.getLong("product_id"),
@@ -283,7 +283,7 @@ public class ReviewQuery {
                 .param("sellers", sellers)
                 .query(Long.class)
                 .single();
-        return new SellerResult(items, paging.page(), paging.size(), total);
+        return new SellerResult(items, paging.offset(), paging.limit(), total);
     }
 
     /**
@@ -306,7 +306,7 @@ public class ReviewQuery {
             List<String> allowedActions, List<String> reviewActions) {}
 
     @Schema(name = "ReviewReportPage")
-    public record ReportResult(List<ReportItem> items, int page, int size, long total) {}
+    public record ReportResult(List<ReportItem> items, long offset, int limit, long total) {}
 
     /**
      * 그 상태의 신고. <b>접수된 것은 오래된 것부터</b> 나온다 — 먼저 들어온 것이 먼저 처리된다.
@@ -350,8 +350,8 @@ public class ReviewQuery {
                                  limit :size offset :offset
                                 """.replace("{order}", order))
                         .param("status", status.code())
-                        .param("size", paging.size())
-                        .param("offset", paging.page() * paging.size())
+                        .param("size", paging.limit())
+                        .param("offset", paging.offset())
                         .query((rs, rowNum) -> reportItemOf(
                                 rs.getLong("review_report_id"),
                                 rs.getLong("review_id"),
@@ -371,7 +371,7 @@ public class ReviewQuery {
                 .param("status", status.code())
                 .query(Long.class)
                 .single();
-        return new ReportResult(items, paging.page(), paging.size(), total);
+        return new ReportResult(items, paging.offset(), paging.limit(), total);
     }
 
     /** 사진 행 하나. 열쇠를 들고 있고 URL 은 부르는 쪽이 만든다 */
