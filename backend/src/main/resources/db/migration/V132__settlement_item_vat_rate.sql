@@ -14,10 +14,16 @@
 
 -- 부가세 포함 금액의 공급가액. **`VatSplit.supplyOf` 와 같은 식이다** — 부호를 떼고 만분율로 반올림해 다시 붙인다.
 -- 둘이 같은지는 `SettlementSchemaTest` 가 잰다. 넣는 순간의 대조는 아래 `settlement_item_vat_supply_check` 가 한다.
+-- **범위 밖 요율은 던진다** — `VatSplit.supplyOf` 와 같은 동작이다. 값을 내면 컬럼 제약 밖의 호출(시험·psql)에서 두 식이 갈린다(PR #119 리뷰).
 create function vat_supply_amount(p_amount bigint, p_rate_bp int) returns bigint
-language sql immutable as $$
-    select sign(p_amount)::bigint
-           * ((abs(p_amount) * 10000 + (10000 + p_rate_bp) / 2) / (10000 + p_rate_bp))
+language plpgsql immutable as $$
+begin
+    if p_rate_bp < 0 or p_rate_bp > 10000 then
+        raise exception '부가세율은 0~10000 만분율이다 (rate_bp=%)', p_rate_bp;
+    end if;
+    return sign(p_amount)::bigint
+           * ((abs(p_amount) * 10000 + (10000 + p_rate_bp) / 2) / (10000 + p_rate_bp));
+end;
 $$;
 
 alter table settlement_item add column vat_rate_bp int;

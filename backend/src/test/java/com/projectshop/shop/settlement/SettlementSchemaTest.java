@@ -407,8 +407,22 @@ class SettlementSchemaTest extends PostgresTestBase {
         @DisplayName("세율은 만분율 범위 안이다")
         void rateStaysInRange() {
             long settlementId = insertSettlement(-COMMISSION, -COMMISSION);
+            long orderItemId = anOrderItem();
 
-            assertThatThrownBy(() -> insertCommission(settlementId, 10_001, -COMMISSION))
+            // 공급가액을 값으로 넣는다 — 함수로 내면 함수가 먼저 범위를 거부해서 제약에 안 닿는다
+            assertThatThrownBy(() -> jdbc.sql("""
+                            insert into settlement_item (settlement_id, kind, amount, order_item_id,
+                                                         commission_bp, commission_base_amount,
+                                                         vat_rate_bp, supply_amount)
+                            values (:id, 'commission', :amount, :orderItemId, :bp, :base, 10001, :supply)
+                            """)
+                    .param("id", settlementId)
+                    .param("amount", -COMMISSION)
+                    .param("orderItemId", orderItemId)
+                    .param("bp", COMMISSION_BP)
+                    .param("base", PRICE)
+                    .param("supply", VatSplit.of(-COMMISSION).supply())
+                    .update())
                     .isInstanceOf(DataAccessException.class)
                     .hasMessageContaining("settlement_item_vat_rate_range_check");
         }
@@ -470,6 +484,27 @@ class SettlementSchemaTest extends PostgresTestBase {
                     .update())
                     .isInstanceOf(DataAccessException.class)
                     .hasMessageContaining("settlement_item_vat_platform_check");
+        }
+
+        /** 범위 밖 요율은 값을 안 낸다 — {@link VatSplit} 이 던지는 것과 같은 동작이다(PR #119 리뷰 셋째 판) */
+        @Test
+        @DisplayName("공급가액 함수는 범위 밖 요율을 거부한다")
+        void supplyFunctionRefusesARateOutOfRange() {
+            assertThatThrownBy(() -> jdbc.sql("select vat_supply_amount(11000, 10001)")
+                    .query(Long.class)
+                    .single())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("부가세율");
+        }
+
+        @Test
+        @DisplayName("공급가액 함수는 음수 요율을 거부한다")
+        void supplyFunctionRefusesANegativeRate() {
+            assertThatThrownBy(() -> jdbc.sql("select vat_supply_amount(11000, -1)")
+                    .query(Long.class)
+                    .single())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("부가세율");
         }
 
         /** SQL 식과 {@link VatSplit} 이 같은 값을 낸다 — 마감 insert 는 SQL 로, 상수와 대조 사본은 Java 로 낸다 */
