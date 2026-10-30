@@ -475,14 +475,18 @@ done
 # 분할표에서 안 닫힌 행만 뽑는다. **아래 두 검사가 같은 판정을 쓴다** — 두 벌로 두면 갈린다.
 # 행 판정은 `PlanProgressConsistencyTest` 와 같다 — 번호 칸이나 이름 칸의 취소선, 선행 칸의 `완료`.
 # `#`·`칸` 은 표 머리다(분할표와 그 앞의 칸 설명 표).
-plan_open_rows() {
-  awk '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
+# 인자 `closed` 면 같은 판정의 반대쪽(닫힌 행)을 낸다 — 「구간 취소선」 검사가 쓴다.
+plan_rows() {
+  awk -v want="$1" '/^## 청크 분할표/{on=1} on && /^\| [^-|*][^|]*\|/{
     n=split($0,c,"|"); id=c[2]; gsub(/^ +| +$/,"",id); nm=c[3]; gsub(/^ +/,"",nm);
     last=c[n-1]; gsub(/^ +| +$/,"",last);
-    if (id=="#" || id=="칸" || id ~ /^~~/ || nm ~ /^~~/ || last=="완료") next;
+    if (id=="#" || id=="칸") next;
+    closed=(id ~ /^~~/ || nm ~ /^~~/ || last=="완료");
+    if (closed != (want=="closed")) next;
     print
   }' PLAN.md
 }
+plan_open_rows() { plan_rows open; }
 
 # **PLAN 검사 셋은 PLAN.md 가 범위에 들 때만 돈다**(`Q217`).
 if in_scope PLAN.md; then
@@ -539,6 +543,24 @@ plan_unplaced=$(comm -23 \
 if [ -n "${plan_unplaced// /}" ]; then
   echo "[구간 누락] PLAN.md — 안 닫힌 청크 중 구간 표에 없는 것: ${plan_unplaced}"
   echo "    다섯 구간 중 하나의 청크 칸에 낱개로 적는다(PLAN.md 「구간」)"
+  fail=1
+fi
+
+# 위 「구간 누락」의 반대쪽 — **닫힌 청크가 구간 표에 취소선 없이 남았나**(`점검 AB`).
+# 이력→분할표는 `PlanProgressConsistencyTest` 가 재는데 분할표→구간 표는 아무도 안 쟀고,
+# 2026-10-31 에 예순여덟 개가 남은 것처럼 서 있었다. 0 기준이다.
+#
+# **본 구간 표만 본다**(`## 구간` ~ 첫 `### `). 같은 절의 번들 표·대조 표는 이력이라
+# 닫힌 번호가 취소선 없이 서는 것이 맞다.
+plan_segment_unstruck=$(comm -12 \
+  <(plan_rows closed | awk -F'|' '{id=$2; gsub(/^ +| +$|~/,"",id); print id}' | sort -u) \
+  <(awk '/^## 구간/{on=1; next} on && /^#/{on=0} on && /^\| /{
+      n=split($0,c,"|"); if (n<4) next; s=c[3]; gsub(/~~[^~]*~~/,"",s);
+      while (match(s, /`[^`]+`/)) { print substr(s, RSTART+1, RLENGTH-2); s=substr(s, RSTART+RLENGTH) }
+    }' PLAN.md | sort -u) | tr '\n' ' ')
+if [ -n "${plan_segment_unstruck// /}" ]; then
+  echo "[구간 취소선] PLAN.md — 닫힌 청크인데 구간 표에 취소선이 없다: ${plan_segment_unstruck}"
+  echo "    분할표에서 닫혔으면 구간 표의 그 번호에 ~~ 를 긋는다(PLAN.md 「구간」)"
   fail=1
 fi
 
