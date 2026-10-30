@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
@@ -19,6 +20,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderFixture;
 import com.projectshop.shop.support.BusinessCalendar;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.support.VatSplit;
 
 /**
  * 정산서를 누가 어디까지 보나(청크 20).
@@ -293,6 +295,9 @@ class SettlementQueryTest extends PostgresTestBase {
                     .isEqualTo(-909L);
             assertThat(commission.vatAmount()).isEqualTo(-91L);
             assertThat(commission.supplyAmount() + commission.vatAmount()).isEqualTo(commission.amount());
+            assertThat(commission.vatRateBp())
+                    .as("마감 때 박제한 세율이다 — 부가가치세법 제30조(`Q320`)")
+                    .isEqualTo(VatSplit.VAT_RATE_BP);
 
             assertThat(linesOf("s-mine"))
                     .as("셀러가 고객에게 공급한 줄의 세금계산서는 셀러가 낸다 — 우리가 나눌 근거가 없다")
@@ -301,7 +306,48 @@ class SettlementQueryTest extends PostgresTestBase {
                     .allSatisfy(line -> {
                         assertThat(line.supplyAmount()).isNull();
                         assertThat(line.vatAmount()).isNull();
+                        assertThat(line.vatRateBp()).isNull();
                     });
+        }
+
+        /**
+         * 세율이 바뀐 뒤에도 과거 정산서는 박제한 값으로 나뉜다(`Q320`) — 공급시기의 세율이다(부가가치세법 부칙 적용례).
+         * 저장값을 다른 요율로 고쳐 두고 읽어서, 읽기가 지금 상수로 다시 나누지 않는다는 것을 본다.
+         */
+        @Test
+        @DisplayName("수수료 줄은 마감 때 박제한 세율로 나뉜다")
+        void pinsVatRateAtClose() {
+            closeWith(sellerId);
+            jdbc.sql("""
+                            update settlement_item
+                               set vat_rate_bp = 500, supply_amount = vat_supply_amount(amount, 500)
+                             where kind = 'commission'
+                            """)
+                    .update();
+
+            SettlementQuery.Line commission = linesOf("s-mine").stream()
+                    .filter(line -> "COMMISSION".equals(line.kind()))
+                    .findFirst()
+                    .orElseThrow();
+
+            VatSplit atFive = VatSplit.of(-COMMISSION, 500);
+            assertThat(commission.vatRateBp()).isEqualTo(500);
+            assertThat(commission.supplyAmount())
+                    .as("지금 세율로 다시 나누면 %d 다", VatSplit.of(-COMMISSION).supply())
+                    .isEqualTo(atFive.supply());
+            assertThat(commission.vatAmount()).isEqualTo(atFive.vat());
+        }
+
+        /** 세율만 고치면 박제한 공급가액과 어긋난다 — 저장 층이 막는다(`settlement_item_vat_supply_check`) */
+        @Test
+        @DisplayName("세율과 맞지 않는 공급가액은 저장되지 않는다")
+        void refusesASupplyAmountThatIsNotTheRatesSplit() {
+            closeWith(sellerId);
+
+            assertThatThrownBy(() -> jdbc.sql("update settlement_item set vat_rate_bp = 500 where kind = 'commission'")
+                    .update())
+                    .isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("settlement_item_vat_supply_check");
         }
 
         @Test

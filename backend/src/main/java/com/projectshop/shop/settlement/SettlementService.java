@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.projectshop.shop.support.BusinessCalendar;
 import com.projectshop.shop.support.ExposedNumber;
+import com.projectshop.shop.support.VatSplit;
 
 /**
  * 한 달치 거래를 셀러별 정산서로 묶어 지급액을 확정한다(청크 19).
@@ -244,9 +245,11 @@ public class SettlementService {
         // 안 뗀 수수료를 0 으로 적으면 정산서가 「뗐는데 0 원」과 「안 뗐다」를 못 가른다.
         jdbc.sql("""
                         insert into settlement_item (settlement_id, kind, amount, order_item_id,
-                                                     commission_bp, commission_base_amount)
+                                                     commission_bp, commission_base_amount,
+                                                     vat_rate_bp, supply_amount)
                         select :settlementId, 'commission', -oi.commission_amount, oi.order_item_id,
-                               oi.commission_bp, oi.line_amount
+                               oi.commission_bp, oi.line_amount,
+                               :vatRateBp, vat_supply_amount(-oi.commission_amount, :vatRateBp)
                           from order_item oi
                           join seller_order so on so.seller_order_id = oi.seller_order_id
                          where so.seller_id = :sellerId
@@ -259,6 +262,7 @@ public class SettlementService {
                                               and i.order_item_id = oi.order_item_id)
                         """)
                 .param("settlementId", settlementId)
+                .param("vatRateBp", VatSplit.VAT_RATE_BP)
                 .param("sellerId", sellerId)
                 .param("start", periodStart)
                 .param("end", periodEnd)
@@ -427,9 +431,11 @@ public class SettlementService {
         insertCouponReversalLines(settlementId, sellerId, periodStart, periodEnd);
 
         jdbc.sql("""
-                        insert into settlement_item (settlement_id, kind, amount, refund_item_id)
+                        insert into settlement_item (settlement_id, kind, amount, refund_item_id,
+                                                     vat_rate_bp, supply_amount)
                         select :settlementId, 'commission_reversal', ri.commission_refund,
-                               ri.refund_item_id
+                               ri.refund_item_id,
+                               :vatRateBp, vat_supply_amount(ri.commission_refund, :vatRateBp)
                           from refund_item ri
                           join refund r on r.refund_id = ri.refund_id
                           join seller_order so on so.seller_order_id = r.seller_order_id
@@ -446,6 +452,7 @@ public class SettlementService {
                                               and i.refund_item_id = ri.refund_item_id)
                         """)
                 .param("settlementId", settlementId)
+                .param("vatRateBp", VatSplit.VAT_RATE_BP)
                 .param("sellerId", sellerId)
                 .param("start", periodStart)
                 .param("end", periodEnd)

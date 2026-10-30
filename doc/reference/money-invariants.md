@@ -93,6 +93,7 @@
 | `(셀러, 정산 주기)` 조합은 하나 | `unique`(`V52`) |
 | **근거 하나는 평생 한 번만 실린다** | 부분 `unique`(`V52`) |
 | `-settlement_item.amount = commission_base_amount × commission_bp / 10000` (수수료 줄) | `check`(`V55`) |
+| `supply_amount = vat_supply_amount(amount, vat_rate_bp)` (플랫폼 공급 줄 — 세율은 마감 때 박제) | `check`(`V132`, `Q320`) |
 
 **넷째가 테스트에서 `check` 로 내려갔다**(청크 17). 한 행 안에서 결정되는 값이라
 더 낮은 자리에 걸 수 있었다 — `D23` 축 2 는 걸 수 있는 자리가 여럿이면 아래를 고르라고 한다.

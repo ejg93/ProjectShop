@@ -50,9 +50,7 @@
 |---|---|---|
 | Medusa 는 수정도 `POST` 다(`carts/[id]/line-items/[line_id]/route.ts` 의 `POST`) | Spree 는 `PATCH` | D5 「메서드」 — `PATCH` + `merge-patch+json` |
 | Spree 는 요청 제한 헤더를 `X-RateLimit-Limit`·`X-RateLimit-Remaining` 으로 모든 응답에 싣는다(`rate_limit_headers.rb:5`) | Medusa 범위 밖 | `X-` 는 RFC 6648 로 막는다(D5 「헤더」). 남은 양을 싣는 칸은 없다 — **묶음 4(보안)** 가 요청 제한 줄에서 본다 |
-| Spree 주문에 철회 기한 칸이 있다(`order_serializer.rb:17` `withdrawal_period_ends_at`·`within_withdrawal_period`) | — | 청약철회(R3) 기한을 응답에 싣나 — **묶음 3(거래)** 의 입력 |
-</content>
-</invoke>
+| Spree 주문에 철회 기한 칸이 있다(`order_serializer.rb:17` `withdrawal_period_ends_at`·`within_withdrawal_period`) | — | 청약철회(R3) 기한을 응답에 싣나 — **묶음 3 ⑥ 이 봤다**(같은 시점에 박제해 싣는다). 처음 적은 것: **묶음 3(거래)** 의 입력 |
 
 ---
 
@@ -89,3 +87,46 @@
 |---|---|---|
 | Saleor 는 줄마다 값을 세 겹 둔다 — 세 전 `base_*` · 할인 전 `undiscounted_*` · 세 후 | `SA:order/models.py:624-723` | 주문 항목은 할인 전 `line_amount` 와 `discount_amount` 두 겹 — 세 전 값은 역산(카탈로그 「주문 > 한 행 안에서 끝나는 것」) |
 | Solidus 는 완료 전까지 줄 가격을 살아 있는 가격으로 다시 읽는다(`recalculate_cart_prices` 5.0 부터 기본 참) | `SO:lib/spree/app_configuration.rb:284-286` | 주문을 만들 때 항목에 박제한다(D4 「외래키를 건다」). 장바구니 가격의 모양은 묶음 3(거래)의 입력 |
+
+---
+
+## 묶음 3 — 거래(`점검 AA`, 2026-10-30)
+
+**짝**: Spree 5(`spree/spree` `adf2eda78925`, BSD-3 — `main` 이 지금 마켓플레이스다) · Medusa+Mercur 한 짝(`medusajs/medusa` `0ae4aede6684` 기본 가지 `develop`, MIT · `mercurjs/mercur` `b2153e02c989`, MIT). **셋 다 설계 해시(`d4fd2e9`·`f04fc3d`·`37b8284`)와 다르다** — 하루 사이 움직였고 받은 HEAD 다. 줄 번호는 이 해시 기준.
+**표기**: `S:` 는 Spree 의 `spree/` 아래, `M:` 은 Medusa 의 저장소 루트 아래, `R:` 은 Mercur 의 `packages/core/src/` 아래 경로다.
+**우리 쪽**: `state-machines.md`·`concurrency-rules.md`·`business-model.md` 의 절 이름으로 적는다. 쿠폰 부담 주체는 묶음 2 가 봤다.
+**공식 문서**: 미열람 — **판정은 코드가 근거다.** 코드 지도는 서브에이전트 하나(읽기만)가 그렸고 인용 넷(`S:order.rb:475-496` · `S:commission_line.rb:1-20` · `R:payout-amounts.ts:247-276` · `M:status.ts:6-31`)을 원문으로 다시 댔다.
+**두 짝 다 없는 것**: 구매확정 상태 · 자동확정 · 검수와 판정의 분리 · 법이 닫은 반품 사유 목록. 우리 쪽은 전부 법이나 정산 대상에서 나온 근거가 있다.
+
+| 항목 | 우리 | Spree | S 판정 | Medusa+Mercur | M 판정 | 처분 |
+|---|---|---|---|---|---|---|
+| ① 주문 두 층 | `state-machines.md` 「주문은 두 층이다」 | `S:core/app/models/spree/order_group.rb:13-19` · `payment_split.rb:4-15` — 결제 한 건이 그룹에, 셀러별 자식 주문이 품목·배송을 든다 | 같다 | `R:modules/seller/models/order-group.ts:3-11` · `subscribers/split-order-payment-captured.ts:9-30` — 그룹이 장바구니 하나와 주문 N 개를 묶고 매입 뒤 주문별로 나눈다 | 같다 | 한 줄 |
+| ② 결제 상태 | 「`order` 상태 — 결제」 넷(만료 포함) | `S:order.rb:13` · `payment.rb:118-124` — 결제 상태가 파생값이고 만료 상태가 없다 | 다르다·근거 있음 | `M:packages/modules/payment/src/models/payment-collection.ts:15-17` · `R:workflows/order-group/utils/aggregate-status.ts:9-21` — 주문별 결제 묶음 상태를 모아 파생한다, 만료 없음 | 다르다·근거 있음 | 「재고는 결제 전에 잡는다」 — 30분 만료가 재고를 돌린다 |
+| ③ 셀러 주문 상태 | 「`seller_order` 상태 — 배송」 일곱 | `S:order.rb:17,175` · `fulfillment.rb:152` — `draft`·`placed`·`canceled` + 배송 롤업, 확정·반품 상태가 없다 | 다르다·근거 있음 | `M:packages/core/utils/src/order/status.ts:6-31` · `R:workflows/payout/utils/fulfillment-status.ts:27-33,49-72` — 여섯 값 + 배송 행에서 파생 | 다르다·근거 있음 | `confirmed` 는 정산 대상(`business-model.md` 「대상」)이고 `cancelled`·`return_requested` 는 배송완료 시각이 가른다 |
+| ④ 부분 취소·반품 | 「주문은 두 층이다」 — 취소는 `seller_order` 통째 · 반품은 항목·수량(`return_request_item`, `V63`) | `S:api/app/controllers/spree/api/v3/seller/orders_controller.rb:60-89` · `seller/orders/returns_controller.rb:21-24` — 취소는 통째, 반품은 배송 품목·수량 단위 | 같다 | `M:packages/core/core-flows/src/order/workflows/cancel-order.ts:79-103` · `M:packages/modules/order/src/models/order-item.ts:13-19` — 취소는 통째, 반품은 품목별 수량 칸으로 부분 | 같다 | 한 줄. **우리 문서가 코드와 어긋나 있었다** — `state-machines.md` 「주문은 두 층이다」가 「취소·반품의 최소 단위는 `seller_order`」라 적었는데 `43` 이 반품을 항목·수량으로 세웠다. 그 문장을 고쳤다 |
+| ⑤ 재고 예약·만료 | 「재고는 결제 전에 잡는다」 · 30분 · 5분 배치 | `S:stock_reservation.rb:50,67,105-106` · `stock_level.rb:205-215` — 장바구니가 TTL 예약 행을 잡고(기본 10분) 만료 작업이 돌린다 | 같다 | `M:packages/modules/inventory/src/services/inventory-module.ts:173-192` — 예약 때 가용을 보고 취소 때 지운다. 예약 시점·만료는 받은 범위 밖 | 범위 밖 | 한 줄 — 모양이 같고 단위(주문/장바구니)·시간만 다르다 |
+| ⑥ 철회 기한 | `delivered` 때 철회 만료·자동확정 예정일 박제, 결제 때 `ship_due_at` · 응답 `withdrawalExpireAt`(`OrderQuery:143`) | `S:order.rb:475-496,512-518` · `api/app/serializers/spree/api/v3/order_serializer.rb:17,24-29` — **저장하지 않고 계산한다**(「clock starts at physical possession」), 마지막 소포 배송완료부터 시장별 일수(기본 14), 응답에 싣는다. 공휴일 이월·발송 기한 없음 | 다르다·근거 있음 | `withdraw`·`cooling`·`return_window`·`due_at` 0건 | 다르다·근거 있음 | `D10` 「계산한 기한은 박제한다」 — 우리도 배송완료 때 박제해 Spree 의 「배송 전에는 기한이 없다」와 시점이 같다. 응답에 싣는 것도 같다. **묶음 1 끝 표의 입력이 여기서 닫혔다** |
+| ⑦ 반품 사유 | 「`delivered` → `return_requested` 는 사유로 갈린다」 — 법이 정한 둘, 제한은 항목에 박제 | `S:return_reason.rb:2-3` · `claim.rb:1-4,24-28` · `market.rb:50-61` — 상점이 정하는 이름 목록, 법정 철회기간과 상점 반품 기간을 따로 둔다 | 다르다·근거 있음 | `M:packages/modules/order/src/models/return-reason.ts:10-19` · `return-item.ts:17-19` — 계층형 자유 목록 | 다르다·근거 있음 | `coding-rules.md` 「법이 인정한 목록은 닫는다」 · 박제는 `Q5` |
+| ⑧ 누가 옮기나·이력 | 「누가 옮기나」 — 셀러는 자기 것만, 판정은 셀러가 안 한다, 관리자 강제 전이, 상태 이력 | `S:seller/orders/returns_controller.rb:6-18` · `return.rb:26-27` — 셀러가 반품 승인·수령·환불까지 한다, 이력 표 없음 | 다르다·근거 있음 | `M:packages/modules/order/src/models/order-change.ts:7-29` · `R:workflows/order/workflows/confirm-return-receive.ts:399-406` — 변경 행이 판·요청자·확인자를 남긴다 | 다르다·근거 있음 | 「판정은 셀러가 안 한다」 — 제17조제5항 입증책임 · 「상태 이력을 남긴다」 |
+| ⑨ 자동확정 | 「자동확정 8일」 — 철회 기간보다 짧을 수 없다 | 구매확정 개념 없음 | 다르다·근거 있음 | `M:packages/core/core-flows/src/order/workflows/complete-orders.ts:23-25,49-71` — `completed` 는 관리자가 부르는 수동 작업 | 다르다·근거 있음 | 정산 대상이 확정 주문이라 서야 한다(`business-model.md` 「대상」) · `D10` |
+| ⑩ 반품 진행 | 「반품 상태 — 진행」 여섯 · 접수 취소 없음 | `S:return.rb:29-30,42-43` · `returns_controller.rb:31-37` — `requested`→`approved`→`received`→`refunded`·`canceled`, 수령 때 센 수량과 재판매 여부, 판정 단계 없음 | 다르다·근거 있음 | `M:status.ts:38-59` · `return/cancel-return.ts:74-93` · `R:confirm-return-receive.ts:190-201` — 수령 때 받은·훼손 수량, 수령분이 있으면 취소를 막는다, 검수·판정 분리 없음 | 다르다·근거 있음 | `inspected` 는 제17조제5항 · 접수 취소 없음은 제17조제4항·민법 제543조제2항(`43a-2`) |
+| ⑪ 어긋남 방벽 | 「어긋남은 트리거가 막되 상태를 안 옮긴다」 | 마이그레이션이 받은 범위 밖 | 범위 밖 | 주문 모듈·Mercur 모듈에 트리거 0건 — 워크플로 검증이 든다 | 다르다·근거 있음 | `coding-rules.md` 축 2 — DB 제약이 앱 검증보다 아래 |
+| ⑫ 재고 차감 | 「재고 차감 — 조건부 UPDATE」 | `S:stock_level.rb:117-121,245-258` — 수량은 `with_lock` 읽고 쓰기, 예약 수는 0 에서 멈추는 단일 UPDATE | 다르다·근거 있음 | `M:inventory-module.ts:126-134,973-1005` — 읽고 앱이 비교한 뒤 쓴다, 모듈 안 잠금 없음 | 다르다·근거 있음 | 「Read Committed 인데 왜 안전한가」 |
+| ⑬ 재시도 | 「재시도 — 다시 해서 달라지는 것만 3회」 | `S:payment.rb:128-162` · `seller_payout.rb:101-120` — 실패 결제를 같은 행으로 다시 잡는다, 횟수 재시도 없음, 결과를 모르는 지급은 `unresolved` | 다르다·근거 있음 | `M:packages/modules/payment/src/services/payment-module.ts:88-94,1002-1033` — 환불 재시도가 같은 멱등키로 실패 행을 잇는다, 15분 안은 충돌 | 다르다·근거 있음 | 같은 키로 다시 부르는 것은 같다(「결제사 무응답에서 키를 새로 만들지 않는다」). 횟수·SQLSTATE 갈래는 우리 쪽 근거 |
+| ⑭ 트랜잭션 경계 | 「트랜잭션 경계」 — 바깥 호출은 밖, 기록은 짧은 멱등 트랜잭션 | `S:return.rb:8-11` · `payment/processing.rb:53-69` · `refund.rb:113-126` — 게이트웨이 호출을 트랜잭션 밖에서 한다 | 같다 | `M:payment-module.ts:711-780,881-897,927-985` — 행을 먼저 쓰고 공급자 호출은 밖에서 멱등키로 | 같다 | 한 줄 |
+| ⑮ 수수료 박제 | `business-model.md` 「언제 박제하나」 — 요율과 금액을 주문 시점에 | `S:commission_line.rb:4-19,31-40` — 요율·금액·세액·합계를 주문 때 박제, 요율을 고쳐도 안 바뀐다 | 같다 | `R:modules/commission/models/commission-line.ts:3-15` · `subscribers/order-edit-confirmed.ts:8-35` — 품목마다 두되 주문 수정·반품 수령 때마다 다시 계산한다 | 다르다·근거 있음 | 「언제 박제하나」 — 다시 계산하면 요율을 바꾼 날 과거가 바뀐다 |
+| ⑯ 정산 | 「정산」 — 월 1회 · 구매확정만 · 지급액 식 | `S:seller_transfer.rb:4-8` · `seller.rb:54,376-377` — 출고 때 적립, 주기는 셀러별(일·주·격주·월·수동) | 다르다·근거 있음 | `R:workflows/payout/workflows/create-order-payouts.ts:40-45,87-93` · `utils/payout-amounts.ts:200-244` — 주문 하나에 지급 하나, 배송·매입이 끝나면 합계 − 수수료 | 다르다·근거 있음 | 「대상」 — 철회 기간이 지나야 확정이라 정산 뒤 환불이 준다 · 「주기」 — 월 1회라 두 번 돌아도 두 배가 안 되는지 잴 수 있다 |
+| ⑰ 정산 후 환불 | 「환불」 — 수수료도 돌려준다 · 다음 정산 차감 · 음수 이월 | `S:seller_transfer.rb:17-19,31` · `seller_payout.rb:9-12` — 음수 반제 행, 닫힌 기간 뒤는 다음 기간으로. 수수료 몫은 계산 작업이 받은 범위 밖 | 같다 | `R:payout-amounts.ts:247-276` · `modules/payout/models/payout.ts:7-24` — 지급 뒤 환불은 「환불액 − 수수료 비례분」을 회수 행으로, 이월·음수 잔액 없음 | 다르다·근거 있음 | 「정산 후 환불」 — 회수 경로가 없는 경우를 음수 잔액으로 표현한다. 수수료를 돌려주는 것은 셋이 같다 |
+
+**셈**: 판정 칸 서른넷 — 같다 9 · 다르다·근거 있음 23 · 다르다·근거 없음 0 · 범위 밖 2(⑤ M · ⑪ S) · 우리에 없음 0. 신규 행 0 — 대역 `Q331`~`Q340` 은 안 썼다.
+**읽은 양**: Spree 약 25 파일·1800줄 · Medusa+Mercur 약 32 파일·1500줄(상한 짝당 50·1만 안).
+
+### 열일곱 밖에서 눈에 띈 것
+
+| 무엇 | 어디 | 우리 |
+|---|---|---|
+| Spree 는 결제 한 건의 자식 주문별 승인·매입·환불 몫을 행으로 남긴다(「비율은 부분 처리가 생기는 순간 깨진다」) | `S:payment_split.rb:4-15` | 환불은 `refund_item` 이 항목마다 든다. 결제는 주문에 한 건이라 몫을 가를 행이 없다 — 셀러별 부분 매입·취소가 생기는 날 다시 본다 |
+| Spree 는 지급 결과를 모르면 `unresolved` 로 붙잡아 다음 스윕의 이중 지급을 막는다(공급자 멱등키 보존이 월 정산보다 짧다) | `S:seller_payout.rb:101-120` | 지급은 모의다(`business-model.md` 「정산 후 환불」). **묶음 5(이벤트·배치)** 의 입력 |
+| Spree 는 수수료에 붙는 부가세를 따로 계산해 박제한다(`tax_amount`) | `S:commission_line.rb:16-19` | 수수료가 부가세 포함가다(`Q274`) — 세율·공급가액은 정산 마감 때 박제한다(`Q320`) |
+| Spree 는 원물을 돌려받지 않는 해결(환불·대체품)을 반품과 다른 모델(`Claim`)로 둔다 | `S:claim.rb:1-4,28` | 교환은 「안 다루는 것」에 근거가 있다(`45`). 원물 없는 환불은 없다 |
+| Mercur 는 셀러 지급 계좌가 없거나 꺼져 있으면 지급을 보류하고 다음 실행이 다시 판정한다 | `R:workflows/payout/utils/payout-amounts.ts:219-224` | 지급 대기는 「정산 지급 상태」(`21`). **묶음 5** 의 입력 |
