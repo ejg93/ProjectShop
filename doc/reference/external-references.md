@@ -321,10 +321,11 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 
 | 저장소 | 커밋 | 라이선스 | 읽은 자리 | 묶음 |
 |---|---|---|---|---|
-| https://github.com/medusajs/medusa | `5ac3fdcbf82e`(2026-10-28) | MIT — `ENTERPRISE-LICENSE.md` 가 든 폴더만 밖 | `packages/core/framework/src/http` · `packages/core/utils/src/common` · `packages/medusa/src/api/store`·`api/utils` | 1 API 계약(`점검 X`) |
-| https://github.com/spree/spree | `f227994feffd`(2026-10-28) | BSD-3-Clause | `spree/api/app/controllers/spree/api/v3` · `controllers/concerns` · `serializers/spree/api/v3` | 1 API 계약(`점검 X`) |
+| https://github.com/medusajs/medusa | `5ac3fdcbf82e`(2026-10-28) · `0ae4aede6684`(2026-10-30, 기본 가지 `develop`) | MIT — `ENTERPRISE-LICENSE.md` 가 든 폴더만 밖 | `packages/core/framework/src/http` · `packages/core/utils/src/common` · `packages/medusa/src/api/store`·`api/utils` · 묶음 3 은 `packages/modules/{order,payment}/src` · `modules/inventory/src/services` · `core/utils/src/order` · `core/types/src/order` · `core/core-flows/src/order/workflows` | 1 API 계약(`점검 X`) · 3 거래(`점검 AA`, Mercur 와 한 짝) |
+| https://github.com/spree/spree | `f227994feffd`(2026-10-28) · `adf2eda78925`(2026-10-30) | BSD-3-Clause | `spree/api/app/controllers/spree/api/v3` · `controllers/concerns` · `serializers/spree/api/v3` · 묶음 3 은 `spree/core/app/models/spree` · `spree/core/lib/spree/core` | 1 API 계약(`점검 X`) · 3 거래(`점검 AA` — `main` 이 마켓플레이스다) |
 | https://github.com/saleor/saleor | `c982006`(2026-10-27) | BSD-3-Clause | `saleor/order` · `saleor/tax` · `saleor/discount` · `saleor/payment` · `saleor/checkout` · `saleor/core/prices.py` — 반올림 기본값은 `mirumee/prices`(`95fd44366d9b`, `gh api`) | 2 데이터 모델·돈(`점검 Y`) — 금액·세금 겹 |
 | https://github.com/solidusio/solidus | `f41bf95`(2026-10-28) | BSD-3-Clause | `core/app/models/spree` · `core/db/migrate` · `core/lib/spree/core` | 2 데이터 모델·돈(`점검 Y`) — 주문·조정 행 |
+| https://github.com/mercurjs/mercur | `b2153e02c989`(2026-10-30) | MIT | `packages/core/src/modules/{seller,payout,commission}` · `workflows/{order-group,order,payout,commission}` · `subscribers` · `links` | 3 거래(`점검 AA`) — Medusa 위 겹 |
 
 ## D2 법·정책 (완료)
 
