@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 
 import org.springframework.stereotype.Component;
@@ -45,6 +46,12 @@ public class ImagePipeline {
 
     /** 값의 출처는 {@code media-rules.md} 「받는 것 — 제한값」이다. 고칠 때 각 표의 {@code check} 도 같이 고친다 */
     public static final long MAX_BYTES = 5L * 1024 * 1024;
+
+    /**
+     * 디코딩할 화소 수(폭×높이). <b>파일 크기 상한은 디코딩 메모리를 못 막는다</b> — 단색 PNG 는 5 MiB 안에
+     * 십억 화소가 들고, 풀면 화소당 4 바이트다. 값의 출처는 {@code media-rules.md} 「받는 것 — 제한값」이다(`Q351`)
+     */
+    public static final long MAX_PIXELS = 30_000_000L;
 
     /**
      * 주인 하나(상품 하나·후기 하나)당 장수. 후기도 상품과 <b>같은 값을 쓴다</b>(사용자 선택, `Q159`) —
@@ -155,6 +162,10 @@ public class ImagePipeline {
     /**
      * <b>내용으로 판별한다.</b> {@link ImageIO} 가 읽어 낸 형식 이름이 답이고,
      * 요청이 뭐라고 적었는지는 안 본다.
+     *
+     * <p><b>폭×높이도 여기서 막는다</b>(`Q351`) — {@code getWidth}·{@code getHeight} 는 헤더(PNG IHDR·JPEG SOF)만 읽는다.
+     * {@link #read} 의 {@code ImageIO.read} 는 통째로 풀어서, 그 앞이 아니면 상한이 할당을 못 막는다.
+     * 헤더를 못 읽는 파일은 받을 수 없는 형식이다 — 서버 오류(500)로 내보내지 않는다.
      */
     private ImageContentType detect(byte[] bytes) {
         try (ByteArrayInputStream in = new ByteArrayInputStream(bytes);
@@ -163,14 +174,33 @@ public class ImagePipeline {
             if (!readers.hasNext()) {
                 throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
             }
-            ImageContentType contentType =
-                    ImageContentType.ofFormat(readers.next().getFormatName());
-            if (contentType == null) {
-                throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
+            ImageReader reader = readers.next();
+            try {
+                ImageContentType contentType = ImageContentType.ofFormat(reader.getFormatName());
+                if (contentType == null) {
+                    throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
+                }
+                reader.setInput(stream, true, true);
+                requireWithinPixelCap(reader);
+                return contentType;
+            } finally {
+                reader.dispose();
             }
-            return contentType;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    /** 폭×높이를 {@code long} 으로 곱한다 — {@code int} 곱은 65535×65535 에서 음수가 되어 상한을 지난다 */
+    private static void requireWithinPixelCap(ImageReader reader) {
+        long pixels;
+        try {
+            pixels = (long) reader.getWidth(0) * reader.getHeight(0);
+        } catch (IOException e) {
+            throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
+        }
+        if (pixels > MAX_PIXELS) {
+            throw new ShopException(ErrorCode.IMAGE_TOO_LARGE);
         }
     }
 
