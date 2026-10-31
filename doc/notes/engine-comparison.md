@@ -126,10 +126,10 @@
 | 무엇 | 어디 | 우리 |
 |---|---|---|
 | Spree 는 결제 한 건의 자식 주문별 승인·매입·환불 몫을 행으로 남긴다(「비율은 부분 처리가 생기는 순간 깨진다」) | `S:payment_split.rb:4-15` | 환불은 `refund_item` 이 항목마다 든다. 결제는 주문에 한 건이라 몫을 가를 행이 없다 — 셀러별 부분 매입·취소가 생기는 날 다시 본다 |
-| Spree 는 지급 결과를 모르면 `unresolved` 로 붙잡아 다음 스윕의 이중 지급을 막는다(공급자 멱등키 보존이 월 정산보다 짧다) | `S:seller_payout.rb:101-120` | 지급은 모의다(`business-model.md` 「정산 후 환불」). **묶음 5(이벤트·배치)** 의 입력 |
+| Spree 는 지급 결과를 모르면 `unresolved` 로 붙잡아 다음 스윕의 이중 지급을 막는다(공급자 멱등키 보존이 월 정산보다 짧다) | `S:seller_payout.rb:101-120` | 지급은 모의다(`business-model.md` 「정산 후 환불」). 묶음 5 ⑩ 이 봤다(2026-10-31 `점검 AD`) — 다르다·근거 있음 |
 | Spree 는 수수료에 붙는 부가세를 따로 계산해 박제한다(`tax_amount`) | `S:commission_line.rb:16-19` | 수수료가 부가세 포함가다(`Q274`) — 세율·공급가액은 정산 마감 때 박제한다(`Q320`) |
 | Spree 는 원물을 돌려받지 않는 해결(환불·대체품)을 반품과 다른 모델(`Claim`)로 둔다 | `S:claim.rb:1-4,28` | 교환은 「안 다루는 것」에 근거가 있다(`45`). 원물 없는 환불은 없다 |
-| Mercur 는 셀러 지급 계좌가 없거나 꺼져 있으면 지급을 보류하고 다음 실행이 다시 판정한다 | `R:workflows/payout/utils/payout-amounts.ts:219-224` | 지급 대기는 「정산 지급 상태」(`21`). **묶음 5** 의 입력 |
+| Mercur 는 셀러 지급 계좌가 없거나 꺼져 있으면 지급을 보류하고 다음 실행이 다시 판정한다 | `R:workflows/payout/utils/payout-amounts.ts:219-224` | 지급 대기는 「정산 지급 상태」(`21`). 묶음 5 ⑩ 이 봤다(2026-10-31 `점검 AD`) — 다르다·근거 있음 |
 
 ## 묶음 4 — 보안(`점검 AC`, 2026-10-31)
 
@@ -170,3 +170,58 @@
 | Saleor 는 디코딩 화소 수를 따로 막는다 — 파일 크기 상한은 디코딩 메모리를 못 막는다(8000×8000 WebP 예) | `A:settings.py:505-509` | **`Q351` 이 3천만으로 세웠다(2026-10-31) — 값의 근거는 힙**(기본 최대 힙 2 GB, 8 B/화소 × 3천만 = 240 MB). 단색 5 MiB PNG 는 약 13억 화소로 풀린다. 막는 자리는 `ImagePipeline` 의 헤더 폭×높이 검사(`ImageIO.read` 앞, 413) |
 | Spree 는 관리자 JWT 를 5분으로 손님(1시간)보다 짧게 둔다(「관리자 토큰은 폭발 반경이 크다」) | `S:api/lib/spree/api/configuration.rb:7` | 세션 만료는 역할로 안 가른다(「세션 — Redis」). 재인증은 「동시접속은 1개다」가 「아직 안 한다」로 적었다 |
 | Spree 는 요청 본문을 100KB 로 막는다 | `S:api/lib/spree/api/configuration.rb:26` | 본문 상한은 이 묶음의 자리가 아니다 — 업로드는 ⑮ 가 든다 |
+
+---
+
+## 묶음 5 — 이벤트·배치·알림·데이터 수명(`점검 AD`, 2026-10-31)
+
+**짝**: Medusa(`medusajs/medusa` `7e797dfd591d` 기본 가지 `develop`, MIT) · Saleor(`saleor/saleor` `cc4aea76e397`, BSD-3 — 묶음 4 와 같은 해시). 둘 다 설계 해시 그대로다. 받은 파일 Medusa 166(1.9만 줄) · Saleor 95(2.5만 줄), 판정에 연 파일 Medusa 23(약 2,450줄) · Saleor 27(약 2,700줄) — 상한(엔진당 40·8천) 안이다. 코드 판독은 엔진마다 서브에이전트 하나가 했고 자리 넷을 손으로 다시 봤다.
+**표기**: `M:` 은 Medusa 의 저장소 루트 아래, `A:` 는 Saleor 의 `saleor/` 아래 경로다.
+**우리 쪽**: `event-catalog.md`·`batch-catalog.md`·`notification-rules.md`·`data-lifecycle.md` 의 절 이름으로 적는다.
+**공식 문서**: 안 열었다 — **판정은 코드가 근거다.**
+**축이 다르다**: Medusa 의 배치는 잡 로더 + 워크플로 + BullMQ 반복 잡이고 실행 이력은 `workflow_execution` 이다 — ⑨~⑬ M 칸은 그 기준으로 적었다. Saleor 의 이벤트는 외부 앱으로 가는 웹훅 배송이라(행을 만들자마자 Celery 로 보낸다) ④~⑦ A 칸은 「아웃박스 → Kafka → 내부 소비자」와 운반 축이 다르다.
+**둘 다 없는 것**: 원천과 같은 트랜잭션의 아웃박스 · 실행 회차 장부(중복 방지·체인) · 배치 분산 잠금 · 거래 통지와 광고의 구분 · 보존 기간 표. 우리 쪽 근거는 `D11`(트랜잭션 밖 호출 없음)·`D19`·법(정보통신망법 · 전자상거래법 시행령 6조 · 개인정보법)이다.
+
+| 항목 | 우리 | Medusa | M 판정 | Saleor | A 판정 | 처분 |
+|---|---|---|---|---|---|---|
+| ① 이벤트 이름 | 「이벤트 이름과 원천」 `shop.<자원 단수>.<과거형>`, 원천 일곱의 트리거, 닫힌 목록 | `M:packages/core/utils/src/event-bus/utils.ts:49-60,79-101` — `[<모듈>.]<엔티티>.<동작>`, 동작 여섯(created·updated·deleted·…), 닫힌 목록 없음 | 다르다·근거 있음 | `A:webhook/event_types.py:24-174` — `<자원>_<과거분사>` 비동기 147 + 동기 20, `EVENT_MAP` 이 이름·권한을 든다 | 다르다·근거 있음 | 그 절 — 모양(자원 + 과거형)은 셋이 같다. 원천을 트리거로 두고 목록을 DB 로 닫는 것이 우리 몫이다(앱 검증보다 낮은 층) |
+| ② 봉투 | 「봉투」 CloudEvents 1.0 structured, `id`·`source`·`time` | `M:packages/core/utils/src/event-bus/build-event-messages.ts:36-50` — `{name, data, metadata}`, 이벤트 id 없음 | 다르다·근거 있음 | `A:webhook/transport/utils.py:230-243` — JSON 본문 + 헤더 넷(종류·도메인·서명·API), 서명 HMAC-SHA256 | 다르다·근거 있음 | 그 절 — 표준(2순위)이 든다. 짝 둘은 자기 꼴이다 |
+| ③ 페이로드 | 「페이로드 규칙」 식별자만, 원천 행 시각 | `M:packages/medusa/src/subscribers/configurable-notifications.ts:26-29,55-65` — `data` 자유, 알림 구독자가 `order.email` 을 읽는다, 시각은 emit 시각 | 다르다·근거 있음 | `A:webhook/payloads.py:242-331,602-639` — 객체를 통째 직렬화(`user_email`·이름·주소), `meta.issued_at` 은 생성 시각 | 다르다·근거 있음 | 그 절 — 개인정보는 식별자만(`D16`·법). 원천 시각은 재시도해도 사건 시각이 안 바뀌게 하려는 것이다 |
+| ④ 아웃박스 | 「아웃박스 표」 원천과 같은 트랜잭션, 트리거만 쓴다 | `M:packages/modules/event-bus-redis/src/services/event-bus-redis.ts:280-299,351-410` — 표 없음, 워크플로 이벤트를 Redis `staging:<group>`(TTL 600초)에 모았다 성공 뒤 큐에 넣는다 | 다르다·근거 있음 | `A:webhook/transport/asynchronous/transport.py:375-381,406-415` — `EventPayload`+`EventDelivery` 를 **원천과 별도인** `atomic()` 에서 만든다, 원천 트랜잭션 안이면 경고만 | 다르다·근거 있음 | 그 절 — 둘 다 원천 커밋과 발행 기록이 갈릴 틈이 있다. 우리는 그 틈을 트리거로 닫았다 |
+| ⑤ 발행기 | 「발행」 2초 `fixedDelay` · 200건 · `skip locked` · ack 뒤 표시 | `M:…/event-bus-redis.ts:154-162,244-264` — 폴러 없음, `emit` 이 곧 BullMQ `addBulk`, 기본 `attempts: 1` | 다르다·근거 있음 | `A:webhook/transport/asynchronous/transport.py:491-510` — 폴러 없음, 배송 행마다 Celery 태스크를 바로 건다 | 다르다·근거 있음 | 그 절 — 폴링은 ④ 의 결과다. **2초는 짝이 없다**(둘 다 즉시) — `batch-catalog.md` 에 셈을 적었다 |
+| ⑥ 전송 | 「전송 — Kafka」 토픽 하나·키 `subject`·`acks: all` | `M:…/event-bus-redis.ts:84-108` — BullMQ(Redis) 큐 `events-queue`, 개발용은 프로세스 안 EventEmitter | 다르다·근거 있음 | `A:webhook/models.py:12-15` — http·https·SQS·Pub/Sub 넷, 타임아웃 연결 2초 + 응답 18초 | 다르다·근거 있음 | 그 절 — 사용자 결정(Kafka, 웹훅도 소비자) |
+| ⑦ 소비자 | 「소비자」 시도 3(`FixedBackOff(0,2)`) · DLQ 없음 · 5분 스위퍼 | `M:…/event-bus-redis.ts:417-521` — 시도 기본 1, 늘리면 실패한 구독자만 다시, DLQ 없음 | 다르다·근거 있음 | `A:webhook/transport/asynchronous/transport.py:804-809` — 받는 쪽은 바깥 앱, 5xx 면 재시도 5(10·2^n 초), 소진하면 `FAILED`, DLQ 없음 | 다르다·근거 있음 | 그 절 — DLQ 없음은 셋이 같다. 시도 수는 Medusa 1 · Saleor 6 · 우리 3 |
+| ⑧ 버전 | 「버전」 `type` 안 바꿈, `data` 더하기만, 레지스트리 없음 | 버전·레지스트리 없음(이벤트 버스 세 디렉터리 grep 0) | 다르다·근거 있음 | `A:webhook/payload_helpers.py:25` — `meta.version` 에 제품 판, 옛 이름은 `deprecated_event_types.py` 로 남긴다 | 다르다·근거 있음 | 그 절 — 레지스트리 없음은 셋이 같다 |
+| ⑨ 카탈로그 | 「카탈로그」 열넷 · cron `Asia/Seoul` 04:00 대 · 등록 한 곳 · 표↔코드 대조 시험 | `M:packages/core/framework/src/jobs/job-loader.ts:24-28,69-93` — 잡 파일마다 `config.schedule`, BullMQ 에 `tz` 안 넘김, 대조 시험·손 실행 입구 없음 | 다르다·근거 있음 | `A:settings.py:673-769` — `CELERY_BEAT_SCHEDULE` 한 곳(스물), `TIME_ZONE="UTC"`, 00:00~03:00 UTC | 다르다·근거 있음 | 그 절 — 등록이 한 곳인 것은 Saleor 와 같다. 시각은 `D10`(04:00 KST) |
+| ⑩ 재실행 안전성 | 「재실행 안전성」 수단 넷 + 금액 배치는 `batch_run` 부분 유니크 | `M:packages/core/framework/src/jobs/job-loader.ts:113-119` — 예약 실행에 트랜잭션 id 를 안 준다, 멱등은 TODO | 다르다·근거 있음 | `A:order/tasks.py:144-171,182-226` — 조건으로 다시 고르고 배치 크기로 나눠 자기를 다시 건다, 장부 없음 | 같다 | 그 절 — Saleor 는 우리 수단 1(조건이 곧 처리 조건)과 같고 금액 배치가 없다. **묶음 3 입력 둘**: Spree `unresolved`(지급 결과를 모르면 붙잡는다)·Mercur 지급 보류(계좌 없음) — 우리 지급은 배치가 안 하고 관리자 둘이 `requested`→`paid` 로 올린다(`state-machines.md` 「정산 지급 상태」, `21`). 결과 모름은 지급이 모의라 자리가 없고 음수는 이월이다(`business-model.md` 「정산 후 환불」) — 다르다·근거 있음 |
+| ⑪ `batch_run` | 「실행 이력」 시도마다 한 행 · 성공 부분 유니크 · 1년 | `M:packages/modules/workflow-engine-redis/src/models/workflow-execution.ts:4-58` — `workflow_execution`, `retention_time` 기본 없음(없으면 끝나자 지운다), 정리 30분 | 다르다·근거 있음 | `A:schedulers/models.py:84` — 회차 표 없음, `last_run_at`·`total_run_count` 덮어쓰기 | 다르다·근거 있음 | 그 절 — 1년의 짝: Medusa 기본 없음(BullMQ 기록 성공 1일·실패 7일) · Saleor 없음 |
+| ⑫ 실패 3층 | 「실패 처리」 건·회차(SQLSTATE, 10분 간격 재시도 2회, 창 24시간)·체인 | `M:packages/core/orchestration/src/transaction/types.ts:44-60` — step `maxRetries` 기본 0·간격 즉시, SQLSTATE 구분·체인 없음 | 다르다·근거 있음 | `A:core/tasks.py:65-92` — beat 태스크 재시도 없음, 실행 상한 1시간, 체인 없음 | 다르다·근거 있음 | 그 절 — **10분·24시간은 짝이 없다** — `batch-catalog.md` 에 셈을 적었다 |
+| ⑬ 잠금 | 「서버가 여럿이 될 때」 `pg_try_advisory_lock` 세션 잠금 | `M:packages/modules/workflow-engine-redis/src/utils/workflow-orchestrator-storage.ts:805-808` — cron 잡에 분산 잠금 없음(반복 잡 키 하나에 기댄다), `locking` 모듈은 받은 디렉터리에 쓰는 곳 없음 | 다르다·근거 있음 | `A:settings.py:755-761` — beat 항목에 잠금 없음, 짧은 주기는 `expires` 로 밀린 것을 버린다 | 다르다·근거 있음 | 그 절(`Q50`) — 배포 겹침 창이 근거다 |
+| ⑭ 두 종류·채널 | 「두 종류를 먼저 가른다」 거래 vs 광고(동의·야간) · 이메일 하나 | `M:packages/modules/notification/src/loaders/providers.ts:60-83` — 구분·동의·야간 없음, 채널 자유 문자열·채널마다 공급자 하나 | 다르다·근거 있음 | `A:core/notify.py:22-75` — 사용자 15·관리자 5 종 다 거래 통지, 광고·동의 0, SMTP 플러그인 | 다르다·근거 있음 | 그 절 — 법(정보통신망법 제50조) |
+| ⑮ 템플릿·이력 | 「템플릿은 판과 시행일로」·「발송 이력」 `(code, version)` · 본문 별표 | `M:packages/modules/notification/src/models/notification.ts:5-37` — 템플릿은 이름 문자열, 이력 한 행에 `data` 가 같이 든다, 상태 셋 | 다르다·근거 있음 | `A:plugins/email_common.py:369-405` — 이벤트마다 설정 필드 하나(`EmailTemplate` 이름), 판·시행일 없음, 이력은 `EMAIL_SENT` 메타만·본문 안 남김 | 다르다·근거 있음 | 그 절 — 상태 셋은 Medusa 와 같다 |
+| ⑯ 한 번만 + 보존 | 「같은 사건에 한 번만」 대상별 부분 유니크 넷 · 「보존 기간」 | `M:packages/modules/notification/src/services/notification-module-service.ts:106-138` — `idempotency_key` 유니크 하나 + 앞서 조회(경합 TODO), 보존 없음 | 다르다·근거 있음 | `A:plugins/user_email/tasks.py:169-187` — 중복 방지 없음, 보존 값 없음 | 다르다·근거 있음 | 그 절 — 유니크로 막는 것은 Medusa 와 같다. 보존은 법(시행령 6조) |
+| ⑰ 실패·재시도·거부 불가 | 「실패와 재시도」(일시적 재전송은 지금 안 한다) · 「거부할 수 없는 것」 | `M:packages/modules/notification/src/services/notification-module-service.ts:184-233` — 실패면 `failure`, 구분·자동 재전송 없음, 같은 키로 다시 부르면 실패 건만 | 다르다·근거 있음 | `A:plugins/user_email/tasks.py:11-301` — 재시도 없음(SMTP 5초), 수신 거부 0 | 다르다·근거 있음 | 그 절 — 자동 재전송이 없는 것은 셋이 같다(`Q353` 이 우리 쪽을 「지금 안 한다」로 적었다) |
+| ⑱ 지우는 방식·자원별 | 「지우는 방식 세 가지」·「자원별 정책」·「보존분 분리」 | `M:packages/core/utils/src/dal/mikro-orm/mikro-orm-soft-deletable-filter.ts:7-18` — `deleted_at` 뿐, 보존 표 없음 | 다르다·근거 있음 | `A:settings.py:614-628,776-778` — `timedelta` 수명(비회원 체크아웃 30일 · 페이로드 14일 · …), 물리 삭제, `User` 에 `deleted_at` 없음 | 다르다·근거 있음 | 그 절 — 법(5년·3년). 비회원 장바구니 30일은 Saleor 비회원 체크아웃 30일과 같다 |
+| ⑲ 탈퇴·파기·감사 | 「탈퇴」·「파기 시점」·「감사 로그는 예외다」 | customer·user·auth 를 안 받았다 | 범위 밖 | `A:account/models.py:172,179,404-406` — 이메일 전체 유니크, 삭제하면 고객 이벤트가 `CASCADE` 로 같이 지워진다, 유예·파기 시점 값 없음 | 다르다·근거 있음 | 그 절 — ADR `0007` · 표준 개인정보 보호지침 10조① |
+
+**판정 칸 서른여덟**: 같다 1 · 다르다·근거 있음 36 · 범위 밖 1 · 근거 없이 다른 것 0 · 우리에 없음 0. **신규 행 0** — `Q355`~`Q363` 은 안 썼다. 근거가 문서에 없던 값 둘(발행 2초 · 회차 재시도 10분 간격)에 남의 수를 `batch-catalog.md` 에 적었다 — 값은 안 바꾼다(관례는 세는 참고).
+
+**내부 편의 값의 짝**:
+
+| 우리 | Medusa | Saleor |
+|---|---|---|
+| 발행 2초 | 없다 — 즉시 큐 | 없다 — 즉시 Celery |
+| 소비자 시도 3 | 1 | 6(10·2^n 초) |
+| 회차 재시도 10분·창 24시간 | 재시도 기본 0·즉시 | beat 재시도 없음 |
+| 아웃박스 7일 | 잡 완료 즉시 지움 | 성공 배송 즉시, 페이로드 14일 |
+| `batch_run` 1년 | `retention_time` 기본 없음(BullMQ 기록 1일·7일) | 없다 |
+| 멱등키 24시간 | 알림 키 만료 없음 | 없다 |
+| 본문 6개월 | 기간 없음(같은 행에 영구) | 본문을 안 남긴다 |
+| 04:00 실행 | `tz` 를 안 넘긴다 | UTC 00:00~03:00 |
+
+### 열아홉 밖에서 눈에 띈 것
+
+| 무엇 | 어디 | 우리 |
+|---|---|---|
+| Saleor 는 동기 웹훅에 서킷 브레이커를 둔다(창 5분 · 실패 100건 + 35% 면 열림 · 냉각 2분, 기본 꺼짐) | `A:webhook/circuit_breaker/breaker_board.py:28-46` · `A:settings.py:1197-1213` | 우리 웹훅(`30`)은 비동기 하나라 자리가 없다. 1곳 |
+| Medusa 의 `locking` 모듈은 Postgres 공급자가 `pg_advisory_xact_lock`(대기 5초)을 쓴다 — 우리 `Q50` 과 같은 수단이지만 잡에는 안 걸었다 | `M:packages/modules/providers/locking-postgres/src/services/advisory-lock.ts:41,50` | 같은 수단이다. 우리는 세션 잠금(회차 내내)이고 저쪽은 트랜잭션 잠금이다 |
