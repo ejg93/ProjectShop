@@ -1,0 +1,11 @@
+# gate: 사진 몸통 깨짐 — 앱 검증(마무리 76차). read() 의 IOException 을 다시 UncheckedIOException 으로 두면 헤더만 멀쩡한 PNG 가 500 이 된다
+# run: cd backend && ./gradlew test --tests '*ImagePipelineLimitTest*' --console=plain
+# expect: FAILED com.projectshop.shop.support.ImagePipelineLimitTest 헤더는 멀쩡하고 몸통이 깨진
+diff --git a/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java b/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java
+--- a/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java
++++ b/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java
+@@ -237,3 +237,3 @@ public class ImagePipeline {
+             // 헤더는 멀쩡하고 몸통이 깨진 파일 — 사용자가 고칠 수 있는 입력이라 서버 오류가 아니다
+-            throw notAllowedType(e);
++            throw new UncheckedIOException(e);
+         }

@@ -1,0 +1,10 @@
+# gate: doc-lint.sh 현재 상태 낡은 칸(Q350). 「그다음 코드 청크」 행이 닫힌 번호를 ~~ 없이 남은 것으로 들면 빨강
+# run: bash scripts/doc-lint.sh PROGRESS.md
+# expect: \[현재 상태 낡은 칸\]
+diff --git a/PROGRESS.md b/PROGRESS.md
+--- a/PROGRESS.md
++++ b/PROGRESS.md
+@@ -22,2 +22,3 @@
+ | 접근성 검사 | `axe-core` 를 넣었다(`Q21`). **건 자리가 여덟이다**(2026-09-23 에 셈) — 가입·권한 없음·상품 등록·사진 관리와 `Q193` 이 더한 환불 대기열·환불 줄·발송 폼·매출. `lint` 는 렌더 결과를 안 봐서 새 화면 조각은 이 시험을 같이 세운다 | 신호가 얇다(`D15`) |
++| 그다음 코드 청크 | `Q90` 이 남았다 | — |
+ 

@@ -1,0 +1,13 @@
+# gate: 사진 디코딩 화소 상한 — 앱 검증(Q351). 폭×높이 비교를 지우면 5 MiB 안의 거대 화소 PNG 가 ImageIO.read 까지 간다
+# run: cd backend && ./gradlew test --tests '*ImagePipelineLimitTest*' --console=plain
+# expect: FAILED com\.projectshop\.shop\.support\.ImagePipelineLimitTest 
+diff --git a/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java b/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java
+index cb26491..b661ab3 100644
+--- a/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java
++++ b/backend/src/main/java/com/projectshop/shop/support/ImagePipeline.java
+@@ -201,5 +201,2 @@ public class ImagePipeline {
+         }
+-        if (pixels > MAX_PIXELS) {
+-            throw new ShopException(ErrorCode.IMAGE_TOO_LARGE);
+-        }
+     }

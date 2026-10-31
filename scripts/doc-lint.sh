@@ -680,6 +680,25 @@ if [ "$state_lines" -gt 25 ]; then
   fail=1
 fi
 
+# 「현재 상태」 낡은 칸(`Q350`). 줄 수만 재면 칸 하나가 19 KB 로 자라도 초록이었다 — 칸은 지금 값만 둔다.
+# (a) 절 안의 「그전 표기」·「그전:」·「그전 <날짜>」(걷어낸 꼬리에 셋 다 있었다) (b) 남은 것을 드는 네 행에서 `~~…~~` 를 걷고 남은 백틱 번호 중 분할표에서 닫힌 것.
+# 행 이름은 첫 칸에서 `**` 를 벗기고 견준다. 이력·점검 표의 「그전 표기」는 안 센다 — 범위가 절 하나다.
+state_body=$(awk '/^## 현재 상태$/{on=1; next} /^## /{on=0} on' PROGRESS.md)
+state_prior=$(printf '%s\n' "$state_body" | grep -cE '그전 표기|그전:|그전 [0-9]{4}-' || true)
+if [ "$state_prior" -gt 0 ]; then
+  echo "[현재 상태 낡은 칸] PROGRESS.md — 「그전 표기」 꼬리 ${state_prior}개. 칸은 지금 값만 둔다 — 서사는 이력이 든다(PROGRESS.md 「기록 규칙」)"
+  fail=1
+fi
+state_closed=$(LC_ALL=C comm -12 \
+  <(printf '%s\n' "$state_body" \
+      | awk -F'|' '{n=$2; gsub(/\*\*/,"",n); gsub(/^ +| +$/,"",n)} n=="새로 선 청크"||n=="증거 대기"||n=="그다음 코드 청크"||n=="조건 미달 기준 문서"' \
+      | sed 's/~~[^~]*~~//g' | grep -o '`[^`]*`' | tr -d '`' | LC_ALL=C sort -u) \
+  <(plan_rows closed | awk -F'|' '{id=$2; gsub(/^ +| +$|~/,"",id); print id}' | LC_ALL=C sort -u) | paste -sd' ' -)
+if [ -n "$state_closed" ]; then
+  echo "[현재 상태 낡은 칸] PROGRESS.md — 닫힌 번호를 남은 것으로 든다: ${state_closed}. 분할표에서 닫혔으면 ~~ 를 긋거나 뺀다"
+  fail=1
+fi
+
 fi
 
 # **게이트 표 대조 셋은 그 표가 범위에 들 때만 돈다**(`Q217`) — 시험 소스는 편집 훅이 넘기는 파일이 아니다.

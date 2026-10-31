@@ -1720,6 +1720,7 @@ MSYS 는 인자가 `:` 로 이어진 경로들처럼 보이면 **경로 목록�
 **`rev:경로` 는 이름을 트리 해시로 먼저 풀고 쓴다** — `git rev-parse "$rev^{tree}"` 뒤 `"$tree:$p"`. 콜론 앞이 16진수면 안 건드린다.
 **셸 한 줄 perl 도 같은 변환을 먹는다** — `;` 와 `/` 가 든 치환식이 바뀌어 넘어가 「바꿨다(n=1)」인데 파일이 그대로였다.
 그런 치환은 스크립트 파일로 쓰거나 편집 도구로 한다. 한 번만 끄려면 `MSYS_NO_PATHCONV=1`.
+**`/` 로 시작하는 인자도 바뀐다** — `git sparse-checkout set --no-cone '/saleor/webhook/'` 가 `C:/Program Files/Git/saleor/webhook/` 로 들어가 빈 checkout 이 났다(`점검 AD`). 희소 받기 패턴은 `MSYS_NO_PATHCONV=1` 을 붙여 낸다.
 
 ### awk 의 `length` 는 로케일을 탄다 — 로컬은 바이트, CI 는 글자
 

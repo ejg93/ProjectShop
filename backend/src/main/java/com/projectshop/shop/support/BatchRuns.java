@@ -33,7 +33,7 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>예외를 안 올린다.</b> 회차가 실패하면 `ERROR` 로 남기고 끝낸다 —
  * 올려도 스케줄러가 같은 줄을 한 번 더 찍을 뿐이고, 파기·전이 배치는 다음 회차가 남은 것을 집는다.
- * 일시적 실패를 10분 간격으로 다시 시도하는 2층은 아직 없다(청크 36a).
+ * 일시적 실패를 10분 간격으로 다시 시도하는 2층은 {@link BatchRetrySweeper} 다(`D19`).
  */
 @Component
 public class BatchRuns {
@@ -182,7 +182,7 @@ public class BatchRuns {
     public Optional<Counts> recordAfter(String batchName, String requiredBatch,
             LocalDate baselineDate, Supplier<Counts> body) {
         if (!succeeded(requiredBatch, baselineDate)) {
-            // 사람이 볼 것이라 `WARN` 이다(`D16`). 재시도 창(10분 3회) 안에서 선행이 성공하면 이어진다.
+            // 사람이 볼 것이라 `WARN` 이다(`D16`). 재시도 창(10분 간격 2회) 안에서 선행이 성공하면 이어진다.
             log.warn("{} 건너뜀 기준일={} — 선행 {} 이 그날 성공하지 않았다",
                     batchName, baselineDate, requiredBatch);
             insert(batchName, baselineDate, OffsetDateTime.now(), BatchRunStatus.SKIPPED, null, null, null);

@@ -31,11 +31,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class BatchRetrySweeper {
 
-    /** 한 회차에 이만큼까지 시도한다. 첫 실행을 포함한 수다(`D19` — 10분 간격 3회) */
+    /** 한 회차에 이만큼까지 시도한다. 첫 실행을 포함한 수다 — 재시도는 10분 간격 2회(`D19`) */
     static final int MAX_ATTEMPTS = 3;
 
     /**
-     * 마지막 시도가 이 안인 회차만 다시 돈다. 10분 간격 3회 창보다 넉넉하고 기동이 끼어도 남는다.
+     * 마지막 시도가 이 안인 회차만 다시 돈다. 재시도 2회(10분 간격)보다 넉넉하고 기동이 끼어도 남는다.
      * 그 앞의 실패는 다음 회차나 사람 손이 집는다 — 오래된 실패를 다시 돌리면 그새 바뀐 데이터 위에서 돈다
      */
     static final Duration WINDOW = Duration.ofHours(24);

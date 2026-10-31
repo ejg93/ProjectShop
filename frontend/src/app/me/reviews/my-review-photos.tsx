@@ -71,7 +71,7 @@ export function MyReviewPhotos({ reviewId, photos }: { reviewId: number; photos:
         사진 붙이기
       </label>
       <p id={hintId} className="text-xs text-text-muted">
-        JPG 또는 PNG, 한 장에 5MB까지, 후기마다 10장까지 붙일 수 있습니다.
+        JPG 또는 PNG, 한 장에 5MB·3천만 화소까지, 후기마다 10장까지 붙일 수 있습니다.
         <br />
         사진은 후기와 함께 누구에게나 보입니다. 얼굴·주소 등 개인정보가 담긴 사진은 올리지 마세요.
       </p>
@@ -105,7 +105,7 @@ function messageFor(error: unknown): string {
   }
   switch (error.slug) {
     case "image-too-large":
-      return "사진 한 장은 5MB까지 올릴 수 있습니다. 더 작은 파일로 다시 시도해 주세요.";
+      return "사진 한 장은 5MB, 가로×세로 3천만 화소까지 올릴 수 있습니다. 더 작은 파일로 다시 시도해 주세요.";
     case "image-type-not-allowed":
       return "JPG 또는 PNG 파일만 올릴 수 있습니다. 파일 이름의 확장자도 내용과 같아야 합니다.";
     case "image-limit-reached":
