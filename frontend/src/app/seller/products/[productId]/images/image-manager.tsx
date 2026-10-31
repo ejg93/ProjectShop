@@ -95,7 +95,7 @@ export function ImageManager({
           도움말을 입력 앞에 둔다(WCAG 3.3.2). 거부된 뒤에 조건을 알려 주면 그 시도는 이미 버려진 것이다.
         */}
         <p id="product-image-hint" className="text-xs text-text-muted">
-          JPG 또는 PNG, 한 장에 5MB까지, 상품마다 10장까지 올릴 수 있습니다.
+          JPG 또는 PNG, 한 장에 5MB·3천만 화소까지, 상품마다 10장까지 올릴 수 있습니다.
         </p>
         <input
           ref={picker}
@@ -182,7 +182,7 @@ function messageFor(error: unknown): string {
 
   switch (error.slug) {
     case "image-too-large":
-      return "사진 한 장은 5MB까지 올릴 수 있습니다. 더 작은 파일로 다시 시도해 주세요.";
+      return "사진 한 장은 5MB, 가로×세로 3천만 화소까지 올릴 수 있습니다. 더 작은 파일로 다시 시도해 주세요.";
     case "image-type-not-allowed":
       return "JPG 또는 PNG 파일만 올릴 수 있습니다.";
     case "image-limit-reached":
