@@ -197,7 +197,7 @@ public class ImagePipeline {
         try {
             pixels = (long) reader.getWidth(0) * reader.getHeight(0);
         } catch (IOException e) {
-            throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
+            throw notAllowedType(e);
         }
         if (pixels > MAX_PIXELS) {
             throw new ShopException(ErrorCode.IMAGE_TOO_LARGE);
@@ -235,8 +235,15 @@ public class ImagePipeline {
             return image;
         } catch (IOException e) {
             // 헤더는 멀쩡하고 몸통이 깨진 파일 — 사용자가 고칠 수 있는 입력이라 서버 오류가 아니다
-            throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
+            throw notAllowedType(e);
         }
+    }
+
+    /** 받을 수 없는 형식으로 바꾸되 <b>원인을 잇는다</b> — 로그에서 어디서 깨졌는지가 남는다(PMD {@code PreserveStackTrace}) */
+    private static ShopException notAllowedType(IOException cause) {
+        ShopException e = new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
+        e.initCause(cause);
+        return e;
     }
 
     private BufferedImage thumbnail(BufferedImage source) {
