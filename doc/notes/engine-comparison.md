@@ -180,7 +180,7 @@
 **우리 쪽**: `event-catalog.md`·`batch-catalog.md`·`notification-rules.md`·`data-lifecycle.md` 의 절 이름으로 적는다.
 **공식 문서**: 안 열었다 — **판정은 코드가 근거다.**
 **축이 다르다**: Medusa 의 배치는 잡 로더 + 워크플로 + BullMQ 반복 잡이고 실행 이력은 `workflow_execution` 이다 — ⑨~⑬ M 칸은 그 기준으로 적었다. Saleor 의 이벤트는 외부 앱으로 가는 웹훅 배송이라(행을 만들자마자 Celery 로 보낸다) ④~⑦ A 칸은 「아웃박스 → Kafka → 내부 소비자」와 운반 축이 다르다.
-**둘 다 없는 것**: 원천과 같은 트랜잭션의 아웃박스 · 실행 회차 장부(중복 방지·체인) · 배치 분산 잠금 · 거래 통지와 광고의 구분 · 보존 기간 표. 우리 쪽 근거는 `D11`(트랜잭션 밖 호출 없음)·`D19`·법(정보통신망법 · 전자상거래법 시행령 6조 · 개인정보법)이다.
+**둘 다 없는 것**: 원천과 같은 트랜잭션의 아웃박스 · 실행 회차 장부(중복 방지·체인) · 배치 분산 잠금 · 거래 통지와 광고의 구분 · 자원별 보존 표(Saleor 는 설정 상수 몇 개뿐). 우리 쪽 근거는 `D11`(트랜잭션 밖 호출 없음)·`D19`·법(정보통신망법 · 전자상거래법 시행령 6조 · 개인정보법)이다.
 
 | 항목 | 우리 | Medusa | M 판정 | Saleor | A 판정 | 처분 |
 |---|---|---|---|---|---|---|
@@ -188,7 +188,7 @@
 | ② 봉투 | 「봉투」 CloudEvents 1.0 structured, `id`·`source`·`time` | `M:packages/core/utils/src/event-bus/build-event-messages.ts:36-50` — `{name, data, metadata}`, 이벤트 id 없음 | 다르다·근거 있음 | `A:webhook/transport/utils.py:230-243` — JSON 본문 + 헤더 넷(종류·도메인·서명·API), 서명 HMAC-SHA256 | 다르다·근거 있음 | 그 절 — 표준(2순위)이 든다. 짝 둘은 자기 꼴이다 |
 | ③ 페이로드 | 「페이로드 규칙」 식별자만, 원천 행 시각 | `M:packages/medusa/src/subscribers/configurable-notifications.ts:26-29,55-65` — `data` 자유, 알림 구독자가 `order.email` 을 읽는다, 시각은 emit 시각 | 다르다·근거 있음 | `A:webhook/payloads.py:242-331,602-639` — 객체를 통째 직렬화(`user_email`·이름·주소), `meta.issued_at` 은 생성 시각 | 다르다·근거 있음 | 그 절 — 개인정보는 식별자만(`D16`·법). 원천 시각은 재시도해도 사건 시각이 안 바뀌게 하려는 것이다 |
 | ④ 아웃박스 | 「아웃박스 표」 원천과 같은 트랜잭션, 트리거만 쓴다 | `M:packages/modules/event-bus-redis/src/services/event-bus-redis.ts:280-299,351-410` — 표 없음, 워크플로 이벤트를 Redis `staging:<group>`(TTL 600초)에 모았다 성공 뒤 큐에 넣는다 | 다르다·근거 있음 | `A:webhook/transport/asynchronous/transport.py:375-381,406-415` — `EventPayload`+`EventDelivery` 를 **원천과 별도인** `atomic()` 에서 만든다, 원천 트랜잭션 안이면 경고만 | 다르다·근거 있음 | 그 절 — 둘 다 원천 커밋과 발행 기록이 갈릴 틈이 있다. 우리는 그 틈을 트리거로 닫았다 |
-| ⑤ 발행기 | 「발행」 2초 `fixedDelay` · 200건 · `skip locked` · ack 뒤 표시 | `M:…/event-bus-redis.ts:154-162,244-264` — 폴러 없음, `emit` 이 곧 BullMQ `addBulk`, 기본 `attempts: 1` | 다르다·근거 있음 | `A:webhook/transport/asynchronous/transport.py:491-510` — 폴러 없음, 배송 행마다 Celery 태스크를 바로 건다 | 다르다·근거 있음 | 그 절 — 폴링은 ④ 의 결과다. **2초는 짝이 없다**(둘 다 즉시) — `batch-catalog.md` 에 셈을 적었다 |
+| ⑤ 발행기 | `batch-catalog.md` 「발행기만 잠금이 다르다」 2초 `fixedDelay` · 200건 · `skip locked` · ack 뒤 표시 | `M:…/event-bus-redis.ts:154-162,244-264` — 폴러 없음, `emit` 이 곧 BullMQ `addBulk`, 기본 `attempts: 1` | 다르다·근거 있음 | `A:webhook/transport/asynchronous/transport.py:491-510` — 폴러 없음, 배송 행마다 Celery 태스크를 바로 건다 | 다르다·근거 있음 | 그 절 — 폴링은 ④ 의 결과다. **2초는 짝이 없다**(둘 다 즉시) — `batch-catalog.md` 에 셈을 적었다 |
 | ⑥ 전송 | 「전송 — Kafka」 토픽 하나·키 `subject`·`acks: all` | `M:…/event-bus-redis.ts:84-108` — BullMQ(Redis) 큐 `events-queue`, 개발용은 프로세스 안 EventEmitter | 다르다·근거 있음 | `A:webhook/models.py:12-15` — http·https·SQS·Pub/Sub 넷, 타임아웃 연결 2초 + 응답 18초 | 다르다·근거 있음 | 그 절 — 사용자 결정(Kafka, 웹훅도 소비자) |
 | ⑦ 소비자 | 「소비자」 시도 3(`FixedBackOff(0,2)`) · DLQ 없음 · 5분 스위퍼 | `M:…/event-bus-redis.ts:417-521` — 시도 기본 1, 늘리면 실패한 구독자만 다시, DLQ 없음 | 다르다·근거 있음 | `A:webhook/transport/asynchronous/transport.py:804-809` — 받는 쪽은 바깥 앱, 5xx 면 재시도 5(10·2^n 초), 소진하면 `FAILED`, DLQ 없음 | 다르다·근거 있음 | 그 절 — DLQ 없음은 셋이 같다. 시도 수는 Medusa 1 · Saleor 6 · 우리 3 |
 | ⑧ 버전 | 「버전」 `type` 안 바꿈, `data` 더하기만, 레지스트리 없음 | 버전·레지스트리 없음(이벤트 버스 세 디렉터리 grep 0) | 다르다·근거 있음 | `A:webhook/payload_helpers.py:25` — `meta.version` 에 제품 판, 옛 이름은 `deprecated_event_types.py` 로 남긴다 | 다르다·근거 있음 | 그 절 — 레지스트리 없음은 셋이 같다 |
@@ -204,7 +204,7 @@
 | ⑱ 지우는 방식·자원별 | 「지우는 방식 세 가지」·「자원별 정책」·「보존분 분리」 | `M:packages/core/utils/src/dal/mikro-orm/mikro-orm-soft-deletable-filter.ts:7-18` — `deleted_at` 뿐, 보존 표 없음 | 다르다·근거 있음 | `A:settings.py:614-628,776-778` — `timedelta` 수명(비회원 체크아웃 30일 · 페이로드 14일 · …), 물리 삭제, `User` 에 `deleted_at` 없음 | 다르다·근거 있음 | 그 절 — 법(5년·3년). 비회원 장바구니 30일은 Saleor 비회원 체크아웃 30일과 같다 |
 | ⑲ 탈퇴·파기·감사 | 「탈퇴」·「파기 시점」·「감사 로그는 예외다」 | customer·user·auth 를 안 받았다 | 범위 밖 | `A:account/models.py:172,179,404-406` — 이메일 전체 유니크, 삭제하면 고객 이벤트가 `CASCADE` 로 같이 지워진다, 유예·파기 시점 값 없음 | 다르다·근거 있음 | 그 절 — ADR `0007` · 표준 개인정보 보호지침 10조① |
 
-**판정 칸 서른여덟**: 같다 1 · 다르다·근거 있음 36 · 범위 밖 1 · 근거 없이 다른 것 0 · 우리에 없음 0. **신규 행 0** — `Q355`~`Q363` 은 안 썼다. 근거가 문서에 없던 값 둘(발행 2초 · 회차 재시도 10분 간격)에 남의 수를 `batch-catalog.md` 에 적었다 — 값은 안 바꾼다(관례는 세는 참고).
+**판정 칸 서른여덟**: 같다 1 · 다르다·근거 있음 36 · 범위 밖 1 · 근거 없이 다른 것 0 · 우리에 없음 0. **신규 행 0** — `Q355`~`Q363` 은 안 썼다. 근거가 문서에 없던 값 둘(발행 2초 · 회차 재시도 10분 간격)은 `batch-catalog.md` 에 「내부 편의 값」으로 적고 남의 수를 붙였다 — 짝 둘 다 그 자리가 없어(0곳) 「설계 필요」 행이 안 선다. ⑤·⑫ 의 「근거 있음」은 폴링·재시도 층 자체의 근거다. 값은 안 바꾼다(관례는 세는 참고).
 
 **내부 편의 값의 짝**:
 

@@ -75,6 +75,16 @@ class ImagePipelineLimitTest {
                         e -> assertThat(e.code()).isEqualTo(ErrorCode.IMAGE_TYPE_NOT_ALLOWED));
     }
 
+    @Test
+    @DisplayName("헤더는 멀쩡하고 몸통이 깨진 PNG 도 서버 오류가 아니라 받을 수 없는 형식이다")
+    void brokenBodyIsNotAllowedType() {
+        byte[] headerOnly = pngHeader(100, 100);
+
+        assertThatThrownBy(() -> pipeline.store("product", new ImagePipeline.Incoming("body.png", headerOnly)))
+                .isInstanceOfSatisfying(ShopException.class,
+                        e -> assertThat(e.code()).isEqualTo(ErrorCode.IMAGE_TYPE_NOT_ALLOWED));
+    }
+
     /** 시그니처 8 바이트와 IHDR 청크 하나. IDAT 가 없어서 픽셀은 하나도 없다 */
     private static byte[] pngHeader(int width, int height) {
         byte[] type = "IHDR".getBytes(StandardCharsets.US_ASCII);

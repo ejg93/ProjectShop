@@ -163,9 +163,9 @@ public class ImagePipeline {
      * <b>내용으로 판별한다.</b> {@link ImageIO} 가 읽어 낸 형식 이름이 답이고,
      * 요청이 뭐라고 적었는지는 안 본다.
      *
-     * <p><b>폭×높이도 여기서 막는다</b>(`Q351`) — {@code getWidth}·{@code getHeight} 는 헤더(PNG IHDR·JPEG SOF)만 읽는다.
+     * <p><b>폭×높이도 여기서 막는다</b>(`Q351`) — {@code getWidth}·{@code getHeight} 는 헤더 구간(PNG IHDR · JPEG 는 SOS 앞 마커)만 읽고 픽셀은 안 푼다.
      * {@link #read} 의 {@code ImageIO.read} 는 통째로 풀어서, 그 앞이 아니면 상한이 할당을 못 막는다.
-     * 헤더를 못 읽는 파일은 받을 수 없는 형식이다 — 서버 오류(500)로 내보내지 않는다.
+     * 헤더를 못 읽는 파일은 받을 수 없는 형식이다 — 서버 오류(500)로 내보내지 않는다. 몸통이 깨진 파일은 {@link #read} 가 같은 답을 낸다.
      */
     private ImageContentType detect(byte[] bytes) {
         try (ByteArrayInputStream in = new ByteArrayInputStream(bytes);
@@ -234,7 +234,8 @@ public class ImagePipeline {
             }
             return image;
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            // 헤더는 멀쩡하고 몸통이 깨진 파일 — 사용자가 고칠 수 있는 입력이라 서버 오류가 아니다
+            throw new ShopException(ErrorCode.IMAGE_TYPE_NOT_ALLOWED);
         }
     }
 

@@ -681,10 +681,10 @@ if [ "$state_lines" -gt 25 ]; then
 fi
 
 # 「현재 상태」 낡은 칸(`Q350`). 줄 수만 재면 칸 하나가 19 KB 로 자라도 초록이었다 — 칸은 지금 값만 둔다.
-# (a) 절 안의 「그전 표기」 (b) 남은 것을 드는 네 행에서 `~~…~~` 를 걷고 남은 백틱 번호 중 분할표에서 닫힌 것.
+# (a) 절 안의 「그전 표기」·「그전:」·「그전 <날짜>」(걷어낸 꼬리에 셋 다 있었다) (b) 남은 것을 드는 네 행에서 `~~…~~` 를 걷고 남은 백틱 번호 중 분할표에서 닫힌 것.
 # 행 이름은 첫 칸에서 `**` 를 벗기고 견준다. 이력·점검 표의 「그전 표기」는 안 센다 — 범위가 절 하나다.
 state_body=$(awk '/^## 현재 상태$/{on=1; next} /^## /{on=0} on' PROGRESS.md)
-state_prior=$(printf '%s\n' "$state_body" | grep -c '그전 표기' || true)
+state_prior=$(printf '%s\n' "$state_body" | grep -cE '그전 표기|그전:|그전 [0-9]{4}-' || true)
 if [ "$state_prior" -gt 0 ]; then
   echo "[현재 상태 낡은 칸] PROGRESS.md — 「그전 표기」 꼬리 ${state_prior}개. 칸은 지금 값만 둔다 — 서사는 이력이 든다(PROGRESS.md 「기록 규칙」)"
   fail=1
