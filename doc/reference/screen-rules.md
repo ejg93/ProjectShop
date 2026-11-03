@@ -78,7 +78,7 @@
 그건 `§9` 금지 목록이 하고, 다이얼을 올리면 값은 안 오른 채 반응형 규칙만 화면마다 늘어난다.
 
 **`MOTION` 은 프리셋을 한 칸 넘겼다.** 2 는 전환이 없어서 **클릭이 먹혔는지가 안 보인다.**
-4 의 제약이 안전을 만든다 — 레이아웃을 안 건드리는 두 속성만 쓰므로 `CLS` 가 안 흔들린다(`§6.D`).
+4 의 제약이 안전을 만든다 — 레이아웃을 안 건드리는 속성(`transform`·`opacity`·색)만 쓰므로 `CLS` 가 안 흔들린다(`§6.D`).
 `prefers-reduced-motion` 에서 전부 꺼지는 것은 그대로다.
 
 **`DENSITY` 만 화면군마다 다르다.** 목적이 반대다 — 구매자 화면은 상품 하나에 집중시키고,
@@ -438,7 +438,7 @@ skus[0].price_incl_vat  →  skus.0.priceInclVat   ← 줄까지 그리는 폼
 좋음    탈퇴하시면 주문 내역을 더 이상 조회하실 수 없습니다. 탈퇴하시겠습니까?
 ```
 
-**확인 대화상자는 `window.confirm` 이다**(4곳 — `order-actions.tsx`·`payout-actions.tsx`·`role-editor.tsx`·`member-panel.tsx`). 버튼 모양을 브라우저가 정해서 「확인」과 「취소」 사이에 우리가 시각 차이를 둘 자리가 없다 — 다크 패턴 지침 3호(`commerce-compliance.md`). 남은 셋 다 직접 그린 대화상자다(`점검 AE` — Mercur 모달 · Saleor 화면 안 확인 · Medusa `usePrompt` 87파일, `confirm` 0). 4순위라 안 바꾼다.
+**확인 대화상자는 `window.confirm` 이다**(4곳 — `order-actions.tsx`·`payout-actions.tsx`·`role-editor.tsx`·`member-panel.tsx`). 버튼 모양을 브라우저가 정해서 「확인」과 「취소」 사이에 우리가 시각 차이를 둘 자리가 없다 — 전자상거래법 제21조의2 3호(`D2` `R24`, `commerce-compliance.md`). 남은 셋 다 직접 그린 대화상자다(`점검 AE` — Mercur 모달 · Saleor 화면 안 확인 · Medusa `usePrompt` 87파일, `confirm` 0). 남의 모양은 4순위고 근거는 법(1순위)이라 안 바꾼다.
 
 ## 문구
 
