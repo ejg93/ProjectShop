@@ -408,6 +408,8 @@ API 의 `offset`(건너뛸 행 수)을 가르는 자리다 — `pageQuery(page, 
 **린트가 막는다**(`Q278`) — `eslint.config.mjs` 의 `NO_RAW_DESIGN_VALUE`. 화면 소스의 문자열 리터럴 전부를 본다
 (`className` 밖의 상수·`cn()` 인자도). `.css` 파일은 `src/app/globals.test.ts` 가 본다 — `globals.css` 밖에 색 값이 있으면 빨갛다.
 
+**토큰 수는 규칙이 아니라 지금 값이다**(색 10 + `--radius-ui`). 남은 더 많다(`점검 AE` — Mercur 134 · Saleor 26 + 모서리 3 · Medusa 프리셋, src 가 쓰는 것 58). 셋 다 토큰이 있는데도 팔레트·임의 값이 남았다(31·179·19) — 막는 자리가 문서가 아니라 린트인 이유다.
+
 ## 이 문서를 고칠 때
 
 화면을 만들다가 여기 없는 상황이 나오면 **그 상황을 여기 먼저 추가한다.**
