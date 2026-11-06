@@ -59,7 +59,7 @@ dependencies {
 		// **Dependabot 경보 #25 를 닫는다**(2026-10-21, high). Checkstyle 이 doxia-core 를 타고
 		// `org.codehaus.plexus:plexus-utils` 3.3.0 을 들인다(`extractFile` 경로 순회, < 3.6.1).
 		// 빌드 도구 classpath 라 앱에는 안 실리고 우리 검사는 그 함수를 안 부른다 — 그래도 위와 같은 이유로 고정한다(`Q295`)
-		checkstyle("org.codehaus.plexus:plexus-utils:3.6.1")
+		checkstyle("org.codehaus.plexus:plexus-utils:4.1.0")
 		// **Dependabot 경보 #27·#28·#29 를 닫는다**(2026-10-29, high 둘·medium 하나). `org.xerial.snappy:snappy-java` 1.1.10.7 이
 		// lz4 와 같은 길(`kafka-clients` 4.2.2)로 들어온다 — 압축 해제의 힙 넘침·무한 할당·범위 미검사(<= 1.1.10.8).
 		// 우리는 `compression.type` 을 안 정해 Snappy 코덱도 안 불린다. 위 lz4 와 같은 이유로 고정한다 — 같은 패치 줄의 최신판(`Q319`)
