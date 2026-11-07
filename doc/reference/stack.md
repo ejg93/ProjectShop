@@ -1822,6 +1822,16 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 Railway MCP `get-logs`(service backend)에서 「검색 로케일」 줄을 읽는다. 조각이 0 이면 같은 자리에 WARN 이 붙는다.
 **운영 값(2026-10-11, `2b3b614` 배포)**: `datctype=en_US.utf8 한글_조각=4` — 컴포즈·Testcontainers 와 같아서 운영에서도 인덱스가 한글 검색을 거른다.
 
+### `overrides` 로 올린 전이 의존은 상류가 따라오면 걷는다
+
+`frontend/package.json` 의 `overrides` 가 `@typescript-eslint/typescript-estree` 밑 `minimatch` 하나만 `^11.0.1` 로 올린다(`Q377`, 2026-11-08).
+**왜**: GHSA-g3hv-75wg-m249(`>= 7.0.0, < 11.0.1`)에 걸린 사본이 그 하나인데 상류 `typescript-estree` 가 최신(8.72.1)까지 `^10.2.2` 를 선언한다 —
+올리는 PR typescript-eslint#13145 가 안 합쳐졌다. 범위를 그 패키지 밑으로 좁혀서 eslint 플러그인 셋이 쓰는 최상위 `minimatch@3.1.5`(권고 범위 밖)는 그대로다.
+`npm ls minimatch` 가 `typescript-estree` 밑을 `11.0.x overridden` 으로 든다. 끌려온 `@isaacs/nonrecursive-glob-match` 는 BlueOak-1.0.0(허용형, 개발 의존)이다.
+**언제 걷나**: `typescript-estree` 가 선언한 범위가 11 을 품으면 — `npm view @typescript-eslint/typescript-estree dependencies.minimatch`. 걷지 않으면 상류가 12 를 요구하는 날 이 줄이 판을 붙잡는다.
+**쓰지 않는 길 둘**: `npm audit fix` 는 `eslint-config-next@15.5.29` 로의 **내림**을 권한다. `audit-exempt.json` 면제는 고친 판이 있는 경보에 안 쓴다(`Q257`).
+lock 은 `npx -y npm@11 install` 로 쓴다 — 위 「로컬 npm 10 은 lockfile 의 `libc` 칸을 지운다」.
+
 ## 데이터 접근은 `JdbcClient` 다
 
 **JPA 를 안 쓴다**(`Q15` 에서 확정했다). `spring-boot-starter-jdbc` 만 들이고
