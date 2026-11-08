@@ -21,7 +21,7 @@
 | 규격 | 링크 | 우리와의 관계 | 코드 자리 | 원문 |
 |---|---|---|---|---|
 | RFC 5321 SMTP | https://www.rfc-editor.org/rfc/rfc5321.html | 이메일 길이 상한. §4.5.3.1.1 local-part 64 · §4.5.3.1.3 경로 256(구두점 포함 — 꺾쇠 둘을 빼서 254) | `EmailAddress` · `V65` · `EmailAddressTest` | 맞다 |
-| RFC 6585 | https://www.rfc-editor.org/rfc/rfc6585.html | §4 429 와 `Retry-After`(MAY) | `ErrorCode.RATE_LIMITED` · `RateLimitFilter` · `RateLimitFilterTest` · `WebhookSender`(429 는 일시) | 맞다 |
+| RFC 6585 | https://www.rfc-editor.org/rfc/rfc6585.html | §4 429 와 `Retry-After`(MAY) | `ErrorCode.TOO_MANY_REQUESTS` · `RateLimitFilter` · `RateLimitFilterTest` · `WebhookSender`(429 는 일시) | 맞다 |
 | RFC 6648 (BCP 178) | https://www.rfc-editor.org/rfc/rfc6648.html | 새로 정하는 파라미터 이름에 `X-` 를 안 붙인다 — 범위는 **새로 정하는 것**이라 받는 `X-Real-IP` 는 안 걸린다 | `SourceTextTest.noCustomXHeaders` | 맞다 |
 | RFC 5789 PATCH · RFC 7396 Merge Patch | https://www.rfc-editor.org/rfc/rfc5789.html · https://www.rfc-editor.org/rfc/rfc7396.html | PATCH 본문의 형식을 미디어 타입으로 밝힌다 · `null` 은 지우기 | `MeController` · `api.ts` · `ArchitectureTest`(원장 ⑥) | 원문 미열람(`점검 N` 이 2026-09-14 에 봤다) |
 | RFC 4151 tag URI · RFC 8141 URN · RFC 2606 | https://www.rfc-editor.org/rfc/rfc4151.html · https://www.rfc-editor.org/rfc/rfc8141.html · https://www.rfc-editor.org/rfc/rfc2606.html | 오류 `type` 이 `tag:` 다 — URN 은 NID 등록이 든다(8141 §1) · `projectshop.example`·`example.com` 은 2606 §2·§3 예약 | `ErrorCode` · `api.ts` · `ProblemResponseTest` · 시드 `V900`·`V904` | 맞다 |
@@ -29,7 +29,7 @@
 | RFC 1918 | https://www.rfc-editor.org/rfc/rfc1918.html | 신뢰 프록시 범위 — 사설망 셋 + IPv6 ULA | `SecuritySettingsCheckTest` · Railway 변수(`stack.md`) | 원문 미열람(주소 범위 셋은 문서 머리가 정의한다) |
 | RFC 6266 · RFC 8187 | https://www.rfc-editor.org/rfc/rfc6266.html · https://www.rfc-editor.org/rfc/rfc8187.html | 내려받기 `Content-Disposition: attachment` · 한글 이름이면 `filename*`(8187 §3.2.1 ext-value) | `HttpFlowTest` | 맞다 |
 | RFC 8594 Sunset | https://www.rfc-editor.org/rfc/rfc8594.html | 폐기 예고 헤더 형식(Informational) | 코드 자리 없음 — 폐기한 입구가 아직 0 이다(`api-guidelines.md` 「버전」) | 맞다 |
-| RFC 9651 Structured Fields | https://www.rfc-editor.org/rfc/rfc9651.html | RFC 8941 을 대체했다. 멱등키 초안이 값 문법으로 든다 — 우리는 생 문자열을 받는다(`concurrency-rules.md`) | `IdempotencyKey` | 맞다(8941 → 9651 대체) |
+| RFC 9651 Structured Fields | https://www.rfc-editor.org/rfc/rfc9651.html | RFC 8941 을 대체했다. 멱등키 초안이 값 문법으로 든다 — 우리는 생 문자열을 받는다(`concurrency-rules.md`) | `IdempotencyService` | 맞다(8941 → 9651 대체) |
 | NIST SP 800-38D GCM | https://csrc.nist.gov/pubs/sp/800/38/d/final | IV 96비트 | `WebhookSecretCipher.IV_BYTES` | **원문 미열람** — PDF 본문을 못 뽑았다. 조항 번호는 안 적는다 |
 | `draft-ietf-httpapi-ratelimit-headers` -11 | https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/ | 남은 양을 싣는 헤더 초안 — 활성 I-D 라 관례(4순위)고 안 싣는다 | 코드 자리 없음(`engine-comparison.md`) | 맞다(-11, 2026-05-23, 아직 I-D) |
 
