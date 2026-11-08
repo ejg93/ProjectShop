@@ -515,7 +515,7 @@ EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of)
 「`@NotBlank` 를 안 건다. 걸면 빈 사유가 400 으로 떨어지는데 **422 다**(`D5`)」.
 `@Size(min = 1)` 도 같은 400 을 만들므로 같이 안 쓴다.
 
-**그래서 입구만 보고 「앱이 헐겁다」고 판정하면 틀린다.** `LengthConstraintTest` 는 그 넷을
+**그래서 입구만 보고 「앱이 헐겁다」고 판정하면 틀린다.** `LengthConstraintTest` 는 그런 사유 칸을
 `BLANK_GUARDED_BY_SERVICE` 에 두고 **어느 서비스가 무슨 코드로 막나**를 값으로 적는다 —
 답이 안 되면 그때는 정말로 새는 자리다.
 
