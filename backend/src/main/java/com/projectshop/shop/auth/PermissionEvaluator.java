@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.audit.AuditTargetType;
+import com.projectshop.shop.metric.MetricName;
 
 /**
  * 한 사용자가 특정 자원에 특정 동작을 할 수 있는지를 한 군데서 판정한다.
@@ -174,7 +175,7 @@ public class PermissionEvaluator {
         // 계정 수만큼 지표가 갈라진다. 자원×동작×허용여부라 상한이 권한 표 크기의 두 배다.
         //
         // 감사 기록 앞에서 끊는다. 재는 것이 판정이고, 거부를 남기는 것은 그 뒤에 붙은 일이다.
-        sample.stop(Timer.builder("shop.permission.decide")
+        sample.stop(MetricName.PERMISSION_DECIDE.timer()
                 .tag("resource", resource)
                 .tag("action", action)
                 .tag("allowed", String.valueOf(decision.allowed()))

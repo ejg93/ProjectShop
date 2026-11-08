@@ -79,6 +79,7 @@ class EnumConstraintTest extends PostgresTestBase {
             Map.entry("account.UserFields", "`permission_field_group` 의 행이지 `check` 가 아니다. `FieldGroupTest` 가 대조한다"),
             Map.entry("inquiry.InquiryFields", "`permission_field_group` 의 행이다. 패키지 안 열거형이라 `InquiryFieldGroupTest` 가 대조한다"),
             Map.entry("product.CopyrightReportStage", "요청 파라미터 전용이다(`Q380b`). 저장 칸이 없고 판정 여부는 판정 컬럼이 비었나로 정해진다"),
+            Map.entry("metric.MetricName", "지표 이름이다(`Q388`). DB 에 안 산다 — 꼴은 `MetricNameTest` 가 잰다"),
             Map.entry("order.OrderFields", "`permission_field_group` 의 행이지 `check` 가 아니다. `FieldGroupTest` 가 대조한다"),
             Map.entry("account.UserPersonalFields", "〃 — 개인정보 그룹이라 타입만 갈랐다(`Q282a`)"),
             Map.entry("order.OrderPersonalFields", "〃 — 개인정보 그룹이라 타입만 갈랐다(`Q282a`)"),

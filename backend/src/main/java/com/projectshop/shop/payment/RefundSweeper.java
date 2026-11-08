@@ -3,7 +3,6 @@ package com.projectshop.shop.payment;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
-import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 
 import org.slf4j.Logger;
@@ -15,6 +14,7 @@ import org.springframework.stereotype.Component;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.Retries;
 import com.projectshop.shop.support.ActorType;
+import com.projectshop.shop.metric.MetricName;
 
 /**
  * 환불 요청이 없는 채로 닫힌 묶음을 찾아 요청을 만들고, 자기가 만든 요청을 승인해 돈을 내보낸다.
@@ -69,7 +69,7 @@ public class RefundSweeper {
     RefundSweeper(JdbcClient jdbc, RefundService refunds, MeterRegistry meters) {
         this.jdbc = jdbc;
         this.refunds = refunds;
-        Gauge.builder("shop.refund.overdue", overdueCount, AtomicLong::doubleValue)
+        MetricName.REFUND_OVERDUE.gauge(overdueCount, AtomicLong::doubleValue)
                 .description("기한을 넘긴 환급 대기 건수. 연 15% 지연배상 대상이다(전자상거래법 제18조제3항)")
                 .register(meters);
     }

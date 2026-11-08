@@ -68,6 +68,7 @@ import com.projectshop.shop.notification.MockNotificationSender;
 import com.projectshop.shop.payment.MockPaymentGateway;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.metric.MetricName;
 
 import jakarta.validation.Valid;
 
@@ -220,12 +221,13 @@ class ArchitectureTest {
                             "org.springframework..", "org.slf4j..", "com.fasterxml..", "tools.jackson..",
                             "io.swagger..", "org.springdoc..", "io.micrometer..", "org.apache.kafka..",
                             "software.amazon.awssdk..", "org.flywaydb..",
-                            "com.projectshop.shop.support..", "com.projectshop.shop.error..")
+                            "com.projectshop.shop.support..", "com.projectshop.shop.error..", "com.projectshop.shop.metric..")
                     .because("support 가 자원을 부르면 공용이 아니라 그 자원의 일부가 된다"
                             + " (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)."
                             + " 자원을 열거하지 않고 허용을 적는다 — 열거하면 새 자원 패키지가 생길 때마다 샌다."
                             + " accessClassesThat 은 호출만 보고 필드 선언을 안 봐서 dependOnClassesThat 이다."
                             + " io.micrometer 는 Spring·Jackson 과 같은 자리다 — 지표 라이브러리고 자원이 아니다 (Q53)."
+                            + " metric 은 지표 이름 enum 하나고 자원이 아니다 — 우리 패키지를 안 부르는 뿌리다 (Q388)."
                             + " org.springdoc 은 io.swagger 와 같은 자리다 — 스펙을 그리는 도구고 OpenApiConfig 가 fields 를 적는다 (Q309a)."
                             + " org.flywaydb 는 시드 이력을 가르는 전략이 쓴다 — 마이그레이션 라이브러리고 자원이 아니다 (Q200)."
                             + " org.apache.kafka 도 같다 — 발행기가 ProducerRecord 로 헤더를 싣는다 (33b)."
@@ -336,6 +338,42 @@ class ArchitectureTest {
                     .and().doNotHaveFullyQualifiedName(VisibleFieldGroups.class.getName())
                     .should().callMethod(PermissionEvaluator.Decision.class, "visibleFieldGroups")
                     .because("기록 없이 개인정보 그룹을 여는 길이다 — AuditLog 가 돌려주는 증서로 묻는다 (`Q282a`)");
+
+    /**
+     * {@code metric} 패키지는 우리 패키지를 안 부른다(`Q388`, {@code coding-rules.md} 「자원이 아닌데 패키지를 파는 경우」).
+     *
+     * <p>들어오는 의존이 다섯이라 잎이 아니다 — 순환이 안 생기는 이유는 <b>나가는 의존이 0</b> 인 뿌리라서다.
+     * 그 자물쇠가 풀리면 같은 순환을 이름만 바꿔 만든다.
+     */
+    @ArchTest
+    static final ArchRule 지표_패키지는_우리_패키지를_안_부른다 =
+            noClasses()
+                    .that().resideInAPackage("com.projectshop.shop.metric..")
+                    .should().dependOnClassesThat(DescribedPredicate.describe("metric 밖의 우리 클래스",
+                            target -> target.getPackageName().startsWith("com.projectshop.shop")
+                                    && !target.getPackageName().startsWith("com.projectshop.shop.metric")))
+                    .because("부르는 자리가 다섯이라 잎이 아니다 — 뿌리여야 순환이 안 생긴다 (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)");
+
+    /** Micrometer 미터 타입. 이 타입의 {@code builder} 는 {@link MetricName} 만 부른다 */
+    private static final Set<String> METER_TYPES = Set.of(
+            "io.micrometer.core.instrument.Counter", "io.micrometer.core.instrument.Timer",
+            "io.micrometer.core.instrument.Gauge", "io.micrometer.core.instrument.DistributionSummary",
+            "io.micrometer.core.instrument.LongTaskTimer");
+
+    /**
+     * 지표 빌더는 {@link MetricName} 만 부른다(`Q388`, {@code observability-rules.md} 「이름과 태그」).
+     *
+     * <p>이름을 부르는 자리에서 글자로 적으면 이름 꼴이 enum 밖으로 샌다 — {@code MetricNameTest} 는
+     * {@code MetricName.values()} 만 돌므로 날 {@code builder} 로 만든 미터는 꼴 검사를 안 지난다.
+     */
+    @ArchTest
+    static final ArchRule 지표_빌더는_MetricName_만_부른다 =
+            noClasses()
+                    .that().doNotHaveFullyQualifiedName(MetricName.class.getName())
+                    .should().callMethodWhere(DescribedPredicate.describe("Micrometer 미터의 builder",
+                            call -> METER_TYPES.contains(call.getTargetOwner().getName())
+                                    && call.getName().equals("builder")))
+                    .because("지표 이름은 MetricName 에만 있다 — 꼴은 MetricNameTest 가 그 값으로 잰다 (`Q388`)");
 
     /**
      * 「입력과 출력」 — 요청 본문은 Bean Validation 을 거친다(`Q32`, `D14`).

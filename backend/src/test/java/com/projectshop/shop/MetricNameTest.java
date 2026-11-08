@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -18,17 +19,20 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.projectshop.shop.metric.MetricName;
+
 /**
  * 지표 이름·태그 키·노출 목록을 문서 규칙과 대조한다(`Q226`, {@code quality-gates.md} 「규칙 원장」 ⑤).
  *
  * <p>{@code observability-rules.md} 「이름과 태그」 — 이름은 {@code shop.<표>.<무엇>}(자원 토막은 표 이름, `Q82`), 태그는 닫힌 목록.
  * {@code security-baseline.md} 「노출면」 — 액추에이터 노출 목록은 그 표의 칸과 같다. 셋 다 막는 것이 없었다.
  *
- * <h2>실행 중인 레지스트리가 아니라 소스 글자로 잰다</h2>
+ * <h2>이름은 enum 에 있다</h2>
  *
- * <p>미터 넷 중 셋({@code shop.permission.decide}·{@code shop.error.raised}·{@code shop.batch_run.finished})이
- * <b>호출 자리에서</b> {@code builder(…).register(…)} 로 등록된다. 시험 컨텍스트에서 그 길이 안 불리면 레지스트리에 없어서
- * 레지스트리로 재면 <b>빠진 것을 모르고 초록</b>이 된다. {@code Counter|Timer|Gauge…builder("…")} 글자는 빠짐없이 보인다.
+ * <p>미터 다섯의 이름은 {@link MetricName} 에만 있고 날 {@code builder} 호출은 {@code ArchitectureTest} 가 막는다(`Q388`) —
+ * 그래서 이름 꼴은 {@code MetricName.values()} 를 돈다. 실행 중인 레지스트리로 재지 않는 이유는 그대로다 — 다섯 중 셋이
+ * <b>호출 자리에서</b> 등록돼서 시험 컨텍스트가 그 길을 안 부르면 레지스트리에 없다. 태그는 부르는 쪽이 잇는 값이라
+ * {@code MetricName.X.counter()…} 꼴을 품은 소스에서 {@code .tag("…")} 를 읽는다.
  * 표 이름은 마이그레이션의 {@code create table} 에서 걷는다 — 빠른 레인이라 DB 에 못 묻는다.
  */
 @DisplayName("지표 이름·태그·노출 목록")
@@ -45,8 +49,7 @@ class MetricNameTest {
     /** 표가 아닌데 자원 토막으로 인정하는 것. {@code shop.error.raised} 가 오류 종류를 센다 */
     private static final Set<String> NON_TABLE_SEGMENTS = Set.of("error");
 
-    private static final Pattern METER =
-            Pattern.compile("(?:Counter|Timer|Gauge|DistributionSummary|LongTaskTimer)\\.builder\\(\"([^\"]+)\"");
+    private static final Pattern METER = Pattern.compile("MetricName\\.([A-Z_]+)\\.(?:counter|timer|gauge)\\(");
     private static final Pattern TAG = Pattern.compile("\\.tag\\(\"([^\"]+)\"");
     private static final Pattern NAME = Pattern.compile("shop\\.([a-z_]+)\\.[a-z_]+");
     private static final Pattern CREATE_TABLE = Pattern.compile("(?i)create table (?:if not exists )?\"?([a-z_]+)");
@@ -57,8 +60,7 @@ class MetricNameTest {
     @DisplayName("지표 이름이 shop.<표>.<무엇> 이다")
     void meterNamesUseTableSegments() {
         Set<String> tables = tables();
-        List<String> names = meterSources().stream().flatMap(text -> all(METER, text).stream()).toList();
-        assertThat(names).as("미터를 0개 찾았다 — builder 꼴이 바뀌었으면 이 시험을 넓힌다").isNotEmpty();
+        List<String> names = Arrays.stream(MetricName.values()).map(MetricName::value).toList();
 
         List<String> bad = new ArrayList<>();
         for (String name : names) {

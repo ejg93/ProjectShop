@@ -5,10 +5,11 @@ import java.net.URI;
 import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Component;
 
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.tracing.Tracer;
 import jakarta.servlet.http.HttpServletRequest;
+
+import com.projectshop.shop.metric.MetricName;
 
 /**
  * RFC 9457 본문을 만든다.
@@ -41,7 +42,7 @@ public class ProblemFactory {
      * 이미 그 축을 들고 있어서 두 벌이 된다 — 여기가 답하는 것은 <b>어느 규칙이 걸렸나</b>다.
      */
     private void count(ErrorCode code) {
-        Counter.builder("shop.error.raised")
+        MetricName.ERROR_RAISED.counter()
                 .tag("code", code.name())
                 .description("오류 코드별로 센다. 어느 규칙이 얼마나 걸리나")
                 .register(meters)
