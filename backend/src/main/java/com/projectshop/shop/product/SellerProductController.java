@@ -56,7 +56,7 @@ public class SellerProductController {
     public ProductQuery.SellerPage list(
             @AuthenticationPrincipal ShopUser user,
             @RequestParam(name = "seller_id", required = false) Long sellerId,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) ProductStatus status,
             @RequestParam(required = false) String sort,
             @ParameterObject Paging paging) {
 

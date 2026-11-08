@@ -24,7 +24,7 @@ import com.projectshop.shop.consent.ConsentService;
 public class AdvertisingGate {
 
     /**
-     * 시행령 제62조의3 — 수신동의를 받은 날부터 2년마다 확인.
+     * 시행령 제62조의3 — 수신동의를 받은 날부터 2년마다 확인(`D2` R14).
      *
      * <p><b>{@link ConsentReconfirmSweeper} 가 이 값을 같이 쓴다.</b> 두 곳에 적으면
      * 시행령이 바뀔 때 한쪽만 고쳐지고, 그러면 <b>배치는 보냈는데 관문은 아직 밀렸다고 보는</b>
@@ -36,19 +36,19 @@ public class AdvertisingGate {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     /**
-     * 야간이 시작되는 시각. 제50조제3항이 「오후 9시부터 그 다음 날 오전 8시까지」로 정했다.
+     * 야간이 시작되는 시각. 제50조제3항이 「오후 9시부터 그 다음 날 오전 8시까지」로 정했다(`D2` R14).
      *
      * <p>경계는 <b>시작을 포함하고 끝을 뺀다</b> — 21:00 정각은 야간이고 08:00 정각은 아니다.
      */
     private static final LocalTime NIGHT_FROM = LocalTime.of(21, 0);
 
-    /** 야간이 끝나는 시각. 제50조제3항 */
+    /** 야간이 끝나는 시각. 제50조제3항(`D2` R14) */
     private static final LocalTime NIGHT_UNTIL = LocalTime.of(8, 0);
 
-    /** 광고성 정보 수신 동의(`V11`). 제50조제1항의 「명시적인 사전 동의」다 */
+    /** 광고성 정보 수신 동의(`V11`). 제50조제1항의 「명시적인 사전 동의」다(`D2` R14) */
     private static final String MARKETING = "marketing_email";
 
-    /** 야간 수신의 별도 동의(`V11`). 제50조제3항이 제1항과 <b>따로</b> 받으라고 한 것이다 */
+    /** 야간 수신의 별도 동의(`V11`). 제50조제3항이 제1항과 <b>따로</b> 받으라고 한 것이다(`D2` R14) */
     private static final String MARKETING_NIGHT = "marketing_night";
 
     private final ConsentService consents;
@@ -65,13 +65,13 @@ public class AdvertisingGate {
         /** 보내도 된다 */
         ALLOWED,
 
-        /** 광고 수신 동의가 없다. 제50조제1항 */
+        /** 광고 수신 동의가 없다. 제50조제1항(`D2` R14) */
         NO_CONSENT,
 
-        /** 야간인데 야간 동의가 없다. 제50조제3항 */
+        /** 야간인데 야간 동의가 없다. 제50조제3항(`D2` R14) */
         NO_NIGHT_CONSENT,
 
-        /** 동의를 받은 지 2년이 넘었는데 확인을 안 했다. 제50조제8항 */
+        /** 동의를 받은 지 2년이 넘었는데 확인을 안 했다. 제50조제8항(`D2` R14) */
         NOT_RECONFIRMED;
 
         public boolean allowed() {

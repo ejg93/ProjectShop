@@ -18,7 +18,7 @@ enum MailOrderExemption {
     /** 직전연도 통신판매 거래 횟수가 50회 미만 */
     UNDER_50_TRANSACTIONS,
 
-    /** 부가가치세법상 간이과세자 */
+    /** 부가가치세법상 간이과세자(`D2` R1) */
     SIMPLIFIED_TAXPAYER;
 
     /** 저장값. DB 는 소문자고 응답은 대문자다(`D5` 「형식」) */

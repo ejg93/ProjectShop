@@ -257,9 +257,13 @@ Medusa·Spree·Saleor 가 전부 **모듈은 자원 이름**이고 관객은 그
 |---|---|
 | 자원이 아니다 | 자원이면 위 절대로 자원 이름을 쓴다 |
 | 기존 비자원 패키지에 넣으면 순환이 된다 | 순환이 안 생기면 팔 이유가 없다 |
-| **들어오는 의존이 0 이다** | 아무도 안 부르는 잎이라야 순환이 다시 안 생긴다 |
+| **들어오는 의존이 0 이거나, 우리 패키지로 나가는 의존이 0 이다** | 아무도 안 부르는 잎이거나 아무것도 안 부르는 뿌리라야 순환이 다시 안 생긴다 |
 
-셋째가 이 절이 걸어 둔 자물쇠다. 잎이 아닌 것을 여기 넣으면 **같은 순환을 이름만 바꿔서 만든다.**
+셋째가 이 절이 걸어 둔 자물쇠다. 잎도 뿌리도 아닌 것을 여기 넣으면 **같은 순환을 이름만 바꿔서 만든다.**
+
+**뿌리 쪽 예가 `metric/` 이다**(`Q388`). 지표 이름 enum(`MetricName`)을 `audit`·`auth`·`error`·`payment`·`support` 가 부르는데,
+`support` 에 두면 `error` ↔ `support`(`ProblemFactory` 가 부르고 `RateLimitFilter` 가 `error` 를 부른다)다.
+Micrometer 밖에는 아무것도 안 불러서 순환이 생길 수 없다 — `ArchitectureTest` 의 `지표_패키지는_우리_패키지를_안_부른다` 가 그것을 잰다.
 
 이름은 자원이 아니므로 **그 코드가 하는 일**을 말한다. `demo` 는 데모 데이터를 만든다.
 
@@ -325,6 +329,7 @@ private static final int MAX_SIZE = 100;
 |---|---|---|
 | 주문 결제·배송 상태, 상품·SKU 상태 | 한다 — 전이표·상태 축·곁가지 | `check` + enum |
 | `scope`·`effect`·`actor_type` | 한다 — `switch` 로 갈린다 | `check` + enum |
+| 감사 대상 종류(`audit_log.target_type`) | 한다 — 접속기록 점검이 `user` 로 갈리고 관리자 필터가 거른다 | `check`(`not valid` — `V130` 이 기존 행을 못 고치게 막는다) + enum(`Q381`). 권한 표의 자원도 든다 — 대조는 `AuditTargetTypeTest` |
 | 청약철회 제한 사유 | 한다 — 법이 인정한 셋만(`D2` R4) | `check` |
 | 공휴일 | **안 한다** — 그 날짜가 있나만 묻는다 | 표(`holiday`, `ADR 0009`) |
 | 권한·역할·부여 | **안 한다** — 판정 엔진이 규칙을 그대로 읽는다 | 표(`ADR 0003`) |
@@ -510,7 +515,7 @@ EnumValue.of(rs.getString("status"), OrderTransitions.Payment::of)
 「`@NotBlank` 를 안 건다. 걸면 빈 사유가 400 으로 떨어지는데 **422 다**(`D5`)」.
 `@Size(min = 1)` 도 같은 400 을 만들므로 같이 안 쓴다.
 
-**그래서 입구만 보고 「앱이 헐겁다」고 판정하면 틀린다.** `LengthConstraintTest` 는 그 넷을
+**그래서 입구만 보고 「앱이 헐겁다」고 판정하면 틀린다.** `LengthConstraintTest` 는 그런 사유 칸을
 `BLANK_GUARDED_BY_SERVICE` 에 두고 **어느 서비스가 무슨 코드로 막나**를 값으로 적는다 —
 답이 안 되면 그때는 정말로 새는 자리다.
 
@@ -730,7 +735,7 @@ Postgres 가 마이크로초 아래를 올린다든가, Next 가 `cookies()` 를
 
 | 대상 | 언제 보나 | 무엇을 |
 |---|---|---|
-| 의존성 | `build.gradle.kts` 에 줄을 추가할 때 · `frontend/package-lock.json` 에 패키지가 늘 때(전이 포함) | 라이선스 종류. GPL 계열이면 그 자리에서 멈추고 판단한다. **실려 나가는 Gradle 의존(`runtimeClasspath`)은 `checkLicense`(`Q379a`), npm 은 `license-gate.mjs`(`Q379b`)가 막는다** — 시험·빌드 도구는 `DependencyLicenseTest` 가 표 행만 본다 — 허용 목록 밖의 라이선스는 빨갛고, 그 자리에서 판단해 근거와 함께 목록에 넣는다 |
+| 의존성 | `build.gradle.kts` 에 줄을 추가할 때 · `frontend/package-lock.json` 에 패키지가 늘 때(전이 포함) | 라이선스 종류. GPL 계열이면 그 자리에서 멈추고 판단한다. **실려 나가는 Gradle 의존(`runtimeClasspath`)은 `checkLicense`(`Q379a`), npm 은 `license-gate.mjs`(`Q379b`)가 막는다** — 시험·빌드 도구는 `DependencyLicenseTest` 가 표 행만 본다 — 허용 목록 밖의 라이선스는 빨갛고, 그 자리에서 판단해 근거와 함께 목록에 넣는다. **패키지 단위 허용은 식까지 적는다**(`Q396`) — 다음 판에서 라이선스가 바뀌면 게이트가 빨개지고 그때 다시 판단한다 |
 | 인용 자료 | 기준 문서에 바깥 자료를 근거로 삼을 때 | 저작자·라이선스를 `external-references.md` 에 같이 적는다 |
 
 두 번째가 실제로 걸려 있다. `D22` 가 기준으로 삼은 **SQL Style Guide 는 CC BY-SA 4.0** 이다.
@@ -921,6 +926,7 @@ private static final int WITHDRAWAL_DAYS = 7;
 ```
 
 개정되면 이 번호로 찾는다. 번호가 없으면 어느 상수가 법에서 온 것인지 코드에서 안 갈린다.
+**`LawReferenceJavadocTest` 가 잰다**(`Q394a`) — 법 단어를 품은 필드·열거 상수 Javadoc 은 `R번호` 를 든다.
 「설정과 상수」의 규칙과 같은 이유고, 출처가 법이면 더 세게 걸린다.
 
 ### 지켜지는지는 위에서 내려가며 확인한다

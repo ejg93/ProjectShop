@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -110,7 +111,7 @@ public class CouponService {
         }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "coupon.defined", actorUserId,
-                AuditLog.Target.of("coupon", couponId),
+                AuditLog.Target.of(AuditTargetType.COUPON, couponId),
                 Map.of("bearer", command.bearer()));
 
         return couponId;
@@ -144,7 +145,7 @@ public class CouponService {
         }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "coupon.withdrawn", actorUserId,
-                AuditLog.Target.of("coupon", couponId), Map.of());
+                AuditLog.Target.of(AuditTargetType.COUPON, couponId), Map.of());
     }
 
     /**
@@ -194,7 +195,7 @@ public class CouponService {
         }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "coupon.issued", actorUserId,
-                AuditLog.Target.of("coupon_issue", issueId),
+                AuditLog.Target.of(AuditTargetType.COUPON_ISSUE, issueId),
                 Map.of("coupon_id", issuable.couponId()));
 
         return issueId;

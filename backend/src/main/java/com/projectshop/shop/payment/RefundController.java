@@ -154,7 +154,7 @@ public class RefundController {
     @GetMapping
     public RefundQuery.Page list(
             @AuthenticationPrincipal ShopUser user,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) RefundStatus status,
             @RequestParam(required = false) String sort,
             @ParameterObject Paging paging) {
 

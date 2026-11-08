@@ -6,11 +6,13 @@
  * dev·optional 도 센다. 실려 나가는 것만 고르면 「dev 라서 괜찮다」는 판단을 사람 없이 하게 된다.
  *
  * <b>허용 목록이다.</b> 모르는 라이선스는 빨갛다 — 그 자리에서 판단해 근거와 함께 `license-allow.json` 에 넣는다.
- * 그 파일은 두 맵이다: `licenses`(SPDX 이름 → 근거)와 `packages`(패키지 이름 glob → 근거, `*` 하나만 쓴다).
+ * 그 파일은 두 맵이다: `licenses`(SPDX 이름 → 근거)와 `packages`(패키지 이름 glob → `{license, why}`, `*` 하나만 쓴다).
+ * <b>패키지 맵은 식까지 맞아야 한다</b>(`Q396`) — glob 만 맞추면 다음 판의 라이선스 변경이 지나간다.
+ * `license` 는 lock 의 식 글자 그대로고 쪼개지 않는다 — 순서만 바뀌어도 「바뀌었다」로 보고 사람이 다시 판단한다.
  * 식은 `AND` 면 전부, `OR` 면 하나가 `licenses` 에 있어야 한다. 식 전체가 `licenses` 의 키면 쪼개지 않는다 —
  * `SIL OPEN FONT LICENSE` 처럼 SPDX 이름이 아닌 꼴이 그 자리다.
  *
- * 종료 코드 — 0 통과 · 1 목록 밖이 있다 · 2 lock 형식이 바뀌었다(0건으로 읽으면 그물이 조용히 사라진다).
+ * 종료 코드 — 0 통과 · 1 목록 밖이 있다 · 2 lock 이나 패키지 맵의 형식이 바뀌었다(0건으로 읽으면 그물이 조용히 사라진다).
  * 인자 둘로 다른 lock·허용 파일을 줄 수 있다 — 시험이 쓴다.
  *
  *   node scripts/license-gate.mjs [package-lock.json] [license-allow.json]
@@ -21,9 +23,17 @@ const lock = JSON.parse(readFileSync(process.argv[2] ?? new URL("../package-lock
 const allow = JSON.parse(readFileSync(process.argv[3] ?? new URL("./license-allow.json", import.meta.url), "utf8"));
 
 const LICENSES = new Map(Object.entries(allow.licenses ?? {}));
-const PACKAGES = Object.keys(allow.packages ?? {}).map(
-  (glob) => new RegExp(`^${glob.replace(/[.+?^${}()|[\]\\/]/g, "\\$&").replace(/\*/g, ".*")}$`),
-);
+const badPackages = Object.entries(allow.packages ?? {})
+  .filter(([, value]) => typeof value !== "object" || value === null || typeof value.license !== "string")
+  .map(([glob]) => glob);
+if (badPackages.length > 0) {
+  console.error(`[Q396] 패키지 맵 값은 {license, why} 객체다 — 아닌 것: ${badPackages.join(", ")}`);
+  process.exit(2);
+}
+const PACKAGES = Object.entries(allow.packages ?? {}).map(([glob, value]) => ({
+  pattern: new RegExp(`^${glob.replace(/[.+?^${}()|[\]\\/]/g, "\\$&").replace(/\*/g, ".*")}$`),
+  license: value.license,
+}));
 
 /** 식 하나가 목록을 지나는가. 모르는 꼴(이름 둘이 연산자 없이 붙는 것)은 못 지난다 */
 function allowed(expression) {
@@ -89,10 +99,17 @@ for (const [path, entry] of Object.entries(lock.packages)) {
     malformed.push(name);
     continue;
   }
-  if (PACKAGES.some((pattern) => pattern.test(name)) || allowed(entry.license)) {
+  const kind = [entry.dev ? "dev" : null, entry.optional ? "optional" : null].filter(Boolean).join("·") || "운영";
+  const mapped = PACKAGES.find((item) => item.pattern.test(name));
+  if (mapped) {
+    if (entry.license !== mapped.license) {
+      blocked.push(`${name} — ${entry.license} — ${kind} (패키지 맵은 '${mapped.license}' 을 적었다)`);
+    }
     continue;
   }
-  const kind = [entry.dev ? "dev" : null, entry.optional ? "optional" : null].filter(Boolean).join("·") || "운영";
+  if (allowed(entry.license)) {
+    continue;
+  }
   blocked.push(`${name} — ${entry.license} — ${kind}`);
 }
 

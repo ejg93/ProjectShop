@@ -26,7 +26,7 @@ public class AdvertisingNotifications {
     private static final NotificationEventType EVENT = NotificationEventType.ADVERTISEMENT;
 
     /**
-     * 광고 본문이 반드시 들고 있어야 하는 자리.
+     * 광고 본문이 반드시 들고 있어야 하는 자리(`D2` R14).
      *
      * <p>제50조제4항이 전송자의 <b>명칭과 연락처</b>, 그리고 <b>수신거부·철회 의사표시를
      * 쉽게 할 수 있는 조치</b>를 명시하라고 한다. 판에 그 자리가 없으면 본문에 안 들어가고,

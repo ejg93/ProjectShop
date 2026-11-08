@@ -2,13 +2,10 @@ package com.projectshop.shop.webhook;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Locale;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
-import com.projectshop.shop.error.ErrorCode;
-import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ListQuery.Paging;
 
@@ -49,9 +46,9 @@ public class WebhookDeliveryQuery {
     /**
      * @param status {@code PENDING}·{@code SENT}·{@code FAILED}·{@code EXHAUSTED} 중 하나. null 이면 전부
      */
-    public Page find(long userId, long endpointId, String status, Paging paging) {
+    public Page find(long userId, long endpointId, WebhookDeliveryStatus status, Paging paging) {
         boolean canResend = endpoints.canResend(userId, endpoints.find(userId, endpointId).sellerId());
-        String stored = storedStatus(status);
+        String stored = status == null ? null : status.code();
 
         List<Delivery> items = jdbc.sql("""
                         select d.webhook_delivery_id, e.type, d.status, d.attempt_count, d.next_attempt_at,
@@ -93,16 +90,5 @@ public class WebhookDeliveryQuery {
                 .query(Long.class)
                 .single();
         return new Page(items, paging.offset(), paging.limit(), total);
-    }
-
-    private static String storedStatus(String status) {
-        if (status == null || status.isBlank()) {
-            return null;
-        }
-        try {
-            return WebhookDeliveryStatus.valueOf(status.toUpperCase(Locale.ROOT)).code();
-        } catch (IllegalArgumentException e) {
-            throw new ShopException(ErrorCode.VALIDATION_FAILED, "그런 발송 상태가 없다: " + status);
-        }
     }
 }

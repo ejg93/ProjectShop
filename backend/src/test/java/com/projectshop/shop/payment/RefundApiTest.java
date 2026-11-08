@@ -256,10 +256,21 @@ class RefundApiTest extends PostgresTestBase {
         }
 
         @Test
-        @DisplayName("모르는 상태로 거르면 400 이다")
+        @DisplayName("모르는 상태로 거르면 400 validation-failed 이고 errors 가 파라미터 이름을 짚는다")
         void rejectsUnknownStatusFilter() throws Exception {
+            // 변환은 RequestEnumConverterFactory 한 자리다(`Q380a`). 전에는 400 이되 errors 가 없었다.
             mvc.perform(get("/api/refunds").with(user(admin)).param("status", "PENDING"))
-                    .andExpect(status().isBadRequest());
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:validation-failed"))
+                    .andExpect(jsonPath("$.errors[0].field").value("status"));
+        }
+
+        @Test
+        @DisplayName("상태 필터는 대소문자를 안 가린다 — 소문자로 보내도 걸러진다")
+        void acceptsLowerCaseStatusFilter() throws Exception {
+            // 옛 storedStatus 가 소문자를 받았다. factory 가 그 상위집합이라 부르던 쪽이 안 깨진다.
+            mvc.perform(get("/api/refunds").with(user(admin)).param("status", "requested"))
+                    .andExpect(status().isOk());
         }
 
         @Test

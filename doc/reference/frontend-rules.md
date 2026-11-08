@@ -131,6 +131,8 @@
 **그 화면이 일러 주는 것을 잊으면 아무것도 안 빨개진다** — 그래서 화면마다 그 한 줄을 재는
 시험을 같이 둔다(`admin/audit/detail-keys.test.ts`).
 
+**응답 타입은 손으로 쓴다** — OpenAPI 생성 타입을 안 들인 이유와 드는 조건은 `D15`(`testing-strategy.md`, `Q387`).
+
 ## 인증이 필요한 데이터
 
 `/orders`·`/me`·`/seller/*` 처럼 로그인해야 보는 화면도 **서버 컴포넌트로 그린다**(사용자 선택).
@@ -404,7 +406,7 @@ API 의 `offset`(건너뛸 행 수)을 가르는 자리다 — `pageQuery(page, 
 임의 값(`bg-[#9f1239]`·`text-[13px]`·`p-[7px]`)과 팔레트 클래스(`bg-red-500`)는 안 쓴다 — 토큰 밖 색은 다크 값이 없어서 다크모드에서 깨지고,
 `Q277` 의 대비 검사는 smoke 세 화면만 재서 나머지 화면의 그 색은 아무도 안 본다(`screen-rules.md` 「다크모드」).
 
-**새 색이 필요하면 토큰을 먼저 더한다** — `:root` 와 `prefers-color-scheme: dark` 양쪽에 값을 두고 `@theme inline` 에 유틸리티 이름을 건다.
+**새 색이 필요하면 토큰을 먼저 더한다** — `:root` 와 `prefers-color-scheme: dark` 양쪽에 값을 두고 `@theme inline` 에 유틸리티 이름을 건다. 다크에서도 같은 값이면 다크 블록에서 빼고 **뺀 이유를 그 자리 주석으로** 밝힌다 — 배경 위 강조색(`--accent`·`--accent-hover`·`--accent-on`)이 그렇다(`globals.css`, `점검 AK`).
 `text-[var(--x)]` 처럼 토큰 변수를 임의 값으로 부르지 않는다 — 유틸리티 이름이 없는 토큰이 생긴다. 린트는 크기 접두(`text-`·`rounded-`·간격)의 것만 막고 색 접두(`bg-`·`border-`·`shadow-`)의 것은 못 막는다(`quality-gates.md` 「못 막는 것」).
 
 **예외 — 내용이 정하는 값은 둔다.** 표 너비(`min-w-[Nrem]`)·그리드 열과 행(`grid-cols-[…]`)·비율(`aspect-[4/3]`)·전환 속성(`transition-[…]`)은

@@ -266,8 +266,8 @@ public class ProductQuery {
     /**
      * @param status 그 상태만(`Q182` — 관리자의 검수 대기 목록이 이것을 쓴다). {@code null} 이면 전부
      */
-    public SellerPage findForSeller(long viewerId, Long sellerId, String status, String sort, Paging paging) {
-        String statusCode = status == null ? null : ProductStatus.ofRequest(status).code();
+    public SellerPage findForSeller(long viewerId, Long sellerId, ProductStatus status, String sort, Paging paging) {
+        String statusCode = status == null ? null : status.code();
         Allowed<Long> visible = visibleSellersFor(viewerId);
         Set<Long> memberOf = memberOf(viewerId);
 

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -89,7 +90,7 @@ public class PasswordResetService {
 
         // 토큰은 안 남긴다. 남길 것은 요청이 있었다는 사실뿐이다(D16 A09).
         auditLog.record(AuditLog.Kind.OUTCOME, "user.password_reset_requested", issued.userId(),
-                AuditLog.Target.of("user", issued.userId()), Map.of());
+                AuditLog.Target.of(AuditTargetType.USER, issued.userId()), Map.of());
     }
 
     /** 표를 고치는 부분. 앞 토큰을 닫고 새것을 넣는 둘이 한 덩이여야 한다 */
@@ -175,7 +176,7 @@ public class PasswordResetService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "user.password_reset", found.userId(),
-                AuditLog.Target.of("user", found.userId()), Map.of());
+                AuditLog.Target.of(AuditTargetType.USER, found.userId()), Map.of());
     }
 
     /**

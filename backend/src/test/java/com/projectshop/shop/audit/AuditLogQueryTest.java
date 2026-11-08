@@ -54,11 +54,11 @@ class AuditLogQueryTest extends PostgresTestBase {
         fixture.grantGlobal(customer, "customer");
 
         auditLog.record(AuditLog.Kind.OUTCOME, "order.created", customer,
-                AuditLog.Target.of("order", 11L), Map.of());
+                AuditLog.Target.of(AuditTargetType.ORDER, 11L), Map.of());
         auditLog.record(AuditLog.Kind.OUTCOME, "order.cancelled", customer,
-                AuditLog.Target.of("order", 11L), Map.of());
+                AuditLog.Target.of(AuditTargetType.ORDER, 11L), Map.of());
         auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", auditor,
-                AuditLog.Target.of("user", customer), Map.of("role_code", "customer"));
+                AuditLog.Target.of(AuditTargetType.USER, customer), Map.of("role_code", "customer"));
     }
 
     @Nested
@@ -115,7 +115,7 @@ class AuditLogQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("대상 종류로 좁힌다")
         void byTargetType() {
-            Page page = find(auditor, criteria(null, "order"));
+            Page page = find(auditor, criteria(null, AuditTargetType.ORDER));
 
             assertThat(page.items()).isNotEmpty();
             assertThat(page.items()).allSatisfy(row ->
@@ -153,7 +153,7 @@ class AuditLogQueryTest extends PostgresTestBase {
         @Test
         @DisplayName("detail 이 객체로 돌아온다")
         void detailComesBackAsObject() {
-            Page page = find(auditor, criteria(auditor, "user"));
+            Page page = find(auditor, criteria(auditor, AuditTargetType.USER));
 
             assertThat(page.items()).isNotEmpty();
             assertThat(page.items().get(0).detail()).containsEntry("role_code", "customer");
@@ -211,7 +211,7 @@ class AuditLogQueryTest extends PostgresTestBase {
         return new Criteria(null, null, null, null, null);
     }
 
-    private static Criteria criteria(Long actorUserId, String targetType) {
+    private static Criteria criteria(Long actorUserId, AuditTargetType targetType) {
         return new Criteria(actorUserId, targetType, null, null, null);
     }
 }

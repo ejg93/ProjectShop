@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 
 import org.slf4j.Logger;
@@ -17,6 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
+
+import com.projectshop.shop.metric.MetricName;
 
 /**
  * 배치 회차를 {@code batch_run} 에 남기고, 이미 성공한 회차를 다시 안 돌린다.
@@ -360,7 +361,7 @@ public class BatchRuns {
         // 상태는 열거형이라 카디널리티가 안 터진다(`D16`).
         // 자원 토막이 **표 이름(단수)** 이다(`Q82`, `D16`·`D22`). `batch` 라는 표가 없다 —
         // 사건 이름(`D12`)이 같은 규칙을 쓰므로 둘을 안 가른다.
-        Counter.builder("shop.batch_run.finished")
+        MetricName.BATCH_RUN_FINISHED.counter()
                 .tag("name", batchName)
                 .tag("status", status.code())
                 .description("배치 회차 수. 상태별로 갈라 센다")

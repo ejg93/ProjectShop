@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -96,7 +97,7 @@ public class ReviewService {
         }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.written", actorUserId,
-                AuditLog.Target.of("review", reviewId),
+                AuditLog.Target.of(AuditTargetType.REVIEW, reviewId),
                 Map.of("product_id", line.productId()));
 
         return new Created(reviewId, line.productId());
@@ -123,7 +124,7 @@ public class ReviewService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.updated", actorUserId,
-                AuditLog.Target.of("review", reviewId), Map.of());
+                AuditLog.Target.of(AuditTargetType.REVIEW, reviewId), Map.of());
     }
 
     /**
@@ -140,7 +141,7 @@ public class ReviewService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.deleted", actorUserId,
-                AuditLog.Target.of("review", reviewId), Map.of());
+                AuditLog.Target.of(AuditTargetType.REVIEW, reviewId), Map.of());
     }
 
     /** 주문 줄 하나가 아는 것. 상품과 산 사람과 배송 상태다 */

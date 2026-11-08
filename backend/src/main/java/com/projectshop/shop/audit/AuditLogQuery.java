@@ -82,7 +82,7 @@ public class AuditLogQuery {
      * @param from        이 시각 이후(포함). null 이면 처음부터
      * @param to          이 시각 이전(제외). null 이면 끝까지
      */
-    public record Criteria(Long actorUserId, String targetType, Long targetId,
+    public record Criteria(Long actorUserId, AuditTargetType targetType, Long targetId,
             OffsetDateTime from, OffsetDateTime to) {
     }
 
@@ -146,7 +146,7 @@ public class AuditLogQuery {
     private JdbcClient.StatementSpec bind(JdbcClient.StatementSpec spec, Criteria criteria) {
         return spec
                 .param("actorUserId", criteria.actorUserId())
-                .param("targetType", criteria.targetType())
+                .param("targetType", criteria.targetType() == null ? null : criteria.targetType().code())
                 .param("targetId", criteria.targetId())
                 .param("from", criteria.from())
                 .param("to", criteria.to());

@@ -3,9 +3,6 @@ package com.projectshop.shop.review;
 import java.util.Arrays;
 import java.util.Locale;
 
-import com.projectshop.shop.error.ErrorCode;
-import com.projectshop.shop.error.ShopException;
-
 /**
  * 후기 신고의 상태(`Q167`, {@code review_report.status}, `D7`).
  *
@@ -34,12 +31,5 @@ enum ReviewReportStatus {
                 .filter(status -> status.code().equals(code))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("모르는 신고 상태다: " + code));
-    }
-
-    static ReviewReportStatus ofRequest(String name) {
-        return Arrays.stream(values())
-                .filter(status -> status.name().equals(name))
-                .findFirst()
-                .orElseThrow(() -> new ShopException(ErrorCode.VALIDATION_FAILED, "모르는 상태다: " + name));
     }
 }

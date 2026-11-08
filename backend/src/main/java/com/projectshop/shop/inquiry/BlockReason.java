@@ -29,7 +29,7 @@ import com.projectshop.shop.error.ShopException;
  */
 enum BlockReason {
 
-    /** 광고성 정보. 정보통신망법 제50조의7이 게시 거부·삭제를 허용한 자리다 */
+    /** 광고성 정보. 정보통신망법 제50조의7이 게시 거부·삭제를 허용한 자리다(`D2` R34) */
     ADVERTISEMENT,
 
     /** 욕설·비방. 약관에서 온다 */

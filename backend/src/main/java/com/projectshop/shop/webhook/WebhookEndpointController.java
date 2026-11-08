@@ -95,7 +95,7 @@ public class WebhookEndpointController {
      */
     @GetMapping("/{webhookEndpointId}/deliveries")
     public WebhookDeliveryQuery.Page deliveries(@AuthenticationPrincipal ShopUser user,
-            @PathVariable long webhookEndpointId, @RequestParam(required = false) String status,
+            @PathVariable long webhookEndpointId, @RequestParam(required = false) WebhookDeliveryStatus status,
             @ParameterObject Paging paging) {
         return deliveries.find(user.id(), webhookEndpointId, status, paging);
     }

@@ -15,9 +15,9 @@ import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.support.BatchRuns;
 import com.projectshop.shop.support.BusinessCalendar;
+import com.projectshop.shop.metric.MetricName;
 import com.projectshop.shop.support.RetryableBatch;
 
-import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**
@@ -49,7 +49,7 @@ public class AuditLogReviewBatch implements RetryableBatch {
     AuditLogReviewBatch(AuditLogReviewService reviews, BatchRuns runs, MeterRegistry meters) {
         this.reviews = reviews;
         this.runs = runs;
-        Gauge.builder("shop.audit_log.flagged", flaggedCount, AtomicLong::doubleValue)
+        MetricName.AUDIT_LOG_FLAGGED.gauge(flaggedCount, AtomicLong::doubleValue)
                 .description("지난 접속기록 점검이 표시한 열람자 수. 한 달에 서로 다른 정보주체를 임계 이상 열었다")
                 .register(meters);
     }

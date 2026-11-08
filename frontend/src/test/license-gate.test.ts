@@ -15,7 +15,7 @@ const SCRIPT = join(process.cwd(), "scripts", "license-gate.mjs");
 
 const ALLOW = {
   licenses: { MIT: "시험", "Apache-2.0": "시험" },
-  packages: { "@img/sharp-libvips-*": "시험 — 패키지 단위 허용" },
+  packages: { "@img/sharp-libvips-*": { license: "LGPL-3.0-or-later", why: "시험 — 패키지 단위 허용" } },
 };
 
 function lock(packages: Record<string, unknown>) {
@@ -48,10 +48,20 @@ describe("npm 의존 라이선스 판정", () => {
     expect(run(lock({ "node_modules/a": { license: "(GPL-3.0 OR MIT)" } }))).toBe(0);
   });
 
-  it("패키지 맵의 glob 은 식과 상관없이 그 패키지를 통과시킨다 — 중첩 node_modules 도 이름으로 맞춘다", () => {
+  it("패키지 맵은 glob 이 맞고 식이 같을 때만 통과시킨다 — 중첩 node_modules 도 이름으로 맞춘다(`Q396`)", () => {
     expect(run(lock({ "node_modules/@img/sharp-libvips-linux-x64": { license: "LGPL-3.0-or-later" } }))).toBe(0);
     expect(run(lock({ "node_modules/x/node_modules/@img/sharp-libvips-darwin-arm64": { license: "LGPL-3.0-or-later" } }))).toBe(0);
     expect(run(lock({ "node_modules/@img/sharp-linux-x64": { license: "LGPL-3.0-or-later" } }))).toBe(1);
+  });
+
+  it("glob 은 맞는데 식이 맵과 다르면 1 이다 — 다음 판의 라이선스 변경이 지나가지 않는다(`Q396`)", () => {
+    expect(run(lock({ "node_modules/@img/sharp-libvips-linux-x64": { license: "GPL-3.0-only" } }))).toBe(1);
+  });
+
+  it("패키지 맵 값이 객체가 아니거나 license 가 문자열이 아니면 2 다 — 옛 꼴을 조용히 통과시키지 않는다(`Q396`)", () => {
+    const ok = lock({ "node_modules/a": { license: "MIT" } });
+    expect(run(ok, { ...ALLOW, packages: { "@img/sharp-libvips-*": "옛 꼴 — 근거 문장만" } })).toBe(2);
+    expect(run(ok, { ...ALLOW, packages: { "@img/sharp-libvips-*": { why: "license 가 없다" } } })).toBe(2);
   });
 
   it("license 가 없거나 문자열이 아니면 2 다 — 형식이 바뀐 것을 0건으로 읽지 않는다", () => {

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -75,7 +76,7 @@ public class EmailChangeService {
 
         // 어느 주소로 바꾸려 했는지는 안 남긴다. 아직 그 사람 것이 아닌 개인정보다(D16).
         auditLog.record(AuditLog.Kind.OUTCOME, "user.email_change_requested", userId,
-                AuditLog.Target.of("user", userId), Map.of());
+                AuditLog.Target.of(AuditTargetType.USER, userId), Map.of());
     }
 
     private String issue(long userId, String newEmail) {
@@ -158,7 +159,7 @@ public class EmailChangeService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "user.email_changed", userId,
-                AuditLog.Target.of("user", userId), Map.of());
+                AuditLog.Target.of(AuditTargetType.USER, userId), Map.of());
         return found.newEmail();
     }
 

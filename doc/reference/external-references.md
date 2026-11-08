@@ -14,6 +14,27 @@
 | RFC 9111 HTTP Caching | https://www.rfc-editor.org/rfc/rfc9111.html | **§3.5 는 `Authorization` 헤더 기준이라 쿠키 세션에 그대로 안 걸린다**(2026-09-21 원문 확인, `Q61`). 로그인한 응답을 지키는 것은 §5.2.2.5 의 `no-store` 를 우리가 내보내는 것이고 `HttpFlowTest` 가 그것을 잰다 |
 | OpenAPI 3.1 | https://spec.openapis.org/oas/v3.1.0.html | 청크 2a 의 springdoc 이 이 형식으로 뽑는다 |
 
+### 코드가 직접 부르는 규격
+
+**위 표 밖에서 코드·문서가 조항까지 부르던 것을 모았다**(2026-11-08 `점검 AJ`). 「원문」 칸은 그날 원문을 열어 조항 번호를 맞춘 것이다 — 기억으로 쓴 조항은 여기 안 든다.
+
+| 규격 | 링크 | 우리와의 관계 | 코드 자리 | 원문 |
+|---|---|---|---|---|
+| RFC 5321 SMTP | https://www.rfc-editor.org/rfc/rfc5321.html | 이메일 길이 상한. §4.5.3.1.1 local-part 64 · §4.5.3.1.3 경로 256(구두점 포함 — 꺾쇠 둘을 빼서 254) | `EmailAddress` · `V65` · `EmailAddressTest` | 맞다 |
+| RFC 6585 | https://www.rfc-editor.org/rfc/rfc6585.html | §4 429 와 `Retry-After`(MAY) | `ErrorCode.RATE_LIMITED` · `RateLimitFilter` · `RateLimitFilterTest` · `WebhookSender`(429 는 일시) | 맞다 |
+| RFC 6648 (BCP 178) | https://www.rfc-editor.org/rfc/rfc6648.html | 새로 정하는 파라미터 이름에 `X-` 를 안 붙인다 — 범위는 **새로 정하는 것**이라 받는 `X-Real-IP` 는 안 걸린다 | `SourceTextTest.noCustomXHeaders` | 맞다 |
+| RFC 5789 PATCH · RFC 7396 Merge Patch | https://www.rfc-editor.org/rfc/rfc5789.html · https://www.rfc-editor.org/rfc/rfc7396.html | PATCH 본문의 형식을 미디어 타입으로 밝힌다 · `null` 은 지우기 | `MeController` · `api.ts` · `ArchitectureTest`(원장 ⑥) | 원문 미열람(`점검 N` 이 2026-09-14 에 봤다) |
+| RFC 4151 tag URI · RFC 8141 URN · RFC 2606 | https://www.rfc-editor.org/rfc/rfc4151.html · https://www.rfc-editor.org/rfc/rfc8141.html · https://www.rfc-editor.org/rfc/rfc2606.html | 오류 `type` 이 `tag:` 다 — URN 은 NID 등록이 든다(8141 §1) · `projectshop.example`·`example.com` 은 2606 §2·§3 예약 | `ErrorCode` · `api.ts` · `ProblemResponseTest` · 시드 `V900`·`V904` | 맞다 |
+| RFC 3339 | https://www.rfc-editor.org/rfc/rfc3339.html | 응답 시각 형식(UTC `Z`) | `ResponseTimeFormatTest` | 원문 미열람(`점검 N`) |
+| RFC 1918 | https://www.rfc-editor.org/rfc/rfc1918.html | 신뢰 프록시 범위 — 사설망 셋 + IPv6 ULA | `SecuritySettingsCheckTest` · Railway 변수(`stack.md`) | 원문 미열람(주소 범위 셋은 문서 머리가 정의한다) |
+| RFC 6266 · RFC 8187 | https://www.rfc-editor.org/rfc/rfc6266.html · https://www.rfc-editor.org/rfc/rfc8187.html | 내려받기 `Content-Disposition: attachment` · 한글 이름이면 `filename*`(8187 §3.2.1 ext-value) | `HttpFlowTest` | 맞다 |
+| RFC 8594 Sunset | https://www.rfc-editor.org/rfc/rfc8594.html | 폐기 예고 헤더 형식(Informational) | 코드 자리 없음 — 폐기한 입구가 아직 0 이다(`api-guidelines.md` 「버전」) | 맞다 |
+| RFC 9651 Structured Fields | https://www.rfc-editor.org/rfc/rfc9651.html | RFC 8941 을 대체했다. 멱등키 초안이 값 문법으로 든다 — 우리는 생 문자열을 받는다(`concurrency-rules.md`) | `IdempotencyKey` | 맞다(8941 → 9651 대체) |
+| NIST SP 800-38D GCM | https://csrc.nist.gov/pubs/sp/800/38/d/final | IV 96비트 | `WebhookSecretCipher.IV_BYTES` | **원문 미열람** — PDF 본문을 못 뽑았다. 조항 번호는 안 적는다 |
+| `draft-ietf-httpapi-ratelimit-headers` -11 | https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/ | 남은 양을 싣는 헤더 초안 — 활성 I-D 라 관례(4순위)고 안 싣는다 | 코드 자리 없음(`engine-comparison.md`) | 맞다(-11, 2026-05-23, 아직 I-D) |
+
+**폐기된 RFC 를 부르면 대체한 쪽으로 고친다.** 그날 넷이 폐기 상태였다 — 7235·7807 → 9110·9457, 4122 → 9562, 8941 → 9651. 7807·4122 는 「대체했다」는 문장으로만 남아 있었고, 7235 는 `ProblemEntryPoint` 주석이 아직 불러서 고쳤다.
+
 ## D5 API 설계 규약
 
 **기준: Zalando RESTful API Guidelines.** 스타일 가이드는 하나만 고른다.
@@ -227,7 +248,7 @@ Stripe 멱등키에서 확인한 것 — 우리 청크 12(모의 결제)가 그�
 - §2.7 「같은 키에 다른 본문이면 **422**」 — 같다(`IDEMPOTENCY_KEY_REUSED`)
 - §2.7 「처리 중이면 **409**」 — 같다(`IDEMPOTENCY_IN_PROGRESS`)
 - §2.6 「완료 뒤 재시도는 앞 결과를 그대로 준다」 — 같다. **-08 이 「사용자 뜻대로 끝난 것과 맞는 응답」으로 느슨하게 고쳤다**(issue #48, 논의 중) — 그대로 주는 우리 쪽은 그것에도 맞는다
-- **갈리는 하나는 값의 문법이다.** §2.1 이 「Item Structured Header([RFC 8941])고 값은 String」이라
+- **갈리는 하나는 값의 문법이다.** §2.1 이 「Item Structured Header([RFC 8941] — 지금은 RFC 9651 이 대체했다)고 값은 String」이라
   큰따옴표로 감싸야 하는데, 우리는 생 문자열 1~255자를 받는다. 갈래와 근거는 `concurrency-rules.md` 가 든다
 - §2.3·§2.5.2 는 **키 범위를 사용자·자원으로 안 묶고** 만료 정책을 자원이 정해서 공개하라고만 한다 — 우리는 24시간이다
 

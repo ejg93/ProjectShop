@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.constructors;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
@@ -57,10 +58,17 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.audit.ListAccess;
+import com.projectshop.shop.audit.PersonalDataAccess;
+import com.projectshop.shop.auth.PermissionCatalog;
 import com.projectshop.shop.auth.PermissionEvaluator;
+import com.projectshop.shop.auth.VisibleFieldGroups;
 import com.projectshop.shop.notification.MockNotificationSender;
 import com.projectshop.shop.payment.MockPaymentGateway;
+import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.metric.MetricName;
 
 import jakarta.validation.Valid;
 
@@ -213,12 +221,13 @@ class ArchitectureTest {
                             "org.springframework..", "org.slf4j..", "com.fasterxml..", "tools.jackson..",
                             "io.swagger..", "org.springdoc..", "io.micrometer..", "org.apache.kafka..",
                             "software.amazon.awssdk..", "org.flywaydb..",
-                            "com.projectshop.shop.support..", "com.projectshop.shop.error..")
+                            "com.projectshop.shop.support..", "com.projectshop.shop.error..", "com.projectshop.shop.metric..")
                     .because("support 가 자원을 부르면 공용이 아니라 그 자원의 일부가 된다"
                             + " (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)."
                             + " 자원을 열거하지 않고 허용을 적는다 — 열거하면 새 자원 패키지가 생길 때마다 샌다."
                             + " accessClassesThat 은 호출만 보고 필드 선언을 안 봐서 dependOnClassesThat 이다."
                             + " io.micrometer 는 Spring·Jackson 과 같은 자리다 — 지표 라이브러리고 자원이 아니다 (Q53)."
+                            + " metric 은 지표 이름 enum 하나고 자원이 아니다 — 우리 패키지를 안 부르는 뿌리다 (Q388)."
                             + " org.springdoc 은 io.swagger 와 같은 자리다 — 스펙을 그리는 도구고 OpenApiConfig 가 fields 를 적는다 (Q309a)."
                             + " org.flywaydb 는 시드 이력을 가르는 전략이 쓴다 — 마이그레이션 라이브러리고 자원이 아니다 (Q200)."
                             + " org.apache.kafka 도 같다 — 발행기가 ProducerRecord 로 헤더를 싣는다 (33b)."
@@ -257,13 +266,13 @@ class ArchitectureTest {
      * 식별자라 바인딩이 안 되고({@code order by ?} 는 문법 오류다) <b>결합이 강제된다</b> —
      * 들어올 수 있는 값을 우리가 정하는 것 말고 막을 방법이 없다.
      *
-     * <p><b>{@link OrderBy} 타입만으로는 못 막는다.</b> 조립이 문자열이라
+     * <p><b>{@link ListQuery.OrderBy} 타입만으로는 못 막는다.</b> 조립이 문자열이라
      * {@code " order by " + sort} 라고 쓰면 그 타입을 아예 안 거치고 지나간다.
      * 타입은 「거쳤다」를 뜻하고 이 규칙이 「거치게」 만든다 — <b>둘이 서로의 구멍을 덮는다.</b>
      *
      * <p><b>{@code String} 파라미터로 알아본다.</b> ArchUnit 은 파라미터 <b>이름</b>을 안 줘서
      * {@code sort} 를 집어낼 수가 없다. 지금 페이지를 내주는 조회 중 {@code String} 을 받는 것은
-     * 전부 정렬을 받는 것이고({@code RefundQuery} 의 {@code status} 는 정렬과 같은 메서드에 있다),
+     * 전부 정렬을 받는 것이고(상태 필터는 `Q380a`·`Q380b` 뒤로 열거형이라 {@code String} 이 아니다),
      * 아닌 것은 {@code String} 을 아예 안 받는다.
      *
      * <p><b>오탐이 나는 쪽으로 틀어 뒀다.</b> 정렬이 없는데 {@code String} 을 받는 목록이 생기면
@@ -274,6 +283,13 @@ class ArchitectureTest {
      * 그 결과를 버린 뒤 {@code " order by " + sort} 로 요청 문자열을 잇는 코드는 이 규칙을 통과한다.
      * 그 자리까지 보려면 데이터 흐름 분석이 필요하고 ArchUnit 이 그것을 안 준다 —
      * <b>거기는 CodeQL 이 보는 자리다</b>({@code 2e-5} 가 {@code JdbcClient.sql} 을 싱크로 등록했다).
+     *
+     * <p><b>뺀 둘</b>(`Q397` — 2026-09-12 부터 이 규칙이 주석에 묻혀 안 돌던 사이에 생겼다):
+     * {@code ProductQuery.findForSeller} 의 네 인자 판은 정렬을 받지만 다섯 인자 판에 그대로 넘긴다 —
+     * 거기서 {@code orderBy} 를 부른다. {@code SettlementQuery.findLines} 의 {@code String} 은 정산 번호고
+     * 정렬이 고정이다. 셋째였던 {@code WebhookDeliveryQuery.find} 는 상태 필터가 열거형이 되어(`Q380b`)
+     * {@code String} 을 안 받는다.
+     */
     @ArchTest
     static final ArchRule 정렬을_받는_조회는_허용_목록을_거친다 =
             methods()
@@ -281,10 +297,83 @@ class ArchitectureTest {
                     .and().areDeclaredInClassesThat().haveSimpleNameEndingWith("Query")
                     .and().haveRawReturnType(simpleNameEndingWith("Page"))
                     .and().haveRawParameterTypes(하나라도(String.class))
+                    .and().doNotHaveFullName("com.projectshop.shop.product.ProductQuery.findForSeller("
+                            + "long, java.lang.Long, java.lang.String, com.projectshop.shop.support.ListQuery$Paging)")
+                    .and().doNotHaveFullName("com.projectshop.shop.settlement.SettlementQuery.findLines("
+                            + "long, java.lang.String, com.projectshop.shop.support.ListQuery$Paging)")
                     .should(부른다(ListQuery.class, "orderBy"))
                     .because("정렬 문자열이 SQL 에 결합되는 유일한 자리다 (security-baseline.md `D14`)."
                             + " OrderBy 타입은 「거쳤다」를 뜻할 뿐 「거치게」 만들지는 못한다");
 
+
+    /**
+     * 개인정보 열람 증서는 {@link AuditLog} 만 만든다(`Q386`, {@code D14} 「개인정보 열람 기록」, `D2` R44).
+     *
+     * <p>{@link PersonalDataAccess}·{@link ListAccess} 를 쥔 코드는 기록을 이미 남긴 코드여야 한다 —
+     * {@code AuditLog.open}·{@code openList} 가 기록과 함께 만든다. 생성자가 패키지 안이라 {@code audit} 패키지의
+     * 다른 클래스만 어길 수 있는데, 컴파일은 그것을 못 막는다. <b>글자 시험({@code PersonalDataViewTest})에서 옮겼다</b> —
+     * 글자는 {@code new X(} 꼴만 보고 메서드 참조({@code X::new})를 놓친다. 여기는 바이트코드의 호출을 본다.
+     */
+    @ArchTest
+    static final ArchRule 증서는_AuditLog_만_만든다 =
+            constructors()
+                    .that().areDeclaredIn(PersonalDataAccess.class)
+                    .or().areDeclaredIn(ListAccess.class)
+                    .should().onlyBeCalled().byClassesThat().haveFullyQualifiedName(AuditLog.class.getName())
+                    .because("증서를 쥔 코드는 기록을 이미 남긴 코드다 — AuditLog.open·openList 만 만든다 (`Q282a`)");
+
+    /**
+     * 판정의 그룹 목록을 직접 묻는 자리는 셋이다(`Q386`, `Q282a`).
+     *
+     * <p>개인정보 그룹은 {@code canSee} 가 안 받아서 남은 우회 길이 {@code Decision.visibleFieldGroups()} 를 직접 묻는 것이다 —
+     * record 라 그 칸이 공개고 컴파일이 못 막는다. 묻는 자리는 판정 결과를 다루는 셋뿐이다:
+     * {@link PersonalDataAccess}(증서가 그룹을 확인) · {@link PermissionCatalog}(권한 목록 응답) ·
+     * {@link VisibleFieldGroups}(일반 그룹을 가린다). <b>글자 시험에서 옮겼다</b> — 그쪽은 {@code .covers(} 를 잇는 꼴만 봤다.
+     */
+    @ArchTest
+    static final ArchRule 판정의_그룹_목록을_묻는_자리는_셋이다 =
+            noClasses()
+                    .that().doNotHaveFullyQualifiedName(PersonalDataAccess.class.getName())
+                    .and().doNotHaveFullyQualifiedName(PermissionCatalog.class.getName())
+                    .and().doNotHaveFullyQualifiedName(VisibleFieldGroups.class.getName())
+                    .should().callMethod(PermissionEvaluator.Decision.class, "visibleFieldGroups")
+                    .because("기록 없이 개인정보 그룹을 여는 길이다 — AuditLog 가 돌려주는 증서로 묻는다 (`Q282a`)");
+
+    /**
+     * {@code metric} 패키지는 우리 패키지를 안 부른다(`Q388`, {@code coding-rules.md} 「자원이 아닌데 패키지를 파는 경우」).
+     *
+     * <p>들어오는 의존이 다섯이라 잎이 아니다 — 순환이 안 생기는 이유는 <b>나가는 의존이 0</b> 인 뿌리라서다.
+     * 그 자물쇠가 풀리면 같은 순환을 이름만 바꿔 만든다.
+     */
+    @ArchTest
+    static final ArchRule 지표_패키지는_우리_패키지를_안_부른다 =
+            noClasses()
+                    .that().resideInAPackage("com.projectshop.shop.metric..")
+                    .should().dependOnClassesThat(DescribedPredicate.describe("metric 밖의 우리 클래스",
+                            target -> target.getPackageName().startsWith("com.projectshop.shop")
+                                    && !target.getPackageName().startsWith("com.projectshop.shop.metric")))
+                    .because("부르는 자리가 다섯이라 잎이 아니다 — 뿌리여야 순환이 안 생긴다 (coding-rules.md 「자원이 아닌데 패키지를 파는 경우」)");
+
+    /** Micrometer 미터 타입. 이 타입의 {@code builder} 는 {@link MetricName} 만 부른다 */
+    private static final Set<String> METER_TYPES = Set.of(
+            "io.micrometer.core.instrument.Counter", "io.micrometer.core.instrument.Timer",
+            "io.micrometer.core.instrument.Gauge", "io.micrometer.core.instrument.DistributionSummary",
+            "io.micrometer.core.instrument.LongTaskTimer");
+
+    /**
+     * 지표 빌더는 {@link MetricName} 만 부른다(`Q388`, {@code observability-rules.md} 「이름과 태그」).
+     *
+     * <p>이름을 부르는 자리에서 글자로 적으면 이름 꼴이 enum 밖으로 샌다 — {@code MetricNameTest} 는
+     * {@code MetricName.values()} 만 돌므로 날 {@code builder} 로 만든 미터는 꼴 검사를 안 지난다.
+     */
+    @ArchTest
+    static final ArchRule 지표_빌더는_MetricName_만_부른다 =
+            noClasses()
+                    .that().doNotHaveFullyQualifiedName(MetricName.class.getName())
+                    .should().callMethodWhere(DescribedPredicate.describe("Micrometer 미터의 builder",
+                            call -> METER_TYPES.contains(call.getTargetOwner().getName())
+                                    && call.getName().equals("builder")))
+                    .because("지표 이름은 MetricName 에만 있다 — 꼴은 MetricNameTest 가 그 값으로 잰다 (`Q388`)");
 
     /**
      * 「입력과 출력」 — 요청 본문은 Bean Validation 을 거친다(`Q32`, `D14`).

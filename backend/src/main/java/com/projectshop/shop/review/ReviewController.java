@@ -203,8 +203,8 @@ public class ReviewController {
      */
     @GetMapping("/api/admin/review-reports")
     ReviewQuery.ReportResult reports(@AuthenticationPrincipal ShopUser user,
-            @RequestParam(defaultValue = "PENDING") String status, @ParameterObject Paging paging) {
-        return query.findReports(user.id(), ReviewReportStatus.ofRequest(status), paging);
+            @RequestParam(defaultValue = "PENDING") ReviewReportStatus status, @ParameterObject Paging paging) {
+        return query.findReports(user.id(), status, paging);
     }
 
     /**

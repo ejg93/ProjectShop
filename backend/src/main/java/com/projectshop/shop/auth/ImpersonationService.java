@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
@@ -72,7 +73,7 @@ public class ImpersonationService {
 
         // 시작 기록은 바꾸기 전에 남긴다 — 행위자가 관리자로 적힌다.
         auditLog.record(AuditLog.Kind.OUTCOME, "user.impersonation_started", admin.id(),
-                AuditLog.Target.of("user", targetUserId), Map.of());
+                AuditLog.Target.of(AuditTargetType.USER, targetUserId), Map.of());
 
         swap(new ImpersonationToken(target, admin.id(), current, OffsetDateTime.now()), request, response);
     }
@@ -86,7 +87,7 @@ public class ImpersonationService {
         swap(token.original(), request, response);
 
         auditLog.record(AuditLog.Kind.OUTCOME, "user.impersonation_ended", token.impersonatorUserId(),
-                AuditLog.Target.of("user", token.targetUserId()),
+                AuditLog.Target.of(AuditTargetType.USER, token.targetUserId()),
                 Map.of("started_at", String.valueOf(token.startedAt())));
     }
 

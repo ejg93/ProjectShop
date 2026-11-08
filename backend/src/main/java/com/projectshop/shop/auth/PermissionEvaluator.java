@@ -13,6 +13,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.audit.AuditTargetType;
+import com.projectshop.shop.metric.MetricName;
 
 /**
  * 한 사용자가 특정 자원에 특정 동작을 할 수 있는지를 한 군데서 판정한다.
@@ -173,7 +175,7 @@ public class PermissionEvaluator {
         // 계정 수만큼 지표가 갈라진다. 자원×동작×허용여부라 상한이 권한 표 크기의 두 배다.
         //
         // 감사 기록 앞에서 끊는다. 재는 것이 판정이고, 거부를 남기는 것은 그 뒤에 붙은 일이다.
-        sample.stop(Timer.builder("shop.permission.decide")
+        sample.stop(MetricName.PERMISSION_DECIDE.timer()
                 .tag("resource", resource)
                 .tag("action", action)
                 .tag("allowed", String.valueOf(decision.allowed()))
@@ -264,7 +266,7 @@ public class PermissionEvaluator {
         // 시도다. 업무 트랜잭션 안에서 거부하고 예외를 던지는 경로가 있어서, 결과로 두면
         // 그 경로의 거부가 통째로 사라진다(`4b-2`).
         auditLog.record(AuditLog.Kind.ATTEMPT, "permission.denied", userId,
-                AuditLog.Target.ofType(resource), detail);
+                AuditLog.Target.ofType(AuditTargetType.ofResource(resource)), detail);
     }
 
     /**

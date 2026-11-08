@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -122,7 +123,7 @@ public class ProductService {
         insertSubstantiations(productId, command.substantiations());
 
         auditLog.record(AuditLog.Kind.OUTCOME, "product.created", actorUserId,
-                AuditLog.Target.of("product", productId),
+                AuditLog.Target.of(AuditTargetType.PRODUCT, productId),
                 Map.of("seller_id", command.sellerId(), "sku_count", skuIds.size()));
 
         return new Created(productId, skuIds);
@@ -187,7 +188,7 @@ public class ProductService {
         insertSubstantiations(productId, command.substantiations());
 
         auditLog.record(AuditLog.Kind.OUTCOME, "product.updated", actorUserId,
-                AuditLog.Target.of("product", productId),
+                AuditLog.Target.of(AuditTargetType.PRODUCT, productId),
                 Map.of("seller_id", sellerId, "sku_count", skuIds.size()));
 
         return new Created(productId, skuIds);
@@ -204,7 +205,7 @@ public class ProductService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "product.deleted", actorUserId,
-                AuditLog.Target.of("product", productId), Map.of("seller_id", owned.sellerId()));
+                AuditLog.Target.of(AuditTargetType.PRODUCT, productId), Map.of("seller_id", owned.sellerId()));
     }
 
     /**

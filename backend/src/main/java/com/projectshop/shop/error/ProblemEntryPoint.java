@@ -24,7 +24,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class ProblemEntryPoint implements AuthenticationEntryPoint {
 
     /**
-     * 401 에 반드시 붙어야 하는 챌린지(RFC 9110 제15.5.2절, RFC 7235 제3.1절).
+     * 401 에 반드시 붙어야 하는 챌린지(RFC 9110 제15.5.2절·제11.6.1절 — 이 자리를 부르던 RFC 7235 는 9110 이 폐기했다).
      *
      * <p>「The server generating a 401 response <b>MUST send a WWW-Authenticate header field</b>
      * containing at least one challenge」다. 예외가 없다.

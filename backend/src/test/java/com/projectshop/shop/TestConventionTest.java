@@ -3,6 +3,14 @@ package com.projectshop.shop;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import com.tngtech.archunit.core.domain.JavaMethod;
@@ -18,6 +26,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * 「{@code @DisplayName} 은 한글 평서형」을 테스트 소스 전체에 건다(`Q30`).
@@ -81,6 +90,34 @@ class TestConventionTest {
     private static final Pattern QUOTED = Pattern.compile("`[^`]*`|「[^」]*」|\"[^\"]*\"");
 
     private static final Pattern HONORIFIC = Pattern.compile("습니다|합니다|하세요|입니다");
+
+    private static final Pattern ARCH_TEST_LINE = Pattern.compile("^\\s*@ArchTest\\s*$");
+
+    /**
+     * 「규칙이 주석에 삼켜지지 않는다」(`Q397`) — 소스의 {@code @ArchTest} 줄 수와 컴파일된 규칙 수가 같다.
+     *
+     * <p>2026-09-12 에 {@code ArchitectureTest} 의 Javadoc 하나가 안 닫혀 규칙 하나가 주석이 됐고
+     * 두 달 동안 CI 가 초록이었다. ArchUnit 은 <b>없는 규칙을 실패로 안 센다</b> — 컴파일된 수와
+     * 원문의 수를 맞대야 드러난다. 원문은 주석을 걷지 않고 <b>줄 단위</b>로 센다 —
+     * Javadoc 의 {@code {@code @ArchTest}} 같은 언급은 줄 머리에 안 오고, 삼켜진 애너테이션은 그대로 줄 머리에 남는다.
+     * <b>전제가 둘이다</b> — 규칙은 필드로 두고, {@code @ArchTest} 줄에는 애너테이션만 둔다. 메서드 꼴이나 같은 줄 주석이 생기면
+     * 여기가 빨개진다(놓치는 쪽이 아니라 스스로 드러나는 쪽이다).
+     */
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(classes = {ArchitectureTest.class, PublicSurfaceTest.class, TestConventionTest.class})
+    @DisplayName("ArchUnit 시험 클래스의 원문 @ArchTest 줄 수와 컴파일된 규칙 수가 같다")
+    void 원문의_규칙_수와_컴파일된_규칙_수가_같다(Class<?> type) throws IOException {
+        Path source = Path.of("src/test/java", type.getName().replace('.', '/') + ".java");
+        List<String> lines = Files.readAllLines(source, StandardCharsets.UTF_8);
+        long written = lines.stream().filter(line -> ARCH_TEST_LINE.matcher(line).matches()).count();
+        long compiled = Arrays.stream(type.getDeclaredFields())
+                .filter(field -> field.isAnnotationPresent(ArchTest.class))
+                .count();
+
+        assertThat(compiled)
+                .as("%s — 원문 @ArchTest %d 줄, 컴파일된 규칙 %d. 주석이 규칙을 삼켰나 본다", type.getSimpleName(), written, compiled)
+                .isEqualTo(written);
+    }
 
     private static ArchCondition<JavaMethod> 한글_평서형_DisplayName_을_단다() {
         return new ArchCondition<>("한글 평서형 @DisplayName 을 단다") {

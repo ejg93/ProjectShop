@@ -55,7 +55,7 @@ public class TransactionPurgeService {
     private static final int INQUIRY_YEARS = 3;
 
     /**
-     * 손해배상 <b>사유 글</b>을 두는 기간(`43a-4b`). {@link #INQUIRY_YEARS} 와 근거가 같다 —
+     * 손해배상 <b>사유 글</b>을 두는 기간(`43a-4b`, `D2` R6). {@link #INQUIRY_YEARS} 와 근거가 같다 —
      * 같은 시행령 제6조 4호의 「분쟁처리에 관한 기록」이고, 배상이 곧 그 처리의 결과다.
      *
      * <p><b>판정 행은 안 지운다.</b> 그쪽은 정산의 근거라 장부와 같이 살고
@@ -76,7 +76,7 @@ public class TransactionPurgeService {
     private static final int BATCH_RUN_YEARS = 1;
 
     /**
-     * 개인화된 발송 본문을 두는 기간(`D18-1`).
+     * 개인화된 발송 본문을 두는 기간(`D18-1`, `D2` R6).
      *
      * <p><b>법이 정한 값이 아니라 우리가 정한 값이다.</b> 제6조제2항이 거래기록에 딸린 개인정보를
      * 「보존할 수 있다」고 재량으로 둔 자리라, 배송지·카드와 같은 여섯 달을 골랐다.
@@ -85,7 +85,7 @@ public class TransactionPurgeService {
     private static final int NOTIFICATION_BODY_MONTHS = 6;
 
     /**
-     * 광고성 정보 발송 이력을 두는 기간(`D18-1`).
+     * 광고성 정보 발송 이력을 두는 기간(`D18-1`, `D2` R6).
      *
      * <p>시행령 제6조제1항 1호 「표시·광고에 관한 기록」이 여섯 달이다.
      * 거래 통지는 같은 항 2·3호라 { #ORDER_YEARS} 를 쓴다 — 같은 표인데 칸이 다르다.

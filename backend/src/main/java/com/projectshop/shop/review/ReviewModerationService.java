@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -71,7 +72,7 @@ public class ReviewModerationService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.replied", actorUserId,
-                AuditLog.Target.of("review", reviewId), Map.of("seller_id", review.sellerId()));
+                AuditLog.Target.of(AuditTargetType.REVIEW, reviewId), Map.of("seller_id", review.sellerId()));
     }
 
     /** 답글을 지운다. <b>행은 남는다</b> — 무엇을 말했다가 거뒀는지가 기록이다 */
@@ -91,7 +92,7 @@ public class ReviewModerationService {
         }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.reply_deleted", actorUserId,
-                AuditLog.Target.of("review", reviewId), Map.of("seller_id", review.sellerId()));
+                AuditLog.Target.of(AuditTargetType.REVIEW, reviewId), Map.of("seller_id", review.sellerId()));
     }
 
     /**
@@ -122,7 +123,7 @@ public class ReviewModerationService {
         }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.reported", actorUserId,
-                AuditLog.Target.of("review", reviewId), Map.of("reason", reason.code()));
+                AuditLog.Target.of(AuditTargetType.REVIEW, reviewId), Map.of("reason", reason.code()));
     }
 
     /**
@@ -145,7 +146,7 @@ public class ReviewModerationService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.report_accepted", actorUserId,
-                AuditLog.Target.of("review", report.reviewId()),
+                AuditLog.Target.of(AuditTargetType.REVIEW, report.reviewId()),
                 Map.of("review_report_id", reportId, "reason", report.reason().code(),
                         "blocked_now", blocked == 1));
     }
@@ -158,7 +159,7 @@ public class ReviewModerationService {
         resolve(actorUserId, reportId, ReviewReportStatus.REJECTED);
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.report_rejected", actorUserId,
-                AuditLog.Target.of("review", report.reviewId()), Map.of("review_report_id", reportId));
+                AuditLog.Target.of(AuditTargetType.REVIEW, report.reviewId()), Map.of("review_report_id", reportId));
     }
 
     /**
@@ -189,7 +190,7 @@ public class ReviewModerationService {
         }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.restored", actorUserId,
-                AuditLog.Target.of("review", reviewId),
+                AuditLog.Target.of(AuditTargetType.REVIEW, reviewId),
                 Map.of("previous_reason", blocked.reason().code(), "note", note, "was_deleted", blocked.deleted()));
     }
 

@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -68,7 +69,7 @@ public class SignupService {
         recordConsents(userId, command, items);
 
         auditLog.record(AuditLog.Kind.OUTCOME, "user.signed_up", userId,
-                AuditLog.Target.of("user", userId),
+                AuditLog.Target.of(AuditTargetType.USER, userId),
                 Map.of("role_code", DEFAULT_ROLE, "consent_count", command.consents().size()));
 
         return userId;

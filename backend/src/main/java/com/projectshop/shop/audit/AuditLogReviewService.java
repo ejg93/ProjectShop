@@ -64,7 +64,7 @@ class AuditLogReviewService {
         List<ViewerCount> viewers = jdbc.sql("""
                 select coalesce(impersonator_user_id, actor_user_id) as viewer_user_id,
                        count(*) as row_count,
-                       count(distinct target_id) filter (where target_type = 'user') as subject_count
+                       count(distinct target_id) filter (where target_type = :userType) as subject_count
                   from audit_log
                  where event_type = :eventType
                    and created_at >= :from
@@ -73,6 +73,7 @@ class AuditLogReviewService {
                  order by subject_count desc, viewer_user_id
                 """)
                 .param("eventType", AuditLog.PERSONAL_DATA_VIEWED)
+                .param("userType", AuditTargetType.USER.code())
                 .param("from", from)
                 .param("to", to)
                 .query((rs, rowNum) -> new ViewerCount(

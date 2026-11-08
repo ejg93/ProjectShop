@@ -24,10 +24,10 @@ import java.time.Month;
  */
 public final class TaxRetention {
 
-    /** 국세기본법 제85조의3제2항. 역외거래는 7년이고 우리는 그 거래를 안 받는다 */
+    /** 국세기본법 제85조의3제2항. 역외거래는 7년이고 우리는 그 거래를 안 받는다(`D2` R41) */
     private static final int RETENTION_YEARS = 5;
 
-    /** 부가가치세법 제49조제1항 — 과세기간이 끝난 후 25일 */
+    /** 부가가치세법 제49조제1항 — 과세기간이 끝난 후 25일(`D2` R41) */
     private static final int FILING_DAY = 25;
 
     private TaxRetention() {

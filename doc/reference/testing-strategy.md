@@ -389,6 +389,10 @@ evaluator.decide(userId, "order", "update_status", target)
 
 **문서·소스를 글자로 읽는 대조 시험은 더 아래 도구가 없을 때만 세운다.** 타입·DB 제약·ArchUnit·Checkstyle·ErrorProne 중 잴 수 있는 것이 있으면 그쪽에 건다 —
 글자 대조는 이름이 바뀌면 조용히 헛돈다. 2026-11-08 `점검 AI` 셈: 대조 시험 39 중 옮길 후보 여섯(`Q386`·`Q387`), 판정이 갈린 여덟(`Q387`·`Q388`).
+옮긴 것 둘 — `PersonalDataViewTest` ①② → `ArchitectureTest`(`Q386`). 못 옮긴 것 둘 — `RowMapperCallTest`(ArchUnit 이 람다 안 호출을 바깥 메서드로 귀속한다) · `UserRoleWriteTest`(쓰는 자리를 SQL 문자열로 고른다). 이유는 각 시험 Javadoc 에 있다.
+판정이 갈린 셋(`Q388`) — `MetricNameTest` 의 이름은 `MetricName` enum + ArchUnit 으로 내렸다 · `SchemaNameTest` 는 안 옮긴다(springdoc `use-fqn` 은 스펙 스키마 이름을 `com.projectshop…` 로 만들어 읽는 사람만 손해고 막는 값은 같다 — 소비자가 우리 화면 하나, 생성 타입 없음 `Q387`; 전역 유일성은 ArchUnit 규칙 하나로 못 적는다) · `LogArgumentTest` 는 안 옮긴다(`observability-rules.md` 「개인정보는 안 찍는다」).
+
+**OpenAPI 생성 타입은 안 들인다**(2026-11-08 사용자 결정, `Q387`). 「타입으로 간다」고 본 대조 시험 일곱 중 지우는 것이 0 이다 — 응답 record 가 코드를 `String` 으로 들어 스펙이 `string` 이고(`SettlementKindTextTest`·`WithdrawalNoticeScreenTest`), `maxLength`·힌트 수·공개 경로·오류 슬러그·거래기록 내용은 스펙에 타입으로 안 실린다. 스펙이 파일로도 없다(`/api/docs` 뿐). 비용(의존 둘 · 빌드 단계 · record 21 열거형화)이 지우는 것보다 크다. **드는 조건**: 둘째 소비자가 생기거나 응답 record 가 열거형을 들 때 — 그때 차례는 스펙 덤프(`/api/docs` → 파일) → `openapi-typescript` → `api.ts` 가 생성 타입을 쓴다.
 
 ### 새 로직을 짤 때
 
