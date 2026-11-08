@@ -68,7 +68,7 @@ export function Pager({ page, lastPage, total, basePath, label, unit, params }: 
             <PagerLink
               href={hrefOf(number)}
               current={number === page}
-              label={`${number + 1}쪽`}
+              label={`${number + 1} 쪽`}
             >
               {number + 1}
             </PagerLink>
@@ -114,7 +114,8 @@ function PagerLink({
     "grid h-9 min-w-9 place-items-center rounded-ui px-3 text-sm transition-colors duration-200";
 
   if (disabled) {
-    return <span className={`${shape} text-text-muted opacity-50`}>{children}</span>;
+    // 흐리게(`opacity-50`) 하지 않는다 — 대비가 4.5:1 밑으로 떨어진다(`점검 AG`). 테두리가 없는 것이 갈 곳 없음의 표시다
+    return <span className={`${shape} text-text-muted`}>{children}</span>;
   }
 
   return (

@@ -18,6 +18,8 @@
   /* 강조색은 하나다. 페이지 전체에서 이것만 쓴다(디자인 스킬 4.2) */
   --accent: #9f1239;
   --accent-hover: #881337;
+  /* 강조 바탕(`bg-accent`) 위 글자는 이것이다. `text-surface` 를 쓰면 다크에서 #0f0f11 로 뒤집혀 2.38:1 이다
+     (`점검 AG` — 버튼 아홉이 그랬다). `e2e/screens.spec.ts` 의 다크 axe 가 잰다 */
   --accent-on: #fff5f6;
   --accent-text: #9f1239;
 

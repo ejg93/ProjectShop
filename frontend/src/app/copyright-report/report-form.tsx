@@ -131,7 +131,7 @@ export function CopyrightReportForm({
       <button
         type="submit"
         disabled={pending}
-        className="justify-self-start rounded-ui bg-accent px-4 py-2 font-semibold text-surface disabled:opacity-60"
+        className="justify-self-start rounded-ui bg-accent px-4 py-2 font-semibold text-accent-on disabled:opacity-60"
       >
         {pending ? "보내는 중" : "신고하기"}
       </button>

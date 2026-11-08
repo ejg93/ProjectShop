@@ -28,8 +28,8 @@ describe("목록 쪽 넘김", () => {
     );
 
     // 같은 목록이 주소 둘을 가지면 링크를 공유했을 때 어느 쪽이 정본인지가 안 갈린다.
-    expect(screen.getByRole("link", { name: "1쪽" })).toHaveAttribute("href", "/orders");
-    expect(screen.getByRole("link", { name: "3쪽" })).toHaveAttribute("href", "/orders?page=3");
+    expect(screen.getByRole("link", { name: "1 쪽" })).toHaveAttribute("href", "/orders");
+    expect(screen.getByRole("link", { name: "3 쪽" })).toHaveAttribute("href", "/orders?page=3");
   });
 
   it("거른 조건이 쪽을 넘겨도 남는다", () => {
@@ -47,13 +47,13 @@ describe("목록 쪽 넘김", () => {
 
     // **이것이 이 컴포넌트를 만든 이유다.** 조건을 안 실으면 셀러 하나로 걸러 놓고
     // 2쪽을 누른 사람에게 거름이 풀린 목록이 나간다.
-    expect(screen.getByRole("link", { name: "2쪽" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "2 쪽" })).toHaveAttribute(
       "href",
       "/seller/orders?sellerId=7&page=2",
     );
 
     // 값이 없는 조건은 안 싣는다. 빈 값을 실으면 주소가 조건마다 길어지고 캐시 키가 갈린다.
-    expect(screen.getByRole("link", { name: "1쪽" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "1 쪽" })).toHaveAttribute(
       "href",
       "/seller/orders?sellerId=7",
     );
@@ -65,7 +65,7 @@ describe("목록 쪽 넘김", () => {
     );
 
     // 강조 색만으로 알리면 그 색을 못 보는 사람에게는 아무 표시가 없다(`D20`·WCAG 1.4.1).
-    expect(screen.getByRole("link", { name: "2쪽" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "2 쪽" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText(/전체 80건 중 2 \/ 4쪽/)).toBeInTheDocument();
   });
 
