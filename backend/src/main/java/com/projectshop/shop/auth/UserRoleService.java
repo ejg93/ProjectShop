@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -173,7 +174,7 @@ public class UserRoleService {
     private void evictAndRecord(String eventType, long actorUserId, long userId, String roleCode) {
         ruleLoader.evict(userId);
         auditLog.record(AuditLog.Kind.OUTCOME, eventType, actorUserId,
-                AuditLog.Target.of("user", userId), Map.of("role_code", roleCode));
+                AuditLog.Target.of(AuditTargetType.USER, userId), Map.of("role_code", roleCode));
     }
 
     /**

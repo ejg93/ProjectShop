@@ -113,7 +113,7 @@ public class AuditLog {
             detail.put("number", number);
         }
         detail.put("groups", openedGroups);
-        record(Kind.OUTCOME, PERSONAL_DATA_VIEWED, viewerId, Target.of("user", subjectUserId), detail);
+        record(Kind.OUTCOME, PERSONAL_DATA_VIEWED, viewerId, Target.of(AuditTargetType.USER, subjectUserId), detail);
     }
 
     /**
@@ -171,18 +171,18 @@ public class AuditLog {
     }
 
     /** 무엇에 대한 사건인가. 자원이 없는 사건도 있어서 둘 다 null 인 경우를 허용한다 */
-    public record Target(String type, Long id) {
+    public record Target(AuditTargetType type, Long id) {
 
         public static Target none() {
             return new Target(null, null);
         }
 
-        public static Target of(String type, long id) {
+        public static Target of(AuditTargetType type, long id) {
             return new Target(type, id);
         }
 
         /** 대상이 특정 행이 아니라 자원 종류 전체인 경우. 목록 조회 거부 같은 것 */
-        public static Target ofType(String type) {
+        public static Target ofType(AuditTargetType type) {
             return new Target(type, null);
         }
     }

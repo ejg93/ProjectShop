@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -153,7 +154,7 @@ public class WebhookEndpointService {
         }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "webhook.endpoint_registered", userId,
-                AuditLog.Target.of("webhook_endpoint", id), Map.of("seller_id", sellerId));
+                AuditLog.Target.of(AuditTargetType.WEBHOOK_ENDPOINT, id), Map.of("seller_id", sellerId));
         return new Created(id, SECRET_PREFIX + Base64.getEncoder().encodeToString(secret));
     }
 
@@ -191,7 +192,7 @@ public class WebhookEndpointService {
                 .param("id", endpointId)
                 .update();
         auditLog.record(AuditLog.Kind.OUTCOME, "webhook.endpoint_deleted", userId,
-                AuditLog.Target.of("webhook_endpoint", endpointId), Map.of("seller_id", endpoint.sellerId()));
+                AuditLog.Target.of(AuditTargetType.WEBHOOK_ENDPOINT, endpointId), Map.of("seller_id", endpoint.sellerId()));
     }
 
     /**
@@ -232,7 +233,7 @@ public class WebhookEndpointService {
                 .param("id", deliveryId)
                 .update();
         auditLog.record(AuditLog.Kind.OUTCOME, "webhook.delivery_resent", userId,
-                AuditLog.Target.of("webhook_delivery", deliveryId), Map.of("webhook_endpoint_id", endpointId));
+                AuditLog.Target.of(AuditTargetType.WEBHOOK_DELIVERY, deliveryId), Map.of("webhook_endpoint_id", endpointId));
     }
 
     private record DeliveryRow(long endpointId, WebhookDeliveryStatus status) {

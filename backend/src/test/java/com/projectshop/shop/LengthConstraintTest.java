@@ -181,7 +181,6 @@ class LengthConstraintTest extends PostgresTestBase {
 
             // ── 앱·트리거가 적는 값. 사람이 안 친다 ──────────────────────────────────
             Map.entry("audit_log.event_type", "앱이 적는 상수다. 요청에서 안 온다"),
-            Map.entry("audit_log.target_type", "〃"),
             Map.entry("user_consent.source", "앱이 적는 상수다(어느 경로로 동의했나)"),
             Map.entry("outbox_event.source", "트리거가 적는다. 기본값이 상수 하나다(`D12`)"),
             Map.entry("outbox_event.subject", "트리거가 노출 번호를 넣는다. 그 번호들이 각자 제약을 든다"),

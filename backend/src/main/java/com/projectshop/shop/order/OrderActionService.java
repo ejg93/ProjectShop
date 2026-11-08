@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -180,7 +181,7 @@ public class OrderActionService {
         // 강제 표는 상태 서비스가 본다 — 전이표 밖으로 가는 길이 거기 하나라서다(마무리 46차).
         statuses.forceShipment(row.sellerOrderId(), destination, Actor.admin(userId, reason));
         auditLog.record(AuditLog.Kind.OUTCOME, "order.status_forced", userId,
-                AuditLog.Target.of("seller_order", row.sellerOrderId()),
+                AuditLog.Target.of(AuditTargetType.SELLER_ORDER, row.sellerOrderId()),
                 Map.of("from", from.name(), "to", destination.name()));
     }
 

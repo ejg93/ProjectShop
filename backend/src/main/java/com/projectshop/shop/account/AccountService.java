@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -122,7 +123,7 @@ public class AccountService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "user.display_name_changed", userId,
-                AuditLog.Target.of("user", userId), Map.of());
+                AuditLog.Target.of(AuditTargetType.USER, userId), Map.of());
 
         return read(userId);
     }
@@ -185,7 +186,7 @@ public class AccountService {
 
         // 무엇으로 바꿨는지는 안 남긴다. 남길 것은 바꿨다는 사실뿐이다(D16).
         auditLog.record(AuditLog.Kind.OUTCOME, "user.password_changed", userId,
-                AuditLog.Target.of("user", userId), Map.of());
+                AuditLog.Target.of(AuditTargetType.USER, userId), Map.of());
 
         // 다른 기기의 세션은 그대로 살아 있다. 끊으려면 SessionRegistry 를 부르면 되지만,
         // 비밀번호 변경이 곧 도난 대응이라는 전제가 없어서 지금은 안 한다(ADR 0010 은 탈퇴만 다뤘다).

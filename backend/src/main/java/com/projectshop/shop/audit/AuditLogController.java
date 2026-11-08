@@ -43,7 +43,7 @@ public class AuditLogController {
     public Page find(
             @AuthenticationPrincipal ShopUser viewer,
             @RequestParam(name = "actor_user_id", required = false) Long actorUserId,
-            @RequestParam(name = "target_type", required = false) String targetType,
+            @RequestParam(name = "target_type", required = false) AuditTargetType targetType,
             @RequestParam(name = "target_id", required = false) Long targetId,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,

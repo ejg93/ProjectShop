@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -303,7 +304,7 @@ public class ConsentService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, granted ? "consent.granted" : "consent.revoked", userId,
-                AuditLog.Target.of("user", userId), Map.of("item_code", item.code()));
+                AuditLog.Target.of(AuditTargetType.USER, userId), Map.of("item_code", item.code()));
     }
 
     /**

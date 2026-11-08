@@ -69,7 +69,7 @@ class AuditLogWriter {
                 // **부르는 쪽이 안 넘긴다**(`16b`). 기록하는 자리마다 넘기게 하면 한 자리가 빠뜨리는 날
                 // 그 기록은 대행 대상이 한 것처럼 읽힌다 — 요청의 인증에서 한 곳이 읽는다.
                 .param("impersonatorUserId", ImpersonationToken.currentImpersonatorId())
-                .param("targetType", target.type())
+                .param("targetType", target.type() == null ? null : target.type().code())
                 .param("targetId", target.id())
                 .param("detail", toJson(detail))
                 // 접속지도 같은 자리에서 읽는다(`Q273`, 안전성 확보조치 기준 제8조) — 위 대행자와 같은 까닭이다.

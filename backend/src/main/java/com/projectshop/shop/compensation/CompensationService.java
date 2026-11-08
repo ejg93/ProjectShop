@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -107,7 +108,7 @@ public class CompensationService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "compensation.decided", userId,
-                AuditLog.Target.of("compensation", compensationId),
+                AuditLog.Target.of(AuditTargetType.COMPENSATION, compensationId),
                 Map.of("kind", command.kind().name(), "bearer", command.bearer().name(),
                         "amount", command.amount()));
     }

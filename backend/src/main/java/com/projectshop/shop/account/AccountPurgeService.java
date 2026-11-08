@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 
 /**
@@ -135,7 +136,7 @@ public class AccountPurgeService {
         //
         // actor 가 null 인 것은 사람이 한 일이 아니라서다. 배치는 주체가 없다.
         purgedIds.forEach(userId -> auditLog.record(AuditLog.Kind.OUTCOME,
-                "user.purged", null, AuditLog.Target.of("user", userId),
+                "user.purged", null, AuditLog.Target.of(AuditTargetType.USER, userId),
                 Map.of("grace_days", GRACE_DAYS)));
 
         int guestCarts = deleteStaleGuestCarts(baseline.minusDays(GUEST_CART_DAYS));

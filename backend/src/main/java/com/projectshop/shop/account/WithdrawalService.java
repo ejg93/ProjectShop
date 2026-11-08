@@ -9,6 +9,7 @@ import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -87,7 +88,7 @@ public class WithdrawalService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "user.withdrawn", userId,
-                AuditLog.Target.of("user", userId), Map.of());
+                AuditLog.Target.of(AuditTargetType.USER, userId), Map.of());
 
         // 트랜잭션 안에서 부른다. 롤백되면 계정이 살아 있는데 캐시만 비어 있는 상태가 되는데,
         // 그쪽은 한 번 더 조회할 뿐이라 틀리지 않는다. 반대로 두면 죽은 계정이 캐시에 남는다.

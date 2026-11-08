@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -81,7 +82,7 @@ public class ReviewImageService {
                 .single();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.image_added", actorUserId,
-                AuditLog.Target.of("review", reviewId), Map.of("review_image_id", id));
+                AuditLog.Target.of(AuditTargetType.REVIEW, reviewId), Map.of("review_image_id", id));
         return new Uploaded(id);
     }
 
@@ -109,7 +110,7 @@ public class ReviewImageService {
                 .update();
 
         auditLog.record(AuditLog.Kind.OUTCOME, "review.image_removed", actorUserId,
-                AuditLog.Target.of("review", owned.reviewId()), Map.of("review_image_id", reviewImageId));
+                AuditLog.Target.of(AuditTargetType.REVIEW, owned.reviewId()), Map.of("review_image_id", reviewImageId));
     }
 
     /** 살아 있는 후기의 쓴 사람. 지운 후기에는 붙이지 않는다 */

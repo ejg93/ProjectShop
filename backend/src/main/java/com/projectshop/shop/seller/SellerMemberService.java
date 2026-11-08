@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
@@ -113,7 +114,7 @@ public class SellerMemberService {
 
         // 토큰은 안 남긴다. 남길 것은 누가 누구를 불렀나까지다(D16 A09).
         auditLog.record(AuditLog.Kind.OUTCOME, "seller_member.invited", invitedByUserId,
-                AuditLog.Target.of("seller", sellerId),
+                AuditLog.Target.of(AuditTargetType.SELLER, sellerId),
                 Map.of("invitation_id", invitationId, "role_code", roleCode));
 
         return new Invitation(invitationId, token, expiresAt);
@@ -191,7 +192,7 @@ public class SellerMemberService {
         ruleLoader.evict(userId);
 
         auditLog.record(AuditLog.Kind.OUTCOME, "seller_member.joined", userId,
-                AuditLog.Target.of("seller", found.sellerId()),
+                AuditLog.Target.of(AuditTargetType.SELLER, found.sellerId()),
                 Map.of("invitation_id", found.id()));
     }
 
@@ -219,7 +220,7 @@ public class SellerMemberService {
         }
 
         auditLog.record(AuditLog.Kind.OUTCOME, "seller_member.invitation_revoked", actorUserId,
-                AuditLog.Target.of("seller_invitation", invitationId), Map.of());
+                AuditLog.Target.of(AuditTargetType.SELLER_INVITATION, invitationId), Map.of());
     }
 
     /**
@@ -288,7 +289,7 @@ public class SellerMemberService {
 
         ruleLoader.evict(userId);
         auditLog.record(AuditLog.Kind.OUTCOME, "seller_member.role_changed", actorUserId,
-                AuditLog.Target.of("seller", sellerId),
+                AuditLog.Target.of(AuditTargetType.SELLER, sellerId),
                 Map.of("user_id", userId, "role_code", roleCode));
     }
 
@@ -319,7 +320,7 @@ public class SellerMemberService {
 
         ruleLoader.evict(userId);
         auditLog.record(AuditLog.Kind.OUTCOME, "seller_member.removed", actorUserId,
-                AuditLog.Target.of("seller", sellerId), Map.of("user_id", userId));
+                AuditLog.Target.of(AuditTargetType.SELLER, sellerId), Map.of("user_id", userId));
     }
 
     private void requireMember(long sellerId, long userId) {

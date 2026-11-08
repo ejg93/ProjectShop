@@ -65,7 +65,7 @@ class AuditLogTest extends PostgresTestBase {
         @DisplayName("사건 하나가 그대로 들어간다")
         void recordsOneEvent() {
             auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
-                    AuditLog.Target.of("user", customer),
+                    AuditLog.Target.of(AuditTargetType.USER, customer),
                     Map.of("role_code", "seller_owner", "seller_id", alpha));
 
             Map<String, Object> row = latest();
@@ -86,7 +86,7 @@ class AuditLogTest extends PostgresTestBase {
             RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
             try {
                 auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
-                        AuditLog.Target.of("user", customer), Map.of());
+                        AuditLog.Target.of(AuditTargetType.USER, customer), Map.of());
             } finally {
                 RequestContextHolder.resetRequestAttributes();
             }
@@ -126,7 +126,7 @@ class AuditLogTest extends PostgresTestBase {
         @DisplayName("시스템이 한 일은 행위자가 비어 있다")
         void systemActorIsNull() {
             auditLog.record(AuditLog.Kind.OUTCOME, "batch.purged", null,
-                    AuditLog.Target.ofType("order"), Map.of("count", 12));
+                    AuditLog.Target.ofType(AuditTargetType.ORDER), Map.of("count", 12));
 
             assertThat(latest()).containsEntry("actor_user_id", null);
         }
@@ -178,7 +178,7 @@ class AuditLogTest extends PostgresTestBase {
         void sharesTransactionWithBusinessWork() {
             fixture.grantOrg(customer, "seller_owner", insertMembership());
             auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
-                    AuditLog.Target.of("user", customer), Map.of());
+                    AuditLog.Target.of(AuditTargetType.USER, customer), Map.of());
 
             assertThat(count())
                     .as("""
@@ -193,7 +193,7 @@ class AuditLogTest extends PostgresTestBase {
         void outcomeVanishesWithBusinessRollback() {
             business().execute(status -> {
                 auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
-                        AuditLog.Target.of("user", customer), Map.of());
+                        AuditLog.Target.of(AuditTargetType.USER, customer), Map.of());
                 status.setRollbackOnly();
                 return null;
             });
@@ -294,7 +294,7 @@ class AuditLogTest extends PostgresTestBase {
 
         private long recordOne() {
             auditLog.record(AuditLog.Kind.OUTCOME, "role.granted", customer,
-                    AuditLog.Target.of("user", customer), Map.of());
+                    AuditLog.Target.of(AuditTargetType.USER, customer), Map.of());
             return ((Number) latest().get("audit_log_id")).longValue();
         }
     }
