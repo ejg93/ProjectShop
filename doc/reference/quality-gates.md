@@ -282,12 +282,12 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 
 | # | 규칙 | 문서 | 지금 실물 | 처분 |
 |---|---|---|---|---|
-| ⑮ | 4xx 는 `ERROR` 로그가 아니다 | `D16` | `log.error` 9 — 처리 못 한 예외 1·배치·스위퍼 8. 위반 0 | **못 내린다** — 4xx 인지는 실행 때 정해진다. 마무리 대조 |
-| ⑯ | 객체·요청 본문을 통째로 안 찍는다 | `D16` | `LogArgumentTest` 는 이름이 뻔한 접근자만 | **못 내린다** — 글자로 `toString` 이 안 보인다(문서가 이미 적음). 독립 리뷰 |
-| ⑰ | 바깥 조인 쪽 숫자는 `getObject` 로 받는다 | `D23` | `getLong(` 176 — 어느 것이 `left join` 쪽인지는 SQL 을 읽어야 안다 | **못 내린다** 정적으로. 독립 리뷰의 SQL 대조 |
-| ⑱ | 상수 옆에 고른 이유, 법 값에는 요건 번호 | `D23` | `RequirementEnforcementTest` 는 요건표→코드만 | **못 내린다** — 주석의 뜻을 읽어야 한다. 독립 리뷰 |
-| ⑲ | Java 필드는 컬럼 이름의 camelCase, 축약 없음 | `D22` | `SchemaNamingTest` 는 SQL 쪽만. API 로 새는 쪽은 `OpenApiSpecTest` 표기가 잰다 | **못 내린다** 싸게 — record 성분과 컬럼을 잇는 표가 없다. 독립 리뷰 |
-| ⑳ | 의존성을 더할 때 라이선스를 본다 — GPL 계열이면 멈춘다 | `D23` | 막는 것 없음. 플러그인 없음 | **안 세움** — 도구 도입은 결정이다. 마무리 대조가 `build.gradle.kts` diff 를 본다 |
+| ⑮ | 4xx 는 `ERROR` 로그가 아니다 | `D16` | `log.error` 11(2026-11-08) — 처리 못 한 예외 1·바깥 의존 503 둘(`ApiExceptionHandler`·`DependencyFailureFilter`)·배치·스위퍼 8. 위반 0 | **못 내린다** — 4xx 인지는 실행 때 정해진다. Checkstyle·ErrorProne 은 응답 상태를 모르고 `JavaSourceTextTest` 의 주석 걷기는 글자 대조라 같다(`점검 AF`). 마무리 대조 |
+| ⑯ | 객체·요청 본문을 통째로 안 찍는다 | `D16` | `LogArgumentTest` 는 이름이 뻔한 접근자만(2026-11-08 그대로) | **못 내린다** — 글자로 `toString` 이 안 보인다(문서가 이미 적음). ErrorProne 에 로그 인자의 타입을 보는 검사가 없다(`점검 AF`). 독립 리뷰 |
+| ⑰ | 바깥 조인 쪽 숫자는 `getObject` 로 받는다 | `D23` | `getLong(` 182(2026-11-08) · `left join` 을 든 파일 18 — 어느 것이 바깥 조인 쪽인지는 SQL 을 읽어야 안다 | **못 내린다** 정적으로 — 세 도구 다 SQL 문자열 안을 안 본다(`점검 AF`). 독립 리뷰의 SQL 대조 |
+| ⑱ | 상수 옆에 고른 이유, 법 값에는 요건 번호 | `D23` | `RequirementEnforcementTest` 는 요건표→코드만 · `static final` 상수 271 중 바로 위 주석이 없는 것 81(SQL 문자열 포함, 2026-11-08 `awk`) | **뜻은 못 내린다** — 주석의 뜻을 읽어야 한다. 독립 리뷰. **「있음」은 내린다** — Checkstyle `JavadocVariable` 이 상수 이름 꼴로 거르면 잰다 → `Q378`(설계 필요, `점검 AF`) |
+| ⑲ | Java 필드는 컬럼 이름의 camelCase, 축약 없음 | `D22` | `SchemaNamingTest` 는 SQL 쪽만. API 로 새는 쪽은 `OpenApiSpecTest` 표기가 잰다(2026-11-08 그대로) | **못 내린다** 싸게 — record 성분과 컬럼을 잇는 표가 없다. Checkstyle `MemberName` 은 꼴만 보고 컬럼을 모른다(`점검 AF`). 독립 리뷰 |
+| ⑳ | 의존성을 더할 때 라이선스를 본다 — GPL 계열이면 멈춘다 | `D23` | 막는 것 없음. 플러그인 없음(2026-11-08 그대로). npm 쪽도 같다 — `Q377` 이 끌어온 `@isaacs/nonrecursive-glob-match`(BlueOak-1.0.0)는 손으로 봤다 | **안 세움** — 도구 도입은 결정이다 → `Q379`(설계 필요, `점검 AF` — Gradle·npm 둘). 마무리 대조가 `build.gradle.kts`·`package-lock.json` diff 를 본다 |
 
 **대조에서 뺀 것**: 이미 표에 있는 것(`ArchitectureTest` 스물·`SqlTextTest`·`SchemaNamingTest`·`LogArgumentTest`·`OpenApiSpecTest`·`TestConventionTest`·`ScreenLengthTest`·`HttpFlowTest`·`SessionStoreTest`·eslint 입구·운반·`react/no-danger`·`form-pending`·`forbidden`·`screen-text`), 표 밖이지만 시험이 있는 것(`LoginAttemptTest` 5회/15분 · `AuthLoginTest` 같은 문구 · `ProblemResponseTest` 프레임워크 오류 `type`·검증 필드 snake_case·`trace_id` · `WebhookUrlPolicyTest` · `WWW-Authenticate` · `Idempotency-Key`), 절차 규칙(「문서를 먼저 고친다」·「값 옆에 출처」의 절차 쪽), 판단 규칙(「마스킹은 갈릴 때만」·「모르는 칸을 지목하지 않는다」·「확인 문구는 무엇이 사라지는지」·「빈 상태 둘을 가른다」). 절차·판단은 「계획 끝」 대조와 독립 리뷰가 본다(`CLAUDE.md`).
 
