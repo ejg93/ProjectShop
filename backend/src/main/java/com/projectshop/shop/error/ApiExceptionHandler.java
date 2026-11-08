@@ -144,8 +144,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             TypeMismatchException e, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
 
-        if (e instanceof MethodArgumentTypeMismatchException mismatch
-                && mismatch.getRequiredType() != null && mismatch.getRequiredType().isEnum()) {
+        Class<?> required = e.getRequiredType();
+        if (e instanceof MethodArgumentTypeMismatchException mismatch && required != null && required.isEnum()) {
             return validationFailed(List.of(new FieldError(
                     parameterNameOf(mismatch.getParameter()), "값 목록에 없다: " + mismatch.getValue())), request);
         }

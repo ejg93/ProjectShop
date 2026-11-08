@@ -18,14 +18,14 @@ enum CopyrightReportStage {
     /** 판정 후 */
     DECIDED(false);
 
-    private final boolean pending;
+    private final boolean pendingOnly;
 
-    CopyrightReportStage(boolean pending) {
-        this.pending = pending;
+    CopyrightReportStage(boolean pendingOnly) {
+        this.pendingOnly = pendingOnly;
     }
 
     /** 판정 전 신고만 고르나 */
     boolean pending() {
-        return pending;
+        return pendingOnly;
     }
 }

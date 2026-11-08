@@ -37,29 +37,29 @@ public enum MetricName {
     /** 배치 회차 수(`BatchRuns`) */
     BATCH_RUN_FINISHED("shop.batch_run.finished");
 
-    private final String value;
+    private final String meterName;
 
-    MetricName(String value) {
-        this.value = value;
+    MetricName(String meterName) {
+        this.meterName = meterName;
     }
 
     /** 노출되는 이름. {@code shop.<표>.<무엇>} 꼴이다 */
     public String value() {
-        return value;
+        return meterName;
     }
 
     /** 이 이름의 카운터 빌더 */
     public Counter.Builder counter() {
-        return Counter.builder(value);
+        return Counter.builder(meterName);
     }
 
     /** 이 이름의 타이머 빌더 */
     public Timer.Builder timer() {
-        return Timer.builder(value);
+        return Timer.builder(meterName);
     }
 
     /** 이 이름의 게이지 빌더. 값은 {@code obj} 에서 {@code read} 로 읽는다 */
     public <T> Gauge.Builder<T> gauge(T obj, ToDoubleFunction<T> read) {
-        return Gauge.builder(value, obj, read);
+        return Gauge.builder(meterName, obj, read);
     }
 }
