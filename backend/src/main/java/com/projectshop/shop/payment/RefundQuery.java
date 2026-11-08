@@ -2,7 +2,6 @@ package com.projectshop.shop.payment;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -113,11 +112,11 @@ public class RefundQuery {
      *
      * @param status 이 상태만. null 이면 전부. 승인 대기만 보는 것이 이 필터의 주 용도다
      */
-    public Page find(long viewerId, String status, String sort, Paging paging) {
+    public Page find(long viewerId, RefundStatus status, String sort, Paging paging) {
         Visible visible = visibleFor(viewerId);
 
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
-        String storedStatus = storedStatus(status);
+        String storedStatus = status == null ? null : status.code();
 
         List<Summary> items = jdbc.sql("""
                         select r.refund_number, so.seller_order_number, o.order_number,
@@ -329,28 +328,6 @@ public class RefundQuery {
         }
         return new Visible(false, own, sellers.toArray(Long[]::new));
     }
-
-    /**
-     * 요청이 준 표기를 저장값으로 되돌린다.
-     *
-     * <p>응답은 대문자 스네이크로 나가므로(`D5`) 필터도 그 표기로 들어온다.
-     * <b>모르는 값은 거부한다</b> — 조용히 무시하면 오타 하나로 전체 목록이 나가고,
-     * 그 화면은 「대기 3건」 자리에 「전체 900건」을 그린다.
-     */
-    private static String storedStatus(String status) {
-        if (status == null || status.isBlank()) {
-            return null;
-        }
-
-        String stored = status.toLowerCase(Locale.ROOT);
-        if (!Set.of(RefundStatus.REQUESTED.code(), RefundStatus.APPROVED.code(),
-                RefundStatus.REJECTED.code()).contains(stored)) {
-            throw new ShopException(ErrorCode.VALIDATION_FAILED, "그런 환불 상태가 없다: " + status);
-        }
-        return stored;
-    }
-
-
 
     private static ShopException notFound(String refundNumber) {
         return new ShopException(ErrorCode.REFUND_NOT_FOUND, "그런 환불 요청이 없다: " + refundNumber);

@@ -346,7 +346,7 @@ v3 는 점수제라 사용자에게 퍼즐을 보여주지 않는다. 화면 흐
 | 자리 | 방식 |
 |---|---|
 | 요청 본문 | Bean Validation. 실패는 RFC 9457 형식으로 떨어뜨린다(청크 7b). **`@RequestBody` 에 `@Valid` 가 없으면 `ArchitectureTest` 가 빨갛다**(`Q32`) — 빠지면 record 의 검증이 조용히 안 돈다 |
-| 본문 밖 입력(쿼리·경로·헤더) | 값 목록이 있는 필터(`status`·`expand`)는 **모르는 값이면 400** — 조용히 전부나 빈 목록을 주면 필터가 먹은 줄 안다. 경로 변수는 바인딩으로 가서 없으면 404, 배치 이름처럼 동작을 고르는 것은 허용 맵으로. 2026-11-08 `점검 AH` 셈: `@RequestParam` 29 · `@PathVariable` 82 · `@RequestHeader` 2. 어긋난 둘 — 변환이 여섯 벌로 갈렸다(`Q380`) · 감사 로그 `target_type` 은 값 목록이 없다(`Q381`) |
+| 본문 밖 입력(쿼리·경로·헤더) | 값 목록이 있는 필터(`status`·`expand`)는 **모르는 값이면 400**. **값 목록 필터는 열거형 타입으로 받는다**(`Q380`) — 변환은 `RequestEnumConverterFactory` 한 자리고(대소문자 무시) 모르는 값은 400 `validation-failed`, `errors[].field` 가 파라미터 이름 — 조용히 전부나 빈 목록을 주면 필터가 먹은 줄 안다. 경로 변수는 바인딩으로 가서 없으면 404, 배치 이름처럼 동작을 고르는 것은 허용 맵으로. 2026-11-08 `점검 AH` 셈: `@RequestParam` 29 · `@PathVariable` 82 · `@RequestHeader` 2. 어긋난 둘 — 변환이 여섯 벌로 갈렸다(`Q380`) · 감사 로그 `target_type` 은 값 목록이 없다(`Q381`) |
 | SQL | 이름 바인딩만. 문자열을 이어 붙인 SQL 을 안 쓴다 |
 | 정렬·필터 컬럼명 | 바인딩이 안 되는 자리다. 허용 목록으로 받는다 |
 | HTML 출력 | React 가 기본으로 이스케이프한다. `dangerouslySetInnerHTML` 을 안 쓴다 — **`react/no-danger` 가 막는다**(`Q34`) |

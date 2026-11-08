@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.MethodParameter;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -127,6 +129,27 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             }
         }
         return validationFailed(errors, request);
+    }
+
+    /**
+     * 값 목록이 있는 필터에 모르는 값이 왔다(`Q380a`, {@code D14} 「입력과 출력」).
+     *
+     * <p><b>열거형 파라미터만 {@code validation-failed} 로 옮긴다.</b> 모르는 값은 형식이 아니라
+     * 값이 틀린 것이라 {@code fields}·{@code expand} 의 모르는 이름(`D5`)과 같은 꼴 —
+     * {@code errors[].field} 가 파라미터 이름이다. 수 자리에 글자가 온 것 같은 나머지 타입 불일치는
+     * 형식 오류라 기본 경로({@code malformed-request})를 그대로 탄다.
+     */
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(
+            TypeMismatchException e, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+
+        if (e instanceof MethodArgumentTypeMismatchException mismatch
+                && mismatch.getRequiredType() != null && mismatch.getRequiredType().isEnum()) {
+            return validationFailed(List.of(new FieldError(
+                    parameterNameOf(mismatch.getParameter()), "값 목록에 없다: " + mismatch.getValue())), request);
+        }
+        return super.handleTypeMismatch(e, headers, status, request);
     }
 
     /**

@@ -132,6 +132,15 @@ class ProblemResponseTest extends PostgresTestBase {
         }
 
         @Test
+        @DisplayName("열거형이 아닌 질의 파라미터의 타입 불일치는 malformed-request 그대로다")
+        void nonEnumTypeMismatchStaysMalformed() throws Exception {
+            // 열거형만 validation-failed 로 옮긴다(`Q380a`). 수 자리에 글자가 오면 형식 오류다.
+            mvc.perform(get("/api/refunds").with(user(buyer)).param("offset", "abc"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:malformed-request"));
+        }
+
+        @Test
         @DisplayName("어느 필드가 왜 틀렸는지 알려준다")
         void namesTheBadFields() throws Exception {
             mvc.perform(post("/api/auth/signup").with(csrf())
