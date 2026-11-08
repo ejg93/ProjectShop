@@ -26,6 +26,10 @@ import org.junit.jupiter.api.Test;
  *
  * <p><b>못 보는 것</b>: 부르긴 부르는데 <b>엉뚱한 사람의 캐시</b>를 버리는 것. 그것까지 보려면
  * 판정을 실제로 지나야 하고, 그 층은 {@code UserRoleServiceTest} 다(`D15`).
+ *
+ * <p><b>ArchUnit 으로 안 옮긴다</b>(`Q386`, 2026-11-08 `점검 AI`). 쓰는 자리를 SQL 문자열
+ * ({@code insert into user_role}·{@code delete from user_role})로 고르는데 ArchUnit 은 상수 문자열을 안 준다 —
+ * 「그 SQL 을 드는 클래스」를 바이트코드로 못 고른다.
  */
 @DisplayName("역할을 바꾸는 경로가 캐시를 버린다")
 class UserRoleWriteTest {

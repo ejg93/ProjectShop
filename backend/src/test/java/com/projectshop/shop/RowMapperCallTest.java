@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
  * {@code *Query} 를 <b>글자로</b> 잰다. 새 목록이 생겨도 이쪽이 먼저 문다.
  *
  * <p><b>ArchUnit 으로 안 짰다.</b> 람다는 합성 메서드라 「{@code .query(} 의 인자」와 「{@code .list()} 뒤
- * {@code .map(row -> allowedActions…)}」이 똑같이 보인다 — 후자가 바로 고친 모양이라 그물이 고친 코드를 문다.
+ * {@code .map(row -> allowedActions…)}」이 똑같이 보인다 — 후자가 바로 고친 모양이라 그물이 고친 코드를 문다. 2026-11-08 `점검 AI` 가 옮길 후보로 다시 보고 같은 이유로 남겼다(`Q386`).
  *
  * <h2>무엇을 못 보나</h2>
  *

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.constructors;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
@@ -57,7 +58,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.audit.ListAccess;
+import com.projectshop.shop.audit.PersonalDataAccess;
+import com.projectshop.shop.auth.PermissionCatalog;
 import com.projectshop.shop.auth.PermissionEvaluator;
+import com.projectshop.shop.auth.VisibleFieldGroups;
 import com.projectshop.shop.notification.MockNotificationSender;
 import com.projectshop.shop.payment.MockPaymentGateway;
 import com.projectshop.shop.support.ListQuery;
@@ -297,6 +303,39 @@ class ArchitectureTest {
                     .because("정렬 문자열이 SQL 에 결합되는 유일한 자리다 (security-baseline.md `D14`)."
                             + " OrderBy 타입은 「거쳤다」를 뜻할 뿐 「거치게」 만들지는 못한다");
 
+
+    /**
+     * 개인정보 열람 증서는 {@link AuditLog} 만 만든다(`Q386`, {@code D14} 「개인정보 열람 기록」, `D2` R44).
+     *
+     * <p>{@link PersonalDataAccess}·{@link ListAccess} 를 쥔 코드는 기록을 이미 남긴 코드여야 한다 —
+     * {@code AuditLog.open}·{@code openList} 가 기록과 함께 만든다. 생성자가 패키지 안이라 {@code audit} 패키지의
+     * 다른 클래스만 어길 수 있는데, 컴파일은 그것을 못 막는다. <b>글자 시험({@code PersonalDataViewTest})에서 옮겼다</b> —
+     * 글자는 {@code new X(} 꼴만 보고 메서드 참조({@code X::new})를 놓친다. 여기는 바이트코드의 호출을 본다.
+     */
+    @ArchTest
+    static final ArchRule 증서는_AuditLog_만_만든다 =
+            constructors()
+                    .that().areDeclaredIn(PersonalDataAccess.class)
+                    .or().areDeclaredIn(ListAccess.class)
+                    .should().onlyBeCalled().byClassesThat().haveFullyQualifiedName(AuditLog.class.getName())
+                    .because("증서를 쥔 코드는 기록을 이미 남긴 코드다 — AuditLog.open·openList 만 만든다 (`Q282a`)");
+
+    /**
+     * 판정의 그룹 목록을 직접 묻는 자리는 셋이다(`Q386`, `Q282a`).
+     *
+     * <p>개인정보 그룹은 {@code canSee} 가 안 받아서 남은 우회 길이 {@code Decision.visibleFieldGroups()} 를 직접 묻는 것이다 —
+     * record 라 그 칸이 공개고 컴파일이 못 막는다. 묻는 자리는 판정 결과를 다루는 셋뿐이다:
+     * {@link PersonalDataAccess}(증서가 그룹을 확인) · {@link PermissionCatalog}(권한 목록 응답) ·
+     * {@link VisibleFieldGroups}(일반 그룹을 가린다). <b>글자 시험에서 옮겼다</b> — 그쪽은 {@code .covers(} 를 잇는 꼴만 봤다.
+     */
+    @ArchTest
+    static final ArchRule 판정의_그룹_목록을_묻는_자리는_셋이다 =
+            noClasses()
+                    .that().doNotHaveFullyQualifiedName(PersonalDataAccess.class.getName())
+                    .and().doNotHaveFullyQualifiedName(PermissionCatalog.class.getName())
+                    .and().doNotHaveFullyQualifiedName(VisibleFieldGroups.class.getName())
+                    .should().callMethod(PermissionEvaluator.Decision.class, "visibleFieldGroups")
+                    .because("기록 없이 개인정보 그룹을 여는 길이다 — AuditLog 가 돌려주는 증서로 묻는다 (`Q282a`)");
 
     /**
      * 「입력과 출력」 — 요청 본문은 Bean Validation 을 거친다(`Q32`, `D14`).
