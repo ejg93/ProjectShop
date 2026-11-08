@@ -276,10 +276,11 @@ class ArchitectureTest {
      * 그 자리까지 보려면 데이터 흐름 분석이 필요하고 ArchUnit 이 그것을 안 준다 —
      * <b>거기는 CodeQL 이 보는 자리다</b>({@code 2e-5} 가 {@code JdbcClient.sql} 을 싱크로 등록했다).
      *
-     * <p><b>뺀 셋</b>(`Q397` — 2026-09-12 부터 이 규칙이 주석에 묻혀 안 돌던 사이에 생겼다):
+     * <p><b>뺀 둘</b>(`Q397` — 2026-09-12 부터 이 규칙이 주석에 묻혀 안 돌던 사이에 생겼다):
      * {@code ProductQuery.findForSeller} 의 네 인자 판은 정렬을 받지만 다섯 인자 판에 그대로 넘긴다 —
-     * 거기서 {@code orderBy} 를 부른다. {@code SettlementQuery.findLines} 의 {@code String} 은 정산 번호,
-     * {@code WebhookDeliveryQuery.find} 의 것은 상태 필터고 둘 다 정렬이 고정이다.
+     * 거기서 {@code orderBy} 를 부른다. {@code SettlementQuery.findLines} 의 {@code String} 은 정산 번호고
+     * 정렬이 고정이다. 셋째였던 {@code WebhookDeliveryQuery.find} 는 상태 필터가 열거형이 되어(`Q380b`)
+     * {@code String} 을 안 받는다.
      */
     @ArchTest
     static final ArchRule 정렬을_받는_조회는_허용_목록을_거친다 =
@@ -292,8 +293,6 @@ class ArchitectureTest {
                             + "long, java.lang.Long, java.lang.String, com.projectshop.shop.support.ListQuery$Paging)")
                     .and().doNotHaveFullName("com.projectshop.shop.settlement.SettlementQuery.findLines("
                             + "long, java.lang.String, com.projectshop.shop.support.ListQuery$Paging)")
-                    .and().doNotHaveFullName("com.projectshop.shop.webhook.WebhookDeliveryQuery.find("
-                            + "long, long, java.lang.String, com.projectshop.shop.support.ListQuery$Paging)")
                     .should(부른다(ListQuery.class, "orderBy"))
                     .because("정렬 문자열이 SQL 에 결합되는 유일한 자리다 (security-baseline.md `D14`)."
                             + " OrderBy 타입은 「거쳤다」를 뜻할 뿐 「거치게」 만들지는 못한다");

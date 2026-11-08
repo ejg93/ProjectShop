@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -325,7 +324,7 @@ public class OrderQuery {
      * @param from   이날부터(포함). 한국 날짜다(`D10`). null 이면 처음부터
      * @param to     이날 전까지(제외). null 이면 지금까지
      */
-    public Page findAll(long viewerId, String status, LocalDate from, LocalDate to, String sort,
+    public Page findAll(long viewerId, OrderTransitions.Payment status, LocalDate from, LocalDate to, String sort,
             Paging paging) {
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
@@ -337,7 +336,7 @@ public class OrderQuery {
             throw new ShopException(ErrorCode.VALIDATION_FAILED, "기간이 비었다: " + from + " ~ " + to);
         }
 
-        String storedStatus = storedStatus(status);
+        String storedStatus = status == null ? null : status.code();
         OffsetDateTime fromAt = from == null ? null : from.atStartOfDay(KST).toOffsetDateTime();
         OffsetDateTime toAt = to == null ? null : to.atStartOfDay(KST).toOffsetDateTime();
         String filter = """
@@ -379,19 +378,6 @@ public class OrderQuery {
                 .single();
 
         return new Page(items, paging.offset(), paging.limit(), total);
-    }
-
-    /** 요청의 상태({@code PAID})를 저장 값({@code paid})으로. 모르는 값은 400 이다 — 조용히 전부를 주면 필터가 먹은 줄 안다 */
-    private static String storedStatus(String status) {
-        if (status == null || status.isBlank()) {
-            return null;
-        }
-        return Arrays.stream(OrderTransitions.Payment.values())
-                .filter(payment -> payment.name().equals(status.toUpperCase(Locale.ROOT)))
-                .map(OrderTransitions.Payment::code)
-                .findFirst()
-                .orElseThrow(() -> new ShopException(ErrorCode.VALIDATION_FAILED,
-                        "그런 주문 상태가 없다: " + status));
     }
 
     /**

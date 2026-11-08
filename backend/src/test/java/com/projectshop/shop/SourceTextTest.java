@@ -18,7 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * main 소스를 글자로 재는 규약 둘(`Q226`, {@code quality-gates.md} 「규칙 원장」 ①④). SQL 은 {@link SqlTextTest} 가 든다.
+ * main 소스를 글자로 재는 규약 셋(`Q226`·`Q380b`, {@code quality-gates.md} 「규칙 원장」 ①④). SQL 은 {@link SqlTextTest} 가 든다.
  *
  * <h2>{@code default} 가지는 이유를 단다</h2>
  *
@@ -44,6 +44,7 @@ class SourceTextTest {
     private static final Pattern DEFAULT_ARM = Pattern.compile("^\\s*default\\s*(->|:)");
     private static final Pattern DEFAULT_MARKER = Pattern.compile("^\\s*//\\s*default-ok:\\s*([a-z-]+)");
     private static final Pattern CUSTOM_HEADER = Pattern.compile("\"X-[A-Za-z]");
+    private static final Pattern STRING_STATUS_PARAM = Pattern.compile("@RequestParam[^)]*\\)\\s*String\\s+status\\b");
 
     private static final List<Path> FILES = javaFiles();
 
@@ -94,6 +95,30 @@ class SourceTextTest {
             }
         }
         assertThat(hits).as("자체 헤더에 X- 를 붙였다 — RFC 6648 이 폐기한 관행이다(api-guidelines.md 「헤더」)").isEmpty();
+    }
+
+    /**
+     * 「값 목록 필터는 열거형 타입으로 받는다」(`Q380b`, {@code security-baseline.md} 「입력과 출력」).
+     *
+     * <p>ArchUnit 은 파라미터 이름을 안 줘서 「{@code String status} 금지」를 규칙으로 못 적는다 — 글자로 잰다.
+     * {@code String} 으로 받으면 입구마다 변환을 새로 짜게 되고, 여섯 벌로 갈렸던 것이 그 결과다.
+     */
+    @Test
+    @DisplayName("컨트롤러가 상태 필터를 String 으로 안 받는다")
+    void noStringStatusParameter() {
+        List<String> hits = new ArrayList<>();
+        for (Path file : FILES) {
+            if (!file.getFileName().toString().endsWith("Controller.java")) {
+                continue;
+            }
+            List<String> lines = read(file);
+            for (int i = 0; i < lines.size(); i++) {
+                if (STRING_STATUS_PARAM.matcher(lines.get(i)).find()) {
+                    hits.add(file + ":" + (i + 1));
+                }
+            }
+        }
+        assertThat(hits).as("상태 필터를 String 으로 받는다 — 열거형으로 받으면 변환이 RequestEnumConverterFactory 한 자리다").isEmpty();
     }
 
     private static List<Path> javaFiles() {

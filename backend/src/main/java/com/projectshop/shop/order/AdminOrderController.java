@@ -42,7 +42,7 @@ public class AdminOrderController {
     @GetMapping
     public OrderQuery.Page list(
             @AuthenticationPrincipal ShopUser user,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) OrderTransitions.Payment status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String sort,

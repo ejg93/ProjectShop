@@ -175,22 +175,13 @@ class OrderQueryTest extends PostgresTestBase {
         void filtersByStatus() {
             long admin = admin();
 
-            assertThat(numbers(orders.findAll(admin, "PAYMENT_PENDING", null, null, null, new Paging(0, 100))))
+            assertThat(numbers(orders.findAll(admin, OrderTransitions.Payment.PAYMENT_PENDING, null, null, null, new Paging(0, 100))))
                     .contains(orderNumber);
-            assertThat(numbers(orders.findAll(admin, "PAID", null, null, null, new Paging(0, 100))))
+            assertThat(numbers(orders.findAll(admin, OrderTransitions.Payment.PAID, null, null, null, new Paging(0, 100))))
                     .doesNotContain(orderNumber);
         }
 
-        @Test
-        @DisplayName("모르는 상태는 400 이다")
-        void unknownStatusIsRejected() {
-            long admin = admin();
-
-            assertThatThrownBy(() -> orders.findAll(admin, "SHIPPING", null, null, null, new Paging(0, 20)))
-                    .as("배송 층 상태다. 조용히 전부를 주면 필터가 먹은 줄 안다")
-                    .isInstanceOfSatisfying(ShopException.class, e ->
-                            assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
-        }
+        // 「모르는 상태는 400」은 여기서 안 잰다 — 질의가 열거형을 받아 모르는 글자가 닿을 수 없고, 변환 한 자리가 낸다(`Q380b`, `ProblemResponseTest`).
 
         /** 끝날은 안 든다 — 「오늘까지」를 보려면 {@code to} 가 내일이다. 매출 통계(`41`)와 같은 반열린 구간이다 */
         @Test

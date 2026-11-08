@@ -92,7 +92,7 @@ class ProductReviewActionsTest extends PostgresTestBase {
         jdbc.sql("update product set status = 'pending_review' where product_id = :id")
                 .param("id", pending).update();
 
-        assertThat(query.findForSeller(admin, null, "PENDING_REVIEW", null, FIRST).items())
+        assertThat(query.findForSeller(admin, null, ProductStatus.PENDING_REVIEW, null, FIRST).items())
                 .extracting(ProductQuery.SellerItem::productId)
                 .containsExactly(pending);
     }

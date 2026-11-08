@@ -131,6 +131,18 @@ class ProblemResponseTest extends PostgresTestBase {
             buyer = new ShopUser(userId, "q127@test.local", null, true);
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"/api/refunds", "/api/admin/orders", "/api/seller/webhooks/1/deliveries",
+                "/api/seller/products", "/api/admin/review-reports", "/api/copyright-reports"})
+        @DisplayName("상태 필터 여섯 입구가 모르는 값에 400 validation-failed 이고 errors 가 status 를 짚는다")
+        void unknownStatusFilterIsValidationFailed(String path) throws Exception {
+            // 변환이 컨트롤러 앞이라 권한·대상 조회 전에 끊긴다 — 입구마다 같은 꼴이다(`Q380b`).
+            mvc.perform(get(path).with(user(buyer)).param("status", "NO_SUCH_STATUS"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.type").value("tag:projectshop.example,2026:error:validation-failed"))
+                    .andExpect(jsonPath("$.errors[0].field").value("status"));
+        }
+
         @Test
         @DisplayName("열거형이 아닌 질의 파라미터의 타입 불일치는 malformed-request 그대로다")
         void nonEnumTypeMismatchStaysMalformed() throws Exception {
