@@ -26,6 +26,7 @@ record FieldSelection(Set<String> names) {
     /** 요청에 쓰는 파라미터 이름 */
     static final String PARAMETER = "fields";
 
+    /** record 성분 이름을 응답 칸 이름으로 바꾸는 규칙. 응답 직렬화와 같은 전략이라 고른 칸과 나가는 칸이 안 갈린다 */
     private static final PropertyNamingStrategy SNAKE_CASE = PropertyNamingStrategies.SNAKE_CASE;
 
     public FieldSelection {

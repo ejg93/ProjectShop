@@ -60,8 +60,9 @@ public class RefundService {
      * 결론은 같고 근거가 한 칸 비켜 있었다.
      */
     static final String RESOURCE = "payment";
-    // 승인과 반려가 같은 권한이다. 대기열(`RefundQuery`)이 버튼을 고를 때 이 이름을 같이 쓴다(`Q185`).
+    /** 승인과 반려가 같은 권한이다. 대기열(`RefundQuery`)이 버튼을 고를 때 이 이름을 같이 쓴다(`Q185`). */
     static final String APPROVE = "refund";
+    /** 구매자가 환불을 청하는 권한의 행위 이름. 권한 표의 시드와 글자가 같아야 한다 */
     private static final String REQUEST = "request_refund";
 
     /** 환불 노출 번호의 접두어(`D9`). 주문·셀러 묶음과 형식이 같아서 이것이 종류를 가른다 */

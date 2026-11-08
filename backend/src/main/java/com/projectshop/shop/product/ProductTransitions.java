@@ -27,9 +27,12 @@ final class ProductTransitions {
     record Transition(ProductStatus from, ProductStatus to, String permission) {
     }
 
+    /** 상품을 고치는 권한의 행위 이름({@code product:update}). 권한 표의 시드와 글자가 같아야 한다 */
     private static final String UPDATE = "update";
+    /** 상품을 검수하는 권한의 행위 이름({@code product:review}). 위와 같다 */
     private static final String REVIEW = "review";
 
+    /** 허용된 전이 전부. 여기 없는 전이는 동작 이름이 비어 거부된다 — 상태 기계를 한 표로 둬서 빠진 칸이 보인다 */
     private static final List<Transition> ALLOWED = List.of(
             // 검수 (7c)
             new Transition(ProductStatus.DRAFT, ProductStatus.PENDING_REVIEW, UPDATE),

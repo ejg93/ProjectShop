@@ -60,11 +60,14 @@ class NotificationConsumer {
      * 통지가 조용히 멈춘다. 원본은 {@link EventType} 이고 {@code EnumConstraintTest} 가 DB 와 대조한다.
      */
     private static final EventType ORDER_STATUS_CHANGED = EventType.ORDER_STATUS_CHANGED;
+    /** 환불 쪽 사건. 이름의 원본은 위와 같이 {@link EventType} 이다 */
     private static final EventType REFUND_STATUS_CHANGED = EventType.REFUND_STATUS_CHANGED;
 
     /** 주문이 막 생겼다는 표시. 앞 상태가 없는 전이는 생성뿐이다 */
     private static final String PAYMENT_PENDING = "payment_pending";
+    /** 결제가 끝난 상태. 여기로 넘어온 전이가 결제 완료 통지를 낸다 */
     private static final String PAID = "paid";
+    /** 환불 승인 상태. 「환급에 필요한 조치를 했다」는 시점이라 이것만 통지한다 */
     private static final String REFUND_APPROVED = "approved";
 
     private final NotificationSweeper sweeper;

@@ -30,6 +30,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Service
 public class AuditLogQuery {
 
+    /** {@code detail} 을 응답의 맵으로 읽는 타입. 제네릭은 실행 때 지워져서 익명 하위 클래스로 남긴다 */
     private static final TypeReference<Map<String, Object>> DETAIL_TYPE = new TypeReference<>() {
     };
 
@@ -52,6 +53,7 @@ public class AuditLogQuery {
                and (cast(:to   as timestamptz) is null or created_at <  cast(:to   as timestamptz))
             """;
 
+    /** 한 쪽의 행. 최신부터 — 같은 시각은 {@code audit_log_id} 로 갈라 같은 요청이 매번 같은 차례를 받는다 */
     private static final String SELECT_ITEMS = """
             select audit_log_id, event_type, actor_user_id, target_type, target_id,
                    detail::text as detail, created_at
@@ -61,6 +63,7 @@ public class AuditLogQuery {
              limit :size offset :offset
             """;
 
+    /** 전체 수. 목록과 같은 {@link #WHERE} 를 쓴다 — 조건이 갈리면 쪽 수가 목록과 안 맞는다 */
     private static final String SELECT_TOTAL = "select count(*) from audit_log" + WHERE;
 
     private final JdbcClient jdbc;

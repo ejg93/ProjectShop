@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpSession;
  */
 class AbsoluteSessionTimeoutFilter extends OncePerRequestFilter {
 
+    /** 절대 만료(`D14` 「세션 — Redis」). 활동이 이어져도 이 시간이 지나면 다시 로그인한다 */
     static final Duration MAX_AGE = Duration.ofHours(12);
 
     @Override

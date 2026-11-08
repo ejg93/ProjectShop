@@ -39,15 +39,22 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Service
 public class WebhookEndpointService {
 
+    /** 셀러 하나가 거는 주소의 상한. 우리가 고른 값(`29`) — 사건 하나가 주소 수만큼 발송이 되니 끝을 둔다. 세는 동안 셀러 행을 잠근다 */
     static final int MAX_ENDPOINTS_PER_SELLER = 5;
 
+    /** 등록·재발송 권한의 행위 이름({@code webhook:manage}). 권한 표의 시드와 글자가 같아야 한다 */
     private static final String MANAGE = "manage";
+    /** 조회 권한의 행위 이름({@code webhook:read}). 위와 같다 */
     private static final String READ = "read";
+    /** 삭제 권한의 행위 이름({@code webhook:delete}). 위와 같다 */
     private static final String DELETE = "delete";
 
+    /** 시크릿 앞에 붙는 꼴. 우리가 고른 값(`29`) — 셀러가 설정에 붙여 둔 값이 웹훅 시크릿인지 꼴로 알아본다 */
     private static final String SECRET_PREFIX = "whsec_";
+    /** 32바이트. 서명 키라 추측으로 맞힐 수 있는 크기가 아니다 — HMAC-SHA256 의 출력 길이와 같다 */
     private static final int SECRET_BYTES = 32;
 
+    /** 목록과 한 건 조회가 같이 쓰는 칸. 시크릿 칸은 안 고른다 — 등록 응답에만 한 번 나간다 */
     private static final String SELECT = """
             select webhook_endpoint_id, seller_id, url, event_types, created_at
               from webhook_endpoint

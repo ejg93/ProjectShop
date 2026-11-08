@@ -34,8 +34,11 @@ class WebhookSecretCipher {
 
     private static final Logger log = LoggerFactory.getLogger(WebhookSecretCipher.class);
 
+    /** AES-256 키 길이. 이것과 다른 꼴의 키는 없는 것과 같이 다룬다 */
     private static final int KEY_BYTES = 32;
+    /** GCM 의 IV 길이. NIST SP 800-38D 가 권하는 96비트다 */
     private static final int IV_BYTES = 12;
+    /** GCM 인증 태그 길이. 같은 규격의 최대값인 128비트다 */
     private static final int TAG_BITS = 128;
 
     private final SecretKeySpec key;

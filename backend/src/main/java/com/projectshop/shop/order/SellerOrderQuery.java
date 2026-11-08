@@ -42,8 +42,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Service
 public class SellerOrderQuery {
 
+    /** 정렬 가능한 필드. 요청은 API 이름으로 오고 값은 실제 컬럼식이다 — 컬럼명은 바인딩이 안 돼서 허용 목록으로 받는다(`D5`) */
     private static final Map<String, String> SORTABLE = Map.of("created_at", "so.created_at");
 
+    /** 기본 정렬. 최신 주문부터 — 구매자 목록({@link OrderQuery})과 같다 */
     private static final String DEFAULT_SORT = "created_at,desc";
 
     private final JdbcClient jdbc;

@@ -20,36 +20,6 @@
     <!-- 시험 소스의 상수는 픽스처 값이라 우리가 고른 운영 값이 아니다 — 「왜 이 값인가」를 적을 자리가 아니다(`Q378a`, `coding-rules.md` 「설정과 상수」) -->
     <suppress checks="JavadocVariable" files="src[\\/]test[\\/]"/>
     <!-- 임시 -->
-    <!-- 상수 Javadoc 없음 1 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]account[\\/]EmailChangeService\.java$"/>
-    <!-- 상수 Javadoc 없음 3 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]audit[\\/]AuditLogQuery\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]auth[\\/]AbsoluteSessionTimeoutFilter\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]auth[\\/]ImpersonationReadOnlyFilter\.java$"/>
-    <!-- 상수 Javadoc 없음 3 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]notification[\\/]NotificationConsumer\.java$"/>
-    <!-- 상수 Javadoc 없음 5 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]OrderRecordText\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]SellerOrderQuery\.java$"/>
-    <!-- 상수 Javadoc 없음 3 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]payment[\\/]MockPaymentGateway\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]payment[\\/]RefundService\.java$"/>
-    <!-- 상수 Javadoc 없음 3 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]product[\\/]ProductTransitions\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]ExposedNumber\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]FieldSelection\.java$"/>
-    <!-- 상수 Javadoc 없음 7 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]webhook[\\/]WebhookEndpointService\.java$"/>
-    <!-- 상수 Javadoc 없음 3 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]webhook[\\/]WebhookSecretCipher\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — 값 상수를 든 파일이라 `Q378b` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]webhook[\\/]WebhookSender\.java$"/>
     <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
     <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]auth[\\/]LoginAttemptService\.java$"/>
     <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->

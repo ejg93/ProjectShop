@@ -46,18 +46,23 @@ final class OrderRecordText {
     /** 업무 시각은 KST 다(`D10`). 파일을 여는 사람은 우리 서버 시간대를 모른다 */
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    /** 글에 찍는 시각 꼴. 우리가 고른 값 — 한 거래 안의 사건을 가르는 데는 분까지면 된다 */
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
+    /** 절을 가르는 줄. 우리가 고른 값 — 꾸밈이라 폭을 바꿔도 글의 뜻은 안 바뀐다 */
     private static final String LINE = "=".repeat(60);
 
+    /** 결제 결과 코드를 글의 말로 옮긴다. 코드를 그대로 찍으면 내려받은 소비자가 못 읽는다 */
     private static final Map<String, String> PAYMENT_RESULT = Map.of(
             "APPROVED", "승인",
             "FAILED", "거절");
 
+    /** 결제 수단 코드를 글의 말로 옮긴다. 이유는 위와 같다 */
     private static final Map<String, String> PAYMENT_METHOD = Map.of(
             "CARD", "신용·체크카드",
             "TRANSFER", "계좌이체");
 
+    /** 환불 상태 코드를 글의 말로 옮긴다. 승인을 「환급 완료」로 적는 것은 승인이 환급 조치를 한 시점이라서다(통지와 같은 판단) */
     private static final Map<String, String> REFUND_STATUS = Map.of(
             "REQUESTED", "접수",
             "APPROVED", "환급 완료",

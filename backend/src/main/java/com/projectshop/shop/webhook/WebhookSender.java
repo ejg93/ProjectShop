@@ -56,7 +56,9 @@ import jakarta.annotation.PreDestroy;
 @Component
 class WebhookSender {
 
+    /** 연결 상한. 우리가 고른 값(`30`) — 느린 셀러 서버 하나가 스위퍼를 붙잡지 않게 한다(위 클래스 설명) */
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+    /** 응답 머리까지의 상한. 우리가 고른 값(`30`) — 이유는 위와 같다 */
     static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(5);
 
     /** 한 건이 걸리는 가장 긴 시간. 스위퍼가 집은 표시를 이것으로 잰다 */
