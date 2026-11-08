@@ -91,7 +91,7 @@ public class RefundService {
             RefundReason.WITHDRAWAL.code(), "returned");
 
     /**
-     * 기산점이 <b>묶음이 닫힌 날</b>인 사유.
+     * 기산점이 <b>묶음이 닫힌 날</b>인 사유(`D2` R5).
      *
      * <p>여기 없는 사유는 <b>대금을 지급한 날</b>에서 센다. 목록을 이쪽으로 만든 이유는
      * 새 사유가 늘 때 안전한 쪽으로 떨어지게 하려는 것이다 — 빠뜨리면 기한이 이른 쪽으로

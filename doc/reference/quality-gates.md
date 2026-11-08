@@ -289,7 +289,7 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 | ⑮ | 4xx 는 `ERROR` 로그가 아니다 | `D16` | `log.error` 11(2026-11-08) — 처리 못 한 예외 1·바깥 의존 503 둘(`ApiExceptionHandler`·`DependencyFailureFilter`)·배치·스위퍼 8. 위반 0 | **못 내린다** — 4xx 인지는 실행 때 정해진다. Checkstyle·ErrorProne 은 응답 상태를 모르고 `JavaSourceTextTest` 의 주석 걷기는 글자 대조라 같다(`점검 AF`). 마무리 대조 |
 | ⑯ | 객체·요청 본문을 통째로 안 찍는다 | `D16` | `LogArgumentTest` 는 이름이 뻔한 접근자만(2026-11-08 그대로) | **못 내린다** — 글자로 `toString` 이 안 보인다(문서가 이미 적음). ErrorProne 에 로그 인자의 타입을 보는 검사가 없다(`점검 AF`). 독립 리뷰 |
 | ⑰ | 바깥 조인 쪽 숫자는 `getObject` 로 받는다 | `D23` | `getLong(` 182(2026-11-08) · `left join` 을 든 파일 18 — 어느 것이 바깥 조인 쪽인지는 SQL 을 읽어야 안다 | **못 내린다** 정적으로 — 세 도구 다 SQL 문자열 안을 안 본다(`점검 AF`). 독립 리뷰의 SQL 대조 |
-| ⑱ | 상수 옆에 고른 이유, 법 값에는 요건 번호 | `D23` | `RequirementEnforcementTest` 는 요건표→코드만 · 대문자 상수의 Javadoc 「있음」은 Checkstyle `JavadocVariable` 이 잰다 — 첫 측정 83건·37파일(2026-11-08), 같은 날 메워 위반 0 | **뜻은 못 내린다** — 주석의 뜻을 읽어야 한다. 독립 리뷰. **「있음」은 내렸다** → `Q378a`(첫 측정을 `Q378b`·`Q378c` 가 메웠다). **법 값의 요건 번호**는 글자 시험 몫 → `Q394a` 가 센다(첫 측정 30건·15파일 — 필드·열거 상수 Javadoc, 2026-11-08), `Q394b` 가 0 으로 |
+| ⑱ | 상수 옆에 고른 이유, 법 값에는 요건 번호 | `D23` | `RequirementEnforcementTest` 는 요건표→코드만 · 대문자 상수의 Javadoc 「있음」은 Checkstyle `JavadocVariable` 이 잰다 — 첫 측정 83건·37파일(2026-11-08), 같은 날 메워 위반 0 | **뜻은 못 내린다** — 주석의 뜻을 읽어야 한다. 독립 리뷰. **「있음」은 내렸다** → `Q378a`(첫 측정을 `Q378b`·`Q378c` 가 메웠다). **법 값의 요건 번호**는 글자 시험 몫 → `Q394a` 가 센다(첫 측정 30건·15파일 — 필드·열거 상수 Javadoc, 2026-11-08), `Q394b` 가 같은 날 메워 위반 0 |
 | ⑲ | Java 필드는 컬럼 이름의 camelCase, 축약 없음 | `D22` | `SchemaNamingTest` 는 SQL 쪽만. API 로 새는 쪽은 `OpenApiSpecTest` 표기가 잰다(2026-11-08 그대로) | **못 내린다** 싸게 — record 성분과 컬럼을 잇는 표가 없다. Checkstyle `MemberName` 은 꼴만 보고 컬럼을 모른다(`점검 AF`). 독립 리뷰 |
 | ⑳ | 의존성을 더할 때 라이선스를 본다 — GPL 계열이면 멈춘다 | `D23` | Gradle 은 `checkLicense` 가 `runtimeClasspath` 190 모듈을 허용 다섯과 맞춘다(2026-11-08). npm 은 `license-gate.mjs` 가 lock 654 패키지를 이름 열둘·패키지 넷과 맞춘다 | **둘 다 내렸다** → Gradle `Q379a` · npm `Q379b` |
 
@@ -303,7 +303,7 @@ Spring 어노테이션을 풀어 요청 파라미터부터 `Runtime.exec` 까지
 |---|---|---|
 | SpotBugs | **새 검출 0건** | `2e` 100건 중 실물 0. 제외 넷을 적고 `ignoreFailures = false`. `2e-1` 이 find-sec-bugs 를 얹어 둘이 늘었고 **둘 다 오탐이라 제외가 다섯**이다 |
 | Checkstyle `DeclarationOrder` | **새 검출 0건 · 억제 목록은 줄이기만** | `Q288` 첫 측정 103건·54파일(2026-10-21) — 실물은 둘을 빼고 전부 순수 이동으로 풀렸다. SpotBugs 와 달리 누를 것이 있어서 기준선을 억제 목록에 두고 `Q290a`~`Q290c` 가 같은 날 지웠다. 「줄이기만」과 칸마다의 근거는 `CheckstyleSuppressionTest` 가 잰다(`Q292`). 남은 억제는 영구 하나 — `ArchitectureTest`(규칙과 헬퍼를 붙인 읽기 순서). 임시 `StorageTestBase`(forward reference)는 `Q291` 이 클래스 이름을 붙여 읽어 걷었다(2026-10-23) |
-| `LawReferenceJavadocTest` | **기준선 수와 같다(양방향) · `EXEMPT` 는 줄이기만** | `Q394a` 첫 측정 — 클래스·메서드까지 세니 84건(`D2` 행 44 를 넘어 사다리대로 좁혔다), 필드·열거 상수 Javadoc 30건·15파일(2026-11-08) |
+| `LawReferenceJavadocTest` | **위반 0 · `EXEMPT` 비었다**(`Q394b` 가 같은 날 메웠다 — 새 예외는 이유와 함께) | `Q394a` 첫 측정 — 클래스·메서드까지 세니 84건(`D2` 행 44 를 넘어 사다리대로 좁혔다), 필드·열거 상수 Javadoc 30건·15파일(2026-11-08) |
 | 순환 복잡도 15 | **새 검출 0건 · 임시 억제는 걷기만** | `Q304` 첫 측정(2026-10-25): 15 넘는 것 3(main 2 · test 1), 10 넘는 것 11. 10(기본값)은 갈래가 본질인 분류 코드를 억지로 쪼개게 해서 안 골랐다. 임시 억제 3 → 0(`Q306a`~`Q306c`, 2026-10-27) |
 | Checkstyle `JavadocVariable` | **새 검출 0건 · 파일 단위 임시 억제는 걷기만** | `Q378a` 첫 측정 83건·37파일(2026-11-08) — 설계가 센 82(Javadoc 없음)에 줄 주석 하나(`RefundService.APPROVE`)가 더해졌다. 값 상수를 든 15파일은 `Q378b`, String 만 든 22파일은 `Q378c` 가 같은 날 메우고 걷었다 |
 | 의존 라이선스(Gradle) | **허용 목록 밖 0건** | `Q379a` 첫 측정 190 모듈(2026-11-08) — 다섯 이름으로 다 덮였다. 넣는 이름은 근거(`_why`)와 함께 |

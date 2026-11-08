@@ -66,7 +66,7 @@ final class OrderTransitions {
             Payment.PAYMENT_FAILED, EnumSet.noneOf(Payment.class)));
 
     /**
-     * 배송 전이표.
+     * 배송 전이표(`D2` R3).
      *
      * <p><b>{@code DELIVERED} 를 지나면 앞으로 못 돌아간다.</b> 되돌릴 수 있으면
      * 청약철회 기산점을 옮길 수 있고, 그건 소비자의 기간을 줄이는 일이다(`D7`).

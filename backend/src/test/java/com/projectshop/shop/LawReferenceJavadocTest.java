@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
  * 84 로 {@code D2} 행 수(44)를 넘었다 — 산문 설명의 조문 인용까지 번호를 달라는 것은 규칙의 범위 밖이다(`Q394a` 실패 사다리).
  *
  * <p><b>기준선은 양방향 래칫이다.</b> {@link #EXEMPT} 는 파일마다 지금 「번호 없는 법 언급」 수다 — 실제가 그보다 많으면
- * 새 위반이고, 적으면 그 줄을 낮추라는 뜻이다(메운 것이 기준선에 남으면 다시 빠져도 안 걸린다). {@code Q394b} 가 0 으로 비운다.
+ * 새 위반이고, 적으면 그 줄을 낮추라는 뜻이다(메운 것이 기준선에 남으면 다시 빠져도 안 걸린다). {@code Q394b} 가 0 으로 비웠다(2026-11-08).
  */
 @DisplayName("법 언급 Javadoc 의 요건 번호")
 class LawReferenceJavadocTest {
@@ -53,23 +53,8 @@ class LawReferenceJavadocTest {
     /** Javadoc 뒤 첫 코드 줄이 열거 상수다 — 대문자 이름 뒤가 괄호·쉼표·쌍반점·중괄호·줄 끝 */
     private static final Pattern ENUM_CONSTANT = Pattern.compile("^\\s*[A-Z][A-Z0-9_]*\\s*(?:[(,;{].*)?$");
 
-    /** 파일 이름 → 지금 「번호 없는 법 언급 Javadoc」 수. {@code Q394b} 가 비운다 */
-    private static final Map<String, Integer> EXEMPT = Map.ofEntries(
-            Map.entry("AccountPurgeService.java", 2),
-            Map.entry("AdvertisingGate.java", 8),
-            Map.entry("AdvertisingNotifications.java", 1),
-            Map.entry("BlockReason.java", 1),
-            Map.entry("InquiryKind.java", 1),
-            Map.entry("MailOrderExemption.java", 1),
-            Map.entry("NotificationKind.java", 1),
-            Map.entry("OrderStatusService.java", 2),
-            Map.entry("OrderTransitions.java", 1),
-            Map.entry("RefundReason.java", 3),
-            Map.entry("RefundService.java", 1),
-            Map.entry("ReturnRequestService.java", 2),
-            Map.entry("ReturnShippingFeeBearer.java", 1),
-            Map.entry("TaxRetention.java", 2),
-            Map.entry("TransactionPurgeService.java", 3));
+    /** 파일 이름 → 지금 「번호 없는 법 언급 Javadoc」 수. 첫 측정 30건·15파일을 {@code Q394b} 가 같은 날 메워 비었다 — 새 예외는 이유와 함께 */
+    private static final Map<String, Integer> EXEMPT = Map.of();
 
     @Test
     @DisplayName("법 단어를 품은 main Javadoc 은 R번호를 든다 — 기준선의 수와 실제가 같다")

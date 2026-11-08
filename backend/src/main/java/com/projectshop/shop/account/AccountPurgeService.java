@@ -41,7 +41,7 @@ public class AccountPurgeService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     /**
-     * 탈퇴 후 파기까지의 유예.
+     * 탈퇴 후 파기까지의 유예(`D2` R9).
      *
      * <p><b>30일이었는데 근거가 우리 편의였다</b>(`Q10`). 개인정보법 제21조제1항은
      * 「불필요하게 되었을 때에는 <b>지체 없이</b> 파기」고, 단서가 인정하는 예외는
@@ -66,7 +66,7 @@ public class AccountPurgeService {
     private static final int CONSENT_RETENTION_YEARS = 3;
 
     /**
-     * 방치된 비로그인 장바구니를 지우기까지(`D13`).
+     * 방치된 비로그인 장바구니를 지우기까지(`D13`, `D2` R7).
      *
      * <p>로그인하면 그 자리에서 계정으로 옮기고 지우므로, 이 기간은 <b>끝내 로그인 안 한 것</b>에만 걸린다.
      * 동의 없이 갖고 있는 근거가 "계약 체결 과정"(개인정보법 제15조①4호)이라

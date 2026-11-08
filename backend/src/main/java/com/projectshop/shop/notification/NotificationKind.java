@@ -21,7 +21,7 @@ enum NotificationKind {
     /** 거래 통지. 동의를 안 본다 — 주문 확인·환불 완료·처리 결과 */
     TRANSACTIONAL,
 
-    /** 광고. <b>{@link AdvertisingGate} 를 지나야 나간다</b>(제50조제1항·제3항·제8항) */
+    /** 광고. <b>{@link AdvertisingGate} 를 지나야 나간다</b>(제50조제1항·제3항·제8항, `D2` R14) */
     ADVERTISING;
 
     /** 저장값. DB 는 소문자다(`D5` 「형식」) */

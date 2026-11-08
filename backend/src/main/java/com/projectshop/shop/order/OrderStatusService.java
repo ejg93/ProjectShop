@@ -51,10 +51,10 @@ public class OrderStatusService {
      */
     public enum ReturnReason {
 
-        /** 제17조제1항. 7일이고 제한 사유가 걸린다 */
+        /** 제17조제1항. 7일이고 제한 사유가 걸린다(`D2` R3) */
         CHANGE_OF_MIND("change_of_mind"),
 
-        /** 제17조제3항. 표시·광고와 다르거나 계약과 다르게 이행된 경우. 3개월이고 제한이 안 걸린다 */
+        /** 제17조제3항. 표시·광고와 다르거나 계약과 다르게 이행된 경우. 3개월이고 제한이 안 걸린다(`D2` R3) */
         DEFECT("defect");
 
         private final String code;
