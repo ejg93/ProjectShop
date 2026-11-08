@@ -60,6 +60,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.notification.MockNotificationSender;
 import com.projectshop.shop.payment.MockPaymentGateway;
+import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.Paging;
 
 import jakarta.validation.Valid;
@@ -257,7 +258,7 @@ class ArchitectureTest {
      * 식별자라 바인딩이 안 되고({@code order by ?} 는 문법 오류다) <b>결합이 강제된다</b> —
      * 들어올 수 있는 값을 우리가 정하는 것 말고 막을 방법이 없다.
      *
-     * <p><b>{@link OrderBy} 타입만으로는 못 막는다.</b> 조립이 문자열이라
+     * <p><b>{@link ListQuery.OrderBy} 타입만으로는 못 막는다.</b> 조립이 문자열이라
      * {@code " order by " + sort} 라고 쓰면 그 타입을 아예 안 거치고 지나간다.
      * 타입은 「거쳤다」를 뜻하고 이 규칙이 「거치게」 만든다 — <b>둘이 서로의 구멍을 덮는다.</b>
      *
@@ -274,6 +275,12 @@ class ArchitectureTest {
      * 그 결과를 버린 뒤 {@code " order by " + sort} 로 요청 문자열을 잇는 코드는 이 규칙을 통과한다.
      * 그 자리까지 보려면 데이터 흐름 분석이 필요하고 ArchUnit 이 그것을 안 준다 —
      * <b>거기는 CodeQL 이 보는 자리다</b>({@code 2e-5} 가 {@code JdbcClient.sql} 을 싱크로 등록했다).
+     *
+     * <p><b>뺀 셋</b>(`Q397` — 2026-09-12 부터 이 규칙이 주석에 묻혀 안 돌던 사이에 생겼다):
+     * {@code ProductQuery.findForSeller} 의 네 인자 판은 정렬을 받지만 다섯 인자 판에 그대로 넘긴다 —
+     * 거기서 {@code orderBy} 를 부른다. {@code SettlementQuery.findLines} 의 {@code String} 은 정산 번호,
+     * {@code WebhookDeliveryQuery.find} 의 것은 상태 필터고 둘 다 정렬이 고정이다.
+     */
     @ArchTest
     static final ArchRule 정렬을_받는_조회는_허용_목록을_거친다 =
             methods()
@@ -281,6 +288,12 @@ class ArchitectureTest {
                     .and().areDeclaredInClassesThat().haveSimpleNameEndingWith("Query")
                     .and().haveRawReturnType(simpleNameEndingWith("Page"))
                     .and().haveRawParameterTypes(하나라도(String.class))
+                    .and().doNotHaveFullName("com.projectshop.shop.product.ProductQuery.findForSeller("
+                            + "long, java.lang.Long, java.lang.String, com.projectshop.shop.support.ListQuery$Paging)")
+                    .and().doNotHaveFullName("com.projectshop.shop.settlement.SettlementQuery.findLines("
+                            + "long, java.lang.String, com.projectshop.shop.support.ListQuery$Paging)")
+                    .and().doNotHaveFullName("com.projectshop.shop.webhook.WebhookDeliveryQuery.find("
+                            + "long, long, java.lang.String, com.projectshop.shop.support.ListQuery$Paging)")
                     .should(부른다(ListQuery.class, "orderBy"))
                     .because("정렬 문자열이 SQL 에 결합되는 유일한 자리다 (security-baseline.md `D14`)."
                             + " OrderBy 타입은 「거쳤다」를 뜻할 뿐 「거치게」 만들지는 못한다");
