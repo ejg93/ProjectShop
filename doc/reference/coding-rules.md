@@ -926,6 +926,7 @@ private static final int WITHDRAWAL_DAYS = 7;
 ```
 
 개정되면 이 번호로 찾는다. 번호가 없으면 어느 상수가 법에서 온 것인지 코드에서 안 갈린다.
+**`LawReferenceJavadocTest` 가 잰다**(`Q394a`) — 법 단어를 품은 필드·열거 상수 Javadoc 은 `R번호` 를 든다.
 「설정과 상수」의 규칙과 같은 이유고, 출처가 법이면 더 세게 걸린다.
 
 ### 지켜지는지는 위에서 내려가며 확인한다
