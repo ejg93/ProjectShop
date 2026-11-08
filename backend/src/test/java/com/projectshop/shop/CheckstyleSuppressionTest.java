@@ -27,10 +27,12 @@ import org.junit.jupiter.api.Test;
 class CheckstyleSuppressionTest {
 
     /**
-     * 억제 줄 수의 천장. 영구 `ArchitectureTest` 하나, 임시 0. 2026-10-25 `Q304` 가 순환 복잡도 상한을 켜며
-     * 넘는 셋을 임시로 올렸고 2026-10-27 `Q306a`~`Q306c` 가 다 걷었다
+     * 억제 줄 수의 천장. 영구 둘(`ArchitectureTest` 선언 차례 · 시험 소스 `JavadocVariable`), 임시 37.
+     * 2026-11-08 `Q378a` 가 상수 Javadoc 검사를 켜며 위반 83건·37파일을 파일 단위로 임시에 올렸다 — 값 상수를 든 15 는
+     * `Q378b`, String 만 든 22 는 `Q378c` 가 걷는다. 그전 기록: 2026-10-25 `Q304` 가 순환 복잡도로 올린 셋을
+     * 2026-10-27 `Q306a`~`Q306c` 가 다 걷었다
      */
-    private static final int BASELINE = 1;
+    private static final int BASELINE = 39;
 
     private static final Path SUPPRESSIONS = Path.of("config", "checkstyle", "suppressions.xml");
 
