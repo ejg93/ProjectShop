@@ -840,7 +840,8 @@ Redis 를 쓰는 테스트는 `@BeforeEach` 에서 자기 키를 지운다.
 
 **화면 전수는 `frontend/e2e/screens.spec.ts` 가 밟는다**(`점검 AG`, 2026-11-08). 공개·구매자·판매자·관리자 네 묶음의
 정적 36 과 목록 첫 링크로 들어가는 동적 화면을 390px 에서 다섯으로 잰다 — axe(라이트·다크) · `h1` 하나 ·
-제목 단계 건너뜀 0 · 양수 `tabindex` 0 · 가로 스크롤 0. 띄우는 법은 `npm run e2e` 와 같다(백엔드는 밖에서, Next 는 `next start`).
+제목 단계 건너뜀 0 · 양수 `tabindex` 0 · 가로 스크롤 0. 띄우는 법은 `npm run e2e` 와 같다(백엔드는 밖에서 `RATE_LIMIT_ENABLED=false` 로 — `e2e.yml` 과 같다, Next 는 `next start`).
+제한을 켠 채 전체를 돌리면 1분 120 을 넘겨 `/login` 이 안 그려진다(마무리 78차 실측 — 둘이 시간 초과).
 걸리는 것 셋:
 
 | 무엇 | 왜 | 어떻게 |
