@@ -1,0 +1,22 @@
+{
+  "licenses": {
+    "MIT": "허용적 — 고지만(coding-rules.md 「라이선스」). 2026-11-08 lock 654 중 529",
+    "Apache-2.0": "허용적 — 고지만. 저장소 자체의 라이선스와 같다",
+    "ISC": "허용적 — MIT 와 같은 꼴",
+    "BSD-2-Clause": "허용적 — 고지만",
+    "BSD-3-Clause": "허용적 — 고지와 이름 사용 금지",
+    "0BSD": "허용적 — 고지 의무도 없다",
+    "MIT-0": "허용적 — 고지 의무도 없는 MIT",
+    "BlueOak-1.0.0": "허용적 — 고지만. 2026-11-08 은 dev(lru-cache·minimatch 등) 뿐",
+    "CC0-1.0": "권리 포기 — 요건 없음. 2026-11-08 은 dev 의 데이터 패키지 둘",
+    "Python-2.0": "허용적 — 고지만. 2026-11-08 은 dev 의 argparse 하나",
+    "MPL-2.0": "파일 단위 약한 카피레프트 — 그 파일을 고쳐서 배포할 때만 그 파일을 연다. 2026-11-08 은 dev(axe-core·lightningcss) 뿐이고 고치지 않고 쓴다",
+    "SIL OPEN FONT LICENSE": "글꼴 라이선스(OFL-1.1) — 앱에 싣고 쓰는 것은 자유, 글꼴만 따로 파는 것을 막는다. geist 하나"
+  },
+  "packages": {
+    "@img/sharp-libvips-*": "LGPL-3.0-or-later — Next 의 sharp(optional)가 운영 npm ci 에 깔고, 자리표시 사진(picsum)이 next/image 최적화기를 지나서 실제로 불린다(진짜 사진만 unoptimized). LGPL 의 요건은 남에게 넘길 때(conveying) 걸리는데 우리는 서버에서 돌리기만 하고 고치지도 않는다. 앱이나 이미지를 남에게 배포하는 날 다시 판단한다",
+    "@img/sharp-win32-*": "Apache-2.0 AND LGPL-3.0-or-later — 위 libvips 를 묶은 윈도 판. 근거는 위와 같다",
+    "@img/sharp-wasm32": "Apache-2.0 AND LGPL-3.0-or-later AND MIT — 위 libvips 를 묶은 wasm 판. 근거는 위와 같다",
+    "caniuse-lite": "CC-BY-4.0 — 데이터 저작물이라 고지가 요건이다. 패키지가 LICENSE 를 들고 그대로 실려서 요건이 찬다"
+  }
+}

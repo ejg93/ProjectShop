@@ -130,10 +130,11 @@ if changed frontend; then
       # 빌드 출력은 초록이면 안 보이고 **빨가면 통째로 보인다.** `>/dev/null` 이던 때는 종료 코드만 남아
       # 무엇이 깨졌는지 다시 돌려야 알았다.
       (cd frontend && { npm run build >"$build_log" 2>&1 || { cat "$build_log"; exit 1; }; } \
-        && npm run lint && front_test) || ok=0
+        && npm run lint && front_test && node scripts/license-gate.mjs) || ok=0
     else
       echo "== frontend 지문이 origin/main 과 다르다 → tsc --noEmit · lint · test"
-      (cd frontend && npx tsc --noEmit && npm run lint && front_test) || ok=0
+      # 라이선스 게이트(`Q379b`)는 lock 하나를 읽어 1초 안에 끝나서 빠른 레인에도 둔다
+      (cd frontend && npx tsc --noEmit && npm run lint && front_test && node scripts/license-gate.mjs) || ok=0
     fi
   fi
 fi
