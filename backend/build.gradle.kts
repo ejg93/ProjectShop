@@ -13,7 +13,7 @@ plugins {
 	id("io.spring.dependency-management") version "1.1.7"
 	// 컴파일 단계 버그 패턴(`Q300`). javac 플러그인이라 **JDK 를 올리면 같이 막힐 수 있다** —
 	// 그때는 `-PerrorProne=false` 로 끄고 판을 맞춘다(`stack.md` 「ErrorProne 은 SpotBugs 옆에 둔다」).
-	id("net.ltgt.errorprone") version "5.1.1"
+	id("net.ltgt.errorprone") version "5.2.0"
 	// 실려 나가는 의존의 라이선스를 허용 목록과 맞춘다(`Q379a`) — 아래 `licenseReport`.
 	id("com.github.jk1.dependency-license-report") version "3.1.5"
 }
@@ -57,7 +57,7 @@ dependencies {
 	// 「막고 있다」고 읽힌다」와 같은 자리다. 압축을 켜는 날 이 경보를 다시 만나는 것보다
 	// 지금 한 줄이 싸고, **버전이 올라가면 이 제약이 저절로 무의미해진다**(아래가 더 낮으면 진다).
 	constraints {
-		implementation("at.yawk.lz4:lz4-java:1.12.0")
+		implementation("at.yawk.lz4:lz4-java:1.13.0")
 		// **Dependabot 경보 #25 를 닫는다**(2026-10-21, high). Checkstyle 이 doxia-core 를 타고
 		// `org.codehaus.plexus:plexus-utils` 3.3.0 을 들인다(`extractFile` 경로 순회, < 3.6.1).
 		// 빌드 도구 classpath 라 앱에는 안 실리고 우리 검사는 그 함수를 안 부른다 — 그래도 위와 같은 이유로 고정한다(`Q295`)
@@ -68,7 +68,7 @@ dependencies {
 		implementation("org.xerial.snappy:snappy-java:1.1.10.12")
 		// **Dependabot 경보 #26 을 닫는다**(2026-10-29, high). Checkstyle 13.4.2 가 `com.google.guava:guava` 33.6.0-jre 를 들인다
 		// (CompactHashMap 계열 역직렬화, <= 33.7.1). 빌드 도구 classpath 라 앱에는 안 실린다 — ErrorProne 쪽은 이미 33.7.2-jre 다(`Q319`)
-		checkstyle("com.google.guava:guava:33.7.2-jre")
+		checkstyle("com.google.guava:guava:33.8.0-jre")
 	}
 
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
@@ -126,7 +126,7 @@ dependencies {
 	// **3.x 가 Boot 4 판이다.** 2.x 는 Boot 3 모듈 배치(`spring-boot-starter-*`)를 부르고
 	// 3.x 가 쪼개진 배치(`spring-boot-webmvc`·`spring-boot-tomcat`)를 부른다 — 2.x 를 얹으면
 	// 없는 좌표를 찾다가 죽는다. Boot BOM 이 관리 안 해서 버전을 직접 적는다.
-	implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.1.1")
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.0")
 	// 파일 저장소를 S3 API 로 말한다(`26`, `media-rules.md`). 로컬은 MinIO 컨테이너고
 	// **배포는 Cloudflare R2 다**(사용자 결정 2026-09-18) — 둘 다 S3 호환이라 클라이언트가 하나다.
 	// 갈리는 것은 엔드포인트와 키 셋뿐이고 그것은 설정으로 들어온다.
@@ -136,7 +136,7 @@ dependencies {
 	// 기동은 초록이고 업로드만 터져서 원인이 멀어 보인다.
 	//
 	// **BOM 으로 버전을 묶는다.** `s3` 와 전송 계층이 판이 갈리면 서명 방식에서 어긋난다.
-	implementation(platform("software.amazon.awssdk:bom:2.56.0"))
+	implementation(platform("software.amazon.awssdk:bom:2.57.9"))
 	implementation("software.amazon.awssdk:s3")
 	implementation("software.amazon.awssdk:apache-client")
 	// 웹훅 발송기(`Q210`). **연결이 검사한 주소에만 가게** 이름 풀이를 연결 관리자에 준다 — JDK `HttpClient` 에는 그 훅이 없다.
@@ -164,7 +164,7 @@ dependencies {
 	spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0")
 
 	// 위 플러그인이 javac 에 거는 검출기 본체(`Q300`)
-	errorprone("com.google.errorprone:error_prone_core:2.51.0")
+	errorprone("com.google.errorprone:error_prone_core:2.52.0")
 }
 
 // 버그 패턴 검출을 어떻게 돌리나.
