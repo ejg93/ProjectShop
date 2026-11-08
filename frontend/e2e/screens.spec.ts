@@ -111,14 +111,17 @@ async function firstLink(page: Page, screen: Extract<Screen, { from: string }>):
   }, screen);
 }
 
-async function expectScreenRules(page: Page) {
-  const url = page.url();
+async function expectScreenRules(page: Page, target: string) {
   // `load` 때는 뿌리 `loading.tsx` 뼈대가 그려져 있고 진짜 내용은 `[hidden]` 안에서 교체를 기다린다(2026-11-08 실측 —
   // `/signup` 의 `h1` 이 `[hidden]` 안). 그대로 재면 axe 가 「h1 이 없다」고 한다. 보이는 `h1` 이 설 때까지 기다린다 —
   // 끝내 안 서면 아래 셈이 0 으로 빨갛다.
   await page
     .waitForFunction(() => [...document.querySelectorAll("h1")].some((h) => !h.closest("[hidden]")), null, { timeout: 10_000 })
     .catch(() => undefined);
+  // 다른 화면을 잰 것이 아닌가. 스트리밍 뒤의 `redirect()` 는 브라우저 쪽 이동이라 `goto` 직후에는 아직 원래 주소다 —
+  // 세션이 풀리면 보호 화면이 다 `/login` 으로 가고 그 `h1` 로 초록이 된다(마무리 78차 독립 리뷰). 내용이 선 뒤에 잰다.
+  const url = page.url();
+  expect.soft(new URL(url).pathname, `도착한 주소 — ${target}`).toBe(new URL(target, url).pathname);
   const measured = await page.evaluate(() => {
     const levels = [...document.querySelectorAll("h1, h2, h3, h4, h5, h6")]
       .filter((h) => !h.closest("[hidden]"))
@@ -175,7 +178,7 @@ for (const group of GROUPS) {
         }
         const response = await page.goto(target);
         expect.soft(response?.status() ?? 0, `응답 — ${target}`).toBeLessThan(400);
-        await expectScreenRules(page);
+        await expectScreenRules(page, target);
       });
     }
   });
