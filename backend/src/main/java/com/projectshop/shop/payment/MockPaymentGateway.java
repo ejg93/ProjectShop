@@ -41,7 +41,7 @@ public class MockPaymentGateway {
     /** 첫 호출이 응답 없이 끊기는 카드. 재시도가 실제로 도는지 보는 자리다 */
     private static final String TIMEOUT_LAST4 = "0002";
 
-    /** 위 카드의 거절 사유 코드. 결제 화면이 이 코드로 거절 문구를 고른다({@code checkout-form.tsx} 의 {@code DECLINE_TEXT}) */
+    /** 한도 초과 카드({@link #DECLINE_LAST4})의 거절 사유 코드. 결제 화면이 이 코드로 거절 문구를 고른다({@code checkout-form.tsx} 의 {@code DECLINE_TEXT}) */
     private static final String DECLINE_REASON = "limit_exceeded";
 
     /** ISO/IEC 7812 이 정한 카드번호 길이 */

@@ -18,7 +18,7 @@
     },
     {
       "moduleLicense": "Eclipse Public License - v 2.0",
-      "_why": "파일 단위 약한 카피레프트 — 그 파일을 고쳐서 배포할 때만 그 파일의 소스를 연다. 우리는 고치지 않고 쓴다. logback 둘(LGPL-2.1 과 이중)·jakarta.annotation-api(GPL-2.0+CPE 와 이중)이 이것으로만 덮인다"
+      "_why": "파일 단위 약한 카피레프트 — 그 파일을 고쳐서 배포할 때만 그 파일의 소스를 연다. 우리는 고치지 않고 쓴다. logback 둘(LGPL-2.1 과 이중)·jakarta.annotation-api·jakarta.xml.bind-api(GPL-2.0+CPE 와 이중) 넷이 이것으로만 덮인다"
     }
   ]
 }

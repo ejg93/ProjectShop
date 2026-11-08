@@ -464,7 +464,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 
 ### 의존성
 
-`build.gradle.kts` 에 줄을 추가할 때 본다. **앱에 실려 나가는 것에 GPL 은 0건이고 LGPL 은 `@img/sharp-libvips-*` 하나다**
+`build.gradle.kts` 에 줄을 추가할 때 본다. **앱에 실려 나가는 것에 GPL 은 0건이고 LGPL 은 sharp 의 libvips 묶음 하나다**(리눅스 운영에는 `@img/sharp-libvips-*`, 윈도·wasm 판 `@img/sharp-win32-*`·`sharp-wasm32` 도 같은 묶음을 든다)
 (Next → `sharp` optional, 아래 표 — 2026-11-08 `Q379b` 가 찾았다. 그전 문장 「GPL 계열 0건」은 선언만 본 것이었다).
 **npm 쪽은 `license-gate.mjs` 가 잰다**(`Q379b`) — `package-lock.json` 의 패키지 전부(dev·optional 포함)를 `frontend/scripts/license-allow.json` 과 맞춘다.
 **Gradle 쪽은 `checkLicense` 가 잰다**(`Q379a`) — `runtimeClasspath` 전부(전이 포함)를 `backend/config/license/allowed-licenses.json` 과 맞춘다.
