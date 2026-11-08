@@ -87,7 +87,12 @@ export function SalesView({ report, range }: { report: SalesReport; range: Range
         </div>
       </dl>
 
-      <div className="overflow-x-auto">
+      {/*
+        표 안에 링크가 없어서 좁은 화면에서는 키보드로 가로를 밀 길이 없다(WCAG 2.1.1 — `점검 AG` 의 axe
+        `scrollable-region-focusable`). 상자가 초점을 받고 이름을 가진다.
+      */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- 가로로 밀리는 상자는 초점을 받아야 키보드로 민다(WCAG 2.1.1) */}
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="날짜별 매출 표">
         <table className="w-full min-w-[40rem] border-collapse text-sm">
           <caption className="sr-only">
             날짜별 매출. 날짜, 결제 건수, 판매 수량, 결제 금액, 환불 건수, 환불 금액, 순매출, 셀러 매출 순. 최근 날부터

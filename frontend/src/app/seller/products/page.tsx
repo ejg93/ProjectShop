@@ -99,7 +99,9 @@ export default async function SellerProductsPage({
  */
 function ProductTable({ items }: { items: SellerProduct[] }) {
   return (
-    <div className="overflow-x-auto">
+    // `relative` — 줄 안의 `sr-only`(절대 위치)가 이 상자를 포함 블록으로 삼아야 같이 잘린다. 없으면
+    // 390px 화면이 598px 로 가로 스크롤된다(`점검 AG`).
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[44rem] border-collapse text-sm">
         <caption className="sr-only">내 상품 목록. 이름, 상태, 최저가, 재고, 등록일, 사진, 할 일 순</caption>
         <thead>

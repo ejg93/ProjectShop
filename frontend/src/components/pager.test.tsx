@@ -28,8 +28,8 @@ describe("목록 쪽 넘김", () => {
     );
 
     // 같은 목록이 주소 둘을 가지면 링크를 공유했을 때 어느 쪽이 정본인지가 안 갈린다.
-    expect(screen.getByRole("link", { name: "1쪽" })).toHaveAttribute("href", "/orders");
-    expect(screen.getByRole("link", { name: "3쪽" })).toHaveAttribute("href", "/orders?page=2");
+    expect(screen.getByRole("link", { name: "1 쪽" })).toHaveAttribute("href", "/orders");
+    expect(screen.getByRole("link", { name: "3 쪽" })).toHaveAttribute("href", "/orders?page=3");
   });
 
   it("거른 조건이 쪽을 넘겨도 남는다", () => {
@@ -47,13 +47,13 @@ describe("목록 쪽 넘김", () => {
 
     // **이것이 이 컴포넌트를 만든 이유다.** 조건을 안 실으면 셀러 하나로 걸러 놓고
     // 2쪽을 누른 사람에게 거름이 풀린 목록이 나간다.
-    expect(screen.getByRole("link", { name: "2쪽" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "2 쪽" })).toHaveAttribute(
       "href",
-      "/seller/orders?sellerId=7&page=1",
+      "/seller/orders?sellerId=7&page=2",
     );
 
     // 값이 없는 조건은 안 싣는다. 빈 값을 실으면 주소가 조건마다 길어지고 캐시 키가 갈린다.
-    expect(screen.getByRole("link", { name: "1쪽" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "1 쪽" })).toHaveAttribute(
       "href",
       "/seller/orders?sellerId=7",
     );
@@ -65,7 +65,7 @@ describe("목록 쪽 넘김", () => {
     );
 
     // 강조 색만으로 알리면 그 색을 못 보는 사람에게는 아무 표시가 없다(`D20`·WCAG 1.4.1).
-    expect(screen.getByRole("link", { name: "2쪽" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "2 쪽" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText(/전체 80건 중 2 \/ 4쪽/)).toBeInTheDocument();
   });
 
@@ -96,12 +96,20 @@ describe("목록 쪽 넘김", () => {
  * 링크를 잘못 받은 사람에게 오류 화면을 주는 것보다 목록을 주는 편이 낫다.
  */
 describe("주소의 쪽 번호", () => {
-  it("쓸 수 있는 값만 통과한다", () => {
-    expect(pageNumberOf("2")).toBe(2);
+  it("주소는 1부터 세고 안은 0부터 센다", () => {
+    // 주소와 화면 숫자가 다르면 링크를 손으로 고치는 사람이 한 쪽 어긋난다(`Q367`).
+    expect(pageNumberOf("2")).toBe(1);
+    expect(pageNumberOf("3")).toBe(2);
+  });
+
+  it("?page=1 은 첫 쪽이라 정본 주소(page 없음)와 같은 쪽이다", () => {
+    expect(pageNumberOf("1")).toBe(pageNumberOf(undefined));
+    expect(pageNumberOf("1")).toBe(0);
   });
 
   it("나머지는 전부 첫 쪽이다", () => {
     // 음수는 서버에 그대로 넘기면 목록 조회가 깨진다.
+    expect(pageNumberOf("0")).toBe(0);
     expect(pageNumberOf("-1")).toBe(0);
     expect(pageNumberOf("1.5")).toBe(0);
     expect(pageNumberOf("셋")).toBe(0);

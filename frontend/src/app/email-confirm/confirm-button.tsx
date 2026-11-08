@@ -45,7 +45,7 @@ export function EmailConfirmButton({ token }: { token: string }) {
         type="button"
         disabled={pending}
         onClick={confirm}
-        className="justify-self-start rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-surface disabled:opacity-60"
+        className="justify-self-start rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-accent-on disabled:opacity-60"
       >
         {pending ? "확인하는 중" : "새 이메일 주소로 바꾸기"}
       </button>

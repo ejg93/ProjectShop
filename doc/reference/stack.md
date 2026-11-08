@@ -838,25 +838,19 @@ Redis 를 쓰는 테스트는 `@BeforeEach` 에서 자기 키를 지운다.
 `curl` 은 HTML 만 받는다. **버튼을 눌러 무슨 일이 나는지는 못 본다** — 로그인이 200 인데
 화면이 안 넘어가는 결함(`13-2` 수정)이 그 사이에 숨어 있었다.
 
-Puppeteer 가 이 기계에 깔려 있다. 저장소 의존성이 아니라 **사용자 홈**에 있다.
+**화면 전수는 `frontend/e2e/screens.spec.ts` 가 밟는다**(`점검 AG`, 2026-11-08). 공개·구매자·판매자·관리자 네 묶음의
+정적 36 과 목록 첫 링크로 들어가는 동적 화면을 390px 에서 다섯으로 잰다 — axe(라이트·다크) · `h1` 하나 ·
+제목 단계 건너뜀 0 · 양수 `tabindex` 0 · 가로 스크롤 0. 띄우는 법은 `npm run e2e` 와 같다(백엔드는 밖에서 `RATE_LIMIT_ENABLED=false` 로 — `e2e.yml` 과 같다, Next 는 `next start`).
+제한을 켠 채 전체를 돌리면 1분 120 을 넘겨 `/login` 이 안 그려진다(마무리 78차 실측 — 둘이 시간 초과).
+걸리는 것 셋:
 
-```
-C:\Users\EJG\node_modules\puppeteer   (25.3.0)
-~/.cache/puppeteer                    (Chrome 바이너리)
-```
+| 무엇 | 왜 | 어떻게 |
+|---|---|---|
+| **`load` 때 `h1` 이 `[hidden]` 안에 있다** | 뿌리 `loading.tsx` 뼈대가 먼저 그려지고 진짜 내용은 숨긴 상자에서 교체를 기다린다 — 그때 재면 axe 가 「`h1` 이 없다」, 셈은 숨은 것까지 센다 | 보이는 `h1` 이 설 때까지 기다리고 `[hidden]` 안 제목은 안 센다 |
+| **axe 가 `browser.newPage()` 의 페이지를 거부한다** | `Please use browser.newContext()` | `browser.newContext()` 로 문맥을 열고 그 안에서 `newPage()` |
+| **`sr-only` 가 `overflow-x-auto` 밖으로 샌다** | `sr-only` 는 `position: absolute` 라 포함 블록이 상자가 아니면 안 잘린다 — `/seller/products` 가 390px 에서 598px 로 밀렸다 | 가로로 미는 상자에 `relative` |
 
-**저장소에 안 넣는다.** 화면 테스트를 정식으로 세우는 것은 나중 청크고(`D15`),
-지금은 손으로 확인할 때만 쓴다. 스크래치패드에 스크립트를 두고 부른다.
-
-```js
-// .mjs 여야 한다. 이 판은 ESM 전용이라 require 가 안 된다.
-const { default: puppeteer } = await import(
-  "file:///C:/Users/EJG/node_modules/puppeteer/lib/puppeteer/puppeteer.js"
-);
-```
-
-**경로를 `file://` URL 로 준다.** Git Bash 의 POSIX 경로(`/c/Users/...`)를 그대로 넘기면
-Node 가 `C:\c\Users\...` 로 읽어서 못 찾는다.
+그전(`점검 D-2`, 2026-09-11)은 사용자 홈의 Puppeteer(`C:\Users\EJG\node_modules\puppeteer`)를 스크래치패드 스크립트로 불렀다 — 저장소 시험으로 옮겨서 안 쓴다.
 
 ### 브라우저로 밟을 때 헛것을 세는 자리가 셋이다
 
@@ -1821,6 +1815,16 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 `C` 로케일 DB 면 한글이 조각에서 빠져 인덱스가 아무것도 못 거른다. **운영 값은 기동 로그가 든다**(`Q246`, `SearchLocaleCheck`) —
 Railway MCP `get-logs`(service backend)에서 「검색 로케일」 줄을 읽는다. 조각이 0 이면 같은 자리에 WARN 이 붙는다.
 **운영 값(2026-10-11, `2b3b614` 배포)**: `datctype=en_US.utf8 한글_조각=4` — 컴포즈·Testcontainers 와 같아서 운영에서도 인덱스가 한글 검색을 거른다.
+
+### `overrides` 로 올린 전이 의존은 상류가 따라오면 걷는다
+
+`frontend/package.json` 의 `overrides` 가 `@typescript-eslint/typescript-estree` 밑 `minimatch` 하나만 `^11.0.1` 로 올린다(`Q377`, 2026-11-08).
+**왜**: GHSA-g3hv-75wg-m249(`>= 7.0.0, < 11.0.1`)에 걸린 사본이 그 하나인데 상류 `typescript-estree` 가 최신(8.72.1)까지 `^10.2.2` 를 선언한다 —
+올리는 PR typescript-eslint#13145 가 안 합쳐졌다. 범위를 그 패키지 밑으로 좁혀서 eslint 플러그인 셋이 쓰는 최상위 `minimatch@3.1.5`(권고 범위 밖)는 그대로다.
+`npm ls minimatch` 가 `typescript-estree` 밑을 `11.0.x overridden` 으로 든다. 끌려온 `@isaacs/nonrecursive-glob-match` 는 BlueOak-1.0.0(허용형, 개발 의존)이다.
+**언제 걷나**: `typescript-estree` 가 선언한 범위가 11 을 품으면 — `npm view @typescript-eslint/typescript-estree dependencies.minimatch`. 걷지 않으면 상류가 12 를 요구하는 날 이 줄이 판을 붙잡는다.
+**쓰지 않는 길 둘**: `npm audit fix` 는 `eslint-config-next@15.5.29` 로의 **내림**을 권한다. `audit-exempt.json` 면제는 고친 판이 있는 경보에 안 쓴다(`Q257`).
+lock 은 `npx -y npm@11 install` 로 쓴다 — 위 「로컬 npm 10 은 lockfile 의 `libc` 칸을 지운다」.
 
 ## 데이터 접근은 `JdbcClient` 다
 

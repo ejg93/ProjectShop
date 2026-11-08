@@ -50,7 +50,7 @@ export function ResetRequestForm() {
       <button
         type="submit"
         disabled={pending}
-        className="justify-self-start rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-surface disabled:opacity-60"
+        className="justify-self-start rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-accent-on disabled:opacity-60"
       >
         {pending ? "보내는 중" : "재설정 링크 받기"}
       </button>
@@ -97,7 +97,7 @@ export function ResetConfirmForm({ token }: { token: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="justify-self-start rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-surface disabled:opacity-60"
+        className="justify-self-start rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-accent-on disabled:opacity-60"
       >
         {pending ? "바꾸는 중" : "비밀번호 바꾸기"}
       </button>

@@ -15,7 +15,7 @@ import Link from "next/link";
 const PAGE_LINK_WINDOW = 5;
 
 type PagerProps = {
-  /** 지금 쪽. 0부터 센다 — 서버가 그렇게 준다(`D5` 「목록」) */
+  /** 지금 쪽. 0부터 센다 — 주소의 쪽 번호(1부터)는 `pageNumberOf` 가 바꿔 준다 */
   page: number;
   lastPage: number;
   total: number;
@@ -68,7 +68,7 @@ export function Pager({ page, lastPage, total, basePath, label, unit, params }: 
             <PagerLink
               href={hrefOf(number)}
               current={number === page}
-              label={`${number + 1}쪽`}
+              label={`${number + 1} 쪽`}
             >
               {number + 1}
             </PagerLink>
@@ -114,7 +114,8 @@ function PagerLink({
     "grid h-9 min-w-9 place-items-center rounded-ui px-3 text-sm transition-colors duration-200";
 
   if (disabled) {
-    return <span className={`${shape} text-text-muted opacity-50`}>{children}</span>;
+    // 흐리게(`opacity-50`) 하지 않는다 — 대비가 4.5:1 밑으로 떨어진다(`점검 AG`). 테두리가 없는 것이 갈 곳 없음의 표시다
+    return <span className={`${shape} text-text-muted`}>{children}</span>;
   }
 
   return (
@@ -142,6 +143,8 @@ function PagerLink({
  *
  * <p><b>첫 쪽에는 {@code page} 를 안 붙인다.</b> 같은 목록이 주소 둘을 갖게 되면
  * 링크를 공유했을 때 어느 쪽이 정본인지가 안 갈린다.
+ *
+ * <p><b>주소는 사람이 읽는 번호(1부터), 안은 0부터다</b> — 바꾸는 자리는 이 함수와 `pageNumberOf` 둘뿐이다(`Q367`).
  */
 function pageHref(
   basePath: string,
@@ -156,7 +159,7 @@ function pageHref(
     }
   }
   if (page > 0) {
-    query.set("page", String(page));
+    query.set("page", String(page + 1));
   }
 
   const text = query.toString();
@@ -168,8 +171,11 @@ function pageHref(
  *
  * <p>사람이 주소를 직접 고치고, 오래된 링크가 남는다. 검사를 화면마다 적으면
  * 한 화면이 음수를 그대로 서버에 넘기는 날이 온다.
+ *
+ * <p><b>주소는 사람이 읽는 번호(1부터), 안은 0부터다</b> — 바꾸는 자리는 이 함수와 `pageHref` 둘뿐이다(`Q367`).
+ * {@code ?page=1} 은 첫 쪽이라 정본 주소(`page` 없음)와 같은 쪽이다.
  */
 export function pageNumberOf(raw: string | undefined): number {
   const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+  return Number.isInteger(parsed) && parsed >= 2 ? parsed - 1 : 0;
 }

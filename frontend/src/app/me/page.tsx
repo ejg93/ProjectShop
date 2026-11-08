@@ -122,7 +122,7 @@ export default async function MyPage() {
           <Link
             href="/me/inquiries"
             className="
-              rounded-ui bg-accent px-4 py-2.5 text-sm font-semibold text-surface
+              rounded-ui bg-accent px-4 py-2.5 text-sm font-semibold text-accent-on
               transition-colors duration-200
               hover:bg-accent-strong
               focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent

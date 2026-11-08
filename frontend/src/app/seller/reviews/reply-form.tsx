@@ -74,7 +74,7 @@ export function ReplyForm({ reviewId, reply }: { reviewId: number; reply: string
             <button
               type="submit"
               disabled={pending}
-              className="rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-surface disabled:opacity-60"
+              className="rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-accent-on disabled:opacity-60"
             >
               {reply === null ? "답글 등록" : "고친 답글 저장"}
             </button>
