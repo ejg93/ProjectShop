@@ -36,6 +36,7 @@ import com.projectshop.shop.support.RetryableBatch;
 @Component
 public class StaleBundleBatch implements RetryableBatch {
 
+    /** 카탈로그(`D19`)가 부르는 이름. {@code batch_run.batch_name} 에 그대로 들어간다 */
     static final String BATCH_NAME = "stale_bundle_close";
 
     /**

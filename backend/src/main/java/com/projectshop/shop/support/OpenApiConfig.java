@@ -35,6 +35,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 class OpenApiConfig {
 
+    /** {@code spring.jackson.property-naming-strategy} 의 기대값. 스펙 쪽 표기가 이것에 묶여 있어서 다르면 뜨지 않는다 */
     private static final String SNAKE_CASE = "SNAKE_CASE";
 
     private final String namingStrategy;

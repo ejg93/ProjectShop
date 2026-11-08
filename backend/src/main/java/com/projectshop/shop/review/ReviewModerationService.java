@@ -34,6 +34,7 @@ import com.projectshop.shop.error.ShopException;
 @Service
 public class ReviewModerationService {
 
+    /** 권한 표의 자원 이름({@code review:*}). 권한 표의 시드와 글자가 같아야 한다 */
     private static final String RESOURCE = "review";
 
     private final JdbcClient jdbc;

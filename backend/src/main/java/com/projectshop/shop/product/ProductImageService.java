@@ -27,6 +27,7 @@ public class ProductImageService {
      */
     private static final int MAX_IMAGES_PER_PRODUCT = ImagePipeline.MAX_IMAGES_PER_OWNER;
 
+    /** 사진 한 장을 맨 뒤 차례로 넣는다. 차례를 같은 문장 안에서 정해서 앱이 따로 세지 않는다 */
     private static final String INSERT_IMAGE = """
             insert into product_image
                 (product_id, object_key, thumbnail_key, original_name,

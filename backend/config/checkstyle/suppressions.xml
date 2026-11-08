@@ -20,48 +20,4 @@
     <!-- 시험 소스의 상수는 픽스처 값이라 우리가 고른 운영 값이 아니다 — 「왜 이 값인가」를 적을 자리가 아니다(`Q378a`, `coding-rules.md` 「설정과 상수」) -->
     <suppress checks="JavadocVariable" files="src[\\/]test[\\/]"/>
     <!-- 임시 -->
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]auth[\\/]LoginAttemptService\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]auth[\\/]PasswordPolicy\.java$"/>
-    <!-- 상수 Javadoc 없음 9 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]demo[\\/]DemoOrderSeeder\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]inquiry[\\/]InquiryQuery\.java$"/>
-    <!-- 상수 Javadoc 없음 4 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]inquiry[\\/]InquiryService\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]OrderQuery\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]ReturnRequestQuery\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]order[\\/]StaleBundleBatch\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]product[\\/]ProductController\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]product[\\/]ProductImageService\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]product[\\/]ProductQuery\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]review[\\/]ReviewModerationService\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]settlement[\\/]SettlementController\.java$"/>
-    <!-- 상수 Javadoc 없음 3 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]settlement[\\/]SettlementPayoutService\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]settlement[\\/]SettlementQuery\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]stats[\\/]SalesStatsQuery\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]EventEnvelope\.java$"/>
-    <!-- 상수 Javadoc 없음 3 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]FieldSelectionAdvice\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]NameMask\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]OpenApiConfig\.java$"/>
-    <!-- 상수 Javadoc 없음 2 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]support[\\/]PagingArgumentResolver\.java$"/>
-    <!-- 상수 Javadoc 없음 1 — String 상수만 든 파일이라 `Q378c` 가 메우고 걷는다 -->
-    <suppress checks="JavadocVariable" files="main[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]webhook[\\/]WebhookEndpointController\.java$"/>
 </suppressions>

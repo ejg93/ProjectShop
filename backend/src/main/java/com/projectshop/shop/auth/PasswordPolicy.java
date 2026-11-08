@@ -49,6 +49,7 @@ public final class PasswordPolicy {
     /** 이보다 짧은 문맥 단어는 안 본다 — 세 글자 이름이 들어간 비밀번호를 전부 막으면 막는 것이 너무 넓다 */
     private static final int MIN_CONTEXT_WORD = 4;
 
+    /** 흔한 비밀번호 목록의 클래스패스 위치. 목록을 코드에 안 박아서 갈아 끼우는 것이 파일 하나로 끝난다 */
     private static final String BLOCKLIST = "security/password-blocklist.txt";
 
     private final Set<String> blocklist = load();

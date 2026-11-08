@@ -46,7 +46,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @RequestMapping("/api/products")
 public class ProductController {
 
+    /** {@code expand} 에 받는 이름(`D5` 「{@code expand}」) — 후기 첫 쪽을 끼운다 */
     private static final String REVIEWS = "reviews";
+    /** {@code expand} 에 받는 이름 — 공개 문의 첫 쪽을 끼운다 */
     private static final String INQUIRIES = "inquiries";
 
     private final ProductService productService;

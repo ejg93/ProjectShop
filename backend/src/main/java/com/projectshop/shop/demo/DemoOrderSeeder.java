@@ -55,16 +55,25 @@ public class DemoOrderSeeder implements ApplicationRunner {
     /** 승인되는 번호. 끝 네 자리가 {@code 0000} 이면 거절, {@code 0002} 면 타임아웃이다 */
     private static final String GOOD_CARD = "4242-4242-4242-4242";
 
+    /** 시드({@code V900})가 넣은 구매자 계정. 이 아래 이름은 전부 시드와 글자가 같아야 찾는다 */
     private static final String CUSTOMER = "customer@example.com";
+    /** 시드가 넣은 패션 셀러 대표 계정 */
     private static final String FASHION_OWNER = "fashion-owner@example.com";
+    /** 시드가 넣은 공예 셀러 대표 계정 */
     private static final String CRAFT_OWNER = "craft-owner@example.com";
 
+    /** 시드가 넣은 패션 셀러 */
     private static final String FASHION = "demo-fashion";
+    /** 시드가 넣은 공예 셀러 */
     private static final String CRAFT = "demo-craft";
 
+    /** 시드({@code V902})가 넣은 상품 — 패션 셀러의 실물 */
     private static final String TSHIRT = "데모 티셔츠";
+    /** 시드가 넣은 상품 — 패션 셀러의 실물 */
     private static final String BAG = "데모 에코백";
+    /** 시드가 넣은 상품 — 공예 셀러의 실물 */
     private static final String CUTTING_BOARD = "데모 원목 도마";
+    /** 시드가 넣은 상품 — 공예 셀러의 디지털 재화 */
     private static final String PATTERN_FILE = "데모 도안 파일";
 
     /**

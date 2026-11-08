@@ -24,7 +24,9 @@ public final class EventEnvelope {
 
     /** 봉투의 {@code time} 은 UTC `Z` 다({@code D10}, {@code event-catalog.md} 「봉투」) */
     private static final DateTimeFormatter TIME = DateTimeFormatter.ISO_INSTANT;
+    /** 봉투의 {@code specversion}. CloudEvents 규격이 판 이름으로 정한 값이다 */
     private static final String SPEC_VERSION = "1.0";
+    /** 봉투의 {@code datacontenttype}. {@code data} 가 JSON 이라서다(CloudEvents 규격의 미디어 타입 칸) */
     private static final String DATA_CONTENT_TYPE = "application/json";
 
     private EventEnvelope() {

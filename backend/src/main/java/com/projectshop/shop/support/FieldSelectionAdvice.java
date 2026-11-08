@@ -39,8 +39,11 @@ import com.projectshop.shop.error.InvalidParameterException;
 @RestControllerAdvice
 class FieldSelectionAdvice implements ResponseBodyAdvice<Object> {
 
+    /** 봉투 메타 칸(`D5` — 밑줄로 시작하는 유일한 칸). 고르지 않아도 남는다 */
     private static final String VISIBLE_FIELD_GROUPS = "_visible_field_groups";
+    /** 목록 봉투의 칸 이름(`D5`). 이것과 {@link #OFFSET} 이 같이 있으면 목록으로 보고 줄마다 고른다 */
     private static final String ITEMS = "items";
+    /** 목록 봉투의 칸 이름(`D5`). 위와 같다 */
     private static final String OFFSET = "offset";
 
     private final ObjectMapper objectMapper;

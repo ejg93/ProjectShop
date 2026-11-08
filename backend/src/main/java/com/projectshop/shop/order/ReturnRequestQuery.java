@@ -52,12 +52,14 @@ public class ReturnRequestQuery {
         }
     }
 
+    /** 주문 단위마다 반품 한 건. {@code distinct on} 이 아래 {@link #ORDER_BY} 의 첫 행을 고른다 */
     private static final String SELECT = """
             select distinct on (seller_order_id)
                    seller_order_id, status, reason_code, requested_at, received_at, inspected_at, decided_at
               from return_request
             """;
 
+    /** 가장 늦게 접수된 반품이 첫 행이다. 같은 시각은 {@code return_request_id} 로 갈라 고르는 행이 매번 같다 */
     private static final String ORDER_BY = " order by seller_order_id, requested_at desc, return_request_id desc";
 
     private final JdbcClient jdbc;

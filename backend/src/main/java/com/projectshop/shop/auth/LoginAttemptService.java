@@ -49,6 +49,7 @@ public class LoginAttemptService {
     /** 잠기는 시간. 지나면 저절로 풀린다(`D14`) */
     static final Duration LOCK_DURATION = Duration.ofMinutes(15);
 
+    /** 실패 수를 세는 Redis 열쇠의 앞머리. 세션 열쇠({@code shop:session})와 자리가 안 겹친다 */
     private static final String KEY_PREFIX = "login:fail:";
 
     private final StringRedisTemplate redis;

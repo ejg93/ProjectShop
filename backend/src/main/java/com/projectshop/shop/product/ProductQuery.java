@@ -87,6 +87,7 @@ public class ProductQuery {
      */
     static final String PUBLIC_WHERE = " where p.status = 'on_sale' and p.deleted_at is null";
 
+    /** 기본 정렬(`D5` 「목록 조회」 정렬 표의 상품 기본값) */
     private static final String DEFAULT_SORT = "created_at,desc";
 
     private final JdbcClient jdbc;
