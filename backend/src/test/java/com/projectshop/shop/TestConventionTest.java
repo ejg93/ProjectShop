@@ -100,6 +100,8 @@ class TestConventionTest {
      * 두 달 동안 CI 가 초록이었다. ArchUnit 은 <b>없는 규칙을 실패로 안 센다</b> — 컴파일된 수와
      * 원문의 수를 맞대야 드러난다. 원문은 주석을 걷지 않고 <b>줄 단위</b>로 센다 —
      * Javadoc 의 {@code {@code @ArchTest}} 같은 언급은 줄 머리에 안 오고, 삼켜진 애너테이션은 그대로 줄 머리에 남는다.
+     * <b>전제가 둘이다</b> — 규칙은 필드로 두고, {@code @ArchTest} 줄에는 애너테이션만 둔다. 메서드 꼴이나 같은 줄 주석이 생기면
+     * 여기가 빨개진다(놓치는 쪽이 아니라 스스로 드러나는 쪽이다).
      */
     @ParameterizedTest(name = "{0}")
     @ValueSource(classes = {ArchitectureTest.class, PublicSurfaceTest.class, TestConventionTest.class})

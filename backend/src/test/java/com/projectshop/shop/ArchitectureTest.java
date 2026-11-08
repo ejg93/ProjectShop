@@ -272,7 +272,7 @@ class ArchitectureTest {
      *
      * <p><b>{@code String} 파라미터로 알아본다.</b> ArchUnit 은 파라미터 <b>이름</b>을 안 줘서
      * {@code sort} 를 집어낼 수가 없다. 지금 페이지를 내주는 조회 중 {@code String} 을 받는 것은
-     * 전부 정렬을 받는 것이고({@code RefundQuery} 의 {@code status} 는 정렬과 같은 메서드에 있다),
+     * 전부 정렬을 받는 것이고(상태 필터는 `Q380a`·`Q380b` 뒤로 열거형이라 {@code String} 이 아니다),
      * 아닌 것은 {@code String} 을 아예 안 받는다.
      *
      * <p><b>오탐이 나는 쪽으로 틀어 뒀다.</b> 정렬이 없는데 {@code String} 을 받는 목록이 생기면

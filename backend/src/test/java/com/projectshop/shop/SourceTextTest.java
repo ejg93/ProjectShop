@@ -44,7 +44,7 @@ class SourceTextTest {
     private static final Pattern DEFAULT_ARM = Pattern.compile("^\\s*default\\s*(->|:)");
     private static final Pattern DEFAULT_MARKER = Pattern.compile("^\\s*//\\s*default-ok:\\s*([a-z-]+)");
     private static final Pattern CUSTOM_HEADER = Pattern.compile("\"X-[A-Za-z]");
-    private static final Pattern STRING_STATUS_PARAM = Pattern.compile("@RequestParam[^)]*\\)\\s*String\\s+status\\b");
+    private static final Pattern STRING_STATUS_PARAM = Pattern.compile("@RequestParam(\\([^)]*\\))?\\s*String\\s+status\\b");
 
     private static final List<Path> FILES = javaFiles();
 

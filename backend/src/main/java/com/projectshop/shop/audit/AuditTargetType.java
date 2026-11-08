@@ -14,6 +14,8 @@ import java.util.Locale;
  * <p><b>{@code permission.resource} 도 여기 든다.</b> {@code PermissionEvaluator} 가 거부 기록의 대상으로
  * 권한 표의 자원 이름을 그대로 쓴다({@link #ofResource}). 두 목록을 가르면 같은 칸의 {@code check} 가
  * 둘이 된다. 「권한 표의 자원 ⊆ 이 목록」은 {@code AuditTargetTypeTest} 가 시드 DB 로 잰다.
+ * <b>코드 글자 쪽은 안 잰다</b> — 권한 표에 없는 자원 이름으로 {@code decide} 를 부르면 거부 기록에서
+ * {@link #ofResource} 가 던져 403 대신 500 이 된다. 새 자원은 권한 시드와 함께 들어와야 한다(2026-11-08 마무리 80차 리뷰).
  */
 public enum AuditTargetType {
 

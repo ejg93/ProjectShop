@@ -83,11 +83,11 @@ class LawReferenceJavadocTest {
                 .isEqualTo(EXEMPT);
     }
 
-    /** Javadoc 뒤의 첫 코드 줄. 빈 줄과 애너테이션 줄은 건너뛴다 */
+    /** Javadoc 뒤의 첫 코드 줄. 빈 줄·애너테이션 줄·줄 주석은 건너뛴다 — 줄 주석에 멈추면 그 블록이 조용히 범위 밖이 된다 */
     private static String nextCodeLine(String source, int from) {
         for (String line : source.substring(from).split("\n", 20)) {
             String trimmed = line.trim();
-            if (!trimmed.isEmpty() && !trimmed.startsWith("@")) {
+            if (!trimmed.isEmpty() && !trimmed.startsWith("@") && !trimmed.startsWith("//")) {
                 return line;
             }
         }
