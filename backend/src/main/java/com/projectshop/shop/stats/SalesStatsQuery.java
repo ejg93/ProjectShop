@@ -38,7 +38,9 @@ public class SalesStatsQuery {
     /** 한 번에 볼 수 있는 가장 긴 기간(일). 1년이면 작년 같은 달과 견줄 수 있다 */
     static final int MAX_DAYS = 366;
 
+    /** 권한 표의 자원 이름({@code sales_stats:*}). 권한 표의 시드와 글자가 같아야 한다 */
     private static final String RESOURCE = "sales_stats";
+    /** 조회 권한의 행위 이름({@code sales_stats:read}). 위와 같다 */
     private static final String READ = "read";
 
     private final JdbcClient jdbc;

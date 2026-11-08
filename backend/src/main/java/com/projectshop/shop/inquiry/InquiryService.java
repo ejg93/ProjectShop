@@ -45,9 +45,13 @@ public class InquiryService {
     // `inquiry.blocked_reason` 에 들어가는 값은 `BlockReason` 이 든다(`Q123`).
     // 여기 상수로 두면 사본이 둘이 되고 그중 하나만 회계를 받는다.
 
+    /** 권한 표의 자원 이름({@code inquiry:*}). 권한 표의 시드와 글자가 같아야 한다 */
     private static final String RESOURCE = "inquiry";
+    /** 문의를 남기는 권한의 행위 이름({@code inquiry:create}). 위와 같다 */
     private static final String CREATE = "create";
+    /** 답하는 권한의 행위 이름({@code inquiry:answer}). 위와 같다 */
     private static final String ANSWER = "answer";
+    /** 가리는 권한의 행위 이름({@code inquiry:block}). 위와 같다 */
     private static final String BLOCK = "block";
     /** 거두기. 쓰기 권한이라 `V75` 트리거가 감사자 거부를 단다(`Q239`, `V118`) */
     private static final String WITHDRAW = "withdraw";

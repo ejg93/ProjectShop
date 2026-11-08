@@ -33,8 +33,11 @@ import com.projectshop.shop.error.ShopException;
 @Service
 public class SettlementPayoutService {
 
+    /** 권한 표의 자원 이름({@code settlement:*}). 권한 표의 시드와 글자가 같아야 한다 */
     private static final String RESOURCE = "settlement";
+    /** 지급을 청하는 권한의 행위 이름({@code settlement:request_payout}). 위와 같다 */
     private static final String REQUEST = "request_payout";
+    /** 지급을 정하는 권한의 행위 이름({@code settlement:payout}). 위와 같다 */
     private static final String DECIDE = "payout";
 
     private final JdbcClient jdbc;

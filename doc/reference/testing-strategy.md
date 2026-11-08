@@ -387,6 +387,9 @@ evaluator.decide(userId, "order", "update_status", target)
 | 마이그레이션이 순서대로 적용되나 | 통합 |
 | API 응답 모양, 상태 코드 | 통합 (청크 7 이후) |
 
+**문서·소스를 글자로 읽는 대조 시험은 더 아래 도구가 없을 때만 세운다.** 타입·DB 제약·ArchUnit·Checkstyle·ErrorProne 중 잴 수 있는 것이 있으면 그쪽에 건다 —
+글자 대조는 이름이 바뀌면 조용히 헛돈다. 2026-11-08 `점검 AI` 셈: 대조 시험 39 중 옮길 후보 여섯(`Q386`·`Q387`), 판정이 갈린 여덟(`Q387`·`Q388`).
+
 ### 새 로직을 짤 때
 
 **계산과 입출력을 갈라 놓으면 단위로 검증할 수 있다.** 청크 4d 에서 `PermissionEvaluator.evaluate` 를

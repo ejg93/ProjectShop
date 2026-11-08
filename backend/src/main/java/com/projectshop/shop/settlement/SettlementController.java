@@ -34,6 +34,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 @RequestMapping("/api/settlements")
 public class SettlementController {
 
+    /** {@code expand} 에 받는 이름(`D5` 「{@code expand}」) — 정산 줄 첫 쪽을 끼운다 */
     private static final String EXPAND_LINES = "lines";
 
     private final SettlementQuery query;

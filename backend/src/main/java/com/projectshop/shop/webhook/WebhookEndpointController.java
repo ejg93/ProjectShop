@@ -34,6 +34,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 @RequestMapping("/api/seller/webhooks")
 public class WebhookEndpointController {
 
+    /** {@code expand} 에 받는 이름(`D5` 「{@code expand}」) — 발송 기록 첫 쪽을 끼운다 */
     private static final String EXPAND_DELIVERIES = "deliveries";
 
     private final WebhookEndpointService endpoints;

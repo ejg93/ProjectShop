@@ -16,6 +16,7 @@ import java.text.Normalizer;
  */
 final class NameMask {
 
+    /** 가린 글자 하나를 대신하는 표시. 글자 수만큼 반복해서 이름 길이는 남긴다 */
     private static final String MASK = "*";
 
     private NameMask() {}

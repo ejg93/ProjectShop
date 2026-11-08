@@ -73,7 +73,9 @@ public class SettlementQuery {
              limit :size offset :offset
             """;
 
+    /** 권한 표의 자원 이름({@code settlement:*}). 권한 표의 시드와 글자가 같아야 한다 */
     private static final String RESOURCE = "settlement";
+    /** 조회 권한의 행위 이름({@code settlement:read}). 위와 같다 */
     private static final String READ = "read";
 
     private final JdbcClient jdbc;

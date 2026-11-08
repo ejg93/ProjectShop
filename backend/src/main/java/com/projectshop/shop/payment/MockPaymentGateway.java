@@ -41,10 +41,12 @@ public class MockPaymentGateway {
     /** 첫 호출이 응답 없이 끊기는 카드. 재시도가 실제로 도는지 보는 자리다 */
     private static final String TIMEOUT_LAST4 = "0002";
 
+    /** 한도 초과 카드({@link #DECLINE_LAST4})의 거절 사유 코드. 결제 화면이 이 코드로 거절 문구를 고른다({@code checkout-form.tsx} 의 {@code DECLINE_TEXT}) */
     private static final String DECLINE_REASON = "limit_exceeded";
 
     /** ISO/IEC 7812 이 정한 카드번호 길이 */
     private static final int MIN_DIGITS = 12;
+    /** 같은 표준의 위 끝 */
     private static final int MAX_DIGITS = 19;
 
     /** 앞 한 자리가 카드 브랜드다. 모르는 것은 기타로 둔다 */
@@ -54,6 +56,7 @@ public class MockPaymentGateway {
             '5', "마스터",
             '9', "국내전용");
 
+    /** 위 표에 없는 앞자리. 브랜드를 지어내지 않는다 */
     private static final String UNKNOWN_ISSUER = "기타";
 
     private final SecureRandom random = new SecureRandom();

@@ -47,7 +47,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Component
 public class InquiryQuery {
 
+    /** 권한 표의 자원 이름({@code inquiry:*}). 권한 표의 시드와 글자가 같아야 한다 */
     private static final String RESOURCE = "inquiry";
+    /** 조회 권한의 행위 이름({@code inquiry:read}). 위와 같다 */
     private static final String READ = "read";
     /** 답변 권한. `V54` 가 셀러에게만 허용하고 감사자에게 거부한다 */
     private static final String ANSWER = "answer";

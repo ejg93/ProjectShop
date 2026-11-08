@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <!--
-  Checkstyle 은 선언 차례(`Q289`, `coding-rules.md` 「선언 순서」) · 안 쓰는 import(`Q303`) · 순환 복잡도(`Q304`) 셋을 본다.
+  Checkstyle 은 선언 차례(`Q289`, `coding-rules.md` 「선언 순서」) · 안 쓰는 import(`Q303`) · 순환 복잡도(`Q304`) ·
+  상수 Javadoc 「있음」(`Q378a`, `coding-rules.md` 「설정과 상수」) 넷을 본다.
   다른 모듈은 재기 전에 안 켠다 — 켜면 그 모듈이 무엇을 막는지 따로 재야 하고, 재지 않은 게이트는
   목록 전체를 안 읽게 만든다.
 
@@ -32,6 +33,14 @@
              10(기본값)은 갈래가 본질인 분류 코드를 억지로 쪼개게 해서 안 골랐다. 2026-10-25 첫 측정: 15 넘는 것 셋 -->
         <module name="CyclomaticComplexity">
             <property name="max" value="15"/>
+        </module>
+        <!-- 대문자 꼴 이름 필드(곧 상수) 옆의 「왜 이 값인가」(`Q378a`). Javadoc 꼴(`/** */`)만 센다 — `//` 줄 주석은
+             있나를 재는 자리가 없어서 안 센다. 있나만 보고 내용은 안 읽어서 한글 식별자 함정에 안 걸린다.
+             열거 상수는 뺐다(`tokens=VARIABLE_DEF`) — 열거값의 뜻은 「열거값을 어디에 두나」가 따로 다룬다.
+             이름 패턴은 전체 일치라 대문자 상수 꼴이 아닌 필드·지역 변수는 다 빠진다 -->
+        <module name="JavadocVariable">
+            <property name="tokens" value="VARIABLE_DEF"/>
+            <property name="ignoreNamePattern" value="^(?![A-Z][A-Z0-9_]*$).*"/>
         </module>
     </module>
 </module>

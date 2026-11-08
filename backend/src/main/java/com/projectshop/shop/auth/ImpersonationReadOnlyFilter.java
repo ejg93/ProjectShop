@@ -28,6 +28,7 @@ class ImpersonationReadOnlyFilter extends OncePerRequestFilter {
     /** 대행 중에도 여는 쓰기. 빠져나오는 길이다 */
     static final Set<String> EXITS = Set.of("/api/admin/impersonation/end", "/api/auth/logout");
 
+    /** 대행 중에 통과하는 메서드. 서버 상태를 안 바꾸는 것만이다(RFC 9110 「안전한 메서드」) */
     private static final Set<String> READS = Set.of("GET", "HEAD", "OPTIONS");
 
     private final ProblemWriter problems;

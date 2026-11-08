@@ -27,7 +27,9 @@ import com.projectshop.shop.support.ListQuery.Paging;
  */
 class PagingArgumentResolver implements HandlerMethodArgumentResolver {
 
+    /** 쿼리 파라미터 이름(`D5` 「목록 조회」). 응답 봉투의 칸 이름과 같다 */
     private static final String OFFSET = "offset";
+    /** 쿼리 파라미터 이름(`D5` 「목록 조회」). 위와 같다 */
     private static final String LIMIT = "limit";
 
     @Override

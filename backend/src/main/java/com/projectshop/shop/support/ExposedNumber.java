@@ -30,10 +30,12 @@ public final class ExposedNumber {
     /** 날짜 부분의 기준 시간대. 번호에 찍히는 "며칠" 은 업무 기준이라 KST 다(`D10`) */
     private static final java.time.ZoneId KST = java.time.ZoneId.of("Asia/Seoul");
 
+    /** 날짜 8자리(`D9`). 고객이 번호를 부르면 언제 주문인지 바로 보인다 */
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     /** 난수 부분. {@code 0}·{@code O}·{@code 1}·{@code I} 를 뺀 32자다(`D9`) */
     private static final char[] ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ".toCharArray();
+    /** 난수 6자리(`D9`). 위 32자로 하루 32의 6제곱(약 10억) 가지라 순번이 안 보인다 */
     private static final int RANDOM_LENGTH = 6;
 
     /**

@@ -90,6 +90,7 @@ public class OrderQuery {
      */
     private static final Map<String, String> SORTABLE = Map.of("created_at", "o.created_at");
 
+    /** 기본 정렬. 최신 주문부터 — 셀러 목록({@link SellerOrderQuery})과 같다 */
     private static final String DEFAULT_SORT = "created_at,desc";
 
     /** 기간 필터의 날짜는 KST 다(`D10`) */

@@ -43,6 +43,7 @@ public class EmailChangeService {
     /** 확인 링크 수명. 비밀번호 재설정보다 길다 — 급히 눌러야 할 이유가 없다 */
     static final Duration LIFETIME = Duration.ofHours(24);
 
+    /** 32바이트. 추측으로 맞힐 수 있는 크기가 아니다 — 비밀번호 재설정 토큰과 같은 크기다 */
     private static final int TOKEN_BYTES = 32;
 
     private final JdbcClient jdbc;

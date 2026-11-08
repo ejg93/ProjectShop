@@ -464,7 +464,11 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 
 ### 의존성
 
-`build.gradle.kts` 에 줄을 추가할 때 본다. **앱에 실려 나가는 것에 GPL 계열은 0건**이다.
+`build.gradle.kts` 에 줄을 추가할 때 본다. **앱에 실려 나가는 것에 GPL 은 0건이고 LGPL 은 sharp 의 libvips 묶음 하나다**(리눅스 운영에는 `@img/sharp-libvips-*`, 윈도·wasm 판 `@img/sharp-win32-*`·`sharp-wasm32` 도 같은 묶음을 든다)
+(Next → `sharp` optional, 아래 표 — 2026-11-08 `Q379b` 가 찾았다. 그전 문장 「GPL 계열 0건」은 선언만 본 것이었다).
+**npm 쪽은 `license-gate.mjs` 가 잰다**(`Q379b`) — `package-lock.json` 의 패키지 전부(dev·optional 포함)를 `frontend/scripts/license-allow.json` 과 맞춘다.
+**Gradle 쪽은 `checkLicense` 가 잰다**(`Q379a`) — `runtimeClasspath` 전부(전이 포함)를 `backend/config/license/allowed-licenses.json` 과 맞춘다.
+이 표는 판단 기록이고 그 파일은 실물의 허용 목록이다. GPL·LGPL 을 같이 드는 모듈(jakarta 넷 · logback 둘)은 EPL-2.0 과의 이중 라이선스라 EPL-2.0 으로 쓴다(2026-11-08 첫 측정 190 모듈).
 빌드·시험 도구에는 LGPL 셋과 MPL 하나가 있다 — 아래 「도구」 표. 배포물(이미지·번들)에 안 실린다(점검 W, 2026-10-23).
 
 | 의존성 | 라이선스 | 좌표 |
@@ -484,6 +488,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | Lettuce (`spring-boot-starter-data-redis` 가 들인다) | MIT (2026-10-23 확인) | (전이) |
 | Testcontainers | MIT | `org.testcontainers:*` |
 | Next.js · React · Tailwind CSS | MIT | `next` `react` `react-dom` `tailwindcss` `@tailwindcss/*` |
+| sharp · `@img/sharp-*` (Next 가 optional 로 들인다 — 자리표시 사진의 `next/image` 최적화가 부른다) | Apache-2.0 · **libvips 묶음은 LGPL-3.0-or-later**(2026-11-08 확인, lock 의 `license`) — 서버에서 돌리기만 하고 남에게 넘기지 않아 요건이 안 걸린다. `license-allow.json` 의 `packages` 맵이 근거와 함께 든다(`Q379b`) | (전이) |
 | react-markdown · remark-gfm (unified 계열) | MIT (2026-08-17 확인) | `react-markdown` `remark-gfm` |
 | geist (Vercel) — Geist·Geist Mono 글꼴 파일 | **SIL OFL 1.1** (2026-09-26 확인, 패키지의 `LICENSE.txt`) | `geist` |
 
@@ -507,6 +512,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | find-sec-bugs | LGPL-3.0 (2026-10-23 확인, 부모 POM) | `com.h3xstream.findsecbugs:*` |
 | ErrorProne | Apache-2.0 (2026-10-25 확인, 부모 POM `error_prone_parent` 2.51.0) | `com.google.errorprone:*` |
 | ErrorProne Gradle 플러그인 | Apache-2.0 (2026-10-25 확인, 캐시의 POM `gradle-errorprone-plugin` 5.1.1) | `plugin:net.ltgt.errorprone` |
+| Gradle License Report 플러그인 | Apache-2.0 (2026-11-08 확인, 캐시의 POM `gradle-license-report` 3.1.5) — `Q379a` | `plugin:com.github.jk1.dependency-license-report` |
 | PMD | BSD-style (2026-10-25 확인, POM `pmd` 7.28.0) | (전이) — `pmd` 플러그인이 `toolVersion` 으로 들인다 |
 | ArchUnit · PIT(pitest)·PIT JUnit 5 플러그인 | Apache-2.0 (2026-10-23 확인, 셋 다 POM) | `com.tngtech.archunit:*` `org.pitest:*` |
 | JUnit Platform 실행기 | **EPL-2.0** (2026-10-23 확인, POM) — 시험만 쓴다. 고쳐서 배포할 때 그 부분 공개가 요건이라 걸릴 것이 없다 | `org.junit.platform:*` |
