@@ -465,6 +465,8 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 ### 의존성
 
 `build.gradle.kts` 에 줄을 추가할 때 본다. **앱에 실려 나가는 것에 GPL 계열은 0건**이다.
+**Gradle 쪽은 `checkLicense` 가 잰다**(`Q379a`) — `runtimeClasspath` 전부(전이 포함)를 `backend/config/license/allowed-licenses.json` 과 맞춘다.
+이 표는 판단 기록이고 그 파일은 실물의 허용 목록이다. GPL·LGPL 을 같이 드는 모듈(jakarta 넷 · logback 둘)은 EPL-2.0 과의 이중 라이선스라 EPL-2.0 으로 쓴다(2026-11-08 첫 측정 190 모듈).
 빌드·시험 도구에는 LGPL 셋과 MPL 하나가 있다 — 아래 「도구」 표. 배포물(이미지·번들)에 안 실린다(점검 W, 2026-10-23).
 
 | 의존성 | 라이선스 | 좌표 |
@@ -507,6 +509,7 @@ CloudEvents 는 이벤트 봉투(envelope)의 표준이다. `id`·`source`·`typ
 | find-sec-bugs | LGPL-3.0 (2026-10-23 확인, 부모 POM) | `com.h3xstream.findsecbugs:*` |
 | ErrorProne | Apache-2.0 (2026-10-25 확인, 부모 POM `error_prone_parent` 2.51.0) | `com.google.errorprone:*` |
 | ErrorProne Gradle 플러그인 | Apache-2.0 (2026-10-25 확인, 캐시의 POM `gradle-errorprone-plugin` 5.1.1) | `plugin:net.ltgt.errorprone` |
+| Gradle License Report 플러그인 | Apache-2.0 (2026-11-08 확인, 캐시의 POM `gradle-license-report` 3.1.5) — `Q379a` | `plugin:com.github.jk1.dependency-license-report` |
 | PMD | BSD-style (2026-10-25 확인, POM `pmd` 7.28.0) | (전이) — `pmd` 플러그인이 `toolVersion` 으로 들인다 |
 | ArchUnit · PIT(pitest)·PIT JUnit 5 플러그인 | Apache-2.0 (2026-10-23 확인, 셋 다 POM) | `com.tngtech.archunit:*` `org.pitest:*` |
 | JUnit Platform 실행기 | **EPL-2.0** (2026-10-23 확인, POM) — 시험만 쓴다. 고쳐서 배포할 때 그 부분 공개가 요건이라 걸릴 것이 없다 | `org.junit.platform:*` |

@@ -730,7 +730,7 @@ Postgres 가 마이크로초 아래를 올린다든가, Next 가 `cookies()` 를
 
 | 대상 | 언제 보나 | 무엇을 |
 |---|---|---|
-| 의존성 | `build.gradle.kts` 에 줄을 추가할 때 · `frontend/package-lock.json` 에 패키지가 늘 때(전이 포함) | 라이선스 종류. GPL 계열이면 그 자리에서 멈추고 판단한다 |
+| 의존성 | `build.gradle.kts` 에 줄을 추가할 때 · `frontend/package-lock.json` 에 패키지가 늘 때(전이 포함) | 라이선스 종류. GPL 계열이면 그 자리에서 멈추고 판단한다. **Gradle 은 `checkLicense`(`Q379a`), npm 은 `license-gate.mjs`(`Q379b`)가 막는다** — 허용 목록 밖의 라이선스는 빨갛고, 그 자리에서 판단해 근거와 함께 목록에 넣는다 |
 | 인용 자료 | 기준 문서에 바깥 자료를 근거로 삼을 때 | 저작자·라이선스를 `external-references.md` 에 같이 적는다 |
 
 두 번째가 실제로 걸려 있다. `D22` 가 기준으로 삼은 **SQL Style Guide 는 CC BY-SA 4.0** 이다.

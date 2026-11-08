@@ -5,7 +5,7 @@ plugins {
 	jacoco
 	// 버그 패턴 검출. 바이트코드를 읽어서 컴파일러에 안 붙는다 — 아래 ErrorProne 과 달리 JDK 를 올려도 안 막힌다.
 	id("com.github.spotbugs") version "6.5.13"
-	// 선언 차례(`Q289`) · 안 쓰는 import(`Q303`) · 순환 복잡도(`Q304`) 셋을 본다. 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
+	// 선언 차례(`Q289`) · 안 쓰는 import(`Q303`) · 순환 복잡도(`Q304`) · 상수 Javadoc(`Q378a`) 넷을 본다. 이 저장소엔 파일 저장 훅이 없어서 정적 검사는 빌드에 붙는다.
 	checkstyle
 	// 버그 패턴의 소스 쪽 눈(`Q301`). 판정은 기준선 래칫 `pmdBaseline` 이 한다 — 아래.
 	pmd
@@ -14,6 +14,8 @@ plugins {
 	// 컴파일 단계 버그 패턴(`Q300`). javac 플러그인이라 **JDK 를 올리면 같이 막힐 수 있다** —
 	// 그때는 `-PerrorProne=false` 로 끄고 판을 맞춘다(`stack.md` 「ErrorProne 은 SpotBugs 옆에 둔다」).
 	id("net.ltgt.errorprone") version "5.1.1"
+	// 실려 나가는 의존의 라이선스를 허용 목록과 맞춘다(`Q379a`) — 아래 `licenseReport`.
+	id("com.github.jk1.dependency-license-report") version "3.1.5"
 }
 
 // 저장소와 같은 선언이다(`2l`). 배포는 안 하지만 갈리면 안 된다 — 루트 `LICENSE` 가 원문이다.
@@ -449,7 +451,17 @@ tasks.test {
 // `build` 는 두 레인을 다 돈다. **가른 것은 도는 자리지 무엇을 검증하나가 아니다** —
 // 「검증」 표의 통과 기준(`BUILD SUCCESSFUL`)이 뜻하는 범위가 좁아지면 안 된다.
 tasks.check {
-	dependsOn(integrationTest, tasks.jacocoTestReport, pmdBaseline)
+	dependsOn(integrationTest, tasks.jacocoTestReport, pmdBaseline, "checkLicense")
+}
+
+// 의존 라이선스(`Q379a`, `coding-rules.md` 「라이선스」). **`runtimeClasspath` 만 센다** — 앱에 실려 나가는 것이 이것이고,
+// 빌드 도구(플러그인·검사기)는 `external-references.md` 「도구」 칸이 따로 든다.
+// **허용 목록이다** — 모르는 라이선스가 오면 빨갛게 서서, 그 자리에서 판단하고 근거와 함께 목록에 넣게 한다.
+// 이름 정규화(`LicenseBundleNormalizer`)가 POM 마다 제각각인 표기(「The Apache Software License, Version 2.0」 류)를 묶는다.
+licenseReport {
+	configurations = arrayOf("runtimeClasspath")
+	filters = arrayOf<com.github.jk1.license.filter.DependencyFilter>(com.github.jk1.license.filter.LicenseBundleNormalizer())
+	allowedLicensesFile = layout.projectDirectory.file("config/license/allowed-licenses.json").asFile
 }
 
 // 커버리지는 측정만 하고 목표를 두지 않는다. 수치를 채우려는 테스트가 생기기 때문이다.
