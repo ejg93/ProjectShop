@@ -60,6 +60,19 @@ class WebhookUrlPolicyTest {
                 .isInstanceOf(ShopException.class);
     }
 
+    /** {@code http} 도 루프백 주소에만 풀린다 — 이름이 공인 주소를 하나라도 가리키면 막는다(`Q406`) */
+    @Test
+    @DisplayName("루프백 허용이 켜져도 공인 주소의 http 는 막는다")
+    void loopbackAllowanceKeepsHttpsForPublic() {
+        assertThatThrownBy(() -> loopbackAllowed.require("http://93.184.216.34/hook"))
+                .isInstanceOfSatisfying(ShopException.class, e ->
+                        assertThat(e.code()).isEqualTo(ErrorCode.WEBHOOK_URL_NOT_ALLOWED));
+        WebhookUrlPolicy mixed = new WebhookUrlPolicy(true, host -> new InetAddress[] {
+            InetAddress.getLoopbackAddress(), InetAddress.getByAddress(new byte[] {93, (byte) 184, (byte) 216, 34})});
+        assertThatThrownBy(() -> mixed.require("http://mixed.test/hook"))
+                .isInstanceOf(ShopException.class);
+    }
+
     /**
      * 검사 뒤에 이름이 가리키는 곳이 바뀌어도(DNS 리바인딩) 연결은 검사한 주소로 간다(`Q210`). {@code rebind.test} 는 예약된 이름이라
      * 시스템 DNS 로 안 풀린다 — 연결이 이름을 다시 풀면 닿지 못하고, 검사한 주소에 못박혔으면 로컬 서버가 받는다.

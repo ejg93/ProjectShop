@@ -27,8 +27,8 @@ import com.projectshop.shop.error.ShopException;
  * 그대로 넘기는 실수」까지다(마무리 53차 독립 리뷰).
  *
  * <p><b>루프백 허용은 한 칸이다</b>({@code shop.webhook.allow-loopback}). 기본은 거짓이고 시험 기반 클래스만 켠다 — 시험은
- * 로컬 HTTP 서버로 받는다. 켜도 풀리는 것은 루프백뿐이고 사설·링크로컬·메타데이터 대역은 그대로 막는다. {@code https} 강제도
- * 같이 풀린다(로컬 서버는 {@code http} 다).
+ * 로컬 HTTP 서버로 받는다. 켜도 풀리는 것은 루프백뿐이고 사설·링크로컬·메타데이터 대역은 그대로 막는다. {@code http} 는
+ * 이름이 가리키는 주소가 전부 루프백일 때만 받는다(로컬 서버는 {@code http} 다, `Q406`) — 공인 주소는 켜도 {@code https} 다.
  */
 @Component
 class WebhookUrlPolicy {
@@ -70,7 +70,8 @@ class WebhookUrlPolicy {
             throw notAllowed(url, "호스트가 없거나 사용자 정보가 붙었다");
         }
         boolean https = "https".equalsIgnoreCase(uri.getScheme());
-        if (!https && !(allowLoopback && "http".equalsIgnoreCase(uri.getScheme()))) {
+        boolean http = "http".equalsIgnoreCase(uri.getScheme());
+        if (!https && !(allowLoopback && http)) {
             throw notAllowed(url, "https 만 받는다");
         }
 
@@ -83,6 +84,9 @@ class WebhookUrlPolicy {
         for (InetAddress address : addresses) {
             if (inward(address) && !(allowLoopback && address.isLoopbackAddress())) {
                 throw notAllowed(url, "안쪽 주소를 가리킨다: " + address.getHostAddress());
+            }
+            if (!https && !address.isLoopbackAddress()) {
+                throw notAllowed(url, "http 는 루프백 주소에만 받는다: " + address.getHostAddress());
             }
         }
         return new Target(uri, List.of(addresses));
