@@ -166,29 +166,50 @@ class CheckCoverageTest extends PostgresTestBase {
             Map.entry("copyright_report_target_reference_check", new Cover("CheckViolationCatalogTest", "대상 종류와 다른 쪽 사진을 가리킨다")));
 
     /** 계정·운영 묶음 — 앞 셋에 없는 표 전부(`Q426e`) */
-    private static final Map<String, Cover> COVERED_ACCOUNT = Map.of();
+    private static final Map<String, Cover> COVERED_ACCOUNT = Map.ofEntries(
+            Map.entry("app_user_alive_fields_check", new Cover("TokenGuardTest", "살아 있는 계정에 이메일·비밀번호 해시·표시 이름이 없다")),
+            Map.entry("seller_verified_fields_check", new Cover("AuthFixture", "활성 셀러에 신원 표시 칸(상호·대표·사업자번호·주소·전화)이 빠졌다")),
+            Map.entry("batch_run_batch_name_check", new Cover("CheckViolationAccountTest", "배치 이름이 소문자·숫자·밑줄 꼴이 아니다")),
+            Map.entry("batch_run_count_range_check", new Cover("CheckViolationAccountTest", "대상·처리 수가 음수거나 처리가 대상을 넘는다")),
+            Map.entry("batch_run_counts_check", new Cover("CheckViolationAccountTest", "성공인데 대상·처리 수가 없다")),
+            Map.entry("batch_run_failure_kind_check", new Cover("CheckViolationAccountTest", "실패 상태와 실패 종류가 짝이 아니다")),
+            Map.entry("batch_run_failure_reason_check", new Cover("CheckViolationAccountTest", "실패 상태와 실패 사유가 짝이 아니다")),
+            Map.entry("batch_run_finished_after_started_check", new Cover("CheckViolationAccountTest", "끝난 시각이 시작보다 앞선다")),
+            Map.entry("consent_item_content_check", new Cover("CheckViolationAccountTest", "본문도 목적도 없다")),
+            Map.entry("consent_item_notice_check", new Cover("CheckViolationAccountTest", "고지 넷(목적·항목·보유기간·불이익)이 같이 차거나 같이 비지 않았다")),
+            Map.entry("email_change_request_expiry_after_issued_check", new Cover("CheckViolationAccountTest", "만료가 발급보다 앞선다")),
+            Map.entry("email_change_request_used_after_issued_check", new Cover("CheckViolationAccountTest", "사용이 발급보다 앞선다")),
+            Map.entry("idempotency_key_hash_check", new Cover("CheckViolationAccountTest", "요청 해시가 64 글자가 아니다")),
+            Map.entry("notification_failure_reason_check", new Cover("CheckViolationAccountTest", "실패 상태와 실패 사유가 짝이 아니다")),
+            Map.entry("notification_sent_at_check", new Cover("CheckViolationAccountTest", "성공 상태와 보낸 시각이 짝이 아니다")),
+            Map.entry("notification_target_check", new Cover("CheckViolationAccountTest", "대상(주문·셀러 주문·환불·동의)을 둘 이상 가리킨다")),
+            Map.entry("password_reset_token_expiry_after_issued_check", new Cover("CheckViolationAccountTest", "만료가 발급보다 앞선다")),
+            Map.entry("password_reset_token_used_after_issued_check", new Cover("CheckViolationAccountTest", "사용이 발급보다 앞선다")),
+            Map.entry("policy_document_body_check", new Cover("CheckViolationAccountTest", "본문이 공백뿐이다")),
+            Map.entry("policy_document_version_check", new Cover("CheckViolationAccountTest", "판 번호가 1 미만이다")),
+            Map.entry("seller_business_reg_no_check", new Cover("CheckViolationAccountTest", "사업자등록번호가 숫자 열 자리가 아니다")),
+            Map.entry("seller_commission_bp_check", new Cover("CheckViolationAccountTest", "수수료 만분율이 0~10000 밖이다")),
+            Map.entry("seller_default_shipping_fee_check", new Cover("CheckViolationAccountTest", "기본 배송비가 음수다")),
+            Map.entry("seller_mail_order_check", new Cover("CheckViolationAccountTest", "통신판매업 신고번호와 면제 사유가 같이 있다")),
+            Map.entry("seller_invitation_accept_check", new Cover("CheckViolationAccountTest", "수락 시각과 수락자가 짝이 아니다")),
+            Map.entry("seller_invitation_accepted_after_issued_check", new Cover("CheckViolationAccountTest", "수락이 발급보다 앞선다")),
+            Map.entry("seller_invitation_expiry_after_issued_check", new Cover("CheckViolationAccountTest", "만료가 발급보다 앞선다")),
+            Map.entry("seller_invitation_outcome_check", new Cover("CheckViolationAccountTest", "수락과 철회가 같이 있다")),
+            Map.entry("seller_invitation_revoked_after_issued_check", new Cover("CheckViolationAccountTest", "철회가 발급보다 앞선다")),
+            Map.entry("webhook_delivery_attempt_count_check", new Cover("CheckViolationAccountTest", "시도 횟수가 음수다")),
+            Map.entry("webhook_delivery_delivered_check", new Cover("CheckViolationAccountTest", "보냄 상태와 배달 시각이 짝이 아니다")),
+            Map.entry("webhook_delivery_last_status_code_check", new Cover("CheckViolationAccountTest", "마지막 응답 코드가 100~599 밖이다")),
+            Map.entry("webhook_delivery_next_attempt_check", new Cover("CheckViolationAccountTest", "대기 상태와 다음 시도 시각이 짝이 아니다")),
+            Map.entry("webhook_endpoint_secret_key_version_check", new Cover("CheckViolationAccountTest", "비밀 키 판이 1 미만이다")),
+            Map.entry("webhook_endpoint_url_scheme_check", new Cover("CheckViolationAccountTest", "주소가 http·https 가 아니다")));
 
     /** 게이트를 세운 날(2026-11-12) 아직 부수는 시험을 안 댄 이름. <b>줄기만 한다</b> */
     private static final Set<String> BASELINE = Set.of(
-            "app_user_alive_fields_check", "batch_run_batch_name_check", "batch_run_count_range_check",
-            "batch_run_counts_check", "batch_run_failure_kind_check", "batch_run_failure_reason_check",
-            "batch_run_finished_after_started_check", "consent_item_content_check", "consent_item_notice_check",
-            "email_change_request_expiry_after_issued_check", "email_change_request_used_after_issued_check",
-            "idempotency_key_hash_check", "notification_failure_reason_check", "notification_sent_at_check",
-            "notification_target_check", "order_item_unit_price_incl_vat_check",
-            "password_reset_token_expiry_after_issued_check", "password_reset_token_used_after_issued_check",
-            "policy_document_body_check", "policy_document_version_check", "seller_business_reg_no_check",
-            "seller_commission_bp_check", "seller_default_shipping_fee_check", "seller_invitation_accept_check",
-            "seller_invitation_accepted_after_issued_check", "seller_invitation_expiry_after_issued_check",
-            "seller_invitation_outcome_check", "seller_invitation_revoked_after_issued_check",
-            "seller_mail_order_check", "seller_verified_fields_check", "webhook_delivery_attempt_count_check",
-            "webhook_delivery_delivered_check", "webhook_delivery_last_status_code_check",
-            "webhook_delivery_next_attempt_check", "webhook_endpoint_secret_key_version_check",
-            "webhook_endpoint_url_scheme_check");
+            "order_item_unit_price_incl_vat_check");
 
 
     /** {@link #BASELINE} 크기의 상한. 이름을 맵으로 옮기면 같이 내린다 */
-    private static final int BASELINE_CEILING = 36;
+    private static final int BASELINE_CEILING = 1;
 
     @Autowired
     private JdbcClient jdbc;
