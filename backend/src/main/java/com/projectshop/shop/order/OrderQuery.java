@@ -33,6 +33,7 @@ import com.projectshop.shop.support.ActorType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.audit.PersonalDataAccess;
 import com.projectshop.shop.audit.PersonalDataResource;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -275,7 +276,7 @@ public class OrderQuery {
     public Page findMine(long userId, String sort, Paging paging) {
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
-        if (!evaluator.decide(userId, "order", "read", Target.ownedBy(userId)).allowed()) {
+        if (!evaluator.decide(userId, PermissionResource.ORDER, "read", Target.ownedBy(userId)).allowed()) {
             return new Page(List.of(), paging.offset(), paging.limit(), 0);
         }
 
@@ -329,7 +330,7 @@ public class OrderQuery {
         OrderBy orderBy = ListQuery.orderBy(sort, DEFAULT_SORT, SORTABLE);
 
         // 남의 주문 하나. all 스코프에서만 덮인다 — `SellerOrderQuery` 가 「전부」를 가르는 수와 같다.
-        if (!evaluator.decide(viewerId, "order", "read", Target.of(-1L, -1L)).allowed()) {
+        if (!evaluator.decide(viewerId, PermissionResource.ORDER, "read", Target.of(-1L, -1L)).allowed()) {
             throw new ShopException(ErrorCode.ORDER_FORBIDDEN);
         }
         if (from != null && to != null && !from.isBefore(to)) {
@@ -408,7 +409,7 @@ public class OrderQuery {
                 .orElseThrow(() -> new ShopException(ErrorCode.ORDER_NOT_FOUND,
                         "그런 주문이 없다: " + orderNumber));
 
-        Decision decision = evaluator.decide(userId, "order", "read",
+        Decision decision = evaluator.decide(userId, PermissionResource.ORDER, "read",
                 Target.ownedBy(order.userId()));
         if (!decision.allowed()) {
             throw new ShopException(ErrorCode.ORDER_NOT_FOUND, "그런 주문이 없다: " + orderNumber);
@@ -698,7 +699,7 @@ public class OrderQuery {
                 .orElseThrow(() -> new ShopException(ErrorCode.ORDER_NOT_FOUND,
                         "그런 주문이 없다: " + orderNumber));
 
-        if (!evaluator.decide(userId, "order", "read", Target.ownedBy(order.userId())).allowed()) {
+        if (!evaluator.decide(userId, PermissionResource.ORDER, "read", Target.ownedBy(order.userId())).allowed()) {
             throw new ShopException(ErrorCode.ORDER_NOT_FOUND, "그런 주문이 없다: " + orderNumber);
         }
         return order.orderId();

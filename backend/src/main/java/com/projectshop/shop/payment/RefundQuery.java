@@ -17,6 +17,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery;
 import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -236,7 +237,7 @@ public class RefundQuery {
                 .optional()
                 .orElseThrow(() -> notFound(refundNumber));
 
-        if (!evaluator.decide(viewerId, "payment", "read",
+        if (!evaluator.decide(viewerId, PermissionResource.PAYMENT, "read",
                 Target.of(row.buyerUserId(), row.sellerId())).allowed()) {
             throw notFound(refundNumber);
         }
@@ -306,11 +307,11 @@ public class RefundQuery {
      */
     private Visible visibleFor(long viewerId) {
         // 남의 것 하나를 물어본다. all 스코프에서만 덮인다.
-        if (evaluator.covers(viewerId, "payment", "read", Target.of(-1L, -1L))) {
+        if (evaluator.covers(viewerId, PermissionResource.PAYMENT, "read", Target.of(-1L, -1L))) {
             return new Visible(true, true, new Long[0]);
         }
 
-        boolean own = evaluator.covers(viewerId, "payment", "read", Target.of(viewerId, -1L));
+        boolean own = evaluator.covers(viewerId, PermissionResource.PAYMENT, "read", Target.of(viewerId, -1L));
 
         Set<Long> memberOf = jdbc.sql("select seller_id from seller_member where user_id = :id")
                 .param("id", viewerId)
@@ -318,12 +319,12 @@ public class RefundQuery {
                 .set();
 
         Set<Long> sellers = memberOf.stream()
-                .filter(sellerId -> evaluator.covers(viewerId, "payment", "read", Target.ofSeller(sellerId)))
+                .filter(sellerId -> evaluator.covers(viewerId, PermissionResource.PAYMENT, "read", Target.ofSeller(sellerId)))
                 .collect(Collectors.toUnmodifiableSet());
 
         if (!own && sellers.isEmpty()) {
             // 막힌 시도라 거부를 감사에 남긴다(`covers` 는 안 남긴다).
-            evaluator.decide(viewerId, "payment", "read", Target.of(-1L, -1L));
+            evaluator.decide(viewerId, PermissionResource.PAYMENT, "read", Target.of(-1L, -1L));
             throw new ShopException(ErrorCode.ORDER_FORBIDDEN, "환불을 볼 권한이 없다");
         }
         return new Visible(false, own, sellers.toArray(Long[]::new));

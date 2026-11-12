@@ -20,6 +20,7 @@ import com.projectshop.shop.support.ImagePipeline;
 
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.support.MaskedName;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -240,7 +241,7 @@ public class ReviewQuery {
                 .set()
                 .stream()
                 .filter(sellerId -> evaluator
-                        .decide(viewerId, "review", "reply", Target.ofSeller(sellerId)).allowed())
+                        .decide(viewerId, PermissionResource.REVIEW, "reply", Target.ofSeller(sellerId)).allowed())
                 .collect(Collectors.toUnmodifiableSet());
         if (sellers.isEmpty()) {
             throw new ShopException(ErrorCode.REVIEW_FORBIDDEN, "답할 수 있는 셀러가 없다");
@@ -327,7 +328,7 @@ public class ReviewQuery {
 
     public ReportResult findReports(long viewerId, ReviewReportStatus status, Paging paging) {
         // 남의 후기 하나. all 스코프에서만 덮인다 — 관리자만 연다(`V85`).
-        if (!evaluator.decide(viewerId, "review", "moderate", Target.ownedBy(-1L)).allowed()) {
+        if (!evaluator.decide(viewerId, PermissionResource.REVIEW, "moderate", Target.ownedBy(-1L)).allowed()) {
             throw new ShopException(ErrorCode.REVIEW_FORBIDDEN, "신고를 볼 권한이 없다");
         }
 

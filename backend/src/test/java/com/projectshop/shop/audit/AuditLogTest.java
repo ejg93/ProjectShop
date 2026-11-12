@@ -24,6 +24,7 @@ import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 감사 기록이 실제로 남는지, 그리고 <b>빠뜨릴 수 없는지</b>를 본다.
@@ -139,7 +140,7 @@ class AuditLogTest extends PostgresTestBase {
         @Test
         @DisplayName("거부하면 호출자가 아무것도 안 해도 기록이 생긴다")
         void deniedDecisionIsRecorded() {
-            evaluator.decide(customer, "order", "read", Target.of(9999L, alpha));
+            evaluator.decide(customer, PermissionResource.ORDER, "read", Target.of(9999L, alpha));
 
             Map<String, Object> row = latest();
 
@@ -153,7 +154,7 @@ class AuditLogTest extends PostgresTestBase {
         @Test
         @DisplayName("권한 자체가 없어서 막힌 것도 남는다")
         void missingPermissionIsRecorded() {
-            evaluator.decide(customer, "settlement", "read", Target.ofSeller(alpha));
+            evaluator.decide(customer, PermissionResource.SETTLEMENT, "read", Target.ofSeller(alpha));
 
             assertThat(latest().get("detail").toString()).contains("규칙이 하나도 없다");
         }
@@ -161,7 +162,7 @@ class AuditLogTest extends PostgresTestBase {
         @Test
         @DisplayName("허용은 남기지 않는다")
         void allowedDecisionIsNotRecorded() {
-            evaluator.decide(customer, "order", "read", Target.of(customer, alpha));
+            evaluator.decide(customer, PermissionResource.ORDER, "read", Target.of(customer, alpha));
 
             assertThat(count())
                     .as("허용까지 남기면 조회 한 번마다 한 줄이 쌓여서 거부가 묻힌다")
@@ -207,7 +208,7 @@ class AuditLogTest extends PostgresTestBase {
         @DisplayName("거부는 업무가 롤백돼도 남는다")
         void denialSurvivesBusinessRollback() {
             business().execute(status -> {
-                evaluator.decide(customer, "order", "read", Target.of(9999L, alpha));
+                evaluator.decide(customer, PermissionResource.ORDER, "read", Target.of(9999L, alpha));
                 status.setRollbackOnly();
                 return null;
             });

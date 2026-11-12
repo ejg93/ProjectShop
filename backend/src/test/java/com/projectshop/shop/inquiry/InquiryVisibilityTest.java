@@ -22,6 +22,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderFixture;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 비공개 문의가 남에게 안 보이나(청크 59).
@@ -553,7 +554,7 @@ class InquiryVisibilityTest extends PostgresTestBase {
         @Test
         @DisplayName("판정이 감사자에게 글을 안 연다")
         void isNotGrantedToTheAuditorByTheEvaluator() {
-            var decision = evaluator.decide(auditorId, "inquiry", "read",
+            var decision = evaluator.decide(auditorId, PermissionResource.INQUIRY, "read",
                     PermissionEvaluator.Target.ownedBy(askerId));
 
             assertThat(decision.allowed())
@@ -1107,10 +1108,10 @@ class InquiryVisibilityTest extends PostgresTestBase {
             fixture.grantOrg(sellerOwnerId, "seller_owner", second);
 
             boolean first = evaluator
-                    .decide(sellerOwnerId, "inquiry", "read", PermissionEvaluator.Target.ofSeller(sellerId))
+                    .decide(sellerOwnerId, PermissionResource.INQUIRY, "read", PermissionEvaluator.Target.ofSeller(sellerId))
                     .visibleFieldGroups().covers(InquiryPersonalFields.BODY.code());
             boolean other = evaluator
-                    .decide(sellerOwnerId, "inquiry", "read", PermissionEvaluator.Target.ofSeller(second))
+                    .decide(sellerOwnerId, PermissionResource.INQUIRY, "read", PermissionEvaluator.Target.ofSeller(second))
                     .visibleFieldGroups().covers(InquiryPersonalFields.BODY.code());
 
             assertThat(other)

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.auth.PermissionResource;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 
 /**
@@ -37,15 +39,15 @@ class AuditTargetTypeTest extends PostgresTestBase {
     private MockMvc mvc;
 
     @Test
-    @DisplayName("권한 표의 자원이 전부 감사 대상 종류에 있다 — 거부 기록이 그 이름을 그대로 쓴다")
-    void everyPermissionResourceIsATargetType() {
+    @DisplayName("권한 표의 자원과 PermissionResource 가 양방향으로 같다 — 시드가 원천이다")
+    void permissionResourcesMatchSeed() {
         List<String> resources = jdbc.sql("select distinct resource from permission order by resource")
                 .query(String.class)
                 .list();
 
         assertThat(resources).isNotEmpty();
-        assertThat(resources).allSatisfy(resource ->
-                assertThat(AuditTargetType.ofResource(resource).code()).isEqualTo(resource));
+        assertThat(resources).containsExactlyInAnyOrderElementsOf(
+                Arrays.stream(PermissionResource.values()).map(PermissionResource::code).toList());
     }
 
     @Test

@@ -21,6 +21,7 @@ import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.audit.ListAccess;
 import com.projectshop.shop.audit.PersonalDataResource;
 import com.projectshop.shop.audit.Unrecorded;
+import com.projectshop.shop.auth.PermissionResource;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -48,7 +49,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class InquiryQuery {
 
     /** 권한 표의 자원 이름({@code inquiry:*}). 권한 표의 시드와 글자가 같아야 한다 */
-    private static final String RESOURCE = "inquiry";
+    private static final PermissionResource RESOURCE = PermissionResource.INQUIRY;
     /** 조회 권한의 행위 이름({@code inquiry:read}). 위와 같다 */
     private static final String READ = "read";
     /** 답변 권한. `V54` 가 셀러에게만 허용하고 감사자에게 거부한다 */

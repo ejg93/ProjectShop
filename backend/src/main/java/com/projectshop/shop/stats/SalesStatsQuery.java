@@ -19,6 +19,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.BatchRuns;
 import com.projectshop.shop.support.BusinessCalendar;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -39,7 +40,7 @@ public class SalesStatsQuery {
     static final int MAX_DAYS = 366;
 
     /** 권한 표의 자원 이름({@code sales_stats:*}). 권한 표의 시드와 글자가 같아야 한다 */
-    private static final String RESOURCE = "sales_stats";
+    private static final PermissionResource RESOURCE = PermissionResource.SALES_STATS;
     /** 조회 권한의 행위 이름({@code sales_stats:read}). 위와 같다 */
     private static final String READ = "read";
 

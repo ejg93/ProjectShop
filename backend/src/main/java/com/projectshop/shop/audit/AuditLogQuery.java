@@ -13,6 +13,7 @@ import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
+import com.projectshop.shop.auth.PermissionResource;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -135,7 +136,7 @@ public class AuditLogQuery {
                 ? Target.of(-1L, -1L)
                 : Target.ownedBy(criteria.actorUserId());
 
-        Decision decision = evaluator.decide(viewerId, "audit", "read", target);
+        Decision decision = evaluator.decide(viewerId, PermissionResource.AUDIT, "read", target);
         if (!decision.allowed()) {
             // 자원의 존재를 감추지 않는다. 감사 로그가 있다는 사실 자체는 비밀이 아니고,
             // 404 로 감추면 권한을 받은 뒤에도 같은 응답이라 원인을 못 가린다(D5).

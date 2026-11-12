@@ -27,6 +27,7 @@ import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.audit.PersonalDataAccess;
 import com.projectshop.shop.audit.PersonalDataResource;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -281,7 +282,7 @@ public class SellerOrderQuery {
                 .optional()
                 .orElseThrow(() -> notFound(sellerOrderNumber));
 
-        Decision decision = evaluator.decide(viewerId, "order", "read",
+        Decision decision = evaluator.decide(viewerId, PermissionResource.ORDER, "read",
                 Target.of(row.buyerUserId(), row.sellerId()));
         if (!decision.allowed()) {
             throw notFound(sellerOrderNumber);
@@ -375,7 +376,7 @@ public class SellerOrderQuery {
      */
     private Allowed<Long> visibleSellersFor(long viewerId) {
         // 남의 주문 하나. all 스코프에서만 덮인다.
-        if (evaluator.covers(viewerId, "order", "read", Target.of(-1L, -1L))) {
+        if (evaluator.covers(viewerId, PermissionResource.ORDER, "read", Target.of(-1L, -1L))) {
             return Allowed.everything();
         }
 
@@ -385,13 +386,13 @@ public class SellerOrderQuery {
                 .set();
 
         Set<Long> visible = memberOf.stream()
-                .filter(sellerId -> evaluator.covers(viewerId, "order", "read", Target.ofSeller(sellerId)))
+                .filter(sellerId -> evaluator.covers(viewerId, PermissionResource.ORDER, "read", Target.ofSeller(sellerId)))
                 .collect(Collectors.toUnmodifiableSet());
 
         if (visible.isEmpty()) {
             // 소속이 있어도 주문 권한이 없으면 볼 목록이 없다. 0건이 아니라 거부다 —
             // 0건과 못 봄이 갈려야 개수로 정보가 새지 않는다. 막힌 시도라 거부를 감사에 남긴다(`covers` 는 안 남긴다).
-            evaluator.decide(viewerId, "order", "read", Target.of(-1L, -1L));
+            evaluator.decide(viewerId, PermissionResource.ORDER, "read", Target.of(-1L, -1L));
             throw new ShopException(ErrorCode.ORDER_FORBIDDEN);
         }
         return Allowed.only(visible);

@@ -13,6 +13,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ObjectStorage;
 import com.projectshop.shop.support.ObjectStorage.Visibility;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 남의 저작물 신고를 받고 처리한다({@code Q94}, {@code D2} {@code R42}).
@@ -144,7 +145,7 @@ public class CopyrightReportService {
 
         // **동작을 새로 팠다.** 기존 product:delete 는 seller_owner 가 seller 스코프로 갖고 있어서,
         // 그것을 쓰면 셀러가 자기 상품에 들어온 신고를 스스로 판정한다 — 신고의 상대가 판정하는 구조다.
-        if (!evaluator.decide(actorUserId, "product", "moderate",
+        if (!evaluator.decide(actorUserId, PermissionResource.PRODUCT, "moderate",
                 Target.ofSeller(pending.sellerId())).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }

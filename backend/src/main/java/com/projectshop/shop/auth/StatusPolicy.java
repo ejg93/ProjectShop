@@ -20,5 +20,5 @@ public interface StatusPolicy {
      *
      * @return 상태 축이 안 걸린 동작이면 {@code Everything}, 걸리면 허용 상태 코드의 {@code Only}
      */
-    Allowed<String> allowedStatuses(String resource, String action);
+    Allowed<String> allowedStatuses(PermissionResource resource, String action);
 }

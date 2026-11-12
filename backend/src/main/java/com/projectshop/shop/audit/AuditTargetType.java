@@ -1,6 +1,5 @@
 package com.projectshop.shop.audit;
 
-import java.util.Arrays;
 import java.util.Locale;
 
 /**
@@ -11,11 +10,8 @@ import java.util.Locale;
  * {@code check} + 열거형이다({@code audit_log_target_type_check}, `V133`). 그전에는 자유 글자라
  * 오타가 조용히 쌓이고 필터는 모르는 값에 0건 200 을 줬다.
  *
- * <p><b>{@code permission.resource} 도 여기 든다.</b> {@code PermissionEvaluator} 가 거부 기록의 대상으로
- * 권한 표의 자원 이름을 그대로 쓴다({@link #ofResource}). 두 목록을 가르면 같은 칸의 {@code check} 가
- * 둘이 된다. 「권한 표의 자원 ⊆ 이 목록」은 {@code AuditTargetTypeTest} 가 시드 DB 로 잰다.
- * <b>코드 글자 쪽은 안 잰다</b> — 권한 표에 없는 자원 이름으로 {@code decide} 를 부르면 거부 기록에서
- * {@link #ofResource} 가 던져 403 대신 500 이 된다. 새 자원은 권한 시드와 함께 들어와야 한다(2026-11-08 마무리 80차 리뷰).
+ * <p><b>{@code permission.resource} 도 여기 든다.</b> 권한 거부 기록의 대상이 그 자원이라서다. 두 목록을 가르면 같은 칸의
+ * {@code check} 가 둘이 된다. {@code PermissionResource} 가 상수마다 이 종류를 든다 — 목록 밖 자원은 컴파일이 막는다(`Q409a`).
  */
 public enum AuditTargetType {
 
@@ -49,16 +45,5 @@ public enum AuditTargetType {
     /** DB 에 들어가는 값. {@code EnumConstraintTest} 가 이 이름의 메서드를 읽는다 */
     public String code() {
         return name().toLowerCase(Locale.ROOT);
-    }
-
-    /**
-     * 권한 표의 자원 이름으로 고른다. <b>없으면 터진다</b> — 권한 표에 자원이 늘었는데 여기 안 더한 것이라,
-     * 조용히 넘기면 거부 기록이 {@code check} 에서 깨진다. 그 어긋남은 {@code AuditTargetTypeTest} 가 먼저 잡는다.
-     */
-    public static AuditTargetType ofResource(String resource) {
-        return Arrays.stream(values())
-                .filter(type -> type.code().equals(resource))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("감사 대상 종류에 없는 자원이다: " + resource));
     }
 }

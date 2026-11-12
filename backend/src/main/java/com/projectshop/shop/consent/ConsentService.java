@@ -14,6 +14,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
+import com.projectshop.shop.auth.PermissionResource;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -365,7 +366,7 @@ public class ConsentService {
     }
 
     private void requirePermission(long userId, String action, String message) {
-        if (!evaluator.decide(userId, "user", action, Target.ownedBy(userId)).allowed()) {
+        if (!evaluator.decide(userId, PermissionResource.USER, action, Target.ownedBy(userId)).allowed()) {
             throw new ShopException(ErrorCode.CONSENT_FORBIDDEN, message);
         }
     }

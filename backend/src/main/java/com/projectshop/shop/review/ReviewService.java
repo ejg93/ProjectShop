@@ -13,6 +13,7 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 후기를 쓰고 고치고 지운다(`Q160`).
@@ -199,7 +200,7 @@ public class ReviewService {
     private void requirePermission(long actorUserId, String action, long ownerUserId,
             String shipmentStatus) {
         Target target = new Target(ownerUserId, null, shipmentStatus);
-        if (!evaluator.decide(actorUserId, "review", action, target).allowed()) {
+        if (!evaluator.decide(actorUserId, PermissionResource.REVIEW, action, target).allowed()) {
             throw new ShopException(ErrorCode.REVIEW_NOT_ALLOWED);
         }
     }

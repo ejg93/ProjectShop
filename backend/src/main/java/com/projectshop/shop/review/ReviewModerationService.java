@@ -13,6 +13,7 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 후기에 답하고, 신고하고, 신고를 처리하고, 내린 것을 되살린다(`Q167`).
@@ -36,7 +37,7 @@ import com.projectshop.shop.error.ShopException;
 public class ReviewModerationService {
 
     /** 권한 표의 자원 이름({@code review:*}). 권한 표의 시드와 글자가 같아야 한다 */
-    private static final String RESOURCE = "review";
+    private static final PermissionResource RESOURCE = PermissionResource.REVIEW;
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;

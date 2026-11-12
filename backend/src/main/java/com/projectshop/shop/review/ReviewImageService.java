@@ -13,6 +13,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ImagePipeline;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -127,7 +128,7 @@ public class ReviewImageService {
      * 가르면 후기 번호를 두드려 누가 쓴 것인지를 셀 수 있다.
      */
     private void requireWriter(long actorUserId, long writerUserId) {
-        if (!evaluator.decide(actorUserId, "review", "update", Target.ownedBy(writerUserId)).allowed()) {
+        if (!evaluator.decide(actorUserId, PermissionResource.REVIEW, "update", Target.ownedBy(writerUserId)).allowed()) {
             throw new ShopException(ErrorCode.REVIEW_NOT_ALLOWED);
         }
     }

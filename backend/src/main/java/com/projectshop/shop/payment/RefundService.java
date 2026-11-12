@@ -25,6 +25,7 @@ import com.projectshop.shop.support.BusinessCalendar;
 import com.projectshop.shop.support.ExposedNumber;
 import com.projectshop.shop.support.Retries;
 import com.projectshop.shop.support.ActorType;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 셀러 묶음 하나의 대금을 돌려준다. <b>요청과 승인이 갈려 있다.</b>
@@ -59,7 +60,7 @@ public class RefundService {
      * 「통신판매업자인 통신판매중개자」에게만 걸려서 우리를 직접 지목하지 않는다 —
      * 결론은 같고 근거가 한 칸 비켜 있었다.
      */
-    static final String RESOURCE = "payment";
+    static final PermissionResource RESOURCE = PermissionResource.PAYMENT;
     /** 승인과 반려가 같은 권한이다. 대기열(`RefundQuery`)이 버튼을 고를 때 이 이름을 같이 쓴다(`Q185`). */
     static final String APPROVE = "refund";
     /** 구매자가 환불을 청하는 권한의 행위 이름. 권한 표의 시드와 글자가 같아야 한다 */

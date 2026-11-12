@@ -8,6 +8,7 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 확정된 정산을 지급 상태로 옮긴다(청크 21).
@@ -34,7 +35,7 @@ import com.projectshop.shop.error.ShopException;
 public class SettlementPayoutService {
 
     /** 권한 표의 자원 이름({@code settlement:*}). 권한 표의 시드와 글자가 같아야 한다 */
-    private static final String RESOURCE = "settlement";
+    private static final PermissionResource RESOURCE = PermissionResource.SETTLEMENT;
     /** 지급을 청하는 권한의 행위 이름({@code settlement:request_payout}). 위와 같다 */
     private static final String REQUEST = "request_payout";
     /** 지급을 정하는 권한의 행위 이름({@code settlement:payout}). 위와 같다 */

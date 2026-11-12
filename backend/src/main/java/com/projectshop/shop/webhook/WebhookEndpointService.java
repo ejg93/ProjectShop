@@ -21,6 +21,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.EnumValue;
+import com.projectshop.shop.auth.PermissionResource;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -262,7 +263,7 @@ public class WebhookEndpointService {
     }
 
     private boolean allowed(long userId, long sellerId, String action) {
-        return evaluator.decide(userId, "webhook", action, Target.ofSeller(sellerId)).allowed();
+        return evaluator.decide(userId, PermissionResource.WEBHOOK, action, Target.ofSeller(sellerId)).allowed();
     }
 
     private static ShopException notFound(long endpointId) {

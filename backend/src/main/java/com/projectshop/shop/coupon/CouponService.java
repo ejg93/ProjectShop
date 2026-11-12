@@ -16,6 +16,7 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 쿠폰을 주문에 적용한다 — 얼마를 깎고 그 값을 항목에 어떻게 나누나(`50`).
@@ -78,7 +79,7 @@ public class CouponService {
      */
     @Transactional
     public long define(long actorUserId, NewCoupon command) {
-        requirePermission(actorUserId, "coupon", "create", null);
+        requirePermission(actorUserId, PermissionResource.COUPON, "create", null);
 
         if ((command.sellerId() != null) != "seller".equals(command.bearer())) {
             throw new ShopException(ErrorCode.COUPON_NOT_APPLICABLE,
@@ -132,7 +133,7 @@ public class CouponService {
      */
     @Transactional
     public void withdraw(long actorUserId, long couponId) {
-        requirePermission(actorUserId, "coupon", "delete", null);
+        requirePermission(actorUserId, PermissionResource.COUPON, "delete", null);
 
         int down = jdbc.sql("""
                         update coupon set deleted_at = now()
@@ -163,7 +164,7 @@ public class CouponService {
      */
     @Transactional
     public long register(long actorUserId, String code) {
-        requirePermission(actorUserId, "coupon_issue", "create", actorUserId);
+        requirePermission(actorUserId, PermissionResource.COUPON_ISSUE, "create", actorUserId);
 
         Issuable issuable = jdbc.sql("""
                         select coupon_id, valid_days from coupon
@@ -211,7 +212,7 @@ public class CouponService {
      * <p>정의({@code coupon})에는 주인이 없어서 {@code null} 이다. 거기는 {@code all} 만
      * 덮으므로 {@code own} 을 준 역할이 지나갈 일이 없다.
      */
-    private void requirePermission(long actorUserId, String resource, String action,
+    private void requirePermission(long actorUserId, PermissionResource resource, String action,
             Long ownerUserId) {
         Target target = new Target(ownerUserId, null, null);
         if (!evaluator.decide(actorUserId, resource, action, target).allowed()) {

@@ -213,7 +213,7 @@ class UserRoleServiceTest extends PostgresTestBase {
 
     /** 감사 조회 권한은 `auditor` 만 가진다(`V5`). 판정이 바뀌었는지를 이것으로 본다 */
     private boolean canReadAudit(long userId) {
-        return evaluator.decide(userId, "audit", "read", new Target(null, null, null)).allowed();
+        return evaluator.decide(userId, PermissionResource.AUDIT, "read", new Target(null, null, null)).allowed();
     }
 
     private int globalRoleCount(long userId, String roleCode) {

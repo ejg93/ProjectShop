@@ -27,6 +27,7 @@ import com.projectshop.shop.support.ListQuery.OrderBy;
 import com.projectshop.shop.support.ListQuery.Paging;
 import com.projectshop.shop.inquiry.InquiryQuery;
 import com.projectshop.shop.review.ReviewQuery;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 상품을 찾아 본다. <b>공개 목록과 셀러 목록을 가른다.</b>
@@ -549,7 +550,7 @@ public class ProductQuery {
                 .filter(transition -> transition.from() == status)
                 // 쉬기·다시 팔기는 셀러 소속만 받는다(`Q198`). 관리자에게 내면 셀러가 곧바로 되돌리는 버튼이 된다.
                 .filter(transition -> !ProductTransitions.sellerOwn(transition) || memberOf.contains(sellerId))
-                .filter(transition -> evaluator.decide(viewerId, "product", transition.permission(), target).allowed())
+                .filter(transition -> evaluator.decide(viewerId, PermissionResource.PRODUCT, transition.permission(), target).allowed())
                 .map(ProductTransitions::actionName)
                 .distinct()
                 .toList();
@@ -565,7 +566,7 @@ public class ProductQuery {
 
     private Allowed<Long> visibleSellersFor(long viewerId) {
         // 남의 셀러 하나. all 스코프에서만 덮인다.
-        if (evaluator.covers(viewerId, "product", "update", Target.of(-1L, -1L))) {
+        if (evaluator.covers(viewerId, PermissionResource.PRODUCT, "update", Target.of(-1L, -1L))) {
             return Allowed.everything();
         }
 
@@ -576,13 +577,13 @@ public class ProductQuery {
         // 그러면 **담당자가 자기 셀러의 관리 목록을 아예 못 연다** — 고칠 수 있는 상품이
         // 그 목록 안에 있는데 목록으로 가는 길이 막힌다.
         Set<Long> visible = memberOf.stream()
-                .filter(sellerId -> evaluator.covers(viewerId, "product", "update", Target.of(viewerId, sellerId)))
+                .filter(sellerId -> evaluator.covers(viewerId, PermissionResource.PRODUCT, "update", Target.of(viewerId, sellerId)))
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
         if (visible.isEmpty()) {
             // 소속이 있어도 상품 권한이 없으면 볼 목록이 없다. 0건이 아니라 거부다 —
             // 0건과 못 봄이 갈려야 개수로 정보가 새지 않는다(`4b-1` 과 같은 이유). 막힌 시도라 거부를 감사에 남긴다.
-            evaluator.decide(viewerId, "product", "update", Target.of(-1L, -1L));
+            evaluator.decide(viewerId, PermissionResource.PRODUCT, "update", Target.of(-1L, -1L));
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
         return Allowed.only(visible);

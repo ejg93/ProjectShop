@@ -11,6 +11,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -83,7 +84,7 @@ public class CouponQuery {
         // **판정을 지난다**(마무리 44차 독립 리뷰). `user_id` 로 좁히는 것만으로는
         // `coupon_issue:read` 부여가 **아무것도 안 막고**, `V91` 이 「감사자에게는 안 준다」고
         // 적어 둔 근거가 글로만 남는다. 대상에 주인을 실어야 `own` 이 덮는다.
-        if (!evaluator.decide(actorUserId, "coupon_issue", "read", Target.ownedBy(userId))
+        if (!evaluator.decide(actorUserId, PermissionResource.COUPON_ISSUE, "read", Target.ownedBy(userId))
                 .allowed()) {
             throw new ShopException(ErrorCode.ACCESS_DENIED);
         }
@@ -130,7 +131,7 @@ public class CouponQuery {
      * 읽기 권한을 조회에 그대로 건다. 대상에 주인이 없어서 {@code all} 만 덮는다.
      */
     public DefinitionPage findAll(long actorUserId, Paging paging) {
-        if (!evaluator.decide(actorUserId, "coupon", "read", new Target(null, null, null))
+        if (!evaluator.decide(actorUserId, PermissionResource.COUPON, "read", new Target(null, null, null))
                 .allowed()) {
             throw new ShopException(ErrorCode.ACCESS_DENIED);
         }
@@ -166,7 +167,7 @@ public class CouponQuery {
                 .single();
 
         boolean canCreate = evaluator
-                .decide(actorUserId, "coupon", "create", new Target(null, null, null))
+                .decide(actorUserId, PermissionResource.COUPON, "create", new Target(null, null, null))
                 .allowed();
 
         return new DefinitionPage(items, paging.offset(), paging.limit(), total, canCreate);

@@ -11,6 +11,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ExposedNumber;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 문의를 받고 답한다(청크 59).
@@ -46,7 +47,7 @@ public class InquiryService {
     // 여기 상수로 두면 사본이 둘이 되고 그중 하나만 회계를 받는다.
 
     /** 권한 표의 자원 이름({@code inquiry:*}). 권한 표의 시드와 글자가 같아야 한다 */
-    private static final String RESOURCE = "inquiry";
+    private static final PermissionResource RESOURCE = PermissionResource.INQUIRY;
     /** 문의를 남기는 권한의 행위 이름({@code inquiry:create}). 위와 같다 */
     private static final String CREATE = "create";
     /** 답하는 권한의 행위 이름({@code inquiry:answer}). 위와 같다 */

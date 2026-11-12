@@ -22,6 +22,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Decision;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.audit.PersonalDataAccess;
 import com.projectshop.shop.audit.PersonalDataResource;
+import com.projectshop.shop.auth.PermissionResource;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -78,7 +79,7 @@ public class AccountService {
     }
 
     public Account read(long userId) {
-        Decision decision = evaluator.decide(userId, "user", "read", Target.ownedBy(userId));
+        Decision decision = evaluator.decide(userId, PermissionResource.USER, "read", Target.ownedBy(userId));
         if (!decision.allowed()) {
             throw new ShopException(ErrorCode.ACCOUNT_FORBIDDEN, "계정을 볼 권한이 없다");
         }
@@ -193,7 +194,7 @@ public class AccountService {
     }
 
     private void requireUpdatePermission(long userId) {
-        Decision decision = evaluator.decide(userId, "user", "update", Target.ownedBy(userId));
+        Decision decision = evaluator.decide(userId, PermissionResource.USER, "update", Target.ownedBy(userId));
         if (!decision.allowed()) {
             throw new ShopException(ErrorCode.ACCOUNT_FORBIDDEN, "계정을 고칠 권한이 없다");
         }

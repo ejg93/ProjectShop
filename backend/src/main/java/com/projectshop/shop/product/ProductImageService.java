@@ -11,6 +11,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ImagePipeline;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 셀러가 자기 상품에 사진을 올린다({@code 27}, {@code media-rules.md}).
@@ -57,7 +58,7 @@ public class ProductImageService {
      */
     @Transactional
     public Uploaded upload(long actorUserId, long productId, ImagePipeline.Incoming file) {
-        if (!evaluator.decide(actorUserId, "product", "update", targetOf(productId)).allowed()) {
+        if (!evaluator.decide(actorUserId, PermissionResource.PRODUCT, "update", targetOf(productId)).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
         if (countOf(productId) >= MAX_IMAGES_PER_PRODUCT) {
@@ -100,7 +101,7 @@ public class ProductImageService {
      */
     @Transactional(readOnly = true)
     public List<Image> find(long actorUserId, long productId) {
-        if (!evaluator.decide(actorUserId, "product", "update", targetOf(productId)).allowed()) {
+        if (!evaluator.decide(actorUserId, PermissionResource.PRODUCT, "update", targetOf(productId)).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
 
@@ -161,7 +162,7 @@ public class ProductImageService {
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        if (!evaluator.decide(actorUserId, "product", "update",
+        if (!evaluator.decide(actorUserId, PermissionResource.PRODUCT, "update",
                 new Target(owned.createdByUserId(), owned.sellerId(), null)).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }

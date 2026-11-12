@@ -6,6 +6,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.auth.Allowed;
+import com.projectshop.shop.auth.PermissionResource;
 import com.projectshop.shop.auth.StatusPolicy;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
 
@@ -88,8 +89,8 @@ class OrderStatusPolicy implements StatusPolicy {
      * 되살리기의 곁가지(재고·종료 시각·기한)를 먼저 세워야 해서 `Q201` 이 든다.
      */
     @Override
-    public Allowed<String> allowedStatuses(String resource, String action) {
-        if (!"order".equals(resource)) {
+    public Allowed<String> allowedStatuses(PermissionResource resource, String action) {
+        if (resource != PermissionResource.ORDER) {
             return Allowed.everything();
         }
         return BY_ACTION.getOrDefault(action, Allowed.everything());

@@ -19,6 +19,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.order.OrderStatusService.Actor;
 import com.projectshop.shop.order.OrderTransitions.Shipment;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 사람이 셀러 묶음의 상태를 옮기는 자리. 판정과 전이 사이를 잇는다.
@@ -165,7 +166,7 @@ public class OrderActionService {
         Row row = find(sellerOrderNumber);
 
         Target target = Target.of(row.buyerUserId(), row.sellerId()).inStatus(row.status());
-        if (!evaluator.decide(userId, "order", "force_status", target).allowed()) {
+        if (!evaluator.decide(userId, PermissionResource.ORDER, "force_status", target).allowed()) {
             throw notFound(sellerOrderNumber);
         }
         if (reason == null || reason.isBlank()) {
@@ -193,7 +194,7 @@ public class OrderActionService {
      */
     public List<String> forcibleStatuses(long userId, long buyerUserId, long sellerId, String status) {
         Target target = Target.of(buyerUserId, sellerId).inStatus(status);
-        if (!evaluator.allowedActions(userId, "order", Set.of("force_status"), target).contains("force_status")) {
+        if (!evaluator.allowedActions(userId, PermissionResource.ORDER, Set.of("force_status"), target).contains("force_status")) {
             return List.of();
         }
         return OrderTransitions.forcibleFrom(Shipment.of(status)).stream().map(Enum::name).toList();
@@ -246,7 +247,7 @@ public class OrderActionService {
         Row row = find(sellerOrderNumber);
 
         Target target = Target.of(row.buyerUserId(), row.sellerId()).inStatus(row.status());
-        if (!evaluator.decide(userId, "order", action.permission(), target).allowed()) {
+        if (!evaluator.decide(userId, PermissionResource.ORDER, action.permission(), target).allowed()) {
             throw notFound(sellerOrderNumber);
         }
 
@@ -271,7 +272,7 @@ public class OrderActionService {
         Row row = find(sellerOrderNumber);
 
         Target target = Target.of(row.buyerUserId(), row.sellerId()).inStatus(row.status());
-        if (!evaluator.decide(userId, "order", "receive_return", target).allowed()) {
+        if (!evaluator.decide(userId, PermissionResource.ORDER, "receive_return", target).allowed()) {
             throw notFound(sellerOrderNumber);
         }
 
@@ -319,7 +320,7 @@ public class OrderActionService {
         boolean received = returnRequest != null && returnRequest.received();
         Target target = Target.of(buyerUserId, sellerId).inStatus(status);
 
-        Set<String> permitted = evaluator.allowedActions(userId, "order",
+        Set<String> permitted = evaluator.allowedActions(userId, PermissionResource.ORDER,
                 Arrays.stream(Action.values())
                         .map(Action::permission)
                         .collect(Collectors.toUnmodifiableSet()),
@@ -349,7 +350,7 @@ public class OrderActionService {
             return List.of();
         }
         Target target = Target.of(buyerUserId, sellerId).inStatus(status);
-        return evaluator.allowedActions(userId, "order", Set.of("receive_return"), target).contains("receive_return")
+        return evaluator.allowedActions(userId, PermissionResource.ORDER, Set.of("receive_return"), target).contains("receive_return")
                 ? List.of("RECEIVE")
                 : List.of();
     }
