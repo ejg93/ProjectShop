@@ -140,6 +140,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("auth.Effect", List.of("role_permission_effect_check"));
         pairs.put("auth.Scope", List.of("role_permission_scope_check"));
         pairs.put("seller.MailOrderExemption", List.of("seller_exempt_reason_check"));
+        pairs.put("auth.PermissionResource", List.of("permission_resource_check"));
         pairs.put("product.ProductStatus", List.of("product_status_check"));
         pairs.put("product.SkuStatus", List.of("sku_status_check"));
         pairs.put("support.ImageContentType", List.of("product_image_content_type_check",

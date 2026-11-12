@@ -221,7 +221,7 @@ public class UserRoleService {
      * 판정을 지나야 그 변화가 여기에도 걸린다.
      */
     private void requireSelfRead(long actorUserId) {
-        if (!evaluator.decide(actorUserId, "user", "read",
+        if (!evaluator.decide(actorUserId, PermissionResource.USER, "read",
                 PermissionEvaluator.Target.ownedBy(actorUserId))
                 .allowed()) {
             throw new ShopException(ErrorCode.ROLE_FORBIDDEN);
@@ -235,6 +235,6 @@ public class UserRoleService {
     }
 
     private boolean allowed(long actorUserId, String action) {
-        return evaluator.decide(actorUserId, "role", action, NO_TARGET).allowed();
+        return evaluator.decide(actorUserId, PermissionResource.ROLE, action, NO_TARGET).allowed();
     }
 }

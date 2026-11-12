@@ -20,7 +20,7 @@ decide(userId, resource, action, target) -> Decision
 | 입력 | 무엇 |
 |---|---|
 | `userId` | 판정 대상 사용자 |
-| `resource` | 자원 종류. `order`, `product`, `payment`, `user`, `role` |
+| `resource` | 자원 종류 — `PermissionResource` 열거형(17). 시드 `permission.resource` 와 같은지 `AuditTargetTypeTest`, `check` 와 같은지 `EnumConstraintTest`(`Q409a`·`Q409b`) |
 | `action` | 동작. `read`, `create`, `update`, `delete`, `update_status`, `cancel`, `confirm`, `request_return`, `refund`, `assign`, `manage` |
 | `target.ownerUserId` | 이 행의 주인. 주문이면 주문자. 주인이 없으면 null |
 | `target.sellerId` | 이 행이 속한 셀러. 셀러와 무관하면 null |

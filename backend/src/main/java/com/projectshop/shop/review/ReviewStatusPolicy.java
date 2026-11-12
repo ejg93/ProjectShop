@@ -6,6 +6,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.auth.Allowed;
+import com.projectshop.shop.auth.PermissionResource;
 import com.projectshop.shop.auth.StatusPolicy;
 
 /**
@@ -50,8 +51,8 @@ class ReviewStatusPolicy implements StatusPolicy {
             "create", Allowed.only(Set.of("delivered", "confirmed")));
 
     @Override
-    public Allowed<String> allowedStatuses(String resource, String action) {
-        if (!"review".equals(resource)) {
+    public Allowed<String> allowedStatuses(PermissionResource resource, String action) {
+        if (resource != PermissionResource.REVIEW) {
             return Allowed.everything();
         }
         return BY_ACTION.getOrDefault(action, Allowed.everything());

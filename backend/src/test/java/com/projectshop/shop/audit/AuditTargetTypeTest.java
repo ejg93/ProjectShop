@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -18,14 +19,15 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.auth.PermissionResource;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 
 /**
- * 감사 대상 종류의 값 목록이 세 자리에서 닫혀 있는지 본다(`Q381`) — 권한 표 · {@code check} · 필터 입구.
+ * 감사 대상 종류와 권한 자원의 값 목록이 닫혀 있는지 본다(`Q381`·`Q409a`·`Q409b`) — 권한 표 · {@code check} 둘 · 필터 입구.
  *
  * <p>{@code EnumConstraintTest} 는 열거형과 {@code check} 의 글자가 같은지만 본다. 여기는 그 바깥이다 —
- * 권한 표에 자원이 늘면 거부 기록이 {@code check} 에서 깨지는데 그 자원은 마이그레이션의 데이터라
- * 글자 대조로는 안 보인다.
+ * 권한 표의 자원은 마이그레이션의 데이터라 글자 대조로는 안 보여서, 시드와 {@code PermissionResource} 가 같은지를
+ * 시드 DB 로 잰다. 그 자원이 감사 대상 종류에 드는 것은 {@code PermissionResource} 생성자(컴파일)가 든다.
  */
 @DisplayName("감사 대상 종류")
 class AuditTargetTypeTest extends PostgresTestBase {
@@ -37,15 +39,15 @@ class AuditTargetTypeTest extends PostgresTestBase {
     private MockMvc mvc;
 
     @Test
-    @DisplayName("권한 표의 자원이 전부 감사 대상 종류에 있다 — 거부 기록이 그 이름을 그대로 쓴다")
-    void everyPermissionResourceIsATargetType() {
+    @DisplayName("권한 표의 자원과 PermissionResource 가 양방향으로 같다 — 시드가 원천이다")
+    void permissionResourcesMatchSeed() {
         List<String> resources = jdbc.sql("select distinct resource from permission order by resource")
                 .query(String.class)
                 .list();
 
         assertThat(resources).isNotEmpty();
-        assertThat(resources).allSatisfy(resource ->
-                assertThat(AuditTargetType.ofResource(resource).code()).isEqualTo(resource));
+        assertThat(resources).containsExactlyInAnyOrderElementsOf(
+                Arrays.stream(PermissionResource.values()).map(PermissionResource::code).toList());
     }
 
     @Test
@@ -58,6 +60,18 @@ class AuditTargetTypeTest extends PostgresTestBase {
                         """).update())
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("audit_log_target_type_check");
+    }
+
+    @Test
+    @DisplayName("목록 밖 권한 자원은 check 가 막는다 — 거부 기록이 그 글자를 대상 종류로 쓴다")
+    void checkRejectsUnknownPermissionResource() {
+        // 시험 트랜잭션 안에서 넣는다. 밖에서 고치면 fork DB 를 건드린다(2026-09-26 실측).
+        assertThatThrownBy(() -> jdbc.sql("""
+                        insert into permission (resource, action, kind)
+                        values ('test_q409', 'read', 'read')
+                        """).update())
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("permission_resource_check");
     }
 
     @Test

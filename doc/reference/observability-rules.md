@@ -198,7 +198,7 @@ log.info("주문 생성 order_id={}", order.id()); // 필요한 필드만 고른
 | 태그 | **닫힌 목록만.** 배치 이름은 카탈로그(`D19`), 상태는 열거형이다 |
 | 금지 | **개인정보를 태그로 안 단다** — 사용자 번호·이메일·주소. 아래 「개인정보는 안 찍는다」가 그대로 걸린다 |
 
-**이름은 `MetricName` 에만 있다**(`Q388`) — `ArchitectureTest` 가 그 밖의 날 `builder` 호출을 막고, **`MetricNameTest` 가 잰다**(`Q226`): `MetricName.values()` 이름의 둘째 토막이 마이그레이션의 표(또는 `error`)인지, `MetricName.X.…` 를 부르는 소스의 `.tag("…")` 키가 여섯(`action`·`allowed`·`code`·`name`·`resource`·`status`) 안인지. 실행 중인 레지스트리로 안 잰다 — 미터 셋이 호출 자리에서 등록돼 시험 컨텍스트에 안 뜰 수 있다.
+**이름은 `MetricName` 에만 있다**(`Q388`) — `ArchitectureTest` 가 그 밖의 날 `builder` 호출을 막고 `MeterRegistry`·`Metrics` 의 이름 받는 메서드도 같은 규칙이 막고(`Q407`), **`MetricNameTest` 가 잰다**(`Q226`): `MetricName.values()` 이름의 둘째 토막이 마이그레이션의 표(또는 `error`)인지, `MetricName.X.…` 를 부르는 소스의 `.tag("…")` 키가 여섯(`action`·`allowed`·`code`·`name`·`resource`·`status`) 안인지. 실행 중인 레지스트리로 안 잰다 — 미터 셋이 호출 자리에서 등록돼 시험 컨텍스트에 안 뜰 수 있다.
 
 **자원 토막은 표 이름(단수)이다**(`Q82`, `D22`). 사건 이름(`D12`)이 같은 규칙을 쓰므로 둘을 안 가른다 —
 가르면 새 이름을 지을 때마다 「이건 어느 쪽인가」를 다시 묻게 된다.

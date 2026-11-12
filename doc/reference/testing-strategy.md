@@ -85,7 +85,7 @@
 
 **`SchemaErdTest` 만 레인이 다르다** — DB 카탈로그를 읽어서 느린 레인이고,
 그래서 `doc/erd` 는 `comparedInFastLane` 이 아니라 `comparedInSlowLane` 에 걸렸다.
-**그래서 이 하나는 청크를 닫을 때가 아니라 `--full` 에서 잡힌다**(`Q110` 이 그 간격을 다룬다).
+**그래서 `verify.sh` 가 `doc/erd` 가 다르면 빠른 단계에서도 이 시험 하나를 문다**(`Q110` 선택지 ①).
 
 #### 카탈로그 회계 — 실물을 전부 걷어 세는 것
 
@@ -97,7 +97,7 @@
 |---|---|
 | `EnumConstraintTest` | 열거형과 그것을 닫는 `check` 제약 |
 | `LengthConstraintTest` | 길이 제약과 요청 record 의 `@Size` |
-| `TriggerCoverageTest` | `pg_trigger` 의 트리거 쉰 (`Q107`). **양방향이라** 빠진 것과 늙은 것을 같이 본다 |
+| `TriggerCoverageTest` | `pg_trigger` 의 트리거 예순일곱 (`Q107`, 2026-11-12 셈). **양방향이라** 빠진 것과 늙은 것을 같이 본다 |
 
 **이 갈래가 메우는 자리가 따로 있다.** JPA 를 안 써서 「엔티티와 스키마가 어긋나면 기동이
 실패한다」가 없고(`ADR 0001` 의 「그 뒤」), 그 방벽을 이 넷이 나눠 진다.
@@ -376,7 +376,7 @@ SQL·제약·배선을 보는 코드가 대부분이라 DB 를 탄다. **채우�
 evaluate(List.of(allow("seller", "seller"), deny("seller", "own")), memberOf, userId, target)
 
 // 통합 — DB 에서 규칙을 읽어 오는 것이 검증 대상이다
-evaluator.decide(userId, "order", "update_status", target)
+evaluator.decide(userId, PermissionResource.ORDER, "update_status", target)
 ```
 
 | 검증 대상 | 층 |

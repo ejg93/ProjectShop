@@ -15,6 +15,7 @@ import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.BatchRuns;
 import com.projectshop.shop.support.RetryableBatch;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 기준일 배치를 손으로 돌린다(`Q241`, `D19`). cron 을 기다리지 않고 측정(`42`)·부하(`70`)·장애 실험(`68`)이
@@ -68,7 +69,7 @@ public class BatchRunService {
     public BatchRun run(long userId, String batchName, LocalDate baselineDate) {
         // **주인이 없는 동작이다** — 아무에게도 안 속한 대상으로 잰다(`InquiryQuery.findAll` 과 같은 수).
         // 자기 자신을 대상으로 재면 `own` 부여 하나가 이 문을 연다(마무리 55차 독립 리뷰). 이제 `all` 만 덮는다.
-        if (!evaluator.decide(userId, "batch", "run", NO_OWNER).allowed()) {
+        if (!evaluator.decide(userId, PermissionResource.BATCH, "run", NO_OWNER).allowed()) {
             throw new ShopException(ErrorCode.BATCH_FORBIDDEN);
         }
         RetryableBatch batch = batches.get(batchName);

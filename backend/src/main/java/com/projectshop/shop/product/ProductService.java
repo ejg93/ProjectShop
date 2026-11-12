@@ -17,6 +17,7 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -222,7 +223,7 @@ public class ProductService {
      */
     private void requirePermission(long actorUserId, String action, Owned owned) {
         Target target = new Target(owned.createdByUserId(), owned.sellerId(), null);
-        if (!evaluator.decide(actorUserId, "product", action, target).allowed()) {
+        if (!evaluator.decide(actorUserId, PermissionResource.PRODUCT, action, target).allowed()) {
             // 403 이다. 상품은 어차피 공개 목록에 있어서 존재를 숨길 이유가 없다(`D5`).
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
@@ -230,7 +231,7 @@ public class ProductService {
 
     /** 등록은 주인이 없다. 셀러만 본다 */
     private void requirePermission(long actorUserId, String action, long sellerId) {
-        if (!evaluator.decide(actorUserId, "product", action, Target.ofSeller(sellerId)).allowed()) {
+        if (!evaluator.decide(actorUserId, PermissionResource.PRODUCT, action, Target.ofSeller(sellerId)).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
     }

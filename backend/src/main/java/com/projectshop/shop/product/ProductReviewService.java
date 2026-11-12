@@ -13,6 +13,7 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 상품의 상태를 옮긴다 — 검수(`7c`)와 판매 중지(`7d`).
@@ -152,7 +153,7 @@ public class ProductReviewService {
                 .orElseThrow(() -> new ShopException(ErrorCode.PRODUCT_TRANSITION_NOT_ALLOWED,
                         product.status().code() + " 에서 " + to.code() + " 로 갈 수 없다"));
 
-        if (!evaluator.decide(actorUserId, "product", action,
+        if (!evaluator.decide(actorUserId, PermissionResource.PRODUCT, action,
                         Target.of(product.createdByUserId(), product.sellerId())).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }

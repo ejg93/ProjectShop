@@ -65,7 +65,7 @@ public class ImpersonationService {
         if (!(current != null && current.getPrincipal() instanceof ShopUser admin)) {
             throw new ShopException(ErrorCode.IMPERSONATION_FORBIDDEN);
         }
-        if (!evaluator.decide(admin.id(), "user", "impersonate", Target.ownedBy(targetUserId)).allowed()) {
+        if (!evaluator.decide(admin.id(), PermissionResource.USER, "impersonate", Target.ownedBy(targetUserId)).allowed()) {
             throw new ShopException(ErrorCode.IMPERSONATION_FORBIDDEN);
         }
 

@@ -13,7 +13,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import com.projectshop.shop.audit.AuditLog;
-import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.metric.MetricName;
 
 /**
@@ -163,11 +162,11 @@ public class PermissionEvaluator {
      * 끊으면 DB 가 돌려주는 순서가 판정을 정하게 되고, 필드 그룹도 먼저 걸린 규칙 것만 반영된다.
      * 역할을 둘 이상 가진 사용자는 양쪽이 허용하는 만큼을 다 봐야 한다.
      */
-    public Decision decide(long userId, String resource, String action, Target target) {
+    public Decision decide(long userId, PermissionResource resource, String action, Target target) {
         Timer.Sample sample = Timer.start(meters);
-        List<Rule> rules = loader.loadRules(userId, resource, action);
+        List<Rule> rules = loader.loadRules(userId, resource.code(), action);
         Decision decision = rules.isEmpty()
-                ? Decision.noRulesFor(resource, action)
+                ? Decision.noRulesFor(resource.code(), action)
                 : evaluate(rules, loader.loadSellerMemberships(userId), userId, target,
                         allowedStatuses(resource, action));
 
@@ -176,7 +175,7 @@ public class PermissionEvaluator {
         //
         // 감사 기록 앞에서 끊는다. 재는 것이 판정이고, 거부를 남기는 것은 그 뒤에 붙은 일이다.
         sample.stop(MetricName.PERMISSION_DECIDE.timer()
-                .tag("resource", resource)
+                .tag("resource", resource.code())
                 .tag("action", action)
                 .tag("allowed", String.valueOf(decision.allowed()))
                 .description("권한 판정에 걸린 시간")
@@ -205,14 +204,14 @@ public class PermissionEvaluator {
      * @param actions 물어볼 동작들. 자원이 무엇을 할 수 있는지는 그 자원이 안다
      * @return 통과한 동작. 순서는 호출자가 정한다
      */
-    public Set<String> allowedActions(long userId, String resource, Set<String> actions,
+    public Set<String> allowedActions(long userId, PermissionResource resource, Set<String> actions,
             Target target) {
 
         Set<Long> memberOf = loader.loadSellerMemberships(userId);
 
         Set<String> allowed = new HashSet<>();
         for (String action : actions) {
-            List<Rule> rules = loader.loadRules(userId, resource, action);
+            List<Rule> rules = loader.loadRules(userId, resource.code(), action);
             if (rules.isEmpty()) {
                 continue;
             }
@@ -238,7 +237,7 @@ public class PermissionEvaluator {
      * 자리는 부르는 쪽이 {@link #decide} 로 거부를 남기고({@code ScopeProbeAuditTest} 가 다섯 자리를 잰다), 대상이 정해진 입구는
      * 처음부터 {@code decide} 다.
      */
-    public boolean covers(long userId, String resource, String action, Target target) {
+    public boolean covers(long userId, PermissionResource resource, String action, Target target) {
         return allowedActions(userId, resource, Set.of(action), target).contains(action)
                 && decide(userId, resource, action, target).allowed();
     }
@@ -254,9 +253,9 @@ public class PermissionEvaluator {
      * <p>화면이 권한에 따라 버튼을 가리기 전(청크 13b)까지는 정상적인 거부도 여기 쌓인다.
      * 공격 시도를 가려내는 것은 쌓인 뒤에 세고 묶어서 할 일이다.
      */
-    private void recordDenial(long userId, String resource, String action, Target target, Decision decision) {
+    private void recordDenial(long userId, PermissionResource resource, String action, Target target, Decision decision) {
         Map<String, Object> detail = new LinkedHashMap<>();
-        detail.put("resource", resource);
+        detail.put("resource", resource.code());
         detail.put("action", action);
         detail.put("reason", decision.reason());
         detail.put("owner_user_id", target.ownerUserId());
@@ -266,7 +265,7 @@ public class PermissionEvaluator {
         // 시도다. 업무 트랜잭션 안에서 거부하고 예외를 던지는 경로가 있어서, 결과로 두면
         // 그 경로의 거부가 통째로 사라진다(`4b-2`).
         auditLog.record(AuditLog.Kind.ATTEMPT, "permission.denied", userId,
-                AuditLog.Target.ofType(AuditTargetType.ofResource(resource)), detail);
+                AuditLog.Target.ofType(resource.auditTarget()), detail);
     }
 
     /**
@@ -275,7 +274,7 @@ public class PermissionEvaluator {
      * <p>한 자원은 정책 하나가 맡는다. 둘이 같은 {@code resource:action} 에 답하면
      * 먼저 등록된 것이 이기는데, <b>그 상황은 표가 두 벌이라는 뜻이라 애초에 만들지 않는다.</b>
      */
-    private Allowed<String> allowedStatuses(String resource, String action) {
+    private Allowed<String> allowedStatuses(PermissionResource resource, String action) {
         for (StatusPolicy policy : statusPolicies) {
             Allowed<String> statuses = policy.allowedStatuses(resource, action);
             if (statuses.restricted()) {

@@ -47,6 +47,6 @@ class MetricsAccessManager implements AuthorizationManager<RequestAuthorizationC
             return new AuthorizationDecision(false);
         }
         return new AuthorizationDecision(
-                evaluators.getObject().decide(user.id(), "metric", "read", NO_TARGET).allowed());
+                evaluators.getObject().decide(user.id(), PermissionResource.METRIC, "read", NO_TARGET).allowed());
     }
 }

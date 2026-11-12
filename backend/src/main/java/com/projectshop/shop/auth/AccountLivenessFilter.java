@@ -90,7 +90,7 @@ class AccountLivenessFilter extends OncePerRequestFilter {
         long impersonator = token.impersonatorUserId();
         return loader.isAlive(impersonator)
                 && evaluators.getObject()
-                        .decide(impersonator, "user", "impersonate", Target.ownedBy(token.targetUserId()))
+                        .decide(impersonator, PermissionResource.USER, "impersonate", Target.ownedBy(token.targetUserId()))
                         .allowed();
     }
 

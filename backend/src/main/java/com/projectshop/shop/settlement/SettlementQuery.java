@@ -15,6 +15,7 @@ import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.auth.PermissionResource;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -74,7 +75,7 @@ public class SettlementQuery {
             """;
 
     /** 권한 표의 자원 이름({@code settlement:*}). 권한 표의 시드와 글자가 같아야 한다 */
-    private static final String RESOURCE = "settlement";
+    private static final PermissionResource RESOURCE = PermissionResource.SETTLEMENT;
     /** 조회 권한의 행위 이름({@code settlement:read}). 위와 같다 */
     private static final String READ = "read";
 

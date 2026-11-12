@@ -57,7 +57,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("고객은 자기 주문을 본다")
         void ownOrderIsVisible() {
-            Decision decision = evaluator.decide(customer, "order", "read", Target.of(customer, alpha));
+            Decision decision = evaluator.decide(customer, PermissionResource.ORDER, "read", Target.of(customer, alpha));
 
             assertThat(decision.allowed()).isTrue();
             assertThat(decision.reason()).contains("customer", "allow/own");
@@ -66,7 +66,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("고객은 남의 주문을 못 본다")
         void othersOrderIsHidden() {
-            Decision decision = evaluator.decide(customer, "order", "read", Target.of(alphaSeller, alpha));
+            Decision decision = evaluator.decide(customer, PermissionResource.ORDER, "read", Target.of(alphaSeller, alpha));
 
             assertThat(decision.allowed()).isFalse();
             assertThat(decision.reason()).contains("범위 밖");
@@ -75,7 +75,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("권한 자체가 없으면 규칙이 하나도 안 걸린다")
         void missingPermissionHasNoRule() {
-            Decision decision = evaluator.decide(customer, "role", "manage", Target.ownedBy(customer));
+            Decision decision = evaluator.decide(customer, PermissionResource.ROLE, "manage", Target.ownedBy(customer));
 
             assertThat(decision.allowed()).isFalse();
             assertThat(decision.reason()).contains("규칙이 하나도 없다");
@@ -89,7 +89,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("셀러 대표는 자기 셀러의 주문을 본다")
         void ownSellerOrderIsVisible() {
-            Decision decision = evaluator.decide(alphaSeller, "order", "read", Target.of(customer, alpha));
+            Decision decision = evaluator.decide(alphaSeller, PermissionResource.ORDER, "read", Target.of(customer, alpha));
 
             assertThat(decision.allowed()).isTrue();
             assertThat(decision.reason()).contains("allow/seller");
@@ -98,7 +98,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("셀러 대표는 남의 셀러의 주문을 못 본다")
         void otherSellerOrderIsHidden() {
-            Decision decision = evaluator.decide(alphaSeller, "order", "read", Target.of(customer, beta));
+            Decision decision = evaluator.decide(alphaSeller, PermissionResource.ORDER, "read", Target.of(customer, beta));
 
             assertThat(decision.allowed()).isFalse();
         }
@@ -108,8 +108,8 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         void sameRoleDifferentSeller() {
             Target alphaOrder = Target.of(customer, alpha);
 
-            assertThat(evaluator.decide(alphaSeller, "order", "read", alphaOrder).allowed()).isTrue();
-            assertThat(evaluator.decide(betaSeller, "order", "read", alphaOrder).allowed()).isFalse();
+            assertThat(evaluator.decide(alphaSeller, PermissionResource.ORDER, "read", alphaOrder).allowed()).isTrue();
+            assertThat(evaluator.decide(betaSeller, PermissionResource.ORDER, "read", alphaOrder).allowed()).isFalse();
         }
 
         @Test
@@ -118,8 +118,8 @@ class PermissionEvaluatorTest extends PostgresTestBase {
             fixture.joinSeller(beta, alphaSeller);
             fixture.grantOrg(alphaSeller, "seller_owner", beta);
 
-            assertThat(evaluator.decide(alphaSeller, "order", "read", Target.of(customer, alpha)).allowed()).isTrue();
-            assertThat(evaluator.decide(alphaSeller, "order", "read", Target.of(customer, beta)).allowed()).isTrue();
+            assertThat(evaluator.decide(alphaSeller, PermissionResource.ORDER, "read", Target.of(customer, alpha)).allowed()).isTrue();
+            assertThat(evaluator.decide(alphaSeller, PermissionResource.ORDER, "read", Target.of(customer, beta)).allowed()).isTrue();
         }
     }
 
@@ -130,7 +130,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("셀러 대표는 자기 셀러 주문의 상태를 바꾼다")
         void sellerAdvancesOrder() {
-            Decision decision = evaluator.decide(alphaSeller, "order", "update_status",
+            Decision decision = evaluator.decide(alphaSeller, PermissionResource.ORDER, "update_status",
                     Target.of(customer, alpha).inStatus("preparing"));
 
             assertThat(decision.allowed()).isTrue();
@@ -144,7 +144,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         @Test
         @DisplayName("배송완료를 지난 주문은 셀러 대표도 못 바꾼다")
         void sellerCannotAdvanceDeliveredOrder() {
-            Decision decision = evaluator.decide(alphaSeller, "order", "update_status",
+            Decision decision = evaluator.decide(alphaSeller, PermissionResource.ORDER, "update_status",
                     Target.of(customer, alpha).inStatus("delivered"));
 
             assertThat(decision.allowed()).isFalse();
@@ -156,7 +156,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
         void sellerCannotAdvanceOwnPurchase() {
             Target selfPurchase = Target.of(alphaSeller, alpha);
 
-            Decision decision = evaluator.decide(alphaSeller, "order", "update_status", selfPurchase);
+            Decision decision = evaluator.decide(alphaSeller, PermissionResource.ORDER, "update_status", selfPurchase);
 
             assertThat(decision.allowed()).isFalse();
             assertThat(decision.reason()).contains("deny/own");
@@ -171,9 +171,9 @@ class PermissionEvaluatorTest extends PostgresTestBase {
 
             Target anyProduct = Target.ofSeller(alpha);
 
-            assertThat(evaluator.decide(auditor, "product", "read", anyProduct).allowed()).isTrue();
+            assertThat(evaluator.decide(auditor, PermissionResource.PRODUCT, "read", anyProduct).allowed()).isTrue();
 
-            Decision write = evaluator.decide(auditor, "product", "update", anyProduct);
+            Decision write = evaluator.decide(auditor, PermissionResource.PRODUCT, "update", anyProduct);
             assertThat(write.allowed()).isFalse();
             assertThat(write.reason()).contains("auditor", "deny/all");
         }
@@ -184,7 +184,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
             long admin = fixture.insertUser("admin@test.local", "관리자");
             fixture.grantGlobal(admin, "admin");
 
-            assertThat(evaluator.decide(admin, "product", "update", Target.ofSeller(alpha)).allowed()).isTrue();
+            assertThat(evaluator.decide(admin, PermissionResource.PRODUCT, "update", Target.ofSeller(alpha)).allowed()).isTrue();
         }
     }
 
@@ -236,7 +236,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
             long staff = fixture.insertUser("readonly-admin@test.local", "읽기전용관리자");
             fixture.grantGlobal(staff, "admin");
 
-            assertThat(evaluator.decide(staff, "product", "update", Target.ofSeller(alpha)).allowed())
+            assertThat(evaluator.decide(staff, PermissionResource.PRODUCT, "update", Target.ofSeller(alpha)).allowed())
                     .as("읽기 전용으로 바꾼 순간의 쓰기 권한도 같이 막혀야 한다")
                     .isFalse();
         }
@@ -264,7 +264,7 @@ class PermissionEvaluatorTest extends PostgresTestBase {
             fixture.grantGlobal(auditor, "auditor");
             fixture.grantGlobal(auditor, "admin");
 
-            return evaluator.decide(auditor, "product", action, Target.ofSeller(alpha));
+            return evaluator.decide(auditor, PermissionResource.PRODUCT, action, Target.ofSeller(alpha));
         }
     }
 

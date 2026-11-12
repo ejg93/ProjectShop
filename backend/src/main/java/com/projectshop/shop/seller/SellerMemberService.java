@@ -22,6 +22,7 @@ import com.projectshop.shop.auth.PermissionRuleLoader;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.CommaCodes;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 셀러에 사람을 붙인다 — 초대를 내고, 받은 사람이 수락하면 소속과 역할이 같이 생긴다(`5a`).
@@ -514,7 +515,7 @@ public class SellerMemberService {
     }
 
     private boolean allowed(long actorUserId, long sellerId, String action) {
-        return evaluator.decide(actorUserId, "seller_member", action, Target.ofSeller(sellerId))
+        return evaluator.decide(actorUserId, PermissionResource.SELLER_MEMBER, action, Target.ofSeller(sellerId))
                 .allowed();
     }
 

@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
 import com.projectshop.shop.auth.Allowed;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 후기를 쓸 자격(`47`).
@@ -159,7 +160,7 @@ class ReviewEligibilityTest extends PostgresTestBase {
                     .query(String.class)
                     .single();
 
-            Allowed<String> create = statusPolicy.allowedStatuses("review", "create");
+            Allowed<String> create = statusPolicy.allowedStatuses(PermissionResource.REVIEW, "create");
             assertThat(create.restricted()).isTrue();
             assertThat(create.values()).allSatisfy(status ->
                     assertThat(definition).contains("'" + status + "'"));

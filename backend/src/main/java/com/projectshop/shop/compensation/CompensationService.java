@@ -15,6 +15,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.EnumValue;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -81,7 +82,7 @@ public class CompensationService {
     @Transactional
     public void decide(long userId, String sellerOrderNumber, Command command) {
         Bundle bundle = find(sellerOrderNumber);
-        if (!evaluator.decide(userId, "compensation", "decide", bundle.target()).allowed()) {
+        if (!evaluator.decide(userId, PermissionResource.COMPENSATION, "decide", bundle.target()).allowed()) {
             throw notFound(sellerOrderNumber);
         }
 
@@ -116,7 +117,7 @@ public class CompensationService {
     /** 한 묶음의 판정을 판정 순으로 본다. 조회 권한이 없으면 404 다 */
     public Listing list(long userId, String sellerOrderNumber) {
         Bundle bundle = find(sellerOrderNumber);
-        if (!evaluator.decide(userId, "compensation", "read", bundle.target()).allowed()) {
+        if (!evaluator.decide(userId, PermissionResource.COMPENSATION, "read", bundle.target()).allowed()) {
             throw notFound(sellerOrderNumber);
         }
 
@@ -139,7 +140,7 @@ public class CompensationService {
                 .list();
 
         // 판정을 부르는 판정은 평가기로 묻는다 — `decide` 는 거부를 감사 로그에 남겨서 목록을 열 때마다 쌓인다.
-        List<String> allowed = evaluator.allowedActions(userId, "compensation", java.util.Set.of("decide"),
+        List<String> allowed = evaluator.allowedActions(userId, PermissionResource.COMPENSATION, java.util.Set.of("decide"),
                 bundle.target()).contains("decide") ? List.of("COMPENSATE") : List.of();
 
         return new Listing(items, allowed);

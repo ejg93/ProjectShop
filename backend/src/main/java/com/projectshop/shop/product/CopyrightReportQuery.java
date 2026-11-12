@@ -13,6 +13,7 @@ import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ImagePipeline;
 import com.projectshop.shop.support.ListQuery.Paging;
+import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -60,7 +61,7 @@ public class CopyrightReportQuery {
      */
     public Result find(long viewerId, boolean pending, Paging paging) {
         // 남의 셀러 상품 하나. all 스코프에서만 덮인다 — 관리자만 연다.
-        if (!evaluator.decide(viewerId, "product", "moderate", Target.ofSeller(-1L)).allowed()) {
+        if (!evaluator.decide(viewerId, PermissionResource.PRODUCT, "moderate", Target.ofSeller(-1L)).allowed()) {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
 

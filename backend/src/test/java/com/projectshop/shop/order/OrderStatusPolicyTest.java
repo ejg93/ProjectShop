@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.projectshop.shop.auth.Allowed;
+import com.projectshop.shop.auth.PermissionResource;
 
 /**
  * 주문의 상태×동작표. <b>무엇이 닫혀 있는지</b>를 고정한다.
@@ -17,7 +18,7 @@ class OrderStatusPolicyTest {
     private final OrderStatusPolicy policy = new OrderStatusPolicy();
 
     private Allowed<String> updateStatus() {
-        return policy.allowedStatuses("order", "update_status");
+        return policy.allowedStatuses(PermissionResource.ORDER, "update_status");
     }
 
     @Test
@@ -47,7 +48,7 @@ class OrderStatusPolicyTest {
     @DisplayName("반품 동작 셋은 접수 상태에서만 열린다")
     void returnActionsOpenOnlyWhenRequested() {
         for (String action : new String[] {"receive_return", "approve_return", "reject_return"}) {
-            Allowed<String> allowed = policy.allowedStatuses("order", action);
+            Allowed<String> allowed = policy.allowedStatuses(PermissionResource.ORDER, action);
 
             assertThat(allowed.covers("return_requested")).as(action).isTrue();
             assertThat(allowed.covers("delivered")).as(action).isFalse();
@@ -80,7 +81,7 @@ class OrderStatusPolicyTest {
     @Test
     @DisplayName("반품 접수는 구매확정 뒤에도 열린다")
     void requestReturnOpenAfterConfirm() {
-        Allowed<String> allowed = policy.allowedStatuses("order", "request_return");
+        Allowed<String> allowed = policy.allowedStatuses(PermissionResource.ORDER, "request_return");
 
         assertThat(allowed.covers("delivered")).isTrue();
         assertThat(allowed.covers("confirmed"))
@@ -98,7 +99,7 @@ class OrderStatusPolicyTest {
     @Test
     @DisplayName("구매확정은 확정된 것에 다시 안 열린다")
     void confirmClosedAfterConfirm() {
-        Allowed<String> allowed = policy.allowedStatuses("order", "confirm");
+        Allowed<String> allowed = policy.allowedStatuses(PermissionResource.ORDER, "confirm");
 
         assertThat(allowed.covers("delivered")).isTrue();
         assertThat(allowed.covers("confirmed")).isFalse();
@@ -107,7 +108,7 @@ class OrderStatusPolicyTest {
     @Test
     @DisplayName("조회는 상태 축이 안 걸린다")
     void readIsUnrestricted() {
-        assertThat(policy.allowedStatuses("order", "read").restricted()).isFalse();
+        assertThat(policy.allowedStatuses(PermissionResource.ORDER, "read").restricted()).isFalse();
     }
 
     /**
@@ -116,7 +117,7 @@ class OrderStatusPolicyTest {
     @Test
     @DisplayName("주문이 아닌 자원에는 아무 제한도 안 건다")
     void otherResourcesUnrestricted() {
-        assertThat(policy.allowedStatuses("product", "update").restricted()).isFalse();
-        assertThat(policy.allowedStatuses("user", "read").restricted()).isFalse();
+        assertThat(policy.allowedStatuses(PermissionResource.PRODUCT, "update").restricted()).isFalse();
+        assertThat(policy.allowedStatuses(PermissionResource.USER, "read").restricted()).isFalse();
     }
 }

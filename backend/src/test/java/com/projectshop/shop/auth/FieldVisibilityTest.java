@@ -46,7 +46,7 @@ class FieldVisibilityTest extends PostgresTestBase {
     @Test
     @DisplayName("고객은 자기 주문의 결제 수단까지 본다")
     void customerSeesEverything() {
-        Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
+        Decision decision = evaluator.decide(buyer, PermissionResource.ORDER, "read", Target.of(buyer, alpha));
 
         assertThat(decision.allowed()).isTrue();
         assertThat(decision.visibleFieldGroups().values())
@@ -56,7 +56,7 @@ class FieldVisibilityTest extends PostgresTestBase {
     @Test
     @DisplayName("셀러는 같은 주문에서 결제 수단을 못 본다")
     void sellerCannotSeePayment() {
-        Decision decision = evaluator.decide(seller, "order", "read", Target.of(buyer, alpha));
+        Decision decision = evaluator.decide(seller, PermissionResource.ORDER, "read", Target.of(buyer, alpha));
 
         assertThat(decision.allowed()).isTrue();
         assertThat(decision.visibleFieldGroups().covers(OrderPersonalFields.SHIPPING.code())).isTrue();
@@ -66,7 +66,7 @@ class FieldVisibilityTest extends PostgresTestBase {
     @Test
     @DisplayName("필드 그룹을 안 건 자원은 제한이 없다")
     void resourceWithoutGroupsIsUnrestricted() {
-        Decision decision = evaluator.decide(buyer, "product", "read", Target.ofSeller(alpha));
+        Decision decision = evaluator.decide(buyer, PermissionResource.PRODUCT, "read", Target.ofSeller(alpha));
 
         assertThat(decision.allowed()).isTrue();
         assertThat(decision.fieldRestricted()).isFalse();
@@ -80,7 +80,7 @@ class FieldVisibilityTest extends PostgresTestBase {
     @Test
     @DisplayName("거부된 판정은 어떤 필드도 못 본다")
     void deniedSeesNothing() {
-        Decision decision = evaluator.decide(buyer, "order", "read", Target.of(seller, alpha));
+        Decision decision = evaluator.decide(buyer, PermissionResource.ORDER, "read", Target.of(seller, alpha));
 
         assertThat(decision.allowed()).isFalse();
         assertThat(decision.canSee(OrderFields.BASIC)).isFalse();
@@ -92,7 +92,7 @@ class FieldVisibilityTest extends PostgresTestBase {
         fixture.joinSeller(alpha, buyer);
         fixture.grantOrg(buyer, "seller_owner", alpha);
 
-        Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
+        Decision decision = evaluator.decide(buyer, PermissionResource.ORDER, "read", Target.of(buyer, alpha));
 
         assertThat(decision.visibleFieldGroups().values())
                 .as("고객 역할이 payment 를, 셀러 대표 역할이 basic·shipping 을 준다. refund 는 양쪽에 있다")
@@ -106,7 +106,7 @@ class FieldVisibilityTest extends PostgresTestBase {
         fixture.grantGlobal(admin, "admin");
         fixture.grantGlobal(admin, "customer");
 
-        Decision decision = evaluator.decide(admin, "order", "read", Target.of(buyer, alpha));
+        Decision decision = evaluator.decide(admin, PermissionResource.ORDER, "read", Target.of(buyer, alpha));
 
         assertThat(decision.allowed()).isTrue();
         assertThat(decision.fieldRestricted())
@@ -130,7 +130,7 @@ class FieldVisibilityTest extends PostgresTestBase {
         long admin = fixture.insertUser("admin-groups@test.local", "관리자");
         fixture.grantGlobal(admin, "admin");
 
-        Decision decision = evaluator.decide(admin, "order", "read", Target.of(buyer, alpha));
+        Decision decision = evaluator.decide(admin, PermissionResource.ORDER, "read", Target.of(buyer, alpha));
 
         assertThat(decision.fieldRestricted())
                 .as("연결이 하나라도 붙으면 그것만 보게 된다(`V6`)")
@@ -146,7 +146,7 @@ class FieldVisibilityTest extends PostgresTestBase {
         fixture.joinSeller(alpha, buyer);
         fixture.grantOrg(buyer, "seller_owner", alpha);
 
-        Decision decision = evaluator.decide(buyer, "order", "read", Target.of(buyer, alpha));
+        Decision decision = evaluator.decide(buyer, PermissionResource.ORDER, "read", Target.of(buyer, alpha));
 
         assertThat(decision.reason())
                 .as("own 과 seller 가 둘 다 걸리면 넓은 seller 가 근거가 된다")

@@ -80,7 +80,7 @@ class PermissionCacheTest extends PostgresTestBase {
         @Test
         @DisplayName("판정 결과는 캐시하지 않는다")
         void decisionIsNotCached() {
-            evaluator.decide(seller, "order", "read", Target.ofSeller(alpha));
+            evaluator.decide(seller, PermissionResource.ORDER, "read", Target.ofSeller(alpha));
 
             // 캐시를 늘릴 때 여기가 깨진다. 그것이 이 단언의 목적이다 —
             // 새 캐시의 키에 대상 행이 들어가면 상태 축(11a)이 붙을 때 조용히 틀린다.
@@ -166,7 +166,7 @@ class PermissionCacheTest extends PostgresTestBase {
     }
 
     private Decision decide() {
-        return evaluator.decide(seller, "order", "read", Target.ofSeller(alpha));
+        return evaluator.decide(seller, PermissionResource.ORDER, "read", Target.ofSeller(alpha));
     }
 
     /** 규칙 캐시의 키는 인자 셋을 묶은 것이다. 캐시에 실제로 그 키가 있는지만 본다 */

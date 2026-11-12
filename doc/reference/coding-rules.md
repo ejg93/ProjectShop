@@ -329,7 +329,8 @@ private static final int MAX_SIZE = 100;
 |---|---|---|
 | 주문 결제·배송 상태, 상품·SKU 상태 | 한다 — 전이표·상태 축·곁가지 | `check` + enum |
 | `scope`·`effect`·`actor_type` | 한다 — `switch` 로 갈린다 | `check` + enum |
-| 감사 대상 종류(`audit_log.target_type`) | 한다 — 접속기록 점검이 `user` 로 갈리고 관리자 필터가 거른다 | `check`(`not valid` — `V130` 이 기존 행을 못 고치게 막는다) + enum(`Q381`). 권한 표의 자원도 든다 — 대조는 `AuditTargetTypeTest` |
+| 감사 대상 종류(`audit_log.target_type`) | 한다 — 접속기록 점검이 `user` 로 갈리고 관리자 필터가 거른다 | `check`(`not valid` — `V130` 이 기존 행을 못 고치게 막는다) + enum(`Q381`). 권한 표의 자원도 든다 — `PermissionResource` 생성자가 상수마다 이 종류를 들어 컴파일이 묶는다(`Q409a`) |
+| 권한 자원(`permission.resource`) | 한다 — 판정·거부 기록·상태 정책이 갈린다 | `check` + enum(`Q409b`). 대조는 `EnumConstraintTest`·`AuditTargetTypeTest` |
 | 청약철회 제한 사유 | 한다 — 법이 인정한 셋만(`D2` R4) | `check` |
 | 공휴일 | **안 한다** — 그 날짜가 있나만 묻는다 | 표(`holiday`, `ADR 0009`) |
 | 권한·역할·부여 | **안 한다** — 판정 엔진이 규칙을 그대로 읽는다 | 표(`ADR 0003`) |

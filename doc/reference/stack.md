@@ -1846,12 +1846,14 @@ lock 은 `npx -y npm@11 install` 로 쓴다 — 위 「로컬 npm 10 은 lockfil
 | 안 쓰는 것 | 관례상 기본 | 왜 안 쓰나 |
 |---|---|---|
 | 서버 상태 관리 | `@tanstack/react-query`·`swr` | **서버 컴포넌트가 기본이라 캐시 계층이 겹친다**(`D24`). 목록·상세는 서버가 그리고, 조작 뒤 갱신은 `router.refresh()` 가 서버에게 다시 물어본다 — 클라이언트가 들고 있을 상태가 없다 |
-| 폼 | `react-hook-form` | 칸이 적고 검증이 **서버가 유일한 출처**다(`5-2`). 화면 검사는 편의고 판정이 아니라, 비제어 `FormData` 로 충분하다 |
+| 폼 | `react-hook-form` | 칸이 적고(가장 많은 폼이 아홉 — `new-coupon-form.tsx`) 검증이 **서버가 유일한 출처**다(`5-2`). 화면 검사는 편의고 판정이 아니라, 비제어 `FormData` 로 충분하다 |
 | 날짜 | `date-fns`·`dayjs` | 로케일이 하나(`ko-KR`)고 시간대가 하나(`Asia/Seoul`)다. `toLocaleDateString` 이 그 둘을 다 받는다(`lib/format.ts`) |
-| HTTP | `axios` | 입구가 넷뿐이고(`api.ts`·`api-session.ts`) 인터셉터로 할 일을 그것들이 이미 한다 — 표기 변환·CSRF·401·204 처리 |
+| HTTP | `axios` | 입구가 다섯뿐이고(`api.ts` 의 `api`·`apiUpload`, `api-session.ts` 의 `apiPublic`·`apiSession`·`apiSessionOptional`) 인터셉터로 할 일을 그것들이 이미 한다 — 표기 변환·CSRF·401·204 처리 |
 
 **넷 다 값이 오르면 다시 본다.** 화면이 늘어 같은 데이터를 여러 곳에서 부르기 시작하거나,
 칸이 많은 폼이 생기거나, 로케일이 둘이 되면 그때가 그 시점이다.
+**2026-11-12 `점검 AM` 이 쟀다** — 클라이언트 컴포넌트가 `useEffect` 로 데이터를 부르는 자리 0 · 폼 최대 아홉 칸 ·
+`toLocale*` 여덟 곳이 전부 `ko-KR`(날짜 둘은 `Asia/Seoul`) · HTTP 입구 다섯. 넷 다 그대로 간다.
 
 ## 새 워크플로는 기본 브랜치에 있어야 손으로 걸린다
 
