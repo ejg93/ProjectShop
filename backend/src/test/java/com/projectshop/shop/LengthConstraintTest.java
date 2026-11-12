@@ -159,8 +159,7 @@ class LengthConstraintTest extends PostgresTestBase {
             // ── 구성 값. 배포로 바뀌고 요청 입구가 없다 ──────────────────────────────
             // 사람이 폼에 쓰는 값이 아니라 마이그레이션과 시드가 넣는다. 상한을 걸어도
             // 막을 입구가 없고, 대신 값이 갈리는 것은 열거형 대조(EnumConstraintTest)가 본다.
-            Map.entry("permission.resource", "권한 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
-            Map.entry("permission.action", "〃"),
+            Map.entry("permission.action", "권한 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
             Map.entry("permission.description", "〃"),
             Map.entry("permission_field_group.code", "〃"),
             Map.entry("permission_field_group.resource", "〃"),

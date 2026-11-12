@@ -63,6 +63,18 @@ class AuditTargetTypeTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("목록 밖 권한 자원은 check 가 막는다 — 거부 기록이 그 글자를 대상 종류로 쓴다")
+    void checkRejectsUnknownPermissionResource() {
+        // 시험 트랜잭션 안에서 넣는다. 밖에서 고치면 fork DB 를 건드린다(2026-09-26 실측).
+        assertThatThrownBy(() -> jdbc.sql("""
+                        insert into permission (resource, action, kind)
+                        values ('test_q409', 'read', 'read')
+                        """).update())
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("permission_resource_check");
+    }
+
+    @Test
     @DisplayName("감사 로그 필터에 모르는 대상 종류를 주면 400 validation-failed 이고 errors 가 target_type 을 짚는다")
     void unknownTargetTypeFilterIsValidationFailed() throws Exception {
         long userId = new AuthFixture(jdbc).insertUser("q381@test.local", "감사");
