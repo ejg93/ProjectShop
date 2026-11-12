@@ -358,7 +358,8 @@ class ArchitectureTest {
     private static final Set<String> METER_TYPES = Set.of(
             "io.micrometer.core.instrument.Counter", "io.micrometer.core.instrument.Timer",
             "io.micrometer.core.instrument.Gauge", "io.micrometer.core.instrument.DistributionSummary",
-            "io.micrometer.core.instrument.LongTaskTimer");
+            "io.micrometer.core.instrument.LongTaskTimer", "io.micrometer.core.instrument.FunctionCounter",
+            "io.micrometer.core.instrument.FunctionTimer", "io.micrometer.core.instrument.TimeGauge");
 
     /**
      * 지표 빌더는 {@link MetricName} 만 부른다(`Q388`, {@code observability-rules.md} 「이름과 태그」).
@@ -374,6 +375,33 @@ class ArchitectureTest {
                             call -> METER_TYPES.contains(call.getTargetOwner().getName())
                                     && call.getName().equals("builder")))
                     .because("지표 이름은 MetricName 에만 있다 — 꼴은 MetricNameTest 가 그 값으로 잰다 (`Q388`)");
+
+    /** 이름을 글자로 받는 Micrometer 등록 입구의 주인. 전역 {@code Metrics} 와 {@code more()} 가 돌려주는 {@code More} 까지 */
+    private static final Set<String> REGISTRY_TYPES = Set.of(
+            "io.micrometer.core.instrument.MeterRegistry", "io.micrometer.core.instrument.MeterRegistry$More",
+            "io.micrometer.core.instrument.Metrics");
+
+    /**
+     * 이름을 받는 등록 입구는 {@link MetricName} 만 지난다(`Q407`, {@code observability-rules.md} 「이름과 태그」).
+     *
+     * <p>{@code builder} 말고도 글자 이름이 들어가는 길이 셋이다 — ⓐ {@code MeterRegistry} 의 편의 메서드
+     * ({@code counter(String, …)}·{@code timer}·{@code gauge}·{@code summary}·{@code gaugeCollectionSize}·
+     * {@code gaugeMapSize}·{@code more().longTaskTimer/timeGauge/counter/timer}) ⓑ 전역 {@code Metrics} 의 같은
+     * 정적 메서드 ⓒ {@code FunctionCounter}·{@code FunctionTimer}·{@code TimeGauge} 의 {@code builder}(ⓒ 는 위
+     * {@code METER_TYPES} 가 든다). 첫 인자가 {@code String} 인 호출을 막아 ⓐⓑ 를 한 규칙에 둔다 —
+     * {@code Timer.start(MeterRegistry)} 처럼 이름을 안 받는 호출은 지나간다.
+     *
+     * <p>시험 코드는 규칙 밖이다({@code DoNotIncludeTests}) — {@code meters.get("…")} 로 지표를 읽는 시험이 있다.
+     */
+    @ArchTest
+    static final ArchRule 지표_이름은_MetricName_밖에서_안_댄다 =
+            noClasses()
+                    .that().doNotHaveFullyQualifiedName(MetricName.class.getName())
+                    .should().callMethodWhere(DescribedPredicate.describe("이름을 받는 등록 입구",
+                            call -> REGISTRY_TYPES.contains(call.getTargetOwner().getName())
+                                    && !call.getTarget().getRawParameterTypes().isEmpty()
+                                    && call.getTarget().getRawParameterTypes().get(0).getName().equals("java.lang.String")))
+                    .because("이름을 받는 등록 입구는 MetricName 만 지난다 — 글자 이름은 MetricNameTest 가 못 본다 (`Q407`)");
 
     /**
      * 「입력과 출력」 — 요청 본문은 Bean Validation 을 거친다(`Q32`, `D14`).
