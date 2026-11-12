@@ -162,7 +162,6 @@ class LengthConstraintTest extends PostgresTestBase {
             Map.entry("permission.action", "권한 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
             Map.entry("permission.description", "〃"),
             Map.entry("permission_field_group.code", "〃"),
-            Map.entry("permission_field_group.resource", "〃"),
             Map.entry("permission_field_group.description", "〃"),
             Map.entry("role_permission_field.effect", "〃"),
             Map.entry("role.code", "역할 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
