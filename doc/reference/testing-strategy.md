@@ -376,7 +376,7 @@ SQL·제약·배선을 보는 코드가 대부분이라 DB 를 탄다. **채우�
 evaluate(List.of(allow("seller", "seller"), deny("seller", "own")), memberOf, userId, target)
 
 // 통합 — DB 에서 규칙을 읽어 오는 것이 검증 대상이다
-evaluator.decide(userId, "order", "update_status", target)
+evaluator.decide(userId, PermissionResource.ORDER, "update_status", target)
 ```
 
 | 검증 대상 | 층 |
