@@ -142,7 +142,28 @@ class CheckCoverageTest extends PostgresTestBase {
             Map.entry("seller_daily_sales_not_empty_check", new Cover("CheckViolationMoneyTest", "주문도 환불도 없는 날의 행이다")));
 
     /** 상품 묶음 — 상품·SKU·재고·후기·문의·저작권 신고 표(`Q426d`) */
-    private static final Map<String, Cover> COVERED_CATALOG = Map.of();
+    private static final Map<String, Cover> COVERED_CATALOG = Map.ofEntries(
+            Map.entry("product_image_original_name_chars_check", new Cover("ProductImageServiceTest", "파일 이름에 제어·양방향 문자가 있다(새 행만, not valid)")),
+            Map.entry("review_image_original_name_chars_check", new Cover("ProductImageServiceTest", "후기 사진 파일 이름에 제어·양방향 문자가 있다(새 행만, not valid)")),
+            Map.entry("product_commission_bp_check", new Cover("CheckViolationCatalogTest", "수수료 만분율이 0~10000 밖이다")),
+            Map.entry("product_supply_lead_days_check", new Cover("CheckViolationCatalogTest", "공급 기한이 0~60 밖이다")),
+            Map.entry("product_image_byte_size_check", new Cover("CheckViolationCatalogTest", "사진 크기가 0 이하거나 5 MiB 를 넘는다")),
+            Map.entry("sku_price_incl_vat_check", new Cover("CheckViolationCatalogTest", "가격이 음수다")),
+            Map.entry("sku_stock_on_hand_check", new Cover("CheckViolationCatalogTest", "재고가 음수다")),
+            Map.entry("sku_stock_safety_stock_check", new Cover("CheckViolationCatalogTest", "안전 재고가 음수다")),
+            Map.entry("sku_stock_movement_quantity_check", new Cover("CheckViolationCatalogTest", "재고 이동 수량이 0 이다")),
+            Map.entry("review_block_check", new Cover("CheckViolationCatalogTest", "차단 시각과 차단 사유가 짝이 아니다")),
+            Map.entry("review_rating_check", new Cover("CheckViolationCatalogTest", "별점이 1~5 밖이다")),
+            Map.entry("review_image_byte_size_check", new Cover("CheckViolationCatalogTest", "후기 사진 크기가 0 이하거나 5 MiB 를 넘는다")),
+            Map.entry("review_report_resolution_check", new Cover("CheckViolationCatalogTest", "처리 상태·시각·처리자가 짝이 아니다")),
+            Map.entry("inquiry_answer_check", new Cover("CheckViolationCatalogTest", "답변 시각과 답변이 짝이 아니거나 답변 상태에 답변이 없다")),
+            Map.entry("inquiry_block_check", new Cover("CheckViolationCatalogTest", "차단 상태·시각·사유가 짝이 아니다")),
+            Map.entry("inquiry_due_at_check", new Cover("CheckViolationCatalogTest", "처리정지 요구와 처리 기한이 짝이 아니다")),
+            Map.entry("inquiry_number_format_check", new Cover("CheckViolationCatalogTest", "문의 번호가 Q-날짜-여섯 글자 꼴이 아니다")),
+            Map.entry("inquiry_target_check", new Cover("CheckViolationCatalogTest", "종류가 정한 대상(상품·셀러 주문)을 안 가리킨다")),
+            Map.entry("inquiry_visibility_check", new Cover("CheckViolationCatalogTest", "상품 문의가 아닌데 공개다")),
+            Map.entry("copyright_report_decision_complete_check", new Cover("CheckViolationCatalogTest", "판정·판정 시각·판정자가 같이 차거나 같이 비지 않았다")),
+            Map.entry("copyright_report_target_reference_check", new Cover("CheckViolationCatalogTest", "대상 종류와 다른 쪽 사진을 가리킨다")));
 
     /** 계정·운영 묶음 — 앞 셋에 없는 표 전부(`Q426e`) */
     private static final Map<String, Cover> COVERED_ACCOUNT = Map.of();
@@ -152,29 +173,22 @@ class CheckCoverageTest extends PostgresTestBase {
             "app_user_alive_fields_check", "batch_run_batch_name_check", "batch_run_count_range_check",
             "batch_run_counts_check", "batch_run_failure_kind_check", "batch_run_failure_reason_check",
             "batch_run_finished_after_started_check", "consent_item_content_check", "consent_item_notice_check",
-            "copyright_report_decision_complete_check", "copyright_report_target_reference_check",
             "email_change_request_expiry_after_issued_check", "email_change_request_used_after_issued_check",
-            "idempotency_key_hash_check", "inquiry_answer_check", "inquiry_block_check", "inquiry_due_at_check",
-            "inquiry_number_format_check", "inquiry_target_check", "inquiry_visibility_check",
-            "notification_failure_reason_check", "notification_sent_at_check", "notification_target_check",
-            "order_item_unit_price_incl_vat_check", "password_reset_token_expiry_after_issued_check",
-            "password_reset_token_used_after_issued_check", "policy_document_body_check",
-            "policy_document_version_check", "product_commission_bp_check", "product_image_byte_size_check",
-            "product_image_original_name_chars_check", "product_supply_lead_days_check", "review_block_check",
-            "review_image_byte_size_check", "review_image_original_name_chars_check", "review_rating_check",
-            "review_report_resolution_check", "seller_business_reg_no_check", "seller_commission_bp_check",
-            "seller_default_shipping_fee_check", "seller_invitation_accept_check",
+            "idempotency_key_hash_check", "notification_failure_reason_check", "notification_sent_at_check",
+            "notification_target_check", "order_item_unit_price_incl_vat_check",
+            "password_reset_token_expiry_after_issued_check", "password_reset_token_used_after_issued_check",
+            "policy_document_body_check", "policy_document_version_check", "seller_business_reg_no_check",
+            "seller_commission_bp_check", "seller_default_shipping_fee_check", "seller_invitation_accept_check",
             "seller_invitation_accepted_after_issued_check", "seller_invitation_expiry_after_issued_check",
             "seller_invitation_outcome_check", "seller_invitation_revoked_after_issued_check",
-            "seller_mail_order_check", "seller_verified_fields_check", "sku_price_incl_vat_check",
-            "sku_stock_movement_quantity_check", "sku_stock_on_hand_check", "sku_stock_safety_stock_check",
-            "webhook_delivery_attempt_count_check", "webhook_delivery_delivered_check",
-            "webhook_delivery_last_status_code_check", "webhook_delivery_next_attempt_check",
-            "webhook_endpoint_secret_key_version_check", "webhook_endpoint_url_scheme_check");
+            "seller_mail_order_check", "seller_verified_fields_check", "webhook_delivery_attempt_count_check",
+            "webhook_delivery_delivered_check", "webhook_delivery_last_status_code_check",
+            "webhook_delivery_next_attempt_check", "webhook_endpoint_secret_key_version_check",
+            "webhook_endpoint_url_scheme_check");
 
 
     /** {@link #BASELINE} 크기의 상한. 이름을 맵으로 옮기면 같이 내린다 */
-    private static final int BASELINE_CEILING = 57;
+    private static final int BASELINE_CEILING = 36;
 
     @Autowired
     private JdbcClient jdbc;
