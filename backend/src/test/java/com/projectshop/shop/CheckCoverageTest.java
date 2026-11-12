@@ -27,7 +27,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  * 도메인 묶음 맵 넷에 {@link Cover} 로 적혔거나, 아직 메우기 전이라 {@link #BASELINE} 에 있다.
  *
  * <p>「부수는 시험이 있다」는 <b>그 이름 글자가 {@link Cover#test()} 의 소스에 있다</b>는 뜻이다(2026-11-12 사용자 결정).
- * 효과만 보는 시험은 제약을 지워도 다른 자리가 막아 초록일 수 있어서 이름을 단언하는 시험만 친다.
+ * <b>판정은 글자가 있느냐까지다</b> — 단언인지 주석·사유 글인지는 못 가른다. 기존 시험으로 댄 서른 중 열아홉이 주석·사유 글에만
+ * 이름이 있어서, 그 제약을 지우면 {@link #accountedNamesExist()} 가 잡지만 헐겁게 하는 것은 못 잡는다(마무리 82차 독립 리뷰, `Q430`).
  *
  * <p>{@link #BASELINE} 은 줄기만 한다 — {@link #BASELINE_CEILING} 이 그 수를 박는다. 메우기 행(`Q426b`~`Q426e`)이
  * 이름을 맵으로 옮길 때 상한을 같이 내린다. 트리거 회계({@code TriggerCoverageTest})와 같은 꼴이다.
@@ -248,6 +249,10 @@ class CheckCoverageTest extends PostgresTestBase {
     @Test
     @DisplayName("Cover 의 시험 소스가 있고 그 check 이름을 글자로 든다")
     void coverTestNamesTheCheck() {
+        assertThat(covered().values())
+                .as("이 파일은 맵이 이름을 들어 언제나 초록이다 — 부수는 시험으로 못 댄다")
+                .extracting(Cover::test)
+                .doesNotContain("CheckCoverageTest");
         assertThat(covered().entrySet())
                 .allSatisfy(entry -> assertThat(sourceOf(entry.getValue().test()))
                         .as("%s 의 시험 %s 가 없거나 그 이름을 안 부른다", entry.getKey(), entry.getValue().test())

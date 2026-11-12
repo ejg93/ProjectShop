@@ -327,7 +327,10 @@ val comparedInSlowLane = listOf(
 	"../doc/erd",
 	// **되돌리는 파일을 실제로 돌린다**(`Q173`). `MigrationUndoRunTest` 가 이 폴더를 읽어 번호 역순으로 돌린다 —
 	// 안 걸면 되돌리는 파일만 고친 청크에서 그 시험이 `UP-TO-DATE` 로 건너뛴다.
-	"src/main/resources/db/undo")
+	"src/main/resources/db/undo",
+	// **시험 소스를 글자로 읽는다**(`Q426a`, 마무리 82차 독립 리뷰). `CheckCoverageTest` 가 `Cover` 의 시험 소스에 `check` 이름이 있는지 본다 —
+	// 안 걸면 주석만 고친 청크에서 `integrationTest` 가 `UP-TO-DATE` 로 건너뛴다(`Q83` 과 같은 틈).
+	"src/test/java")
 val comparedInFastLane = listOf(
 	"../PLAN.md",
 	"../PROGRESS.md",

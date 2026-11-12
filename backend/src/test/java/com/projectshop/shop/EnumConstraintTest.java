@@ -103,11 +103,11 @@ class EnumConstraintTest extends PostgresTestBase {
                             + " — 목록은 SellerSchemaTest 가 따로 잰다"),
             Map.entry("order_item_withdrawal_reason_check",
                     "WithdrawalRestrictionReason 의 부분집합이라 짝으로 못 견준다 — copyable_media 는 주문 시점에 성립하지 않아 뺐다(V32,"
-                            + " `D2` R4). 원본 목록은 product_withdrawal_reason_check 가 열거형과 짝이다"),
+                            + " `D2` R4). 원본 목록은 product_withdrawal_reason_check 가 열거형과 짝이다. 부분집합 대조는 아직 없다(`Q430`)"),
             Map.entry("coupon_discount_kind_check",
-                    "정액·정률이다. 입구는 CouponController 의 @Pattern(amount|percent) 이고 화면 목록은 ScreenLengthTest 가 견준다"),
+                    "정액·정률이다. 입구는 CouponController 의 @Pattern(amount|percent) 다 — 값을 견주는 시험은 아직 없다(`Q430`)"),
             Map.entry("coupon_bearer_check",
-                    "쿠폰 비용을 누가 무나다. 입구는 CouponController 의 @Pattern(mall|seller) 이고 화면 목록은 ScreenLengthTest 가 견준다"));
+                    "쿠폰 비용을 누가 무나다. 입구는 CouponController 의 @Pattern(mall|seller) 다 — 값을 견주는 시험은 아직 없다(`Q430`)"));
 
     @Autowired
     private JdbcClient jdbc;

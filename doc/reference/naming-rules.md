@@ -196,7 +196,7 @@ select * from product p join sku s using (product_id)
 
 ### `check` 제약 이름은 `_check` 로 끝난다
 
-**`<표>_<무엇>_check` 로 짓는다. 길이 상한은 `<표>_<칸>_length_check` 다**(`Q427`).
+**이름은 `_check` 로 끝난다. 길이 상한은 `_length_check` 다**(`Q427`). 앞은 `<표>_<무엇>` 이 관례지만 게이트는 접미사만 잰다 — `return_shipping_fee_bearer_check`(`V63`, 표는 `return_request`)처럼 표 접두사가 빠진 옛 이름이 남아 있다.
 
 이름으로 걷는 회계가 둘이라서다. `LengthConstraintTest` 는 `conname like '%length!_check'` 로 길이 제약을 걷어 앱 `@Size` 와 맞대고,
 `EnumConstraintTest` 는 값 목록 제약을 이름으로 열거형과 짝짓는다. 꼴에서 벗어난 이름은 두 회계를 조용히 비껴간다 —

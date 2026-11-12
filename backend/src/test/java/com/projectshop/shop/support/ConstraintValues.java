@@ -69,6 +69,13 @@ public final class ConstraintValues {
      *
      * @param definitionFragment 제약 정의 또는 그 일부
      */
+    public static List<String> valuesIn(String definitionFragment) {
+        return Arrays.stream(definitionFragment.split("'"))
+                .filter(part -> part.matches("[a-z0-9_./]+"))
+                .distinct()
+                .toList();
+    }
+
     /**
      * 정의가 한 칸의 값 목록인가 — {@code pg_get_constraintdef} 가 {@code in (…)} 을 {@code = ANY (ARRAY[…])} 로 풀어 준다(`Q429`).
      * 값 목록 회계({@code EnumConstraintTest})가 「열거형도 사유도 없는 값 목록」을 걷는 데 쓴다.
@@ -77,12 +84,5 @@ public final class ConstraintValues {
      */
     public static boolean isValueList(String definition) {
         return definition.contains("= ANY (ARRAY[") && !valuesIn(definition).isEmpty();
-    }
-
-    public static List<String> valuesIn(String definitionFragment) {
-        return Arrays.stream(definitionFragment.split("'"))
-                .filter(part -> part.matches("[a-z0-9_./]+"))
-                .distinct()
-                .toList();
     }
 }
