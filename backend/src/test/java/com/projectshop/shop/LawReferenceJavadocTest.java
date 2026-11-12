@@ -7,10 +7,14 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +35,9 @@ import org.junit.jupiter.api.Test;
  *
  * <p><b>기준선은 양방향 래칫이다.</b> {@link #EXEMPT} 는 파일마다 지금 「번호 없는 법 언급」 수다 — 실제가 그보다 많으면
  * 새 위반이고, 적으면 그 줄을 낮추라는 뜻이다(메운 것이 기준선에 남으면 다시 빠져도 안 걸린다). {@code Q394b} 가 0 으로 비웠다(2026-11-08).
+ *
+ * <p><b>번호의 실재는 둘째 시험이 잰다</b>(`Q408`) — 방향은 Javadoc → {@code D2} 다. 법 단어를 품은 <b>모든</b> 블록(클래스·메서드까지)의
+ * R 토큰이 요건표의 행 번호여야 한다. 수를 안 세니 기준선이 없다. 반대 방향(요건표 → 코드)은 {@code RequirementEnforcementTest} 가 든다.
  */
 @DisplayName("법 언급 Javadoc 의 요건 번호")
 class LawReferenceJavadocTest {
@@ -45,6 +52,11 @@ class LawReferenceJavadocTest {
                     + "|시행령|시행규칙|제\\d+조|고시|지침");
 
     private static final Pattern REQUIREMENT = Pattern.compile("\\bR\\d+\\b");
+
+    /** {@code D2} 요건표. 행 꼴이 {@code | R번호 |} 다 — {@code RequirementEnforcementTest} 가 같은 파일을 읽는다 */
+    private static final Path REQUIREMENTS = Path.of("..", "doc", "reference", "commerce-compliance.md");
+
+    private static final Pattern REQUIREMENT_ROW = Pattern.compile("^\\| (R\\d+) \\|");
 
     /** Javadoc 뒤 첫 코드 줄이 필드다 — 이름 뒤가 {@code =} 나 {@code ;} */
     private static final Pattern FIELD = Pattern.compile(
@@ -81,6 +93,47 @@ class LawReferenceJavadocTest {
                 .as("법 단어를 품은 Javadoc 에 `D2` 의 R번호가 없다(파일 → 수). 늘었으면 번호를 적고,"
                         + " 줄었으면 EXEMPT 의 그 줄을 낮춘다(coding-rules.md 「법에서 온 값에는 요건 번호를 적는다」)")
                 .isEqualTo(EXEMPT);
+    }
+
+    @Test
+    @DisplayName("법 단어를 품은 main Javadoc 의 R번호는 D2 요건표에 있다")
+    void lawJavadocRequirementNumbersExistInD2() {
+        Set<String> ids = requirementIds();
+        assertThat(ids).as("요건표 행을 못 읽었다 — 행 꼴이 바뀌면 조용히 초록이 된다").hasSizeGreaterThanOrEqualTo(40);
+
+        Map<String, List<String>> unknown = new TreeMap<>();
+        int tokens = 0;
+        for (Path file : javaFiles()) {
+            Matcher javadoc = JAVADOC.matcher(read(file));
+            while (javadoc.find()) {
+                String block = javadoc.group();
+                if (!LAW.matcher(block).find()) {
+                    continue;
+                }
+                Matcher token = REQUIREMENT.matcher(block);
+                while (token.find()) {
+                    tokens++;
+                    if (!ids.contains(token.group())) {
+                        unknown.computeIfAbsent(file.getFileName().toString(), name -> new ArrayList<>()).add(token.group());
+                    }
+                }
+            }
+        }
+
+        assertThat(tokens).as("법 단어 블록의 R 토큰을 하나도 못 읽었다 — 정규식이 상하면 조용히 초록이 된다").isPositive();
+        assertThat(unknown)
+                .as("법 단어를 품은 Javadoc 이 `D2` 요건표에 없는 R번호를 든다(파일 → 토큰). 번호를 지어내지 않는다 —"
+                        + " 그 조문이 요건표에 없으면 토큰을 뺀다(`Q408`)")
+                .isEmpty();
+    }
+
+    private static Set<String> requirementIds() {
+        try (Stream<String> lines = Files.lines(REQUIREMENTS, StandardCharsets.UTF_8)) {
+            return lines.map(REQUIREMENT_ROW::matcher).filter(Matcher::find).map(row -> row.group(1))
+                    .collect(Collectors.toSet());
+        } catch (IOException e) {
+            throw new UncheckedIOException("요건표를 못 읽었다: " + REQUIREMENTS.toAbsolutePath(), e);
+        }
     }
 
     /** Javadoc 뒤의 첫 코드 줄. 빈 줄·애너테이션 줄·줄 주석은 건너뛴다 — 줄 주석에 멈추면 그 블록이 조용히 범위 밖이 된다 */

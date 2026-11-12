@@ -354,7 +354,10 @@ val comparedInFastLane = listOf(
 	"config/checkstyle/suppressions.xml",
 	// 선언 의존성(`Q298`). `DependencyLicenseTest` 가 두 맵의 이름을 라이선스 표와 견준다 — 패키지만 더한 청크에서
 	// 그 시험이 `UP-TO-DATE` 로 건너뛰면 표에 없는 의존성이 지나간다.
-	"../frontend/package.json")
+	"../frontend/package.json",
+	// **javadoc 만 고치면 클래스 파일이 같다**(`Q408`). `LawReferenceJavadocTest` 가 main 소스의 Javadoc 을 글자로 읽는다 —
+	// 안 걸면 법 단어 Javadoc 에 없는 R번호를 넣은 청크에서 그 시험이 `UP-TO-DATE` 로 건너뛴다(부순 증거를 만들다 실측).
+	"src/main/java")
 val comparedScreenRoot = "../frontend/src"
 val declaredComparedInputs = comparedInSlowLane + comparedInFastLane + comparedScreenRoot
 
