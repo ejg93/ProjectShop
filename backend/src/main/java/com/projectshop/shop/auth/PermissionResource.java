@@ -37,10 +37,10 @@ public enum PermissionResource {
     USER(AuditTargetType.USER),
     WEBHOOK(AuditTargetType.WEBHOOK);
 
-    private final AuditTargetType auditTarget;
+    private final AuditTargetType target;
 
-    PermissionResource(AuditTargetType auditTarget) {
-        this.auditTarget = auditTarget;
+    PermissionResource(AuditTargetType target) {
+        this.target = target;
     }
 
     /** DB 에 들어가는 값. {@code EnumConstraintTest} 가 이 이름의 메서드를 읽는다 */
@@ -50,6 +50,6 @@ public enum PermissionResource {
 
     /** 거부 기록의 대상 종류 */
     public AuditTargetType auditTarget() {
-        return auditTarget;
+        return target;
     }
 }
