@@ -7,8 +7,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -91,6 +93,22 @@ class EnumConstraintTest extends PostgresTestBase {
             Map.entry("order.OrderActionService$Party", "동작이 누구 몫인가를 가르는 코드 표다(`Q202`). 저장 안 한다 — 버튼을 고를 때만 쓴다"),
             Map.entry("order.SellerOrderQuery$Branch", "목록 SQL 에 범위 조건을 어떤 꼴로 싣나의 갈래다(`Q243a`). 저장 안 한다 — 질의를 조립할 때만 쓴다"));
 
+    /**
+     * 값 목록 {@code check} 인데 짝지을 열거형이 없는 것과 그 사유(`Q429`). <b>역방향 회계다</b> — 위 셋은 열거형에서
+     * 제약으로 가고, 이것은 제약에서 열거형으로 간다. 사유는 그 글자를 쓰는 main 파일과, 따로 재는 시험이 있으면 그 이름이다.
+     */
+    private static final Map<String, String> LISTS_WITHOUT_ENUM = Map.ofEntries(
+            Map.entry("seller_status_check",
+                    "셀러 심사 상태다. main 은 SQL 글자 'active' 로 거르기만 하고(SellerQuery·ProductReviewService) 분기하지 않는다"
+                            + " — 목록은 SellerSchemaTest 가 따로 잰다"),
+            Map.entry("order_item_withdrawal_reason_check",
+                    "WithdrawalRestrictionReason 의 부분집합이라 짝으로 못 견준다 — copyable_media 는 주문 시점에 성립하지 않아 뺐다(V32,"
+                            + " `D2` R4). 원본 목록은 product_withdrawal_reason_check 가 열거형과 짝이다"),
+            Map.entry("coupon_discount_kind_check",
+                    "정액·정률이다. 입구는 CouponController 의 @Pattern(amount|percent) 이고 화면 목록은 ScreenLengthTest 가 견준다"),
+            Map.entry("coupon_bearer_check",
+                    "쿠폰 비용을 누가 무나다. 입구는 CouponController 의 @Pattern(mall|seller) 이고 화면 목록은 ScreenLengthTest 가 견준다"));
+
     @Autowired
     private JdbcClient jdbc;
 
@@ -132,6 +150,46 @@ class EnumConstraintTest extends PostgresTestBase {
                                                || EXEMPT.containsKey(name))
                         .as("%s 가 PAIRS·GENERATED·EXEMPT 어디에도 없다", name)
                         .isTrue());
+    }
+
+    /**
+     * 역방향이다 — 위 테스트는 열거형에서 제약으로 가고, 이것은 <b>값 목록 {@code check} 에서 열거형으로</b> 간다(`Q429`).
+     * 새 값 목록이 열거형도 사유도 없이 들어오면 여기서 빨갛다.
+     */
+    @Test
+    @DisplayName("값 목록 check 가 전부 열거형 짝이나 사유를 든다")
+    void everyValueListCheckIsAccountedFor() {
+        Set<String> paired = pairedChecks();
+
+        assertThat(valueListChecks())
+                .as("짝지을 열거형이 있으면 PAIRS 에, 없으면 LISTS_WITHOUT_ENUM 에 사유와 함께 적는다")
+                .filteredOn(name -> !paired.contains(name) && !LISTS_WITHOUT_ENUM.containsKey(name))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("사유로 적은 값 목록은 실물에 있고 열거형 짝과 안 겹친다")
+    void listedChecksStillExist() {
+        assertThat(valueListChecks())
+                .as("지워졌거나 이름이 바뀐 제약이 사유 목록에 남으면 회계가 낡는다")
+                .containsAll(LISTS_WITHOUT_ENUM.keySet());
+        assertThat(LISTS_WITHOUT_ENUM.keySet())
+                .as("열거형 짝이 생긴 것은 사유 목록에서 걷는다")
+                .doesNotContainAnyElementsOf(pairedChecks());
+    }
+
+    /**
+     * 이 파일이 회계한 {@code check} 이름 — 열거형 짝 제약과 사유로 적은 값 목록(`Q429`).
+     * 회계 밖 {@code check} 를 세는 게이트(`Q426a`)가 이것을 뺀 나머지를 본다.
+     */
+    static Set<String> accountedChecks() {
+        Set<String> names = new java.util.TreeSet<>(pairedChecks());
+        names.addAll(LISTS_WITHOUT_ENUM.keySet());
+        return Set.copyOf(names);
+    }
+
+    private static Set<String> pairedChecks() {
+        return PAIRS.values().stream().flatMap(List::stream).collect(Collectors.toSet());
     }
 
     private static Map<String, List<String>> pairs() {
@@ -232,6 +290,32 @@ class EnumConstraintTest extends PostgresTestBase {
                 .as("생성 식에 `then` 이 없으면 모양이 바뀐 것이라 이 테스트가 헛돈다: %s", expression)
                 .isNotEmpty();
         return values;
+    }
+
+    /**
+     * 값 목록 꼴인 {@code check} 의 이름을 실물에서 걷는다 — 한 칸에 걸리고 정의가 {@code = ANY (ARRAY[…])} 다(`Q429`).
+     * 조건이 여러 칸에 걸친 것은 값 목록이 아니라 조건이라 뺀다.
+     */
+    private List<String> valueListChecks() {
+        record Check(String name, String definition) {
+        }
+        List<String> names = jdbc.sql("""
+                        select c.conname as name, pg_get_constraintdef(c.oid) as definition
+                          from pg_constraint c
+                          join pg_namespace n on n.oid = c.connamespace
+                         where c.contype = 'c' and n.nspname = 'public' and cardinality(c.conkey) = 1
+                        """)
+                .query(Check.class)
+                .list()
+                .stream()
+                .filter(check -> ConstraintValues.isValueList(check.definition()))
+                .map(Check::name)
+                .toList();
+
+        assertThat(names)
+                .as("한 개도 못 걷었으면 정의의 꼴이 바뀐 것이라 이 회계가 헛돈다")
+                .isNotEmpty();
+        return names;
     }
 
     /**
