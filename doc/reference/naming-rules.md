@@ -194,6 +194,16 @@ select * from product p join sku s using (product_id)
 **예외를 이름으로 안 적고 구조로 가르는 자리가 있다.** 1:1 확장 표 여덟은
 「기본키 컬럼이 외래키이기도 하다」로 알아본다 — 이름을 여덟 개 적으면 아홉 번째에 목록이 낡는다.
 
+### `check` 제약 이름은 `_check` 로 끝난다
+
+**이름은 `_check` 로 끝난다. 길이 상한은 `_length_check` 다**(`Q427`). 앞은 `<표>_<무엇>` 이 관례지만 게이트는 접미사만 잰다 — `return_shipping_fee_bearer_check`(`V63`, 표는 `return_request`)처럼 표 접두사가 빠진 옛 이름이 남아 있다.
+
+이름으로 걷는 회계가 둘이라서다. `LengthConstraintTest` 는 `conname like '%length!_check'` 로 길이 제약을 걷어 앱 `@Size` 와 맞대고,
+`EnumConstraintTest` 는 값 목록 제약을 이름으로 열거형과 짝짓는다. 꼴에서 벗어난 이름은 두 회계를 조용히 비껴간다 —
+`V100` 의 `review_image_*_length` 셋이 그렇게 길이 대조 밖에 있었다(`Q106` 이 `V78`·`V79` 에서 같은 것을 고쳤다).
+
+**`SchemaNamingTest` 가 막는다** — 도는 스키마의 `check` 이름이 전부 `_check` 로 끝나야 하고, 이름으로 적는 예외가 없다.
+
 ## Java
 
 Google Java Style Guide 를 따른다. 아래는 그 위에 우리가 더 정한 것뿐이다.

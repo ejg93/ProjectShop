@@ -139,12 +139,12 @@ function ProductCard({ item }: { item: ProductItem }) {
         읽어 주면 없는 정보를 있는 것처럼 말하게 된다(`D20`).
       */}
       <Image
-        src={item.thumbnailUrl ?? `https://picsum.photos/seed/${item.productId}/600/450`}
+        src={item.thumbnailUrl ?? "/placeholder.svg"}
         alt={item.thumbnailUrl ? item.name : ""}
         width={600}
         height={450}
         className="aspect-[4/3] w-full rounded-ui object-cover"
-        unoptimized={item.thumbnailUrl !== null}
+        unoptimized
       />
 
       <div className="grid content-between gap-2">

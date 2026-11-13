@@ -113,13 +113,13 @@ export default async function ProductDetailPage({
         <Image
           // 사진이 있으면 그 상품의 사진이라 alt 에 상품명이 들어간다(`28`).
           // 없으면 자리표시고, 그때는 상품과 무관해서 alt 를 비운다(`D20`).
-          src={product.imageUrls[0] ?? `https://picsum.photos/seed/${product.productId}/800/600`}
+          src={product.imageUrls[0] ?? "/placeholder.svg"}
           alt={product.imageUrls.length > 0 ? product.name : ""}
           width={800}
           height={600}
           priority
           className="aspect-[4/3] w-full rounded-ui object-cover"
-          unoptimized={product.imageUrls.length > 0}
+          unoptimized
         />
           {/*
             남의 저작물이 올라왔을 때 권리자가 알릴 길이다(저작권법 제103조, `D2` `R42`). 절차가 있어야

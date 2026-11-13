@@ -117,6 +117,31 @@ class SchemaNamingTest extends PostgresTestBase {
     @Autowired
     private JdbcClient jdbc;
 
+    /**
+     * {@code check} 제약 이름은 {@code _check} 로 끝난다(`D22` 「`check` 제약 이름은 `_check` 로 끝난다」, `Q427`).
+     *
+     * <p>길이 회계({@code LengthConstraintTest})와 값 목록 회계({@code EnumConstraintTest})가 이름으로 걷는다 —
+     * 꼴에서 벗어난 이름은 두 회계를 조용히 비껴간다. 이름으로 적는 예외가 없다.
+     */
+    @Test
+    @DisplayName("check 제약 이름은 전부 _check 로 끝난다")
+    void checkNamesEndWithCheck() {
+        List<String> names = jdbc.sql("""
+                        select c.conname
+                          from pg_constraint c
+                          join pg_namespace n on n.oid = c.connamespace
+                         where c.contype = 'c' and n.nspname = 'public'
+                        """)
+                .query(String.class)
+                .list();
+
+        assertThat(names).as("헛돌지 않는다 — 스키마의 check 를 실제로 걷었다").hasSizeGreaterThan(100);
+        assertThat(names)
+                .as("길이·값 목록 회계가 이름으로 걷는다. _check 로 안 끝나면 둘 다 비껴간다")
+                .filteredOn(name -> !name.endsWith("_check"))
+                .isEmpty();
+    }
+
     private record Column(String table, String name, String type) {
         String qualified() {
             return table + "." + name;

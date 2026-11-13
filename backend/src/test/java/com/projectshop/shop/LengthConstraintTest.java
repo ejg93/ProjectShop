@@ -104,6 +104,11 @@ class LengthConstraintTest extends PostgresTestBase {
                     "저장소 열쇠는 앱이 만든다(`product/{UUID}/{이름}.{확장자}`) — 요청에 그런 칸이 없다"),
             Map.entry("product_image_thumbnail_key_length_check", "〃"),
             Map.entry("product_image_original_name_length_check",
+                    "올린 파일의 이름이라 요청 본문이 아니라 멀티파트 봉투에서 온다"),
+            Map.entry("review_image_object_key_length_check",
+                    "저장소 열쇠는 앱이 만든다 — 요청에 그런 칸이 없다(`product_image` 와 같다, `Q427`)"),
+            Map.entry("review_image_thumbnail_key_length_check", "〃"),
+            Map.entry("review_image_original_name_length_check",
                     "올린 파일의 이름이라 요청 본문이 아니라 멀티파트 봉투에서 온다")));
 
     /**
@@ -162,7 +167,6 @@ class LengthConstraintTest extends PostgresTestBase {
             Map.entry("permission.action", "권한 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),
             Map.entry("permission.description", "〃"),
             Map.entry("permission_field_group.code", "〃"),
-            Map.entry("permission_field_group.resource", "〃"),
             Map.entry("permission_field_group.description", "〃"),
             Map.entry("role_permission_field.effect", "〃"),
             Map.entry("role.code", "역할 구성이다. 마이그레이션이 넣고 요청 입구가 없다"),

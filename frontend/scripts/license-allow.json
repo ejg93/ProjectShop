@@ -16,7 +16,7 @@
   "packages": {
     "@img/sharp-libvips-*": {
       "license": "LGPL-3.0-or-later",
-      "why": "LGPL-3.0-or-later — Next 의 sharp(optional)가 운영 npm ci 에 깔고, 자리표시 사진(picsum)이 next/image 최적화기를 지나서 실제로 불린다(진짜 사진만 unoptimized). LGPL 의 요건은 남에게 넘길 때(conveying) 걸리는데 우리는 서버에서 돌리기만 하고 고치지도 않는다. 앱이나 이미지를 남에게 배포하는 날 다시 판단한다"
+      "why": "LGPL-3.0-or-later — Next 의 sharp(optional)가 운영 npm ci 에 깐다. 2026-11-13(Q432)부터 모든 사진이 unoptimized 라 최적화기가 안 불린다. LGPL 의 요건은 남에게 넘길 때(conveying) 걸리는데 우리는 서버에서 돌리기만 하고 고치지도 않는다. 앱이나 이미지를 남에게 배포하는 날 다시 판단한다"
     },
     "@img/sharp-win32-*": {
       "license": "Apache-2.0 AND LGPL-3.0-or-later",

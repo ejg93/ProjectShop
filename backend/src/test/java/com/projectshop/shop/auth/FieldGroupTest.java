@@ -1,6 +1,7 @@
 package com.projectshop.shop.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Arrays;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.PostgresTestBase;
@@ -61,6 +63,18 @@ class FieldGroupTest extends PostgresTestBase {
                 .contains("basic");
 
         assertThat(codesOf(UserFields.values())).contains("basic");
+    }
+
+    @Test
+    @DisplayName("목록 밖 자원의 필드 그룹은 check 가 막는다 — 권한 자원 목록과 같은 칸이다")
+    void checkRejectsUnknownFieldGroupResource() {
+        // 시험 트랜잭션 안에서 넣는다. 밖에서 고치면 fork DB 를 건드린다(2026-09-26 실측).
+        assertThatThrownBy(() -> jdbc.sql("""
+                        insert into permission_field_group (resource, code)
+                        values ('test_q428', 'basic')
+                        """).update())
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("permission_field_group_resource_check");
     }
 
     private List<String> codesIn(String resource) {
