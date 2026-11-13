@@ -24,26 +24,26 @@ class SecondFactorSecrets {
 
     private static final Logger log = LoggerFactory.getLogger(SecondFactorSecrets.class);
 
-    private final AesGcmSeal seal;
+    private final AesGcmSeal aes;
     private final int keyVersion;
 
     SecondFactorSecrets(@Value("${shop.second-factor.secret-key:}") String base64Key,
             @Value("${shop.second-factor.secret-key-version:1}") int keyVersion) {
-        this.seal = AesGcmSeal.ofBase64Key(base64Key);
+        this.aes = AesGcmSeal.ofBase64Key(base64Key);
         this.keyVersion = keyVersion;
-        if (!seal.available()) {
+        if (!aes.available()) {
             log.warn("2차 인증 키가 없거나 꼴이 틀렸다 — 셀러·관리자·감사자 로그인이 503 이다"
                     + "(SECOND_FACTOR_SECRET_KEY, base64 32바이트)");
         }
     }
 
     boolean available() {
-        return seal.available();
+        return aes.available();
     }
 
     Sealed seal(long userId, byte[] secret) {
         requireKey();
-        return new Sealed(seal.seal(secret, bindingOf(userId)), keyVersion);
+        return new Sealed(aes.seal(secret, bindingOf(userId)), keyVersion);
     }
 
     /** 푼다. <b>키 판이 다르면 못 푼다</b> — 키를 바꾸는 절차는 아직 없다(판이 둘이 되는 날 세운다) */
@@ -52,11 +52,11 @@ class SecondFactorSecrets {
         if (version != keyVersion) {
             throw new IllegalStateException("2차 인증 비밀의 키 판이 다르다: 저장 " + version + ", 지금 " + keyVersion);
         }
-        return seal.open(ciphertext, bindingOf(userId));
+        return aes.open(ciphertext, bindingOf(userId));
     }
 
     private void requireKey() {
-        if (!seal.available()) {
+        if (!aes.available()) {
             throw new ShopException(ErrorCode.SECOND_FACTOR_KEY_MISSING);
         }
     }

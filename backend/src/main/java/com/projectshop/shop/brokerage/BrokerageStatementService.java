@@ -1,10 +1,11 @@
 package com.projectshop.shop.brokerage;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -110,20 +111,22 @@ public class BrokerageStatementService {
     public void submit(long actorUserId, long statementId, String fileSha256) {
         query.require(actorUserId, "submit");
         query.requireExists(statementId);
-        if (!BrokerageStatementFile.sha256Hex(query.render(statementId)).equals(fileSha256)) {
+        byte[] current = BrokerageStatementFile.sha256Hex(query.render(statementId)).getBytes(StandardCharsets.US_ASCII);
+        if (!MessageDigest.isEqual(current, fileSha256.getBytes(StandardCharsets.US_ASCII))) {
             throw new ShopException(ErrorCode.BROKERAGE_STATEMENT_FILE_CHANGED);
         }
-        try {
-            jdbc.sql("""
-                            insert into brokerage_statement_submission
-                                   (brokerage_statement_id, submitted_by_user_id, file_sha256)
-                            values (:id, :actor, :sha)
-                            """)
-                    .param("id", statementId)
-                    .param("actor", actorUserId)
-                    .param("sha", fileSha256)
-                    .update();
-        } catch (DuplicateKeyException e) {
+        // 분기당 기록 하나는 기본키가 쥔다. 겹치면 0행이라 그것으로 가른다 — 예외를 잡아 바꾸면 원인 줄이 사라진다.
+        int inserted = jdbc.sql("""
+                        insert into brokerage_statement_submission
+                               (brokerage_statement_id, submitted_by_user_id, file_sha256)
+                        values (:id, :actor, :sha)
+                        on conflict (brokerage_statement_id) do nothing
+                        """)
+                .param("id", statementId)
+                .param("actor", actorUserId)
+                .param("sha", fileSha256)
+                .update();
+        if (inserted == 0) {
             throw new ShopException(ErrorCode.BROKERAGE_STATEMENT_ALREADY_SUBMITTED);
         }
         auditLog.record(AuditLog.Kind.OUTCOME, "brokerage_statement.submitted", actorUserId,

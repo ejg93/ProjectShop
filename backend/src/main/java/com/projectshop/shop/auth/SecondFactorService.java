@@ -21,6 +21,8 @@ import com.projectshop.shop.audit.AuditTargetType;
 @Service
 public class SecondFactorService {
 
+    /** SQL 묶음 이름 — 계정 */
+    private static final String USER_ID = "userId";
     /** 인증 앱에 보이는 발급자 이름 */
     private static final String ISSUER = "ProjectShop";
 
@@ -42,7 +44,7 @@ public class SecondFactorService {
 
     public boolean enrolled(long userId) {
         return jdbc.sql("select exists(select 1 from user_second_factor where user_id = :userId)")
-                .param("userId", userId)
+                .param(USER_ID, userId)
                 .query(Boolean.class)
                 .single();
     }
@@ -59,7 +61,7 @@ public class SecondFactorService {
                         insert into user_second_factor (user_id, secret_ciphertext, secret_key_version, last_used_step)
                         values (:userId, :ciphertext, :keyVersion, :step)
                         """)
-                .param("userId", userId)
+                .param(USER_ID, userId)
                 .param("ciphertext", sealed.ciphertext())
                 .param("keyVersion", sealed.keyVersion())
                 .param("step", confirmedStep)
@@ -76,7 +78,7 @@ public class SecondFactorService {
                           from user_second_factor
                          where user_id = :userId
                         """)
-                .param("userId", userId)
+                .param(USER_ID, userId)
                 .query((rs, rowNum) -> new Stored(rs.getBytes("secret_ciphertext"), rs.getInt("secret_key_version")))
                 .optional()
                 .orElse(null);
@@ -95,7 +97,7 @@ public class SecondFactorService {
                            and last_used_step < :step
                         """)
                 .param("step", step.getAsLong())
-                .param("userId", userId)
+                .param(USER_ID, userId)
                 .update() == 1;
     }
 
@@ -131,7 +133,7 @@ public class SecondFactorService {
     @Transactional
     public void remove(long userId) {
         jdbc.sql("delete from user_second_factor where user_id = :userId")
-                .param("userId", userId)
+                .param(USER_ID, userId)
                 .update();
     }
 

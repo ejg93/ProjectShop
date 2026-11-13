@@ -67,6 +67,7 @@ public class DemoSecondFactorSeeder implements ApplicationRunner {
                 enrolled++;
             }
         }
-        log.info("연습 계정 2차 인증 시드: 대상 {}, 새로 등록 {}", targets.size(), enrolled);
+        int total = targets.size();
+        log.info("연습 계정 2차 인증 시드: 대상 {}, 새로 등록 {}", total, enrolled);
     }
 }

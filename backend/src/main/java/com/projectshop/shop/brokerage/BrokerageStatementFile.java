@@ -32,10 +32,11 @@ final class BrokerageStatementFile {
     static byte[] render(List<Row> rows) {
         StringBuilder out = new StringBuilder();
         line(out, HEADER);
-        int serial = 1;
+        int serial = 0;
         for (Row row : rows) {
+            serial++;
             line(out, List.of(
-                    Integer.toString(serial++),
+                    Integer.toString(serial),
                     "%04d%02d".formatted(row.salesMonth().getYear(), row.salesMonth().getMonthValue()),
                     formCode(row.method()),
                     Integer.toString(row.saleCount()),

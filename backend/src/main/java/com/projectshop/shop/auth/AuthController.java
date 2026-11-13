@@ -161,7 +161,7 @@ public class AuthController {
             //
             // **세션 ID 를 간다** — 심어 둔 세션 ID 로 대기 값이 서면 그 세션을 심은 사람이 코드·등록 단계를 가져간다(세션 고정).
             // 앞 로그인의 등록 중 비밀도 지운다 — 다른 계정의 묶음 값으로 풀려다 터진다.
-            HttpSession session = http.getSession(true);
+            HttpSession session = sessionOf(http);
             http.changeSessionId();
             session.removeAttribute(SecondFactorEnrolling.ATTRIBUTE);
             session.setAttribute(SecondFactorPending.ATTRIBUTE, new SecondFactorPending(user, Instant.now()));
@@ -171,7 +171,7 @@ public class AuthController {
         }
 
         loginAttemptService.reset(request.email(), ip);
-        completeLogin(authentication, http, response);
+        completeLogin(authentication, user.id(), http, response);
         return new LoginResponse(user.id(), user.email(), LoginStep.DONE);
     }
 
@@ -197,7 +197,7 @@ public class AuthController {
         if (secondFactors.enrolled(user.id())) {
             confirmed = secondFactors.verify(user.id(), request.code(), now);
         } else {
-            Object enrolling = http.getSession().getAttribute(SecondFactorEnrolling.ATTRIBUTE);
+            Object enrolling = sessionOf(http).getAttribute(SecondFactorEnrolling.ATTRIBUTE);
             if (!(enrolling instanceof SecondFactorEnrolling sealed)) {
                 throw new ShopException(ErrorCode.SECOND_FACTOR_NOT_ENROLLED);
             }
@@ -210,10 +210,11 @@ public class AuthController {
         }
 
         loginAttemptService.reset(user.email(), ip);
-        http.getSession().removeAttribute(SecondFactorPending.ATTRIBUTE);
-        http.getSession().removeAttribute(SecondFactorEnrolling.ATTRIBUTE);
+        HttpSession session = sessionOf(http);
+        session.removeAttribute(SecondFactorPending.ATTRIBUTE);
+        session.removeAttribute(SecondFactorEnrolling.ATTRIBUTE);
         completeLogin(UsernamePasswordAuthenticationToken.authenticated(user.verified(), null, List.of()),
-                http, response);
+                user.id(), http, response);
         return new LoginResponse(user.id(), user.email(), LoginStep.DONE);
     }
 
@@ -229,16 +230,21 @@ public class AuthController {
         if (secondFactors.enrolled(user.id())) {
             throw new ShopException(ErrorCode.SECOND_FACTOR_ALREADY_ENROLLED);
         }
-        Object stored = http.getSession().getAttribute(SecondFactorEnrolling.ATTRIBUTE);
+        Object stored = sessionOf(http).getAttribute(SecondFactorEnrolling.ATTRIBUTE);
         SecondFactorService.Enrollment enrollment;
         if (stored instanceof SecondFactorEnrolling sealed) {
             enrollment = secondFactors.reopen(user.id(), user.email(), sealed.ciphertext(), sealed.keyVersion());
         } else {
             enrollment = secondFactors.newEnrollment(user.id(), user.email());
-            http.getSession().setAttribute(SecondFactorEnrolling.ATTRIBUTE,
+            sessionOf(http).setAttribute(SecondFactorEnrolling.ATTRIBUTE,
                     new SecondFactorEnrolling(enrollment.ciphertext(), enrollment.keyVersion()));
         }
         return new EnrollmentResponse(enrollment.secret(), enrollment.otpauthUri());
+    }
+
+    /** 세션. {@code getSession(true)} 는 null 을 안 낸다 — 서블릿 규약이 그렇고, 정적 분석기가 모르는 것을 여기서 한 번 단언한다 */
+    private static HttpSession sessionOf(HttpServletRequest http) {
+        return java.util.Objects.requireNonNull(http.getSession(true), "세션을 못 만들었다");
     }
 
     /** 세션의 대기 값. 없거나 5분이 지났으면 처음부터 다시 한다 */
@@ -256,7 +262,7 @@ public class AuthController {
      *
      * <p>비밀번호만으로 끝나는 고객과 2차 인증을 지난 대상 계정이 같은 길을 지난다. 갈리면 한쪽만 세션 고정 방어를 잃는다.
      */
-    private void completeLogin(Authentication authentication, HttpServletRequest http,
+    private void completeLogin(Authentication authentication, long userId, HttpServletRequest http,
             HttpServletResponse response) {
         // 세션 ID 재발급과 레지스트리 등록. 이 줄이 빠지면 세션 고정 방어가 사라진다.
         sessionAuthenticationStrategy.onAuthentication(authentication, http, response);
@@ -266,15 +272,12 @@ public class AuthController {
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, http, response);
 
-        ShopUserDetailsService.ShopUser user =
-                (ShopUserDetailsService.ShopUser) authentication.getPrincipal();
-
         // 비로그인으로 담아 둔 것을 계정으로 옮긴다. 옮긴 뒤 그 장바구니는 사라진다 —
         // 남겨 두면 같은 물건이 두 군데 있고 다음 로그인에 또 병합된다.
         //
         // 여기서 부르는 이유는 이 시점이 두 주인이 동시에 보이는 유일한 자리라서다.
         // 이벤트로 미루면 D12 가 필요한데 그건 아직 없다.
-        cartService.mergeIntoAccount(user.id(), CartController.tokenOf(http));
+        cartService.mergeIntoAccount(userId, CartController.tokenOf(http));
         expireCartCookie(response);
     }
 

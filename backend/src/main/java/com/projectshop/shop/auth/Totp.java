@@ -35,6 +35,8 @@ final class Totp {
     private static final int WINDOW = 1;
     /** 비밀 길이(바이트). RFC 4226 §4 R6 의 160비트 */
     private static final int SECRET_BYTES = 20;
+    /** Base32 를 풀 때 건너뛰는 글자 — 패딩과 공백 */
+    private static final String IGNORED_BASE32 = "= ";
     /** RFC 4648 §6 의 Base32 알파벳 */
     private static final String BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
@@ -101,7 +103,7 @@ final class Totp {
         int buffer = 0;
         int bits = 0;
         for (char c : text.toUpperCase(Locale.ROOT).toCharArray()) {
-            if (c == '=' || c == ' ') {
+            if (IGNORED_BASE32.indexOf(c) >= 0) {
                 continue;
             }
             int value = BASE32_ALPHABET.indexOf(c);
@@ -110,9 +112,9 @@ final class Totp {
             }
             buffer = (buffer << 5) | value;
             bits += 5;
-            if (bits >= 8) {
-                out.write((buffer >> (bits - 8)) & 0xff);
-                bits -= 8;
+            if (bits >= Byte.SIZE) {
+                out.write((buffer >> (bits - Byte.SIZE)) & 0xff);
+                bits -= Byte.SIZE;
             }
         }
         return out.toByteArray();
