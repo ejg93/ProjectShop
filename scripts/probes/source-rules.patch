@@ -23,10 +23,11 @@ new file mode 100644
 index 00000000..e7776846
 --- /dev/null
 +++ b/backend/src/main/java/com/projectshop/shop/support/ProbeResponse.java
-@@ -0,0 +1,9 @@
+@@ -0,0 +1,10 @@
 +package com.projectshop.shop.support;
 +
 +class ProbeResponse {
++    /** 탐침 — Checkstyle `JavadocVariable`(`Q378a`)을 지나 시험까지 가게 둔 주석이다. */
 +    static final String HEADER = "X-Trace";
 +
 +    static void meter(io.micrometer.core.instrument.MeterRegistry registry) {

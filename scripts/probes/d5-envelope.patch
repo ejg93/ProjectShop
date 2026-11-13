@@ -1,6 +1,6 @@
 # gate: OpenApiSpecTest 목록 껍데기(Q227)
 # run: cd backend && ./gradlew integrationTest --tests '*OpenApiSpecTest' -q
-# expect: FAILED com\.projectshop\.shop\.OpenApiSpecTest 목록 응답 껍데기가 items·page·size·total 넷을 다 싣는다
+# expect: FAILED com\.projectshop\.shop\.OpenApiSpecTest 목록 응답 껍데기가 items·offset·limit·total 넷을 다 싣는다
 diff --git a/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java b/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java
 index 7a4e0375..2c705a63 100644
 --- a/backend/src/main/java/com/projectshop/shop/webhook/WebhookDeliveryQuery.java
