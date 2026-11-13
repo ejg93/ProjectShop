@@ -5,6 +5,10 @@
 
 ```mermaid
 erDiagram
+    brokerage_statement_line }o--|| brokerage_statement : "brokerage_statement_id"
+    brokerage_statement_line }o..|| seller : "seller_id"
+    brokerage_statement_submission }o--|| brokerage_statement : "brokerage_statement_id"
+    brokerage_statement_submission }o..|| app_user : "submitted_by_user_id"
     notification }o..|| refund : "refund_id"
     refund }o..|| app_user : "approved_by_user_id"
     refund }o..|| app_user : "requested_by_user_id"

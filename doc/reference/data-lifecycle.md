@@ -95,6 +95,7 @@
 | `permission_field_group`·`role_permission_field` | 어느 역할이 어느 필드를 보나를 정한다. 위와 같은 구성 값이다 |
 | `consent_item`·`policy_document` | 약관과 동의 항목의 판이다. **지우면 「이 사람이 무엇에 동의했나」가 사라진다** — 계약 문서가 `restrict` 로 이 행을 가리킨다 |
 | `holiday` | 영업일을 세는 참조 값이다. 날짜가 지나도 과거 기한을 다시 셀 때 읽는다 |
+| `brokerage_statement`·`brokerage_statement_line`·`brokerage_statement_submission` | 판매·결제 중개 명세와 제출 기록이다(`Q455`, 부가가치세법 제75조 `R46`). **개인정보가 없다** — 셀러 식별자·건수·금액·행위자 식별자뿐이고, 셀러 신원은 내려받을 때 `seller` 에서 붙인다. 국세청에 낸 장부라 지우면 무엇을 냈는지 증명할 길이 사라진다 |
 | `notification_template` | 알림 문구의 판이다. **지우면 그때 보낸 본문을 복원할 방법이 사라진다** — 발송 이력이 `restrict` 로 이 행을 가리킨다 |
 
 ## 보존분 분리

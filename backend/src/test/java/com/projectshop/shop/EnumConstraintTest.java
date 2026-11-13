@@ -224,7 +224,7 @@ class EnumConstraintTest extends PostgresTestBase {
         pairs.put("webhook.WebhookDeliveryStatus", List.of("webhook_delivery_status_check"));
         pairs.put("order.OrderStatusService$ReturnReason", List.of("seller_order_return_reason_check",
                                                                   "return_request_reason_code_check"));
-        pairs.put("payment.PaymentMethod", List.of("payment_method_check"));
+        pairs.put("payment.PaymentMethod", List.of("payment_method_check", "brokerage_statement_line_method_check"));
         pairs.put("payment.PaymentStatus", List.of("payment_status_check"));
         pairs.put("payment.RefundReason", List.of("refund_reason_code_check"));
         pairs.put("payment.RefundStatus", List.of("refund_status_check"));

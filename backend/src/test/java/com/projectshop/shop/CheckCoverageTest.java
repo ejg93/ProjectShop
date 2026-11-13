@@ -90,6 +90,12 @@ class CheckCoverageTest extends PostgresTestBase {
 
     /** 돈 묶음 — 결제·환불·정산·보상·쿠폰 표(`Q426c`) */
     private static final Map<String, Cover> COVERED_MONEY = Map.ofEntries(
+            Map.entry("brokerage_statement_period_quarter_check", new Cover("BrokerageStatementServiceTest", "분기 번호가 1~4 밖이다")),
+            Map.entry("brokerage_statement_period_check", new Cover("BrokerageStatementServiceTest", "기한이 분기 끝보다 늦지 않다")),
+            Map.entry("brokerage_statement_line_sale_count_check", new Cover("BrokerageStatementServiceTest", "명세 줄 건수가 0 이다")),
+            Map.entry("brokerage_statement_line_sale_amount_check", new Cover("BrokerageStatementServiceTest", "명세 줄 금액이 음수다")),
+            Map.entry("brokerage_statement_line_sales_month_check", new Cover("BrokerageStatementServiceTest", "명세 줄 월이 1일이 아니다")),
+            Map.entry("brokerage_statement_submission_file_sha256_check", new Cover("BrokerageStatementServiceTest", "제출본 해시가 소문자 16진 64자가 아니다")),
             Map.entry("refund_approved_by_user_check", new Cover("OutboxEventSchemaTest", "승인 주체 종류와 승인 사용자가 짝이 아니다")),
             Map.entry("refund_decision_check", new Cover("OutboxEventSchemaTest", "접수 상태와 판정 흔적(승인 주체·판정 시각)이 짝이 아니다")),
             Map.entry("refund_delay_interest_timing_check", new Cover("SettlementCloseBatchTest", "기한 안 판정에 지연 이자가 붙었다")),

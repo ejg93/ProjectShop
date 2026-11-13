@@ -5,6 +5,8 @@
 
 ```mermaid
 erDiagram
+    brokerage_statement_line }o..|| seller : "seller_id"
+    brokerage_statement_submission }o..|| app_user : "submitted_by_user_id"
     cart }o..|| app_user : "user_id"
     compensation }o..|| app_user : "decided_by_user_id"
     consent_item }o--|| consent_item : "depends_on_id"
