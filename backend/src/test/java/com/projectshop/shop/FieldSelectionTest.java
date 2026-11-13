@@ -49,7 +49,7 @@ class FieldSelectionTest extends PostgresTestBase {
 
         long auditorId = fixture.insertUser("fs-auditor@test.local", "감사자");
         fixture.grantGlobal(auditorId, "auditor");
-        auditor = new ShopUser(auditorId, "fs-auditor@test.local", null, true);
+        auditor = new ShopUser(auditorId, "fs-auditor@test.local", null, true).verified();
     }
 
     @Test
@@ -119,7 +119,7 @@ class FieldSelectionTest extends PostgresTestBase {
         long ownerId = fixture.insertUser("fs-owner@test.local", "사장");
         fixture.joinSeller(sellerId, ownerId);
         fixture.grantOrg(ownerId, "seller_owner", sellerId);
-        ShopUser owner = new ShopUser(ownerId, "fs-owner@test.local", null, true);
+        ShopUser owner = new ShopUser(ownerId, "fs-owner@test.local", null, true).verified();
 
         String body = mvc.perform(post("/api/products").with(user(owner)).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)

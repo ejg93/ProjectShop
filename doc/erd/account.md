@@ -5,6 +5,8 @@
 
 ```mermaid
 erDiagram
+    brokerage_statement_line }o..|| seller : "seller_id"
+    brokerage_statement_submission }o..|| app_user : "submitted_by_user_id"
     cart }o..|| app_user : "user_id"
     compensation }o..|| app_user : "decided_by_user_id"
     consent_item }o--|| consent_item : "depends_on_id"
@@ -47,6 +49,7 @@ erDiagram
     user_consent }o--|| app_user : "user_id"
     user_role }o..|| seller : "seller_id"
     user_role }o..|| app_user : "user_id"
+    user_second_factor }o--|| app_user : "user_id"
     webhook_delivery }o..|| outbox_event : "outbox_event_id"
     webhook_delivery }o--|| webhook_endpoint : "webhook_endpoint_id"
     webhook_endpoint }o--|| seller : "seller_id"

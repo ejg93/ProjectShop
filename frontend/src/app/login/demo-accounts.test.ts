@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { DEMO_GROUPS, DEMO_PASSWORD } from "./demo-accounts";
+import { DEMO_GROUPS, DEMO_PASSWORD, DEMO_SECOND_FACTOR_SECRET } from "./demo-accounts";
 
 /**
  * 안내가 시드와 같은 값을 드나(`Q131`).
@@ -67,4 +67,41 @@ describe("데모 계정 안내", () => {
   it("비밀번호가 시드가 만든 것과 같다", () => {
     expect(SEED_SQL).toContain(`crypt('${DEMO_PASSWORD}'`);
   });
+
+  it("2차 인증 비밀이 백엔드 시더의 고정 비밀과 같다", () => {
+    // 시더 소스의 `FIXED_SECRET` 글자를 읽어 Base32 로 옮긴다(`Q454`). 시드처럼 프로필에서만 도는 값이라 글자로 잰다.
+    const seeder = readFileSync(
+      join(process.cwd(), "..", "backend", "src", "main", "java", "com", "projectshop", "shop",
+           "demo", "DemoSecondFactorSeeder.java"),
+      "utf8",
+    );
+    const fixed = seeder.match(/FIXED_SECRET = "([^"]+)"/)?.[1];
+    expect(fixed, "시더에서 FIXED_SECRET 을 못 찾았다").toBeDefined();
+    expect(base32(new TextEncoder().encode(fixed))).toBe(DEMO_SECOND_FACTOR_SECRET);
+  });
+
+  it("판매자·시스템관리자만 2차 인증 대상이다", () => {
+    const flagged = DEMO_GROUPS.filter((group) => group.secondFactor).map((group) => group.title);
+    expect(flagged).toEqual(["판매자", "시스템관리자"]);
+  });
 });
+
+/** RFC 4648 §6, 패딩 없음 — 서버 `Totp.base32` 와 같은 꼴 */
+function base32(bytes: Uint8Array): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let out = "";
+  let buffer = 0;
+  let bits = 0;
+  for (const byte of bytes) {
+    buffer = (buffer << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      out += alphabet[(buffer >> (bits - 5)) & 0x1f];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) {
+    out += alphabet[(buffer << (5 - bits)) & 0x1f];
+  }
+  return out;
+}

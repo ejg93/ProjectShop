@@ -150,7 +150,7 @@ class BatchRunControllerTest extends PostgresTestBase {
 
     private ResultActions runOn(long userId, String name, String baseline) throws Exception {
         return mvc.perform(post("/api/admin/batches/{name}/runs", name)
-                .with(user(new ShopUser(userId, "batch@test.local", "{noop}x", true)))
+                .with(user(new ShopUser(userId, "batch@test.local", "{noop}x", true).verified()))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"baseline_date\": \"" + baseline + "\"}"));

@@ -14,6 +14,7 @@ import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.auth.PermissionRuleLoader;
+import com.projectshop.shop.auth.SecondFactorService;
 import com.projectshop.shop.consent.ConsentService;
 import com.projectshop.shop.seller.SellerMemberService;
 
@@ -40,11 +41,13 @@ public class WithdrawalService {
     private final AuditLog auditLog;
     private final ConsentService consentService;
     private final SellerMemberService sellerMembers;
+    private final SecondFactorService secondFactors;
 
     WithdrawalService(JdbcClient jdbc, PasswordEncoder passwordEncoder,
             PermissionRuleLoader ruleLoader,
             FindByIndexNameSessionRepository<? extends Session> sessions, AuditLog auditLog,
-            ConsentService consentService, SellerMemberService sellerMembers) {
+            ConsentService consentService, SellerMemberService sellerMembers,
+            SecondFactorService secondFactors) {
 
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
@@ -53,6 +56,7 @@ public class WithdrawalService {
         this.auditLog = auditLog;
         this.consentService = consentService;
         this.sellerMembers = sellerMembers;
+        this.secondFactors = secondFactors;
     }
 
     /**
@@ -86,6 +90,8 @@ public class WithdrawalService {
         jdbc.sql("update app_user set deleted_at = now() where user_id = :id")
                 .param("id", userId)
                 .update();
+        // 2차 인증 비밀은 인증정보라 유예 없이 지운다(`Q451`, 고시 제7조①). 탈퇴는 update 라 cascade 가 안 걸린다.
+        secondFactors.remove(userId);
 
         auditLog.record(AuditLog.Kind.OUTCOME, "user.withdrawn", userId,
                 AuditLog.Target.of(AuditTargetType.USER, userId), Map.of());

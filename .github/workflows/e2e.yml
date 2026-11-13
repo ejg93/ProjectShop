@@ -50,6 +50,9 @@ jobs:
         working-directory: backend
         env:
           RATE_LIMIT_ENABLED: "false"
+          # 2차 인증 키(`Q454`). 없으면 판매자·관리자 로그인이 503 이다. **비밀이 아니다** — CI 전용 고정 값이고 이 키로 싸는 것은
+          # 연습 계정의 공개 고정 비밀뿐이다(`DemoSecondFactorSeeder`). 운영 키는 Railway 변수에만 있다.
+          SECOND_FACTOR_SECRET_KEY: "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8="
         run: nohup ./gradlew bootRun --args='--spring.profiles.active=local' > /tmp/backend.log 2>&1 &
 
       - name: 백엔드가 답할 때까지 기다린다

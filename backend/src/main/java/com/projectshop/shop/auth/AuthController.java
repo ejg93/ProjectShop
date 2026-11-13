@@ -1,6 +1,8 @@
 package com.projectshop.shop.auth;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import java.net.URI;
@@ -30,10 +32,12 @@ import com.projectshop.shop.error.ShopException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Size;
 
@@ -50,6 +54,8 @@ public class AuthController {
     private final CartService cartService;
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
+    private final PermissionRuleLoader ruleLoader;
+    private final SecondFactorService secondFactors;
 
     /**
      * 재설정 링크의 틀. `{token}` 자리에 토큰이 들어간다.
@@ -66,10 +72,13 @@ public class AuthController {
             SessionAuthenticationStrategy sessionAuthenticationStrategy,
             SecurityContextRepository securityContextRepository, CartService cartService,
             LoginAttemptService loginAttemptService, PasswordResetService passwordResetService,
+            PermissionRuleLoader ruleLoader, SecondFactorService secondFactors,
             @Value("${app.password-reset.url-template:http://localhost:3000/password-reset?token={token}}")
             String resetUrlTemplate) {
 
         this.passwordResetService = passwordResetService;
+        this.ruleLoader = ruleLoader;
+        this.secondFactors = secondFactors;
         this.resetUrlTemplate = resetUrlTemplate;
         this.signupService = signupService;
         this.cartService = cartService;
@@ -103,6 +112,10 @@ public class AuthController {
      * <p>{@code formLogin} 을 껐으므로 이 흐름을 대신 해 주는 것이 없다.
      * 인증, 세션 처리, 컨텍스트 저장을 <b>전부 직접</b> 부른다 — 하나라도 빠뜨리면
      * 로그인은 성공하는데 다음 요청에서 인증이 안 남아 있다.
+     *
+     * <p><b>셀러·관리자·감사자는 여기서 세션이 안 선다</b>(`Q452`, 안전성 확보조치 기준 제6조② `D2` R45). 고객 외 역할이
+     * 있으면 비밀번호가 맞아도 대기 값만 세션 속성에 두고 {@link LoginStep#CODE_REQUIRED} 나
+     * {@link LoginStep#ENROLLMENT_REQUIRED} 로 답한다 — 인증된 세션은 {@link #confirmSecondFactor} 가 세운다.
      */
     @PostMapping("/login")
     public LoginResponse logIn(@Valid @RequestBody LoginRequest request,
@@ -138,8 +151,119 @@ public class AuthController {
             throw new ShopException(ErrorCode.LOGIN_FAILED);
         }
 
-        loginAttemptService.reset(request.email(), ip);
+        ShopUserDetailsService.ShopUser user =
+                (ShopUserDetailsService.ShopUser) authentication.getPrincipal();
+        if (ruleLoader.requiresSecondFactor(user.id())) {
+            // 인증된 세션을 안 세운다 — 비밀번호만 맞은 대상 계정이 다음 요청에서 인증돼 있으면 2차 인증이 없는 것과 같다.
+            //
+            // **실패 수를 여기서 안 지운다**(마무리 84차 독립 리뷰). 지우면 비밀번호를 아는 사람이 「코드 네 번 → 다시 로그인」을
+            // 되풀이해 잠금 없이 코드를 추측한다(고시 제5조⑥). 지우는 것은 코드까지 맞았을 때다.
+            //
+            // **세션 ID 를 간다** — 심어 둔 세션 ID 로 대기 값이 서면 그 세션을 심은 사람이 코드·등록 단계를 가져간다(세션 고정).
+            // 앞 로그인의 등록 중 비밀도 지운다 — 다른 계정의 묶음 값으로 풀려다 터진다.
+            HttpSession session = sessionOf(http);
+            http.changeSessionId();
+            session.removeAttribute(SecondFactorEnrolling.ATTRIBUTE);
+            session.setAttribute(SecondFactorPending.ATTRIBUTE, new SecondFactorPending(user, Instant.now()));
+            LoginStep step = secondFactors.enrolled(user.id())
+                    ? LoginStep.CODE_REQUIRED : LoginStep.ENROLLMENT_REQUIRED;
+            return new LoginResponse(user.id(), user.email(), step);
+        }
 
+        loginAttemptService.reset(request.email(), ip);
+        completeLogin(authentication, user.id(), http, response);
+        return new LoginResponse(user.id(), user.email(), LoginStep.DONE);
+    }
+
+    /**
+     * 2차 인증 코드를 확인하고 세션을 연다(`Q452`). 비밀번호를 지난 대기 값이 세션에 있어야 한다.
+     *
+     * <p><b>코드 실패도 로그인 실패로 센다</b>(고시 제5조⑥) — 다섯 번 틀리면 비밀번호 단계와 같이 잠긴다.
+     * 등록 중이면 첫 코드가 맞을 때 등록까지 한다.
+     */
+    @PostMapping("/login/second-factor")
+    public LoginResponse confirmSecondFactor(@Valid @RequestBody SecondFactorRequest request,
+            HttpServletRequest http, HttpServletResponse response) {
+
+        Instant now = Instant.now();
+        SecondFactorPending pending = pendingOf(http, now);
+        ShopUserDetailsService.ShopUser user = pending.user();
+        String ip = http.getRemoteAddr();
+        if (loginAttemptService.isBlocked(user.email(), ip)) {
+            throw new ShopException(ErrorCode.LOGIN_FAILED);
+        }
+
+        boolean confirmed;
+        if (secondFactors.enrolled(user.id())) {
+            confirmed = secondFactors.verify(user.id(), request.code(), now);
+        } else {
+            Object enrolling = sessionOf(http).getAttribute(SecondFactorEnrolling.ATTRIBUTE);
+            if (!(enrolling instanceof SecondFactorEnrolling sealed)) {
+                throw new ShopException(ErrorCode.SECOND_FACTOR_NOT_ENROLLED);
+            }
+            confirmed = secondFactors.confirmEnrollment(user.id(), sealed.ciphertext(), sealed.keyVersion(),
+                    request.code(), now);
+        }
+        if (!confirmed) {
+            loginAttemptService.recordFailure(user.email(), ip);
+            throw new ShopException(ErrorCode.SECOND_FACTOR_CODE_INVALID);
+        }
+
+        loginAttemptService.reset(user.email(), ip);
+        HttpSession session = sessionOf(http);
+        session.removeAttribute(SecondFactorPending.ATTRIBUTE);
+        session.removeAttribute(SecondFactorEnrolling.ATTRIBUTE);
+        completeLogin(UsernamePasswordAuthenticationToken.authenticated(user.verified(), null, List.of()),
+                user.id(), http, response);
+        return new LoginResponse(user.id(), user.email(), LoginStep.DONE);
+    }
+
+    /**
+     * 2차 인증 등록을 연다(`Q452`). 인증 앱에 넣을 키 문자열과 {@code otpauth} 주소를 낸다.
+     *
+     * <p><b>두 번 불러도 같은 비밀이다</b> — 세션에 싸 둔 것을 다시 낸다. 새로 고칠 때마다 바뀌면 앱에 넣은 것과 갈린다.
+     */
+    @PostMapping("/login/second-factor/enrollment")
+    public EnrollmentResponse startSecondFactorEnrollment(HttpServletRequest http) {
+        SecondFactorPending pending = pendingOf(http, Instant.now());
+        ShopUserDetailsService.ShopUser user = pending.user();
+        if (secondFactors.enrolled(user.id())) {
+            throw new ShopException(ErrorCode.SECOND_FACTOR_ALREADY_ENROLLED);
+        }
+        Object stored = sessionOf(http).getAttribute(SecondFactorEnrolling.ATTRIBUTE);
+        SecondFactorService.Enrollment enrollment;
+        if (stored instanceof SecondFactorEnrolling sealed) {
+            enrollment = secondFactors.reopen(user.id(), user.email(), sealed.ciphertext(), sealed.keyVersion());
+        } else {
+            enrollment = secondFactors.newEnrollment(user.id(), user.email());
+            sessionOf(http).setAttribute(SecondFactorEnrolling.ATTRIBUTE,
+                    new SecondFactorEnrolling(enrollment.ciphertext(), enrollment.keyVersion()));
+        }
+        return new EnrollmentResponse(enrollment.secret(), enrollment.otpauthUri());
+    }
+
+    /** 세션. {@code getSession(true)} 는 null 을 안 낸다 — 서블릿 규약이 그렇고, 정적 분석기가 모르는 것을 여기서 한 번 단언한다 */
+    private static HttpSession sessionOf(HttpServletRequest http) {
+        return java.util.Objects.requireNonNull(http.getSession(true), "세션을 못 만들었다");
+    }
+
+    /** 세션의 대기 값. 없거나 5분이 지났으면 처음부터 다시 한다 */
+    private static SecondFactorPending pendingOf(HttpServletRequest http, Instant now) {
+        HttpSession session = http.getSession(false);
+        Object value = session == null ? null : session.getAttribute(SecondFactorPending.ATTRIBUTE);
+        if (!(value instanceof SecondFactorPending pending) || pending.expiredAt(now)) {
+            throw new ShopException(ErrorCode.SECOND_FACTOR_NOT_PENDING);
+        }
+        return pending;
+    }
+
+    /**
+     * 인증된 세션을 세운다 — 세션 ID 재발급, 컨텍스트 저장, 장바구니 병합.
+     *
+     * <p>비밀번호만으로 끝나는 고객과 2차 인증을 지난 대상 계정이 같은 길을 지난다. 갈리면 한쪽만 세션 고정 방어를 잃는다.
+     */
+    private void completeLogin(Authentication authentication, long userId, HttpServletRequest http,
+            HttpServletResponse response) {
         // 세션 ID 재발급과 레지스트리 등록. 이 줄이 빠지면 세션 고정 방어가 사라진다.
         sessionAuthenticationStrategy.onAuthentication(authentication, http, response);
 
@@ -148,18 +272,13 @@ public class AuthController {
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, http, response);
 
-        ShopUserDetailsService.ShopUser user =
-                (ShopUserDetailsService.ShopUser) authentication.getPrincipal();
-
         // 비로그인으로 담아 둔 것을 계정으로 옮긴다. 옮긴 뒤 그 장바구니는 사라진다 —
         // 남겨 두면 같은 물건이 두 군데 있고 다음 로그인에 또 병합된다.
         //
         // 여기서 부르는 이유는 이 시점이 두 주인이 동시에 보이는 유일한 자리라서다.
         // 이벤트로 미루면 D12 가 필요한데 그건 아직 없다.
-        cartService.mergeIntoAccount(user.id(), CartController.tokenOf(http));
+        cartService.mergeIntoAccount(userId, CartController.tokenOf(http));
         expireCartCookie(response);
-
-        return new LoginResponse(user.id(), user.email());
     }
 
     /**
@@ -229,7 +348,31 @@ public class AuthController {
     public record LoginRequest(@NotBlank String email, @NotBlank String password) {
     }
 
-    public record LoginResponse(long userId, String email) {
+    /**
+     * 로그인 응답이 알리는 다음 단계(`Q452`). 응답에만 실린다 — 저장하지 않는다.
+     *
+     * <p>값은 상수 이름 그대로 대문자 스네이크로 나간다(`D5` 「값의 형식」). 저장값이 없어서 {@code code()} 를 안 둔다.
+     */
+    public enum LoginStep {
+
+        /** 세션이 섰다 */
+        DONE,
+        /** 비밀번호가 맞았고 등록된 2차 인증 코드를 내야 세션이 선다 */
+        CODE_REQUIRED,
+        /** 비밀번호가 맞았고 2차 인증을 등록하고 첫 코드를 내야 세션이 선다 */
+        ENROLLMENT_REQUIRED
+    }
+
+    /** 로그인 결과. {@code step} 이 {@link LoginStep#DONE} 이 아니면 세션이 아직 인증 상태가 아니다 */
+    public record LoginResponse(long userId, String email, LoginStep step) {
+    }
+
+    /** 2차 인증 코드. 여섯 자리 숫자다(RFC 4226 §5.3) */
+    public record SecondFactorRequest(@NotBlank @Pattern(regexp = "^[0-9]{6}$") String code) {
+    }
+
+    /** 등록할 비밀 — 인증 앱에 손으로 칠 Base32 키와 앱이 여는 주소 */
+    public record EnrollmentResponse(String secret, String otpauthUri) {
     }
 
     /**

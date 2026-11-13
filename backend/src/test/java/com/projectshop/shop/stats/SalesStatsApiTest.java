@@ -211,14 +211,14 @@ class SalesStatsApiTest extends PostgresTestBase {
     private ShopUser globalUser(String email, String role) {
         long id = fixture.insertUser(email, role);
         fixture.grantGlobal(id, role);
-        return new ShopUser(id, email, null, true);
+        return new ShopUser(id, email, null, true).verified();
     }
 
     private ShopUser member(long sellerId, String email, String role) {
         long id = fixture.insertUser(email, role);
         fixture.joinSeller(sellerId, id);
         fixture.grantOrg(id, role, sellerId);
-        return new ShopUser(id, email, null, true);
+        return new ShopUser(id, email, null, true).verified();
     }
 
     private void movePaymentTo(long orderId, LocalDate day) {

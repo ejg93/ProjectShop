@@ -52,7 +52,7 @@ class ProductApiTest extends PostgresTestBase {
         fixture.joinSeller(sellerId, ownerId);
         fixture.grantOrg(ownerId, "seller_owner", sellerId);
 
-        owner = new ShopUser(ownerId, "api-owner@test.local", null, true);
+        owner = new ShopUser(ownerId, "api-owner@test.local", null, true).verified();
     }
 
     @Test

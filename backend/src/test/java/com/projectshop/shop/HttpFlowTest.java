@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+import com.projectshop.shop.auth.PermissionRuleLoader;
+
 /**
  * 요청 하나가 인증·판정·감사를 실제로 지나가는지를 <b>진짜 HTTP 로</b> 본다.
  *
@@ -27,6 +29,9 @@ class HttpFlowTest extends HttpTestBase {
 
     @Autowired
     JdbcClient jdbc;
+
+    @Autowired
+    PermissionRuleLoader ruleLoader;
 
     @Nested
     @DisplayName("CSRF 토큰")
@@ -497,6 +502,8 @@ class HttpFlowTest extends HttpTestBase {
 
             Session seller = loggedIn("shipseller");
             givenSellerOwner(userIdOf("shipseller"), product.sellerId());
+            // 셀러 역할을 받은 세션은 2차 인증 표시가 없어 다음 요청에서 끊긴다(`Q453`) — 둘째 단계까지 다시 들어간다.
+            logIn(seller, "shipseller");
 
             Response list = seller.get("/api/seller/orders");
             assertThat(list.is(200)).isTrue();
@@ -509,6 +516,28 @@ class HttpFlowTest extends HttpTestBase {
                             """).is(204))
                     .as("셀러 처리 경로가 안 열리면 주문이 영원히 준비중이다")
                     .isTrue();
+        }
+
+        @Test
+        @DisplayName("고객 세션이 도중에 관리자 역할을 받으면 다음 요청에서 끊긴다")
+        void roleGrantedMidSessionNeedsSecondFactor() {
+            Session session = loggedIn("midgrant");
+            assertThat(session.get("/api/me").is(200)).isTrue();
+
+            jdbc.sql("""
+                    insert into user_role (user_id, role_id)
+                    select :userId, role_id from role where code = 'admin'
+                    """).param("userId", userIdOf("midgrant")).update();
+            ruleLoader.evict(userIdOf("midgrant"));
+
+            Response cut = session.get("/api/me");
+            assertThat(cut.is(401)).isTrue();
+            assertThat(cut.body())
+                    .as("로그인 입구만 막으면 세션 도중에 대상이 된 사람이 2차 인증 없이 남는다")
+                    .contains("second-factor-required");
+            assertThat(session.get("/api/me").body())
+                    .as("끊긴 세션은 다시 로그인해야 한다")
+                    .contains("unauthenticated");
         }
 
         /**
@@ -712,9 +741,7 @@ class HttpFlowTest extends HttpTestBase {
     }
 
     private Response logIn(Session session, String name) {
-        return session.post("/api/auth/login", """
-                {"email": "%s", "password": "%s"}
-                """.formatted(email(name), PASSWORD));
+        return logInFully(session, email(name), PASSWORD);
     }
 
     private static String email(String name) {

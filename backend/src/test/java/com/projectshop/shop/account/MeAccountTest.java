@@ -261,6 +261,6 @@ class MeAccountTest extends PostgresTestBase {
     }
 
     private static ShopUser principal(long id, String email) {
-        return new ShopUser(id, email, "{noop}x", true);
+        return new ShopUser(id, email, "{noop}x", true).verified();
     }
 }

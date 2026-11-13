@@ -22,6 +22,13 @@ cd backend
 JAVA_HOME="C:/Program Files/Java/jdk-25" ./gradlew bootRun
 ```
 
+판매자·관리자 연습 계정으로 들어가려면 **`SECOND_FACTOR_SECRET_KEY` 를 주고 띄운다**(`Q454`) — 없으면 그 로그인만 503 이고
+`local` 시더가 연습 계정의 2차 인증을 등록하지 않는다. 로컬은 `.github/workflows/e2e.yml` 의 값을 그대로 쓴다(공개 비밀만 싸는 값이다).
+
+```bash
+SECOND_FACTOR_SECRET_KEY=QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8= ./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
 ## 확인
 
 ```bash
@@ -61,6 +68,7 @@ curl localhost:8080/actuator/health
 | `RATE_LIMIT_KEY_PREFIX` | `rate:`. 제한 열쇠 앞에 붙는다. **관리형 Redis 를 남과 나눠 쓸 때만 고친다** — 세션의 `shop:session` 과 안 섞이게 갈라 둔 값이다 |
 | `APP_PASSWORD_RESET_URL_TEMPLATE` | `http://localhost:3000/password-reset?token={token}`. 재설정 메일이 여는 화면(`Q180`). **지금은 발송기가 목업이라(`MockNotificationSender`) 메일이 안 나가서 배포에 영향이 없다** — 진짜 발송기를 붙이는 날 배포의 프론트 주소로 준다. 안 주면 메일의 링크가 받는 사람의 `localhost` 를 연다 |
 | `APP_EMAIL_CHANGE_URL_TEMPLATE` | `http://localhost:3000/email-confirm?token={token}`. 이메일 변경 확인 메일이 여는 화면(`Q181`). 위 재설정과 같은 사정이다 — 발송기가 목업인 동안은 영향이 없고, 진짜 발송기를 붙이는 날 배포의 프론트 주소로 준다 |
+| `SECOND_FACTOR_SECRET_KEY` | 없음. 2차 인증 비밀을 싸는 키(base64 32바이트, `Q451`). **배포에 꼭 넣는다** — 없으면 앱은 뜨고 셀러·관리자·감사자 로그인만 503(`second-factor-key-missing`)이다. 웹훅 키와 다른 값을 쓴다. 돌리려면 `SECOND_FACTOR_SECRET_KEY_VERSION` 을 올린다 |
 
 ## 호스팅에 올릴 때
 

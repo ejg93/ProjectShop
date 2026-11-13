@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { 둘째단계 } from "./helpers";
+
 /**
  * 머리의 글자가 꺾이거나 넘치지 않나(`Q213`). **레이아웃을 재는 층이 여기뿐이다** — jsdom 은 크기를 안 재서
  * 단위 시험으로는 「관리자 링크 열일곱이 한 줄에 눌려 글자 단위로 꺾인다」를 못 잡는다.
@@ -19,6 +21,7 @@ for (const 폭 of [360, 1280]) {
     await page.getByLabel("이메일").fill(관리자.이메일);
     await page.getByLabel("비밀번호").fill(관리자.비밀번호);
     await page.getByRole("button", { name: "로그인" }).click();
+    await 둘째단계(page);
     await expect(page).not.toHaveURL(/\/login/);
 
     const header = page.locator("header");

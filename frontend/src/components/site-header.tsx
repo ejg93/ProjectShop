@@ -66,6 +66,13 @@ function canManageCoupons(me: Me | null): boolean {
 }
 
 /**
+ * 중개 명세 화면(`Q457`). 관리자·감사자만 받는 권한이다(`V139`) — 셀러 신원이 실린 국세청 제출 자료라 셀러에게는 없다.
+ */
+function canReadBrokerageStatements(me: Me | null): boolean {
+  return can(me, "brokerage_statement", "read");
+}
+
+/**
  * 멤버 화면(`16a`). 속한 사람이면 본다 — 부르고 거두는 것은 그 안에서 갈린다.
  * <b>{@code can} 으로 못 가른다</b>(`Q208`) — 관리자·감사자도 {@code seller_member:read} 를 {@code ALL} 로 갖는데(`V82`),
  * 이 화면은 내가 속한 셀러의 첫째를 보여서 둘이 누르면 「속한 셀러가 없다」만 본다. {@code SELLER} 인 사람(대표·직원)에게만 연다
@@ -295,6 +302,9 @@ function managingLinks(me: Me | null): React.ReactElement[] {
     ),
     canDecideRefunds(me) && <HeaderLink key="refunds" href="/admin/refunds">환불 처리</HeaderLink>,
     canReadAllOrders(me) && <HeaderLink key="orders" href="/admin/orders">주문 조회</HeaderLink>,
+    canReadBrokerageStatements(me) && (
+      <HeaderLink key="brokerage-statements" href="/admin/brokerage-statements">중개 명세</HeaderLink>
+    ),
   ].filter((link) => link !== false);
 }
 
