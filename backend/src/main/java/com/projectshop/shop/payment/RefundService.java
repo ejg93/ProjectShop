@@ -7,7 +7,6 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -22,6 +21,7 @@ import com.projectshop.shop.payment.RefundMath.Item;
 import com.projectshop.shop.payment.RefundMath.Portion;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.BusinessCalendar;
+import com.projectshop.shop.support.EnumValue;
 import com.projectshop.shop.support.ExposedNumber;
 import com.projectshop.shop.support.Retries;
 import com.projectshop.shop.support.ActorType;
@@ -756,18 +756,14 @@ public class RefundService {
                 .query((rs, rowNum) -> new Refund(
                         rs.getString("refund_number"),
                         rs.getString("seller_order_number"),
-                        upper(rs.getString("status")),
-                        upper(rs.getString("reason_code")),
+                        // 응답의 열거값은 대문자 스네이크다(`D5`). 열거형을 지나서 모르는 저장값은 여기서 터진다(`Q435`)
+                        EnumValue.of(rs.getString("status"), RefundStatus::of),
+                        EnumValue.of(rs.getString("reason_code"), RefundReason::of),
                         rs.getLong("amount"),
                         rs.getLong("shipping_fee_refund"),
                         rs.getObject("due_at", OffsetDateTime.class),
                         rs.getString("gateway_refund_number")))
                 .single();
-    }
-
-    /** 응답의 열거값은 대문자 스네이크다(`D5`). 저장값을 그대로 올리면 그 규칙이 깨진다 */
-    private static String upper(String code) {
-        return code == null ? null : code.toUpperCase(Locale.ROOT);
     }
 
     /** 빈 문자열과 없음을 가르지 않는다(`D23` 「빈 값에 뜻을 싣지 않는다」) */
