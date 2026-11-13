@@ -1,4 +1,4 @@
-# gate: SourceTextTest·MetricNameTest·ArchUnit 둘(Q226)
+# gate: SourceTextTest·MetricNameTest·ArchUnit 셋(Q226 · 지표 빌더는 Q388)
 # run: cd backend && ./gradlew test --tests '*SourceTextTest' --tests '*MetricNameTest' --tests '*ArchitectureTest' --tests '*TestConventionTest' -q
 # expect: FAILED com\.projectshop\.shop\.SourceTextTest switch 의 default 가지마다 바로 위에 알려진 사유의 마커가 있다
 # expect: FAILED com\.projectshop\.shop\.SourceTextTest main 소스가 X- 로 시작하는 헤더 이름을 안 쓴다
@@ -6,6 +6,23 @@
 # expect: FAILED com\.projectshop\.shop\.MetricNameTest 액추에이터 노출 목록이 security-baseline 「노출면」 표의 칸과 같다
 # expect: FAILED com\.projectshop\.shop\.ArchitectureTest 요청_응답_조회_결과는_record_다
 # expect: FAILED com\.projectshop\.shop\.TestConventionTest 시험_순서를_박는_것은_정리_검증_한_자리뿐이다
+# expect: FAILED com\.projectshop\.shop\.ArchitectureTest 지표_빌더는_MetricName_만_부른다
+diff --git a/backend/src/main/java/com/projectshop/shop/metric/MetricName.java b/backend/src/main/java/com/projectshop/shop/metric/MetricName.java
+index f21d14b9..00a7e05a 100644
+--- a/backend/src/main/java/com/projectshop/shop/metric/MetricName.java
++++ b/backend/src/main/java/com/projectshop/shop/metric/MetricName.java
+@@ -35,7 +35,10 @@ public enum MetricName {
+     REFUND_OVERDUE("shop.refund.overdue"),
+ 
+     /** 배치 회차 수(`BatchRuns`) */
+-    BATCH_RUN_FINISHED("shop.batch_run.finished");
++    BATCH_RUN_FINISHED("shop.batch_run.finished"),
++
++    /** 탐침 — 이름 꼴 게이트를 부순다 */
++    PROBE("shop.foo.bar");
+ 
+     private final String meterName;
+ 
 diff --git a/backend/src/main/java/com/projectshop/shop/product/ProductTransitions.java b/backend/src/main/java/com/projectshop/shop/product/ProductTransitions.java
 index dbb87b49..1dfb335b 100644
 --- a/backend/src/main/java/com/projectshop/shop/product/ProductTransitions.java
@@ -20,7 +37,7 @@ index dbb87b49..1dfb335b 100644
              case DRAFT -> transition.from() == ProductStatus.PENDING_REVIEW ? "REJECT" : "UNBLOCK";
 diff --git a/backend/src/main/java/com/projectshop/shop/support/ProbeResponse.java b/backend/src/main/java/com/projectshop/shop/support/ProbeResponse.java
 new file mode 100644
-index 00000000..e7776846
+index 00000000..40e41c1c
 --- /dev/null
 +++ b/backend/src/main/java/com/projectshop/shop/support/ProbeResponse.java
 @@ -0,0 +1,10 @@
