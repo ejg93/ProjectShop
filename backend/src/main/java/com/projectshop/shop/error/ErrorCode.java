@@ -369,6 +369,10 @@ public enum ErrorCode {
     TRANSITION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "transition-reason-required",
             "관리자 처리에는 사유가 필요하다"),
 
+    // 2차 인증(`Q451`). 키가 없으면 앱은 뜨고 셀러·관리자·감사자 로그인만 멈춘다 — 기본 키를 코드에 두지 않는다(`D14`).
+    SECOND_FACTOR_KEY_MISSING(HttpStatus.SERVICE_UNAVAILABLE, "second-factor-key-missing",
+            "2차 인증 키가 설정되지 않았다"),
+
     // 웹훅(`29`). 키가 없으면 앱은 뜨고 웹훅만 멈춘다 — 기본 키를 코드에 두지 않는다(`D14`).
     WEBHOOK_KEY_MISSING(HttpStatus.SERVICE_UNAVAILABLE, "webhook-key-missing",
             "웹훅 시크릿 키가 설정되지 않았다"),

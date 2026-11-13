@@ -207,6 +207,11 @@ shop:
     secret-key: ${WEBHOOK_SECRET_KEY:}
     secret-key-version: ${WEBHOOK_SECRET_KEY_VERSION:1}
     allow-loopback: false
+  # 2차 인증(`Q451`, `D2` R45). **기본 키가 비어 있다** — 변수를 안 넣은 배포는 셀러·관리자·감사자 로그인만 503 이고 앱은 뜬다.
+  # 기본 키를 여기 두면 알려진 키로 인증 비밀을 싸게 된다(웹훅과 같은 이유). 키를 웹훅과 가른다 — 하나가 새도 다른 쪽이 안 풀린다.
+  second-factor:
+    secret-key: ${SECOND_FACTOR_SECRET_KEY:}
+    secret-key-version: ${SECOND_FACTOR_SECRET_KEY_VERSION:1}
   events:
     # 아웃박스 표를 어디로 내보내나(`event-catalog.md` 「전송」). `none` 이면 안 내보낸다.
     #

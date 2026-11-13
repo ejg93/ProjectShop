@@ -197,6 +197,8 @@ class CheckCoverageTest extends PostgresTestBase {
             Map.entry("seller_invitation_expiry_after_issued_check", new Cover("CheckViolationAccountTest", "만료가 발급보다 앞선다")),
             Map.entry("seller_invitation_outcome_check", new Cover("CheckViolationAccountTest", "수락과 철회가 같이 있다")),
             Map.entry("seller_invitation_revoked_after_issued_check", new Cover("CheckViolationAccountTest", "철회가 발급보다 앞선다")),
+            Map.entry("user_second_factor_last_used_step_check", new Cover("SecondFactorServiceTest", "마지막 스텝이 음수다")),
+            Map.entry("user_second_factor_secret_key_version_check", new Cover("SecondFactorServiceTest", "비밀 키 판이 1 미만이다")),
             Map.entry("webhook_delivery_attempt_count_check", new Cover("CheckViolationAccountTest", "시도 횟수가 음수다")),
             Map.entry("webhook_delivery_delivered_check", new Cover("CheckViolationAccountTest", "보냄 상태와 배달 시각이 짝이 아니다")),
             Map.entry("webhook_delivery_last_status_code_check", new Cover("CheckViolationAccountTest", "마지막 응답 코드가 100~599 밖이다")),

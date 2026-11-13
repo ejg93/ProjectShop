@@ -518,6 +518,11 @@ Spree v3 는 공개 키+주소 300·비밀 키 600 / 분, 로그인 5·가입 3�
 **웹훅 시크릿 키**(`WEBHOOK_SECRET_KEY`, base64 32바이트, `29`)는 **기본값이 없다.** 없으면 앱은 뜨고 웹훅 등록·발송만 503 이다 —
 기본 키를 코드나 `application.yml` 에 두면 변수를 안 넣은 배포가 **알려진 키로** 시크릿을 싼다. Railway backend 변수에 있다(2026-09-26). 값은 저장소·문서에 없다 — 돌리려면 `WEBHOOK_SECRET_KEY_VERSION` 을 올리고 새 키를 넣는다(`29`).
 
+**2차 인증 키**(`SECOND_FACTOR_SECRET_KEY`, base64 32바이트, `Q451`)도 **기본값이 없다.** 없으면 앱은 뜨고 셀러·관리자·감사자 로그인만 503 이다
+(`second-factor-key-missing`) — 같은 이유로 기본 키를 두지 않는다. 고시 제7조①(`D2` R45)이 인증정보를 암호화해 저장하라고 해서
+`user_second_factor` 는 이 키의 AES-GCM 암호문만 든다(묶음 값 `user_id`). **웹훅 키와 값을 가른다** — 하나가 새도 다른 쪽이 안 풀린다.
+Railway backend 변수에 사람이 넣는다. 돌리려면 `SECOND_FACTOR_SECRET_KEY_VERSION` 을 올린다 — 옛 판 행은 못 풀어 그 계정은 다시 등록한다.
+
 ## 지금 안 하는 것
 
 | 항목 | 왜 |

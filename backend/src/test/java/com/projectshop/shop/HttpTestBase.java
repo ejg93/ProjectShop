@@ -50,6 +50,7 @@ import com.projectshop.shop.auth.AuthFixture;
 // 웹훅 시험 키와 루프백 허용(`29`). 운영 기본은 빈 키·루프백 금지다 — 시험은 로컬 HTTP 서버로 받는다.
 @TestPropertySource(properties = {"shop.rate-limit.enabled=false",
         "shop.webhook.secret-key=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+        "shop.second-factor.secret-key=ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=",
         "shop.webhook.allow-loopback=true"})
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @Tag("db")

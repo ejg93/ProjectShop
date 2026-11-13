@@ -225,11 +225,13 @@ AppUser ─┬─ UserRole                (user_role)
          ├─ PasswordResetToken      (password_reset_token)   30일 · cascade
          ├─ EmailChangeRequest      (email_change_request)   30일 · cascade
          ├─ IdempotencyKey          (idempotency_key)        24시간 · cascade
+         ├─ UserSecondFactor        (user_second_factor)     탈퇴까지 · cascade
          └─ Cart                    (로그인 장바구니)
 ```
 
-이 절의 표: `user_role` · `seller_member` · `user_consent` · `password_reset_token` · `email_change_request` · `idempotency_key`.
+이 절의 표: `user_role` · `seller_member` · `user_consent` · `password_reset_token` · `email_change_request` · `idempotency_key` · `user_second_factor`.
 토큰 둘과 멱등키는 계정 없이 뜻이 없고 짧게 산다. 파기 배치가 기간으로 지우고, 계정이 먼저 가면 cascade 가 받는다.
+2차 인증 등록(`user_second_factor`, `Q451`)은 계정당 하나고 탈퇴가 그 트랜잭션에서 지운다 — 탈퇴는 `update` 라 cascade 는 파기 배치가 계정 행을 지울 때 몫이다.
 
 ## 상품 덩어리의 표
 
