@@ -184,6 +184,19 @@ SellerOrder ─┬─ Refund ─┬─ RefundItem          → order_item
 **같은 뿌리 안에 cascade 와 restrict 가 섞인 이유는 정산이다.** `settlement_item` 이 `order_item`·`seller_order`·`refund_item`·`compensation` 을
 전부 restrict 로 가리켜서 **5년 주문 파기가 정산 줄에 막힌다** — 법 둘이 부딪치는 자리고 `43a-28` 이 정한다.
 
+### 결제가 안 드는 것
+
+**한 주문에 승인 결제는 하나다**(`payment_approved_unique`, `V22`). 아래 넷이 그 구조와 PG 사실에서 나온다(`점검 AS`).
+
+| 안 드는 것 | 왜 |
+|---|---|
+| 둘째 승인 | 이중 청구를 구조에서 없앤다. 앱이 주문 상태를 보는 것은 새 입구가 빠뜨린다(`V22` 주석) |
+| 환불 → 결제 참조 | 묶음 → 주문 → 승인 한 줄로 정해진다. 승인이 둘이 되는 날 이 길이 끊긴다 |
+| 결제 뒤 주문 변경 | 금액을 올리는 변경은 둘째 승인이 필요해 위 색인이 막고, 내리는 길은 취소·반품의 환불이다 |
+| 매입 단계 | 국내 카드 결제는 대부분 자동 매입이고 수동 매입은 추가 계약이다 — 매입 상태는 PG 가 `card.acquireStatus` 로 든다(토스페이먼츠, `external-references.md` 「D8」) |
+
+선불 잔액(상품권·적립금)도 결제 행이 아니다. 쿠폰이 선불전자지급수단 밖에 있는 근거는 `D2` 가, 포인트가 들어올 자리는 불변식 카탈로그 「새 등식이 생기는 자리」가 든다.
+
 ## 정산 — 장부는 바깥을 restrict 로만 가리킨다
 
 ```
@@ -223,6 +236,10 @@ AppUser ─┬─ UserRole                (user_role)
 위 「상품은 한 덩어리다」의 실물이다 — `product`·`product_option`·`product_option_value`·`sku`·`sku_option_value` 가 덩어리고,
 `sku_stock`·`sku_stock_movement` 는 SKU 를 따라가되 덩어리에 안 든다. `product_substantiation` 은 상품에 cascade 다 —
 실증 자료라 상품 없이 뜻이 없다(`13f-1`).
+
+**`sku_stock.on_hand` 는 아직 안 판 수다.** 주문이 들어올 때 깎이고(`order_placed`) 발송은 안 건드린다 —
+창고 실물에서 팔렸지만 안 나간 수를 뺀 값이라 `V40` 주석의 「창고에 있는 수」와 다르다.
+실물과 묶인 수를 가를지, 셀러가 재고를 맞추는 입구를 어느 뜻으로 받을지는 `Q447` 이 정한다.
 
 **`product_image` 도 cascade 다**(`27`). 상품이 없으면 그 상품의 사진은 뜻이 없다 —
 다만 **행이 사라져도 저장소의 객체는 안 사라진다.** 파일을 지우는 것은 cascade 가 아니라
