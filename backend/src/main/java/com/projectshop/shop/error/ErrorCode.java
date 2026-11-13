@@ -374,6 +374,9 @@ public enum ErrorCode {
             "2차 인증 코드가 맞지 않는다", "인증 코드가 맞지 않습니다."),
     SECOND_FACTOR_NOT_PENDING(HttpStatus.UNAUTHORIZED, "second-factor-not-pending",
             "2차 인증 대기가 없거나 끝났다", "로그인을 처음부터 다시 해 주세요."),
+    // 세션 도중에 대상이 됐거나 옛 세션이라 표시가 없다(`Q453`). 그 세션은 끊고 다시 로그인하게 한다.
+    SECOND_FACTOR_REQUIRED(HttpStatus.UNAUTHORIZED, "second-factor-required",
+            "2차 인증이 필요하다", "2차 인증이 필요합니다. 다시 로그인해 주세요."),
     SECOND_FACTOR_NOT_ENROLLED(HttpStatus.CONFLICT, "second-factor-not-enrolled",
             "2차 인증 등록이 없다", "2차 인증 등록을 먼저 해 주세요."),
     SECOND_FACTOR_ALREADY_ENROLLED(HttpStatus.CONFLICT, "second-factor-already-enrolled",

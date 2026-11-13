@@ -251,6 +251,10 @@ public class SecurityConfig {
                 // 인가 직전에 둔다. 인증이 확정된 뒤여야 principal 을 볼 수 있고,
                 // 인가 전이어야 죽은 계정이 아무것도 통과하지 못한다.
                 .addFilterBefore(new AccountLivenessFilter(ruleLoader, problems, evaluators), AuthorizationFilter.class)
+                // 2차 인증 표시가 없는 대상 세션을 끊는다(`Q453`, 고시 제6조②). 살아 있는 계정만 지나온 뒤라 판정이 하나 줄고,
+                // 인가 전이라 표시 없는 셀러·관리자 세션이 아무것도 통과하지 못한다. 로그인 입구가 아니라 여기 둬야
+                // 세션 도중에 역할을 받은 사람도 잡힌다.
+                .addFilterBefore(new SecondFactorFilter(ruleLoader, problems), AuthorizationFilter.class)
                 // 대행 중의 쓰기를 여기 한 곳에서 막는다(`16b`). 입구마다 두면 새 입구가 빠뜨린다.
                 // 인증이 확정된 뒤라 대행 토큰이 보이고, 인가 전이라 막힌 요청이 아무것도 건드리지 못한다.
                 .addFilterBefore(new ImpersonationReadOnlyFilter(problems), AuthorizationFilter.class);
