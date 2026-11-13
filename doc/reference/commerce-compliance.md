@@ -1244,7 +1244,7 @@ Q&A·문의 축(`58`·`59`)이 그 자리를 낸다.
 
 ```
 payment_method_check check (method in ('card', 'transfer'))   -- V22
-@Pattern(regexp = "card|transfer")                            -- PaymentController
+@NotNull PaymentMethod method   // CARD·TRANSFER              -- PaymentController(43a-16 이 정규식에서 열거형으로)
 ```
 
 화면은 `method: "card"` 를 고정으로 보내서 지금 계좌이체로 결제되는 경로는 없다.
