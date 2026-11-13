@@ -30,7 +30,7 @@
 **개인정보법 제15조와 약관규제법 제3조도 대조했다**(2026-08-08, 청크 5j).
 **정보통신망법도 대조했다** — 제50조 제1~8항(55·55a·55b), 제50조의7(2026-08-22 통독, `R34`).
 
-**부가가치세법·여신전문금융업법의 조문 번호는 아직 대조 안 했다.**
+**부가가치세법은 2026-11-13 에 법률 전문을 대조했다**(casenote 2차 자료, `점검 AQ` 뒤 통독) — `R17` 제32조 · `R41` 제71조제3항·제49조제1항이 원문과 맞고, 제75조(중개 명세 제출)가 `R46` 으로 새로 섰다. **여신전문금융업법의 조문 번호는 아직 대조 안 했다.**
 법은 개정되고 조문 번호는 밀린다. 확인 안 된 것을 확정된 것처럼 쓰면 이 문서를 두는 의미가 없어진다.
 
 법률 약칭은 아래와 같이 쓴다.
@@ -112,6 +112,7 @@
 | R43 | 개인정보 처리 위탁·국외이전 공개 | 개인정보법 제26조제2항·제28조의8 | 처리방침 새 판(`V128`) —  5절 수탁자 표(Railway·Cloudflare)와 5-1절 국외 이전(국가·시기·방법·받는 자 연락처·목적·보유기간·거부 방법), 8절 요청 제한 접속 IP, 2절 후기 게시 목적<br>`PolicyQueryTest.privacyPolicyNamesProcessors` — 시행 전 새 판이 수탁자 둘·국가·연락처·거부 방법을 적는다<br>`PolicyQueryTest.privacyPolicyTellsReviewNamePurpose`·`PolicyQueryTest.privacyPolicyNamesRateLimitIp`<br>`MaskedName` 타입 — 2절이 적은 「이름의 일부만」을 후기 응답 둘(`ProductReview`·`SellerReview`)의 `writerName` 이 지킨다. 가리지 않은 이름은 그 칸에 못 들어간다(컴파일, `Q272`·`Q281`)<br>`ReviewServiceTest` 둘·`OpenApiSpecTest.maskedNameIsStringInSchema`·`NameMaskTest.maskedNameSerializesAsString` | Q271, Q272, Q281 |
 | R44 | 개인정보처리시스템 접속기록 | 개인정보법 제29조, 개인정보의 안전성 확보조치 기준 제8조 — 제2025-9호가 2026-10-31 부터 대상을 「처리시스템에 접속한 자(정보주체 제외)」로 넓혔다. 아래 열람 기록은 이미 셀러를 센다(`점검 AQ`) | `AuditLogWriter` — 감사 기록에 접속지(`client_ip`, `V129`)를 요청 문맥에서 남긴다. 요청 밖(배치)은 비어 있다<br>`AuditLogTest.recordsClientIpInsideRequest`·`AuditLogTest.leavesClientIpEmptyOutsideRequest`<br>`AuditLog.open`(건 하나 — 열람 증서 `PersonalDataAccess` 를 돌려준다, `Q282a`)·`AuditLog.personalDataListed` — 취급자(관리자·셀러·감사자)가 남의 배송지·결제·생년월일·연락처·문의 본문을 열면 `personal_data.viewed` 한 줄 — 건 하나는 계정·일시·접속지·정보주체·자원 번호·열린 그룹, 목록은 쪽마다 한 줄에 번호 목록(정보주체는 번호로 찾는다). 본인 열람은 안 남기고 대행 중이면 남긴다(내 문의 목록도). `audit_log` 는 `D13` 3년. `AuditLogReviewBatch` — 월 1회 점검(제8조제2항, `security-baseline.md` 「접속기록 점검 — 내부 관리계획」). 전달 열람을 열람자별로 세어 서로 다른 정보주체 50명 이상을 표시하고 `audit_log.reviewed` 를 남긴다. **목록 열람은 정보주체를 안 세고 건수로만 든다**<br>`AuditLogReviewServiceTest`<br>`audit_log_guard`·`audit_log_no_truncate`(`V130`) — 위·변조 방지(제8조제3항). 고치기·통째로 비우기를 거부하고, 지우기는 파기 배치가 켠 트랜잭션 로컬 표시(`shop.audit_purge`)가 있을 때만 통과한다<br>`AuditLogTest.truncateIsRejected`·`AuditLogTest.updateIsRejected`·`AuditLogTest.deleteWithoutMarkIsRejected`·`AuditLogTest.deleteWithMarkPasses`<br>`AuditLog.open`·`openList` — 개인정보 그룹(`PersonalFieldGroup` — `OrderPersonalFields`·`UserPersonalFields`·`InquiryPersonalFields`)은 증서로만 열린다. 목록 한 쪽은 `Unrecorded.record` 로만 꺼내진다. 자원 이름은 `PersonalDataResource`(타입, `Q282a`·`Q282b`·`Q286`)<br>`PersonalDataViewTest`(증서 생성 자리 하나·그룹 목록 직접 대조는 증서뿐·문의 목록 SQL 한 자리)<br>`SellerOrderQueryTest.sellerShippingReadIsRecorded`·`ImpersonationTest.impersonatedAccountReadIsRecorded`·`InquiryVisibilityTest.sellerListingIsRecorded` | Q273, Q276, Q280a, Q280b, Q282a, Q282b |
 | R45 | 외부 접속 시 안전한 인증수단 | 개인정보법 제29조, 개인정보의 안전성 확보조치 기준 제6조제2항(제2025-9호 — 시행일은 아래) | **미착수.** 정보주체(회원)를 뺀 모든 사용자 — 셀러·관리자·감사자 — 가 정보통신망으로 외부에서 처리시스템에 접속하면 인증서·보안토큰·일회용 비밀번호 같은 안전한 인증수단을 적용해야 한다. 개정 전에는 「개인정보취급자」만이라 오픈마켓 판매자가 빠졌는데 이번에 들어왔다<br>**지금 로그인은 비밀번호 하나다**(`security-baseline.md` 「15자인 이유는 우리에게 MFA 가 없어서다」) — 시행이 지났다<br>제6조제2항의 유예·시행일은 2차 자료(intothesec 부칙 인용 — 「제4조제1항 제12호·제13호, 제5조제1항·제6항, 제6조제2항, 제8조제1항·제2항은 1년 후」)에서만 왔다. `점검 W` 가 원문에서 옮긴 부칙 문언(`security-baseline.md:499`)은 제8조제1항·제2항뿐이라 둘이 어긋난다 — 원문이 유예를 제8조에만 주면 제6조제2항은 발령일 2025-10-31 부터다. **어느 쪽이든 시행은 지났다**<br>조문은 2차 자료(intothesec 개정 대비표 · 법률신문 2025-11-27 김·장 기사)로 읽었다. 법제처 원문 대조와 방식(일회용 비밀번호 앱 · 메일 코드 · 연습 계정 처리)은 `Q440` 이 정한다(`점검 AQ`) | Q440 |
+| R46 | 판매·결제 중개 명세 분기 제출 | 부가가치세법 제75조제1항제1호·제2항, 제76조제1항제2호 | **미착수.** 통신판매업자의 판매를 대행·중개하는 부가통신사업자는 재화·용역 공급과 관련한 판매·결제 중개 명세를 매 분기 말일의 다음 달 15일까지 국세청에 낸다. 안 내거나 사실과 다르게 내면 시정명령이 오고, 그 명령을 어기면 2천만 원 이하 과태료다<br>**우리가 그 「중개하는 자」다** — 셀러 판매를 주문으로 받고 대금을 받아 정산한다. 명세에 들어갈 거래는 `seller_order`·`order_item`·`settlement_item` 에 있고 셀러 사업자번호는 `seller.business_reg_no`(`V4`)다. **내는 길(명세 뽑기·분기 배치·제출 기록)이 0이다**<br>항목·서식은 시행령이 정한다 — 이번엔 법률만 읽었다(casenote 2차 자료, `Q442` 가 시행령을 본다) | Q442 |
 
 ---
 
@@ -1277,7 +1278,8 @@ payment_method_check check (method in ('card', 'transfer'))   -- V22
 | 약관규제법 | **했다**(`D2-6`) — 제8조~제14조. `R31` 하나가 나왔다 |
 | 정보통신망법·표시광고법·물가안정법 | **했다**(`D2-8`) — `R32`~`R34` 셋이 나왔고 `R12` 의 출처(가격표시제 실시요령 → 전자상거래법 제13조제2항·표시광고법 제3조)를 고쳤다 |
 | 개인정보의 안전성 확보조치 기준(고시) | **했다**(`Q439`, 2026-11-13 — 2023-6호 전문 + 2025-9호 개정 대비표, 둘 다 2차 자료) — `R45` 하나가 나왔다(제6조제2항 2차 인증 — 시행이 지났다, 날짜는 `R45` 행대로 2025-10-31 또는 2026-10-31 이고 원문 대조 대기). `R44` 는 제8조제1항 개정 범위를 적었다. 나머지는 걸리는 칸이 없다: 제4조 내부 관리계획은 1만 명 미만 소상공인·개인·단체가 생략할 수 있다 · 제7조②③ 이 암호화를 요구하는 칸(고유식별정보·카드·계좌·생체)을 스키마가 안 든다 · 제6조의2·제7조⑥·제11조는 10만·100만 명 이상 몫이다 |
-| 그 밖에 요건표가 부르는 법 | **안 했다** — 부가가치세법(`R17`)·저작권법(`R42`)·소비자기본법·민법·전자문서법·전자금융거래법·국세기본법·위치정보법. 다 조 단위로 인용만 했다. 통독 차례는 고시 뒤에 정한다 |
+| 부가가치세법 | **했다**(2026-11-13, 법률 전문 · casenote 2차 자료) — `R46` 하나가 나왔다(제75조 판매·결제 중개 명세 분기 제출). 인용한 제32조·제49조제1항·제71조제3항은 그대로다. 시행령은 안 읽었다 — `Q442` 가 명세 항목을 거기서 본다 |
+| 그 밖에 요건표가 부르는 법 | **안 했다** — 저작권법(`R42`)·소비자기본법·민법·전자문서법·전자금융거래법·국세기본법·위치정보법. 다 조 단위로 인용만 했다. 통독 차례는 고시 뒤에 정한다 |
 
 **세 번의 통독이 아홉을 찾았다.** 밀도가 떨어지고 있다 — 전자상거래법 다섯, 개인정보법 셋,
 약관규제법 하나. **먼저 본 법이 우리 도메인에 더 가까웠기 때문**이지 남은 법이 안전해서가 아니다.
