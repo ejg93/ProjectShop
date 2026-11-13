@@ -249,7 +249,7 @@ Medusa·Spree·Saleor 가 전부 **모듈은 자원 이름**이고 관객은 그
 
 `demo/` 가 그것이다(`6b-2`). 데모 시더가 `cart`·`order`·`payment` 를 다 부르는데,
 `support/` 는 `order` 가 이미 부르는 곳이라(`BusinessCalendar`) 넣으면 `order` ↔ `support` 다.
-아래 「의존」이 허용해 둔 순환은 하나뿐이고 이건 **자리를 옮기면 사라지는 것**이라 거기 안 든다.
+아래 「의존」이 허용해 둔 순환은 둘(`auth ↔ audit`·`auth ↔ cart`)이고 이건 **자리를 옮기면 사라지는 것**이라 거기 안 든다.
 
 조건이 셋이고 **셋을 다 만족해야 판다.**
 

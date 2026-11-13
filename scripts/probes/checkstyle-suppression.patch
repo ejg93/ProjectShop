@@ -4,12 +4,12 @@
 # expect: 억제 줄마다 바로 위에 근거 주석이 있다 FAILED
 # expect: 임시 칸의 줄은 걷을 청크 번호를 든다 FAILED
 diff --git a/backend/config/checkstyle/suppressions.xml b/backend/config/checkstyle/suppressions.xml
-index df24373..85c31e9 100644
+index e7420d54..5fcdaf9f 100644
 --- a/backend/config/checkstyle/suppressions.xml
 +++ b/backend/config/checkstyle/suppressions.xml
-@@ -18,4 +18,5 @@
-     <!-- 규칙 필드 바로 밑에 그 규칙의 헬퍼를 둔 읽기 순서다. 차례대로 옮기면 헬퍼가 규칙과 떨어진다(`Q288`) -->
-     <suppress checks="DeclarationOrder" files="test[\\/]java[\\/]com[\\/]projectshop[\\/]shop[\\/]ArchitectureTest\.java$"/>
+@@ -20,4 +20,5 @@
+     <!-- 시험 소스의 상수는 픽스처 값이라 우리가 고른 운영 값이 아니다 — 「왜 이 값인가」를 적을 자리가 아니다(`Q378a`, `coding-rules.md` 「설정과 상수」) -->
+     <suppress checks="JavadocVariable" files="src[\\/]test[\\/]"/>
      <!-- 임시 -->
 +    <suppress checks="DeclarationOrder" files="main[\/]java[\/]com[\/]projectshop[\/]shop[\/]BackendApplication\.java$"/>
  </suppressions>

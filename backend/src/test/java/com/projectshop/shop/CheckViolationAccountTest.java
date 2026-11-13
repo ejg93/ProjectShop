@@ -43,29 +43,9 @@ class CheckViolationAccountTest extends PostgresTestBase {
         long userId = fixture.insertUser("q426e-user@test.local", "계정");
         long sellerId = fixture.insertSeller("s-q426e", "운영셀러");
 
-        long orderId = jdbc.sql("""
-                        insert into shop_order (order_number, user_id, total_amount,
-                                                commission_total, shipping_fee_total, payable_amount)
-                        values (:number, :userId, 0, 0, 0, 0)
-                        returning order_id
-                        """)
-                .param("number", OrderFixture.sellerOrderNumber().substring(2))
-                .param("userId", userId)
-                .query(Long.class)
-                .single();
-        OrderFixture.attachContractDocuments(jdbc, orderId);
-
-        String bundleNumber = OrderFixture.sellerOrderNumber();
-        long bundleId = jdbc.sql("""
-                        insert into seller_order (seller_order_number, order_id, seller_id, status)
-                        values (:number, :orderId, :sellerId, 'delivered')
-                        returning seller_order_id
-                        """)
-                .param("number", bundleNumber)
-                .param("orderId", orderId)
-                .param("sellerId", sellerId)
-                .query(Long.class)
-                .single();
+        OrderFixture.Bundle bundle = OrderFixture.deliveredBundle(jdbc, userId, sellerId);
+        long orderId = bundle.orderId();
+        long bundleId = bundle.bundleId();
 
         // 사건은 이력 트리거가 만든다 — 앱의 insert 는 거부된다.
         jdbc.sql("""

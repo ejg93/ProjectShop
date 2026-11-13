@@ -2,13 +2,13 @@
 # run: cd backend && ./gradlew integrationTest --tests '*ExpansionTest*' --console=plain
 # expect: 정산서 상세에 줄의 첫 쪽이 끼인다 FAILED
 diff --git a/backend/src/main/java/com/projectshop/shop/settlement/SettlementController.java b/backend/src/main/java/com/projectshop/shop/settlement/SettlementController.java
-index 8c8cb94..5bb895d 100644
+index f03637e9..45189080 100644
 --- a/backend/src/main/java/com/projectshop/shop/settlement/SettlementController.java
 +++ b/backend/src/main/java/com/projectshop/shop/settlement/SettlementController.java
-@@ -69,7 +69,7 @@ public class SettlementController {
+@@ -68,7 +68,7 @@ public class SettlementController {
          SettlementQuery.Detail detail = query.findOne(user.id(), settlementNumber);
          // 줄 입구와 같은 질의·같은 첫 쪽이다 — 판정도 같다(`Q309b`)
-         return expansion.has(LINES)
+         return expansion.has(EXPAND_LINES)
 -                ? detail.expanded(query.findLines(user.id(), settlementNumber, Expansion.FIRST_PAGE))
 +                ? detail.expanded(query.findLines(user.id(), settlementNumber, new Paging(0, 5)))
                  : detail;
