@@ -314,24 +314,24 @@
 
 **절차는 Superpowers 플러그인(`obra/superpowers`, MIT)이 굴리고 관문은 이 저장소의 검증 도구가 든다**(`Q330`, 2026-10-29 사용자 결정 — ProjectTicket 과 같은 조건: 1인 · 결과물 우선 · 머지 위임 · 대화형과 무인).
 **이 파일이 스킬보다 앞선다** — `using-superpowers` 가 스스로 「CLAUDE.md 같은 사용자 지시가 스킬보다 앞선다」고 정한다. 둘이 다르면 여기를 따른다. 플러그인은 관례(4순위)다.
-**확인한 판: 7.0.0**(2026-10-29 `점검 Z` 가 다시 댔다). 판이 바뀌면 아래 「덮는 자리」 넷과 「번들 모드」의 덮은 줄 여덟(모델 · brainstorming · 계획 검토 · worktree 선언 · TDD 예외 · `task-done` 꼴 · push 위임 · 고치기 상한)을 원문과 다시 대조한다(「바깥 스킬·라이브러리를 들일 때」).
+**확인한 판: 7.0.2**(2026-11-13 마무리 83차가 다시 댔다 — 7.0.0 대비 덮는 자리 여덟의 원문 뜻은 그대로, 줄 번호 둘과 `task-done` 의 저장소 찾기만 바뀌었다. 그전 판 7.0.0 은 2026-10-29 `점검 Z`). 판이 바뀌면 아래 「덮는 자리」 넷과 「번들 모드」의 덮은 줄 여덟(모델 · brainstorming · 계획 검토 · worktree 선언 · TDD 예외 · `task-done` 꼴 · push 위임 · 고치기 상한)을 원문과 다시 대조한다(「바깥 스킬·라이브러리를 들일 때」).
 
 | Superpowers 단계 | 여기서 무엇을 하나 | 끼우는 관문 |
 |---|---|---|
-| `brainstorming` | 아래 「설계」 — spec 파일을 안 만들고 `PLAN.md` 행에 적는다. Fable 몫. **선호 선언**(`brainstorming:158` 「사용자 선호가 덮는다」): 사람만 답할 질문은 한 메시지에 (가)/(나) 로 모은다 · 설계 문서는 `docs/superpowers/specs` 가 아니라 `PLAN.md` 행이다 · builder-check 서브에이전트와 시각 보조는 안 쓴다 · 승인 뒤 `writing-plans` 로 안 넘어간다 — 실행은 다른 세션(Opus)이 `번들 해` 로 연다 | `doc-lint.sh` 설계 행 검사(`Q218`) |
+| `brainstorming` | 아래 「설계」 — spec 파일을 안 만들고 `PLAN.md` 행에 적는다. Fable 몫. **선호 선언**(`brainstorming:248` 「사용자 선호가 덮는다」): 사람만 답할 질문은 한 메시지에 (가)/(나) 로 모은다 · 설계 문서는 `docs/superpowers/specs` 가 아니라 `PLAN.md` 행이다 · builder-check 서브에이전트와 시각 보조는 안 쓴다 · 승인 뒤 `writing-plans` 로 안 넘어간다 — 실행은 다른 세션(Opus)이 `번들 해` 로 연다 | `doc-lint.sh` 설계 행 검사(`Q218`) |
 | `writing-plans` | 설계된 번들 행을 계획 파일로 옮긴다 — 행 하나가 Task 하나. **원천은 `PLAN.md`** 고 계획 파일은 실행용 사본이다. `Spec:` 줄·헤더·검토는 「번들 모드」가 정한다 | |
 | `executing-plans` | 「번들 모드」 — 한 세션이 인라인으로 친다 | Task 끝 `verify.sh` → 커밋(commit hook, `Q215`) |
 | `test-driven-development` | 코드 청크만. 문서·설정·마이그레이션만 건드리는 행은 예외다(2026-10-29 사용자 허락 — 「번들 모드」 TDD 예외 줄). 문서·스크립트 청크는 `verify.sh` 가 관문이다 | |
 | 최종 리뷰 | 아래 「계획 끝」 3. `finishing-a-development-branch` 는 **부르지 않는다** — 메뉴가 사람 답을 기다린다 | `--full` · 탐침 · PR · 머지 |
 
-### 덮는 자리 — 7.0.0 원문과 다르게 하는 넷
+### 덮는 자리 — 7.0.2 원문과 다르게 하는 넷
 
 | 기본 동작(원문) | 여기 |
 |---|---|
 | 계획은 `docs/superpowers/plans/`, spec 은 `docs/superpowers/specs/` 에 커밋한다 | 계획은 `.superpowers/plans/<날짜>-번들<N>.md` 에 두고 커밋하지 않는다. spec 은 안 만든다 — 설계 행이 spec 이다. 진행 원장(`.superpowers/sdd/`)도 같은 폴더라 `.gitignore` 가 거른다 — 안 거르면 Stop hook 이 미커밋으로 막는다 |
 | 시작에 worktree 를 만들거나 확인한다(`using-git-worktrees`) | **선호 선언 — worktree 를 쓰지 않는다**(「번들 모드」). 스킬이 「지시에 선언된 선호가 있으면 묻지 않는다」(`:41-45`)고 적어 선언이 먹는다. 안 쓰는 이유 — 훅이 `CLAUDE_PROJECT_DIR` 의 트리만 봐서 worktree 커밋은 도장 검사를 안 지난다(「병렬 줄」) |
 | Task 마다 구현·리뷰 서브에이전트(`subagent-driven-development`) | 안 쓴다 — 토큰이 몇 배다. 독립 리뷰는 「계획 끝」에 한 번 |
-| `finishing` 이 메뉴 셋을 내밀고 답을 기다린다 | **`finishing-a-development-branch` 를 부르지 않는다** — 스킬이 「메뉴를 적힌 대로 내밀고 기다린다」(`:78`·`:216`)고 덮기를 미리 막아서, 덮는 대신 안 부른다. `executing-plans:304` 가 거기로 넘기는 자리에서 「계획 끝」 1~8 로 간다. 메뉴 1(로컬에서 `main` 에 합친다)은 훅이 막는다(`2x`) |
+| `finishing` 이 메뉴 셋을 내밀고 답을 기다린다 | **`finishing-a-development-branch` 를 부르지 않는다** — 스킬이 「메뉴를 적힌 대로 내밀고 기다린다」(`:78`·`:216`)고 덮기를 미리 막아서, 덮는 대신 안 부른다. `executing-plans:306` 이 거기로 넘기는 자리에서 「계획 끝」 1~8 로 간다. 메뉴 1(로컬에서 `main` 에 합친다)은 훅이 막는다(`2x`) |
 
 **첫 번들에서 덮은 자리를 실제로 따르는지 본다.** 문서(5위)라 모델이 읽을 때만 걸린다. 안 따르면 플러그인을 끄고(`settings.local.json` 의 `enabledPlugins`) 걷은 스킬(`design`·`wrapup`)을 git 에서 되살린다.
 
