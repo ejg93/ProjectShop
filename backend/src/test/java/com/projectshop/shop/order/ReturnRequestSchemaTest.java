@@ -407,70 +407,13 @@ class ReturnRequestSchemaTest extends PostgresTestBase {
 
     /** 배송이 끝난 묶음 하나. 반품이 붙을 수 있는 상태다 */
     private long deliveredBundle(long sellerId) {
-        long orderId = jdbc.sql("""
-                        insert into shop_order (order_number, user_id, total_amount,
-                                                commission_total, shipping_fee_total,
-                                                payable_amount)
-                        values (:number, :userId, 0, 0, 0, 0)
-                        returning order_id
-                        """)
-                .param("number", OrderFixture.sellerOrderNumber().substring(2))
-                .param("userId", buyerId)
-                .query(Long.class)
-                .single();
-
-        OrderFixture.attachContractDocuments(jdbc, orderId);
-
-        long bundleId = jdbc.sql("""
-                        insert into seller_order (seller_order_number, order_id, seller_id, status)
-                        values (:number, :orderId, :sellerId, 'delivered')
-                        returning seller_order_id
-                        """)
-                .param("number", OrderFixture.sellerOrderNumber())
-                .param("orderId", orderId)
-                .param("sellerId", sellerId)
-                .query(Long.class)
-                .single();
-
-        // 항목을 넣는다. `flush()` 가 반품 트리거만 깨우는 것이 아니라
+        // 항목까지 넣는다. `flush()` 가 반품 트리거만 깨우는 것이 아니라
         // `V16` 의 주문 합계 트리거까지 같이 돌려서, 항목 없는 묶음은 거기서 막힌다.
         // 금액은 0 이라 합계 등식이 그대로 맞는다.
-        jdbc.sql("""
-                        insert into order_item (seller_order_id, sku_id, product_name,
-                                                unit_price_incl_vat, quantity, line_amount,
-                                                commission_bp, commission_amount)
-                        values (:bundleId, :skuId, '반품 테스트 상품', 0, 1, 0, 0, 0)
-                        """)
-                .param("bundleId", bundleId)
-                .param("skuId", insertSku(sellerId))
+        OrderFixture.Line line = OrderFixture.deliveredLine(jdbc, buyerId, sellerId, "반품 테스트 상품", 0);
+        jdbc.sql("insert into sku_stock (sku_id, on_hand) values (:skuId, 100)")
+                .param("skuId", line.skuId())
                 .update();
-
-        return bundleId;
-    }
-
-    private long insertSku(long sellerId) {
-        long productId = jdbc.sql("""
-                        insert into product (seller_id, created_by_user_id, name)
-                        values (:sellerId, :userId, '반품 테스트 상품')
-                        returning product_id
-                        """)
-                .param("sellerId", sellerId)
-                .param("userId", buyerId)
-                .query(Long.class)
-                .single();
-
-        return jdbc.sql("""
-                        with new_sku as (
-                            insert into sku (product_id, price_incl_vat)
-                            values (:productId, 0)
-                            returning sku_id
-                        )
-                        insert into sku_stock (sku_id, on_hand)
-                        select sku_id, 100 from new_sku
-                        returning sku_id
-                        """)
-                .param("productId", productId)
-                .query(Long.class)
-                .single();
+        return line.bundleId();
     }
 }

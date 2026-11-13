@@ -41,54 +41,11 @@ class CheckViolationOrderTest extends PostgresTestBase {
         long staffId = fixture.insertUser("q426b-staff@test.local", "검수자");
         long sellerId = fixture.insertSeller("s-q426b", "위반셀러");
 
-        long orderId = jdbc.sql("""
-                        insert into shop_order (order_number, user_id, total_amount,
-                                                commission_total, shipping_fee_total, payable_amount)
-                        values (:number, :userId, 0, 0, 0, 0)
-                        returning order_id
-                        """)
-                .param("number", OrderFixture.sellerOrderNumber().substring(2))
-                .param("userId", buyerId)
-                .query(Long.class)
-                .single();
-        OrderFixture.attachContractDocuments(jdbc, orderId);
-
-        long bundleId = jdbc.sql("""
-                        insert into seller_order (seller_order_number, order_id, seller_id, status)
-                        values (:number, :orderId, :sellerId, 'delivered')
-                        returning seller_order_id
-                        """)
-                .param("number", OrderFixture.sellerOrderNumber())
-                .param("orderId", orderId)
-                .param("sellerId", sellerId)
-                .query(Long.class)
-                .single();
-
-        long productId = jdbc.sql("""
-                        insert into product (seller_id, created_by_user_id, name)
-                        values (:sellerId, :userId, '위반 시험 상품')
-                        returning product_id
-                        """)
-                .param("sellerId", sellerId)
-                .param("userId", buyerId)
-                .query(Long.class)
-                .single();
-        long skuId = jdbc.sql("insert into sku (product_id, price_incl_vat) values (:productId, 0) returning sku_id")
-                .param("productId", productId)
-                .query(Long.class)
-                .single();
-
-        long itemId = jdbc.sql("""
-                        insert into order_item (seller_order_id, sku_id, product_name,
-                                                unit_price_incl_vat, quantity, line_amount,
-                                                commission_bp, commission_amount)
-                        values (:bundleId, :skuId, '위반 시험 상품', 0, 1, 0, 0, 0)
-                        returning order_item_id
-                        """)
-                .param("bundleId", bundleId)
-                .param("skuId", skuId)
-                .query(Long.class)
-                .single();
+        OrderFixture.Line line = OrderFixture.deliveredLine(jdbc, buyerId, sellerId, "위반 시험 상품", 0);
+        long orderId = line.orderId();
+        long bundleId = line.bundleId();
+        long skuId = line.skuId();
+        long itemId = line.itemId();
 
         long returnId = jdbc.sql("""
                         insert into return_request (seller_order_id, status, reason_code, requested_by_user_id)

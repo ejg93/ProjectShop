@@ -71,4 +71,86 @@ public final class OrderFixture {
                 .param("orderId", orderId)
                 .update();
     }
+
+    /**
+     * 주문 하나와 그 아래 배송완료 묶음 하나를 SQL 로 직접 넣고 두 번호를 돌려준다(`Q431`).
+     *
+     * <p>금액은 전부 0 이고 계약내용 서면은 {@link #attachContractDocuments} 가 붙인다.
+     * 위반 시험({@code CheckViolation*Test})이 제약을 부술 바탕 행으로 쓴다 —
+     * 파일마다 같은 SQL 을 베끼면 주문 표의 칸이 늘 때 베낀 수만큼 고친다.
+     */
+    public static Bundle deliveredBundle(JdbcClient jdbc, long userId, long sellerId) {
+        long orderId = jdbc.sql("""
+                        insert into shop_order (order_number, user_id, total_amount,
+                                                commission_total, shipping_fee_total, payable_amount)
+                        values (:number, :userId, 0, 0, 0, 0)
+                        returning order_id
+                        """)
+                .param("number", sellerOrderNumber().substring(2))
+                .param("userId", userId)
+                .query(Long.class)
+                .single();
+        attachContractDocuments(jdbc, orderId);
+
+        long bundleId = jdbc.sql("""
+                        insert into seller_order (seller_order_number, order_id, seller_id, status)
+                        values (:number, :orderId, :sellerId, 'delivered')
+                        returning seller_order_id
+                        """)
+                .param("number", sellerOrderNumber())
+                .param("orderId", orderId)
+                .param("sellerId", sellerId)
+                .query(Long.class)
+                .single();
+        return new Bundle(orderId, bundleId);
+    }
+
+    /**
+     * {@link #deliveredBundle} 위에 상품·SKU·주문 항목 한 줄을 SQL 로 넣고 다섯 번호를 돌려준다(`Q431`).
+     *
+     * <p>수량 1 · 줄 금액 = 단가 · 수수료 0 이다. 재고 행은 안 넣는다 — 재고 제약을 부수는 시험만 그것을 따로 넣는다.
+     */
+    public static Line deliveredLine(JdbcClient jdbc, long userId, long sellerId,
+                                     String productName, long unitPrice) {
+        Bundle bundle = deliveredBundle(jdbc, userId, sellerId);
+
+        long productId = jdbc.sql("""
+                        insert into product (seller_id, created_by_user_id, name)
+                        values (:sellerId, :userId, :name)
+                        returning product_id
+                        """)
+                .param("sellerId", sellerId)
+                .param("userId", userId)
+                .param("name", productName)
+                .query(Long.class)
+                .single();
+        long skuId = jdbc.sql("insert into sku (product_id, price_incl_vat) values (:productId, :price) returning sku_id")
+                .param("productId", productId)
+                .param("price", unitPrice)
+                .query(Long.class)
+                .single();
+
+        long itemId = jdbc.sql("""
+                        insert into order_item (seller_order_id, sku_id, product_name,
+                                                unit_price_incl_vat, quantity, line_amount,
+                                                commission_bp, commission_amount)
+                        values (:bundleId, :skuId, :name, :price, 1, :price, 0, 0)
+                        returning order_item_id
+                        """)
+                .param("bundleId", bundle.bundleId())
+                .param("skuId", skuId)
+                .param("name", productName)
+                .param("price", unitPrice)
+                .query(Long.class)
+                .single();
+        return new Line(bundle.orderId(), bundle.bundleId(), productId, skuId, itemId);
+    }
+
+    /** {@link #deliveredBundle} 이 넣은 주문 번호와 묶음 번호. */
+    public record Bundle(long orderId, long bundleId) {
+    }
+
+    /** {@link #deliveredLine} 이 넣은 주문·묶음·상품·SKU·주문 항목 번호. */
+    public record Line(long orderId, long bundleId, long productId, long skuId, long itemId) {
+    }
 }
