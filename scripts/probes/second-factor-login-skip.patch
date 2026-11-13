@@ -1,0 +1,13 @@
+# gate: 비밀번호만 맞은 셀러·관리자·감사자 세션은 인증 상태가 아니다(Q452, 고시 제6조② R45)
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.SecondFactorLoginTest
+# expect: FAILED com.projectshop.shop.SecondFactorLoginTest 등록된 관리자는 코드 전에는 인증 상태가 아니고 맞는 코드 뒤에 들어간다
+--- a/backend/src/main/java/com/projectshop/shop/auth/AuthController.java
++++ b/backend/src/main/java/com/projectshop/shop/auth/AuthController.java
+@@ -161,6 +161,7 @@
+                     new SecondFactorPending(user, Instant.now()));
+             LoginStep step = secondFactors.enrolled(user.id())
+                     ? LoginStep.CODE_REQUIRED : LoginStep.ENROLLMENT_REQUIRED;
++            completeLogin(authentication, http, response);
+             return new LoginResponse(user.id(), user.email(), step);
+         }
+ 

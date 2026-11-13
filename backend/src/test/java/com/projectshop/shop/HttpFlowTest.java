@@ -712,9 +712,7 @@ class HttpFlowTest extends HttpTestBase {
     }
 
     private Response logIn(Session session, String name) {
-        return session.post("/api/auth/login", """
-                {"email": "%s", "password": "%s"}
-                """.formatted(email(name), PASSWORD));
+        return logInFully(session, email(name), PASSWORD);
     }
 
     private static String email(String name) {

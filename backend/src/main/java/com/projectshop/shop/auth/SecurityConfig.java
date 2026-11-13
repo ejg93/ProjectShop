@@ -87,6 +87,10 @@ public class SecurityConfig {
             // 가입과 로그인은 계정이 없거나 아직 인증되지 않은 사람이 부른다.
             "/api/auth/signup",
             "/api/auth/login",
+            // 2차 인증 둘째 단계(`Q452`). 비밀번호를 지났지만 아직 인증 전인 사람이 부른다 — 세션의 대기 속성이
+            // 없으면 401 이라 이 경로만으로 열리는 것은 없다.
+            "/api/auth/login/second-factor",
+            "/api/auth/login/second-factor/enrollment",
             // 비밀번호를 잊은 사람이 부른다. 로그인할 수 없는 것이 이 입구를 쓰는 이유다(`5c-1`).
             "/api/auth/password-reset",
             "/api/auth/password-reset/confirm",

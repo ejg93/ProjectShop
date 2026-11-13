@@ -369,6 +369,16 @@ public enum ErrorCode {
     TRANSITION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "transition-reason-required",
             "관리자 처리에는 사유가 필요하다"),
 
+    // 2차 인증 로그인(`Q452`). 코드가 틀린 것과 대기가 없는 것을 가른다 — 앞은 다시 치고 뒤는 처음부터 다시 한다.
+    SECOND_FACTOR_CODE_INVALID(HttpStatus.UNAUTHORIZED, "second-factor-code-invalid",
+            "2차 인증 코드가 맞지 않는다", "인증 코드가 맞지 않습니다."),
+    SECOND_FACTOR_NOT_PENDING(HttpStatus.UNAUTHORIZED, "second-factor-not-pending",
+            "2차 인증 대기가 없거나 끝났다", "로그인을 처음부터 다시 해 주세요."),
+    SECOND_FACTOR_NOT_ENROLLED(HttpStatus.CONFLICT, "second-factor-not-enrolled",
+            "2차 인증 등록이 없다", "2차 인증 등록을 먼저 해 주세요."),
+    SECOND_FACTOR_ALREADY_ENROLLED(HttpStatus.CONFLICT, "second-factor-already-enrolled",
+            "이미 2차 인증을 등록했다", "이미 2차 인증을 등록했습니다."),
+
     // 2차 인증(`Q451`). 키가 없으면 앱은 뜨고 셀러·관리자·감사자 로그인만 멈춘다 — 기본 키를 코드에 두지 않는다(`D14`).
     SECOND_FACTOR_KEY_MISSING(HttpStatus.SERVICE_UNAVAILABLE, "second-factor-key-missing",
             "2차 인증 키가 설정되지 않았다"),

@@ -23,6 +23,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClient;
 
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.auth.SecondFactorLogin;
+import com.projectshop.shop.auth.SecondFactorService;
 
 /**
  * 진짜 서블릿 컨테이너를 띄우고 실제 HTTP 로 요청을 보내는 바탕.
@@ -82,6 +84,9 @@ abstract class HttpTestBase {
      */
     @Autowired
     private TransactionTemplate transactions;
+
+    @Autowired
+    private SecondFactorService secondFactors;
 
     /**
      * 이 층이 남긴 것만 지운다.
@@ -211,6 +216,33 @@ abstract class HttpTestBase {
      */
     protected record SellableProduct(long sellerId, long ownerUserId, long productId,
             long skuId, long priceInclVat) {
+    }
+
+    /**
+     * 로그인한다. 셀러·관리자·감사자면 2차 인증까지 지난다(`Q452`).
+     *
+     * <p>등록이 없으면 시험 비밀로 등록하고 코드를 낸다 — 등록 화면 흐름은 {@code SecondFactorLoginTest} 가 잰다.
+     * 고객이면 첫 응답 그대로다.
+     */
+    protected Response logInFully(Session session, String email, String password) {
+        Response login = session.post("/api/auth/login", """
+                {"email": "%s", "password": "%s"}
+                """.formatted(email, password));
+        boolean needsCode = login.body().contains("\"step\":\"CODE_REQUIRED\"");
+        boolean needsEnrollment = login.body().contains("\"step\":\"ENROLLMENT_REQUIRED\"");
+        if (!needsCode && !needsEnrollment) {
+            return login;
+        }
+        long userId = jdbc.sql("select user_id from app_user where email = :email")
+                .param("email", email)
+                .query(Long.class)
+                .single();
+        if (needsEnrollment) {
+            SecondFactorLogin.enroll(secondFactors, userId);
+        }
+        return session.post("/api/auth/login/second-factor", """
+                {"code": "%s"}
+                """.formatted(SecondFactorLogin.codeFor(jdbc, userId)));
     }
 
     /** 한 사람이 브라우저 하나로 하는 일. 쿠키를 들고 다닌다. */

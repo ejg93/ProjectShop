@@ -1,5 +1,6 @@
 package com.projectshop.shop.auth;
 
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Map;
 import java.util.OptionalLong;
@@ -20,9 +21,13 @@ import com.projectshop.shop.audit.AuditTargetType;
 @Service
 public class SecondFactorService {
 
+    /** 인증 앱에 보이는 발급자 이름 */
+    private static final String ISSUER = "ProjectShop";
+
     private final JdbcClient jdbc;
     private final SecondFactorSecrets secrets;
     private final AuditLog auditLog;
+    private final SecureRandom random = new SecureRandom();
 
     SecondFactorService(JdbcClient jdbc, SecondFactorSecrets secrets, AuditLog auditLog) {
         this.jdbc = jdbc;
@@ -94,12 +99,44 @@ public class SecondFactorService {
                 .update() == 1;
     }
 
+    /** 새 비밀을 뽑아 싸고, 인증 앱에 넣을 키 문자열과 주소를 같이 낸다. 표에는 아직 안 넣는다 */
+    Enrollment newEnrollment(long userId, String email) {
+        byte[] secret = Totp.newSecret(random);
+        SecondFactorSecrets.Sealed sealed = secrets.seal(userId, secret);
+        return enrollmentOf(email, sealed.ciphertext(), sealed.keyVersion(), secret);
+    }
+
+    /** 세션에 싸 둔 등록 비밀을 다시 낸다 — 새로 고쳐도 앱에 넣은 것과 같은 비밀이다 */
+    Enrollment reopen(long userId, String email, byte[] ciphertext, int keyVersion) {
+        return enrollmentOf(email, ciphertext, keyVersion, secrets.open(userId, ciphertext, keyVersion));
+    }
+
+    /** 등록 중인 비밀로 첫 코드를 확인한다. 맞으면 그 스텝을 쓴 것으로 두고 등록한다 */
+    @Transactional
+    boolean confirmEnrollment(long userId, byte[] ciphertext, int keyVersion, String code, Instant now) {
+        byte[] secret = secrets.open(userId, ciphertext, keyVersion);
+        OptionalLong step = Totp.matchingStep(secret, code, Totp.stepAt(now));
+        if (step.isEmpty()) {
+            return false;
+        }
+        enroll(userId, secret, step.getAsLong());
+        return true;
+    }
+
+    private Enrollment enrollmentOf(String email, byte[] ciphertext, int keyVersion, byte[] secret) {
+        return new Enrollment(ciphertext, keyVersion, Totp.base32(secret), Totp.otpauthUri(ISSUER, email, secret));
+    }
+
     /** 등록을 지운다. 탈퇴가 그 트랜잭션에서 부른다 — 인증정보는 유예가 없다 */
     @Transactional
     public void remove(long userId) {
         jdbc.sql("delete from user_second_factor where user_id = :userId")
                 .param("userId", userId)
                 .update();
+    }
+
+    /** 등록 중인 비밀 — 세션에 둘 암호문과, 화면에 낼 키 문자열·주소 */
+    record Enrollment(byte[] ciphertext, int keyVersion, String secret, String otpauthUri) {
     }
 
     /** 저장된 암호문과 키 판 */

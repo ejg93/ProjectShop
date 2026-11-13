@@ -394,7 +394,7 @@ DB 조회가 실패하면 지금은 예외가 터지고 그 위에서 무슨 일
 | 판정 엔진 `decide` | 역할·스코프·상태에 따라 답이 갈리는 동작 — 셀러가 남의 것을, 관리자가 강제로, 감사자가 읽기만 | 나머지 전부 — `decide`·`allowedActions` 를 부르는 클래스는 `grep` 이 센다 |
 | **SQL 소유 조건** | 소유자 말고 아무도 못 하고, 소유자는 언제나 되는 동작 | `PaymentController.pay` · `OrderController.create` · `CartController.add` · `CartController.changeQuantity` · `CartController.remove` |
 | **본인 계정** | 판정할 역할이 없다 — 남이 대신 하는 경로가 아예 없다. 탈퇴는 비밀번호를 다시 받고 이메일 변경은 확인 토큰이 막는다 | `MeController.withdraw` · `MeController.changePassword` · `MeController.changeEmail` · `MeController.confirmEmail` |
-| **인증 이전** | 판정할 사람이 아직 없다 | `AuthController.signUp` · `AuthController.logIn` · `AuthController.logOut` · `AuthController.requestPasswordReset` · `AuthController.confirmPasswordReset` |
+| **인증 이전** | 판정할 사람이 아직 없다 | `AuthController.signUp` · `AuthController.logIn` · `AuthController.confirmSecondFactor` · `AuthController.startSecondFactorEnrollment` · `AuthController.logOut` · `AuthController.requestPasswordReset` · `AuthController.confirmPasswordReset` |
 | **법이 로그인을 막는다** | 저작권자가 우리 회원일 이유가 없다. 회원만 신고할 수 있게 하면 **법이 요구한 절차에 가입이라는 관문이 하나 붙는다**(저작권법 제102조, `D2` `R42`). 판정 쪽은 반대로 로그인이 필요하다 — 누가 언제 무엇을 했는지가 증거다 | `CopyrightReportController.report`·`CopyrightReportController.reportReviewImage`(후기 사진, `Q196`) |
 
 **범위를 떠볼 때는 `covers` 다**(`Q204`). 목록이 「전체 범위냐」·「이 셀러를 보냐」로 갈래를 고를 때 `decide` 를 쓰면

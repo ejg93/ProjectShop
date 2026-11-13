@@ -77,6 +77,7 @@ class EnumConstraintTest extends PostgresTestBase {
     /** 대조할 DB 목록이 없는 것. <b>이유를 같이 적는다</b> — 안 적으면 다음 사람이 빠뜨린 것과 못 가른다 */
     private static final Map<String, String> EXEMPT = Map.ofEntries(
             Map.entry("error.ErrorCode", "응답 본문의 오류 코드다. DB 에 안 산다"),
+            Map.entry("auth.AuthController$LoginStep", "로그인 응답의 다음 단계다(`Q452`). 응답에만 실리고 DB 에 안 산다"),
             Map.entry("support.ObjectStorage$Visibility", "파일을 어느 버킷에 두나를 가른다. 버킷 이름은 설정이 들고 DB 에 열이 없다"),
             Map.entry("account.UserFields", "`permission_field_group` 의 행이지 `check` 가 아니다. `FieldGroupTest` 가 대조한다"),
             Map.entry("inquiry.InquiryFields", "`permission_field_group` 의 행이다. 패키지 안 열거형이라 `InquiryFieldGroupTest` 가 대조한다"),

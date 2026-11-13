@@ -76,9 +76,7 @@ class ManagementPortTest extends HttpTestBase {
                 select u.user_id, r.role_id from app_user u, role r
                  where u.email = :email and r.code = 'admin'
                 """).param("email", ADMIN_EMAIL).update();
-        assertThat(admin.post("/api/auth/login", """
-                {"email": "%s", "password": "%s"}
-                """.formatted(ADMIN_EMAIL, PASSWORD)).is(200)).isTrue();
+        assertThat(logInFully(admin, ADMIN_EMAIL, PASSWORD).is(200)).isTrue();
 
         assertThat(admin.get("/actuator/prometheus").status().value())
                 .as("관리자에게 200 이면 관리 포트를 따로 두고도 지표가 공개 포트에 남았다")

@@ -72,8 +72,9 @@ public class ShopUserDetailsService implements UserDetailsService {
     public static final class ShopUser implements UserDetails, CredentialsContainer, Serializable {
 
         /**
-         * 세션이 Redis 에 JDK 직렬화로 담긴다(`Q52`). <b>필드를 더하거나 지우면 이 값을 올린다</b> —
-         * 안 올리면 배포 직후 옛 세션을 읽다가 {@code InvalidClassException} 이 난다.
+         * 세션이 Redis 에 JDK 직렬화로 담긴다(`Q52`). <b>필드를 지우거나 타입을 바꾸면 이 값을 올린다</b> —
+         * 안 올리면 배포 직후 옛 세션을 읽다가 {@code InvalidClassException} 이 난다. <b>더하는 것은 호환 변경이라 안 올린다</b> —
+         * 옛 세션의 새 칸이 기본값으로 읽힌다({@code ShopUserSerializationTest} 가 옛 바이트로 잰다, `Q452`).
          *
          * <p>JSON 을 안 쓴 이유는 principal 마다 변환 규칙(mixin)을 따로 써야 해서다.
          * 클래스가 바뀌는 날의 위험 구간은 <b>절대 만료 12시간</b> 안이다(청크 `5c`).
@@ -84,15 +85,34 @@ public class ShopUserDetailsService implements UserDetailsService {
         private final long id;
         private final String email;
         private final boolean active;
+        /**
+         * 이 세션이 2차 인증을 지났나(`Q452`, 고시 제6조② `D2` R45). 비밀번호만 맞은 대상 계정은 인증된 세션이 없고,
+         * 코드까지 맞으면 {@link #verified()} 사본이 세션에 앉는다. 옛 세션은 false 로 읽혀 필터(`Q453`)가 끊는다.
+         */
+        private final boolean secondFactorVerified;
 
         /** 인증이 끝나면 지워진다. 그 뒤로 이 값을 읽는 코드가 있으면 안 된다 */
         private String passwordHash;
 
         public ShopUser(long id, String email, String passwordHash, boolean active) {
+            this(id, email, passwordHash, active, false);
+        }
+
+        private ShopUser(long id, String email, String passwordHash, boolean active, boolean secondFactorVerified) {
             this.id = id;
             this.email = email;
             this.passwordHash = passwordHash;
             this.active = active;
+            this.secondFactorVerified = secondFactorVerified;
+        }
+
+        /** 2차 인증을 지난 사본. 해시는 안 옮긴다 — 세션에 앉는 객체다 */
+        public ShopUser verified() {
+            return new ShopUser(id, email, null, active, true);
+        }
+
+        public boolean secondFactorVerified() {
+            return secondFactorVerified;
         }
 
         public long id() {

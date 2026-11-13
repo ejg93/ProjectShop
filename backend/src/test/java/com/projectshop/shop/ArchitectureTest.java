@@ -790,6 +790,8 @@ class ArchitectureTest {
             // 인증 이전. 판정할 사람이 아직 없다.
             "AuthController.signUp",
             "AuthController.logIn",
+            "AuthController.confirmSecondFactor",
+            "AuthController.startSecondFactorEnrollment",
             "AuthController.logOut",
             "AuthController.requestPasswordReset",
             "AuthController.confirmPasswordReset",
