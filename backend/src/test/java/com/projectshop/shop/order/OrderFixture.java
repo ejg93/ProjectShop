@@ -108,7 +108,10 @@ public final class OrderFixture {
     /**
      * {@link #deliveredBundle} 위에 상품·SKU·주문 항목 한 줄을 SQL 로 넣고 다섯 번호를 돌려준다(`Q431`).
      *
-     * <p>수량 1 · 줄 금액 = 단가 · 수수료 0 이다. 재고 행은 안 넣는다 — 재고 제약을 부수는 시험만 그것을 따로 넣는다.
+     * <p>수량 1 · 줄 금액 = 단가 · 수수료 0 이다. <b>지연 제약 둘을 어긴 채로 돌려준다</b> — 재고 행이 없어
+     * {@code sku_requires_stock}(`V40`)을, 단가가 0 이 아니면 주문 합계(0)와 줄 금액이 갈려 {@code order_item_amounts_check}(`V16`)를
+     * 어긴다. 롤백으로 끝나는 시험은 지연 검사가 안 돌아 초록이다. {@code flush()}(즉시 검사)나 커밋을 하는 시험은 재고 행을
+     * 넣고 단가 0 으로 부른다({@code ReturnRequestSchemaTest} 가 그렇다).
      */
     public static Line deliveredLine(JdbcClient jdbc, long userId, long sellerId,
                                      String productName, long unitPrice) {

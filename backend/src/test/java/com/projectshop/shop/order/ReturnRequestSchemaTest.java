@@ -409,7 +409,7 @@ class ReturnRequestSchemaTest extends PostgresTestBase {
     private long deliveredBundle(long sellerId) {
         // 항목까지 넣는다. `flush()` 가 반품 트리거만 깨우는 것이 아니라
         // `V16` 의 주문 합계 트리거까지 같이 돌려서, 항목 없는 묶음은 거기서 막힌다.
-        // 금액은 0 이라 합계 등식이 그대로 맞는다.
+        // 금액은 0 이라 합계 등식이 그대로 맞는다. 재고 행은 `flush()` 가 `sku_requires_stock`(V40)을 즉시 검사해서 넣는다.
         OrderFixture.Line line = OrderFixture.deliveredLine(jdbc, buyerId, sellerId, "반품 테스트 상품", 0);
         jdbc.sql("insert into sku_stock (sku_id, on_hand) values (:skuId, 100)")
                 .param("skuId", line.skuId())
