@@ -5,19 +5,36 @@ import { useState } from "react";
 import { Field } from "@/components/field";
 import { SubmitButton } from "@/components/submit-button";
 import { ApiError, api } from "@/lib/api";
+import { totpCode } from "@/lib/totp";
 
 import { DemoAccountsPanel } from "./demo-accounts-panel";
-import { DEMO_PASSWORD, type DemoAccount } from "./demo-accounts";
+import {
+  DEMO_PASSWORD,
+  DEMO_SECOND_FACTOR_SECRET,
+  type DemoAccount,
+  needsSecondFactor,
+} from "./demo-accounts";
 
 /**
- * 로그인 응답. 지금 화면이 쓰는 것은 없지만 형태를 적어 둔다.
+ * 로그인 응답. `step` 이 다음 단계를 고른다(`Q454` — 서버 `Q452`).
  *
- * <p>무엇을 할 수 있는지는 여기 안 온다. 권한 목록은 따로 내려온다(청크 8a).
+ * <p>셀러·관리자·감사자는 비밀번호만으로 세션이 안 선다 — `CODE_REQUIRED` 면 코드를, `ENROLLMENT_REQUIRED` 면
+ * 등록 뒤 첫 코드를 낸다(안전성 확보조치 기준 제6조②). 무엇을 할 수 있는지는 여기 안 온다(청크 8a).
  */
 type LoginResponse = {
   userId: number;
   email: string;
+  step: "DONE" | "CODE_REQUIRED" | "ENROLLMENT_REQUIRED";
 };
+
+/** 2차 인증 등록 — 인증 앱에 손으로 칠 키와 앱이 여는 주소 */
+type Enrollment = {
+  secret: string;
+  otpauthUri: string;
+};
+
+/** 화면의 단계. 비밀번호 → (코드 | 등록 뒤 코드) */
+type Step = "password" | "code" | "enrollment";
 
 /**
  * 개발 중에 칸을 미리 채워 둘 계정(`V901__test_account.sql`).
@@ -44,6 +61,11 @@ function messageOf(error: unknown): string {
       // 없는 계정인지 틀린 비밀번호인지 가르지 않는다. 서버가 이미 한 문구로 내려주고,
       // 화면이 그걸 나누면 가입 여부를 물어보는 도구가 된다(`D14`).
       return "이메일 또는 비밀번호가 맞지 않습니다.";
+    case "second-factor-code-invalid":
+      return "인증 코드가 맞지 않습니다.";
+    case "second-factor-not-pending":
+      // 5분이 지났거나 세션이 바뀌었다. 코드 칸에서 다시 쳐도 안 되므로 비밀번호 단계로 돌린다.
+      return "로그인을 처음부터 다시 해 주세요.";
     default:
       // 이름으로 못 가른 것은 이 화면의 문구다. 로그인은 이름마다 안내가 달라 슬러그로 가른다(`D20` 「서버 문구는 `message` 만 그린다」).
       return "로그인하지 못했습니다. 잠시 후 다시 시도해 주세요.";
@@ -62,13 +84,38 @@ export function LoginForm() {
    */
   const [picked, setPicked] = useState<DemoAccount | null>(null);
 
+  /** 비밀번호를 지난 뒤의 단계. 코드 칸은 제어 요소다 — 「코드 채우기」가 값을 넣는다 */
+  const [step, setStep] = useState<Step>("password");
+  const [code, setCode] = useState("");
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
+
+  /**
+   * 통째로 다시 받는다. 클라이언트 이동(router)이 아니라 브라우저 이동이다.
+   *
+   * <p>세션 쿠키가 HttpOnly 라 서버만 읽는다. 로그인한 사실을 화면에 반영하려면 서버 컴포넌트가 전부 다시 그려져야 하고,
+   * 그걸 확실히 하는 것이 통짜 이동이다. `router.refresh()` 와 `router.replace()` 를 이어서 부르던 것을 걷어냈다 —
+   * 둘이 같은 전환 안에서 부딪혀서 **이동이 아예 안 일어났다.** replace 라 뒤로 가기가 로그인 화면으로 안 돌아온다.
+   */
+  function enter() {
+    window.location.replace("/");
+  }
+
   // **제출 중인지를 여기서 안 든다**(`Q20-1`). `SubmitButton` 이 `useFormStatus` 로 읽는다 —
   // 폼 `action` 은 전환 안에서 돌아서 여기서 `setState` 를 해도 액션이 끝날 때까지 안 비친다.
   async function submit(form: FormData) {
     setError(null);
 
     try {
-      await api<LoginResponse>("/api/auth/login", {
+      if (step !== "password") {
+        await api<LoginResponse>("/api/auth/login/second-factor", {
+          method: "POST",
+          body: { code },
+        });
+        enter();
+        return;
+      }
+
+      const login = await api<LoginResponse>("/api/auth/login", {
         method: "POST",
         body: {
           email: form.get("email"),
@@ -76,20 +123,29 @@ export function LoginForm() {
         },
       });
 
-      // 통째로 다시 받는다. 클라이언트 이동(router)이 아니라 브라우저 이동이다.
-      //
-      // 세션 쿠키가 HttpOnly 라 서버만 읽는다. 로그인한 사실을 화면에 반영하려면
-      // 서버 컴포넌트가 전부 다시 그려져야 하고, 그걸 확실히 하는 것이 통짜 이동이다.
-      //
-      // `router.refresh()` 와 `router.replace()` 를 이어서 부르던 것을 걷어냈다 —
-      // 둘이 같은 전환 안에서 부딪혀서 **이동이 아예 안 일어났다.** 로그인은 200 인데
-      // 화면은 그대로고 버튼만 「확인하는 중」에 멈춰 있었다.
-      //
-      // replace 와 같은 자리다. 이력을 안 쌓아서 뒤로 가기가 로그인 화면으로 안 돌아온다.
-      window.location.replace("/");
+      if (login.step === "CODE_REQUIRED") {
+        setStep("code");
+        return;
+      }
+      if (login.step === "ENROLLMENT_REQUIRED") {
+        setEnrollment(await api<Enrollment>("/api/auth/login/second-factor/enrollment", { method: "POST" }));
+        setStep("enrollment");
+        return;
+      }
+      enter();
     } catch (thrown) {
+      if (thrown instanceof ApiError && thrown.slug === "second-factor-not-pending") {
+        setStep("password");
+        setCode("");
+        setEnrollment(null);
+      }
       setError(messageOf(thrown));
     }
+  }
+
+  /** 공개된 연습 계정 비밀로 지금 코드를 칸에 넣는다. 운영 계정의 비밀은 화면에 없다 */
+  async function fillDemoCode() {
+    setCode(await totpCode(DEMO_SECOND_FACTOR_SECRET, new Date()));
   }
 
   return (
@@ -100,20 +156,31 @@ export function LoginForm() {
       <DemoAccountsPanel onPick={setPicked} />
 
       <form action={submit} className="grid gap-5">
-        {/*
-          `invalid` 를 안 넘긴다. 로그인 실패는 **어느 칸이 틀렸는지 서버가 안 알려주는 오류**라
-          칸을 지목할 근거가 없다(`D20` 「모르는 칸을 지목하지 않는다」).
+        {step === "password" ? (
+          <>
+          {/*
+            `invalid` 를 안 넘긴다. 로그인 실패는 **어느 칸이 틀렸는지 서버가 안 알려주는 오류**라
+            칸을 지목할 근거가 없다(`D20` 「모르는 칸을 지목하지 않는다」).
 
-          두 칸에 다 걸었더니 화면낭독기가 **맞은 이메일까지 「잘못된 입력」이라고 읽었다.**
-          `aria-invalid` 의 뜻은 「이 칸의 값이 유효하지 않다」고, 그건 여기서 사실이 아니다.
-        */}
-        <Field key={`email-${picked?.email ?? ""}`}
-                name="email" type="email" label="이메일" autoComplete="email"
-                defaultValue={picked?.email ?? TEST_ACCOUNT?.email} maxLength={254} />
+            두 칸에 다 걸었더니 화면낭독기가 **맞은 이메일까지 「잘못된 입력」이라고 읽었다.**
+            `aria-invalid` 의 뜻은 「이 칸의 값이 유효하지 않다」고, 그건 여기서 사실이 아니다.
+          */}
+          <Field key={`email-${picked?.email ?? ""}`}
+                  name="email" type="email" label="이메일" autoComplete="email"
+                  defaultValue={picked?.email ?? TEST_ACCOUNT?.email} maxLength={254} />
 
-        <Field key={`password-${picked?.email ?? ""}`}
-                name="password" type="password" label="비밀번호" autoComplete="current-password"
-                defaultValue={picked ? DEMO_PASSWORD : TEST_ACCOUNT?.password} />
+          <Field key={`password-${picked?.email ?? ""}`}
+                  name="password" type="password" label="비밀번호" autoComplete="current-password"
+                  defaultValue={picked ? DEMO_PASSWORD : TEST_ACCOUNT?.password} />
+          </>
+        ) : (
+          <SecondFactorStep
+            enrollment={step === "enrollment" ? enrollment : null}
+            code={code}
+            onCode={setCode}
+            onFill={picked && needsSecondFactor(picked) ? fillDemoCode : null}
+          />
+        )}
 
         {/*
           폼 전체 오류를 입력칸 아래, 버튼 위에 둔다. 위쪽에 두면 스크롤한 화면에서 안 보이고,
@@ -125,8 +192,89 @@ export function LoginForm() {
           </p>
         )}
 
-        <SubmitButton label="로그인" pendingLabel="확인하는 중" />
+        <SubmitButton label={step === "password" ? "로그인" : "확인"} pendingLabel="확인하는 중" />
       </form>
+    </div>
+  );
+}
+
+/**
+ * 비밀번호 뒤의 단계 — 등록 안내(있으면)와 코드 칸(`Q454`).
+ *
+ * <p><b>코드 칸은 `Field` 를 안 쓴다.</b> 「코드 채우기」가 값을 넣어야 해서 제어 요소고, 숫자 자판(`inputMode`)과
+ * 한 번 쓰는 코드 자동 채움(`autoComplete="one-time-code"`)이 필요하다 — `Field` 의 네 화면은 그 둘이 필요 없다.
+ */
+function SecondFactorStep({
+  enrollment,
+  code,
+  onCode,
+  onFill,
+}: {
+  enrollment: Enrollment | null;
+  code: string;
+  onCode: (code: string) => void;
+  onFill: (() => void) | null;
+}) {
+  return (
+    <div className="grid gap-4">
+      {enrollment ? (
+        <div className="grid gap-2 text-sm">
+          <p>
+            판매자·관리자 계정은 2차 인증이 필요합니다. 인증 앱(Google Authenticator 등)에 아래 키를 넣어 주세요.
+            <br />
+            넣은 뒤 앱이 보여 주는 여섯 자리 코드를 입력하시면 등록이 끝납니다.
+          </p>
+          <code className="break-all rounded-ui bg-surface px-3 py-2 font-mono">{enrollment.secret}</code>
+          <a
+            href={enrollment.otpauthUri}
+            className="
+              underline
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
+            "
+          >
+            인증 앱에서 열기
+          </a>
+        </div>
+      ) : (
+        <p className="text-sm">인증 앱에 보이는 여섯 자리 코드를 입력해 주세요.</p>
+      )}
+
+      <div className="grid gap-2">
+        <label htmlFor="secondFactorCode" className="text-sm font-semibold">
+          인증 코드
+        </label>
+        <input
+          id="secondFactorCode"
+          name="secondFactorCode"
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="[0-9]{6}"
+          maxLength={6}
+          required
+          value={code}
+          onChange={(event) => onCode(event.target.value)}
+          className="
+            rounded-ui border border-border bg-surface-raised px-3 py-2.5 text-base
+            transition-colors duration-200
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
+          "
+        />
+      </div>
+
+      {onFill ? (
+        <button
+          type="button"
+          onClick={onFill}
+          className="
+            justify-self-start rounded-ui border border-border px-3 py-1.5 text-sm
+            transition-colors duration-200 hover:bg-surface
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text
+          "
+        >
+          연습 계정 코드 채우기
+        </button>
+      ) : null}
     </div>
   );
 }

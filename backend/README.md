@@ -22,6 +22,13 @@ cd backend
 JAVA_HOME="C:/Program Files/Java/jdk-25" ./gradlew bootRun
 ```
 
+판매자·관리자 연습 계정으로 들어가려면 **`SECOND_FACTOR_SECRET_KEY` 를 주고 띄운다**(`Q454`) — 없으면 그 로그인만 503 이고
+`local` 시더가 연습 계정의 2차 인증을 등록하지 않는다. 로컬은 `.github/workflows/e2e.yml` 의 값을 그대로 쓴다(공개 비밀만 싸는 값이다).
+
+```bash
+SECOND_FACTOR_SECRET_KEY=QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8= ./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
 ## 확인
 
 ```bash
