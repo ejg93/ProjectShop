@@ -16,7 +16,7 @@ import com.projectshop.shop.payment.PaymentMethod;
  * 모르는 칸(생년월일·아이디·휴대전화)은 비운다 — 서식 작성방법이 「알지 못하는 항목은 적지 않습니다」라 한다.
  * 홈택스가 받는 전산파일의 실제 배치는 국세청 제출요령이 정하는데 못 구했다 — 다르면 이 클래스 하나만 고친다.
  *
- * <p><b>수식 주입을 막는다.</b> 모든 칸을 큰따옴표로 싸고, {@code =}·{@code +}·{@code -}·{@code @} 로 시작하는 값 앞에 작은따옴표를 붙인다 —
+ * <p><b>수식 주입을 막는다.</b> 모든 칸을 큰따옴표로 싸고, {@code =}·{@code +}·{@code -}·{@code @}·탭·CR 로 시작하는 값 앞에 작은따옴표를 붙인다 —
  * 셀러가 정한 상호가 스프레드시트에서 수식으로 실행되면 안 된다(OWASP CSV Injection). UTF-8, 줄 끝은 CRLF(RFC 4180).
  */
 final class BrokerageStatementFile {
@@ -82,7 +82,7 @@ final class BrokerageStatementFile {
     }
 
     private static String neutralize(String value) {
-        return !value.isEmpty() && "=+-@".indexOf(value.charAt(0)) >= 0 ? "'" + value : value;
+        return !value.isEmpty() && "=+-@\t\r".indexOf(value.charAt(0)) >= 0 ? "'" + value : value;
     }
 
     private static String nullToEmpty(String value) {

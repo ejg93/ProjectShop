@@ -128,6 +128,21 @@ class BrokerageStatementApiTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("탭이나 CR 로 시작하는 값도 작은따옴표를 붙인다")
+    void neutralizesControlLead() throws Exception {
+        jdbc.sql("update seller set business_name = E'\\t=1', representative_name = E'\\r=2' where seller_id = :id")
+                .param("id", sellerId)
+                .update();
+
+        String text = new String(file(adminId), StandardCharsets.UTF_8);
+
+        assertThat(text)
+                .as("OWASP CSV Injection 목록은 탭·CR 로 시작하는 값도 든다")
+                .contains("\"'\t=1\"")
+                .contains("\"'\r=2\"");
+    }
+
+    @Test
     @DisplayName("제출은 201 이고 다시 내면 409 다")
     void submitsOnce() throws Exception {
         String hash = sha(file(adminId));

@@ -151,19 +151,26 @@ public class AuthController {
             throw new ShopException(ErrorCode.LOGIN_FAILED);
         }
 
-        loginAttemptService.reset(request.email(), ip);
-
         ShopUserDetailsService.ShopUser user =
                 (ShopUserDetailsService.ShopUser) authentication.getPrincipal();
         if (ruleLoader.requiresSecondFactor(user.id())) {
             // 인증된 세션을 안 세운다 — 비밀번호만 맞은 대상 계정이 다음 요청에서 인증돼 있으면 2차 인증이 없는 것과 같다.
-            http.getSession(true).setAttribute(SecondFactorPending.ATTRIBUTE,
-                    new SecondFactorPending(user, Instant.now()));
+            //
+            // **실패 수를 여기서 안 지운다**(마무리 84차 독립 리뷰). 지우면 비밀번호를 아는 사람이 「코드 네 번 → 다시 로그인」을
+            // 되풀이해 잠금 없이 코드를 추측한다(고시 제5조⑥). 지우는 것은 코드까지 맞았을 때다.
+            //
+            // **세션 ID 를 간다** — 심어 둔 세션 ID 로 대기 값이 서면 그 세션을 심은 사람이 코드·등록 단계를 가져간다(세션 고정).
+            // 앞 로그인의 등록 중 비밀도 지운다 — 다른 계정의 묶음 값으로 풀려다 터진다.
+            HttpSession session = http.getSession(true);
+            http.changeSessionId();
+            session.removeAttribute(SecondFactorEnrolling.ATTRIBUTE);
+            session.setAttribute(SecondFactorPending.ATTRIBUTE, new SecondFactorPending(user, Instant.now()));
             LoginStep step = secondFactors.enrolled(user.id())
                     ? LoginStep.CODE_REQUIRED : LoginStep.ENROLLMENT_REQUIRED;
             return new LoginResponse(user.id(), user.email(), step);
         }
 
+        loginAttemptService.reset(request.email(), ip);
         completeLogin(authentication, http, response);
         return new LoginResponse(user.id(), user.email(), LoginStep.DONE);
     }

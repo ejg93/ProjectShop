@@ -88,6 +88,59 @@ class SecondFactorLoginTest extends HttpTestBase {
     }
 
     @Test
+    @DisplayName("비밀번호를 다시 쳐도 코드 실패 수가 안 지워진다")
+    void relogInKeepsCodeFailures() {
+        Session session = newSession();
+        long userId = admin(session, "sf-relogin");
+        SecondFactorLogin.enroll(secondFactors, userId);
+        logIn(session, "sf-relogin");
+        String wrong = wrongCode(SecondFactorLogin.codeFor(jdbc, userId));
+        for (int i = 0; i < 4; i++) {
+            confirm(session, wrong);
+        }
+
+        logIn(session, "sf-relogin");
+        confirm(session, wrong);
+
+        assertThat(confirm(session, SecondFactorLogin.codeFor(jdbc, userId)).body())
+                .as("비밀번호를 아는 사람이 다시 로그인해 카운터를 비우면 코드를 무한히 추측한다 — 고시 제5조⑥")
+                .contains("login-failed");
+    }
+
+    @Test
+    @DisplayName("비밀번호 단계를 지나면 세션 ID 가 바뀐다")
+    void rotatesSessionAtPending() {
+        Session session = newSession();
+        long userId = admin(session, "sf-fixation");
+        SecondFactorLogin.enroll(secondFactors, userId);
+        logIn(session, "sf-fixation");
+        String before = session.cookie("SHOPSESSION");
+
+        logIn(session, "sf-fixation");
+
+        assertThat(session.cookie("SHOPSESSION"))
+                .as("심어 둔 세션 ID 로 대기 값이 서면 그 세션을 심은 사람이 코드 단계를 가져간다 — 세션 고정")
+                .isNotNull()
+                .isNotEqualTo(before);
+    }
+
+    @Test
+    @DisplayName("다른 계정으로 다시 로그인하면 앞 계정의 등록 비밀을 안 쓴다")
+    void dropsStaleEnrollment() {
+        Session session = newSession();
+        signUpWithRole(session, "sf-first", "auditor");
+        signUpWithRole(session, "sf-second", "auditor");
+        logIn(session, "sf-first");
+        String first = secretOf(session.post("/api/auth/login/second-factor/enrollment", "{}"));
+
+        logIn(session, "sf-second");
+        Response second = session.post("/api/auth/login/second-factor/enrollment", "{}");
+
+        assertThat(second.is(200)).as(second.body()).isTrue();
+        assertThat(secretOf(second)).isNotEqualTo(first);
+    }
+
+    @Test
     @DisplayName("미등록 감사자는 등록을 거쳐 들어가고 등록을 두 번 불러도 같은 비밀이다")
     void unenrolledAuditorEnrolls() {
         Session session = newSession();
