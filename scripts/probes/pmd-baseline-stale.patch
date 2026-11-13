@@ -2,11 +2,11 @@
 # run: cd backend && ./gradlew pmdBaseline --console=plain
 # expect: 기준선에 없어진 짝 1개
 diff --git a/backend/config/pmd/baseline.txt b/backend/config/pmd/baseline.txt
-index 27fe37e..09258b2 100644
+index 41265dfa..fb619ba4 100644
 --- a/backend/config/pmd/baseline.txt
 +++ b/backend/config/pmd/baseline.txt
 @@ -1,3 +1,4 @@
 +com.projectshop.shop.Nope=EmptyCatchBlock
  com.projectshop.shop.account.AccountPurgeBatch=GuardLogStatement
  com.projectshop.shop.account.AccountPurgeBatch=InvalidLogMessageFormat
- com.projectshop.shop.account.AccountService=AvoidDuplicateLiterals
+ com.projectshop.shop.account.EmailChangeMailer=ImplicitFunctionalInterface
