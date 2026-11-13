@@ -32,6 +32,8 @@ public enum AuditTargetType {
     // 권한 표의 자원 중 위에 없는 것(거부 기록, 2026-11-08 마이그레이션의 permission insert 에서 셌다)
     AUDIT,
     BATCH,
+    /** 판매·결제 중개 명세 분기(`Q456`). 내려받기·제출 기록과 권한 거부가 이 대상으로 남는다 */
+    BROKERAGE_STATEMENT,
     INQUIRY,
     METRIC,
     ORDER,

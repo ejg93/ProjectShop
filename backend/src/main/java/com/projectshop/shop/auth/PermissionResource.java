@@ -21,6 +21,7 @@ public enum PermissionResource {
 
     AUDIT(AuditTargetType.AUDIT),
     BATCH(AuditTargetType.BATCH),
+    BROKERAGE_STATEMENT(AuditTargetType.BROKERAGE_STATEMENT),
     COMPENSATION(AuditTargetType.COMPENSATION),
     COUPON(AuditTargetType.COUPON),
     COUPON_ISSUE(AuditTargetType.COUPON_ISSUE),

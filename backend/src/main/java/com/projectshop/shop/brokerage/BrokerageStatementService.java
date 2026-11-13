@@ -2,11 +2,17 @@ package com.projectshop.shop.brokerage;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Map;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.projectshop.shop.audit.AuditLog;
+import com.projectshop.shop.audit.AuditTargetType;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.BusinessCalendar;
 
 /**
@@ -51,9 +57,13 @@ public class BrokerageStatementService {
             """;
 
     private final JdbcClient jdbc;
+    private final BrokerageStatementQuery query;
+    private final AuditLog auditLog;
 
-    BrokerageStatementService(JdbcClient jdbc) {
+    BrokerageStatementService(JdbcClient jdbc, BrokerageStatementQuery query, AuditLog auditLog) {
         this.jdbc = jdbc;
+        this.query = query;
+        this.auditLog = auditLog;
     }
 
     /**
@@ -88,6 +98,36 @@ public class BrokerageStatementService {
                 .param("to", startOf(quarter.end().plusDays(1)))
                 .update();
         return 1;
+    }
+
+    /**
+     * 국세청에 냈다고 기록한다(`Q456`). 데모라 실제 제출은 안 한다(2026-11-13 사용자 결정) — 절차와 증빙 자리를 세운다.
+     *
+     * <p><b>화면이 본 해시를 같이 받는다.</b> 신원은 내려받을 때 붙어서, 그 사이 셀러가 상호를 바꾸면 낸 파일과 지금 파일이 다르다 —
+     * 다르면 409 로 돌려 다시 내려받게 한다. 분기당 기록 하나는 기본키가 막는다.
+     */
+    @Transactional
+    public void submit(long actorUserId, long statementId, String fileSha256) {
+        query.require(actorUserId, "submit");
+        query.requireExists(statementId);
+        if (!BrokerageStatementFile.sha256Hex(query.render(statementId)).equals(fileSha256)) {
+            throw new ShopException(ErrorCode.BROKERAGE_STATEMENT_FILE_CHANGED);
+        }
+        try {
+            jdbc.sql("""
+                            insert into brokerage_statement_submission
+                                   (brokerage_statement_id, submitted_by_user_id, file_sha256)
+                            values (:id, :actor, :sha)
+                            """)
+                    .param("id", statementId)
+                    .param("actor", actorUserId)
+                    .param("sha", fileSha256)
+                    .update();
+        } catch (DuplicateKeyException e) {
+            throw new ShopException(ErrorCode.BROKERAGE_STATEMENT_ALREADY_SUBMITTED);
+        }
+        auditLog.record(AuditLog.Kind.OUTCOME, "brokerage_statement.submitted", actorUserId,
+                AuditLog.Target.of(AuditTargetType.BROKERAGE_STATEMENT, statementId), Map.of());
     }
 
     /** 기한이 지났는데 제출 기록이 없는 분기 수 */
