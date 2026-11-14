@@ -1,6 +1,11 @@
 package com.projectshop.shop.product;
 
+import java.net.URI;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +24,7 @@ import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -38,11 +44,58 @@ public class CopyrightReportController {
     private final CopyrightReportService service;
     private final CopyrightReportQuery query;
     private final CopyrightRecipient recipient;
+    private final CopyrightReinstatementService reinstatements;
 
-    CopyrightReportController(CopyrightReportService service, CopyrightReportQuery query, CopyrightRecipient recipient) {
+    CopyrightReportController(CopyrightReportService service, CopyrightReportQuery query, CopyrightRecipient recipient,
+            CopyrightReinstatementService reinstatements) {
         this.service = service;
         this.query = query;
         this.recipient = recipient;
+        this.reinstatements = reinstatements;
+    }
+
+    /** 수령인이 받은 재개 요구(`Q465`). {@code requestedAt} 은 받은 시각 — 예정일 범위의 기준이다 */
+    public record ReinstatementRequest(@NotNull OffsetDateTime requestedAt,
+            @NotBlank @Size(max = 2000) String requesterClaim) {
+    }
+
+    /** 재개 요구의 판단. {@code SCHEDULED} 면 예정일이 있어야 한다 */
+    public record ReinstatementDecisionRequest(@NotBlank String decision, LocalDate scheduledFor) {
+    }
+
+    /** 권리주장자가 소를 제기했다고 알려 온 시각 */
+    public record SuitNoticeRequest(@NotNull OffsetDateTime notifiedAt) {
+    }
+
+    /** 재개 요구를 기록한다(저작권법 제103조③, 시행령 제42조). 201 이고 {@code Location} 이 그 기록을 가리킨다 */
+    @PostMapping("/{reportId}/reinstatement")
+    public ResponseEntity<Void> recordReinstatement(@AuthenticationPrincipal ShopUser user, @PathVariable long reportId,
+            @Valid @RequestBody ReinstatementRequest request) {
+        reinstatements.record(user.id(), reportId, request.requestedAt(), request.requesterClaim());
+        return ResponseEntity.created(URI.create("/api/copyright-reports/" + reportId + "/reinstatement")).build();
+    }
+
+    @GetMapping("/{reportId}/reinstatement")
+    public CopyrightReportQuery.Reinstatement reinstatement(@AuthenticationPrincipal ShopUser user,
+            @PathVariable long reportId) {
+        return reinstatements.find(user.id(), reportId);
+    }
+
+    /** 재개 요구를 판단한다(시행령 제43조). 예정이면 권리주장자에게 예정일을 알린다 */
+    @PostMapping("/{reportId}/reinstatement/decision")
+    public ResponseEntity<Void> decideReinstatement(@AuthenticationPrincipal ShopUser user, @PathVariable long reportId,
+            @Valid @RequestBody ReinstatementDecisionRequest request) {
+        reinstatements.decide(user.id(), reportId, ReinstatementDecision.ofRequest(request.decision()),
+                request.scheduledFor());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 소 제기 통보를 기록한다 — 예정일 전이면 재개하지 않는다(제103조③ 단서) */
+    @PostMapping("/{reportId}/reinstatement/suit-notice")
+    public ResponseEntity<Void> recordSuitNotice(@AuthenticationPrincipal ShopUser user, @PathVariable long reportId,
+            @Valid @RequestBody SuitNoticeRequest request) {
+        reinstatements.recordSuitNotice(user.id(), reportId, request.notifiedAt());
+        return ResponseEntity.noContent().build();
     }
 
     /**

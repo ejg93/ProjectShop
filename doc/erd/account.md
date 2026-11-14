@@ -10,6 +10,7 @@ erDiagram
     cart }o..|| app_user : "user_id"
     compensation }o..|| app_user : "decided_by_user_id"
     consent_item }o--|| consent_item : "depends_on_id"
+    copyright_reinstatement }o..|| app_user : "decided_by_user_id"
     copyright_report }o..|| app_user : "decided_by_user_id"
     coupon }o..|| seller : "seller_id"
     coupon_issue }o..|| app_user : "user_id"

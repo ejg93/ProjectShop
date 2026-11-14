@@ -217,6 +217,22 @@ public class CopyrightReportService {
         return pending;
     }
 
+    /** 그 신고의 복제·전송자 — 재개 통보(`Q465`)가 부른다. 숨긴 사진은 행이 남아 있어 작성자를 찾는다 */
+    List<Long> uploadersOf(long reportId) {
+        return uploaders(jdbc.sql("""
+                        select r.product_image_id, r.review_image_id, p.seller_id, r.target, r.claimed_work,
+                               v.user_id as review_author_id
+                          from copyright_report r
+                          join product p on p.product_id = r.product_id
+                          left join review_image ri on ri.review_image_id = r.review_image_id
+                          left join review v on v.review_id = ri.review_id
+                         where r.copyright_report_id = :id
+                        """)
+                .param("id", reportId)
+                .query(Pending.class)
+                .single());
+    }
+
     /**
      * 복제·전송자(저작권법 제103조②). 상품 사진은 그 셀러의 구성원 전원 — 누가 올렸는지를 표가 안 들고, 셀러 계정이
      * 게시의 주체다. 후기 사진은 작성자다 — 사진이 이미 사라져 작성자를 못 찾으면 비어 있다.
@@ -289,13 +305,27 @@ public class CopyrightReportService {
                 .atStartOfDay(BusinessCalendar.ZONE).toOffsetDateTime();
         record Hidden(String kind, long imageId, String objectKey, String thumbnailKey) {
         }
-        // 재개 예정이 있는 것을 거르는 조건은 재개 표(`Q465`)가 서면 켠다.
+        // 재개 요구가 판단 전이거나 재개 예정인 것은 안 지운다(`Q465`) — 지우면 그 예정일에 되돌릴 것이 없다.
         List<Hidden> hidden = jdbc.sql("""
-                        select 'product' as kind, product_image_id as image_id, object_key, thumbnail_key
-                          from product_image where hidden_at < :cutoff
+                        select 'product' as kind, i.product_image_id as image_id, i.object_key, i.thumbnail_key
+                          from product_image i
+                         where i.hidden_at < :cutoff
+                           and not exists (select 1 from copyright_report r
+                                             join copyright_reinstatement x on x.copyright_report_id = r.copyright_report_id
+                                            where r.product_image_id = i.product_image_id
+                                              and (x.decision is null
+                                                   or (x.decision = 'scheduled' and x.reinstated_at is null
+                                                       and x.suit_notified_at is null)))
                         union all
-                        select 'review', review_image_id, object_key, thumbnail_key
-                          from review_image where hidden_at < :cutoff
+                        select 'review', i.review_image_id, i.object_key, i.thumbnail_key
+                          from review_image i
+                         where i.hidden_at < :cutoff
+                           and not exists (select 1 from copyright_report r
+                                             join copyright_reinstatement x on x.copyright_report_id = r.copyright_report_id
+                                            where r.review_image_id = i.review_image_id
+                                              and (x.decision is null
+                                                   or (x.decision = 'scheduled' and x.reinstated_at is null
+                                                       and x.suit_notified_at is null)))
                         """)
                 .param("cutoff", cutoff)
                 .query(Hidden.class)

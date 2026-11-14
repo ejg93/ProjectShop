@@ -377,6 +377,18 @@ public enum ErrorCode {
     BROKERAGE_STATEMENT_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "brokerage-statement-already-submitted",
             "이미 제출 기록이 있다", "이미 제출 기록이 있습니다."),
 
+    // 저작권 재개(`Q465`, 저작권법 제103조③ · 시행령 제42·43조). 기한과 차례가 법에서 온다.
+    COPYRIGHT_NOT_TAKEN_DOWN(HttpStatus.CONFLICT, "copyright-not-taken-down",
+            "게시를 중단한 신고가 아니거나 사진이 이미 없다", "게시가 중단된 사진이 아니어서 재개 요구를 받을 수 없습니다."),
+    COPYRIGHT_REINSTATEMENT_LATE(HttpStatus.CONFLICT, "copyright-reinstatement-late",
+            "통보 뒤 30일이 지났다", "통보 뒤 30일이 지나 재개 요구를 받을 수 없습니다."),
+    COPYRIGHT_REINSTATEMENT_EXISTS(HttpStatus.CONFLICT, "copyright-reinstatement-exists",
+            "이 신고에 재개 요구가 이미 있다", "이미 재개 요구를 기록했습니다."),
+    COPYRIGHT_REINSTATEMENT_NOT_PENDING(HttpStatus.CONFLICT, "copyright-reinstatement-not-pending",
+            "처리할 재개 요구가 없다", "처리할 재개 요구가 없습니다."),
+    COPYRIGHT_REINSTATEMENT_WINDOW(HttpStatus.BAD_REQUEST, "copyright-reinstatement-window",
+            "재개 예정일이 요구받은 날의 7일 이후 14일 이내가 아니다", "재개 예정일은 요구를 받은 날의 7일 뒤부터 14일 뒤 사이여야 합니다."),
+
     // 2차 인증 로그인(`Q452`). 코드가 틀린 것과 대기가 없는 것을 가른다 — 앞은 다시 치고 뒤는 처음부터 다시 한다.
     SECOND_FACTOR_CODE_INVALID(HttpStatus.UNAUTHORIZED, "second-factor-code-invalid",
             "2차 인증 코드가 맞지 않는다", "인증 코드가 맞지 않습니다."),

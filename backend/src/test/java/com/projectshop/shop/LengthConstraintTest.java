@@ -318,7 +318,10 @@ class LengthConstraintTest extends PostgresTestBase {
                                 "reporterEmail"))),
                 Arguments.of("copyright_report_claimed_work_length_check", List.of(
                         component(com.projectshop.shop.product.CopyrightReportController.ReportRequest.class,
-                                "claimedWork"))));
+                                "claimedWork"))),
+                Arguments.of("copyright_reinstatement_requester_claim_length_check", List.of(
+                        component(com.projectshop.shop.product.CopyrightReportController.ReinstatementRequest.class,
+                                "requesterClaim"))));
     }
 
     /**

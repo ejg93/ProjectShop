@@ -258,6 +258,7 @@ AppUser ─┬─ UserRole                (user_role)
 | `seller_daily_sales` | 파생 집계(`40`). 원장에서 언제든 다시 만든다 — 셀러를 restrict 로 가리킬 뿐 어느 덩어리에도 안 속한다. **원장이 이긴다**: 갈리면 이 표를 고치지 않고 다시 센다. **금액 축이 둘이다**(`Q197`) — 고객이 낸 돈(`paid_amount`)과, 몰이 문 할인(`mall_discount_amount`)을 되더한 셀러 매출. 뒤의 것이 정산서의 판매 축이라 둘이 갈리면 몰 쿠폰 몫만큼이다 |
 | `brokerage_statement`·`brokerage_statement_line`·`brokerage_statement_submission` | 판매·결제 중개 명세(`Q455`, 부가가치세법 제75조 `R46`). 분기 머리·줄·제출 기록 셋이고 **박제다** — 원장에서 세지만 한 번 선 분기는 다시 안 센다(제출 뒤에 장부와 낸 것이 갈리면 안 된다). 줄은 셀러를 restrict 로 가리키고 머리를 따라 지워진다. 금액 축은 셀러 공급 총액(줄 금액 + 배송비 − 셀러 부담 할인) — 몰 부담 할인은 안 뺀다. 환불은 안 뺀다 |
 | `copyright_report` | 신고 기록(`Q94`, `D2` `R42`). **사진이 사라져도 남는다** — `product_image_id` 가 `set null` 이고 `product_id` 가 남아서 무엇을 내렸는지를 든다. 접수된 사실 자체가 절차를 돌린 증거라 지우지 않는다 |
+| `copyright_reinstatement` | 게시 중단에 대한 재개 요구와 그 처리(`Q465`, 저작권법 제103조③). 신고당 하나라 기본키가 신고 번호다 — 판단·예정일·소 제기 통보·재개 시각. 예정일 범위(7~14일)를 제약이 든다 |
 | `audit_log` | 사건 기록. 외래키가 없다 — 계정이 파기돼도 남아야 한다(`D13` 「감사 로그는 예외다」) |
 | `outbox_event` | 바깥에 알릴 사건(`Q57`, `D12`). **외래키가 없다** — 원천 행이 파기돼도 보낸 사실은 남고, 소비자가 이미 받았을 수 있다. 채우는 것은 앱이 아니라 원천 표의 트리거다 |
 | `role`·`permission`·`role_permission`·`permission_field_group`·`role_permission_field` | 권한 구성. 배포로 바뀌는 값이다 |

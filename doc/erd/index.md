@@ -14,7 +14,7 @@ flowchart LR
     order -->|1| ops
     order -->|2| product
     permission -->|2| account
-    product -->|7| account
+    product -->|8| account
     product -->|2| order
     settlement -->|8| account
     settlement -->|5| order
@@ -23,7 +23,7 @@ flowchart LR
 화살표는 **가리키는 쪽 → 가리켜지는 쪽**이고, 수는 그 방향의 외래키 수다.
 
 - [[order]] — 표 20개
-- [[product]] — 표 14개
+- [[product]] — 표 15개
 - [[account]] — 표 12개
 - [[settlement]] — 표 10개
 - [[permission]] — 표 6개

@@ -102,7 +102,8 @@ spring:
         # 열넷째는 접속기록 점검이다(`Q280b` — `AuditLogReviewBatch`).
         # 열다섯째는 중개 명세다(`Q455` — `BrokerageStatementBatch`).
         # 열여섯째는 숨긴 사진 파기다(`Q464` — `CopyrightHiddenImagePurgeBatch`).
-        size: 16
+        # 열일곱째는 저작권 재개다(`Q465` — `CopyrightReinstatementBatch`).
+        size: 17
 
 management:
   tracing:

@@ -1,5 +1,8 @@
 package com.projectshop.shop.product;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -47,11 +50,39 @@ public class CopyrightReportQuery {
      *                      사진이면 그 사진의 것이다. <b>관리자가 사진을 보고 판정한다</b>
      * @param reporterEmail 권리자에게 결과를 알리는 자리라 관리자에게만 나간다
      * @param decision      판정(대문자). 아직 안 봤으면 {@code null}
+     * @param reinstatement 재개 요구와 그 처리(`Q465`). 요구가 없으면 {@code null}
      */
     @Schema(name = "CopyrightReport")
     public record Item(long copyrightReportId, long productId, String productName, String target,
             Long productImageId, Long reviewImageId, String thumbnailUrl, String reporterName, String reporterEmail, String claimedWork,
-            OffsetDateTime reportedAt, String decision, OffsetDateTime decidedAt) {}
+            OffsetDateTime reportedAt, String decision, OffsetDateTime decidedAt, Reinstatement reinstatement) {}
+
+    /**
+     * 재개 요구 하나(`Q465`, 저작권법 제103조③).
+     *
+     * @param decision 판단(대문자 {@code SCHEDULED}·{@code REFUSED}). 아직 안 했으면 {@code null}
+     */
+    @Schema(name = "CopyrightReinstatement")
+    public record Reinstatement(OffsetDateTime requestedAt, String decision, LocalDate scheduledFor,
+            OffsetDateTime suitNotifiedAt, OffsetDateTime reinstatedAt) {
+
+        static Reinstatement of(ResultSet rs) throws SQLException {
+            return of(rs, "");
+        }
+
+        /** 칸 이름 앞에 {@code prefix} 가 붙은 줄에서 읽는다. 요구가 없으면 {@code null} */
+        static Reinstatement of(ResultSet rs, String prefix) throws SQLException {
+            OffsetDateTime requestedAt = rs.getObject(prefix + "requested_at", OffsetDateTime.class);
+            if (requestedAt == null) {
+                return null;
+            }
+            return new Reinstatement(requestedAt,
+                    EnumValue.of(rs.getString(prefix + "decision"), ReinstatementDecision::of),
+                    rs.getObject(prefix + "scheduled_for", LocalDate.class),
+                    rs.getObject(prefix + "suit_notified_at", OffsetDateTime.class),
+                    rs.getObject(prefix + "reinstated_at", OffsetDateTime.class));
+        }
+    }
 
     @Schema(name = "CopyrightReportPage")
     public record Result(List<Item> items, long offset, int limit, long total) {}
@@ -76,8 +107,12 @@ public class CopyrightReportQuery {
                                        coalesce(pi.thumbnail_key, ri.thumbnail_key) as thumbnail_key,
                                        cr.reporter_name,
                                        cr.reporter_email, cr.claimed_work, cr.reported_at,
-                                       cr.decision, cr.decided_at
+                                       cr.decision, cr.decided_at,
+                                       x.requested_at as x_requested_at, x.decision as x_decision,
+                                       x.scheduled_for as x_scheduled_for, x.suit_notified_at as x_suit_notified_at,
+                                       x.reinstated_at as x_reinstated_at
                                   from copyright_report cr
+                                  left join copyright_reinstatement x on x.copyright_report_id = cr.copyright_report_id
                                   join product p on p.product_id = cr.product_id
                                   left join product_image pi on pi.product_image_id = cr.product_image_id
                                                             and pi.hidden_at is null
@@ -105,7 +140,8 @@ public class CopyrightReportQuery {
                                     rs.getString("claimed_work"),
                                     rs.getObject("reported_at", OffsetDateTime.class),
                                     EnumValue.of(decision, CopyrightDecision::of),
-                                    rs.getObject("decided_at", OffsetDateTime.class));
+                                    rs.getObject("decided_at", OffsetDateTime.class),
+                                    Reinstatement.of(rs, "x_"));
                         })
                 .list();
 

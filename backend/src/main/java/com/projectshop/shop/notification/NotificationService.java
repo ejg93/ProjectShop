@@ -132,6 +132,19 @@ public class NotificationService {
         }
     }
 
+    /** 재개 요구 사실과 예정일을 권리주장자에게 알린다(`Q465`, 저작권법 제103조③). {@code claimed_work}·{@code scheduled_for} */
+    public void sendCopyrightReinstatementScheduled(long copyrightReportId, Map<String, String> values) {
+        sendToReporter(NotificationEventType.COPYRIGHT_REINSTATEMENT_REPORTER, copyrightReportId, values);
+    }
+
+    /** 다시 게시했다고 복제·전송자에게 알린다(`Q465`). {@code claimed_work}·{@code reinstated_at} */
+    public void sendCopyrightReinstated(long copyrightReportId, List<Long> uploaderUserIds, Map<String, String> values) {
+        for (long userId : uploaderUserIds) {
+            send(NotificationEventType.COPYRIGHT_REINSTATED_UPLOADER, Target.copyrightReport(copyrightReportId), userId,
+                    values);
+        }
+    }
+
     /** 권리주장자에게. 신고가 없으면(지울 수 없는 표라 코드 잘못이다) 안 보낸다 */
     private void sendToReporter(NotificationEventType eventType, long copyrightReportId, Map<String, String> values) {
         jdbc.sql("select reporter_email from copyright_report where copyright_report_id = :id")

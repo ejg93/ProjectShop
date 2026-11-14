@@ -24,6 +24,7 @@
 | 접속기록 점검 | 전달의 개인정보 열람 기록을 열람자별로 세어, 서로 다른 정보주체를 50명 이상 연 열람자를 표시하고 점검 행(`audit_log.reviewed`)을 남긴다(`Q280b`, 안전성 확보조치 기준 제8조②). 지표 `shop.audit_log.flagged` 는 기동 때 마지막 회차로 복원한다(`Q284`) | **매월 1일** 05:30 KST | 기준일이 **전달 말일**. 그 달 1일 00:00 KST 이상 다음 달 1일 00:00 KST 미만. 재실행은 성공 회차 부분 유니크가 막는다 — 실패 뒤 재시도는 점검 행을 하나 더 남길 뿐 결과가 같다 | `AuditLogReviewBatch.review` |
 | 중개 명세 | 끝난 직전 분기에 명세가 없으면 셀러·결제 승인 월·결제수단마다 건수(묶음 수)와 셀러 공급 총액(줄 금액 + 배송비 − 셀러 부담 할인, 환불 미차감)을 센다(`Q455`, 부가가치세법 제75조 `D2` R46). 기한(분기 말일의 다음 달 15일)을 그때 박제한다. 지표 `shop.brokerage_statement.overdue` 는 회차 끝과 기동 때 채운다 | **매일** 06:00 KST | 기준일이 **어제**고 그다음 날이 속한 분기의 앞 분기를 본다. 결제 승인 시각이 분기 첫날 00:00 KST 이상 다음 분기 첫날 00:00 KST 미만. **고르는 조건이 곧 처리 조건이다** — 「그 분기 머리 행이 없다」라 분기 첫날 서버가 죽어 있어도 다음 날 선다. 머리 행이 분기당 하나라(`brokerage_statement_period_unique`) 다시 돌아도 안 센다 | `BrokerageStatementBatch.close` |
 | 숨긴 사진 파기 | 저작권 신고로 숨긴 지 47일이 지난 상품·후기 사진을 비공개 버킷과 표에서 지운다(`Q464`, 시행령 제41~43조). 숨김 수를 지표 `shop.copyright_report.hidden_image` 으로 낸다 | 매일 05:00 KST | 오늘(KST) — 숨긴 날 + 47일이 지난 것. 지운 행은 다시 안 걸려 다시 돌아도 같다 | `CopyrightHiddenImagePurgeBatch.purge` |
+| 저작권 재개 | 재개 예정일이 찬 숨긴 사진을 공개로 되돌리고 복제·전송자에게 알린다(`Q465`, 저작권법 제103조③). 소 제기 통보가 온 것은 안 한다 | 매일 05:10 KST(파기 뒤) | 오늘(KST) — 예정일이 오늘 이전이고 아직 재개 안 한 것. 재개한 줄은 `reinstated_at` 이 차서 다시 안 걸린다 | `CopyrightReinstatementBatch.reinstate` |
 | 일별 매출 집계 | 어제의 결제·환불을 셀러별로 세어 `seller_daily_sales` 에 넣는다(`40`) | 매일 00:15 KST | 기준일이 **어제**(끝난 날만 센다). 결제는 승인된 날, 환불은 승인된 날 | `DailySalesBatch.aggregate` |
 
 파기 둘은 청크 36 이 스케줄에 붙였다. **배치 클래스와 서비스를 갈랐다** —
@@ -84,7 +85,7 @@
 이력의 쓸모가 체인 판정·중복 방지·사후 조회 셋인데, 앞의 둘이 기준일 축으로만 성립하고
 5분 주기라 하루 288행이 쌓여서 사후 조회도 안 된다. 그 배치는 로그로 본다.
 
-**남기는 것은 아홉이다** — `account_purge`·`auto_confirm`·`stale_bundle_close`·`transaction_purge`·`settlement_close`·`daily_sales`·`audit_log_review`·`brokerage_statement`·`copyright_hidden_purge`(`RetryableBatch`, 아래 「손으로 돌리는 법」 표와 같은 목록).
+**남기는 것은 열이다** — `account_purge`·`auto_confirm`·`stale_bundle_close`·`transaction_purge`·`settlement_close`·`daily_sales`·`audit_log_review`·`brokerage_statement`·`copyright_hidden_purge`·`copyright_reinstatement`(`RetryableBatch`, 아래 「손으로 돌리는 법」 표와 같은 목록).
 자동 구매확정을 `36a` 가 더했다. 그 이력을 처음 쓰는 것이 정산 마감(청크 19)의 체인 판정이라,
 쓰는 자리보다 먼저 세워 두면 19 는 판정만 붙이면 된다.
 
@@ -288,7 +289,7 @@ curl -X POST http://localhost:8080/api/admin/batches/daily_sales/runs \
 
 | 무엇 | 어떻게 |
 |---|---|
-| 받는 이름 | 기준일 배치(`RetryableBatch`) 아홉 — `account_purge`·`auto_confirm`·`stale_bundle_close`·`transaction_purge`·`settlement_close`·`daily_sales`·`audit_log_review`·`brokerage_statement`·`copyright_hidden_purge`. 밖은 404 `batch-not-found` |
+| 받는 이름 | 기준일 배치(`RetryableBatch`) 열 — `account_purge`·`auto_confirm`·`stale_bundle_close`·`transaction_purge`·`settlement_close`·`daily_sales`·`audit_log_review`·`brokerage_statement`·`copyright_hidden_purge`·`copyright_reinstatement`. 밖은 404 `batch-not-found` |
 | 기준일 | 본문 `baseline_date`. **오늘(KST) 앞만 받는다**, 없으면 어제. 오늘·미래는 400 `validation-failed` — 미래는 보존 기한(`D2` R6)의 끝을 앞당겨 지킬 기록을 지우고, 오늘은 `daily_sales` 가 반쪽 집계를 성공으로 남겨 진짜 회차(어제를 돈다)를 막는다 |
 | 응답 | 200 — 그 회차의 `batch_run` 줄(`status`·`target_count`·`processed_count`) |
 | 이미 성공한 회차 | 줄을 안 남기고 건너뛴다(「재실행 안전성」) — 응답 `status` 가 `skipped` 다. 다시 재려면 지난 다른 날을 준다 |
