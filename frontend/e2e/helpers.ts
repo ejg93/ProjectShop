@@ -1,7 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 
-import { DEMO_GROUPS, DEMO_PASSWORD } from "../src/app/login/demo-accounts";
+import { DEMO_GROUPS, DEMO_PASSWORD, DEMO_SECOND_FACTOR_SECRET } from "../src/app/login/demo-accounts";
+import { totpCode } from "../src/lib/totp";
 
 /**
  * E2E 시나리오가 같이 쓰는 걸음(`Q207`). **역할을 오가는 흐름**이 이 층에 있을 이유다 — 한 역할 안의 것은 아래 층이 잰다
@@ -26,7 +27,38 @@ export async function 로그인(page: Page, email: string) {
   await page.getByLabel("이메일").fill(email);
   await page.getByLabel("비밀번호").fill(DEMO_PASSWORD);
   await page.getByRole("button", { name: "로그인" }).click();
+  await 둘째단계(page);
   await expect(page).not.toHaveURL(/\/login/);
+}
+
+/**
+ * 판매자·관리자 연습 계정이면 2차 인증 코드를 낸다(`Q454`). 구매자는 비밀번호에서 바로 넘어가 아무것도 안 한다.
+ *
+ * <p><b>같은 계정이 30초 안에 다시 들어오면 그 스텝의 코드는 이미 쓰였다</b>(RFC 6238 §5.2 — 서버가 거부한다).
+ * 「맞지 않습니다」가 뜨면 다음 스텝까지 기다려 새 코드로 한 번 더 낸다. 성공하면 서버가 실패 횟수를 지운다.
+ */
+export async function 둘째단계(page: Page) {
+  const 코드칸 = page.getByLabel("인증 코드");
+  await Promise.race([
+    page.waitForURL((url) => !url.pathname.startsWith("/login")),
+    코드칸.waitFor(),
+  ]);
+  if (!(await 코드칸.isVisible())) {
+    return;
+  }
+  await 코드칸.fill(await totpCode(DEMO_SECOND_FACTOR_SECRET, new Date()));
+  await page.getByRole("button", { name: "확인" }).click();
+  const 틀림 = page.getByRole("alert").filter({ hasText: "인증 코드가 맞지 않습니다." });
+  const 결과 = await Promise.race([
+    page.waitForURL((url) => !url.pathname.startsWith("/login")).then(() => "넘어감"),
+    틀림.waitFor().then(() => "틀림"),
+  ]);
+  if (결과 === "틀림") {
+    const 다음스텝 = (Math.floor(Date.now() / 30_000) + 1) * 30_000;
+    await page.waitForTimeout(다음스텝 - Date.now() + 500);
+    await 코드칸.fill(await totpCode(DEMO_SECOND_FACTOR_SECRET, new Date()));
+    await page.getByRole("button", { name: "확인" }).click();
+  }
 }
 
 /** 되돌릴 수 없는 동작은 확인 창을 띄운다(`orders/status.ts`) — 사람이 「예」를 누르는 것과 같다 */

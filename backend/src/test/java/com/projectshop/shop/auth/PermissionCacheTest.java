@@ -84,13 +84,14 @@ class PermissionCacheTest extends PostgresTestBase {
 
             // 캐시를 늘릴 때 여기가 깨진다. 그것이 이 단언의 목적이다 —
             // 새 캐시의 키에 대상 행이 들어가면 상태 축(11a)이 붙을 때 조용히 틀린다.
-            // 지금 셋은 전부 키가 사용자(와 자원·동작)까지고 행이 안 들어간다.
+            // 지금 넷은 전부 키가 사용자(와 자원·동작)까지고 행이 안 들어간다(넷째는 2차 인증 대상 여부, `Q452`).
             assertThat(PermissionCacheConfig.cacheNames())
                     .as("판정 결과를 캐시하면 안 된다. 키에 대상 행이 들어가는 캐시가 그것이다")
                     .containsExactly(
                             PermissionCacheConfig.RULES,
                             PermissionCacheConfig.MEMBERSHIPS,
-                            PermissionCacheConfig.LIVENESS);
+                            PermissionCacheConfig.LIVENESS,
+                            PermissionCacheConfig.SECOND_FACTOR);
         }
     }
 

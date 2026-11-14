@@ -34,6 +34,9 @@ public enum MetricName {
     /** 기한을 넘긴 환급 대기 건수(`RefundSweeper`) */
     REFUND_OVERDUE("shop.refund.overdue"),
 
+    /** 제출 기한이 지났는데 제출 기록이 없는 중개 명세 분기 수(`BrokerageStatementBatch`) */
+    BROKERAGE_STATEMENT_OVERDUE("shop.brokerage_statement.overdue"),
+
     /** 배치 회차 수(`BatchRuns`) */
     BATCH_RUN_FINISHED("shop.batch_run.finished");
 

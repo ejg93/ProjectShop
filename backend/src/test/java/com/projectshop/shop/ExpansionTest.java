@@ -54,13 +54,13 @@ class ExpansionTest extends PostgresTestBase {
         long ownerId = fixture.insertUser("ex-owner@test.local", "사장");
         fixture.joinSeller(sellerId, ownerId);
         fixture.grantOrg(ownerId, "seller_owner", sellerId);
-        owner = new ShopUser(ownerId, "ex-owner@test.local", null, true);
+        owner = new ShopUser(ownerId, "ex-owner@test.local", null, true).verified();
 
         long otherSeller = fixture.insertSeller("ex-b", "남의셀러");
         long strangerId = fixture.insertUser("ex-stranger@test.local", "남");
         fixture.joinSeller(otherSeller, strangerId);
         fixture.grantOrg(strangerId, "seller_owner", otherSeller);
-        stranger = new ShopUser(strangerId, "ex-stranger@test.local", null, true);
+        stranger = new ShopUser(strangerId, "ex-stranger@test.local", null, true).verified();
     }
 
     @Test

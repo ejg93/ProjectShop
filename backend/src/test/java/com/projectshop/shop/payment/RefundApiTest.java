@@ -76,7 +76,7 @@ class RefundApiTest extends PostgresTestBase {
 
         long adminId = fixture.insertUser("refund-api-admin@test.local", "관리자");
         fixture.grantGlobal(adminId, "admin");
-        admin = new ShopUser(adminId, "refund-api-admin@test.local", null, true);
+        admin = new ShopUser(adminId, "refund-api-admin@test.local", null, true).verified();
 
         long sellerId = fixture.insertSeller("s-refund-api", "환불API셀러");
         fixture.verifySeller(sellerId);
@@ -84,7 +84,7 @@ class RefundApiTest extends PostgresTestBase {
         long ownerId = fixture.insertUser("refund-api-owner@test.local", "대표");
         fixture.joinSeller(sellerId, ownerId);
         fixture.grantOrg(ownerId, "seller_owner", sellerId);
-        sellerOwner = new ShopUser(ownerId, "refund-api-owner@test.local", null, true);
+        sellerOwner = new ShopUser(ownerId, "refund-api-owner@test.local", null, true).verified();
 
         skuId = insertSku(sellerId, ownerId);
 
@@ -143,7 +143,7 @@ class RefundApiTest extends PostgresTestBase {
             long stranger = fixture.insertUser("refund-api-stranger@test.local", "남");
             fixture.grantGlobal(stranger, "customer");
 
-            mvc.perform(requestBy(new ShopUser(stranger, "refund-api-stranger@test.local", null, true)))
+            mvc.perform(requestBy(new ShopUser(stranger, "refund-api-stranger@test.local", null, true).verified()))
                     .andExpect(status().isNotFound());
         }
     }
@@ -282,7 +282,7 @@ class RefundApiTest extends PostgresTestBase {
             fixture.grantGlobal(stranger, "customer");
 
             mvc.perform(get("/api/refunds")
-                            .with(user(new ShopUser(stranger, "refund-api-other@test.local", null, true))))
+                            .with(user(new ShopUser(stranger, "refund-api-other@test.local", null, true).verified())))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.total").value(0));
         }

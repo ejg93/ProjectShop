@@ -1,0 +1,13 @@
+# gate: 중개 명세 파일은 관리자·감사자만 받는다(Q456, R46 — 셀러 신원이 실린다)
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.brokerage.BrokerageStatementApiTest
+# expect: FAILED com.projectshop.shop.brokerage.BrokerageStatementApiTest 셀러와 고객은 목록도 파일도 403 이다
+--- a/backend/src/main/java/com/projectshop/shop/brokerage/BrokerageStatementQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/brokerage/BrokerageStatementQuery.java
+@@ -76,7 +76,6 @@
+     /** 파일을 내려준다. 누가 언제 받았는지 감사 기록을 남긴다 — 셀러 신원이 실린 파일이다 */
+     @Transactional
+     public byte[] file(long userId, long statementId) {
+-        require(userId, "read");
+         requireExists(statementId);
+         byte[] file = render(statementId);
+         auditLog.record(AuditLog.Kind.OUTCOME, "brokerage_statement.downloaded", userId,

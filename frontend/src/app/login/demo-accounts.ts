@@ -13,6 +13,14 @@
 /** 아홉이 같은 값을 쓴다. 안내가 한 줄로 끝나고 앱 규칙(`D14` 15자)도 지킨다 */
 export const DEMO_PASSWORD = "demo-password-1234";
 
+/**
+ * 판매자·시스템관리자 연습 계정의 2차 인증 비밀(Base32, `Q454`). <b>공개한 값이다</b> — 연습 계정 비밀번호와 같은 처지다.
+ *
+ * <p><b>값의 진실은 백엔드 시더다</b>(`DemoSecondFactorSeeder.FIXED_SECRET` 의 ASCII 를 Base32 로 옮긴 것). 갈리면 「코드 채우기」가
+ * 낸 코드를 서버가 틀렸다고 받는다 — {@code demo-accounts.test.ts} 가 그 소스를 읽어 맞춘다.
+ */
+export const DEMO_SECOND_FACTOR_SECRET = "OBZG62TFMN2HG2DPOAWWIZLNN4WTEZTB";
+
 export type DemoAccount = {
   /** 로그인 칸에 넣는 값 */
   email: string;
@@ -25,6 +33,8 @@ export type DemoGroup = {
   title: string;
   /** 그 그룹으로 들어가면 무엇을 볼 수 있나 */
   note: string;
+  /** 이 그룹이 2차 인증 대상인가 — 고객 외 역할이다(고시 제6조②, `Q452`) */
+  secondFactor: boolean;
   accounts: DemoAccount[];
 };
 
@@ -35,6 +45,7 @@ export type DemoGroup = {
 export const DEMO_GROUPS: DemoGroup[] = [
   {
     title: "구매자",
+    secondFactor: false,
     note: "상품을 고르고 장바구니에 담아 결제까지 해 보실 수 있습니다. 결제는 모의 결제입니다.",
     accounts: [
       { email: "buyer1@example.com", name: "구매자1" },
@@ -44,6 +55,7 @@ export const DEMO_GROUPS: DemoGroup[] = [
   },
   {
     title: "판매자",
+    secondFactor: true,
     note: "받은 주문과 등록한 상품, 문의와 정산서를 보실 수 있습니다. 판매자3은 다른 판매사 소속이라 보이는 상품이 다릅니다.",
     accounts: [
       { email: "seller1@example.com", name: "판매자1" },
@@ -53,6 +65,7 @@ export const DEMO_GROUPS: DemoGroup[] = [
   },
   {
     title: "시스템관리자",
+    secondFactor: true,
     note: "감사 기록에서 누가 언제 무엇을 했는지 보실 수 있습니다. 판매자 화면도 모든 판매사의 것이 보입니다.",
     accounts: [
       { email: "admin1@example.com", name: "시스템관리자1" },
@@ -61,3 +74,8 @@ export const DEMO_GROUPS: DemoGroup[] = [
     ],
   },
 ];
+
+/** 안내에서 고른 계정이 2차 인증 대상 그룹인가. 「연습 계정 코드 채우기」를 그때만 보인다 */
+export function needsSecondFactor(account: DemoAccount): boolean {
+  return DEMO_GROUPS.some((group) => group.secondFactor && group.accounts.includes(account));
+}

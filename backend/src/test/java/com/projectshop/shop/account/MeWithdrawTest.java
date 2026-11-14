@@ -270,6 +270,6 @@ class MeWithdrawTest extends PostgresTestBase {
     }
 
     private ShopUser principal() {
-        return new ShopUser(userId, "bye@test.local", "{noop}x", true);
+        return new ShopUser(userId, "bye@test.local", "{noop}x", true).verified();
     }
 }

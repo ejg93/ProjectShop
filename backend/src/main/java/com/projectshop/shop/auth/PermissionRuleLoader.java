@@ -148,6 +148,28 @@ public class PermissionRuleLoader {
     }
 
     /**
+     * 이 계정이 2차 인증 대상인가 — {@code customer} 외 역할이 하나라도 있나(`Q452`).
+     *
+     * <p>고시 제6조②가 「정보주체는 제외」한다(`D2` R45). 시드는 셀러·관리자에게도 {@code customer} 를 주므로
+     * 「고객 역할이 없나」가 아니라 「고객 외 역할이 있나」를 본다.
+     */
+    @Cacheable(PermissionCacheConfig.SECOND_FACTOR)
+    boolean requiresSecondFactor(long userId) {
+        return Boolean.TRUE.equals(jdbcClient.sql("""
+                        select exists(
+                            select 1
+                              from user_role ur
+                              join role r on r.role_id = ur.role_id
+                             where ur.user_id = :userId
+                               and r.code <> 'customer'
+                        )
+                        """)
+                .param("userId", userId)
+                .query(Boolean.class)
+                .single());
+    }
+
+    /**
      * 이 사용자의 캐시를 버린다. 역할을 주거나 회수하거나 소속이 바뀌면 부른다.
      * <b>탈퇴도 부른다</b> — 안 부르면 TTL 동안 죽은 계정이 살아 있는 것으로 보인다.
      *
@@ -164,7 +186,8 @@ public class PermissionRuleLoader {
     @Caching(evict = {
             @CacheEvict(value = PermissionCacheConfig.RULES, allEntries = true),
             @CacheEvict(value = PermissionCacheConfig.MEMBERSHIPS, key = "#userId"),
-            @CacheEvict(value = PermissionCacheConfig.LIVENESS, key = "#userId")
+            @CacheEvict(value = PermissionCacheConfig.LIVENESS, key = "#userId"),
+            @CacheEvict(value = PermissionCacheConfig.SECOND_FACTOR, key = "#userId")
     })
     public void evict(long userId) {
         // 애너테이션이 일한다. 부르는 쪽에 무엇을 지우는지 이름으로 드러내려고 메서드를 둔다.

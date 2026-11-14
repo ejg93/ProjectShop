@@ -9,4 +9,14 @@ regexes = [
   # 웹훅 시크릿 암호의 시험 키(`29`). 바이트 0x00~0x1F 를 base64 로 적은 것이라 어디에도 안 쓴다 —
   # 운영 키는 Railway 변수(`WEBHOOK_SECRET_KEY`)고 코드·설정 파일에 기본값이 없다.
   '''AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=''',
+  # 2차 인증 비밀 암호의 시험 키(`Q451`). 바이트 0x20~0x3F 를 base64 로 적은 것 — 시험 기반 클래스만 쓴다.
+  # 운영 키는 Railway 변수(`SECOND_FACTOR_SECRET_KEY`)고 코드·설정 파일에 기본값이 없다.
+  '''ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=''',
+  # 2차 인증 키의 CI·로컬 고정 값(`Q454`, 바이트 0x40~0x5F). 공개된 연습 계정 비밀만 싸서 비밀이 아니다 —
+  # `e2e.yml`·`docker-compose.yml`·`backend/README.md` 가 같은 값을 든다.
+  '''QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8=''',
+  # 연습 계정 2차 인증의 공개 고정 비밀(`Q454`) — ASCII `projectshop-demo-2fa` 의 Base32. 로그인 화면이 공개한다.
+  '''OBZG62TFMN2HG2DPOAWWIZLNN4WTEZTB''',
+  # RFC 6238 부록 B 의 SHA1 시험 비밀(ASCII `12345678901234567890`)의 Base32 — 표준 문서의 벡터다.
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
 ]

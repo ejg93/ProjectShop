@@ -76,6 +76,8 @@ class OpenApiSpecTest extends HttpTestBase {
      */
     private static final Map<String, List<String>> SHARED_RESPONSES = Map.of(
             "Account", List.of("GET /api/me", "PATCH /api/me", "POST /api/me/email/confirm"),
+            // 로그인 두 단계(`Q452`)가 같은 결과를 낸다 — 둘째 단계의 끝이 첫 단계의 `DONE` 과 같은 모양이다
+            "LoginResponse", List.of("POST /api/auth/login", "POST /api/auth/login/second-factor"),
             // 내 주문과 관리자 목록(`Q176`)이 같은 record 를 낸다 — 문의 목록 셋과 같은 모양이다
             "OrderPage", List.of("GET /api/admin/orders", "GET /api/orders"),
             "PageInquiryEntry", List.of("GET /api/inquiries", "GET /api/me/inquiries",

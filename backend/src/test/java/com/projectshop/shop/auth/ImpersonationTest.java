@@ -47,6 +47,9 @@ class ImpersonationTest extends PostgresTestBase {
     private PermissionRuleLoader ruleLoader;
 
     @Autowired
+    private SecondFactorService secondFactors;
+
+    @Autowired
     private com.projectshop.shop.inquiry.InquiryService inquiries;
 
     private long adminId;
@@ -254,14 +257,34 @@ class ImpersonationTest extends PostgresTestBase {
                 .single();
     }
 
+    /** 로그인한다. 고객 외 역할이면 2차 인증까지 지난다(`Q452`) — 세션 ID 가 그때 바뀌어 둘째 응답의 쿠키를 쓴다 */
     private Cookie logIn(String email) throws Exception {
-        Cookie cookie = mvc.perform(post("/api/auth/login").with(csrf())
+        var login = mvc.perform(post("/api/auth/login").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\": \"%s\", \"password\": \"%s\"}".formatted(email, PASSWORD)))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getCookie(SESSION_COOKIE);
+                .andReturn().getResponse();
+        Cookie cookie = login.getCookie(SESSION_COOKIE);
         assertThat(cookie).as("로그인이 세션 쿠키를 안 내렸다").isNotNull();
-        return new Cookie(SESSION_COOKIE, cookie.getValue());
+        String body = login.getContentAsString();
+        if (body.contains("\"step\":\"DONE\"")) {
+            return new Cookie(SESSION_COOKIE, cookie.getValue());
+        }
+        long userId = jdbc.sql("select user_id from app_user where email = :email")
+                .param("email", email)
+                .query(Long.class)
+                .single();
+        if (!secondFactors.enrolled(userId)) {
+            SecondFactorLogin.enroll(secondFactors, userId);
+        }
+        Cookie verified = mvc.perform(post("/api/auth/login/second-factor").with(csrf())
+                        .cookie(new Cookie(SESSION_COOKIE, cookie.getValue()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\": \"%s\"}".formatted(SecondFactorLogin.codeFor(jdbc, userId))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getCookie(SESSION_COOKIE);
+        assertThat(verified).as("2차 인증이 세션 쿠키를 안 내렸다").isNotNull();
+        return new Cookie(SESSION_COOKIE, verified.getValue());
     }
 
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder

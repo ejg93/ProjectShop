@@ -1,0 +1,14 @@
+# gate: TOTP 허용 창 앞뒤 한 스텝(Q450, RFC 6238 §5.2)
+# run: cd backend && ./gradlew test --tests com.projectshop.shop.auth.TotpTest
+# expect: FAILED com.projectshop.shop.auth.TotpTest 현재와 앞뒤 한 스텝의 코드를 받는다
+--- a/backend/src/main/java/com/projectshop/shop/auth/Totp.java
++++ b/backend/src/main/java/com/projectshop/shop/auth/Totp.java
+@@ -32,7 +32,7 @@
+     /** 시간 스텝(초). RFC 6238 §5.2 권고값 */
+     private static final long STEP_SECONDS = 30;
+     /** 앞뒤로 받는 스텝 수. RFC 6238 §5.2 */
+-    private static final int WINDOW = 1;
++    private static final int WINDOW = 0;
+     /** 비밀 길이(바이트). RFC 4226 §4 R6 의 160비트 */
+     private static final int SECRET_BYTES = 20;
+     /** RFC 4648 §6 의 Base32 알파벳 */

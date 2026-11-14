@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, api } from "@/lib/api";
 
+import { expectNoAxeViolations } from "@/test/axe";
+
 import { DEMO_PASSWORD } from "./demo-accounts";
 import { LoginForm } from "./login-form";
 
@@ -25,7 +27,7 @@ beforeEach(() => {
   // `restoreAllMocks` 는 `vi.mock` 공장이 만든 `vi.fn()` 의 호출 기록을 안 지운다 —
   // 안 지우면 호출 횟수를 세는 단언이 앞 테스트까지 같이 센다.
   vi.mocked(api).mockClear();
-  vi.mocked(api).mockResolvedValue({ userId: 1, email: "a@b.local" });
+  vi.mocked(api).mockResolvedValue({ userId: 1, email: "a@b.local", step: "DONE" });
   replace.mockClear();
   vi.stubGlobal("location", { href: "http://localhost/login", replace });
 });
@@ -197,6 +199,110 @@ describe("로그인 화면", () => {
       // **무엇을 공개했는지가 화면에 있어야 한다**(`D20`). 관리자 계정을 함께 여는 것은
       // 이 화면의 의도라, 적어 두지 않으면 사용자가 그것을 사고로 본다.
       expect(screen.getByText(/누구나 관리자 화면을 여실 수 있습니다/)).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * 셀러·관리자·감사자는 코드까지 내야 들어간다(`Q454`, 고시 제6조② — 서버 `Q452`).
+   *
+   * <p><b>응답의 `step` 이 화면을 고른다.</b> 비밀번호만 맞은 상태에서 이동하면 서버는 세션을 안 세웠으니 홈이 비로그인으로 뜬다.
+   */
+  describe("2차 인증", () => {
+    const codeField = () => screen.getByLabelText("인증 코드");
+
+    function answer(...responses: unknown[]) {
+      for (const response of responses) {
+        vi.mocked(api).mockResolvedValueOnce(response);
+      }
+    }
+
+    it("코드가 필요하면 코드 칸을 보이고 맞으면 이동한다", async () => {
+      answer({ userId: 1, email: "a@b.local", step: "CODE_REQUIRED" },
+             { userId: 1, email: "a@b.local", step: "DONE" });
+      const { container } = render(<LoginForm />);
+      submitForm(container);
+
+      fireEvent.change(await screen.findByLabelText("인증 코드"), { target: { value: "123456" } });
+      submitForm(container);
+
+      await waitFor(() => expect(api).toHaveBeenLastCalledWith("/api/auth/login/second-factor", {
+        method: "POST",
+        body: { code: "123456" },
+      }));
+      await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+      expect(replace).toHaveBeenCalledTimes(1);
+    });
+
+    it("비밀번호만 맞은 단계에서는 이동하지 않는다", async () => {
+      answer({ userId: 1, email: "a@b.local", step: "CODE_REQUIRED" });
+      const { container } = render(<LoginForm />);
+      submitForm(container);
+
+      await screen.findByLabelText("인증 코드");
+      expect(replace).not.toHaveBeenCalled();
+      await expectNoAxeViolations(container);
+    });
+
+    it("등록이 필요하면 키 문자열과 앱 링크를 보인다", async () => {
+      answer({ userId: 1, email: "a@b.local", step: "ENROLLMENT_REQUIRED" },
+             { secret: "MZXW6YTBOI", otpauthUri: "otpauth://totp/ProjectShop:a?secret=MZXW6YTBOI" });
+      const { container } = render(<LoginForm />);
+      submitForm(container);
+
+      expect(await screen.findByText("MZXW6YTBOI")).toBeInTheDocument();
+      expect(api).toHaveBeenCalledWith("/api/auth/login/second-factor/enrollment", { method: "POST" });
+      expect(screen.getByRole("link", { name: "인증 앱에서 열기" }))
+        .toHaveAttribute("href", "otpauth://totp/ProjectShop:a?secret=MZXW6YTBOI");
+      expect(codeField()).toBeInTheDocument();
+      await expectNoAxeViolations(container);
+    });
+
+    it("틀린 코드는 문구로 알린다", async () => {
+      answer({ userId: 1, email: "a@b.local", step: "CODE_REQUIRED" });
+      vi.mocked(api).mockRejectedValueOnce(
+        new ApiError(401, errorType("second-factor-code-invalid"), "wrong"),
+      );
+      const { container } = render(<LoginForm />);
+      submitForm(container);
+      fireEvent.change(await screen.findByLabelText("인증 코드"), { target: { value: "000000" } });
+      submitForm(container);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("인증 코드가 맞지 않습니다.");
+    });
+
+    it("대기가 끝났으면 비밀번호 단계로 돌아간다", async () => {
+      answer({ userId: 1, email: "a@b.local", step: "CODE_REQUIRED" });
+      vi.mocked(api).mockRejectedValueOnce(
+        new ApiError(401, errorType("second-factor-not-pending"), "expired"),
+      );
+      const { container } = render(<LoginForm />);
+      submitForm(container);
+      fireEvent.change(await screen.findByLabelText("인증 코드"), { target: { value: "000000" } });
+      submitForm(container);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("로그인을 처음부터 다시 해 주세요.");
+      expect(screen.getByLabelText("비밀번호")).toBeInTheDocument();
+      expect(screen.queryByLabelText("인증 코드")).not.toBeInTheDocument();
+    });
+
+    it("연습 판매자 계정이면 코드 채우기 버튼이 여섯 자리를 넣는다", async () => {
+      answer({ userId: 1, email: "seller1@example.com", step: "CODE_REQUIRED" });
+      const { container } = render(<LoginForm />);
+      fireEvent.click(screen.getByRole("button", { name: "판매자1 계정으로 칸 채우기" }));
+      submitForm(container);
+
+      fireEvent.click(await screen.findByRole("button", { name: "연습 계정 코드 채우기" }));
+
+      await waitFor(() => expect((codeField() as HTMLInputElement).value).toMatch(/^[0-9]{6}$/));
+    });
+
+    it("연습 구매자 계정이나 직접 친 계정에는 코드 채우기 버튼이 없다", async () => {
+      answer({ userId: 1, email: "a@b.local", step: "CODE_REQUIRED" });
+      const { container } = render(<LoginForm />);
+      submitForm(container);
+
+      await screen.findByLabelText("인증 코드");
+      expect(screen.queryByRole("button", { name: "연습 계정 코드 채우기" })).not.toBeInTheDocument();
     });
   });
 });

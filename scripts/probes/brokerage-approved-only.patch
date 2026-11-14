@@ -1,0 +1,15 @@
+# gate: 중개 명세는 승인된 결제만 센다(Q455, 부가가치세법 제75조 R46)
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.brokerage.BrokerageStatementServiceTest
+# expect: FAILED com.projectshop.shop.brokerage.BrokerageStatementServiceTest 거절된 결제와 이번 분기 결제는 안 든다
+--- a/backend/src/main/java/com/projectshop/shop/brokerage/BrokerageStatementService.java
++++ b/backend/src/main/java/com/projectshop/shop/brokerage/BrokerageStatementService.java
+@@ -44,8 +44,7 @@
+                       join order_item oi   on oi.seller_order_id = so.seller_order_id
+                       left join coupon_issue ci on ci.used_order_id = so.order_id
+                       left join coupon c        on c.coupon_id = ci.coupon_id
+-                     where p.status = 'approved'
+-                       and p.created_at >= :from and p.created_at < :to
++                     where p.created_at >= :from and p.created_at < :to
+                      group by so.seller_order_id, so.seller_id, sales_month, p.method, so.shipping_fee) b
+              group by b.seller_id, b.sales_month, b.method
+             """;

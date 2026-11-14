@@ -184,6 +184,19 @@ SellerOrder ─┬─ Refund ─┬─ RefundItem          → order_item
 **같은 뿌리 안에 cascade 와 restrict 가 섞인 이유는 정산이다.** `settlement_item` 이 `order_item`·`seller_order`·`refund_item`·`compensation` 을
 전부 restrict 로 가리켜서 **5년 주문 파기가 정산 줄에 막힌다** — 법 둘이 부딪치는 자리고 `43a-28` 이 정한다.
 
+### 결제가 안 드는 것
+
+**한 주문에 승인 결제는 하나다**(`payment_approved_unique`, `V22`). 아래 넷이 그 구조와 PG 사실에서 나온다(`점검 AS`).
+
+| 안 드는 것 | 왜 |
+|---|---|
+| 둘째 승인 | 이중 청구를 구조에서 없앤다. 앱이 주문 상태를 보는 것은 새 입구가 빠뜨린다(`V22` 주석) |
+| 환불 → 결제 참조 | 묶음 → 주문 → 승인 한 줄로 정해진다. 승인이 둘이 되는 날 이 길이 끊긴다 |
+| 결제 뒤 주문 변경 | 금액을 올리는 변경은 둘째 승인이 필요해 위 색인이 막고, 내리는 길은 취소·반품의 환불이다 |
+| 매입 단계 | 국내 카드 결제는 대부분 자동 매입이고 수동 매입은 추가 계약이다 — 매입 상태는 PG 가 `card.acquireStatus` 로 든다(토스페이먼츠, `external-references.md` 「D8」) |
+
+선불 잔액(상품권·적립금)도 결제 행이 아니다. 쿠폰이 선불전자지급수단 밖에 있는 근거는 `D2` 가, 포인트가 들어올 자리는 불변식 카탈로그 「새 등식이 생기는 자리」가 든다.
+
 ## 정산 — 장부는 바깥을 restrict 로만 가리킨다
 
 ```
@@ -212,17 +225,23 @@ AppUser ─┬─ UserRole                (user_role)
          ├─ PasswordResetToken      (password_reset_token)   30일 · cascade
          ├─ EmailChangeRequest      (email_change_request)   30일 · cascade
          ├─ IdempotencyKey          (idempotency_key)        24시간 · cascade
+         ├─ UserSecondFactor        (user_second_factor)     탈퇴까지 · cascade
          └─ Cart                    (로그인 장바구니)
 ```
 
-이 절의 표: `user_role` · `seller_member` · `user_consent` · `password_reset_token` · `email_change_request` · `idempotency_key`.
+이 절의 표: `user_role` · `seller_member` · `user_consent` · `password_reset_token` · `email_change_request` · `idempotency_key` · `user_second_factor`.
 토큰 둘과 멱등키는 계정 없이 뜻이 없고 짧게 산다. 파기 배치가 기간으로 지우고, 계정이 먼저 가면 cascade 가 받는다.
+2차 인증 등록(`user_second_factor`, `Q451`)은 계정당 하나고 탈퇴가 그 트랜잭션에서 지운다 — 탈퇴는 `update` 라 cascade 는 파기 배치가 계정 행을 지울 때 몫이다.
 
 ## 상품 덩어리의 표
 
 위 「상품은 한 덩어리다」의 실물이다 — `product`·`product_option`·`product_option_value`·`sku`·`sku_option_value` 가 덩어리고,
 `sku_stock`·`sku_stock_movement` 는 SKU 를 따라가되 덩어리에 안 든다. `product_substantiation` 은 상품에 cascade 다 —
 실증 자료라 상품 없이 뜻이 없다(`13f-1`).
+
+**`sku_stock.on_hand` 는 아직 안 판 수다.** 주문이 들어올 때 깎이고(`order_placed`) 발송은 안 건드린다 —
+창고 실물에서 팔렸지만 안 나간 수를 뺀 값이라 `V40` 주석의 「창고에 있는 수」와 다르다.
+실물과 묶인 수를 가를지, 셀러가 재고를 맞추는 입구를 어느 뜻으로 받을지는 `Q447` 이 정한다.
 
 **`product_image` 도 cascade 다**(`27`). 상품이 없으면 그 상품의 사진은 뜻이 없다 —
 다만 **행이 사라져도 저장소의 객체는 안 사라진다.** 파일을 지우는 것은 cascade 가 아니라
@@ -237,6 +256,7 @@ AppUser ─┬─ UserRole                (user_role)
 | `notification_template` | 위와 같다 |
 | `batch_run` | 회차 기록. 외래키가 없다 |
 | `seller_daily_sales` | 파생 집계(`40`). 원장에서 언제든 다시 만든다 — 셀러를 restrict 로 가리킬 뿐 어느 덩어리에도 안 속한다. **원장이 이긴다**: 갈리면 이 표를 고치지 않고 다시 센다. **금액 축이 둘이다**(`Q197`) — 고객이 낸 돈(`paid_amount`)과, 몰이 문 할인(`mall_discount_amount`)을 되더한 셀러 매출. 뒤의 것이 정산서의 판매 축이라 둘이 갈리면 몰 쿠폰 몫만큼이다 |
+| `brokerage_statement`·`brokerage_statement_line`·`brokerage_statement_submission` | 판매·결제 중개 명세(`Q455`, 부가가치세법 제75조 `R46`). 분기 머리·줄·제출 기록 셋이고 **박제다** — 원장에서 세지만 한 번 선 분기는 다시 안 센다(제출 뒤에 장부와 낸 것이 갈리면 안 된다). 줄은 셀러를 restrict 로 가리키고 머리를 따라 지워진다. 금액 축은 셀러 공급 총액(줄 금액 + 배송비 − 셀러 부담 할인) — 몰 부담 할인은 안 뺀다. 환불은 안 뺀다 |
 | `copyright_report` | 신고 기록(`Q94`, `D2` `R42`). **사진이 사라져도 남는다** — `product_image_id` 가 `set null` 이고 `product_id` 가 남아서 무엇을 내렸는지를 든다. 접수된 사실 자체가 절차를 돌린 증거라 지우지 않는다 |
 | `audit_log` | 사건 기록. 외래키가 없다 — 계정이 파기돼도 남아야 한다(`D13` 「감사 로그는 예외다」) |
 | `outbox_event` | 바깥에 알릴 사건(`Q57`, `D12`). **외래키가 없다** — 원천 행이 파기돼도 보낸 사실은 남고, 소비자가 이미 받았을 수 있다. 채우는 것은 앱이 아니라 원천 표의 트리거다 |

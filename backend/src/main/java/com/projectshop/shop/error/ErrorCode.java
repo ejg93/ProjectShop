@@ -369,6 +369,31 @@ public enum ErrorCode {
     TRANSITION_REASON_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "transition-reason-required",
             "관리자 처리에는 사유가 필요하다"),
 
+    // 중개 명세(`Q456`). 화면이 본 파일과 지금 파일이 다르면 제출을 안 받는다 — 낸 것과 장부가 갈린다.
+    BROKERAGE_STATEMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "brokerage-statement-not-found",
+            "중개 명세가 없다", "명세를 찾을 수 없습니다."),
+    BROKERAGE_STATEMENT_FILE_CHANGED(HttpStatus.CONFLICT, "brokerage-statement-file-changed",
+            "명세 파일이 그사이 바뀌었다", "명세가 바뀌었습니다. 다시 내려받아 주세요."),
+    BROKERAGE_STATEMENT_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "brokerage-statement-already-submitted",
+            "이미 제출 기록이 있다", "이미 제출 기록이 있습니다."),
+
+    // 2차 인증 로그인(`Q452`). 코드가 틀린 것과 대기가 없는 것을 가른다 — 앞은 다시 치고 뒤는 처음부터 다시 한다.
+    SECOND_FACTOR_CODE_INVALID(HttpStatus.UNAUTHORIZED, "second-factor-code-invalid",
+            "2차 인증 코드가 맞지 않는다", "인증 코드가 맞지 않습니다."),
+    SECOND_FACTOR_NOT_PENDING(HttpStatus.UNAUTHORIZED, "second-factor-not-pending",
+            "2차 인증 대기가 없거나 끝났다", "로그인을 처음부터 다시 해 주세요."),
+    // 세션 도중에 대상이 됐거나 옛 세션이라 표시가 없다(`Q453`). 그 세션은 끊고 다시 로그인하게 한다.
+    SECOND_FACTOR_REQUIRED(HttpStatus.UNAUTHORIZED, "second-factor-required",
+            "2차 인증이 필요하다", "2차 인증이 필요합니다. 다시 로그인해 주세요."),
+    SECOND_FACTOR_NOT_ENROLLED(HttpStatus.CONFLICT, "second-factor-not-enrolled",
+            "2차 인증 등록이 없다", "2차 인증 등록을 먼저 해 주세요."),
+    SECOND_FACTOR_ALREADY_ENROLLED(HttpStatus.CONFLICT, "second-factor-already-enrolled",
+            "이미 2차 인증을 등록했다", "이미 2차 인증을 등록했습니다."),
+
+    // 2차 인증(`Q451`). 키가 없으면 앱은 뜨고 셀러·관리자·감사자 로그인만 멈춘다 — 기본 키를 코드에 두지 않는다(`D14`).
+    SECOND_FACTOR_KEY_MISSING(HttpStatus.SERVICE_UNAVAILABLE, "second-factor-key-missing",
+            "2차 인증 키가 설정되지 않았다"),
+
     // 웹훅(`29`). 키가 없으면 앱은 뜨고 웹훅만 멈춘다 — 기본 키를 코드에 두지 않는다(`D14`).
     WEBHOOK_KEY_MISSING(HttpStatus.SERVICE_UNAVAILABLE, "webhook-key-missing",
             "웹훅 시크릿 키가 설정되지 않았다"),

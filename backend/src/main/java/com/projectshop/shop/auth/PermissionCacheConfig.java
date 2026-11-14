@@ -40,6 +40,14 @@ class PermissionCacheConfig {
     static final String LIVENESS = "accountLiveness";
 
     /**
+     * 이 계정이 2차 인증 대상인가(고객 외 역할이 있나). 키는 사용자(`Q452`).
+     *
+     * <p>로그인과 요청마다 필터(`Q453`)가 본다. 역할이 바뀌면 {@code evict} 가 같이 지운다 — 안 지우면 TTL 동안
+     * 막 셀러가 된 세션이 2차 인증 없이 지나간다.
+     */
+    static final String SECOND_FACTOR = "secondFactorRequired";
+
+    /**
      * 무효화를 빼먹어도 결국 맞아지게 하는 안전망이다.
      *
      * <p>역할을 부여·회수하는 화면은 청크 16 에 가서야 생긴다. 그때 무효화 호출을 빠뜨리면
@@ -52,7 +60,7 @@ class PermissionCacheConfig {
 
     @Bean
     CacheManager permissionCacheManager() {
-        CaffeineCacheManager manager = new CaffeineCacheManager(RULES, MEMBERSHIPS, LIVENESS);
+        CaffeineCacheManager manager = new CaffeineCacheManager(RULES, MEMBERSHIPS, LIVENESS, SECOND_FACTOR);
         manager.setCaffeine(Caffeine.newBuilder()
                 .expireAfterWrite(TTL)
                 .maximumSize(MAX_SIZE));
@@ -68,6 +76,6 @@ class PermissionCacheConfig {
      * 캐시를 새로 추가하면 그 단언이 깨져 무효화를 같이 봤는지 묻게 만든다.
      */
     static List<String> cacheNames() {
-        return List.of(RULES, MEMBERSHIPS, LIVENESS);
+        return List.of(RULES, MEMBERSHIPS, LIVENESS, SECOND_FACTOR);
     }
 }

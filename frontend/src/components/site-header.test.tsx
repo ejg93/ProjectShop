@@ -187,6 +187,25 @@ describe("셸의 머리", () => {
   });
 
 
+  it("중개 명세 링크는 읽기 권한이 있어야 보인다", async () => {
+    // `Q457` — 관리자·감사자만 `brokerage_statement:read` 를 받는다(`V139`).
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "brokerage_statement", action: "read", scopes: ["ALL"] }],
+    });
+    render(await SiteHeader());
+    expect(screen.getByRole("link", { name: "중개 명세" })).toHaveAttribute("href", "/admin/brokerage-statements");
+  });
+
+  it("중개 명세 권한이 없으면 링크가 없다", async () => {
+    apiSessionOptional.mockResolvedValue({
+      userId: 7,
+      permissions: [{ resource: "audit", action: "read", scopes: ["ALL"] }],
+    });
+    render(await SiteHeader());
+    expect(screen.queryByRole("link", { name: "중개 명세" })).not.toBeInTheDocument();
+  });
+
   it("감사 기록 링크는 그 권한이 있어야 보인다", async () => {
     apiSessionOptional.mockResolvedValue({
       userId: 7,

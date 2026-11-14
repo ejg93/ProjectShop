@@ -69,7 +69,7 @@ class ShipmentTrackingTest extends PostgresTestBase {
         long ownerId = fixture.insertUser("tracking-owner@test.local", "대표");
         fixture.joinSeller(sellerId, ownerId);
         fixture.grantOrg(ownerId, "seller_owner", sellerId);
-        owner = new ShopUser(ownerId, "tracking-owner@test.local", null, true);
+        owner = new ShopUser(ownerId, "tracking-owner@test.local", null, true).verified();
 
         long skuId = insertSku(sellerId, ownerId);
         long cartId = jdbc.sql("insert into cart (user_id) values (:userId) returning cart_id")

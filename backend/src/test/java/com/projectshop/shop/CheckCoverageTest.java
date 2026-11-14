@@ -90,6 +90,12 @@ class CheckCoverageTest extends PostgresTestBase {
 
     /** 돈 묶음 — 결제·환불·정산·보상·쿠폰 표(`Q426c`) */
     private static final Map<String, Cover> COVERED_MONEY = Map.ofEntries(
+            Map.entry("brokerage_statement_period_quarter_check", new Cover("BrokerageStatementServiceTest", "분기 번호가 1~4 밖이다")),
+            Map.entry("brokerage_statement_period_check", new Cover("BrokerageStatementServiceTest", "기한이 분기 끝보다 늦지 않다")),
+            Map.entry("brokerage_statement_line_sale_count_check", new Cover("BrokerageStatementServiceTest", "명세 줄 건수가 0 이다")),
+            Map.entry("brokerage_statement_line_sale_amount_check", new Cover("BrokerageStatementServiceTest", "명세 줄 금액이 음수다")),
+            Map.entry("brokerage_statement_line_sales_month_check", new Cover("BrokerageStatementServiceTest", "명세 줄 월이 1일이 아니다")),
+            Map.entry("brokerage_statement_submission_file_sha256_check", new Cover("BrokerageStatementServiceTest", "제출본 해시가 소문자 16진 64자가 아니다")),
             Map.entry("refund_approved_by_user_check", new Cover("OutboxEventSchemaTest", "승인 주체 종류와 승인 사용자가 짝이 아니다")),
             Map.entry("refund_decision_check", new Cover("OutboxEventSchemaTest", "접수 상태와 판정 흔적(승인 주체·판정 시각)이 짝이 아니다")),
             Map.entry("refund_delay_interest_timing_check", new Cover("SettlementCloseBatchTest", "기한 안 판정에 지연 이자가 붙었다")),
@@ -197,6 +203,8 @@ class CheckCoverageTest extends PostgresTestBase {
             Map.entry("seller_invitation_expiry_after_issued_check", new Cover("CheckViolationAccountTest", "만료가 발급보다 앞선다")),
             Map.entry("seller_invitation_outcome_check", new Cover("CheckViolationAccountTest", "수락과 철회가 같이 있다")),
             Map.entry("seller_invitation_revoked_after_issued_check", new Cover("CheckViolationAccountTest", "철회가 발급보다 앞선다")),
+            Map.entry("user_second_factor_last_used_step_check", new Cover("SecondFactorServiceTest", "마지막 스텝이 음수다")),
+            Map.entry("user_second_factor_secret_key_version_check", new Cover("SecondFactorServiceTest", "비밀 키 판이 1 미만이다")),
             Map.entry("webhook_delivery_attempt_count_check", new Cover("CheckViolationAccountTest", "시도 횟수가 음수다")),
             Map.entry("webhook_delivery_delivered_check", new Cover("CheckViolationAccountTest", "보냄 상태와 배달 시각이 짝이 아니다")),
             Map.entry("webhook_delivery_last_status_code_check", new Cover("CheckViolationAccountTest", "마지막 응답 코드가 100~599 밖이다")),

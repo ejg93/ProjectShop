@@ -282,9 +282,7 @@ class SellerProductImageApiTest extends HttpTestBase {
         fixture.joinSeller(sellerId, userId);
         fixture.grantOrg(userId, "seller_owner", sellerId);
 
-        session.post("/api/auth/login", """
-                {"email": "%s", "password": "%s"}
-                """.formatted(email, PASSWORD));
+        logInFully(session, email, PASSWORD);
         return session;
     }
 
