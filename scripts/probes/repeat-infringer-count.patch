@@ -1,0 +1,14 @@
+# gate: 12개월 안 게시 중단 셋이면 셀러를 정지한다(Q466, R42 — 저작권법 제102조제1항제1호다목, 횟수는 우리 방침)
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.product.RepeatInfringerTest
+# expect: FAILED com.projectshop.shop.product.RepeatInfringerTest 같은 셀러 상품 사진이 12개월 안 세 번 중단되면 셀러가 정지되고 감사가 남는다
+--- a/backend/src/main/java/com/projectshop/shop/product/CopyrightReportService.java
++++ b/backend/src/main/java/com/projectshop/shop/product/CopyrightReportService.java
+@@ -247,7 +247,7 @@
+             }
+             return;
+         }
+-        if (strikes("p.seller_id = :owner", pending.sellerId()) >= REPEAT_INFRINGER_STRIKES) {
++        if (strikes("p.seller_id = :owner", pending.sellerId()) > REPEAT_INFRINGER_STRIKES) {
+             suspendSeller(actorUserId, pending.sellerId());
+         }
+     }

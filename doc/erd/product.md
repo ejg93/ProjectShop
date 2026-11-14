@@ -12,6 +12,7 @@ erDiagram
     copyright_report }o--|| product : "product_id"
     copyright_report }o--|| product_image : "product_image_id"
     copyright_report }o--|| review_image : "review_image_id"
+    copyright_report }o..|| app_user : "uploader_user_id"
     inquiry }o..|| product : "product_id"
     notification }o..|| copyright_report : "copyright_report_id"
     order_item }o..|| sku : "sku_id"

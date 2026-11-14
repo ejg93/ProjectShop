@@ -14,7 +14,7 @@ flowchart LR
     order -->|1| ops
     order -->|2| product
     permission -->|2| account
-    product -->|8| account
+    product -->|9| account
     product -->|2| order
     settlement -->|8| account
     settlement -->|5| order

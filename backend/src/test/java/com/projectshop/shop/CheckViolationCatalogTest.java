@@ -144,8 +144,9 @@ class CheckViolationCatalogTest extends PostgresTestBase {
                             returning product_image_id
                         )
                         insert into copyright_report (product_id, reporter_name, reporter_email, claimed_work,
-                                                      target, product_image_id)
-                        select :product, '신고인', 'reporter@test.local', '원작', 'review_image', product_image_id
+                                                      target, product_image_id, uploader_user_id)
+                        select :product, '신고인', 'reporter@test.local', '원작', 'review_image', product_image_id,
+                               (select min(user_id) from app_user)
                           from new_image
                         """));
     }

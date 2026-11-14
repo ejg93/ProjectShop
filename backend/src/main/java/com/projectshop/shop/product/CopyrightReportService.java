@@ -14,6 +14,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
+import com.projectshop.shop.auth.PermissionRuleLoader;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
@@ -43,6 +44,15 @@ import com.projectshop.shop.auth.PermissionResource;
 public class CopyrightReportService {
 
     /**
+     * 반복 침해자로 보고 계정을 정지하는 중단 수. 저작권법 제102조제1항제1호다목이 방침을 요구하고 횟수는 안 정한다 — 우리 방침이다
+     * (2026-11-14 사용자, `D2` R42).
+     */
+    static final int REPEAT_INFRINGER_STRIKES = 3;
+
+    /** 반복 침해를 세는 기간(개월). 저작권법 제102조제1항제1호다목의 방침 — 우리가 정했다(`D2` R42) */
+    static final int REPEAT_INFRINGER_WINDOW_MONTHS = 12;
+
+    /**
      * 숨긴 사진을 지우기까지 남기는 날. 통보 3일 + 재개 요구 30일 + 재개 예정일 14일(저작권법 시행령 제41~43조, `D2` R42) —
      * 그 안에는 재개(제103조③)할 것이 남아야 한다.
      */
@@ -59,7 +69,8 @@ public class CopyrightReportService {
      * <p>{@code product_image_id} 는 <b>지울 대상을 찾을 때만</b> 쓰고 그때는 {@code null} 일 수 있다.
      */
     private static final String FIND_PENDING = """
-            select r.product_image_id, r.review_image_id, p.seller_id, r.target, r.claimed_work, v.user_id as review_author_id
+            select r.product_image_id, r.review_image_id, p.seller_id, r.target, r.claimed_work, v.user_id as review_author_id,
+                   r.uploader_user_id
               from copyright_report r
               join product p on p.product_id = r.product_id
               left join review_image ri on ri.review_image_id = r.review_image_id
@@ -77,9 +88,11 @@ public class CopyrightReportService {
     private final NotificationService notifications;
     private final CopyrightRecipient recipient;
     private final TransactionTemplate transactions;
+    private final PermissionRuleLoader ruleLoader;
 
     CopyrightReportService(JdbcClient jdbc, PermissionEvaluator evaluator, ObjectStorage storage, AuditLog auditLog,
-            NotificationService notifications, CopyrightRecipient recipient, TransactionTemplate transactions) {
+            NotificationService notifications, CopyrightRecipient recipient, TransactionTemplate transactions,
+            PermissionRuleLoader ruleLoader) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.storage = storage;
@@ -87,6 +100,7 @@ public class CopyrightReportService {
         this.notifications = notifications;
         this.recipient = recipient;
         this.transactions = transactions;
+        this.ruleLoader = ruleLoader;
     }
 
     /**
@@ -133,8 +147,9 @@ public class CopyrightReportService {
     public Received reportReviewImage(long reviewImageId, Command command) {
         long id = jdbc.sql("""
                         insert into copyright_report
-                            (review_image_id, product_id, target, reporter_name, reporter_email, claimed_work)
-                        select ri.review_image_id, r.product_id, 'review_image', :name, :email, :claimedWork
+                            (review_image_id, product_id, target, reporter_name, reporter_email, claimed_work,
+                             uploader_user_id)
+                        select ri.review_image_id, r.product_id, 'review_image', :name, :email, :claimedWork, r.user_id
                           from review_image ri
                           join review r on r.review_id = ri.review_id
                          where ri.review_image_id = :imageId and r.deleted_at is null
@@ -214,14 +229,84 @@ public class CopyrightReportService {
         auditLog.record(AuditLog.Kind.OUTCOME, "copyright.decided", actorUserId,
                 new AuditLog.Target(AuditTargetType.COPYRIGHT_REPORT, reportId),
                 Map.of("decision", decision.code()));
+        if (decision == CopyrightDecision.TAKEN_DOWN) {
+            applyRepeatInfringerPolicy(actorUserId, pending);
+        }
         return pending;
+    }
+
+    /**
+     * 반복 침해자 방침(`Q466`, 저작권법 제102조제1항제1호다목). 12개월 안 중단이 셋에 닿으면 계정을 정지한다 — 상품 사진은 셀러,
+     * 후기 사진은 작성자. <b>재개된 중단은 안 센다</b> — 정당한 권리가 소명된 것이다. 판정과 한 트랜잭션이다.
+     */
+    private void applyRepeatInfringerPolicy(long actorUserId, Pending pending) {
+        if (CopyrightTarget.REVIEW_IMAGE.code().equals(pending.target())) {
+            if (pending.uploaderUserId() != null
+                    && strikes("r.uploader_user_id = :owner", pending.uploaderUserId()) >= REPEAT_INFRINGER_STRIKES) {
+                suspendUser(actorUserId, pending.uploaderUserId());
+            }
+            return;
+        }
+        if (strikes("p.seller_id = :owner", pending.sellerId()) >= REPEAT_INFRINGER_STRIKES) {
+            suspendSeller(actorUserId, pending.sellerId());
+        }
+    }
+
+    /** 12개월 안 중단 수 — 재개된 것을 뺀다. {@code ownerCondition} 은 두 고정 문자열 중 하나다 */
+    private long strikes(String ownerCondition, long ownerId) {
+        return jdbc.sql("""
+                        select count(*) from copyright_report r
+                          join product p on p.product_id = r.product_id
+                         where {owner}
+                           and r.decision = 'taken_down'
+                           and r.decided_at >= now() - make_interval(months => :months)
+                           and not exists (select 1 from copyright_reinstatement x
+                                            where x.copyright_report_id = r.copyright_report_id
+                                              and x.reinstated_at is not null)
+                        """.replace("{owner}", ownerCondition))
+                .param("owner", ownerId)
+                .param("months", REPEAT_INFRINGER_WINDOW_MONTHS)
+                .query(Long.class)
+                .single();
+    }
+
+    /** 셀러를 정지한다. 구성원의 권한 캐시를 비워 셀러 스코프가 곧바로 사라지게 한다 */
+    private void suspendSeller(long actorUserId, long sellerId) {
+        int suspended = jdbc.sql("update seller set status = 'suspended' where seller_id = :id and status <> 'suspended'")
+                .param("id", sellerId)
+                .update();
+        if (suspended == 0) {
+            return;
+        }
+        jdbc.sql("select user_id from seller_member where seller_id = :id")
+                .param("id", sellerId)
+                .query(Long.class)
+                .list()
+                .forEach(ruleLoader::evict);
+        auditLog.record(AuditLog.Kind.OUTCOME, "seller.suspended", actorUserId,
+                new AuditLog.Target(AuditTargetType.SELLER, sellerId),
+                Map.of("reason", "repeat_infringer", "strikes", REPEAT_INFRINGER_STRIKES));
+    }
+
+    /** 계정을 정지한다. 살아 있는 세션은 다음 요청에서 끊긴다({@code AccountLivenessFilter}) */
+    private void suspendUser(long actorUserId, long userId) {
+        int suspended = jdbc.sql("update app_user set status = 'suspended' where user_id = :id and status <> 'suspended'")
+                .param("id", userId)
+                .update();
+        if (suspended == 0) {
+            return;
+        }
+        ruleLoader.evict(userId);
+        auditLog.record(AuditLog.Kind.OUTCOME, "user.suspended", actorUserId,
+                new AuditLog.Target(AuditTargetType.USER, userId),
+                Map.of("reason", "repeat_infringer", "strikes", REPEAT_INFRINGER_STRIKES));
     }
 
     /** 그 신고의 복제·전송자 — 재개 통보(`Q465`)가 부른다. 숨긴 사진은 행이 남아 있어 작성자를 찾는다 */
     List<Long> uploadersOf(long reportId) {
         return uploaders(jdbc.sql("""
                         select r.product_image_id, r.review_image_id, p.seller_id, r.target, r.claimed_work,
-                               v.user_id as review_author_id
+                               v.user_id as review_author_id, r.uploader_user_id
                           from copyright_report r
                           join product p on p.product_id = r.product_id
                           left join review_image ri on ri.review_image_id = r.review_image_id
@@ -252,7 +337,7 @@ public class CopyrightReportService {
      * @param reviewAuthorId 후기 사진의 작성자 — 사진이 남아 있을 때만 찾는다
      */
     private record Pending(Long productImageId, Long reviewImageId, long sellerId, String target, String claimedWork,
-            Long reviewAuthorId) {
+            Long reviewAuthorId, Long uploaderUserId) {
     }
 
     /**

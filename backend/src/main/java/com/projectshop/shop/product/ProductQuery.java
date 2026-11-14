@@ -61,6 +61,10 @@ public class ProductQuery {
             "created_at", "p.created_at",
             "name", "p.name");
 
+    /** 상품의 셀러가 정지되지 않았다(`Q466`). 장바구니(`CartService`)·주문(`OrderService`)도 같은 조건을 건다 */
+    static final String SELLER_NOT_SUSPENDED =
+            "not exists (select 1 from seller sl where sl.seller_id = p.seller_id and sl.status = 'suspended')";
+
     /**
      * 무엇을 내나. 최저가는 살 수 있는 SKU 에서만 센다.
      *
@@ -68,6 +72,7 @@ public class ProductQuery {
      * 집계가 정렬보다 앞이라 상품 전부를 잇고 묶은 뒤에야 20개를 고르고, 정렬 인덱스를 쓸 수 없다
      * (로컬 10만 건 34ms). 부분질의면 정렬과 {@code limit} 이 먼저 서고 남은 20 줄에만 돈다(0.3ms).
      */
+
     static final String PUBLIC_SELECT = """
             select p.product_id, p.seller_id, s.name as seller_name, p.name,
                    coalesce((select min(sk.price_incl_vat) from sku sk
@@ -85,8 +90,17 @@ public class ProductQuery {
     /**
      * 누구에게나 같은 조건 둘 — 파는 중이고({@code on_sale}) 살아 있다.
      * <b>부분 인덱스({@code V125})의 조건과 글자까지 같다</b> — 다르면 그 인덱스를 못 탄다.
+     *
+     * <p><b>정지 셀러는 여기 안 넣는다</b>(`Q466`) — {@code not exists} 반조인이 붙으면 계획이 그 인덱스를 버린다
+     * ({@code ProductQueryTest}). 목록은 {@link #PUBLIC_LIST_WHERE}, 세는 질의는 {@link #PUBLIC_COUNT_WHERE} 를 쓴다.
      */
     static final String PUBLIC_WHERE = " where p.status = 'on_sale' and p.deleted_at is null";
+
+    /** 공개 목록 — {@link #PUBLIC_SELECT} 가 이미 잇는 셀러({@code s})로 정지 셀러를 거른다(`Q466`) */
+    static final String PUBLIC_LIST_WHERE = PUBLIC_WHERE + " and s.status <> 'suspended'";
+
+    /** 공개 개수 — 셀러를 안 잇는 질의라 {@code not exists} 로 거른다(`Q466`) */
+    static final String PUBLIC_COUNT_WHERE = PUBLIC_WHERE + " and " + SELLER_NOT_SUSPENDED;
 
     /** 기본 정렬(`D5` 「목록 조회」 정렬 표의 상품 기본값) */
     private static final String DEFAULT_SORT = "created_at,desc";
@@ -203,7 +217,7 @@ public class ProductQuery {
                 .query((rs, rowNum) -> publicItem(rs))
                 .list();
 
-        Long total = jdbc.sql("select count(*) from product p" + PUBLIC_WHERE + bySeller(sellerId))
+        Long total = jdbc.sql("select count(*) from product p" + PUBLIC_COUNT_WHERE + bySeller(sellerId))
                 .param("sellerId", sellerId)
                 .query(Long.class)
                 .single();
@@ -213,7 +227,7 @@ public class ProductQuery {
 
     /** 공개 목록 SQL 전체. 시험이 같은 문장의 실행 계획을 본다({@code ProductQueryTest}) */
     static String listSql(Long sellerId, OrderBy orderBy) {
-        return PUBLIC_SELECT + PUBLIC_WHERE + bySeller(sellerId)
+        return PUBLIC_SELECT + PUBLIC_LIST_WHERE + bySeller(sellerId)
                 // 텍스트 블록은 줄 끝 공백을 지운다. 블록 안에서 이으면 "order by" 와
                 // 컬럼이 붙어 버려서, 공백을 이 문자열에 직접 넣는다.
                 + " order by " + orderBy.clause() + ", p.product_id desc"
@@ -368,6 +382,7 @@ public class ProductQuery {
                           join seller s on s.seller_id = p.seller_id
                          where p.product_id = :id
                            and p.status = 'on_sale' and p.deleted_at is null
+                           and not exists (select 1 from seller sl where sl.seller_id = p.seller_id and sl.status = 'suspended')
                         """)
                 .param("id", productId)
                 .query((rs, rowNum) -> new PublicDetail(

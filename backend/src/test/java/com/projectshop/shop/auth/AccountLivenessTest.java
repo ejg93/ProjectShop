@@ -101,17 +101,17 @@ class AccountLivenessTest extends PostgresTestBase {
         }
 
         @Test
-        @DisplayName("업무 상태가 아니라 수명을 본다")
-        void suspensionIsNotWithdrawal() throws Exception {
-            // 정지는 풀리고 탈퇴는 안 풀린다. 축이 달라서 여기서 안 섞는다.
+        @DisplayName("정지된 계정의 세션도 끊긴다")
+        void suspensionEndsSession() throws Exception {
+            // 반복 침해자 정지(`Q466`)는 판정 도중에 일어나서 이미 로그인한 세션에 걸려야 한다 — 전에는 로그인만 막았다.
+            // 정지는 풀리고 탈퇴는 안 풀리는 차이는 그대로다: 풀면 다음 로그인부터 다시 산다.
             jdbc.sql("update app_user set status = 'suspended' where user_id = :id")
                     .param("id", userId)
                     .update();
             loader.evict(userId);
 
-            // 정지 계정을 막는 것은 로그인이 할 일이다. 여기서 섞으면 복구가 어려워진다.
             mvc.perform(get("/api/me/permissions").with(user(principal())))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isUnauthorized());
         }
     }
 

@@ -194,6 +194,7 @@ class CheckCoverageTest extends PostgresTestBase {
             Map.entry("copyright_reinstatement_scheduled_for_check", new Cover("CopyrightReinstatementServiceTest", "예정 판단이 아닌데 예정일이 있다")),
             Map.entry("copyright_reinstatement_window_check", new Cover("CopyrightReinstatementServiceTest", "예정일이 요구받은 날의 7~14일 밖이다(시행령 제43조)")),
             Map.entry("copyright_reinstatement_reinstated_check", new Cover("CopyrightReinstatementServiceTest", "예정 판단 없이 또는 소 제기 뒤에 재개했다")),
+            Map.entry("copyright_report_review_uploader_check", new Cover("RepeatInfringerTest", "후기 사진 신고에 작성자가 없다(`Q466`)")),
             Map.entry("notification_recipient_check", new Cover("CopyrightReportServiceTest", "계정 없는 통보를 신고자 사건 밖에서 쓴다(`Q463`)")),
             Map.entry("password_reset_token_expiry_after_issued_check", new Cover("CheckViolationAccountTest", "만료가 발급보다 앞선다")),
             Map.entry("password_reset_token_used_after_issued_check", new Cover("CheckViolationAccountTest", "사용이 발급보다 앞선다")),

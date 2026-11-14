@@ -93,6 +93,9 @@ allow 를 먼저 보면 넓은 allow 하나가 매치되는 순간 반환해서,
 | 조직 역할 (`user_role.seller_id` 있음) | 받은 그 셀러만 |
 | 전역 역할 (`user_role.seller_id` 없음) | 사용자가 속한 모든 셀러 (`seller_member` 기준) |
 
+**정지 셀러(`seller.status = 'suspended'`)는 두 갈래에서 다 빠진다**(`Q466`, 반복 침해자 방침) — 조직 역할은 규칙 적재가
+그 부여를 안 읽고, 전역 역할은 소속 목록이 그 셀러를 안 낸다(`PermissionRuleLoader`). 심사 중(`pending`)은 그대로 덮는다.
+
 구분하지 않으면 A셀러의 CS 담당이 B셀러의 주문을 본다.
 
 지금 `seller_owner` 는 `is_org_role = true` 라 항상 앞쪽이다.
