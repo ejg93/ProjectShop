@@ -85,6 +85,29 @@ class BrokerageStatementApiTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("목록은 해시를 안 싣고 상세가 지금 파일의 해시를 낸다")
+    void detailCarriesHash() throws Exception {
+        list(adminId)
+                .andExpect(jsonPath("$.items[0].file_sha256").doesNotExist());
+        detail(adminId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.brokerage_statement_id").value(statementId))
+                .andExpect(jsonPath("$.line_count").value(1))
+                .andExpect(jsonPath("$.total_amount").value(45000))
+                .andExpect(jsonPath("$.can_submit").value(true))
+                .andExpect(jsonPath("$.file_sha256").value(sha(file(adminId))));
+    }
+
+    @Test
+    @DisplayName("감사자도 상세를 본다")
+    void auditorReadsDetail() throws Exception {
+        detail(auditorId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.can_submit").value(false))
+                .andExpect(jsonPath("$.file_sha256").value(org.hamcrest.Matchers.matchesPattern("^[0-9a-f]{64}$")));
+    }
+
+    @Test
     @DisplayName("감사자는 목록만 보고 제출은 403 이다")
     void auditorReadsOnly() throws Exception {
         list(auditorId)
@@ -189,10 +212,16 @@ class BrokerageStatementApiTest extends PostgresTestBase {
     void missingIs404() throws Exception {
         mvc.perform(get("/api/admin/brokerage-statements/{id}/file", Long.MAX_VALUE).with(user(principal(adminId))))
                 .andExpect(status().isNotFound());
+        mvc.perform(get("/api/admin/brokerage-statements/{id}", Long.MAX_VALUE).with(user(principal(adminId))))
+                .andExpect(status().isNotFound());
     }
 
     private ResultActions list(long userId) throws Exception {
         return mvc.perform(get("/api/admin/brokerage-statements").with(user(principal(userId))));
+    }
+
+    private ResultActions detail(long userId) throws Exception {
+        return mvc.perform(get("/api/admin/brokerage-statements/{id}", statementId).with(user(principal(userId))));
     }
 
     private byte[] file(long userId) throws Exception {

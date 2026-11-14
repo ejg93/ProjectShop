@@ -20,8 +20,6 @@ type Statement = {
   status: StatementStatus;
   lineCount: number;
   totalAmount: number;
-  /** 제출됐으면 낸 파일의 해시, 아니면 지금 파일의 해시 — 「제출 기록」이 이 값을 보낸다 */
-  fileSha256: string;
 };
 
 type StatementPage = Page<Statement> & {
@@ -99,7 +97,6 @@ export default async function BrokerageStatementsPage() {
                         {page.canSubmit && statement.status !== "SUBMITTED" ? (
                           <SubmitStatementButton
                             statementId={statement.brokerageStatementId}
-                            fileSha256={statement.fileSha256}
                             label={label}
                           />
                         ) : null}

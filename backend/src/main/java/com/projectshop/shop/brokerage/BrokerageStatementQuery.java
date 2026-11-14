@@ -21,11 +21,24 @@ import com.projectshop.shop.support.ListQuery.Paging;
 /**
  * 중개 명세 분기 목록과 파일을 {@code brokerage_statement} 와 {@code seller} 에서 읽는다(`Q456`, `D2` R46).
  *
- * <p><b>신원은 내려받는 순간의 {@code seller} 다</b>(2026-11-13 사용자 결정 — 수치만 박제). 그래서 목록이 내는 해시도 지금 파일의 것이고,
- * 제출된 분기만 장부의 해시를 낸다.
+ * <p><b>신원은 내려받는 순간의 {@code seller} 다</b>(2026-11-13 사용자 결정 — 수치만 박제). 그래서 상세가 내는 해시도 지금 파일의 것이고,
+ * 제출된 분기만 장부의 해시를 낸다. <b>목록은 해시를 안 낸다</b>(`Q460`) — 줄마다 파일을 렌더하면 N+1 이다.
  */
 @Service
 public class BrokerageStatementQuery {
+
+    /** 분기 한 줄 — 줄 수와 합계는 부질의, 제출 해시는 바깥 조인이다. 목록과 상세가 같이 쓴다 */
+    private static final String SELECT = """
+            select s.brokerage_statement_id, s.period_year, s.period_quarter, s.due_date,
+                   x.file_sha256,
+                   (select count(*) from brokerage_statement_line l
+                     where l.brokerage_statement_id = s.brokerage_statement_id) as line_count,
+                   (select coalesce(sum(l.sale_amount), 0) from brokerage_statement_line l
+                     where l.brokerage_statement_id = s.brokerage_statement_id) as total_amount
+              from brokerage_statement s
+              left join brokerage_statement_submission x
+                     on x.brokerage_statement_id = s.brokerage_statement_id
+            """;
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
@@ -40,36 +53,44 @@ public class BrokerageStatementQuery {
     public StatementPage findAll(long userId, Paging paging) {
         require(userId, "read");
         LocalDate today = LocalDate.now(BusinessCalendar.ZONE);
-        List<Statement> items = jdbc.sql("""
-                        select s.brokerage_statement_id, s.period_year, s.period_quarter, s.due_date,
-                               x.file_sha256,
-                               (select count(*) from brokerage_statement_line l
-                                 where l.brokerage_statement_id = s.brokerage_statement_id) as line_count,
-                               (select coalesce(sum(l.sale_amount), 0) from brokerage_statement_line l
-                                 where l.brokerage_statement_id = s.brokerage_statement_id) as total_amount
-                          from brokerage_statement s
-                          left join brokerage_statement_submission x
-                                 on x.brokerage_statement_id = s.brokerage_statement_id
+        List<Statement> items = jdbc.sql(SELECT + """
                          order by s.period_year desc, s.period_quarter desc
                          limit :size offset :offset
                         """)
                 .param("size", paging.limit())
                 .param("offset", paging.offset())
                 .query((rs, rowNum) -> {
-                    long id = rs.getLong("brokerage_statement_id");
-                    String submitted = rs.getString("file_sha256");
                     LocalDate due = rs.getObject("due_date", LocalDate.class);
-                    StatementStatus status = submitted != null ? StatementStatus.SUBMITTED
-                            : due.isBefore(today) ? StatementStatus.OVERDUE : StatementStatus.OPEN;
-                    return new Statement(id, rs.getInt("period_year"), rs.getInt("period_quarter"), due, status,
-                            rs.getInt("line_count"), rs.getLong("total_amount"),
-                            submitted != null ? submitted : BrokerageStatementFile.sha256Hex(render(id)));
+                    return new Statement(rs.getLong("brokerage_statement_id"), rs.getInt("period_year"),
+                            rs.getInt("period_quarter"), due, status(rs.getString("file_sha256"), due, today),
+                            rs.getInt("line_count"), rs.getLong("total_amount"));
                 })
                 .list();
         long total = jdbc.sql("select count(*) from brokerage_statement").query(Long.class).single();
-        boolean canSubmit = evaluator.decide(userId, PermissionResource.BROKERAGE_STATEMENT, "submit",
-                new Target(null, null, null)).allowed();
-        return new StatementPage(items, paging.offset(), paging.limit(), total, canSubmit);
+        return new StatementPage(items, paging.offset(), paging.limit(), total, canSubmit(userId));
+    }
+
+    /**
+     * 분기 하나와 그 파일의 해시. 화면의 「제출 기록」 버튼이 누를 때 이것을 읽어 해시를 보낸다 — 제출이 지금 파일과 견주는 값이다.
+     * 제출된 분기는 장부의 해시를 낸다.
+     */
+    public StatementDetail find(long userId, long statementId) {
+        require(userId, "read");
+        requireExists(statementId);
+        LocalDate today = LocalDate.now(BusinessCalendar.ZONE);
+        Statement row = jdbc.sql(SELECT + " where s.brokerage_statement_id = :id")
+                .param("id", statementId)
+                .query((rs, rowNum) -> {
+                    LocalDate due = rs.getObject("due_date", LocalDate.class);
+                    return new Statement(statementId, rs.getInt("period_year"), rs.getInt("period_quarter"), due,
+                            status(rs.getString("file_sha256"), due, today), rs.getInt("line_count"),
+                            rs.getLong("total_amount"));
+                })
+                .single();
+        String hash = row.status() == StatementStatus.SUBMITTED ? submittedSha256(statementId)
+                : BrokerageStatementFile.sha256Hex(render(statementId));
+        return new StatementDetail(statementId, row.periodYear(), row.periodQuarter(), row.dueDate(), row.status(),
+                row.lineCount(), row.totalAmount(), hash, canSubmit(userId));
     }
 
     /** 파일을 내려준다. 누가 언제 받았는지 감사 기록을 남긴다 — 셀러 신원이 실린 파일이다 */
@@ -128,6 +149,25 @@ public class BrokerageStatementQuery {
         return BrokerageStatementFile.render(rows);
     }
 
+    private String submittedSha256(long statementId) {
+        return jdbc.sql("select file_sha256 from brokerage_statement_submission where brokerage_statement_id = :id")
+                .param("id", statementId)
+                .query(String.class)
+                .single();
+    }
+
+    private boolean canSubmit(long userId) {
+        return evaluator.decide(userId, PermissionResource.BROKERAGE_STATEMENT, "submit", new Target(null, null, null))
+                .allowed();
+    }
+
+    private static StatementStatus status(String submittedSha256, LocalDate due, LocalDate today) {
+        if (submittedSha256 != null) {
+            return StatementStatus.SUBMITTED;
+        }
+        return due.isBefore(today) ? StatementStatus.OVERDUE : StatementStatus.OPEN;
+    }
+
     void require(long userId, String action) {
         if (!evaluator.decide(userId, PermissionResource.BROKERAGE_STATEMENT, action, new Target(null, null, null))
                 .allowed()) {
@@ -145,13 +185,19 @@ public class BrokerageStatementQuery {
         SUBMITTED
     }
 
+    /** 분기 한 줄 — 해시는 상세가 낸다(`Q460`) */
+    public record Statement(long brokerageStatementId, int periodYear, int periodQuarter, LocalDate dueDate,
+            StatementStatus status, int lineCount, long totalAmount) {
+    }
+
     /**
-     * 분기 한 줄.
+     * 분기 하나.
      *
      * @param fileSha256 제출됐으면 장부의 해시, 아니면 지금 파일의 해시 — 화면의 「제출 기록」 버튼이 이 값을 보낸다
+     * @param canSubmit 화면의 버튼을 가른다(`D20`)
      */
-    public record Statement(long brokerageStatementId, int periodYear, int periodQuarter, LocalDate dueDate,
-            StatementStatus status, int lineCount, long totalAmount, String fileSha256) {
+    public record StatementDetail(long brokerageStatementId, int periodYear, int periodQuarter, LocalDate dueDate,
+            StatementStatus status, int lineCount, long totalAmount, String fileSha256, boolean canSubmit) {
     }
 
     /** 목록 — {@code canSubmit} 이 화면의 버튼을 가른다(`D20`) */

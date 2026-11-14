@@ -47,6 +47,13 @@ public class BrokerageStatementController {
         return query.findAll(user.id(), paging);
     }
 
+    /** 분기 하나와 지금 파일의 해시. 제출의 {@code Location} 이 가리키는 자리다 */
+    @GetMapping("/{brokerageStatementId}")
+    public BrokerageStatementQuery.StatementDetail one(@AuthenticationPrincipal ShopUser user,
+            @PathVariable long brokerageStatementId) {
+        return query.find(user.id(), brokerageStatementId);
+    }
+
     /** 서식 순서 CSV(`D5` 「파일 응답」). 받을 때마다 감사 기록이 남는다 */
     @GetMapping(value = "/{brokerageStatementId}/file", produces = "text/csv;charset=UTF-8")
     public ResponseEntity<byte[]> file(@AuthenticationPrincipal ShopUser user,

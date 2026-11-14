@@ -24,16 +24,14 @@ function messageOf(error: unknown): string {
 /**
  * 그 분기의 제출 기록을 `POST /api/admin/brokerage-statements/{id}/submission` 으로 남긴다(`Q457`).
  *
- * <p><b>화면이 본 파일의 해시를 같이 보낸다</b> — 서버가 지금 파일과 견주어 다르면 409 다. 실패해도 새로 고친다 — 해시가 바뀌었으면
- * 새 줄이 새 해시를 든다.
+ * <p><b>누를 때 상세(`GET /api/admin/brokerage-statements/{id}`)에서 지금 파일의 해시를 읽어 같이 보낸다</b>(`Q460`) — 목록은
+ * 해시를 안 싣는다. 서버가 지금 파일과 견주어 다르면 409 다. 실패해도 새로 고친다.
  */
 export function SubmitStatementButton({
   statementId,
-  fileSha256,
   label,
 }: {
   statementId: number;
-  fileSha256: string;
   label: string;
 }) {
   const router = useRouter();
@@ -44,6 +42,7 @@ export function SubmitStatementButton({
     setError(null);
     startTransition(async () => {
       try {
+        const { fileSha256 } = await api<{ fileSha256: string }>(`/api/admin/brokerage-statements/${statementId}`);
         await api(`/api/admin/brokerage-statements/${statementId}/submission`, {
           method: "POST",
           body: { fileSha256 },
