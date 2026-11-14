@@ -46,7 +46,19 @@ enum NotificationEventType {
     CONSENT_RESULT,
 
     /** 동의 재확인 요청(`V46`) */
-    CONSENT_RECONFIRM;
+    CONSENT_RECONFIRM,
+
+    /** 저작권 게시 중단을 권리주장자에게(`V141`). 받는 사람은 계정이 아니라 신고의 주소다 */
+    COPYRIGHT_TAKEN_DOWN_REPORTER,
+
+    /** 저작권 게시 중단을 복제·전송자에게(`V141`) — 재개를 요구할 수 있다는 안내가 실린다 */
+    COPYRIGHT_TAKEN_DOWN_UPLOADER,
+
+    /** 재개 요구와 예정일을 권리주장자에게(`V141`, `Q465`) */
+    COPYRIGHT_REINSTATEMENT_REPORTER,
+
+    /** 재개했다고 복제·전송자에게(`V141`, `Q465`) */
+    COPYRIGHT_REINSTATED_UPLOADER;
 
     /** 저장값. DB 는 소문자다 */
     String code() {

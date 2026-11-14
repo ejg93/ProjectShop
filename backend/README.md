@@ -71,6 +71,11 @@ curl localhost:8080/actuator/health
 | `SECOND_FACTOR_SECRET_KEY` | 없음. 2차 인증 비밀을 싸는 키(base64 32바이트, `Q451`). **배포에 꼭 넣는다** — 없으면 앱은 뜨고 셀러·관리자·감사자 로그인만 503(`second-factor-key-missing`)이다. 웹훅 키와 다른 값을 쓴다. 돌리는 절차는 `security-baseline.md` 「2차 인증」(`Q461`) |
 | `SECOND_FACTOR_SECRET_KEY_PREVIOUS` | 없음. 키를 돌리는 동안의 옛 키(`Q461`). 옛 판 행을 풀고 로그인 때 현재 키로 다시 싼다 — 다 싸이면 지운다 |
 | `SECOND_FACTOR_SECRET_KEY_PREVIOUS_VERSION` | `0`(없음). 옛 키의 판 |
+| `COPYRIGHT_RECIPIENT_NAME` | 없음. 저작권 중단·재개 요구를 받는 수령인의 성명(`Q463`, 저작권법 제103조④·시행령 제44조). **배포에 넣는다** — 비면 신고 화면이 「수령인이 아직 지정되지 않았습니다」를 낸다 |
+| `COPYRIGHT_RECIPIENT_DEPARTMENT` | 없음. 수령인의 소속 부서 |
+| `COPYRIGHT_RECIPIENT_EMAIL` | 없음. 수령인의 전자우편 — 성명과 함께 있어야 지정된 것으로 본다 |
+| `COPYRIGHT_RECIPIENT_PHONE` | 없음. 수령인의 전화 |
+| `COPYRIGHT_RECIPIENT_ADDRESS` | 없음. 수령인의 우편 주소 |
 
 ## 호스팅에 올릴 때
 

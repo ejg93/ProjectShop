@@ -37,10 +37,21 @@ public class CopyrightReportController {
 
     private final CopyrightReportService service;
     private final CopyrightReportQuery query;
+    private final CopyrightRecipient recipient;
 
-    CopyrightReportController(CopyrightReportService service, CopyrightReportQuery query) {
+    CopyrightReportController(CopyrightReportService service, CopyrightReportQuery query, CopyrightRecipient recipient) {
         this.service = service;
         this.query = query;
+        this.recipient = recipient;
+    }
+
+    /**
+     * 중단·재개 요구를 받을 수령인(`Q463`, 저작권법 제103조④ · 시행령 제44조). 신고하는 사람이 로그인 전에 읽는다.
+     * 넣지 않은 칸은 {@code null} 이다 — 비어 있음을 화면이 그대로 밝힌다.
+     */
+    @GetMapping("/recipient")
+    public CopyrightRecipient.RecipientResponse recipient() {
+        return recipient.response();
     }
 
     /**

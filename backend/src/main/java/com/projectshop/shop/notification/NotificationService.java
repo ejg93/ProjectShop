@@ -1,6 +1,7 @@
 package com.projectshop.shop.notification;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -57,27 +58,32 @@ public class NotificationService {
      *
      * <p>비밀번호 재설정처럼 걸리는 자원이 없는 통지는 {@link #none()} 이다.
      */
-    public record Target(Long orderId, Long sellerOrderId, Long refundId, Long userConsentId) {
+    public record Target(Long orderId, Long sellerOrderId, Long refundId, Long userConsentId, Long copyrightReportId) {
 
         public static Target order(long orderId) {
-            return new Target(orderId, null, null, null);
+            return new Target(orderId, null, null, null, null);
         }
 
         public static Target sellerOrder(long sellerOrderId) {
-            return new Target(null, sellerOrderId, null, null);
+            return new Target(null, sellerOrderId, null, null, null);
         }
 
         public static Target refund(long refundId) {
-            return new Target(null, null, refundId, null);
+            return new Target(null, null, refundId, null, null);
         }
 
         /** 어느 의사표시에 대한 처리 결과인가(`55a`, 시행령 제62조의2) */
         public static Target consent(long userConsentId) {
-            return new Target(null, null, null, userConsentId);
+            return new Target(null, null, null, userConsentId, null);
+        }
+
+        /** 어느 저작권 신고에 대한 통보인가(`Q463`, 시행령 제41조) */
+        public static Target copyrightReport(long copyrightReportId) {
+            return new Target(null, null, null, null, copyrightReportId);
         }
 
         public static Target none() {
-            return new Target(null, null, null, null);
+            return new Target(null, null, null, null, null);
         }
     }
 
@@ -92,7 +98,7 @@ public class NotificationService {
      * @param expiresAt 링크가 죽는 시각
      */
     public void sendPasswordReset(long userId, String resetUrl, OffsetDateTime expiresAt) {
-        send(NotificationEventType.PASSWORD_RESET, new Target(null, null, null, null), userId,
+        send(NotificationEventType.PASSWORD_RESET, Target.none(), userId,
                 Map.of("reset_url", resetUrl, "expires_at", expiresAt.toString()));
     }
 
@@ -105,8 +111,35 @@ public class NotificationService {
     public void sendEmailChange(long userId, String newEmail, String confirmUrl,
             OffsetDateTime expiresAt) {
         send(NotificationEventType.EMAIL_CHANGE, NotificationEventType.EMAIL_CHANGE.code(),
-                NotificationKind.TRANSACTIONAL, new Target(null, null, null, null), userId,
+                NotificationKind.TRANSACTIONAL, Target.none(), userId,
                 Map.of("confirm_url", confirmUrl, "expires_at", expiresAt.toString()), newEmail);
+    }
+
+    /**
+     * 저작권 게시 중단을 권리주장자와 복제·전송자에게 알린다(`Q463`, 저작권법 제103조② · 시행령 제41조 `D2` R42).
+     *
+     * <p><b>권리주장자는 계정이 아니다</b> — 주소는 {@code copyright_report.reporter_email} 에서 이 자리가 읽는다. 부르는 쪽이
+     * 주소를 넘기는 입구를 안 연다(임의 주소 입구는 이메일 변경 하나뿐이다).
+     *
+     * @param uploaderUserIds 복제·전송자 — 상품 사진이면 그 셀러의 구성원, 후기 사진이면 작성자
+     * @param values          {@code claimed_work}·{@code decided_at}·{@code recipient}
+     */
+    public void sendCopyrightTakenDown(long copyrightReportId, List<Long> uploaderUserIds, Map<String, String> values) {
+        sendToReporter(NotificationEventType.COPYRIGHT_TAKEN_DOWN_REPORTER, copyrightReportId, values);
+        for (long userId : uploaderUserIds) {
+            send(NotificationEventType.COPYRIGHT_TAKEN_DOWN_UPLOADER, Target.copyrightReport(copyrightReportId), userId,
+                    values);
+        }
+    }
+
+    /** 권리주장자에게. 신고가 없으면(지울 수 없는 표라 코드 잘못이다) 안 보낸다 */
+    private void sendToReporter(NotificationEventType eventType, long copyrightReportId, Map<String, String> values) {
+        jdbc.sql("select reporter_email from copyright_report where copyright_report_id = :id")
+                .param("id", copyrightReportId)
+                .query(String.class)
+                .optional()
+                .ifPresent(address -> send(eventType, eventType.code(), NotificationKind.TRANSACTIONAL,
+                        Target.copyrightReport(copyrightReportId), null, values, address));
     }
 
     /**
@@ -148,7 +181,7 @@ public class NotificationService {
      * 동의 관문이 통째로 뜻을 잃는다 — 관문은 <b>계정</b>에 달려 있기 때문이다.
      */
     Optional<Long> send(NotificationEventType eventType, String templateCode, NotificationKind expectedKind,
-            Target target, long userId, Map<String, String> values, String overrideAddress) {
+            Target target, Long userId, Map<String, String> values, String overrideAddress) {
         NotificationTemplates.Version version = templates.current(templateCode, OffsetDateTime.now())
                 .orElseThrow(() -> new IllegalStateException(
                         "시행 중인 알림 템플릿이 없다: " + templateCode));
@@ -191,7 +224,7 @@ public class NotificationService {
      *
      * @return 남긴 id. 같은 사건이 이미 있으면 빈 값
      */
-    private Optional<Long> record(NotificationEventType eventType, Target target, long userId,
+    private Optional<Long> record(NotificationEventType eventType, Target target, Long userId,
             NotificationTemplates.Version version, NotificationTemplates.Rendered rendered) {
         try {
             return Optional.ofNullable(tx.execute(status -> {
@@ -205,15 +238,15 @@ public class NotificationService {
         }
     }
 
-    private long insertNotification(NotificationEventType eventType, Target target, long userId,
+    private long insertNotification(NotificationEventType eventType, Target target, Long userId,
             NotificationTemplates.Version version) {
         return jdbc.sql("""
                         insert into notification (user_id, event_type, kind,
                                                   notification_template_id, channel, status,
                                                   order_id, seller_order_id, refund_id,
-                                                  user_consent_id)
+                                                  user_consent_id, copyright_report_id)
                         values (:userId, :eventType, :kind, :templateId, :channel, :status,
-                                :orderId, :sellerOrderId, :refundId, :userConsentId)
+                                :orderId, :sellerOrderId, :refundId, :userConsentId, :copyrightReportId)
                         returning notification_id
                         """)
                 .param("userId", userId)
@@ -226,6 +259,7 @@ public class NotificationService {
                 .param("sellerOrderId", target.sellerOrderId())
                 .param("refundId", target.refundId())
                 .param("userConsentId", target.userConsentId())
+                .param("copyrightReportId", target.copyrightReportId())
                 .query(Long.class)
                 .single();
     }

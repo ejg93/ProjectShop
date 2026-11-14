@@ -1,9 +1,14 @@
 package com.projectshop.shop.product;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
+
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
@@ -11,6 +16,8 @@ import com.projectshop.shop.auth.PermissionEvaluator;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.notification.NotificationService;
+import com.projectshop.shop.support.BusinessCalendar;
 import com.projectshop.shop.support.ObjectStorage;
 import com.projectshop.shop.support.ObjectStorage.Visibility;
 import com.projectshop.shop.auth.PermissionResource;
@@ -45,23 +52,34 @@ public class CopyrightReportService {
      * <p>{@code product_image_id} 는 <b>지울 대상을 찾을 때만</b> 쓰고 그때는 {@code null} 일 수 있다.
      */
     private static final String FIND_PENDING = """
-            select r.product_image_id, r.review_image_id, p.seller_id
+            select r.product_image_id, r.review_image_id, p.seller_id, r.target, r.claimed_work, v.user_id as review_author_id
               from copyright_report r
               join product p on p.product_id = r.product_id
+              left join review_image ri on ri.review_image_id = r.review_image_id
+              left join review v on v.review_id = ri.review_id
              where r.copyright_report_id = :id and r.decided_at is null
             """;
+
+    /** 통보 본문의 판정 시각 — 받는 사람이 읽는 시각이라 한국 시간이다 */
+    private static final DateTimeFormatter NOTICE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
     private final ObjectStorage storage;
     private final AuditLog auditLog;
+    private final NotificationService notifications;
+    private final CopyrightRecipient recipient;
+    private final TransactionTemplate transactions;
 
-    CopyrightReportService(JdbcClient jdbc, PermissionEvaluator evaluator,
-            ObjectStorage storage, AuditLog auditLog) {
+    CopyrightReportService(JdbcClient jdbc, PermissionEvaluator evaluator, ObjectStorage storage, AuditLog auditLog,
+            NotificationService notifications, CopyrightRecipient recipient, TransactionTemplate transactions) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.storage = storage;
         this.auditLog = auditLog;
+        this.notifications = notifications;
+        this.recipient = recipient;
+        this.transactions = transactions;
     }
 
     /**
@@ -134,9 +152,25 @@ public class CopyrightReportService {
      *
      * <p>판정을 <b>감사 로그에 남긴다.</b> 법이 요구한 절차를 실제로 돌렸다는 증거가
      * 그 줄이고, 없으면 「절차가 있다」를 문서로만 주장하게 된다.
+     *
+     * <p><b>통보는 커밋 뒤에 보낸다</b>(`Q463`) — 발송이 바깥 시스템이라 트랜잭션 안에서 부르면 메일 응답을 기다리는 동안
+     * 잠금이 남는다(`concurrency-rules.md` 「트랜잭션 경계」, `ArchitectureTest`). 비밀번호 재설정(`PasswordResetService`)과 같은 꼴이다.
      */
-    @Transactional
     public void decide(long actorUserId, long reportId, CopyrightDecision decision) {
+        Pending pending = transactions.execute(status -> record(actorUserId, reportId, decision));
+
+        // 중단하면 권리주장자와 복제·전송자에게 알린다(저작권법 제103조②, 시행령 제41조 「3일 이내」).
+        // 기각은 법이 통보를 요구하지 않는다.
+        if (decision == CopyrightDecision.TAKEN_DOWN) {
+            notifications.sendCopyrightTakenDown(reportId, uploaders(pending), Map.of(
+                    "claimed_work", pending.claimedWork(),
+                    "decided_at", OffsetDateTime.now(BusinessCalendar.ZONE).format(NOTICE_TIME),
+                    "recipient", recipient.configured() ? recipient.displayText() : "신고 화면에 공지된 수령인"));
+        }
+    }
+
+    /** 판정을 기록한다 — 판정 · 내리기 · 감사가 한 트랜잭션이다 */
+    private Pending record(long actorUserId, long reportId, CopyrightDecision decision) {
         Pending pending = jdbc.sql(FIND_PENDING)
                 .param("id", reportId)
                 .query(Pending.class)
@@ -173,10 +207,29 @@ public class CopyrightReportService {
         auditLog.record(AuditLog.Kind.OUTCOME, "copyright.decided", actorUserId,
                 new AuditLog.Target(AuditTargetType.COPYRIGHT_REPORT, reportId),
                 Map.of("decision", decision.code()));
+        return pending;
     }
 
-    /** @param productImageId·reviewImageId 신고한 쪽 하나만 차고, 사진이 이미 사라졌으면 둘 다 {@code null} 이다 */
-    private record Pending(Long productImageId, Long reviewImageId, long sellerId) {
+    /**
+     * 복제·전송자(저작권법 제103조②). 상품 사진은 그 셀러의 구성원 전원 — 누가 올렸는지를 표가 안 들고, 셀러 계정이
+     * 게시의 주체다. 후기 사진은 작성자다 — 사진이 이미 사라져 작성자를 못 찾으면 비어 있다.
+     */
+    private List<Long> uploaders(Pending pending) {
+        if (CopyrightTarget.REVIEW_IMAGE.code().equals(pending.target())) {
+            return pending.reviewAuthorId() == null ? List.of() : List.of(pending.reviewAuthorId());
+        }
+        return jdbc.sql("select user_id from seller_member where seller_id = :sellerId order by user_id")
+                .param("sellerId", pending.sellerId())
+                .query(Long.class)
+                .list();
+    }
+
+    /**
+     * @param productImageId·reviewImageId 신고한 쪽 하나만 차고, 사진이 이미 사라졌으면 둘 다 {@code null} 이다
+     * @param reviewAuthorId 후기 사진의 작성자 — 사진이 남아 있을 때만 찾는다
+     */
+    private record Pending(Long productImageId, Long reviewImageId, long sellerId, String target, String claimedWork,
+            Long reviewAuthorId) {
     }
 
     /**

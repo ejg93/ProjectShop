@@ -216,6 +216,15 @@ shop:
     # 키를 돌리는 동안 옛 키(`Q461`). 옛 판 행을 풀고 로그인 때 현재 키로 다시 싼다 — 다 싸이면 둘을 지운다(`security-baseline.md`).
     previous-secret-key: ${SECOND_FACTOR_SECRET_KEY_PREVIOUS:}
     previous-secret-key-version: ${SECOND_FACTOR_SECRET_KEY_PREVIOUS_VERSION:0}
+  # 저작권 중단·재개 요구를 받는 수령인(`Q463`, 저작권법 제103조④ · 시행령 제44조). **기본값이 없다** — 지어 넣으면 사실 아닌
+  # 고지다. 사람이 Railway 에 넣고, 비면 신고 화면이 「지정되지 않았다」고 쓴다.
+  copyright:
+    recipient:
+      name: ${COPYRIGHT_RECIPIENT_NAME:}
+      department: ${COPYRIGHT_RECIPIENT_DEPARTMENT:}
+      email: ${COPYRIGHT_RECIPIENT_EMAIL:}
+      phone: ${COPYRIGHT_RECIPIENT_PHONE:}
+      address: ${COPYRIGHT_RECIPIENT_ADDRESS:}
   events:
     # 아웃박스 표를 어디로 내보내나(`event-catalog.md` 「전송」). `none` 이면 안 내보낸다.
     #

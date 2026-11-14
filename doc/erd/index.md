@@ -8,7 +8,7 @@ flowchart LR
     account -->|1| permission
     ops -->|3| account
     ops -->|3| order
-    ops -->|1| product
+    ops -->|2| product
     ops -->|1| settlement
     order -->|13| account
     order -->|1| ops
