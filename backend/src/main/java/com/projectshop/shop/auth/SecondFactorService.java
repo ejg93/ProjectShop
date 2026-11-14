@@ -11,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.audit.AuditTargetType;
+import com.projectshop.shop.auth.PermissionEvaluator.Target;
+import com.projectshop.shop.error.ErrorCode;
+import com.projectshop.shop.error.ShopException;
 
 /**
  * 2차 인증(TOTP) 등록을 {@code user_second_factor} 에 두고 코드를 검증한다(`Q451`, 안전성 확보조치 기준 제6조② `D2` R45).
@@ -25,16 +28,20 @@ public class SecondFactorService {
     private static final String USER_ID = "userId";
     /** 인증 앱에 보이는 발급자 이름 */
     private static final String ISSUER = "ProjectShop";
+    /** 감사 이벤트 — 등록을 지웠다. {@code reason} 이 누가 왜 지웠나를 가른다 */
+    private static final String RESET_EVENT = "user.second_factor_reset";
 
     private final JdbcClient jdbc;
     private final SecondFactorSecrets secrets;
     private final AuditLog auditLog;
+    private final PermissionEvaluator evaluator;
     private final SecureRandom random = new SecureRandom();
 
-    SecondFactorService(JdbcClient jdbc, SecondFactorSecrets secrets, AuditLog auditLog) {
+    SecondFactorService(JdbcClient jdbc, SecondFactorSecrets secrets, AuditLog auditLog, PermissionEvaluator evaluator) {
         this.jdbc = jdbc;
         this.secrets = secrets;
         this.auditLog = auditLog;
+        this.evaluator = evaluator;
     }
 
     /** 키가 있어 비밀을 싸고 풀 수 있나. 연습 계정 시더가 키 없는 기동에서 경고만 남기고 나가려고 본다 */
@@ -47,6 +54,46 @@ public class SecondFactorService {
                 .param(USER_ID, userId)
                 .query(Boolean.class)
                 .single();
+    }
+
+    /** 등록 상태. 행이 있어도 지금 키로 못 풀면 {@link State#UNREADABLE} 이다 */
+    public State state(long userId) {
+        return jdbc.sql("select secret_key_version from user_second_factor where user_id = :userId")
+                .param(USER_ID, userId)
+                .query(Integer.class)
+                .optional()
+                .map(version -> secrets.readable(version) ? State.ENROLLED : State.UNREADABLE)
+                .orElse(State.NOT_ENROLLED);
+    }
+
+    /**
+     * 다른 사람의 등록을 지운다 — 기기를 잃은 계정이 다음 로그인에서 등록부터 한다(`Q461`, 고시 제6조② `D2` R45).
+     *
+     * <p><b>멱등이다.</b> 행이 없으면 아무것도 안 하고 감사도 안 남긴다 — 감사는 실제로 지웠을 때만이다.
+     */
+    @Transactional
+    public void reset(long actorUserId, long userId, String reason) {
+        if (!evaluator.decide(actorUserId, PermissionResource.USER, "reset_second_factor", new Target(null, null, null))
+                .allowed()) {
+            throw new ShopException(ErrorCode.ACCESS_DENIED);
+        }
+        delete(actorUserId, userId, reason);
+    }
+
+    /** 지금 키로 못 푸는 등록을 지운다. 판정이 없다 — 로그인이 본인 계정에 부른다 */
+    @Transactional
+    void resetUnreadable(long userId) {
+        delete(userId, userId, "key_unreadable");
+    }
+
+    private void delete(long actorUserId, long userId, String reason) {
+        int deleted = jdbc.sql("delete from user_second_factor where user_id = :userId")
+                .param(USER_ID, userId)
+                .update();
+        if (deleted == 1) {
+            auditLog.record(AuditLog.Kind.OUTCOME, RESET_EVENT, actorUserId,
+                    AuditLog.Target.of(AuditTargetType.USER, userId), Map.of("reason", reason));
+        }
     }
 
     /**
@@ -70,7 +117,11 @@ public class SecondFactorService {
                 AuditLog.Target.of(AuditTargetType.USER, userId), Map.of());
     }
 
-    /** 코드가 맞고 처음 쓰는 스텝이면 true. 등록이 없거나 틀리거나 이미 쓴 스텝이면 false */
+    /**
+     * 코드가 맞고 처음 쓰는 스텝이면 true. 등록이 없거나 틀리거나 이미 쓴 스텝이면 false.
+     *
+     * <p>이전 키 판으로 싼 행이면 맞은 그 갱신에서 현재 키로 다시 싼다(`Q461`) — 로그인할수록 옛 판 행이 준다.
+     */
     @Transactional
     public boolean verify(long userId, String code, Instant now) {
         Stored stored = jdbc.sql("""
@@ -90,13 +141,27 @@ public class SecondFactorService {
         if (step.isEmpty()) {
             return false;
         }
+        if (secrets.isCurrent(stored.keyVersion())) {
+            return jdbc.sql("""
+                            update user_second_factor
+                               set last_used_step = :step
+                             where user_id = :userId
+                               and last_used_step < :step
+                            """)
+                    .param("step", step.getAsLong())
+                    .param(USER_ID, userId)
+                    .update() == 1;
+        }
+        SecondFactorSecrets.Sealed resealed = secrets.seal(userId, secret);
         return jdbc.sql("""
                         update user_second_factor
-                           set last_used_step = :step
+                           set last_used_step = :step, secret_ciphertext = :ciphertext, secret_key_version = :keyVersion
                          where user_id = :userId
                            and last_used_step < :step
                         """)
                 .param("step", step.getAsLong())
+                .param("ciphertext", resealed.ciphertext())
+                .param("keyVersion", resealed.keyVersion())
                 .param(USER_ID, userId)
                 .update() == 1;
     }
@@ -135,6 +200,16 @@ public class SecondFactorService {
         jdbc.sql("delete from user_second_factor where user_id = :userId")
                 .param(USER_ID, userId)
                 .update();
+    }
+
+    /** 등록 상태 — 응답에 안 실리고 저장도 안 한다. 로그인이 단계를 고른다 */
+    public enum State {
+        /** 행이 없다 — 등록부터 한다 */
+        NOT_ENROLLED,
+        /** 행이 있고 지금 키로 푼다 — 코드를 받는다 */
+        ENROLLED,
+        /** 행이 있는데 어느 키 판으로도 못 푼다 — 로그인이 지우고 등록부터 하게 한다 */
+        UNREADABLE
     }
 
     /** 등록 중인 비밀 — 세션에 둘 암호문과, 화면에 낼 키 문자열·주소 */

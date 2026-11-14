@@ -213,6 +213,9 @@ shop:
   second-factor:
     secret-key: ${SECOND_FACTOR_SECRET_KEY:}
     secret-key-version: ${SECOND_FACTOR_SECRET_KEY_VERSION:1}
+    # 키를 돌리는 동안 옛 키(`Q461`). 옛 판 행을 풀고 로그인 때 현재 키로 다시 싼다 — 다 싸이면 둘을 지운다(`security-baseline.md`).
+    previous-secret-key: ${SECOND_FACTOR_SECRET_KEY_PREVIOUS:}
+    previous-secret-key-version: ${SECOND_FACTOR_SECRET_KEY_PREVIOUS_VERSION:0}
   events:
     # 아웃박스 표를 어디로 내보내나(`event-catalog.md` 「전송」). `none` 이면 안 내보낸다.
     #

@@ -360,7 +360,7 @@ v3 는 점수제라 사용자에게 퍼즐을 보여주지 않는다. 화면 흐
 그 세션은 표시 없이 대상이 된다 — `SecondFactorFilter` 가 요청마다 「principal 이 표시 없고 대상인가」를 보고 세션을 끊는다(401 `second-factor-required`).
 역할을 주는 입구는 `evict` 로 대상 여부 캐시를 그 자리에서 비우므로 TTL 을 안 기다린다. 대행 토큰은 건너뛴다 — 대행은 2차 인증을 지난 관리자 세션에서만 열리고 읽기 전용이다.
 
-**기기를 잃으면 운영자가 `user_second_factor` 의 그 행을 지운다** — 다음 로그인이 등록부터 다시 한다. 관리자 초기화는 `Q461`·`Q462`(번들 31) — 복구 코드·QR 은 안 들인다(2026-11-14 사용자).
+**기기를 잃으면 다른 관리자가 `/admin/roles` 에서 초기화한다**(`DELETE /api/users/{id}/second-factor`, 권한 `user:reset_second_factor`, 감사 `user.second_factor_reset`) — 다음 로그인이 등록부터 다시 한다(`Q461`·`Q462`). 관리자 전원이 잃으면 운영자 SQL `delete from user_second_factor where user_id = …`. 복구 코드·QR 은 안 들인다(2026-11-14 사용자).
 
 ## 입력과 출력
 
@@ -544,7 +544,7 @@ Spree v3 는 공개 키+주소 300·비밀 키 600 / 분, 로그인 5·가입 3�
 **2차 인증 키**(`SECOND_FACTOR_SECRET_KEY`, base64 32바이트, `Q451`)도 **기본값이 없다.** 없으면 앱은 뜨고 셀러·관리자·감사자 로그인만 503 이다
 (`second-factor-key-missing`) — 같은 이유로 기본 키를 두지 않는다. 고시 제7조①(`D2` R45)이 인증정보를 암호화해 저장하라고 해서
 `user_second_factor` 는 이 키의 AES-GCM 암호문만 든다(묶음 값 `user_id`). **웹훅 키와 값을 가른다** — 하나가 새도 다른 쪽이 안 풀린다.
-Railway backend 변수에 사람이 넣는다. 돌리려면 `SECOND_FACTOR_SECRET_KEY_VERSION` 을 올린다 — **옛 판 행은 못 풀고 스스로 다시 등록하는 길이 없다**(등록돼 있으면 코드 단계로 간다). 판을 올린 뒤 운영자가 그 행들을 지워야 다음 로그인이 등록부터 한다 — 판을 돌리는 절차는 `Q461` 이 세운다 — 옛 키를 `SECOND_FACTOR_SECRET_KEY_PREVIOUS` 로 같이 받아 로그인 때 다시 싼다(마무리 84차 독립 리뷰 → 2026-11-14 설계).
+Railway backend 변수에 사람이 넣는다. **판을 돌리는 절차는 넷이다**(`Q461`): ① `SECOND_FACTOR_SECRET_KEY_PREVIOUS`=옛 키 · `_PREVIOUS_VERSION`=옛 판 · `SECOND_FACTOR_SECRET_KEY`=새 키 · `_VERSION`=옛 판+1 로 재배포한다 ② 로그인이 맞을 때마다 그 행을 현재 키로 다시 싼다 ③ `select count(*) from user_second_factor where secret_key_version < 현재` 가 0 이면 `_PREVIOUS` 둘을 지운다 — 운영 질의는 사람 터미널의 `railway ssh` ④ 그 전에 둘을 지우면 옛 판 행은 다음 로그인에서 지워지고 등록부터 한다(감사 `user.second_factor_reset` reason `key_unreadable`). 옛 판 행을 일괄 삭제하지 않는다 — 돌리는 날 전원이 비밀번호만으로 다시 등록해 2차 인증이 그날 빠진다(마무리 84차 독립 리뷰 → 2026-11-14 설계).
 
 ## 지금 안 하는 것
 

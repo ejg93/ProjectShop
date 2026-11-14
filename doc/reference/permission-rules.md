@@ -168,6 +168,7 @@ insert into user_role (user_id, role_id)   -- seller_owner 를 seller_id 없이
 | `webhook:delete` | | A/seller(대표만) | A/all | D/all |
 | `user:read` | A/own | A/own | A/all | A/all |
 | `user:update` | A/own | A/own | A/all | D/all |
+| `user:reset_second_factor` | | | A/all | D/all |
 | `role:read` | | | A/all | A/all |
 | `role:assign` | | | A/all | D/all |
 | `role:manage` | | | A/all | D/all |

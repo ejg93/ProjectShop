@@ -31,9 +31,11 @@ import jakarta.validation.constraints.Size;
 class UserRoleController {
 
     private final UserRoleService roles;
+    private final SecondFactorService secondFactors;
 
-    UserRoleController(UserRoleService roles) {
+    UserRoleController(UserRoleService roles, SecondFactorService secondFactors) {
         this.roles = roles;
+        this.secondFactors = secondFactors;
     }
 
     /**
@@ -65,6 +67,16 @@ class UserRoleController {
     ResponseEntity<Void> revoke(@AuthenticationPrincipal ShopUser actor,
             @PathVariable long userId, @PathVariable String roleCode) {
         roles.revoke(actor.id(), userId, roleCode);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 그 사람의 2차 인증 등록을 지운다 — 기기를 잃은 계정이 다음 로그인에서 등록부터 한다(`Q461`).
+     * <b>멱등이라 행이 없어도 204 다</b>(`D5` DELETE).
+     */
+    @DeleteMapping("/{userId}/second-factor")
+    ResponseEntity<Void> resetSecondFactor(@AuthenticationPrincipal ShopUser actor, @PathVariable long userId) {
+        secondFactors.reset(actor.id(), userId, "admin");
         return ResponseEntity.noContent().build();
     }
 }

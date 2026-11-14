@@ -68,7 +68,9 @@ curl localhost:8080/actuator/health
 | `RATE_LIMIT_KEY_PREFIX` | `rate:`. 제한 열쇠 앞에 붙는다. **관리형 Redis 를 남과 나눠 쓸 때만 고친다** — 세션의 `shop:session` 과 안 섞이게 갈라 둔 값이다 |
 | `APP_PASSWORD_RESET_URL_TEMPLATE` | `http://localhost:3000/password-reset?token={token}`. 재설정 메일이 여는 화면(`Q180`). **지금은 발송기가 목업이라(`MockNotificationSender`) 메일이 안 나가서 배포에 영향이 없다** — 진짜 발송기를 붙이는 날 배포의 프론트 주소로 준다. 안 주면 메일의 링크가 받는 사람의 `localhost` 를 연다 |
 | `APP_EMAIL_CHANGE_URL_TEMPLATE` | `http://localhost:3000/email-confirm?token={token}`. 이메일 변경 확인 메일이 여는 화면(`Q181`). 위 재설정과 같은 사정이다 — 발송기가 목업인 동안은 영향이 없고, 진짜 발송기를 붙이는 날 배포의 프론트 주소로 준다 |
-| `SECOND_FACTOR_SECRET_KEY` | 없음. 2차 인증 비밀을 싸는 키(base64 32바이트, `Q451`). **배포에 꼭 넣는다** — 없으면 앱은 뜨고 셀러·관리자·감사자 로그인만 503(`second-factor-key-missing`)이다. 웹훅 키와 다른 값을 쓴다. 돌리려면 `SECOND_FACTOR_SECRET_KEY_VERSION` 을 올린다 |
+| `SECOND_FACTOR_SECRET_KEY` | 없음. 2차 인증 비밀을 싸는 키(base64 32바이트, `Q451`). **배포에 꼭 넣는다** — 없으면 앱은 뜨고 셀러·관리자·감사자 로그인만 503(`second-factor-key-missing`)이다. 웹훅 키와 다른 값을 쓴다. 돌리는 절차는 `security-baseline.md` 「2차 인증」(`Q461`) |
+| `SECOND_FACTOR_SECRET_KEY_PREVIOUS` | 없음. 키를 돌리는 동안의 옛 키(`Q461`). 옛 판 행을 풀고 로그인 때 현재 키로 다시 싼다 — 다 싸이면 지운다 |
+| `SECOND_FACTOR_SECRET_KEY_PREVIOUS_VERSION` | `0`(없음). 옛 키의 판 |
 
 ## 호스팅에 올릴 때
 
