@@ -101,7 +101,8 @@ spring:
         # 단언을 OutboxPublisherTest 에 따로 뒀다(마무리 20차 독립 리뷰).
         # 열넷째는 접속기록 점검이다(`Q280b` — `AuditLogReviewBatch`).
         # 열다섯째는 중개 명세다(`Q455` — `BrokerageStatementBatch`).
-        size: 15
+        # 열여섯째는 숨긴 사진 파기다(`Q464` — `CopyrightHiddenImagePurgeBatch`).
+        size: 16
 
 management:
   tracing:

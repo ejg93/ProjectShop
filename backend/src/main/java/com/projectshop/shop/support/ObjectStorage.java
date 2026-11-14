@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -107,6 +108,20 @@ public class ObjectStorage {
                 .bucket(bucket(visibility))
                 .key(key)
                 .build());
+    }
+
+    /**
+     * 같은 키로 버킷을 옮긴다(`Q464`) — 복사 뒤 원본을 지운다. 저작권 게시 중단이 공개에서 비공개로 숨기고, 재개가 되돌린다.
+     * <b>복사가 먼저다</b> — 지우고 복사하다 실패하면 재개할 것이 사라진다.
+     */
+    public void move(Visibility from, Visibility to, String key) {
+        s3.copyObject(CopyObjectRequest.builder()
+                .sourceBucket(bucket(from))
+                .sourceKey(key)
+                .destinationBucket(bucket(to))
+                .destinationKey(key)
+                .build());
+        delete(from, key);
     }
 
     private String bucket(Visibility visibility) {

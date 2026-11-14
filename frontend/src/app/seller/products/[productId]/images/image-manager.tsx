@@ -8,9 +8,12 @@ import { ApiError, api, apiUpload } from "@/lib/api";
 /** 서버가 내주는 사진 한 장(`ProductImageService.Image`) */
 export type ProductImage = {
   productImageId: number;
-  thumbnailUrl: string;
+  /** 숨긴 사진이면 없다 — 객체가 비공개 버킷에 있다 */
+  thumbnailUrl: string | null;
   originalName: string;
   sortNo: number;
+  /** 저작권 신고로 게시가 중단됐다(`Q464`). 셀러에게는 숨기지 않는다 — 재개를 요구할 근거가 이 목록이다 */
+  hidden: boolean;
 };
 
 /**
@@ -145,13 +148,27 @@ export function ImageManager({
                   목록에 얹으려면 R2 도메인을 코드에 박아야 하고, 그러면 저장소를 옮기는 날 화면이 깨진다.
                   미리보기 열 장이라 최적화로 버는 것보다 그 결합이 비싸다.
                 */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={image.thumbnailUrl}
-                  alt={`${image.sortNo + 1}번째 사진 미리보기`}
-                  className="h-16 w-16 rounded border border-border object-cover"
-                />
-                <span className="text-sm">{image.originalName}</span>
+                {image.hidden || image.thumbnailUrl === null ? (
+                  <span className="flex h-16 w-16 items-center justify-center rounded border border-border text-center text-xs text-text-muted">
+                    게시 중단
+                  </span>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={image.thumbnailUrl}
+                    alt={`${image.sortNo + 1}번째 사진 미리보기`}
+                    className="h-16 w-16 rounded border border-border object-cover"
+                  />
+                )}
+                <span className="text-sm">
+                  {image.originalName}
+                  {image.hidden ? (
+                    <>
+                      <br />
+                      <span className="text-xs text-danger-text">저작권 신고로 게시가 중단된 사진입니다.</span>
+                    </>
+                  ) : null}
+                </span>
               </div>
 
               <button

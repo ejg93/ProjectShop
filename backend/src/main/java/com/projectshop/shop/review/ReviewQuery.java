@@ -401,7 +401,7 @@ public class ReviewQuery {
         jdbc.sql("""
                         select review_id, review_image_id, object_key, thumbnail_key
                           from review_image
-                         where review_id in (:ids)
+                         where review_id in (:ids) and hidden_at is null
                          order by review_id, sort_no, review_image_id
                         """)
                 .param("ids", reviewIds)

@@ -80,7 +80,9 @@ public class CopyrightReportQuery {
                                   from copyright_report cr
                                   join product p on p.product_id = cr.product_id
                                   left join product_image pi on pi.product_image_id = cr.product_image_id
+                                                            and pi.hidden_at is null
                                   left join review_image ri on ri.review_image_id = cr.review_image_id
+                                                           and ri.hidden_at is null
                                  where {where}
                                  order by {order}
                                  limit :size offset :offset

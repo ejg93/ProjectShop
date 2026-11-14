@@ -55,6 +55,9 @@ class CopyrightReportServiceTest extends StorageTestBase {
     private ReviewImageService reviewImages;
 
     @Autowired
+    private ProductQuery productQuery;
+
+    @Autowired
     private JdbcClient jdbc;
 
     private long admin;
@@ -83,18 +86,47 @@ class CopyrightReportServiceTest extends StorageTestBase {
      * <b>이것이 `R42` 의 강제 지점이다.</b> 「지웠다」가 행만 지운 것이면
      * 서명 URL 을 아는 사람에게 사진이 계속 열린다.
      */
+    /**
+     * 중단은 숨김이다(`Q464`) — 공개 버킷에서 사라지고 비공개 버킷에 같은 키로 남으며 행은 {@code hidden_at} 을 든다.
+     * 재개(저작권법 제103조③)할 것이 남아야 한다.
+     */
     @Test
-    @DisplayName("게시 중단하면 저장소에서도 사라진다")
-    void 게시_중단하면_저장소에서도_사라진다() {
+    @DisplayName("게시 중단하면 공개 버킷에서 사라지고 비공개 버킷에 남으며 hidden_at 이 찬다")
+    void 게시_중단하면_공개에서_사라지고_비공개에_남는다() {
         long reportId = report();
 
         service.decide(admin, reportId, CopyrightDecision.TAKEN_DOWN);
 
-        assertThatThrownBy(() -> s3.headObject(b -> b.bucket(PUBLIC_BUCKET).key(image.objectKey())))
-                .isInstanceOf(NoSuchKeyException.class);
-        assertThatThrownBy(() -> s3.headObject(b -> b.bucket(PUBLIC_BUCKET).key(image.thumbnailKey())))
-                .isInstanceOf(NoSuchKeyException.class);
-        assertThat(imageRows()).isZero();
+        for (String key : List.of(image.objectKey(), image.thumbnailKey())) {
+            assertThatThrownBy(() -> s3.headObject(b -> b.bucket(PUBLIC_BUCKET).key(key)))
+                    .isInstanceOf(NoSuchKeyException.class);
+            s3.headObject(b -> b.bucket(PRIVATE_BUCKET).key(key));
+        }
+        assertThat(imageRows()).isOne();
+        assertThat(jdbc.sql("select hidden_at is not null from product_image where product_image_id = :id")
+                .param("id", image.productImageId())
+                .query(Boolean.class)
+                .single())
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("숨긴 사진은 공개 상세에 안 나오고 셀러 자기 목록에는 숨김으로 나온다")
+    void 숨긴_사진은_공개에서_빠지고_셀러에게는_숨김으로_보인다() {
+        long productId = jdbc.sql("select product_id from product_image where product_image_id = :id")
+                .param("id", image.productImageId()).query(Long.class).single();
+        jdbc.sql("update product set status = 'on_sale' where product_id = :id").param("id", productId).update();
+        assertThat(productQuery.findPublicDetail(productId).imageIds()).contains(image.productImageId());
+        service.decide(admin, report(), CopyrightDecision.TAKEN_DOWN);
+
+        assertThat(productQuery.findPublicDetail(productId).imageIds())
+                .doesNotContain(image.productImageId());
+        assertThat(imageService.find(owner, productId))
+                .singleElement()
+                .satisfies(listed -> {
+                    assertThat(listed.hidden()).isTrue();
+                    assertThat(listed.thumbnailUrl()).isNull();
+                });
     }
 
     /**

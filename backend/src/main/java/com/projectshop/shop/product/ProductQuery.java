@@ -76,7 +76,7 @@ public class ProductQuery {
                                 and sk.status = 'on_sale'), 0) as min_price_incl_vat,
                    s.default_shipping_fee, p.created_at,
                    (select i.thumbnail_key from product_image i
-                     where i.product_id = p.product_id
+                     where i.product_id = p.product_id and i.hidden_at is null
                      order by i.sort_no, i.product_image_id limit 1) as thumbnail_key
               from product p
               join seller s on s.seller_id = p.seller_id
@@ -416,7 +416,7 @@ public class ProductQuery {
     private List<Long> findImageIds(long productId) {
         return jdbc.sql("""
                         select product_image_id from product_image
-                         where product_id = :id
+                         where product_id = :id and hidden_at is null
                          order by sort_no, product_image_id
                         """)
                 .param("id", productId)
@@ -427,7 +427,7 @@ public class ProductQuery {
     private List<String> findImageUrls(long productId) {
         return jdbc.sql("""
                         select object_key from product_image
-                         where product_id = :id
+                         where product_id = :id and hidden_at is null
                          order by sort_no, product_image_id
                         """)
                 .param("id", productId)

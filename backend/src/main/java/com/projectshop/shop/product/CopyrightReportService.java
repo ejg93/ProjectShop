@@ -1,5 +1,6 @@
 package com.projectshop.shop.product;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -40,6 +41,12 @@ import com.projectshop.shop.auth.PermissionResource;
  */
 @Service
 public class CopyrightReportService {
+
+    /**
+     * 숨긴 사진을 지우기까지 남기는 날. 통보 3일 + 재개 요구 30일 + 재개 예정일 14일(저작권법 시행령 제41~43조, `D2` R42) —
+     * 그 안에는 재개(제103조③)할 것이 남아야 한다.
+     */
+    static final int HIDDEN_RETENTION_DAYS = 47;
 
     /**
      * <b>{@code product_image} 를 안 읽는다.</b> 사진이 이미 사라진 신고도 판정할 수 있어야
@@ -233,26 +240,95 @@ public class CopyrightReportService {
     }
 
     /**
-     * 원본과 썸네일을 둘 다 지운다. 하나만 지우면 다른 하나로 같은 그림이 계속 열린다.
+     * 원본과 썸네일을 둘 다 비공개 버킷으로 숨긴다(`Q464`). 하나만 옮기면 다른 하나로 같은 그림이 계속 열린다.
      *
-     * <p><b>저장소를 먼저 지운다.</b> 행을 먼저 지우면 객체 열쇠를 잃어서 지울 대상을
-     * 영영 못 찾고, 남는 것은 주인 없는 파일이다 — 그것이 곧 위반 상태다.
+     * <p><b>지우지 않는다</b> — 복제·전송자가 재개를 요구하면(저작권법 제103조③) 되돌릴 것이 있어야 한다. 47일 뒤 재개 예정이
+     * 없으면 {@link CopyrightHiddenImagePurgeBatch} 가 지운다.
+     *
+     * <p><b>행을 먼저 숨긴다.</b> 옮기다 실패하면 트랜잭션이 행을 되돌리고 객체는 공개에 남아 다시 판정할 수 있다. 이미 숨긴
+     * 사진(같은 사진의 둘째 신고)은 0행이라 안 옮긴다.
      */
     private void takeDown(long imageId) {
-        Keys keys = jdbc.sql("""
-                        select object_key, thumbnail_key from product_image
-                         where product_image_id = :id
+        jdbc.sql("""
+                        update product_image set hidden_at = now()
+                         where product_image_id = :id and hidden_at is null
+                        returning object_key, thumbnail_key
                         """)
                 .param("id", imageId)
                 .query(Keys.class)
-                .single();
+                .optional()
+                .ifPresent(keys -> hide(keys));
+    }
 
-        storage.delete(Visibility.PUBLIC, keys.objectKey());
-        storage.delete(Visibility.PUBLIC, keys.thumbnailKey());
-
-        jdbc.sql("delete from product_image where product_image_id = :id")
+    /** 숨긴 상품 사진을 공개로 되돌린다(`Q465` 재개). 이미 공개거나 파기됐으면 거짓이다 */
+    boolean restore(long imageId) {
+        return jdbc.sql("""
+                        update product_image set hidden_at = null
+                         where product_image_id = :id and hidden_at is not null
+                        returning object_key, thumbnail_key
+                        """)
                 .param("id", imageId)
-                .update();
+                .query(Keys.class)
+                .optional()
+                .map(keys -> {
+                    show(keys);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    /**
+     * 숨긴 지 {@link #HIDDEN_RETENTION_DAYS} 일이 지난 사진을 비공개 버킷과 표에서 지운다({@link CopyrightHiddenImagePurgeBatch}).
+     * <b>저장소를 먼저 지운다</b> — 행을 먼저 지우면 객체 열쇠를 잃는다. 신고 기록은 {@code set null} 로 남는다.
+     *
+     * @return 지운 사진 수
+     */
+    @Transactional
+    int purgeHidden(LocalDate baselineDate) {
+        OffsetDateTime cutoff = baselineDate.minusDays(HIDDEN_RETENTION_DAYS - 1L)
+                .atStartOfDay(BusinessCalendar.ZONE).toOffsetDateTime();
+        record Hidden(String kind, long imageId, String objectKey, String thumbnailKey) {
+        }
+        // 재개 예정이 있는 것을 거르는 조건은 재개 표(`Q465`)가 서면 켠다.
+        List<Hidden> hidden = jdbc.sql("""
+                        select 'product' as kind, product_image_id as image_id, object_key, thumbnail_key
+                          from product_image where hidden_at < :cutoff
+                        union all
+                        select 'review', review_image_id, object_key, thumbnail_key
+                          from review_image where hidden_at < :cutoff
+                        """)
+                .param("cutoff", cutoff)
+                .query(Hidden.class)
+                .list();
+        for (Hidden photo : hidden) {
+            storage.delete(Visibility.PRIVATE, photo.objectKey());
+            storage.delete(Visibility.PRIVATE, photo.thumbnailKey());
+            String table = "product".equals(photo.kind())
+                    ? "delete from product_image where product_image_id = :id"
+                    : "delete from review_image where review_image_id = :id";
+            jdbc.sql(table).param("id", photo.imageId()).update();
+        }
+        return hidden.size();
+    }
+
+    /** 숨김 중인 사진 수 — 지표가 쌓임을 보인다 */
+    long countHidden() {
+        return jdbc.sql("""
+                        select (select count(*) from product_image where hidden_at is not null)
+                             + (select count(*) from review_image where hidden_at is not null)
+                        """)
+                .query(Long.class)
+                .single();
+    }
+
+    private void hide(Keys keys) {
+        storage.move(Visibility.PUBLIC, Visibility.PRIVATE, keys.objectKey());
+        storage.move(Visibility.PUBLIC, Visibility.PRIVATE, keys.thumbnailKey());
+    }
+
+    private void show(Keys keys) {
+        storage.move(Visibility.PRIVATE, Visibility.PUBLIC, keys.objectKey());
+        storage.move(Visibility.PRIVATE, Visibility.PUBLIC, keys.thumbnailKey());
     }
 
     /**
@@ -262,20 +338,32 @@ public class CopyrightReportService {
      * 후기를 지우는 길이 된다. 글을 내리는 것은 후기 신고(`Q171`)의 몫이다.
      */
     private void takeDownReviewImage(long imageId) {
-        Keys keys = jdbc.sql("""
-                        select object_key, thumbnail_key from review_image
-                         where review_image_id = :id
+        jdbc.sql("""
+                        update review_image set hidden_at = now()
+                         where review_image_id = :id and hidden_at is null
+                        returning object_key, thumbnail_key
                         """)
                 .param("id", imageId)
                 .query(Keys.class)
-                .single();
+                .optional()
+                .ifPresent(keys -> hide(keys));
+    }
 
-        storage.delete(Visibility.PUBLIC, keys.objectKey());
-        storage.delete(Visibility.PUBLIC, keys.thumbnailKey());
-
-        jdbc.sql("delete from review_image where review_image_id = :id")
+    /** 숨긴 후기 사진을 공개로 되돌린다(`Q465` 재개). 이미 공개거나 파기됐으면 거짓이다 */
+    boolean restoreReviewImage(long imageId) {
+        return jdbc.sql("""
+                        update review_image set hidden_at = null
+                         where review_image_id = :id and hidden_at is not null
+                        returning object_key, thumbnail_key
+                        """)
                 .param("id", imageId)
-                .update();
+                .query(Keys.class)
+                .optional()
+                .map(keys -> {
+                    show(keys);
+                    return true;
+                })
+                .orElse(false);
     }
 
     private record Keys(String objectKey, String thumbnailKey) {
