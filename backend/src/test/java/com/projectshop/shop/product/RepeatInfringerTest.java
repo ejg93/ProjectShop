@@ -157,6 +157,26 @@ class RepeatInfringerTest extends StorageTestBase {
                 .andExpect(status().isUnauthorized());
     }
 
+    /** 후기 사진의 복제·전송자는 작성자다 — 그 중단이 상품 셀러의 횟수에 들면 남의 침해로 셀러가 정지된다(마무리 85차 리뷰) */
+    @Test
+    @DisplayName("후기 사진 중단은 셀러 횟수에 안 든다")
+    void reviewTakedownsDoNotCountForSeller() {
+        long reviewer = new AuthFixture(jdbc).insertUser("cr-strike-reviewer@test.local", "후기");
+        for (int i = 0; i < 2; i++) {
+            jdbc.sql("""
+                            insert into copyright_report (product_id, target, reporter_name, reporter_email, claimed_work,
+                                                          uploader_user_id, decision, decided_at, decided_by_user_id)
+                            values (:product, 'review_image', '권리자', 'rights@test.local', '화보', :reviewer,
+                                    'taken_down', now(), :admin)
+                            """)
+                    .param("product", productId).param("reviewer", reviewer).param("admin", admin).update();
+        }
+
+        takeDownProductImage();
+
+        assertThat(sellerStatus()).isEqualTo("active");
+    }
+
     /** 후기 사진 신고는 작성자를 박제한다 — 사진이 지워져도 셈이 그 사람을 가리켜야 한다 */
     @Test
     @DisplayName("작성자 없는 후기 사진 신고는 DB 가 막는다")

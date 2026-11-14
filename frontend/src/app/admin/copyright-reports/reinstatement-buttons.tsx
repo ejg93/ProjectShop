@@ -24,6 +24,11 @@ function kstDatePlus(iso: string, days: number): string {
   return shifted.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 }
 
+/** `datetime-local` 값은 한국 시각이다 — 서버에 오프셋을 붙여 보낸다 */
+function kstInstant(local: string): string {
+  return `${local}:00+09:00`;
+}
+
 /** 서버 오류를 화면 문구로. `slug` 로 갈린다(`D5`) */
 function messageOf(error: unknown): string {
   if (error instanceof ApiError) {
@@ -56,6 +61,8 @@ export function ReinstatementButtons({ reportId, reinstatement }: { reportId: nu
   const [error, setError] = useState<string | null>(null);
   const [claim, setClaim] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
+  // 수령인이 받은 시각 — 기록하는 시각과 다를 수 있다. 30일 기한과 예정일 창이 이 값을 기준으로 잰다(시행령 제42·43조).
+  const [receivedAt, setReceivedAt] = useState("");
   const base = `/api/copyright-reports/${reportId}/reinstatement`;
 
   const call = (path: string, body: Record<string, string>) => {
@@ -84,10 +91,18 @@ export function ReinstatementButtons({ reportId, reinstatement }: { reportId: nu
           onChange={(event) => setClaim(event.target.value)}
           className="rounded-ui border border-border bg-surface px-2 py-1"
         />
+        <label htmlFor={`${ids}-received`} className="font-semibold">요구받은 시각</label>
+        <input
+          id={`${ids}-received`}
+          type="datetime-local"
+          value={receivedAt}
+          onChange={(event) => setReceivedAt(event.target.value)}
+          className="justify-self-start rounded-ui border border-border bg-surface px-2 py-1"
+        />
         <button
           type="button"
-          disabled={pending || claim.trim() === ""}
-          onClick={() => call(base, { requestedAt: new Date().toISOString(), requesterClaim: claim })}
+          disabled={pending || claim.trim() === "" || receivedAt === ""}
+          onClick={() => call(base, { requestedAt: kstInstant(receivedAt), requesterClaim: claim })}
           className={button}
         >
           재개 요구 접수
@@ -131,10 +146,18 @@ export function ReinstatementButtons({ reportId, reinstatement }: { reportId: nu
   if (reinstatement.decision === "SCHEDULED" && reinstatement.reinstatedAt === null && reinstatement.suitNotifiedAt === null) {
     return (
       <div className="grid gap-2 text-xs">
+        <label htmlFor={`${ids}-suit`} className="font-semibold">소 제기 통보를 받은 시각</label>
+        <input
+          id={`${ids}-suit`}
+          type="datetime-local"
+          value={receivedAt}
+          onChange={(event) => setReceivedAt(event.target.value)}
+          className="justify-self-start rounded-ui border border-border bg-surface px-2 py-1"
+        />
         <button
           type="button"
-          disabled={pending}
-          onClick={() => call(`${base}/suit-notice`, { notifiedAt: new Date().toISOString() })}
+          disabled={pending || receivedAt === ""}
+          onClick={() => call(`${base}/suit-notice`, { notifiedAt: kstInstant(receivedAt) })}
           className={button}
         >
           소 제기 통보 받음

@@ -247,7 +247,9 @@ public class CopyrightReportService {
             }
             return;
         }
-        if (strikes("p.seller_id = :owner", pending.sellerId()) >= REPEAT_INFRINGER_STRIKES) {
+        // 후기 사진은 작성자 몫이라 셀러 셈에 안 넣는다 — 넣으면 고객이 올린 사진으로 셀러가 정지된다(마무리 85차 리뷰).
+        if (strikes("p.seller_id = :owner and r.target = 'product_image'", pending.sellerId())
+                >= REPEAT_INFRINGER_STRIKES) {
             suspendSeller(actorUserId, pending.sellerId());
         }
     }

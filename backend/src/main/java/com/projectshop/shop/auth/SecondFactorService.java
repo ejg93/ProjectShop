@@ -158,8 +158,10 @@ public class SecondFactorService {
                            set last_used_step = :step, secret_ciphertext = :ciphertext, secret_key_version = :keyVersion
                          where user_id = :userId
                            and last_used_step < :step
+                           and secret_key_version = :readVersion
                         """)
                 .param("step", step.getAsLong())
+                .param("readVersion", stored.keyVersion())
                 .param("ciphertext", resealed.ciphertext())
                 .param("keyVersion", resealed.keyVersion())
                 .param(USER_ID, userId)

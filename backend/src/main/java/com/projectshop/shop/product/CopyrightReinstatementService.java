@@ -79,7 +79,10 @@ public class CopyrightReinstatementService {
         if (!"taken_down".equals(report.decision()) || !report.hidden()) {
             throw new ShopException(ErrorCode.COPYRIGHT_NOT_TAKEN_DOWN);
         }
-        if (requestedAt.isAfter(report.noticedAt().plusDays(REQUEST_DAYS))) {
+        // 「통보받은 날부터 30일」은 날로 센다(KST) — 시각으로 재면 30일째 오후 요구가 막힌다(마무리 85차 리뷰).
+        LocalDate noticed = report.noticedAt().atZoneSameInstant(BusinessCalendar.ZONE).toLocalDate();
+        LocalDate requested = requestedAt.atZoneSameInstant(BusinessCalendar.ZONE).toLocalDate();
+        if (requested.isAfter(noticed.plusDays(REQUEST_DAYS))) {
             throw new ShopException(ErrorCode.COPYRIGHT_REINSTATEMENT_LATE);
         }
         int inserted = jdbc.sql("""

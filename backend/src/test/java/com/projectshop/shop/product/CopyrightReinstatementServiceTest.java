@@ -114,6 +114,25 @@ class CopyrightReinstatementServiceTest extends StorageTestBase {
                 ErrorCode.COPYRIGHT_REINSTATEMENT_LATE);
     }
 
+    /** 「통보받은 날부터 30일」은 날로 센다(시행령 제42조) — 시각으로 재면 30일째 오후 요구가 막힌다(마무리 85차 리뷰) */
+    @Test
+    @DisplayName("통보받은 날부터 30일째 요구는 시각과 상관없이 받는다")
+    void thirtiethDayIsAccepted() {
+        long reportId = takenDown();
+        jdbc.sql("""
+                        update notification
+                           set sent_at = ((current_timestamp at time zone 'Asia/Seoul')::date - 30)::timestamp
+                                         at time zone 'Asia/Seoul' + interval '1 second'
+                         where copyright_report_id = :id
+                        """)
+                .param("id", reportId)
+                .update();
+
+        reinstatements.record(admin, reportId,
+                LocalDate.now(BusinessCalendar.ZONE).atTime(23, 59).atZone(BusinessCalendar.ZONE).toOffsetDateTime(),
+                "내 사진이다");
+    }
+
     @Test
     @DisplayName("재개 요구는 신고당 하나다")
     void secondRequestRefuses() {

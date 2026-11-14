@@ -25,6 +25,7 @@ describe("재개 절차 버튼", () => {
     const { container } = render(<ReinstatementButtons reportId={9} reinstatement={null} />);
 
     fireEvent.change(screen.getByLabelText("소명"), { target: { value: "제가 찍은 사진입니다" } });
+    fireEvent.change(screen.getByLabelText("요구받은 시각"), { target: { value: "2026-11-14T10:00" } });
     fireEvent.click(screen.getByRole("button", { name: "재개 요구 접수" }));
 
     await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
@@ -32,7 +33,7 @@ describe("재개 절차 버튼", () => {
     expect(path).toBe("/api/copyright-reports/9/reinstatement");
     expect(init.method).toBe("POST");
     expect(init.body.requesterClaim).toBe("제가 찍은 사진입니다");
-    expect(init.body.requestedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(init.body.requestedAt).toBe("2026-11-14T10:00:00+09:00");
     expect(screen.getByLabelText("소명")).toHaveAttribute("maxLength", "2000");
     await expectNoAxeViolations(container);
   });
@@ -73,9 +74,13 @@ describe("재개 절차 버튼", () => {
       />,
     );
 
+    fireEvent.change(screen.getByLabelText("소 제기 통보를 받은 시각"), { target: { value: "2026-11-18T09:30" } });
     fireEvent.click(screen.getByRole("button", { name: "소 제기 통보 받음" }));
 
-    await waitFor(() => expect(vi.mocked(api).mock.calls[0][0]).toBe("/api/copyright-reports/9/reinstatement/suit-notice"));
+    await waitFor(() => expect(api).toHaveBeenCalledWith("/api/copyright-reports/9/reinstatement/suit-notice", {
+      method: "POST",
+      body: { notifiedAt: "2026-11-18T09:30:00+09:00" },
+    }));
   });
 
   it("30일이 지났으면 그렇게 알린다", async () => {
@@ -85,6 +90,7 @@ describe("재개 절차 버튼", () => {
     render(<ReinstatementButtons reportId={9} reinstatement={null} />);
 
     fireEvent.change(screen.getByLabelText("소명"), { target: { value: "소명" } });
+    fireEvent.change(screen.getByLabelText("요구받은 시각"), { target: { value: "2026-11-14T10:00" } });
     fireEvent.click(screen.getByRole("button", { name: "재개 요구 접수" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("통보 뒤 30일이 지나 재개 요구를 받을 수 없습니다.");
