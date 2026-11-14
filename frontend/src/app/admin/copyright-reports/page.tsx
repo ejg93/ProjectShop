@@ -6,6 +6,7 @@ import { dateText } from "@/lib/format";
 import { pageQuery, type Page } from "@/lib/paging";
 
 import { CopyrightDecisionButtons } from "./decision-buttons";
+import { ReinstatementButtons, type Reinstatement } from "./reinstatement-buttons";
 
 export const metadata: Metadata = { title: "저작권 신고 · ProjectShop" };
 
@@ -26,11 +27,13 @@ type CopyrightReport = {
   reportedAt: string;
   decision: "TAKEN_DOWN" | "REJECTED" | null;
   decidedAt: string | null;
+  /** 재개 요구와 그 처리(`Q465`). 요구가 없으면 `null` */
+  reinstatement: Reinstatement | null;
 };
 
 
 const DECISION_TEXT: Record<"TAKEN_DOWN" | "REJECTED", string> = {
-  TAKEN_DOWN: "게시 중단(사진 삭제)",
+  TAKEN_DOWN: "게시 중단(사진 숨김)",
   REJECTED: "기각",
 };
 
@@ -38,7 +41,8 @@ const DECISION_TEXT: Record<"TAKEN_DOWN" | "REJECTED", string> = {
  * 저작권 신고 판정(`Q183`, 저작권법 제103조, `D2` `R42`).
  *
  * <p><b>`Q94` 가 판정 입구를 세우고 목록을 안 세워서</b> 신고 번호를 볼 자리가 없었다 — 절차가 있어도 돌릴 수 없었다.
- * <b>게시 중단은 사진을 저장소에서 지운다</b>(`Q94`) — 플래그만 세우면 서명 URL 을 아는 사람에게 계속 열린다.
+ * <b>게시 중단은 사진을 비공개 버킷으로 숨긴다</b>(`Q464`) — 공개 URL 은 사라지고, 재개 요구(저작권법 제103조③)가 오면
+ * 예정일에 되돌린다. 재개 절차의 단계를 줄마다 보인다(`Q467`).
  */
 export default async function CopyrightReportsPage({
   searchParams,
@@ -53,7 +57,7 @@ export default async function CopyrightReportsPage({
       <div className="grid gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">저작권 신고</h1>
         <p className="text-sm text-text-muted">
-          권리자가 알린 사진입니다. 게시를 중단하면 사진이 저장소에서 지워지고 되돌릴 수 없습니다.
+          권리자가 알린 사진입니다. 게시를 중단하면 사진이 비공개로 옮겨지고 47일 뒤 재개 예정이 없으면 지워집니다.
         </p>
       </div>
 
@@ -110,6 +114,12 @@ export default async function CopyrightReportsPage({
                   신고인 {item.reporterName} · {item.reporterEmail}
                 </p>
                 {item.decision === null ? <CopyrightDecisionButtons reportId={item.copyrightReportId} /> : null}
+                {item.reinstatement === null ? null : (
+                  <p className="font-semibold">{reinstatementText(item.reinstatement)}</p>
+                )}
+                {item.decision === "TAKEN_DOWN" ? (
+                  <ReinstatementButtons reportId={item.copyrightReportId} reinstatement={item.reinstatement} />
+                ) : null}
               </div>
             </li>
           ))}
@@ -117,4 +127,26 @@ export default async function CopyrightReportsPage({
       )}
     </div>
   );
+}
+
+/** 한국 날짜 `yyyy-mm-dd` */
+function kstDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+}
+
+/** 재개 절차가 어디까지 왔나(`Q465`) */
+function reinstatementText(reinstatement: Reinstatement): string {
+  if (reinstatement.suitNotifiedAt !== null) {
+    return `소 제기 통보 ${kstDate(reinstatement.suitNotifiedAt)} — 재개하지 않습니다`;
+  }
+  if (reinstatement.reinstatedAt !== null) {
+    return `재개됨 ${kstDate(reinstatement.reinstatedAt)}`;
+  }
+  if (reinstatement.decision === "SCHEDULED") {
+    return `재개 예정 ${reinstatement.scheduledFor}`;
+  }
+  if (reinstatement.decision === "REFUSED") {
+    return "재개 거절";
+  }
+  return `재개 요구 접수 ${kstDate(reinstatement.requestedAt)}`;
 }
