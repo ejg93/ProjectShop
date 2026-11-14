@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
  * {@code site-footer} 와 같은 원칙이다. 비면 화면이 「지정되지 않았다」고 쓰고 기동 로그가 경고한다.
  */
 @Component
-public class CopyrightRecipient {
+public final class CopyrightRecipient {
 
     private static final Logger log = LoggerFactory.getLogger(CopyrightRecipient.class);
 

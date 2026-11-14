@@ -90,7 +90,7 @@ public class SecondFactorService {
         int deleted = jdbc.sql("delete from user_second_factor where user_id = :userId")
                 .param(USER_ID, userId)
                 .update();
-        if (deleted == 1) {
+        if (deleted > 0) {
             auditLog.record(AuditLog.Kind.OUTCOME, RESET_EVENT, actorUserId,
                     AuditLog.Target.of(AuditTargetType.USER, userId), Map.of("reason", reason));
         }

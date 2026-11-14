@@ -43,14 +43,14 @@ public class CopyrightReportController {
 
     private final CopyrightReportService service;
     private final CopyrightReportQuery query;
-    private final CopyrightRecipient recipient;
+    private final CopyrightRecipient recipientNotice;
     private final CopyrightReinstatementService reinstatements;
 
     CopyrightReportController(CopyrightReportService service, CopyrightReportQuery query, CopyrightRecipient recipient,
             CopyrightReinstatementService reinstatements) {
         this.service = service;
         this.query = query;
-        this.recipient = recipient;
+        this.recipientNotice = recipient;
         this.reinstatements = reinstatements;
     }
 
@@ -104,7 +104,7 @@ public class CopyrightReportController {
      */
     @GetMapping("/recipient")
     public CopyrightRecipient.RecipientResponse recipient() {
-        return recipient.response();
+        return recipientNotice.response();
     }
 
     /**
