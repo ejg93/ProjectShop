@@ -1816,6 +1816,19 @@ Railway 「Specs & Limits」의 요청 헤더 표가 `X-Real-IP`(손님 주소)�
 Railway MCP `get-logs`(service backend)에서 「검색 로케일」 줄을 읽는다. 조각이 0 이면 같은 자리에 WARN 이 붙는다.
 **운영 값(2026-10-11, `2b3b614` 배포)**: `datctype=en_US.utf8 한글_조각=4` — 컴포즈·Testcontainers 와 같아서 운영에서도 인덱스가 한글 검색을 거른다.
 
+### `check` 의 비교가 null 이면 지나간다 — 빈 칸을 비교하는 제약은 `is not distinct from` 으로
+
+Postgres 의 `check` 는 **거짓일 때만** 막는다 — 결과가 null 이면 통과다. `copyright_reinstatement`(`V143`)에서
+`(decision = 'scheduled') = (scheduled_for is not null)` 은 판단이 빈 줄에서 null 이라 예정일만 찬 줄을 받았고,
+`reinstated_at is null or (decision = 'scheduled' and …)` 도 같았다(`Q465`, 제약마다 세운 위반 시험이 잡았다).
+**빈 칸을 비교하는 제약은 `decision is not distinct from 'scheduled'` 처럼 null 을 참·거짓으로 바꾼다.**
+
+### 공개 조건에 `not exists` 반조인을 붙이면 부분 인덱스 계획이 깨진다
+
+상품 공개 목록은 부분 인덱스(`V125`)가 정렬과 `limit` 을 받는다. 정지 셀러를 거르려고 `PUBLIC_WHERE` 에
+`not exists (select 1 from seller …)` 를 붙이자 계획이 `Hash Anti Join` 뒤 정렬로 바뀌어 `ProductQueryTest` 의 계획 단언이 빨갰다(`Q466`).
+**목록은 이미 잇는 셀러(`s`)의 칸으로 거르고(`PUBLIC_LIST_WHERE`), 셀러를 안 잇는 세는 질의만 반조인을 쓴다(`PUBLIC_COUNT_WHERE`).**
+
 ### `overrides` 로 올린 전이 의존은 상류가 따라오면 걷는다
 
 `frontend/package.json` 의 `overrides` 가 `@typescript-eslint/typescript-estree` 밑 `minimatch` 하나만 `^11.0.1` 로 올린다(`Q377`, 2026-11-08).

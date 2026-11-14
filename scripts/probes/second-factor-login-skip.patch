@@ -3,11 +3,11 @@
 # expect: FAILED com.projectshop.shop.SecondFactorLoginTest 등록된 관리자는 코드 전에는 인증 상태가 아니고 맞는 코드 뒤에 들어간다
 --- a/backend/src/main/java/com/projectshop/shop/auth/AuthController.java
 +++ b/backend/src/main/java/com/projectshop/shop/auth/AuthController.java
-@@ -161,6 +161,7 @@
-                     new SecondFactorPending(user, Instant.now()));
-             LoginStep step = secondFactors.enrolled(user.id())
-                     ? LoginStep.CODE_REQUIRED : LoginStep.ENROLLMENT_REQUIRED;
-+            completeLogin(authentication, http, response);
+@@ -174,6 +174,7 @@
+                     yield LoginStep.ENROLLMENT_REQUIRED;
+                 }
+             };
++            completeLogin(authentication, user.id(), http, response);
              return new LoginResponse(user.id(), user.email(), step);
          }
  
