@@ -164,6 +164,59 @@ class SecondFactorLoginTest extends HttpTestBase {
     }
 
     @Test
+    @DisplayName("못 푸는 판의 등록은 지우고 등록 단계로 보낸다")
+    void unreadableEnrollmentRestartsEnrollment() {
+        Session session = newSession();
+        long userId = admin(session, "sf-unreadable");
+        SecondFactorLogin.enroll(secondFactors, userId);
+        jdbc.sql("update user_second_factor set secret_key_version = 9 where user_id = :id").param("id", userId).update();
+
+        Response login = logIn(session, "sf-unreadable");
+
+        assertThat(login.is(200)).as(login.body()).isTrue();
+        assertThat(login.body()).contains("\"step\":\"ENROLLMENT_REQUIRED\"");
+        assertThat(secondFactors.enrolled(userId)).isFalse();
+        assertThat(jdbc.sql("""
+                        select count(*) from audit_log
+                         where event_type = 'user.second_factor_reset' and target_id = :id
+                           and detail ->> 'reason' = 'key_unreadable'
+                        """)
+                .param("id", userId)
+                .query(Integer.class)
+                .single())
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("관리자가 초기화하면 그 계정의 다음 로그인은 등록부터 한다")
+    void adminResetsAnotherAccount() {
+        Session target = newSession();
+        long targetId = signUpWithRole(target, "sf-lost-device", "admin");
+        SecondFactorLogin.enroll(secondFactors, targetId);
+        Session operator = loggedInWithCode("sf-operator", "admin");
+
+        Response reset = operator.delete("/api/users/" + targetId + "/second-factor");
+
+        assertThat(reset.is(204)).as(reset.body()).isTrue();
+        assertThat(logIn(target, "sf-lost-device").body()).contains("\"step\":\"ENROLLMENT_REQUIRED\"");
+        assertThat(operator.delete("/api/users/" + targetId + "/second-factor").is(204))
+                .as("멱등 — 행이 없어도 204")
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("감사자는 2차 인증을 초기화하지 못한다")
+    void auditorCannotReset() {
+        Session target = newSession();
+        long targetId = admin(target, "sf-auditor-target");
+        SecondFactorLogin.enroll(secondFactors, targetId);
+        Session auditor = loggedInWithCode("sf-auditor", "auditor");
+
+        assertThat(auditor.delete("/api/users/" + targetId + "/second-factor").is(403)).isTrue();
+        assertThat(secondFactors.enrolled(targetId)).isTrue();
+    }
+
+    @Test
     @DisplayName("대기 없이 코드를 내면 401 이다")
     void confirmWithoutPending() {
         Session session = newSession();
@@ -173,6 +226,16 @@ class SecondFactorLoginTest extends HttpTestBase {
 
         assertThat(response.is(401)).isTrue();
         assertThat(response.body()).contains("second-factor-not-pending");
+    }
+
+    /** 코드까지 맞혀 세션을 연 대상 계정 */
+    private Session loggedInWithCode(String name, String role) {
+        Session session = newSession();
+        long userId = signUpWithRole(session, name, role);
+        SecondFactorLogin.enroll(secondFactors, userId);
+        logIn(session, name);
+        assertThat(confirm(session, SecondFactorLogin.codeFor(jdbc, userId)).is(200)).isTrue();
+        return session;
     }
 
     private long admin(Session session, String name) {

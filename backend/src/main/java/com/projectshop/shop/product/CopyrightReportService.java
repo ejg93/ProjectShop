@@ -1,16 +1,25 @@
 package com.projectshop.shop.product;
 
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
+
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.projectshop.shop.audit.AuditTargetType;
 import com.projectshop.shop.audit.AuditLog;
 import com.projectshop.shop.auth.PermissionEvaluator;
+import com.projectshop.shop.auth.PermissionRuleLoader;
 import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
+import com.projectshop.shop.notification.NotificationService;
+import com.projectshop.shop.support.BusinessCalendar;
 import com.projectshop.shop.support.ObjectStorage;
 import com.projectshop.shop.support.ObjectStorage.Visibility;
 import com.projectshop.shop.auth.PermissionResource;
@@ -35,6 +44,21 @@ import com.projectshop.shop.auth.PermissionResource;
 public class CopyrightReportService {
 
     /**
+     * 반복 침해자로 보고 계정을 정지하는 중단 수. 저작권법 제102조제1항제1호다목이 방침을 요구하고 횟수는 안 정한다 — 우리 방침이다
+     * (2026-11-14 사용자, `D2` R42).
+     */
+    static final int REPEAT_INFRINGER_STRIKES = 3;
+
+    /** 반복 침해를 세는 기간(개월). 저작권법 제102조제1항제1호다목의 방침 — 우리가 정했다(`D2` R42) */
+    static final int REPEAT_INFRINGER_WINDOW_MONTHS = 12;
+
+    /**
+     * 숨긴 사진을 지우기까지 남기는 날. 통보 3일 + 재개 요구 30일 + 재개 예정일 14일(저작권법 시행령 제41~43조, `D2` R42) —
+     * 그 안에는 재개(제103조③)할 것이 남아야 한다.
+     */
+    static final int HIDDEN_RETENTION_DAYS = 47;
+
+    /**
      * <b>{@code product_image} 를 안 읽는다.</b> 사진이 이미 사라진 신고도 판정할 수 있어야
      * 하는데 — 표가 {@code set null} 로 그 상태를 일부러 만들어 뒀다 — 그 표를 거쳐 읽으면
      * <b>그 행은 영영 미판정으로 남는다</b>(마무리 26차 독립 리뷰가 찾았다).
@@ -45,23 +69,38 @@ public class CopyrightReportService {
      * <p>{@code product_image_id} 는 <b>지울 대상을 찾을 때만</b> 쓰고 그때는 {@code null} 일 수 있다.
      */
     private static final String FIND_PENDING = """
-            select r.product_image_id, r.review_image_id, p.seller_id
+            select r.product_image_id, r.review_image_id, p.seller_id, r.target, r.claimed_work, v.user_id as review_author_id,
+                   r.uploader_user_id
               from copyright_report r
               join product p on p.product_id = r.product_id
+              left join review_image ri on ri.review_image_id = r.review_image_id
+              left join review v on v.review_id = ri.review_id
              where r.copyright_report_id = :id and r.decided_at is null
             """;
+
+    /** 통보 본문의 판정 시각 — 받는 사람이 읽는 시각이라 한국 시간이다 */
+    private static final DateTimeFormatter NOTICE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final JdbcClient jdbc;
     private final PermissionEvaluator evaluator;
     private final ObjectStorage storage;
     private final AuditLog auditLog;
+    private final NotificationService notifications;
+    private final CopyrightRecipient recipient;
+    private final TransactionTemplate transactions;
+    private final PermissionRuleLoader ruleLoader;
 
-    CopyrightReportService(JdbcClient jdbc, PermissionEvaluator evaluator,
-            ObjectStorage storage, AuditLog auditLog) {
+    CopyrightReportService(JdbcClient jdbc, PermissionEvaluator evaluator, ObjectStorage storage, AuditLog auditLog,
+            NotificationService notifications, CopyrightRecipient recipient, TransactionTemplate transactions,
+            PermissionRuleLoader ruleLoader) {
         this.jdbc = jdbc;
         this.evaluator = evaluator;
         this.storage = storage;
         this.auditLog = auditLog;
+        this.notifications = notifications;
+        this.recipient = recipient;
+        this.transactions = transactions;
+        this.ruleLoader = ruleLoader;
     }
 
     /**
@@ -108,8 +147,9 @@ public class CopyrightReportService {
     public Received reportReviewImage(long reviewImageId, Command command) {
         long id = jdbc.sql("""
                         insert into copyright_report
-                            (review_image_id, product_id, target, reporter_name, reporter_email, claimed_work)
-                        select ri.review_image_id, r.product_id, 'review_image', :name, :email, :claimedWork
+                            (review_image_id, product_id, target, reporter_name, reporter_email, claimed_work,
+                             uploader_user_id)
+                        select ri.review_image_id, r.product_id, 'review_image', :name, :email, :claimedWork, r.user_id
                           from review_image ri
                           join review r on r.review_id = ri.review_id
                          where ri.review_image_id = :imageId and r.deleted_at is null
@@ -134,9 +174,25 @@ public class CopyrightReportService {
      *
      * <p>판정을 <b>감사 로그에 남긴다.</b> 법이 요구한 절차를 실제로 돌렸다는 증거가
      * 그 줄이고, 없으면 「절차가 있다」를 문서로만 주장하게 된다.
+     *
+     * <p><b>통보는 커밋 뒤에 보낸다</b>(`Q463`) — 발송이 바깥 시스템이라 트랜잭션 안에서 부르면 메일 응답을 기다리는 동안
+     * 잠금이 남는다(`concurrency-rules.md` 「트랜잭션 경계」, `ArchitectureTest`). 비밀번호 재설정(`PasswordResetService`)과 같은 꼴이다.
      */
-    @Transactional
     public void decide(long actorUserId, long reportId, CopyrightDecision decision) {
+        Pending pending = transactions.execute(status -> record(actorUserId, reportId, decision));
+
+        // 중단하면 권리주장자와 복제·전송자에게 알린다(저작권법 제103조②, 시행령 제41조 「3일 이내」).
+        // 기각은 법이 통보를 요구하지 않는다.
+        if (decision == CopyrightDecision.TAKEN_DOWN) {
+            notifications.sendCopyrightTakenDown(reportId, uploaders(pending), Map.of(
+                    "claimed_work", pending.claimedWork(),
+                    "decided_at", OffsetDateTime.now(BusinessCalendar.ZONE).format(NOTICE_TIME),
+                    "recipient", recipient.configured() ? recipient.displayText() : "신고 화면에 공지된 수령인"));
+        }
+    }
+
+    /** 판정을 기록한다 — 판정 · 내리기 · 감사가 한 트랜잭션이다 */
+    private Pending record(long actorUserId, long reportId, CopyrightDecision decision) {
         Pending pending = jdbc.sql(FIND_PENDING)
                 .param("id", reportId)
                 .query(Pending.class)
@@ -173,33 +229,223 @@ public class CopyrightReportService {
         auditLog.record(AuditLog.Kind.OUTCOME, "copyright.decided", actorUserId,
                 new AuditLog.Target(AuditTargetType.COPYRIGHT_REPORT, reportId),
                 Map.of("decision", decision.code()));
-    }
-
-    /** @param productImageId·reviewImageId 신고한 쪽 하나만 차고, 사진이 이미 사라졌으면 둘 다 {@code null} 이다 */
-    private record Pending(Long productImageId, Long reviewImageId, long sellerId) {
+        if (decision == CopyrightDecision.TAKEN_DOWN) {
+            applyRepeatInfringerPolicy(actorUserId, pending);
+        }
+        return pending;
     }
 
     /**
-     * 원본과 썸네일을 둘 다 지운다. 하나만 지우면 다른 하나로 같은 그림이 계속 열린다.
+     * 반복 침해자 방침(`Q466`, 저작권법 제102조제1항제1호다목). 12개월 안 중단이 셋에 닿으면 계정을 정지한다 — 상품 사진은 셀러,
+     * 후기 사진은 작성자. <b>재개된 중단은 안 센다</b> — 정당한 권리가 소명된 것이다. 판정과 한 트랜잭션이다.
+     */
+    private void applyRepeatInfringerPolicy(long actorUserId, Pending pending) {
+        if (CopyrightTarget.REVIEW_IMAGE.code().equals(pending.target())) {
+            if (pending.uploaderUserId() != null
+                    && strikes("r.uploader_user_id = :owner", pending.uploaderUserId()) >= REPEAT_INFRINGER_STRIKES) {
+                suspendUser(actorUserId, pending.uploaderUserId());
+            }
+            return;
+        }
+        // 후기 사진은 작성자 몫이라 셀러 셈에 안 넣는다 — 넣으면 고객이 올린 사진으로 셀러가 정지된다(마무리 85차 리뷰).
+        if (strikes("p.seller_id = :owner and r.target = 'product_image'", pending.sellerId())
+                >= REPEAT_INFRINGER_STRIKES) {
+            suspendSeller(actorUserId, pending.sellerId());
+        }
+    }
+
+    /** 12개월 안 중단 수 — 재개된 것을 뺀다. {@code ownerCondition} 은 두 고정 문자열 중 하나다 */
+    private long strikes(String ownerCondition, long ownerId) {
+        return jdbc.sql("""
+                        select count(*) from copyright_report r
+                          join product p on p.product_id = r.product_id
+                         where {owner}
+                           and r.decision = 'taken_down'
+                           and r.decided_at >= now() - make_interval(months => :months)
+                           and not exists (select 1 from copyright_reinstatement x
+                                            where x.copyright_report_id = r.copyright_report_id
+                                              and x.reinstated_at is not null)
+                        """.replace("{owner}", ownerCondition))
+                .param("owner", ownerId)
+                .param("months", REPEAT_INFRINGER_WINDOW_MONTHS)
+                .query(Long.class)
+                .single();
+    }
+
+    /** 셀러를 정지한다. 구성원의 권한 캐시를 비워 셀러 스코프가 곧바로 사라지게 한다 */
+    private void suspendSeller(long actorUserId, long sellerId) {
+        int suspended = jdbc.sql("update seller set status = 'suspended' where seller_id = :id and status <> 'suspended'")
+                .param("id", sellerId)
+                .update();
+        if (suspended == 0) {
+            return;
+        }
+        jdbc.sql("select user_id from seller_member where seller_id = :id")
+                .param("id", sellerId)
+                .query(Long.class)
+                .list()
+                .forEach(ruleLoader::evict);
+        auditLog.record(AuditLog.Kind.OUTCOME, "seller.suspended", actorUserId,
+                new AuditLog.Target(AuditTargetType.SELLER, sellerId),
+                Map.of("reason", "repeat_infringer", "strikes", REPEAT_INFRINGER_STRIKES));
+    }
+
+    /** 계정을 정지한다. 살아 있는 세션은 다음 요청에서 끊긴다({@code AccountLivenessFilter}) */
+    private void suspendUser(long actorUserId, long userId) {
+        int suspended = jdbc.sql("update app_user set status = 'suspended' where user_id = :id and status <> 'suspended'")
+                .param("id", userId)
+                .update();
+        if (suspended == 0) {
+            return;
+        }
+        ruleLoader.evict(userId);
+        auditLog.record(AuditLog.Kind.OUTCOME, "user.suspended", actorUserId,
+                new AuditLog.Target(AuditTargetType.USER, userId),
+                Map.of("reason", "repeat_infringer", "strikes", REPEAT_INFRINGER_STRIKES));
+    }
+
+    /** 그 신고의 복제·전송자 — 재개 통보(`Q465`)가 부른다. 숨긴 사진은 행이 남아 있어 작성자를 찾는다 */
+    List<Long> uploadersOf(long reportId) {
+        return uploaders(jdbc.sql("""
+                        select r.product_image_id, r.review_image_id, p.seller_id, r.target, r.claimed_work,
+                               v.user_id as review_author_id, r.uploader_user_id
+                          from copyright_report r
+                          join product p on p.product_id = r.product_id
+                          left join review_image ri on ri.review_image_id = r.review_image_id
+                          left join review v on v.review_id = ri.review_id
+                         where r.copyright_report_id = :id
+                        """)
+                .param("id", reportId)
+                .query(Pending.class)
+                .single());
+    }
+
+    /**
+     * 복제·전송자(저작권법 제103조②). 상품 사진은 그 셀러의 구성원 전원 — 누가 올렸는지를 표가 안 들고, 셀러 계정이
+     * 게시의 주체다. 후기 사진은 작성자다 — 사진이 이미 사라져 작성자를 못 찾으면 비어 있다.
+     */
+    private List<Long> uploaders(Pending pending) {
+        if (CopyrightTarget.REVIEW_IMAGE.code().equals(pending.target())) {
+            return pending.reviewAuthorId() == null ? List.of() : List.of(pending.reviewAuthorId());
+        }
+        return jdbc.sql("select user_id from seller_member where seller_id = :sellerId order by user_id")
+                .param("sellerId", pending.sellerId())
+                .query(Long.class)
+                .list();
+    }
+
+    /**
+     * @param productImageId·reviewImageId 신고한 쪽 하나만 차고, 사진이 이미 사라졌으면 둘 다 {@code null} 이다
+     * @param reviewAuthorId 후기 사진의 작성자 — 사진이 남아 있을 때만 찾는다
+     */
+    private record Pending(Long productImageId, Long reviewImageId, long sellerId, String target, String claimedWork,
+            Long reviewAuthorId, Long uploaderUserId) {
+    }
+
+    /**
+     * 원본과 썸네일을 둘 다 비공개 버킷으로 숨긴다(`Q464`). 하나만 옮기면 다른 하나로 같은 그림이 계속 열린다.
      *
-     * <p><b>저장소를 먼저 지운다.</b> 행을 먼저 지우면 객체 열쇠를 잃어서 지울 대상을
-     * 영영 못 찾고, 남는 것은 주인 없는 파일이다 — 그것이 곧 위반 상태다.
+     * <p><b>지우지 않는다</b> — 복제·전송자가 재개를 요구하면(저작권법 제103조③) 되돌릴 것이 있어야 한다. 47일 뒤 재개 예정이
+     * 없으면 {@link CopyrightHiddenImagePurgeBatch} 가 지운다.
+     *
+     * <p><b>행을 먼저 숨긴다.</b> 옮기다 실패하면 트랜잭션이 행을 되돌리고 객체는 공개에 남아 다시 판정할 수 있다. 이미 숨긴
+     * 사진(같은 사진의 둘째 신고)은 0행이라 안 옮긴다.
      */
     private void takeDown(long imageId) {
-        Keys keys = jdbc.sql("""
-                        select object_key, thumbnail_key from product_image
-                         where product_image_id = :id
+        jdbc.sql("""
+                        update product_image set hidden_at = now()
+                         where product_image_id = :id and hidden_at is null
+                        returning object_key, thumbnail_key
                         """)
                 .param("id", imageId)
                 .query(Keys.class)
-                .single();
+                .optional()
+                .ifPresent(keys -> hide(keys));
+    }
 
-        storage.delete(Visibility.PUBLIC, keys.objectKey());
-        storage.delete(Visibility.PUBLIC, keys.thumbnailKey());
-
-        jdbc.sql("delete from product_image where product_image_id = :id")
+    /** 숨긴 상품 사진을 공개로 되돌린다(`Q465` 재개). 이미 공개거나 파기됐으면 거짓이다 */
+    boolean restore(long imageId) {
+        return jdbc.sql("""
+                        update product_image set hidden_at = null
+                         where product_image_id = :id and hidden_at is not null
+                        returning object_key, thumbnail_key
+                        """)
                 .param("id", imageId)
-                .update();
+                .query(Keys.class)
+                .optional()
+                .map(keys -> {
+                    show(keys);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    /**
+     * 숨긴 지 {@link #HIDDEN_RETENTION_DAYS} 일이 지난 사진을 비공개 버킷과 표에서 지운다({@link CopyrightHiddenImagePurgeBatch}).
+     * <b>저장소를 먼저 지운다</b> — 행을 먼저 지우면 객체 열쇠를 잃는다. 신고 기록은 {@code set null} 로 남는다.
+     *
+     * @return 지운 사진 수
+     */
+    @Transactional
+    int purgeHidden(LocalDate baselineDate) {
+        OffsetDateTime cutoff = baselineDate.minusDays(HIDDEN_RETENTION_DAYS - 1L)
+                .atStartOfDay(BusinessCalendar.ZONE).toOffsetDateTime();
+        record Hidden(String kind, long imageId, String objectKey, String thumbnailKey) {
+        }
+        // 재개 요구가 판단 전이거나 재개 예정인 것은 안 지운다(`Q465`) — 지우면 그 예정일에 되돌릴 것이 없다.
+        List<Hidden> hidden = jdbc.sql("""
+                        select 'product' as kind, i.product_image_id as image_id, i.object_key, i.thumbnail_key
+                          from product_image i
+                         where i.hidden_at < :cutoff
+                           and not exists (select 1 from copyright_report r
+                                             join copyright_reinstatement x on x.copyright_report_id = r.copyright_report_id
+                                            where r.product_image_id = i.product_image_id
+                                              and (x.decision is null
+                                                   or (x.decision = 'scheduled' and x.reinstated_at is null
+                                                       and x.suit_notified_at is null)))
+                        union all
+                        select 'review', i.review_image_id, i.object_key, i.thumbnail_key
+                          from review_image i
+                         where i.hidden_at < :cutoff
+                           and not exists (select 1 from copyright_report r
+                                             join copyright_reinstatement x on x.copyright_report_id = r.copyright_report_id
+                                            where r.review_image_id = i.review_image_id
+                                              and (x.decision is null
+                                                   or (x.decision = 'scheduled' and x.reinstated_at is null
+                                                       and x.suit_notified_at is null)))
+                        """)
+                .param("cutoff", cutoff)
+                .query(Hidden.class)
+                .list();
+        for (Hidden photo : hidden) {
+            storage.delete(Visibility.PRIVATE, photo.objectKey());
+            storage.delete(Visibility.PRIVATE, photo.thumbnailKey());
+            String table = "product".equals(photo.kind())
+                    ? "delete from product_image where product_image_id = :id"
+                    : "delete from review_image where review_image_id = :id";
+            jdbc.sql(table).param("id", photo.imageId()).update();
+        }
+        return hidden.size();
+    }
+
+    /** 숨김 중인 사진 수 — 지표가 쌓임을 보인다 */
+    long countHidden() {
+        return jdbc.sql("""
+                        select (select count(*) from product_image where hidden_at is not null)
+                             + (select count(*) from review_image where hidden_at is not null)
+                        """)
+                .query(Long.class)
+                .single();
+    }
+
+    private void hide(Keys keys) {
+        storage.move(Visibility.PUBLIC, Visibility.PRIVATE, keys.objectKey());
+        storage.move(Visibility.PUBLIC, Visibility.PRIVATE, keys.thumbnailKey());
+    }
+
+    private void show(Keys keys) {
+        storage.move(Visibility.PRIVATE, Visibility.PUBLIC, keys.objectKey());
+        storage.move(Visibility.PRIVATE, Visibility.PUBLIC, keys.thumbnailKey());
     }
 
     /**
@@ -209,20 +455,32 @@ public class CopyrightReportService {
      * 후기를 지우는 길이 된다. 글을 내리는 것은 후기 신고(`Q171`)의 몫이다.
      */
     private void takeDownReviewImage(long imageId) {
-        Keys keys = jdbc.sql("""
-                        select object_key, thumbnail_key from review_image
-                         where review_image_id = :id
+        jdbc.sql("""
+                        update review_image set hidden_at = now()
+                         where review_image_id = :id and hidden_at is null
+                        returning object_key, thumbnail_key
                         """)
                 .param("id", imageId)
                 .query(Keys.class)
-                .single();
+                .optional()
+                .ifPresent(keys -> hide(keys));
+    }
 
-        storage.delete(Visibility.PUBLIC, keys.objectKey());
-        storage.delete(Visibility.PUBLIC, keys.thumbnailKey());
-
-        jdbc.sql("delete from review_image where review_image_id = :id")
+    /** 숨긴 후기 사진을 공개로 되돌린다(`Q465` 재개). 이미 공개거나 파기됐으면 거짓이다 */
+    boolean restoreReviewImage(long imageId) {
+        return jdbc.sql("""
+                        update review_image set hidden_at = null
+                         where review_image_id = :id and hidden_at is not null
+                        returning object_key, thumbnail_key
+                        """)
                 .param("id", imageId)
-                .update();
+                .query(Keys.class)
+                .optional()
+                .map(keys -> {
+                    show(keys);
+                    return true;
+                })
+                .orElse(false);
     }
 
     private record Keys(String objectKey, String thumbnailKey) {

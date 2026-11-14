@@ -9,6 +9,7 @@ erDiagram
     inquiry }o..|| product : "product_id"
     inquiry }o..|| seller_order : "seller_order_id"
     inquiry }o..|| app_user : "user_id"
+    notification }o..|| copyright_report : "copyright_report_id"
     notification }o--|| notification_template : "notification_template_id"
     notification }o..|| shop_order : "order_id"
     notification }o..|| refund : "refund_id"

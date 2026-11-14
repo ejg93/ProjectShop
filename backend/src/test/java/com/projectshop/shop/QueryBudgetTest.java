@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import com.projectshop.shop.auth.AuthFixture;
+import com.projectshop.shop.brokerage.BrokerageStatementQuery;
 import com.projectshop.shop.auth.ShopUserDetailsService.ShopUser;
 import com.projectshop.shop.inquiry.InquiryQuery;
 import com.projectshop.shop.order.OrderFixture;
@@ -56,7 +57,7 @@ class QueryBudgetTest extends PostgresTestBase {
     /** 잰 목록의 이름. 아래 {@link #OVER_BUDGET} 의 죽은 줄을 이것으로 가린다 */
     private static final List<String> LISTS = List.of(
             "내 주문 목록", "관리자 주문 목록", "셀러 주문 목록", "상품 공개 목록", "상품 검색 목록", "상품 후기 목록", "환불 대기열",
-            "정산서 목록", "정산서 줄 목록", "문의 전체 목록", "셀러 문의 목록");
+            "정산서 목록", "정산서 줄 목록", "문의 전체 목록", "셀러 문의 목록", "중개 명세 목록");
 
     /**
      * {@link #BUDGET} 을 넘는 목록과 그 근거. <b>근거 없이 이름만 넣지 않는다</b> — 근거 칸이 없으면 이 목록이 예산을 넘겼을 때
@@ -107,6 +108,9 @@ class QueryBudgetTest extends PostgresTestBase {
 
     @Autowired
     private SalesStatsQuery salesStats;
+
+    @Autowired
+    private BrokerageStatementQuery brokerageStatements;
 
     private AuthFixture fixture;
     private long[] sellers;
@@ -234,6 +238,33 @@ class QueryBudgetTest extends PostgresTestBase {
     void sellerInquiries() {
         insertInquiries(3);
         listStaysFlat("셀러 문의 목록", size -> inquiries.findForSeller(owner, new Paging(0, size)).items());
+    }
+
+    /** 줄마다 파일을 렌더하면 그것이 N+1 이다(`Q460`) — 해시는 상세가 낸다 */
+    @Test
+    @DisplayName("중개 명세 목록")
+    void brokerageStatementList() {
+        for (int year = 2011; year <= 2013; year++) {
+            insertBrokerageLines(insertBrokerageStatement(year), 1);
+        }
+        listStaysFlat("중개 명세 목록", size -> brokerageStatements.findAll(admin, new Paging(0, size)).items());
+    }
+
+    /** 상세는 파일을 한 번 렌더한다 — 줄 질의 하나라 줄 수와 상관없다(`Q460`) */
+    @Test
+    @DisplayName("중개 명세 상세 — 줄 하나와 셋에서 문장 수가 같다")
+    void brokerageStatementDetailIsFlatInLines() {
+        long single = insertBrokerageStatement(2014);
+        long triple = insertBrokerageStatement(2015);
+        insertBrokerageLines(single, 1);
+        insertBrokerageLines(triple, 3);
+
+        brokerageStatements.find(admin, single);
+        int one = QueryCounter.count(() -> brokerageStatements.find(admin, single));
+        int three = QueryCounter.count(() -> brokerageStatements.find(admin, triple));
+
+        assertThat(brokerageStatements.find(admin, triple).lineCount()).isEqualTo(3);
+        assertThat(three).as("줄 1 에서 %d, 3 에서 %d", one, three).isEqualTo(one);
     }
 
     /** 매출은 쪽이 아니라 날짜 범위다 — 배치가 모은 날이 하루든 서른 날이든 문장 수가 같아야 한다 */
@@ -489,6 +520,33 @@ class QueryBudgetTest extends PostgresTestBase {
     }
 
     /** 정산서에 판매 줄 {@code count} 개 — 줄마다 새 주문 품목이다 */
+    private long insertBrokerageStatement(int year) {
+        return jdbc.sql("""
+                        insert into brokerage_statement (period_year, period_quarter, period_start, period_end, due_date)
+                        values (:year, 1, make_date(:year, 1, 1), make_date(:year, 3, 31), make_date(:year, 4, 15))
+                        returning brokerage_statement_id
+                        """)
+                .param("year", year)
+                .query(Long.class)
+                .single();
+    }
+
+    /** 명세 줄 {@code months} 개 — 달만 다르다 */
+    private void insertBrokerageLines(long statementId, int months) {
+        for (int month = 1; month <= months; month++) {
+            jdbc.sql("""
+                            insert into brokerage_statement_line
+                                   (brokerage_statement_id, seller_id, sales_month, method, sale_count, sale_amount)
+                            select :statement, :seller, make_date(period_year, :month, 1), 'card', 1, 1000
+                              from brokerage_statement where brokerage_statement_id = :statement
+                            """)
+                    .param("statement", statementId)
+                    .param("seller", sellers[0])
+                    .param("month", month)
+                    .update();
+        }
+    }
+
     private void insertSaleLines(String settlementNumber, int count) {
         long settlementId = jdbc.sql("select settlement_id from settlement where settlement_number = :number")
                 .param("number", settlementNumber).query(Long.class).single();

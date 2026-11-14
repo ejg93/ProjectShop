@@ -56,6 +56,8 @@ public class PermissionRuleLoader {
                               and rpf.effect = rp.effect
                         left join permission_field_group g on g.permission_field_group_id = rpf.permission_field_group_id
                         where ur.user_id = :userId
+                          and (ur.seller_id is null or not exists (
+                                select 1 from seller s where s.seller_id = ur.seller_id and s.status = 'suspended'))
                           and p.resource = :resource
                           and p.action = :action
                         group by r.code, ur.seller_id, rp.scope, rp.effect
@@ -97,6 +99,8 @@ public class PermissionRuleLoader {
                               and rpf.effect = rp.effect
                         left join permission_field_group g on g.permission_field_group_id = rpf.permission_field_group_id
                         where ur.user_id = :userId
+                          and (ur.seller_id is null or not exists (
+                                select 1 from seller s where s.seller_id = ur.seller_id and s.status = 'suspended'))
                         group by p.resource, p.action, r.code, ur.seller_id, rp.scope, rp.effect
                         order by p.resource, p.action
                         """)
@@ -119,10 +123,19 @@ public class PermissionRuleLoader {
     record ResourceAction(String resource, String action) {
     }
 
-    /** 이 사용자가 속한 셀러. 전역으로 받은 {@code seller} 스코프가 어디까지 미치는지를 정한다 */
+    /**
+     * 이 사용자가 속한 셀러. 전역으로 받은 {@code seller} 스코프가 어디까지 미치는지를 정한다.
+     *
+     * <p><b>정지 셀러는 뺀다</b>(`Q466`, 반복 침해자 방침) — 그 구성원은 그 셀러 스코프를 안 받는다. 심사 중({@code pending})은
+     * 넣는다 — 등록을 마치려면 자기 셀러를 다뤄야 한다.
+     */
     @Cacheable(PermissionCacheConfig.MEMBERSHIPS)
     Set<Long> loadSellerMemberships(long userId) {
-        return Set.copyOf(jdbcClient.sql("select seller_id from seller_member where user_id = :userId")
+        return Set.copyOf(jdbcClient.sql("""
+                        select m.seller_id from seller_member m
+                          join seller s on s.seller_id = m.seller_id
+                         where m.user_id = :userId and s.status <> 'suspended'
+                        """)
                 .param("userId", userId)
                 .query(Long.class)
                 .list());
@@ -131,15 +144,15 @@ public class PermissionRuleLoader {
     /**
      * 이 계정이 살아 있나. 요청마다 인증 필터가 본다(`ADR 0010`).
      *
-     * <p>업무 상태(`status`)가 아니라 수명(`deleted_at`)만 본다. 둘은 축이 다르다 —
-     * 정지는 풀리고 탈퇴는 안 풀린다. 정지 계정을 막는 것은 로그인이 할 일이고,
-     * 여기는 <b>이미 로그인한 세션</b>이 살아 있어도 되는지를 답한다.
+     * <p>수명(`deleted_at`)과 <b>정지(`status`)를 같이 본다</b>(`Q466`). 전에는 정지를 로그인만 막았는데, 반복 침해자 정지가
+     * 판정 도중에 일어나서 이미 로그인한 세션이 살아 있으면 정지가 그 세션에 안 걸린다. 정지는 풀리고 탈퇴는 안 풀리는 차이는
+     * 그대로다 — 풀면 다음 로그인부터 다시 산다.
      */
     @Cacheable(PermissionCacheConfig.LIVENESS)
     boolean isAlive(long userId) {
         return Boolean.TRUE.equals(jdbcClient.sql("""
                         select exists(
-                            select 1 from app_user where user_id = :userId and deleted_at is null
+                            select 1 from app_user where user_id = :userId and deleted_at is null and status = 'active'
                         )
                         """)
                 .param("userId", userId)

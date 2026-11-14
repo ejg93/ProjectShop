@@ -11,7 +11,7 @@ import { ApiError, api } from "@/lib/api";
  * <p><b>서버가 받는 값은 소문자다</b>({@code taken_down}·{@code rejected}) — `Q121` 이 판정 입구를 그렇게 굳혔다.
  * 응답의 판정은 대문자라 둘이 다르다. 여기 한 곳에서만 보낸다.
  *
- * <p><b>게시 중단은 되돌릴 수 없다</b> — 사진이 저장소에서 지워진다. 그래서 한 번 더 묻는다.
+ * <p><b>게시 중단은 무겁다</b> — 사진이 비공개로 옮겨지고 재개 예정이 없으면 47일 뒤 지워진다(`Q464`). 그래서 한 번 더 묻는다.
  */
 export function CopyrightDecisionButtons({ reportId }: { reportId: number }) {
   const router = useRouter();
@@ -42,7 +42,7 @@ export function CopyrightDecisionButtons({ reportId }: { reportId: number }) {
       </p>
       {confirming ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span>사진이 지워지고 되돌릴 수 없습니다. 게시를 중단하시겠습니까?</span>
+          <span>사진이 비공개로 옮겨지고 재개 예정이 없으면 47일 뒤 지워집니다. 게시를 중단하시겠습니까?</span>
           <button
             type="button"
             disabled={pending}
@@ -62,7 +62,7 @@ export function CopyrightDecisionButtons({ reportId }: { reportId: number }) {
             onClick={() => setConfirming(true)}
             className="rounded-ui border border-danger-text px-3 py-1 text-xs font-medium text-danger-text"
           >
-            게시 중단(사진 삭제)
+            게시 중단(사진 숨김)
           </button>
           <button
             type="button"

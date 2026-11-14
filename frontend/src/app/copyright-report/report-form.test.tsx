@@ -79,7 +79,7 @@ describe("저작권 신고", () => {
   it("게시 중단은 한 번 더 묻고 소문자 판정값으로 보낸다", async () => {
     render(<CopyrightDecisionButtons reportId={5} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "게시 중단(사진 삭제)" }));
+    fireEvent.click(screen.getByRole("button", { name: "게시 중단(사진 숨김)" }));
     expect(api).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "게시 중단" }));

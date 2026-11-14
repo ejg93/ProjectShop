@@ -3,11 +3,11 @@
 # expect: FAILED com.projectshop.shop.auth.SecondFactorServiceTest 같은 코드를 다시 내면 거부한다
 --- a/backend/src/main/java/com/projectshop/shop/auth/SecondFactorService.java
 +++ b/backend/src/main/java/com/projectshop/shop/auth/SecondFactorService.java
-@@ -87,7 +87,6 @@
-                         update user_second_factor
-                            set last_used_step = :step
-                          where user_id = :userId
--                           and last_used_step < :step
-                         """)
-                 .param("step", step.getAsLong())
-                 .param("userId", userId)
+@@ -146,7 +146,6 @@
+                             update user_second_factor
+                                set last_used_step = :step
+                              where user_id = :userId
+-                               and last_used_step < :step
+                             """)
+                     .param("step", step.getAsLong())
+                     .param(USER_ID, userId)

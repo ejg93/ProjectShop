@@ -143,9 +143,14 @@ export function LoginForm() {
     }
   }
 
-  /** 공개된 연습 계정 비밀로 지금 코드를 칸에 넣는다. 운영 계정의 비밀은 화면에 없다 */
+  /**
+   * 공개된 연습 계정 비밀로 <b>다음 스텝</b>의 코드를 칸에 넣는다(`Q462`). 운영 계정의 비밀은 화면에 없다.
+   *
+   * <p>지금 스텝이면 30초 안에 같은 계정으로 다시 들어올 때 서버가 쓴 코드로 거부한다(재사용 금지). 서버 창이 앞뒤 한 스텝이라
+   * 다음 스텝 코드도 받는다 — 면제 분기 없이 피한다(`security-baseline.md` 「면제 분기는 없다」).
+   */
   async function fillDemoCode() {
-    setCode(await totpCode(DEMO_SECOND_FACTOR_SECRET, new Date()));
+    setCode(await totpCode(DEMO_SECOND_FACTOR_SECRET, new Date(Date.now() + 30_000)));
   }
 
   return (
@@ -275,6 +280,7 @@ function SecondFactorStep({
           연습 계정 코드 채우기
         </button>
       ) : null}
+      {onFill ? <p className="text-xs text-text-muted">코드는 30초마다 바뀝니다.</p> : null}
     </div>
   );
 }

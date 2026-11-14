@@ -165,8 +165,15 @@ public class AuthController {
             http.changeSessionId();
             session.removeAttribute(SecondFactorEnrolling.ATTRIBUTE);
             session.setAttribute(SecondFactorPending.ATTRIBUTE, new SecondFactorPending(user, Instant.now()));
-            LoginStep step = secondFactors.enrolled(user.id())
-                    ? LoginStep.CODE_REQUIRED : LoginStep.ENROLLMENT_REQUIRED;
+            // 못 푸는 판의 등록은 지운다(`Q461`) — 키를 돌리고 옛 키를 너무 일찍 지웠으면 그 계정은 등록부터 다시 한다.
+            LoginStep step = switch (secondFactors.state(user.id())) {
+                case ENROLLED -> LoginStep.CODE_REQUIRED;
+                case NOT_ENROLLED -> LoginStep.ENROLLMENT_REQUIRED;
+                case UNREADABLE -> {
+                    secondFactors.resetUnreadable(user.id());
+                    yield LoginStep.ENROLLMENT_REQUIRED;
+                }
+            };
             return new LoginResponse(user.id(), user.email(), step);
         }
 

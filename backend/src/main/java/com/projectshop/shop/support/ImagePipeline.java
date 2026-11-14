@@ -150,8 +150,16 @@ public class ImagePipeline {
      * 지울 대상을 못 찾는다({@code Q94} 의 게시 중단과 같은 순서).
      */
     public void delete(String objectKey, String thumbnailKey) {
-        storage.delete(Visibility.PUBLIC, objectKey);
-        storage.delete(Visibility.PUBLIC, thumbnailKey);
+        delete(Visibility.PUBLIC, objectKey, thumbnailKey);
+    }
+
+    /**
+     * 갈래를 골라 지운다. 저작권 신고로 숨긴 사진(`hidden_at`)은 비공개 버킷에 있다(`Q464`) — 공개에서 지우면 비공개 객체가
+     * 주인 없이 남는다.
+     */
+    public void delete(Visibility visibility, String objectKey, String thumbnailKey) {
+        storage.delete(visibility, objectKey);
+        storage.delete(visibility, thumbnailKey);
     }
 
     /** 공개 버킷의 열쇠를 만료 5분 서명 URL 로 바꾼다 */

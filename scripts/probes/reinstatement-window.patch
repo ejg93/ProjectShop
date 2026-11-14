@@ -1,0 +1,13 @@
+# gate: 재개 예정일은 요구받은 날의 7~14일이다(Q465, R42 — 저작권법 시행령 제43조). 시험 트랜잭션 안에서 제약을 내린다
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.product.CopyrightReinstatementServiceTest
+# expect: FAILED com.projectshop.shop.product.CopyrightReinstatementServiceTest 예정일이 7~14일 밖이면 DB 가 막는다
+--- a/backend/src/test/java/com/projectshop/shop/product/CopyrightReinstatementServiceTest.java
++++ b/backend/src/test/java/com/projectshop/shop/product/CopyrightReinstatementServiceTest.java
+@@ -207,6 +207,7 @@
+     @DisplayName("예정일이 7~14일 밖이면 DB 가 막는다")
+     void windowCheckBlocks() {
+         long reportId = takenDown();
++        jdbc.sql("alter table copyright_reinstatement drop constraint copyright_reinstatement_window_check").update();
+ 
+         assertThatThrownBy(() -> insertReinstatement(reportId, "'scheduled'", "current_date + 15"))
+                 .isInstanceOf(DataIntegrityViolationException.class)

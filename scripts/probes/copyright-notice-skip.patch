@@ -1,0 +1,14 @@
+# gate: 게시를 중단하면 권리주장자와 복제·전송자에게 통보한다(Q463, R42 — 저작권법 제103조②)
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.product.CopyrightReportServiceTest
+# expect: FAILED com.projectshop.shop.product.CopyrightReportServiceTest 게시 중단하면 신고자와 복제·전송자에게 통보한다
+--- a/backend/src/main/java/com/projectshop/shop/product/CopyrightReportService.java
++++ b/backend/src/main/java/com/projectshop/shop/product/CopyrightReportService.java
+@@ -161,7 +161,7 @@
+ 
+         // 중단하면 권리주장자와 복제·전송자에게 알린다(저작권법 제103조②, 시행령 제41조 「3일 이내」).
+         // 기각은 법이 통보를 요구하지 않는다.
+-        if (decision == CopyrightDecision.TAKEN_DOWN) {
++        if (decision == CopyrightDecision.TAKEN_DOWN && false) {
+             notifications.sendCopyrightTakenDown(reportId, uploaders(pending), Map.of(
+                     "claimed_work", pending.claimedWork(),
+                     "decided_at", OffsetDateTime.now(BusinessCalendar.ZONE).format(NOTICE_TIME),

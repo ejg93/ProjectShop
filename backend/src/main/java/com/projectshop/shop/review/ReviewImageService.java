@@ -13,6 +13,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ImagePipeline;
+import com.projectshop.shop.support.ObjectStorage.Visibility;
 import com.projectshop.shop.auth.PermissionResource;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -90,22 +91,23 @@ public class ReviewImageService {
     /** 사진 한 장을 뗀다. <b>저장소까지 간다</b> — 행만 지우면 주인 없는 파일이 공개 버킷에 남는다 */
     @Transactional
     public void delete(long actorUserId, long reviewImageId) {
-        record Owned(long reviewId, long writerUserId, String objectKey, String thumbnailKey) {}
+        record Owned(long reviewId, long writerUserId, String objectKey, String thumbnailKey, boolean hidden) {}
 
         Owned owned = jdbc.sql("""
-                        select ri.review_id, r.user_id, ri.object_key, ri.thumbnail_key
+                        select ri.review_id, r.user_id, ri.object_key, ri.thumbnail_key, ri.hidden_at is not null as hidden
                           from review_image ri
                           join review r on r.review_id = ri.review_id
                          where ri.review_image_id = :id and r.deleted_at is null
                         """)
                 .param("id", reviewImageId)
                 .query((rs, rowNum) -> new Owned(rs.getLong("review_id"), rs.getLong("user_id"),
-                        rs.getString("object_key"), rs.getString("thumbnail_key")))
+                        rs.getString("object_key"), rs.getString("thumbnail_key"), rs.getBoolean("hidden")))
                 .optional()
                 .orElseThrow(() -> new ShopException(ErrorCode.REVIEW_NOT_FOUND));
         requireWriter(actorUserId, owned.writerUserId());
 
-        images.delete(owned.objectKey(), owned.thumbnailKey());
+        // 저작권 신고로 숨긴 사진은 비공개 버킷에 있다(`Q464`).
+        images.delete(owned.hidden() ? Visibility.PRIVATE : Visibility.PUBLIC, owned.objectKey(), owned.thumbnailKey());
         jdbc.sql("delete from review_image where review_image_id = :id")
                 .param("id", reviewImageId)
                 .update();

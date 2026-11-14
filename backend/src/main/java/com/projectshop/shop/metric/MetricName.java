@@ -37,6 +37,9 @@ public enum MetricName {
     /** 제출 기한이 지났는데 제출 기록이 없는 중개 명세 분기 수(`BrokerageStatementBatch`) */
     BROKERAGE_STATEMENT_OVERDUE("shop.brokerage_statement.overdue"),
 
+    /** 저작권 신고로 숨긴 채 비공개 버킷에 있는 사진 수(`CopyrightHiddenImagePurgeBatch`) */
+    COPYRIGHT_REPORT_HIDDEN_IMAGE("shop.copyright_report.hidden_image"),
+
     /** 배치 회차 수(`BatchRuns`) */
     BATCH_RUN_FINISHED("shop.batch_run.finished");
 

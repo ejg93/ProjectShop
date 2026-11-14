@@ -1,0 +1,14 @@
+# gate: 저작권 신고로 숨긴 사진은 공개 상세에 안 나온다(Q464, R42 — 저작권법 제103조②)
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.product.CopyrightReportServiceTest
+# expect: FAILED com.projectshop.shop.product.CopyrightReportServiceTest 숨긴 사진은 공개 상세에 안 나오고 셀러 자기 목록에는 숨김으로 나온다
+--- a/backend/src/main/java/com/projectshop/shop/product/ProductQuery.java
++++ b/backend/src/main/java/com/projectshop/shop/product/ProductQuery.java
+@@ -416,7 +416,7 @@
+     private List<Long> findImageIds(long productId) {
+         return jdbc.sql("""
+                         select product_image_id from product_image
+-                         where product_id = :id and hidden_at is null
++                         where product_id = :id
+                          order by sort_no, product_image_id
+                         """)
+                 .param("id", productId)

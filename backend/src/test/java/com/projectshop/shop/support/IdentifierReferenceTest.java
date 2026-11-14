@@ -69,7 +69,8 @@ class IdentifierReferenceTest extends PostgresTestBase {
             "role.granted", "감사 사건 이름이다(`AuditLog` 의 점 표기). 표와 무관하다",
             "permission.denied", "〃",
             "seller_member.invited", "〃",
-            "audit_log.reviewed", "〃 — 접속기록 점검 결과(`Q280b`). 표 이름과 겹치지만 컬럼이 아니다");
+            "audit_log.reviewed", "〃 — 접속기록 점검 결과(`Q280b`). 표 이름과 겹치지만 컬럼이 아니다",
+            "seller.suspended", "〃 — 반복 침해자 셀러 정지(`Q466`). 표 이름과 겹치지만 컬럼이 아니다");
 
     @Autowired
     private JdbcClient jdbc;

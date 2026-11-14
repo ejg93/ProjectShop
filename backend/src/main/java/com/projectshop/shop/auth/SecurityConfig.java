@@ -148,7 +148,10 @@ public class SecurityConfig {
             // 상품 후기(`Q160`). Q&A 와 같은 판단이다 — 살까 말까 하는 사람이 읽는다.
             // 내려간·지운 후기는 `ReviewQuery` 의 조회 조건이 뺀다. 로그인한 사람이 부르면
             // 인증이 실려서 `mine` 이 참이 될 수 있다 — permitAll 은 인증을 버리지 않는다.
-            "/api/products/*/reviews");
+            "/api/products/*/reviews",
+            // 저작권 중단·재개 요구를 받는 수령인(`Q463`, 저작권법 제103조④). 신고하는 사람이 로그인 전에 읽으라고
+            // 법이 공지를 요구한다. 같은 접두에 판정 경로가 있어 GET 하나만 연다.
+            "/api/copyright-reports/recipient");
 
     /**
      * 관리 포트(`management.server.port`)로 들어온 {@code /actuator/**} 요청(`63`).

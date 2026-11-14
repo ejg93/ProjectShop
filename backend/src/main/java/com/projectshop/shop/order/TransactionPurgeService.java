@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.projectshop.shop.support.ImagePipeline;
+import com.projectshop.shop.support.ObjectStorage.Visibility;
 import com.projectshop.shop.support.TaxRetention;
 
 /**
@@ -399,10 +400,10 @@ public class TransactionPurgeService {
      * <p><b>후기 사진은 공개 게시물이다</b>(사용자 선택) — 보유기간이 후기와 같아서 후기가 사라지는 이 자리가 그 끝이다.
      */
     private void purgeReviewImages(List<Long> orderIds) {
-        record Keys(long reviewImageId, String objectKey, String thumbnailKey) {}
+        record Keys(long reviewImageId, String objectKey, String thumbnailKey, boolean hidden) {}
 
         List<Keys> keys = jdbc.sql("""
-                        select ri.review_image_id, ri.object_key, ri.thumbnail_key
+                        select ri.review_image_id, ri.object_key, ri.thumbnail_key, ri.hidden_at is not null as hidden
                           from review_image ri
                           join review r on r.review_id = ri.review_id
                          where r.order_item_id in (
@@ -412,11 +413,12 @@ public class TransactionPurgeService {
                         """)
                 .param("ids", orderIds)
                 .query((rs, rowNum) -> new Keys(rs.getLong("review_image_id"),
-                        rs.getString("object_key"), rs.getString("thumbnail_key")))
+                        rs.getString("object_key"), rs.getString("thumbnail_key"), rs.getBoolean("hidden")))
                 .list();
 
         for (Keys key : keys) {
-            images.delete(key.objectKey(), key.thumbnailKey());
+            // 저작권 신고로 숨긴 사진은 비공개 버킷에 있다(`Q464`).
+            images.delete(key.hidden() ? Visibility.PRIVATE : Visibility.PUBLIC, key.objectKey(), key.thumbnailKey());
         }
         if (!keys.isEmpty()) {
             jdbc.sql("delete from review_image where review_image_id in (:ids)")

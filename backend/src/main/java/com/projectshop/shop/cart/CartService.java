@@ -197,7 +197,8 @@ public class CartService {
                               join product p on p.product_id = s.product_id
                              where s.sku_id = :skuId
                                and s.deleted_at is null and s.status = 'on_sale'
-                               and p.deleted_at is null and p.status = 'on_sale')
+                               and p.deleted_at is null and p.status = 'on_sale'
+                               and not exists (select 1 from seller sl where sl.seller_id = p.seller_id and sl.status = 'suspended'))
                         """)
                 .param("skuId", skuId)
                 .query(Boolean.class)
@@ -233,6 +234,7 @@ public class CartService {
                                  where sov.sku_id = s.sku_id) as option_label,
                                (s.deleted_at is null and s.status = 'on_sale'
                                 and p.deleted_at is null and p.status = 'on_sale'
+                                and not exists (select 1 from seller sl where sl.seller_id = p.seller_id and sl.status = 'suspended')
                                 and st.available_count >= ci.quantity) as available,
                                case when p.is_withdrawal_restricted then p.withdrawal_restriction_reason end
                                     as withdrawal_restriction_reason,

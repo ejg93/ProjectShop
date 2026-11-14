@@ -65,7 +65,7 @@ public class ProductSearchQuery {
                 .query((rs, rowNum) -> products.publicItem(rs))
                 .list();
 
-        Long total = jdbc.sql("select count(*) from product p" + ProductQuery.PUBLIC_WHERE
+        Long total = jdbc.sql("select count(*) from product p" + ProductQuery.PUBLIC_COUNT_WHERE
                         + ProductQuery.bySeller(sellerId) + MATCHES)
                 .param("sellerId", sellerId)
                 .param("pattern", escapeLike(raw))
@@ -80,7 +80,7 @@ public class ProductSearchQuery {
      * 시험이 같은 문장의 실행 계획을 본다({@code ProductSearchQueryTest}).
      */
     static String listSql(Long sellerId, OrderBy orderBy) {
-        return ProductQuery.PUBLIC_SELECT + ProductQuery.PUBLIC_WHERE + ProductQuery.bySeller(sellerId) + MATCHES
+        return ProductQuery.PUBLIC_SELECT + ProductQuery.PUBLIC_LIST_WHERE + ProductQuery.bySeller(sellerId) + MATCHES
                 + " order by " + orderBy.clause() + ", p.product_id desc"
                 + " limit :size offset :offset";
     }

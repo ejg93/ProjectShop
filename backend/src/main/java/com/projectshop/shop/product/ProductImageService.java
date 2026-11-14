@@ -11,6 +11,7 @@ import com.projectshop.shop.auth.PermissionEvaluator.Target;
 import com.projectshop.shop.error.ErrorCode;
 import com.projectshop.shop.error.ShopException;
 import com.projectshop.shop.support.ImagePipeline;
+import com.projectshop.shop.support.ObjectStorage.Visibility;
 import com.projectshop.shop.auth.PermissionResource;
 
 /**
@@ -106,7 +107,7 @@ public class ProductImageService {
         }
 
         return jdbc.sql("""
-                        select product_image_id, thumbnail_key, original_name, sort_no
+                        select product_image_id, thumbnail_key, original_name, sort_no, hidden_at is not null as hidden
                           from product_image
                          where product_id = :id
                          order by sort_no, product_image_id
@@ -114,9 +115,10 @@ public class ProductImageService {
                 .param("id", productId)
                 .query((rs, n) -> new Image(
                         rs.getLong("product_image_id"),
-                        images.url(rs.getString("thumbnail_key")),
+                        rs.getBoolean("hidden") ? null : images.url(rs.getString("thumbnail_key")),
                         rs.getString("original_name"),
-                        rs.getInt("sort_no")))
+                        rs.getInt("sort_no"),
+                        rs.getBoolean("hidden")))
                 .list();
     }
 
@@ -124,9 +126,10 @@ public class ProductImageService {
      * 목록 한 줄. <b>원본이 아니라 썸네일 URL 이다</b> — 관리 화면은 격자로 훑는 자리라
      * 원본을 열 장 내려받을 이유가 없다({@code media-rules.md} 「썸네일 — 업로드 때 한 장」).
      *
-     * @param thumbnailUrl 만료 5분 서명 URL. 버킷은 비공개다
+     * @param thumbnailUrl 만료 5분 서명 URL. 버킷은 비공개다. 숨긴 사진이면 {@code null}
+     * @param hidden       저작권 신고로 게시가 중단됐다(`Q464`). 셀러에게는 숨긴 것을 숨기지 않는다 — 재개 요구의 근거가 이 목록이다
      */
-    public record Image(long productImageId, String thumbnailUrl, String originalName, int sortNo) {
+    public record Image(long productImageId, String thumbnailUrl, String originalName, int sortNo, boolean hidden) {
     }
 
     /**
@@ -147,12 +150,12 @@ public class ProductImageService {
     @Transactional
     public void delete(long actorUserId, long productImageId) {
         record Owned(long productId, long sellerId, long createdByUserId, String objectKey,
-                String thumbnailKey) {
+                String thumbnailKey, boolean hidden) {
         }
 
         Owned owned = jdbc.sql("""
                         select i.product_id, p.seller_id, p.created_by_user_id,
-                               i.object_key, i.thumbnail_key
+                               i.object_key, i.thumbnail_key, i.hidden_at is not null as hidden
                           from product_image i
                           join product p on p.product_id = i.product_id
                          where i.product_image_id = :id
@@ -167,7 +170,7 @@ public class ProductImageService {
             throw new ShopException(ErrorCode.PRODUCT_FORBIDDEN);
         }
 
-        images.delete(owned.objectKey(), owned.thumbnailKey());
+        images.delete(owned.hidden() ? Visibility.PRIVATE : Visibility.PUBLIC, owned.objectKey(), owned.thumbnailKey());
 
         jdbc.sql("delete from product_image where product_image_id = :id")
                 .param("id", productImageId)

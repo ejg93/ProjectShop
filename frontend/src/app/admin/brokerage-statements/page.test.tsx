@@ -23,7 +23,6 @@ function statement(id: number, status: string) {
     status,
     lineCount: 2,
     totalAmount: 45000,
-    fileSha256: "a".repeat(64),
   };
 }
 

@@ -231,6 +231,7 @@ public class OrderService {
                            and ci.cart_item_id in (:cartItemIds)
                            and s.deleted_at is null and s.status = 'on_sale'
                            and p.deleted_at is null and p.status = 'on_sale'
+                           and sel.status <> 'suspended'
                         """)
                 .param("userId", userId)
                 .param("cartItemIds", cartItemIds)

@@ -20,6 +20,7 @@ const IMAGE: ProductImage = {
   thumbnailUrl: "https://example.test/thumb.jpg",
   originalName: "앞면.jpg",
   sortNo: 0,
+  hidden: false,
 };
 
 beforeEach(() => {
@@ -108,6 +109,14 @@ describe("상품 사진 관리", () => {
     pick(jpeg());
 
     expect(await screen.findByText(/사진을 바꾸지 못했습니다/)).toBeTruthy();
+  });
+
+  it("저작권 신고로 숨긴 사진은 미리보기 대신 그 사실을 적는다", async () => {
+    const { container } = renderManager([{ ...IMAGE, thumbnailUrl: null, hidden: true }]);
+
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByText("저작권 신고로 게시가 중단된 사진입니다.")).toBeTruthy();
+    await expectNoAxeViolations(container);
   });
 
   it("사진이 없으면 무엇이 일어나는지 적는다", () => {

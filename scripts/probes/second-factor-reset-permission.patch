@@ -1,0 +1,16 @@
+# gate: 2차 인증 초기화는 관리자만 한다(Q461, R45 — 남의 인증 수단을 빼는 동작이다)
+# run: cd backend && ./gradlew integrationTest --tests com.projectshop.shop.auth.SecondFactorServiceTest
+# expect: FAILED com.projectshop.shop.auth.SecondFactorServiceTest 감사자는 초기화를 못 한다
+--- a/backend/src/main/java/com/projectshop/shop/auth/SecondFactorService.java
++++ b/backend/src/main/java/com/projectshop/shop/auth/SecondFactorService.java
+@@ -73,10 +73,6 @@
+      */
+     @Transactional
+     public void reset(long actorUserId, long userId, String reason) {
+-        if (!evaluator.decide(actorUserId, PermissionResource.USER, "reset_second_factor", new Target(null, null, null))
+-                .allowed()) {
+-            throw new ShopException(ErrorCode.ACCESS_DENIED);
+-        }
+         delete(actorUserId, userId, reason);
+     }
+ 

@@ -16,6 +16,15 @@ type ProductDetail = {
   imageIds: number[];
 };
 
+/** 중단·재개 요구를 받는 수령인(`Q463`). 넣지 않은 칸은 `null` 이다 */
+type Recipient = {
+  name: string | null;
+  department: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+};
+
 /** 공개 후기 목록에서 사진만 쓴다(`Q196`) */
 type ReviewPage = { items: { photos: { reviewImageId: number; thumbnailUrl: string }[] }[] };
 
@@ -51,6 +60,7 @@ export default async function CopyrightReportPage({
   const images = product.imageIds.map((imageId, index) => ({ imageId, url: product.imageUrls[index] }));
   // 후기 사진도 같은 절차를 받는다(`Q196`). 공개 후기 목록이 싣는 사진이 곧 신고할 수 있는 표면이다.
   const reviews = await apiPublic<ReviewPage>(`/api/products/${productId}/reviews?${pageQuery(0, 50)}`);
+  const recipient = await apiPublic<Recipient>("/api/copyright-reports/recipient");
   const reviewImages = reviews.items.flatMap((review) =>
     review.photos.map((photo) => ({ reviewImageId: photo.reviewImageId, url: photo.thumbnailUrl })),
   );
@@ -63,8 +73,12 @@ export default async function CopyrightReportPage({
           「{product.name}」의 상품 사진이나 후기 사진이 권리를 침해한다면 알려 주세요. 로그인하지 않아도 됩니다.
           <br />
           관리자가 확인한 뒤 게시를 중단하거나 기각합니다. 연락드릴 수 있게 이메일을 적어 주세요.
+          <br />
+          게시가 중단되면 신고하신 메일로 알려 드립니다.
         </p>
       </div>
+
+      <RecipientBlock recipient={recipient} />
 
       {images.length === 0 && reviewImages.length === 0 ? (
         <p className="text-sm text-text-muted">이 상품에는 신고할 사진이 없습니다.</p>
@@ -72,5 +86,36 @@ export default async function CopyrightReportPage({
         <CopyrightReportForm images={images} reviewImages={reviewImages} />
       )}
     </div>
+  );
+}
+
+/**
+ * 중단·재개 요구를 받는 수령인(저작권법 제103조④ · 시행령 제44조 — 성명·소속, 전화·전자우편, 우편 주소).
+ *
+ * <p><b>값 있는 칸만 그린다.</b> 전부 비면 비었다고 쓴다 — 지정되지 않은 것을 숨기면 공지한 척이 된다.
+ */
+function RecipientBlock({ recipient }: { recipient: Recipient }) {
+  const person = recipient.name === null ? null
+    : recipient.department === null ? recipient.name : `${recipient.name}(${recipient.department})`;
+  const empty = [recipient.name, recipient.email, recipient.phone, recipient.address].every((value) => value === null);
+
+  return (
+    <section aria-labelledby="copyright-recipient" className="grid gap-1 rounded-ui border border-border p-4 text-sm">
+      <h2 id="copyright-recipient" className="font-semibold">중단·재개 요구를 받는 수령인</h2>
+      {empty ? (
+        <p className="text-text-muted">수령인이 아직 지정되지 않았습니다.</p>
+      ) : (
+        <ul className="grid gap-0.5">
+          {person === null ? null : <li>{person}</li>}
+          {recipient.email === null ? null : (
+            <li><a href={`mailto:${recipient.email}`} className="underline">{recipient.email}</a></li>
+          )}
+          {recipient.phone === null ? null : (
+            <li><a href={`tel:${recipient.phone}`} className="underline">{recipient.phone}</a></li>
+          )}
+          {recipient.address === null ? null : <li>{recipient.address}</li>}
+        </ul>
+      )}
+    </section>
   );
 }
