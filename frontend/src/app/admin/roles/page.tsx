@@ -4,6 +4,7 @@ import { apiSession, apiSessionOptional } from "@/lib/api-session";
 import { can, type Me } from "@/lib/permissions";
 
 import { ImpersonateButton } from "./impersonate-button";
+import { ResetSecondFactorButton } from "./reset-second-factor-button";
 import { RoleEditor } from "./role-editor";
 
 export const metadata: Metadata = { title: "역할 편집 · ProjectShop" };
@@ -58,7 +59,10 @@ export default async function AdminRolesPage({
   const user = found ? await apiSession<UserDetail>(`/api/users/${userId}`) : null;
   // 대행 버튼은 그 권한이 있는 사람에게만 그린다(`16b`). 누구를 대행할 수 있나(관리자·본인·탈퇴 제외)는
   // 서버가 정하고 여기서는 안 가른다 — 화면이 가르면 규칙이 두 벌이 된다.
-  const canImpersonate = can(await apiSessionOptional<Me>("/api/me/permissions"), "user", "impersonate");
+  const me = await apiSessionOptional<Me>("/api/me/permissions");
+  const canImpersonate = can(me, "user", "impersonate");
+  // 2차 인증은 고객 외 역할이 있는 계정만 받는다(`Q452`) — 고객만인 계정에는 지울 등록이 없다(`Q462`).
+  const canResetSecondFactor = can(me, "user", "reset_second_factor");
 
   return (
     <>
@@ -97,6 +101,9 @@ export default async function AdminRolesPage({
         <>
           <RoleEditor user={user} />
           {canImpersonate && !user.deleted ? <ImpersonateButton userId={user.userId} /> : null}
+          {canResetSecondFactor && !user.deleted && user.roles.some((held) => held.roleCode !== "customer")
+            ? <ResetSecondFactorButton userId={user.userId} />
+            : null}
         </>
       ) : (
         <p className="rounded-ui border border-border bg-surface-raised px-4 py-6 text-sm text-text-muted">

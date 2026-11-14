@@ -2,10 +2,11 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, api } from "@/lib/api";
+import { totpCode } from "@/lib/totp";
 
 import { expectNoAxeViolations } from "@/test/axe";
 
-import { DEMO_PASSWORD } from "./demo-accounts";
+import { DEMO_PASSWORD, DEMO_SECOND_FACTOR_SECRET } from "./demo-accounts";
 import { LoginForm } from "./login-form";
 
 // 서버를 진짜로 부르지 않는다. `ApiError` 는 진짜를 그대로 둔다 — 화면이 그 타입으로 분기한다.
@@ -294,6 +295,22 @@ describe("로그인 화면", () => {
       fireEvent.click(await screen.findByRole("button", { name: "연습 계정 코드 채우기" }));
 
       await waitFor(() => expect((codeField() as HTMLInputElement).value).toMatch(/^[0-9]{6}$/));
+    });
+
+    it("코드 채우기는 다음 스텝의 코드다 — 같은 스텝 재로그인의 재사용 거부를 피한다", async () => {
+      const now = Date.UTC(2026, 10, 14, 0, 0, 5);
+      vi.spyOn(Date, "now").mockReturnValue(now);
+      const next = await totpCode(DEMO_SECOND_FACTOR_SECRET, new Date(now + 30_000));
+      expect(next).not.toBe(await totpCode(DEMO_SECOND_FACTOR_SECRET, new Date(now)));
+      answer({ userId: 1, email: "seller1@example.com", step: "CODE_REQUIRED" });
+      const { container } = render(<LoginForm />);
+      fireEvent.click(screen.getByRole("button", { name: "판매자1 계정으로 칸 채우기" }));
+      submitForm(container);
+
+      fireEvent.click(await screen.findByRole("button", { name: "연습 계정 코드 채우기" }));
+
+      await waitFor(() => expect((codeField() as HTMLInputElement).value).toBe(next));
+      expect(screen.getByText("코드는 30초마다 바뀝니다.")).toBeInTheDocument();
     });
 
     it("연습 구매자 계정이나 직접 친 계정에는 코드 채우기 버튼이 없다", async () => {
